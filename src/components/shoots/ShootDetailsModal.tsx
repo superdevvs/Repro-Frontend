@@ -40,6 +40,8 @@ import { useShootRealtime } from '@/hooks/use-shoot-realtime';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { useUpload } from '@/context/UploadContext';
+import { ConfirmSubmitDialog } from './details/ConfirmSubmitDialog';
 import { useShootDetailsScreen } from './modal/useShootDetailsScreen';
 import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions';
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
@@ -177,6 +179,7 @@ export function ShootDetailsModal({
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
+  const { uploads: activeUploads } = useUpload();
 
   const {
     shoot,
@@ -346,6 +349,62 @@ export function ShootDetailsModal({
       rawFileCount > 0,
     [currentUserRole, rawFileCount],
   );
+  const hasInflightShootUploads = useMemo(
+    () => activeUploads.some((u) => u.shootId === String(shoot?.id) && u.status === 'uploading'),
+    [activeUploads, shoot?.id],
+  );
+  const canSubmitRawAction = useMemo(() => {
+    if (!shoot) {
+      return false;
+    }
+
+    const backendFlag = Boolean(shoot.canSubmitRaw ?? (shoot as any).can_submit_raw);
+    if (backendFlag) {
+      return true;
+    }
+
+    const role = (currentUserRole || '').toLowerCase();
+    const allowedRole =
+      isAdmin ||
+      isEditingManager ||
+      isPhotographer ||
+      ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer'].includes(role);
+    const status = String(normalizedStatus || shoot.workflowStatus || shoot.status || '').toLowerCase();
+    const allowedStatus = ['scheduled', 'booked', 'raw_upload_pending'].includes(status);
+    const count = Math.max(
+      Number(rawFileCount || 0),
+      Number(shoot.rawPhotoCount || 0),
+      Number((shoot as any).raw_photo_count || 0),
+    );
+
+    return allowedRole && allowedStatus && count > 0;
+  }, [currentUserRole, isAdmin, isEditingManager, isPhotographer, normalizedStatus, rawFileCount, shoot]);
+  const canSubmitEditsAction = useMemo(() => {
+    if (!shoot) {
+      return false;
+    }
+
+    const backendFlag = Boolean(shoot.canSubmitEdits ?? (shoot as any).can_submit_edits);
+    if (backendFlag) {
+      return true;
+    }
+
+    const role = (currentUserRole || '').toLowerCase();
+    const allowedRole =
+      isAdmin ||
+      isEditingManager ||
+      isEditor ||
+      ['admin', 'superadmin', 'super_admin', 'editing_manager', 'editor'].includes(role);
+    const status = String(normalizedStatus || shoot.workflowStatus || shoot.status || '').toLowerCase();
+    const allowedStatus = ['uploaded', 'editing'].includes(status);
+    const count = Math.max(
+      Number(editedMediaCount || 0),
+      Number(shoot.editedPhotoCount || 0),
+      Number((shoot as any).edited_photo_count || 0),
+    );
+
+    return allowedRole && allowedStatus && count > 0;
+  }, [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
   const handleOpenAiEdit = useCallback(() => {
     if (typeof window === 'undefined' || !shoot?.id) {
       return;
@@ -463,6 +522,8 @@ export function ShootDetailsModal({
     cancelWithoutNotification,
     setCancelWithoutNotification,
     isCancellingShoot,
+    isSendingToEditing,
+    isFinalising,
     handleSendToEditing,
     handleFinalise,
     handleMarkOnHoldClick,
@@ -471,6 +532,13 @@ export function ShootDetailsModal({
     handleCancelShoot,
     handleCancelShootClick,
     handleResumeFromHold,
+    submitConfirm,
+    isSubmittingRaw,
+    isSubmittingEdits,
+    handleSubmitRaw,
+    handleSubmitEdits,
+    closeSubmitConfirm,
+    confirmSubmit,
   } = useShootDetailsModalWorkflow({
     shoot,
     isClient,
@@ -655,9 +723,14 @@ export function ShootDetailsModal({
                   size="sm"
                   className="h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
                   onClick={handleSendToEditing}
+                  disabled={isSendingToEditing}
                 >
-                  <Send className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Send to Editing</span>
+                  {isSendingToEditing ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  <span>{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
                 </Button>
               )}
               {canFinalise && (
@@ -666,9 +739,14 @@ export function ShootDetailsModal({
                   size="sm"
                   className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                   onClick={handleFinalise}
+                  disabled={isFinalising}
                 >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Finalize</span>
+                  {isFinalising ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  <span>{isFinalising ? 'Finalizing...' : 'Finalize'}</span>
                 </Button>
               )}
             </div>
@@ -738,6 +816,8 @@ export function ShootDetailsModal({
           isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
           isStartingMmmPunchout={isStartingMmmPunchout}
+          isSendingToEditing={isSendingToEditing}
+          isFinalising={isFinalising}
           rawFileCount={rawFileCount}
           editedMediaCount={editedMediaCount}
           activeMediaDisplayTab={activeMediaDisplayTab}
@@ -784,6 +864,13 @@ export function ShootDetailsModal({
 
         <ShootDetailsModalBody
           shoot={shoot}
+          canSubmitRaw={canSubmitRawAction}
+          canSubmitEdits={canSubmitEditsAction}
+          hasInflightUploads={hasInflightShootUploads}
+          isSubmittingRaw={isSubmittingRaw}
+          isSubmittingEdits={isSubmittingEdits}
+          handleSubmitRaw={handleSubmitRaw}
+          handleSubmitEdits={handleSubmitEdits}
           activeTab={activeTab}
           activeMediaDisplayTab={activeMediaDisplayTab}
           visibleTabs={visibleTabs}
@@ -809,6 +896,8 @@ export function ShootDetailsModal({
           canFinalise={canFinalise}
           canShowInvoiceButton={canShowInvoiceButton}
           isLoadingInvoice={isLoadingInvoice}
+          isSendingToEditing={isSendingToEditing}
+          isFinalising={isFinalising}
           setShowTourAnalytics={setShowTourAnalytics}
           setIsMediaExpanded={setIsMediaExpanded}
           setActiveMediaDisplayTab={setActiveMediaDisplayTab}
@@ -910,6 +999,24 @@ export function ShootDetailsModal({
         onClose={onClose}
         formatTime={formatTime}
       />
+
+      {shoot && submitConfirm && (
+        <ConfirmSubmitDialog
+          open={Boolean(submitConfirm)}
+          kind={submitConfirm.kind}
+          fileCount={
+            submitConfirm.kind === 'raw'
+              ? (shoot.rawPhotoCount ?? (shoot as any).raw_photo_count ?? 0)
+              : (shoot.editedPhotoCount ?? (shoot as any).edited_photo_count ?? 0)
+          }
+          isSubmitting={submitConfirm.kind === 'raw' ? isSubmittingRaw : isSubmittingEdits}
+          hasInflightUploads={activeUploads.some(
+            (u) => u.shootId === String(shoot.id) && u.status === 'uploading',
+          )}
+          onCancel={closeSubmitConfirm}
+          onConfirm={confirmSubmit}
+        />
+      )}
     </>
   );
 }

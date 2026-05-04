@@ -137,6 +137,9 @@ const ShootDetails: React.FC = () => {
   const { user } = useAuth();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('media');
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+  const [isSendingToEditing, setIsSendingToEditing] = useState(false);
+  const [isFinalising, setIsFinalising] = useState(false);
   const [creatingPayment, setCreatingPayment] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
@@ -279,8 +282,9 @@ const ShootDetails: React.FC = () => {
   };
 
   const handleSendToEditing = async () => {
-    if (!shoot) return;
+    if (!shoot || isSendingToEditing) return;
     try {
+      setIsSendingToEditing(true);
       const headers = getApiHeaders();
       if (shoot.editor?.id) {
         const assignRes = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
@@ -316,12 +320,15 @@ const ShootDetails: React.FC = () => {
         description: getShootDetailsErrorMessage(error, 'Failed to send to editing'),
         variant: 'destructive',
       });
+    } finally {
+      setIsSendingToEditing(false);
     }
   };
 
   const handleFinalise = async () => {
-    if (!shoot) return;
+    if (!shoot || isFinalising) return;
     try {
+      setIsFinalising(true);
       const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
         method: 'POST',
@@ -386,6 +393,8 @@ const ShootDetails: React.FC = () => {
         description: getShootDetailsErrorMessage(error, 'Failed to finalize shoot'),
         variant: 'destructive',
       });
+    } finally {
+      setIsFinalising(false);
     }
   };
 
@@ -768,6 +777,8 @@ const ShootDetails: React.FC = () => {
           canReviewHoldRequest={canReviewHoldRequest}
           canSendToEditing={canSendToEditing}
           canFinalise={canFinalise}
+          isSendingToEditing={isSendingToEditing}
+          isFinalising={isFinalising}
           canShowIssuesTab={canShowIssuesTab}
           canShowToursTab={canShowToursTab}
           isToursTabDisabled={isToursTabDisabled}

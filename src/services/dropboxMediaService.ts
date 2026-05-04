@@ -112,6 +112,23 @@ export const finalizeRawUploadQueue = async (
   return response.data;
 };
 
+export interface FinalizeEditedUploadResponse extends FinalizeRawUploadResponse {
+  error_type?: string;
+}
+
+export const finalizeEditedUploadQueue = async (
+  shootId: string | number,
+  headers?: Record<string, string>,
+): Promise<FinalizeEditedUploadResponse> => {
+  const response = await axios.post<FinalizeEditedUploadResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/upload/finalize-edited`,
+    {},
+    headers ? { headers } : undefined,
+  );
+
+  return response.data;
+};
+
 interface UploadFilesIndividuallyConfig {
   endpoint: string;
   files: File[];
@@ -267,16 +284,6 @@ export const uploadRawPhotos = async (
       }
     },
   });
-
-  if (result.success_count > 0) {
-    const finalizeResult = await finalizeRawUploadQueue(shootId, {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    });
-
-    result.workflow_status = finalizeResult.shoot_status ?? result.workflow_status;
-    result.workflow_status_changed = Boolean(finalizeResult.workflow_status_changed);
-  }
 
   return result;
 };

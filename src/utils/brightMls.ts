@@ -35,6 +35,7 @@ export type BrightMlsPublishPayload = {
 
 type BrightMlsBuildOptions = {
   selectedPhotoIds?: Iterable<string | number> | null
+  orderedPhotoIds?: Iterable<string | number> | null
 }
 
 const asRecord = (value: unknown): LooseRecord =>
@@ -169,18 +170,130 @@ const BRIGHT_MLS_BROADCAST_TOUR_KEYS: Array<{ key: string; label: string }> = [
   { key: 'video_generic', label: 'Property Video' },
 ]
 
-const getSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
-  const sortOrder = Number(file.sort_order)
-  if (Number.isFinite(sortOrder)) {
+type MediaGridSortOrder = 'name' | 'date' | 'time' | 'manual'
+
+const getNumericSortValue = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+const getSavedSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
+  const sortOrder = getNumericSortValue(file.sort_order)
+  if (sortOrder !== null) {
     return sortOrder
   }
 
-  const sequence = Number(file.sequence)
-  if (Number.isFinite(sequence)) {
+  const sequence = getNumericSortValue(file.sequence)
+  if (sequence !== null) {
     return sequence
   }
 
   return index
+}
+
+const getMediaGridSortOrder = (shoot: Partial<ShootData> & LooseRecord): MediaGridSortOrder => {
+  const fallback: MediaGridSortOrder = 'time'
+  if (typeof window === 'undefined' || !shoot.id) {
+    return fallback
+  }
+
+  try {
+    const saved = window.localStorage.getItem(`media-sort-${shoot.id}`)
+    return saved === 'name' || saved === 'date' || saved === 'manual' || saved === 'time' ? saved : fallback
+  } catch {
+    return fallback
+  }
+}
+
+const getOrderedPhotoMap = (orderedPhotoIds?: Iterable<string | number> | null): Map<string, number> | null => {
+  if (!orderedPhotoIds) {
+    return null
+  }
+
+  const entries = Array.from(orderedPhotoIds, (value, index) => [String(value), index] as const)
+  return entries.length > 0 ? new Map(entries) : null
+}
+
+const getStoredOrderedPhotoIds = (shoot: Partial<ShootData> & LooseRecord): string[] | null => {
+  if (typeof window === 'undefined' || !shoot.id) {
+    return null
+  }
+
+  try {
+    const saved = window.localStorage.getItem(`media-grid-order-${shoot.id}`)
+    const parsed = saved ? JSON.parse(saved) : null
+    if (!Array.isArray(parsed)) {
+      return null
+    }
+
+    const ids = parsed
+      .map((value) => normalizeString(value))
+      .filter(Boolean)
+
+    return ids.length > 0 ? ids : null
+  } catch {
+    return null
+  }
+}
+
+const getOrderedPhotoIndex = (
+  file: Partial<ShootFileData> & LooseRecord,
+  orderedPhotoMap: Map<string, number> | null,
+): number | null => {
+  if (!orderedPhotoMap) {
+    return null
+  }
+
+  const id = file.id
+  if (typeof id !== 'string' && typeof id !== 'number') {
+    return null
+  }
+
+  return orderedPhotoMap.get(String(id)) ?? null
+}
+
+const compareMediaGridPhotos = (
+  left: { file: Partial<ShootFileData> & LooseRecord; index: number },
+  right: { file: Partial<ShootFileData> & LooseRecord; index: number },
+  sortOrder: MediaGridSortOrder,
+  orderedPhotoMap: Map<string, number> | null,
+): number => {
+  const leftOrderedIndex = getOrderedPhotoIndex(left.file, orderedPhotoMap)
+  const rightOrderedIndex = getOrderedPhotoIndex(right.file, orderedPhotoMap)
+
+  if (leftOrderedIndex !== null || rightOrderedIndex !== null) {
+    return (leftOrderedIndex ?? Number.MAX_SAFE_INTEGER) - (rightOrderedIndex ?? Number.MAX_SAFE_INTEGER)
+  }
+
+  if (sortOrder === 'name') {
+    const nameComparison = normalizeString(left.file.filename).localeCompare(normalizeString(right.file.filename))
+    if (nameComparison !== 0) {
+      return nameComparison
+    }
+  } else if (sortOrder === 'date') {
+    const dateComparison = normalizeString(left.file.created_at).localeCompare(normalizeString(right.file.created_at))
+    if (dateComparison !== 0) {
+      return dateComparison
+    }
+  } else if (sortOrder === 'time') {
+    const leftTime = normalizeString(left.file.captured_at || left.file.created_at)
+    const rightTime = normalizeString(right.file.captured_at || right.file.created_at)
+    const timeComparison = leftTime.localeCompare(rightTime)
+    if (timeComparison !== 0) {
+      return timeComparison
+    }
+  }
+
+  const savedOrderComparison = getSavedSortOrder(left.file, left.index) - getSavedSortOrder(right.file, right.index)
+  if (savedOrderComparison !== 0) {
+    return savedOrderComparison
+  }
+
+  return left.index - right.index
 }
 
 export const buildBrightMlsPublishPayload = (
@@ -188,6 +301,8 @@ export const buildBrightMlsPublishPayload = (
   options?: BrightMlsBuildOptions,
 ): BrightMlsPublishPayload => {
   const selectedPhotoIds = options?.selectedPhotoIds ? new Set(Array.from(options.selectedPhotoIds, (value) => String(value))) : null
+  const orderedPhotoMap = getOrderedPhotoMap(options?.orderedPhotoIds ?? getStoredOrderedPhotoIds(shoot))
+  const mediaGridSortOrder = getMediaGridSortOrder(shoot)
   const mediaRecord = asRecord(shoot.media)
   const mediaImages = Array.isArray(mediaRecord.images) ? (mediaRecord.images as LooseRecord[]) : []
 
@@ -200,15 +315,15 @@ export const buildBrightMlsPublishPayload = (
 
       return selectedPhotoIds.has(String(file.id ?? ''))
     })
-    .sort((left, right) => getSortOrder(left.file, left.index) - getSortOrder(right.file, right.index))
-    .map(({ file, index }) => ({
+    .sort((left, right) => compareMediaGridPhotos(left, right, mediaGridSortOrder, orderedPhotoMap))
+    .map(({ file, index }, orderedIndex) => ({
       id: file.id,
       url: getFileUrl(file),
       filename: normalizeString(file.filename) || `photo-${index + 1}`,
       description: getLatestCommentText(file),
       roomType: '',
       selected: true,
-      sortOrder: getSortOrder(file, index),
+      sortOrder: orderedIndex,
     }))
 
   const fallbackPhotos = mediaImages
@@ -233,8 +348,13 @@ export const buildBrightMlsPublishPayload = (
 
       return selectedPhotoIds.has(String(image.id ?? ''))
     })
-    .sort((left, right) => getSortOrder(left.image as Partial<ShootFileData> & LooseRecord, left.index) - getSortOrder(right.image as Partial<ShootFileData> & LooseRecord, right.index))
-    .map(({ image, index }) => ({
+    .sort((left, right) => compareMediaGridPhotos(
+      { file: left.image as Partial<ShootFileData> & LooseRecord, index: left.index },
+      { file: right.image as Partial<ShootFileData> & LooseRecord, index: right.index },
+      mediaGridSortOrder,
+      orderedPhotoMap,
+    ))
+    .map(({ image, index }, orderedIndex) => ({
       id: typeof image.id === 'string' || typeof image.id === 'number' ? image.id : undefined,
       url: firstUrl(
         getImageUrl(image, 'large'),
@@ -253,7 +373,7 @@ export const buildBrightMlsPublishPayload = (
       description: getLatestCommentText(image as Partial<ShootFileData> & LooseRecord),
       roomType: '',
       selected: true,
-      sortOrder: getSortOrder(image as Partial<ShootFileData> & LooseRecord, index),
+      sortOrder: orderedIndex,
     }))
 
   const photos = Array.from(
@@ -262,7 +382,7 @@ export const buildBrightMlsPublishPayload = (
         .filter((photo) => photo.url)
         .map((photo) => [String(photo.id ?? photo.url), photo]),
     ).values(),
-  )
+  ).sort((left, right) => left.sortOrder - right.sortOrder)
 
   const rawTourLinks = getRawTourLinks(shoot)
   const documents = normalizeIguideFloorplans(shoot).map((floorplan) => ({

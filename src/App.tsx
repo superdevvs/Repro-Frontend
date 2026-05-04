@@ -327,6 +327,7 @@ const AppRoutes = () => {
           <Index />
         </PageTransition>
       } />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       
       {/* Public test routes for address lookup */}
       <Route path="/test-address-lookup" element={

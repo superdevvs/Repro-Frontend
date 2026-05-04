@@ -160,7 +160,7 @@ export const ScheduledShootListRow = ({
   onApprove?: (shoot: ShootData) => void
   onDecline?: (shoot: ShootData) => void
   onModify?: (shoot: ShootData) => void
-  onSendToEditing?: (shoot: ShootData) => void
+  onSendToEditing?: (shoot: ShootData) => void | Promise<void>
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -188,6 +188,18 @@ export const ScheduledShootListRow = ({
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const [isSendingToEditing, setIsSendingToEditing] = useState(false)
+
+  const handleSendToEditingClick = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!onSendToEditing || isSendingToEditing) return
+    setIsSendingToEditing(true)
+    try {
+      await onSendToEditing(shoot)
+    } finally {
+      setIsSendingToEditing(false)
+    }
+  }
 
   return (
     <Card
@@ -292,13 +304,15 @@ export const ScheduledShootListRow = ({
                 size="sm"
                 variant="outline"
                 className="h-8 gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSendToEditing?.(shoot)
-                }}
+                onClick={handleSendToEditingClick}
                 title="Send to Editing"
+                disabled={isSendingToEditing}
               >
-                <Send className="h-3.5 w-3.5" />
+                {isSendingToEditing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
               </Button>
             )}
             {/* Invoice button - Available for all roles */}

@@ -1,6 +1,11 @@
 import { Dispatch, SetStateAction, useState } from 'react';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
+import {
+  finalizeEditedUploadQueue,
+  finalizeRawUploadQueue,
+} from '@/services/dropboxMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
 
 type PendingAction = 'hold' | 'cancel' | null;
@@ -47,6 +52,11 @@ export function useShootDetailsModalWorkflow({
   const [cancelShootReason, setCancelShootReason] = useState('');
   const [cancelWithoutNotification, setCancelWithoutNotification] = useState(false);
   const [isCancellingShoot, setIsCancellingShoot] = useState(false);
+  const [isSendingToEditing, setIsSendingToEditing] = useState(false);
+  const [isFinalising, setIsFinalising] = useState(false);
+  const [isSubmittingRaw, setIsSubmittingRaw] = useState(false);
+  const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
+  const [submitConfirm, setSubmitConfirm] = useState<{ kind: 'raw' | 'edited' } | null>(null);
   const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
   const currentStatus = String(shoot?.workflowStatus || shoot?.status || '').toLowerCase();
   const shouldShowClientCancellationFeeNotice =
@@ -56,11 +66,21 @@ export function useShootDetailsModalWorkflow({
     ['scheduled', 'booked', 'on_hold'].includes(currentStatus);
 
   const handleSendToEditing = async () => {
-    if (!shoot) return;
+    if (!shoot || isSendingToEditing) return;
 
     try {
+      setIsSendingToEditing(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const currentStatus = shoot.status || shoot.workflowStatus || 'booked';
+
+      if (String(currentStatus).toLowerCase() === 'editing') {
+        toast({
+          title: 'Already in editing',
+          description: 'This shoot has already been sent to editing.',
+        });
+        await refreshShoot();
+        return;
+      }
 
       if (String(currentStatus).toLowerCase() !== 'uploaded') {
         throw new Error('Shoot must be in Uploaded status before sending to editing');
@@ -92,6 +112,8 @@ export function useShootDetailsModalWorkflow({
         description: error?.message || 'Failed to send to editing',
         variant: 'destructive',
       });
+    } finally {
+      setIsSendingToEditing(false);
     }
   };
 
@@ -130,9 +152,10 @@ export function useShootDetailsModalWorkflow({
   };
 
   const handleFinalise = async () => {
-    if (!shoot) return;
+    if (!shoot || isFinalising) return;
 
     try {
+      setIsFinalising(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
         method: 'POST',
@@ -191,6 +214,8 @@ export function useShootDetailsModalWorkflow({
         description: error?.message || 'Failed to finalize shoot',
         variant: 'destructive',
       });
+    } finally {
+      setIsFinalising(false);
     }
   };
 
@@ -492,6 +517,60 @@ export function useShootDetailsModalWorkflow({
     }
   };
 
+  const openSubmitRawConfirm = () => {
+    blurActiveElement();
+    setSubmitConfirm({ kind: 'raw' });
+  };
+
+  const openSubmitEditedConfirm = () => {
+    blurActiveElement();
+    setSubmitConfirm({ kind: 'edited' });
+  };
+
+  const closeSubmitConfirm = () => setSubmitConfirm(null);
+
+  const runSubmitFinalize = async (kind: 'raw' | 'edited') => {
+    if (!shoot) return;
+    const headers = getApiHeaders();
+    const setBusy = kind === 'raw' ? setIsSubmittingRaw : setIsSubmittingEdits;
+    setBusy(true);
+    try {
+      const res = kind === 'raw'
+        ? await finalizeRawUploadQueue(shoot.id, headers)
+        : await finalizeEditedUploadQueue(shoot.id, headers);
+      const changed = Boolean((res as any)?.workflow_status_changed);
+      toast({
+        title: changed
+          ? kind === 'raw' ? 'Raw files submitted' : 'Edited files submitted'
+          : 'Already submitted',
+        description: (res as any)?.message || (changed
+          ? (kind === 'raw'
+              ? 'Shoot moved to Uploaded.'
+              : 'Shoot moved to Ready for finalization.')
+          : 'No changes were applied to the shoot.'),
+      });
+      await refreshShoot();
+      onShootUpdate?.();
+      setSubmitConfirm(null);
+    } catch (error: any) {
+      const payload = error?.response?.data;
+      const description = payload?.message
+        || (error instanceof Error ? error.message : 'Failed to submit.');
+      toast({
+        title: kind === 'raw' ? 'Submit raw failed' : 'Submit edits failed',
+        description,
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmSubmit = () => {
+    if (!submitConfirm) return;
+    void runSubmitFinalize(submitConfirm.kind);
+  };
+
   return {
     isOnHoldDialogOpen,
     setIsOnHoldDialogOpen,
@@ -510,6 +589,8 @@ export function useShootDetailsModalWorkflow({
       cancelWithoutNotification,
       setCancelWithoutNotification,
       isCancellingShoot,
+      isSendingToEditing,
+      isFinalising,
     handleSendToEditing,
     handleFinalise,
     handleMarkOnHoldClick,
@@ -518,5 +599,12 @@ export function useShootDetailsModalWorkflow({
     handleCancelShoot,
     handleCancelShootClick,
     handleResumeFromHold,
+    submitConfirm,
+    isSubmittingRaw,
+    isSubmittingEdits,
+    handleSubmitRaw: openSubmitRawConfirm,
+    handleSubmitEdits: openSubmitEditedConfirm,
+    closeSubmitConfirm,
+    confirmSubmit,
   };
 }

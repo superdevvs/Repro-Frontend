@@ -114,8 +114,17 @@ type ApiShoot = {
     name?: string;
     email?: string;
     company_name?: string;
+    phone?: string;
     phonenumber?: string;
     total_shoots?: number;
+    rep?: {
+      id?: string | number;
+      name?: string;
+      avatar?: string;
+      email?: string;
+      phone?: string;
+      phonenumber?: string;
+    } | null;
   } | null;
   client_shoots_count?: number;
   photographer?: {
@@ -123,11 +132,22 @@ type ApiShoot = {
     name?: string;
     avatar?: string;
     email?: string;
+    phone?: string;
+    phonenumber?: string;
+  } | null;
+  rep?: {
+    id?: string | number;
+    name?: string;
+    avatar?: string;
+    email?: string;
+    phone?: string;
+    phonenumber?: string;
   } | null;
   editor?: {
     id?: string | number;
     name?: string;
     avatar?: string;
+    email?: string;
   } | null;
   service?: {
     name?: string;
@@ -149,6 +169,11 @@ type ApiShoot = {
   payment_type?: string;
   status?: string;
   workflow_status?: string;
+  workflowStatus?: string;
+  canSubmitRaw?: boolean;
+  canSubmitEdits?: boolean;
+  can_submit_raw?: boolean;
+  can_submit_edits?: boolean;
   notes?: string | ApiNotePayload | null;
   shoot_notes?: string;
   approval_notes?: string;
@@ -358,6 +383,9 @@ const normalizeServicePerson = (person: unknown) => {
         ? source.profile_photo_url
         : undefined),
     email: typeof source.email === 'string' && source.email.trim() ? source.email : undefined,
+    phone:
+      (typeof source.phone === 'string' && source.phone.trim() ? source.phone : undefined) ||
+      (typeof source.phonenumber === 'string' && source.phonenumber.trim() ? source.phonenumber : undefined),
   };
 };
 
@@ -794,6 +822,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           email: (shoot.editor as any)?.email ?? undefined,
         }
       : editorAssignments?.[0]?.editor;
+  const resolvedRep =
+    normalizeServicePerson((client as any).rep) ||
+    normalizeServicePerson(shoot.rep) ||
+    normalizeServicePerson((shoot as any).salesRep) ||
+    normalizeServicePerson((shoot as any).sales_rep);
 
   return {
     id: String(shoot.id),
@@ -804,9 +837,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       name: client.name || 'Client',
       email: client.email || '',
       company: client.company_name || undefined,
-      phone: client.phonenumber || undefined,
+      phone: client.phone || client.phonenumber || undefined,
       totalShoots: client.total_shoots ?? shoot.client_shoots_count ?? 0,
+      rep: resolvedRep,
     },
+    rep: resolvedRep,
     location: {
       address,
       address2: shoot.address2 || undefined,
@@ -823,6 +858,12 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
         photographer.email ||
         (shoot as any).photographer_email ||
         (shoot as any).photographerEmail ||
+        undefined,
+      phone:
+        photographer.phone ||
+        photographer.phonenumber ||
+        (shoot as any).photographer_phone ||
+        (shoot as any).photographerPhone ||
         undefined,
     },
     editor: resolvedEditor,
@@ -843,7 +884,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       lastPaymentType: paymentSummary.lastPaymentType,
     },
     status: shoot.status || 'booked',
-    workflowStatus: shoot.workflow_status || undefined,
+    workflowStatus: shoot.workflow_status || shoot.workflowStatus || undefined,
     notes,
     adminIssueNotes: shoot.admin_issue_notes ?? undefined,
     isFlagged: Boolean(shoot.is_flagged),
@@ -859,9 +900,13 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       const n = Number(raw);
       return n === 3 || n === 5 ? (n as 3 | 5) : null;
     })(),
-    rawPhotoCount: toNumber(shoot.raw_photo_count),
-    editedPhotoCount: toNumber(shoot.edited_photo_count),
-    extraPhotoCount: toNumber(shoot.extra_photo_count),
+    rawPhotoCount: toNumber(shoot.raw_photo_count ?? shoot.rawPhotoCount),
+    editedPhotoCount: toNumber(shoot.edited_photo_count ?? shoot.editedPhotoCount),
+    extraPhotoCount: toNumber(shoot.extra_photo_count ?? shoot.extraPhotoCount),
+    canSubmitRaw: Boolean(shoot.canSubmitRaw ?? shoot.can_submit_raw),
+    canSubmitEdits: Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits),
+    can_submit_raw: Boolean(shoot.can_submit_raw ?? shoot.canSubmitRaw),
+    can_submit_edits: Boolean(shoot.can_submit_edits ?? shoot.canSubmitEdits),
     heroImage: (shoot as any).hero_image || (shoot as any).heroImage || undefined,
     media: shoot.media || undefined,
     tourLinks: shoot.tour_links || undefined,

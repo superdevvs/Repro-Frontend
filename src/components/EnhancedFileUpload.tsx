@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import axios from 'axios';
-import { finalizeRawUploadQueue } from '@/services/dropboxMediaService';
 
 interface DropboxFile {
   id: string;
@@ -130,7 +129,6 @@ const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({ shootId, onUplo
 
       const successCount = Number(response.data?.success_count ?? 0);
       if (successCount > 0) {
-        await finalizeRawUploadQueue(shootId);
         toast({
           title: "Success",
           description: `${successCount} files uploaded successfully`,

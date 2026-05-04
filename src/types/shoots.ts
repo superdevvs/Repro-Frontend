@@ -148,6 +148,7 @@ export interface ShootServicePhotographer {
   name: string;
   avatar?: string;
   email?: string;
+  phone?: string;
 }
 
 export interface ShootServiceEditor {
@@ -169,6 +170,14 @@ export interface ShootRealtorClient {
   name: string;
   email?: string;
   company?: string;
+}
+
+export interface ShootUserSummary {
+  id?: string | number;
+  name: string;
+  avatar?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface ShootServiceObject {
@@ -268,6 +277,7 @@ export interface ShootData {
     phone?: string;
     totalShoots: number;
     id?: string | number;
+    rep?: ShootUserSummary | null;
   };
   location: {
     address: string;
@@ -284,6 +294,7 @@ export interface ShootData {
     name: string;
     avatar?: string;
     email?: string;
+    phone?: string;
   };
   editor?: {
     id?: string | number;
@@ -291,6 +302,7 @@ export interface ShootData {
     avatar?: string;
     email?: string;
   };
+  rep?: ShootUserSummary | null;
   editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];
@@ -366,6 +378,10 @@ export interface ShootData {
   editedMissingCount?: number;
   missingRaw?: boolean;
   missingFinal?: boolean;
+  canSubmitRaw?: boolean;
+  canSubmitEdits?: boolean;
+  can_submit_raw?: boolean;
+  can_submit_edits?: boolean;
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;
   heroImage?: string;

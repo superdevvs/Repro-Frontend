@@ -26,6 +26,7 @@ interface ShareLink {
 interface MediaLinksSectionProps {
   shoot: ShootData;
   isEditor: boolean;
+  showShareText?: boolean;
 }
 
 const normalizeShareLinksResponse = (payload: unknown): ShareLink[] => {
@@ -46,6 +47,7 @@ const normalizeShareLinksResponse = (payload: unknown): ShareLink[] => {
 export function MediaLinksSection({
   shoot,
   isEditor,
+  showShareText = false,
 }: MediaLinksSectionProps) {
   const [shareLinks, setShareLinks] = React.useState<ShareLink[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -264,10 +266,11 @@ export function MediaLinksSection({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0"
+                      className={showShareText ? 'h-5 gap-1 px-1.5 text-[10px]' : 'h-5 w-5 p-0'}
                       onClick={() => copyToClipboard(link.share_url)}
                       title="Copy link"
                     >
+                      {showShareText ? <span>Share</span> : null}
                       <Link2 className="h-3 w-3" />
                     </Button>
                     <Button

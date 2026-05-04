@@ -4,6 +4,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { blurActiveElement } from '../dialogFocusUtils';
 import {
   Check,
+  Copy,
   Download,
   Edit,
   Link2,
@@ -57,6 +58,8 @@ interface ShootDetailsModalActionRailProps {
   isDownloading: boolean;
   isGeneratingShareLink: boolean;
   isStartingMmmPunchout: boolean;
+  isSendingToEditing?: boolean;
+  isFinalising?: boolean;
   rawFileCount: number;
   editedMediaCount: number;
   activeMediaDisplayTab: 'uploaded' | 'edited';
@@ -115,6 +118,8 @@ export function ShootDetailsModalActionRail({
   isDownloading,
   isGeneratingShareLink,
   isStartingMmmPunchout,
+  isSendingToEditing = false,
+  isFinalising = false,
   rawFileCount,
   editedMediaCount,
   activeMediaDisplayTab,
@@ -458,30 +463,40 @@ export function ShootDetailsModalActionRail({
             )}
             {isAdmin && !isEditMode && canSendToEditing && (
               <button
-                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {
                   setIsMobileActionsOpen(false);
                   handleSendToEditing();
                 }}
+                disabled={isSendingToEditing}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/40">
-                  <Send className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  {isSendingToEditing ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-600 dark:text-violet-400" />
+                  ) : (
+                    <Send className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  )}
                 </div>
-                Send to Editing
+                {isSendingToEditing ? 'Sending to Editing...' : 'Send to Editing'}
               </button>
             )}
             {canFinalise && !isEditMode && (
               <button
-                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {
                   setIsMobileActionsOpen(false);
                   handleFinalise();
                 }}
+                disabled={isFinalising}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
-                  <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  {isFinalising ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  )}
                 </div>
-                Finalize shoot
+                {isFinalising ? 'Finalizing...' : 'Finalize shoot'}
               </button>
             )}
             {canCancelShoot && !isEditMode && (
@@ -619,13 +634,43 @@ export function ShootDetailsModalHeader({
   setIsMobileActionsOpen,
   onClose,
 }: ShootDetailsModalHeaderProps) {
+  const [isAddressCopied, setIsAddressCopied] = React.useState(false);
+
+  const handleCopyAddress = async () => {
+    if (!addressTitle) return;
+    try {
+      await navigator.clipboard.writeText(addressTitle);
+      setIsAddressCopied(true);
+      window.setTimeout(() => setIsAddressCopied(false), 1200);
+    } catch {
+      setIsAddressCopied(false);
+    }
+  };
+
   return (
     <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
       <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-1.5">
         <div className="flex items-start justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0 w-full sm:w-auto">
             <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
+              <div className="group/address flex min-w-0 items-center gap-1.5">
+                <h2 className="text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 flex-shrink-0 rounded-full opacity-0 transition-opacity group-hover/address:opacity-100 focus-visible:opacity-100"
+                  onClick={handleCopyAddress}
+                  title="Copy address"
+                  aria-label="Copy address"
+                >
+                  {isAddressCopied ? (
+                    <Check className="h-3.5 w-3.5 text-green-600" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </div>
               <div className="flex-shrink-0">{statusBadge}</div>
               {paymentBadge ? <div className="flex-shrink-0">{paymentBadge}</div> : null}
             </div>

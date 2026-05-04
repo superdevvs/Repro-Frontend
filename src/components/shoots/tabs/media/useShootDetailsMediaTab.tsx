@@ -865,6 +865,22 @@ export function useShootDetailsMediaTab({
 
     return sortMediaFiles(eligibleFiles, sortOrder, manualOrder);
   }, [clientVisibleEditedFiles, isVideoFile, manualOrder, sortOrder]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        `media-grid-order-${shoot.id}`,
+        JSON.stringify(editedSlideshowFiles.map((file) => file.id)),
+      );
+    } catch {
+      return;
+    }
+  }, [editedSlideshowFiles, shoot.id]);
+
   const canStartSlideshowMedia =
     (isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked)) &&
     editedSlideshowFiles.length > 1;
@@ -944,15 +960,24 @@ export function useShootDetailsMediaTab({
   const hasEditedMedia = editedMediaCount > 0 || clientVisibleEditedFiles.length > 0;
   const hasReviewSignal = Boolean(shoot?.submittedForReviewAt) || hasEditedMedia;
 
+  const REVIEW_SUBMITTED_STATUSES = ['pending_review', 'ready_for_review', 'qc', 'review', 'ready'];
+  const isSubmittedForReview =
+    Boolean(shoot?.submittedForReviewAt) ||
+    REVIEW_SUBMITTED_STATUSES.some(status => normalizedShootStatus.includes(status));
+
   // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
   // Superadmin can always delete, even after delivery
   const DELIVERED_STATUSES = ['delivered', 'client_delivered', 'workflow_completed', 'finalized'];
   const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
   const isSuperAdmin = role === 'superadmin';
-  const canDelete = isSuperAdmin || ((isAdmin || isPhotographer || isEditor) && !isDelivered);
+  const canDelete =
+    isSuperAdmin ||
+    ((isAdmin || isPhotographer) && !isDelivered) ||
+    (isEditor && !isDelivered && !isSubmittedForReview);
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDelete && (!editorRestrictedToEditedTab || displayTab === 'edited');
+  const canSelectInDisplayTab = canDownload || canDeleteInDisplayTab;
   const activeShootUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
     [shoot.id, uploads],
@@ -965,12 +990,12 @@ export function useShootDetailsMediaTab({
   const isShootFinalized = FINALIZED_STATUSES.some(status => normalizedShootStatus.includes(status));
 
   useEffect(() => {
-    if (canDownload || selectedFiles.size === 0) {
+    if (canSelectInDisplayTab || selectedFiles.size === 0) {
       return;
     }
 
     setSelectedFiles(new Set());
-  }, [canDownload, selectedFiles.size, setSelectedFiles]);
+  }, [canSelectInDisplayTab, selectedFiles.size, setSelectedFiles]);
   
   // Calculate progress for non-finalized shoots (for client progress indicator)
   const clientProgress = useMemo(() => {
@@ -1052,7 +1077,7 @@ export function useShootDetailsMediaTab({
             selectedFiles={selectedFiles}
             onSelectionChange={toggleSelection}
             onSelectAll={() => {
-              if (!canDownload) {
+              if (!canSelectInDisplayTab) {
                 return;
               }
 
@@ -1062,7 +1087,7 @@ export function useShootDetailsMediaTab({
                 setSelectedFiles(new Set(files.map((f) => f.id)));
               }
             }}
-            canSelect={canDownload}
+            canSelect={canSelectInDisplayTab}
             sortOrder={sortOrder}
             manualSortActive={isDragMode}
             manualOrder={manualOrder}

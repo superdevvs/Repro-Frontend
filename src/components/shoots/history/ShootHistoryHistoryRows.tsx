@@ -52,7 +52,7 @@ export const HistoryRow = memo(({
   isEditor?: boolean
   onDelete?: (record: ShootHistoryRecord) => void
   onViewInvoice?: (shoot: ShootData | { id: string | number }) => void
-  onSendToEditing?: (shoot: ShootData | { id: string | number }) => void
+  onSendToEditing?: (shoot: ShootData | { id: string | number; status?: string | null; workflowStatus?: string | null }) => void | Promise<void>
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
@@ -62,6 +62,7 @@ export const HistoryRow = memo(({
   }
   const [open, setOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [isSendingToEditing, setIsSendingToEditing] = useState(false)
   const services = record.services ?? []
   const financials = record.financials ?? {
     baseQuote: 0,
@@ -87,6 +88,17 @@ export const HistoryRow = memo(({
       await onPublishMls(record)
     } finally {
       setPublishing(false)
+    }
+  }
+
+  const handleSendToEditingClick = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!onSendToEditing || !record.id || isSendingToEditing) return
+    setIsSendingToEditing(true)
+    try {
+      await onSendToEditing({ id: record.id, status: record.status })
+    } finally {
+      setIsSendingToEditing(false)
     }
   }
 
@@ -168,13 +180,15 @@ export const HistoryRow = memo(({
                   size="sm"
                   variant="outline"
                   className="gap-1 border-purple-300 text-purple-700 hover:bg-purple-50"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSendToEditing?.({ id: record.id })
-                  }}
+                  onClick={handleSendToEditingClick}
                   title="Send to Editing"
+                  disabled={isSendingToEditing}
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  {isSendingToEditing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
                 </Button>
               )}
               {onViewInvoice && record.id && (

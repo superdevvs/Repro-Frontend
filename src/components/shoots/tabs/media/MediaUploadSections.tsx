@@ -962,27 +962,6 @@ export function EditedUploadSection({
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <CircularProgress progress={progressValue} />
-            <div>
-              <div className="text-sm font-medium text-foreground">Edited delivery progress</div>
-              <div className="text-xs text-muted-foreground">
-                {expectedCount > 0
-                  ? `${uploadedCount} of ${expectedCount} expected edited files ready`
-                  : `${uploadedCount} edited file${uploadedCount !== 1 ? 's' : ''} queued or uploaded`}
-              </div>
-            </div>
-          </div>
-          {isEditor && (
-            <div className="text-xs text-muted-foreground">
-              Editors can mark deliverables here before uploading, and those tags remain editable afterward.
-            </div>
-          )}
-        </div>
-      </div>
-
       {showInlineProgress && isUploading && selectedFiles.length > 0 && (
         <UploadProgressCard
           fileCount={selectedFiles.length}
@@ -991,10 +970,6 @@ export function EditedUploadSection({
           note="Edited files are uploading in the background. You can switch shoots and continue working."
         />
       )}
-
-      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        {uploadLimitHint}
-      </div>
 
       <UploadDropzone
         empty={selectedFiles.length === 0}
@@ -1019,7 +994,6 @@ export function EditedUploadSection({
       <UploadResultsPanel
         title="Edited upload results"
         issues={uploadIssues}
-        limitHint={uploadLimitHint}
         onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
         onRetryIssue={(issueId) => {
           const matchingEntry = selectedFiles
@@ -1517,10 +1491,6 @@ export function RawUploadSection({
             />
           ))}
 
-      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        {uploadLimitHint}
-      </div>
-
       <UploadDropzone
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
@@ -1546,7 +1516,6 @@ export function RawUploadSection({
       <UploadResultsPanel
         title="Raw upload results"
         issues={uploadIssues}
-        limitHint={uploadLimitHint}
         onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
         onRetryIssue={(issueId) => {
           const matchingEntry = selectedFiles

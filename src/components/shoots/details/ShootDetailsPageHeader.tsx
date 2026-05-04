@@ -43,6 +43,8 @@ interface ShootDetailsPageHeaderProps {
   canReviewHoldRequest: boolean;
   canSendToEditing: boolean;
   canFinalise: boolean;
+  isSendingToEditing?: boolean;
+  isFinalising?: boolean;
   canShowIssuesTab: boolean;
   canShowToursTab: boolean;
   isToursTabDisabled: boolean;
@@ -88,6 +90,8 @@ export function ShootDetailsPageHeader({
   canReviewHoldRequest,
   canSendToEditing,
   canFinalise,
+  isSendingToEditing = false,
+  isFinalising = false,
   canShowIssuesTab,
   canShowToursTab,
   isToursTabDisabled,
@@ -261,10 +265,15 @@ export function ShootDetailsPageHeader({
                 size="sm"
                 className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
                 onClick={onSendToEditing}
+                disabled={isSendingToEditing}
               >
-                <Send className="h-3 w-3 mr-1.5" />
-                <span className="hidden sm:inline">Send to Editing</span>
-                <span className="sm:hidden">Send to Editing</span>
+                {isSendingToEditing ? (
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3 mr-1.5" />
+                )}
+                <span className="hidden sm:inline">{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
+                <span className="sm:hidden">{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
               </Button>
             )}
             {canFinalise && (
@@ -273,10 +282,15 @@ export function ShootDetailsPageHeader({
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                 onClick={onFinalise}
+                disabled={isFinalising}
               >
-                <CheckCircle className="h-3 w-3 mr-1.5" />
-                <span className="hidden sm:inline">Finalize & Deliver</span>
-                <span className="sm:hidden">Finalize</span>
+                {isFinalising ? (
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-3 w-3 mr-1.5" />
+                )}
+                <span className="hidden sm:inline">{isFinalising ? 'Finalizing...' : 'Finalize & Deliver'}</span>
+                <span className="sm:hidden">{isFinalising ? 'Finalizing...' : 'Finalize'}</span>
               </Button>
             )}
             {isAdminOrSuperAdmin && !isEditor && !isEditingManager && (

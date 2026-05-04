@@ -3,11 +3,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
   CheckCircle,
+  CheckSquare,
   DollarSign as DollarSignIcon,
   FileText,
   Loader2,
   PlayCircle,
   Send,
+  Upload as UploadIcon,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
@@ -66,6 +68,15 @@ interface ShootDetailsModalBodyProps {
   canFinalise: boolean;
   canShowInvoiceButton: boolean;
   isLoadingInvoice: boolean;
+  isSendingToEditing?: boolean;
+  isFinalising?: boolean;
+  canSubmitRaw?: boolean;
+  canSubmitEdits?: boolean;
+  hasInflightUploads?: boolean;
+  isSubmittingRaw?: boolean;
+  isSubmittingEdits?: boolean;
+  handleSubmitRaw?: () => void;
+  handleSubmitEdits?: () => void;
   setShowTourAnalytics: (open: boolean) => void;
   setIsMediaExpanded: (open: boolean) => void;
   setActiveMediaDisplayTab: (tab: 'uploaded' | 'edited') => void;
@@ -110,6 +121,15 @@ export function ShootDetailsModalBody({
   canFinalise,
   canShowInvoiceButton,
   isLoadingInvoice,
+  isSendingToEditing = false,
+  isFinalising = false,
+  canSubmitRaw = false,
+  canSubmitEdits = false,
+  hasInflightUploads = false,
+  isSubmittingRaw = false,
+  isSubmittingEdits = false,
+  handleSubmitRaw,
+  handleSubmitEdits,
   setShowTourAnalytics,
   setIsMediaExpanded,
   setActiveMediaDisplayTab,
@@ -132,15 +152,25 @@ export function ShootDetailsModalBody({
     !isPaid;
   const canProcessPaymentOnMobile =
     (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager;
+  const showSubmitActions =
+    activeTab === 'media' &&
+    ((activeMediaDisplayTab === 'uploaded' && canSubmitRaw) ||
+      (activeMediaDisplayTab === 'edited' && canSubmitEdits));
+  const showMobileSubmitActions =
+    !isEditMode &&
+    !isRequestedStatus &&
+    !isCancelledOrDeclined &&
+    showSubmitActions;
   const showMobilePaymentActions =
     !isEditMode &&
     !isRequestedStatus &&
     !isCancelledOrDeclined &&
     (canMarkPaidOnMobile || canProcessPaymentOnMobile);
+  const showMobileFooter = showMobileSubmitActions || showMobilePaymentActions;
 
   return (
     <>
-      <div className={`flex flex-col sm:flex-row overflow-hidden ${showMobilePaymentActions ? 'pb-14' : 'pb-0'} sm:pb-0 sm:flex-1 sm:min-h-0`}>
+      <div className={`flex flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0 sm:flex-1 sm:min-h-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
         >
@@ -321,9 +351,41 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+                {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={handleSubmitRaw}
+                    disabled={isSubmittingRaw || hasInflightUploads}
+                  >
+                    {isSubmittingRaw ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <UploadIcon className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isSubmittingRaw ? 'Submitting…' : 'Submit Raw Files'}</span>
+                  </Button>
+                )}
+                {activeTab === 'media' && activeMediaDisplayTab === 'edited' && canSubmitEdits && handleSubmitEdits && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={handleSubmitEdits}
+                    disabled={isSubmittingEdits || hasInflightUploads}
+                  >
+                    {isSubmittingEdits ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isSubmittingEdits ? 'Submitting…' : 'Submit Edits'}</span>
+                  </Button>
+                )}
                 {canResumeFromHold && (
                   <Button
                     variant="default"
@@ -357,9 +419,14 @@ export function ShootDetailsModalBody({
                     size="sm"
                     className="h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
                     onClick={handleSendToEditing}
+                    disabled={isSendingToEditing}
                   >
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Send to Editing</span>
+                    {isSendingToEditing ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
                   </Button>
                 )}
                 {canFinalise && (
@@ -368,9 +435,14 @@ export function ShootDetailsModalBody({
                     size="sm"
                     className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                     onClick={handleFinalise}
+                    disabled={isFinalising}
                   >
-                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Finalize</span>
+                    {isFinalising ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isFinalising ? 'Finalizing...' : 'Finalize'}</span>
                   </Button>
                 )}
               </div>
@@ -379,9 +451,41 @@ export function ShootDetailsModalBody({
         </div>
       </div>
 
-      {showMobilePaymentActions && (
+      {showMobileFooter && (
         <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           <div className="flex gap-2 w-full overflow-x-auto">
+            {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1 h-9 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+                onClick={handleSubmitRaw}
+                disabled={isSubmittingRaw || hasInflightUploads}
+              >
+                {isSubmittingRaw ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <UploadIcon className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                <span>{isSubmittingRaw ? 'Submitting…' : 'Submit Raw Files'}</span>
+              </Button>
+            )}
+            {activeTab === 'media' && activeMediaDisplayTab === 'edited' && canSubmitEdits && handleSubmitEdits && (
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1 h-9 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+                onClick={handleSubmitEdits}
+                disabled={isSubmittingEdits || hasInflightUploads}
+              >
+                {isSubmittingEdits ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                <span>{isSubmittingEdits ? 'Submitting…' : 'Submit Edits'}</span>
+              </Button>
+            )}
             {canMarkPaidOnMobile && (
               <Button
                 variant="default"

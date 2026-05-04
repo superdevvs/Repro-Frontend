@@ -148,7 +148,6 @@ export function UploadDropzone({
 interface UploadResultsPanelProps {
   title: string;
   issues: UploadIssue[];
-  limitHint?: string;
   onRetryAll?: () => void;
   onRetryIssue?: (issueId: string) => void;
 }
@@ -156,7 +155,6 @@ interface UploadResultsPanelProps {
 export function UploadResultsPanel({
   title,
   issues,
-  limitHint,
   onRetryAll,
   onRetryIssue,
 }: UploadResultsPanelProps) {
@@ -175,7 +173,6 @@ export function UploadResultsPanel({
           <p className="text-xs text-rose-700">
             {issues.length} file{issues.length === 1 ? '' : 's'} need attention.
           </p>
-          {limitHint && <p className="text-xs text-rose-700">{limitHint}</p>}
         </div>
         {onRetryAll && issues.some((issue) => issue.retryable) && (
           <Button type="button" size="sm" variant="outline" onClick={onRetryAll}>

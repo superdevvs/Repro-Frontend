@@ -76,7 +76,7 @@ export const getShootDetailsCapabilities = ({
     isAdmin &&
     !isDelivered &&
     !hasEditedWithoutRaw &&
-    (normalizedStatus === 'uploaded' || normalizedStatus === 'scheduled');
+    normalizedStatus === 'uploaded';
   const mmmRedirectUrl =
     shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
   const canStartMmmPunchout =

@@ -124,7 +124,7 @@ export default function ResetPassword() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => navigate('/login')} className="mt-4">
+            <Button onClick={() => navigate('/')} className="mt-4">
               Go to Login
             </Button>
           </CardContent>
@@ -147,7 +147,7 @@ export default function ResetPassword() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => navigate('/login')} className="mt-4">
+            <Button onClick={() => navigate('/')} className="mt-4">
               Back to Login
             </Button>
           </CardContent>

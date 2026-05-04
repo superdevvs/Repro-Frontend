@@ -139,6 +139,7 @@ const AiEditing = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
   const [isPhotographer, setIsPhotographer] = useState(false);
+  const [isSendingToEditing, setIsSendingToEditing] = useState(false);
   
   // Modal states
   const [showEditConfigModal, setShowEditConfigModal] = useState(false);
@@ -575,8 +576,9 @@ const AiEditing = () => {
   };
 
   const handleSendToEditing = async () => {
-    if (!selectedShoot) return;
+    if (!selectedShoot || isSendingToEditing) return;
     try {
+      setIsSendingToEditing(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const headers = {
         'Authorization': `Bearer ${token}`,
@@ -620,6 +622,8 @@ const AiEditing = () => {
         description: error.message || 'Failed to send to editing',
         variant: 'destructive',
       });
+    } finally {
+      setIsSendingToEditing(false);
     }
   };
 
@@ -1010,10 +1014,15 @@ const AiEditing = () => {
                   size="sm"
                   className="h-8 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white"
                   onClick={handleSendToEditing}
+                  disabled={isSendingToEditing}
                 >
-                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Send to Editing</span>
-                  <span className="sm:hidden">Edit</span>
+                  {isSendingToEditing ? (
+                    <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                  )}
+                  <span className="hidden sm:inline">{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
+                  <span className="sm:hidden">{isSendingToEditing ? 'Sending...' : 'Edit'}</span>
                 </Button>
                 <Button
                   variant="default"

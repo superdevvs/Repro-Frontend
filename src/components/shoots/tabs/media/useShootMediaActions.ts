@@ -2,7 +2,6 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
-import { finalizeRawUploadQueue } from '@/services/dropboxMediaService';
 import { useToast } from '@/hooks/use-toast';
 import { useUpload } from '@/context/UploadContext';
 import { fotelloService } from '@/services/fotelloService';
@@ -227,14 +226,8 @@ export function useShootMediaActions({
           });
         }
 
-        if (uploadType === 'raw' && errors.length < files.length && files.length > 0) {
-          const finalizeHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-          };
-          if (authHeader) finalizeHeaders.Authorization = authHeader;
-          if (impersonateHeader) finalizeHeaders['X-Impersonate-User-Id'] = impersonateHeader;
-          await finalizeRawUploadQueue(shoot.id, finalizeHeaders);
-        }
+        // Auto-finalize-raw removed: shoot status transitions are now owned exclusively
+        // by the user pressing "Submit Raw Files" / "Submit Edits". Uploads only place files.
 
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });

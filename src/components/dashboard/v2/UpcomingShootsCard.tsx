@@ -924,7 +924,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                     <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
                     <div className="rounded-2xl border border-border/60 bg-muted/30">
                       <ScrollArea className="max-h-64">
-                        <div className="p-3 space-y-2">
+                        <div className="min-w-0 flex-1 space-y-3">
                           {photographerOptions.map((photographer) => {
                             const checked = draftFilters.photographerIds.includes(photographer.id);
                             return (
@@ -1158,6 +1158,10 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                 const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
                 const statusClass = STATUS_COLORS[statusKey] || STATUS_COLORS.scheduled;
                 const isRequested = statusKey === 'requested';
+                const isEditorSubmittedUpload =
+                  isEditorRole &&
+                  (Boolean(shoot.submittedForReviewAt) ||
+                    ['pending_review', 'ready_for_review', 'qc', 'review', 'ready'].some((status) => statusKey.includes(status)));
                 const serviceList = shoot.services.flatMap((service) => {
                   const parts = service.label
                     .split(/[,•|]+/)
@@ -1175,7 +1179,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                     key={shoot.id}
                     onClick={() => onSelect(shoot, weather)}
                     className={cn(
-                      "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+                      "relative overflow-hidden border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
                       isRequested 
                         ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
                         : "border-border hover:border-primary/40"
@@ -1287,12 +1291,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           );
                         })}
                       </div>
-                      {isEditorRole && shoot.editorNotes?.trim() && (
-                        <div className="inline-flex max-w-full items-baseline gap-1.5 self-start rounded-full border border-border bg-transparent px-3 py-1.5">
-                          <span className="text-[11px] font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
-                          <span className="text-[11px] text-muted-foreground truncate">{shoot.editorNotes}</span>
-                        </div>
-                      )}
                       {/* Row 5: Status left + Photographer/Client right */}
                       <hr className="border-border" />
                       <div className="flex items-center justify-between">
@@ -1322,6 +1320,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
                           )}
                         </div>
+                        {isEditorSubmittedUpload && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold leading-none text-emerald-400">
+                            <Check className="h-3 w-3" />
+                            Uploaded
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1377,7 +1381,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         )}
                       </div>
 
-                      <div className="space-y-3 min-w-0">
+                      <div className="space-y-1.5 min-w-0">
                         <div>
                           <h3 className="text-base font-semibold text-foreground truncate">{shoot.addressLine}</h3>
                           <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
@@ -1407,12 +1411,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             );
                           })}
                         </div>
-                        {isEditorRole && shoot.editorNotes?.trim() && (
-                          <div className="inline-flex max-w-full items-baseline gap-2 self-start rounded-full border border-border bg-transparent px-4 py-2">
-                            <span className="text-sm font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
-                            <span className="text-sm text-muted-foreground truncate">{shoot.editorNotes}</span>
-                          </div>
-                        )}
                       </div>
 
                       <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
@@ -1466,7 +1464,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground text-right">
-                          {isPhotographerRole ? (
+                          {isEditorSubmittedUpload ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold leading-none text-emerald-400">
+                              <Check className="h-3.5 w-3.5" />
+                              Uploaded
+                            </span>
+                          ) : isPhotographerRole ? (
                             <>
                               Client{' '}
                               <span className="font-semibold text-foreground">
@@ -1498,6 +1501,13 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         </div>
                       </div>
                     </div>
+
+                    {isEditorRole && shoot.editorNotes?.trim() && (
+                      <div className="-mx-5 -mb-3.5 mt-3 border-t border-purple-500/20 bg-purple-500/15 px-5 py-2 text-[11px] leading-none text-purple-300 sm:-mb-5 sm:mt-4">
+                        <span className="font-semibold">Editing notes :</span>
+                        <span className="ml-1.5 text-purple-300/85">{shoot.editorNotes}</span>
+                      </div>
+                    )}
                     
                     {/* Action buttons for requested shoots */}
                     {isRequested && (onApprove || onDecline || onModify) && (

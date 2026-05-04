@@ -960,9 +960,13 @@ export function ShootDetailsOverviewTab({
         </div>
       )}
 
-      {/* Media Links Card - Editor only */}
-      {isEditor && (
-        <MediaLinksSection shoot={shoot} isEditor={isEditor} />
+      {/* Media Links Card - Editor and editing manager */}
+      {(isEditor || role === 'editing_manager') && (
+        <MediaLinksSection
+          shoot={shoot}
+          isEditor={isEditor || role === 'editing_manager'}
+          showShareText={role === 'editing_manager'}
+        />
       )}
 
       {!isPhotographer && !isEditor && (

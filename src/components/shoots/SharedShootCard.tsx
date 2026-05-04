@@ -18,6 +18,7 @@ import {
   Edit,
   Trash2,
   FileText,
+  Loader2,
   Send,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -42,7 +43,7 @@ interface SharedShootCardProps {
   onModify?: (shoot: ShootData) => void;
   onDelete?: (shoot: ShootData) => void;
   onViewInvoice?: (shoot: ShootData) => void;
-  onSendToEditing?: (shoot: ShootData) => void;
+  onSendToEditing?: (shoot: ShootData) => void | Promise<void>;
   shouldHideClientDetails?: boolean;
 }
 
@@ -116,6 +117,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const canDelete = (isSuperAdmin || isAdmin) && onDelete;
   const approvalNotes = getApprovalNotes(shoot.notes);
   const editingNotes = getEditingNotes(shoot.notes);
+  const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
   const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
@@ -134,6 +136,17 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
     e.stopPropagation();
     const payAction: ShootAction = { label: 'Pay now', action: 'pay' };
     onPrimaryAction?.(payAction, shoot);
+  };
+
+  const handleSendToEditingClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onSendToEditing || isSendingToEditing) return;
+    setIsSendingToEditing(true);
+    try {
+      await onSendToEditing(shoot);
+    } finally {
+      setIsSendingToEditing(false);
+    }
   };
 
   const bracketMode = shoot.package?.bracketMode || null;
@@ -190,16 +203,18 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           {/* Send to Editing Button */}
           {canSendToEditing && (
             <Button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onSendToEditing?.(shoot);
-              }}
+              onClick={handleSendToEditingClick}
               className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
               size="sm"
               variant="outline"
               title="Send to Editing"
+              disabled={isSendingToEditing}
             >
-              <Send className="h-4 w-4" />
+              {isSendingToEditing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           )}
           
