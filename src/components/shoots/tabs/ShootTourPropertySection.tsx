@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Collapsible,
@@ -29,12 +27,9 @@ type ShootTourPropertySectionProps = {
   open: boolean
   onOpenChange: () => void
   listingType: string
-  setListingType: (value: string) => void
   propertyStatus: string
   setPropertyStatus: (value: string) => void
   canEditPropertyInfo: boolean
-  isSavingListingType: boolean
-  setIsSavingListingType: (value: boolean) => void
   isSavingPropertyStatus: boolean
   setIsSavingPropertyStatus: (value: boolean) => void
   propertyBedrooms: string
@@ -57,7 +52,7 @@ type ShootTourPropertySectionProps = {
   sourcePropertyDescription: string
   saveShootField: (field: string, value: string, setLoading: (value: boolean) => void) => void
   savePropertyDetails: () => Promise<void>
-  savePropertyField: (field: string, value: string) => Promise<void>
+  savePropertyField: (field: string, value: string) => Promise<boolean>
   handleGenerateDescription: () => Promise<void>
   handleSaveDescription: () => Promise<void>
 }
@@ -67,12 +62,9 @@ export function ShootTourPropertySection({
   open,
   onOpenChange,
   listingType,
-  setListingType,
   propertyStatus,
   setPropertyStatus,
   canEditPropertyInfo,
-  isSavingListingType,
-  setIsSavingListingType,
   isSavingPropertyStatus,
   setIsSavingPropertyStatus,
   propertyBedrooms,
@@ -120,6 +112,13 @@ export function ShootTourPropertySection({
     },
   ]
   const propertyDetailsGridClassName = 'grid gap-3 sm:grid-cols-3'
+  const soldStatus = listingType === 'for_rent' ? 'rented' : 'sold'
+  const propertyStatusOptions = [
+    { value: 'available', label: 'Current' },
+    { value: 'coming_soon', label: 'Coming Soon' },
+    { value: 'pending', label: 'Pending' },
+    { value: soldStatus, label: listingType === 'for_rent' ? 'Rented' : 'Sold' },
+  ]
 
   return (
     <Card>
@@ -137,45 +136,38 @@ export function ShootTourPropertySection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Listing Type</Label>
-              <Select
-                value={listingType || 'for_sale'}
-                onValueChange={(value) => {
-                  setListingType(value)
-                  saveShootField('listing_type', value, setIsSavingListingType)
-                }}
-                disabled={!canEditPropertyInfo || isSavingListingType}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select listing type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="for_sale">For Sale</SelectItem>
-                  <SelectItem value="for_rent">For Rent</SelectItem>
-                </SelectContent>
-              </Select>
-              {isSavingListingType && <p className="text-xs text-blue-500">Saving...</p>}
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-              <div>
-                <Label>{listingType === 'for_rent' ? 'Mark as Rented' : 'Mark as Sold'}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {listingType === 'for_rent' ? 'Toggle when property has been rented.' : 'Toggle when property has been sold.'}
-                </p>
+            <div className="rounded-lg border border-border/60 p-3 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label>Listing Status</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Choose how this property should appear on the tour and portfolio.
+                  </p>
+                </div>
+                {isSavingPropertyStatus && <p className="text-xs text-blue-500">Saving status...</p>}
               </div>
-              <Switch
-                checked={propertyStatus === 'sold' || propertyStatus === 'rented'}
-                onCheckedChange={(checked) => {
-                  const newStatus = checked ? (listingType === 'for_rent' ? 'rented' : 'sold') : 'available'
-                  setPropertyStatus(newStatus)
-                  saveShootField('property_status', newStatus, setIsSavingPropertyStatus)
-                }}
-                disabled={!canEditPropertyInfo || isSavingPropertyStatus}
-              />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {propertyStatusOptions.map((option) => {
+                  const isSelected = propertyStatus === option.value
+                  return (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={isSelected ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setPropertyStatus(option.value)
+                        saveShootField('property_status', option.value, setIsSavingPropertyStatus)
+                      }}
+                      disabled={!canEditPropertyInfo || isSavingPropertyStatus}
+                      className="h-8 text-xs"
+                    >
+                      {option.label}
+                    </Button>
+                  )
+                })}
+              </div>
             </div>
-            {isSavingPropertyStatus && <p className="text-xs text-blue-500">Saving status...</p>}
 
             <Separator />
 

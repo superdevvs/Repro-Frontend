@@ -58,7 +58,7 @@ interface Request {
     id: string;
     name: string;
   };
-  status: 'open' | 'in-progress' | 'resolved';
+  status: 'open' | 'in-progress' | 'resolved' | 'dismissed';
   note: string;
   createdAt: string;
   updatedAt: string;
@@ -136,39 +136,55 @@ export function ShootDetailsIssuesTab({
     }
   };
 
-  // Load requests
-  useEffect(() => {
+  const loadRequests = async () => {
     if (!shoot.id) return;
-    
-    const loadRequests = async () => {
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/issues`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        
-        if (res.ok) {
-          const json = await res.json();
-          setRequests(json.data || json || []);
-        }
-      } catch (error) {
-        console.error('Error loading requests:', error);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/issues`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        setRequests(json.data || json || []);
       }
+    } catch (error) {
+      console.error('Error loading requests:', error);
+    }
+  };
+
+  useEffect(() => {
+    void loadRequests();
+  }, [shoot.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleRequestSync = (event: Event) => {
+      const detailShootId = (event as CustomEvent<{ shootId?: string }>).detail?.shootId;
+      if (detailShootId && String(detailShootId) !== String(shoot.id)) return;
+      void loadRequests();
     };
-    
-    loadRequests();
-  }, [shoot.id, onShootUpdate]);
+
+    window.addEventListener('shoot-request-created', handleRequestSync);
+    window.addEventListener('shoot-request-updated', handleRequestSync);
+    return () => {
+      window.removeEventListener('shoot-request-created', handleRequestSync);
+      window.removeEventListener('shoot-request-updated', handleRequestSync);
+    };
+  }, [shoot.id]);
 
   // Filter requests based on role
   const visibleRequests = requests.filter(request => {
+    if (request.status === 'dismissed') return false;
     if (isAdmin) return true;
     if (isClient) {
-      // Client sees only requests they created
       const currentUserId = localStorage.getItem('userId') || '';
-      return request.raisedBy.id === currentUserId;
+      return request.raisedBy.id === currentUserId || request.raisedBy.role === 'client';
     }
     if (isEditor) {
       // Editor sees requests assigned to editor role or specific editor
@@ -181,12 +197,12 @@ export function ShootDetailsIssuesTab({
     return false;
   });
 
-
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
       'open': { label: 'Open', className: 'bg-red-500/10 text-red-500 border-red-500/20' },
       'in-progress': { label: 'In Progress', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
       'resolved': { label: 'Resolved', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+      'dismissed': { label: 'Dismissed', className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
     };
     const statusInfo = statusMap[status] || { label: status, className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
     return <Badge className={statusInfo.className}>{statusInfo.label}</Badge>;
@@ -266,6 +282,42 @@ export function ShootDetailsIssuesTab({
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to assign request',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDismissRequest = async (requestId: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/issues/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ status: 'dismissed' }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json.message || 'Failed to dismiss request');
+      }
+
+      setRequests((prev) => prev.filter((request) => request.id !== requestId));
+      toast({
+        title: 'Request dismissed',
+        description: 'The resolved request has been closed.',
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to dismiss request',
         variant: 'destructive',
       });
     }
@@ -372,6 +424,16 @@ export function ShootDetailsIssuesTab({
                     </div>
                   </div>
                   {/* Admin: Assign to photographer or editor */}
+                  {request.status === 'resolved' && (isAdmin || isClient) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => void handleDismissRequest(request.id)}
+                    >
+                      Dismiss
+                    </Button>
+                  )}
                   {isAdmin && request.status !== 'resolved' && (
                     request.assignedToRole ? (
                       <Button variant="outline" size="sm" className="gap-1.5" disabled>

@@ -147,11 +147,8 @@ export function ShootDetailsTourTab({
     propertySqft,
     setPropertySqft,
     listingType,
-    setListingType,
     propertyStatus,
     setPropertyStatus,
-    isSavingListingType,
-    setIsSavingListingType,
     isSavingPropertyStatus,
     setIsSavingPropertyStatus,
     isSavingPropertyDetails,
@@ -1137,12 +1134,9 @@ export function ShootDetailsTourTab({
           open={openSections.property}
           onOpenChange={() => toggleSection('property')}
           listingType={listingType}
-          setListingType={setListingType}
           propertyStatus={propertyStatus}
           setPropertyStatus={setPropertyStatus}
           canEditPropertyInfo={canEditPropertyInfo}
-          isSavingListingType={isSavingListingType}
-          setIsSavingListingType={setIsSavingListingType}
           isSavingPropertyStatus={isSavingPropertyStatus}
           setIsSavingPropertyStatus={setIsSavingPropertyStatus}
           propertyBedrooms={propertyBedrooms}

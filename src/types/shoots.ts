@@ -335,10 +335,13 @@ export interface ShootData {
   isPrivateListing?: boolean;
   isFeatured?: boolean;
   is_featured?: boolean;
+  timezone?: string | null;
+  mlsImageWidth?: number | null;
+  mls_image_width?: number | null;
   listingType?: 'for_sale' | 'for_rent';
   listing_type?: 'for_sale' | 'for_rent';
-  propertyStatus?: 'available' | 'sold' | 'rented';
-  property_status?: 'available' | 'sold' | 'rented';
+  propertyStatus?: 'available' | 'coming_soon' | 'pending' | 'sold' | 'rented';
+  property_status?: 'available' | 'coming_soon' | 'pending' | 'sold' | 'rented';
   status: string;
   workflowStatus?: string;
   deliveryStatus?: string;

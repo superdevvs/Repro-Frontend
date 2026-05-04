@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BedDouble, Bath, Maximize, Download, X, ChevronLeft, ChevronRight,
-  Link2, ExternalLink, Car, Tag,
+  Link2, ExternalLink, Car, Tag, FileText,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
@@ -19,7 +19,18 @@ interface PropertyDetails {
   baths?: number;
   bathrooms?: number;
   sqft?: number;
+  squareFeet?: number;
+  square_feet?: number;
+  price?: string;
+  lot_size?: string | number;
+  lotSize?: string | number;
+  mls_id?: string | number;
+  mlsId?: string | number;
   description?: string;
+  listing_type?: string;
+  listingType?: string;
+  property_status?: string;
+  propertyStatus?: string;
   garage_cars?: number;
   garage_sqft?: number;
   building?: Array<{ bedrooms?: number; baths?: number; fullBaths?: number; halfBaths?: number }>;
@@ -170,6 +181,8 @@ export function GenericMLS() {
   };
   const getSqft = () => {
     if (propertyDetails?.sqft) return propertyDetails.sqft;
+    if (propertyDetails?.squareFeet) return propertyDetails.squareFeet;
+    if (propertyDetails?.square_feet) return propertyDetails.square_feet;
     const area = propertyDetails?.areas?.find(a => a.type?.includes('Living') || a.type?.includes('Finished') || a.type?.includes('Building'));
     return area?.areaSquareFeet || null;
   };
@@ -187,6 +200,10 @@ export function GenericMLS() {
   const baths = getBaths();
   const sqft = getSqft();
   const garageCars = getGarageCars();
+  const lotSize = propertyDetails?.lot_size || propertyDetails?.lotSize || null;
+  const mlsId = propertyDetails?.mls_id || propertyDetails?.mlsId || null;
+  const listingType = propertyDetails?.listing_type || propertyDetails?.listingType || null;
+  const propertyStatus = propertyDetails?.property_status || propertyDetails?.propertyStatus || null;
   const hasStats = beds || baths || sqft || garageCars;
 
   const orderedEmbeds = useMemo(() => {
@@ -313,12 +330,15 @@ export function GenericMLS() {
       </div>
 
       {/* Stats Row — dividers */}
-      {hasStats && (() => {
+      {(hasStats || propertyDetails?.price || lotSize || mlsId) && (() => {
         const statItems: { icon: React.ReactNode; label: string; value: string }[] = [];
+        if (propertyDetails?.price) statItems.push({ icon: <Tag className="w-7 h-7 text-muted-foreground" />, label: 'List Price', value: propertyDetails.price });
         if (beds != null) statItems.push({ icon: <BedDouble className="w-7 h-7 text-muted-foreground" />, label: 'Beds', value: String(beds) });
         if (baths != null) statItems.push({ icon: <Bath className="w-7 h-7 text-muted-foreground" />, label: 'Baths', value: String(baths) });
         if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
         if (sqft != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Square Feet', value: sqft.toLocaleString() });
+        if (lotSize != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Lot Size', value: String(lotSize) });
+        if (mlsId != null) statItems.push({ icon: <FileText className="w-7 h-7 text-muted-foreground" />, label: 'MLS', value: String(mlsId) });
         return (
           <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
             <div className="grid grid-cols-3 md:flex md:items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
@@ -333,6 +353,17 @@ export function GenericMLS() {
           </section>
         );
       })()}
+
+      {(propertyDetails?.description || listingType || propertyStatus) && (
+        <section id="about" className="max-w-6xl mx-auto px-6 mt-10">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {listingType && <Badge variant="secondary">{String(listingType).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</Badge>}
+            {propertyStatus && String(propertyStatus) !== 'available' && <Badge variant="outline">{String(propertyStatus).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</Badge>}
+          </div>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">About</h2>
+          {propertyDetails?.description && <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-sm md:text-base">{propertyDetails.description}</p>}
+        </section>
+      )}
 
       {/* Photo Gallery */}
       {photos.length > 0 && (

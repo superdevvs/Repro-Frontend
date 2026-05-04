@@ -159,7 +159,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                     onClick={() => onPayment(record)}
                   >
                     <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                    Pay ${balanceDue.toFixed(0)}
+                    Pay ${balanceDue.toFixed(2)}
                   </Button>
                 )}
                 <Button size="sm" variant="outline" className="h-8 text-xs px-3 shadow-sm" onClick={() => onDownload(record)}>
@@ -272,7 +272,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
             onClick={() => onPayment(record)}
           >
             <CreditCard className="w-3 h-3 mr-1" />
-            Pay ${balanceDue.toFixed(0)}
+            Pay ${balanceDue.toFixed(2)}
           </Button>
         )}
         {variant === "upcoming" && clientReleaseAccess.canClientDownload && (

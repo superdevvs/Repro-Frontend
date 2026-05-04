@@ -42,8 +42,9 @@ type PortfolioItem = {
   badge?: string;
   gallery?: string[];
   iguideUrl?: string;
+  brandedTourUrl?: string;
   listingType?: 'for_sale' | 'for_rent';
-  propertyStatus?: 'available' | 'pending' | 'sold' | 'rented';
+  propertyStatus?: 'available' | 'coming_soon' | 'pending' | 'sold' | 'rented';
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
@@ -244,6 +245,7 @@ export function ClientPortal() {
             status: (s.workflow_status || s.status || '').toLowerCase(),
             gallery: gallery.length ? gallery : (primaryImage ? [normalizeImageUrl(primaryImage)].filter(Boolean) : []),
             iguideUrl: iguideUrl || undefined,
+            brandedTourUrl: s.branded_tour_url || s.brandedTourUrl || `${window.location.origin}/tour/branded?shootId=${encodeURIComponent(String(s.id))}`,
             listingType: s.listing_type || s.listingType,
             propertyStatus: s.property_status || s.propertyStatus || 'available',
             bedrooms: (normalizedPropertyDetails?.bedrooms as number | undefined) || undefined,
@@ -284,6 +286,11 @@ export function ClientPortal() {
     setGalleryIndex(0);
     setActiveTourUrl(shoot.iguideUrl || null);
     setGalleryOpen(true);
+  };
+
+  const openListing = (shoot: PortfolioItem) => {
+    const url = shoot.brandedTourUrl || `${window.location.origin}/tour/branded?shootId=${encodeURIComponent(shoot.id)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleNextImage = () => {
@@ -448,13 +455,10 @@ export function ClientPortal() {
           const currentShoots = shoots.filter(s => {
             const isDelivered = deliveredStatuses.includes(s.status || '');
             const isSold = s.propertyStatus === 'sold' || s.propertyStatus === 'rented';
-            return isDelivered && !isSold;
+            const isPending = s.propertyStatus === 'pending';
+            return isDelivered && !isSold && !isPending;
           });
-          const pendingShoots = shoots.filter(s => {
-            const isDelivered = deliveredStatuses.includes(s.status || '');
-            const isSold = s.propertyStatus === 'sold' || s.propertyStatus === 'rented';
-            return !isDelivered && !isSold;
-          });
+          const pendingShoots = shoots.filter(s => s.propertyStatus === 'pending');
           const soldShoots = shoots.filter(s =>
             s.propertyStatus === 'sold' || s.propertyStatus === 'rented'
           );
@@ -498,6 +502,24 @@ export function ClientPortal() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {filteredShoots.map((shoot) => {
                     const isDelivered = deliveredStatuses.includes(shoot.status || '');
+                    const statusLabel = shoot.propertyStatus === 'coming_soon'
+                      ? 'Coming Soon'
+                      : shoot.propertyStatus === 'pending'
+                        ? 'Pending'
+                        : shoot.propertyStatus === 'sold'
+                          ? 'Sold'
+                          : shoot.propertyStatus === 'rented'
+                            ? 'Rented'
+                            : shoot.listingType === 'for_rent'
+                              ? 'For Rent'
+                              : 'For Sale';
+                    const statusPillClass = shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented'
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : shoot.propertyStatus === 'pending' || shoot.propertyStatus === 'coming_soon'
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : shoot.listingType === 'for_rent'
+                          ? 'bg-blue-500 hover:bg-blue-600'
+                          : 'bg-green-500 hover:bg-green-600';
                     return (
                     <div
                       key={shoot.id}
@@ -520,27 +542,10 @@ export function ClientPortal() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
                         {/* Property Status Badge - top left */}
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {shoot.propertyStatus && shoot.propertyStatus !== 'available' && (
-                            <Badge className={`${
-                              shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented' 
-                                ? 'bg-red-500 hover:bg-red-600' 
-                                : 'bg-amber-500 hover:bg-amber-600'
-                            } text-white border-0`}>
-                              {shoot.propertyStatus === 'sold' ? 'Sold' : 
-                               shoot.propertyStatus === 'rented' ? 'Rented' : 
-                               shoot.propertyStatus === 'pending' ? 'Pending' : 'Available'}
-                            </Badge>
-                          )}
-                          {shoot.listingType && (
-                            <Badge className={`${
-                              shoot.listingType === 'for_rent' 
-                                ? 'bg-blue-500 hover:bg-blue-600' 
-                                : 'bg-green-500 hover:bg-green-600'
-                            } text-white border-0`}>
-                              <Tag className="h-3 w-3 mr-1" />
-                              {shoot.listingType === 'for_rent' ? 'For Rent' : 'For Sale'}
-                            </Badge>
-                          )}
+                          <Badge className={`${statusPillClass} text-white border-0`}>
+                            <Tag className="h-3 w-3 mr-1" />
+                            {statusLabel}
+                          </Badge>
                         </div>
                         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
                           <div>
@@ -577,13 +582,12 @@ export function ClientPortal() {
                           </div>
                         )}
                         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="rounded-full">{shoot.category}</Badge>
-                          <Badge variant="outline" className="rounded-full">{isDelivered ? 'Media Ready' : 'In Progress'}</Badge>
+                          <Badge variant="outline" className="rounded-full">{shoot.category.charAt(0).toUpperCase() + shoot.category.slice(1)}</Badge>
                         </div>
                         <div className="flex flex-col gap-2">
                           {isDelivered && (
-                          <Button className="w-full" size="sm" onClick={() => openGallery(shoot)}>
-                            View Gallery
+                          <Button className="w-full" size="sm" onClick={() => openListing(shoot)}>
+                            View Listing
                           </Button>
                           )}
                           {shoot.iguideUrl && (

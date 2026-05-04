@@ -9,6 +9,7 @@ import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
 import { getDisplayMediaFilename, getMediaVideoUrl } from './mediaPreviewUtils';
+import { normalizeImageUrl } from '@/utils/imageUrl';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -81,6 +82,7 @@ const MAX_CAPTURED_TIME_STACK_SIZE = 7;
 const CAPTURED_BRACKET_GAP_SECONDS = 15;
 const FILENAME_OUTER_GAP_SECONDS = 120;
 const MAX_FILENAME_SEQUENCE_STACK_SIZE = 7;
+const VIDEO_URL_EXTENSION_REGEX = /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)(?:$|[?#])/i;
 
 export function MediaGrid({ 
   files, 
@@ -749,6 +751,24 @@ export function MediaGrid({
     `absolute inset-0 h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`;
   const getVideoThumbnailSource = (file: MediaFile): string =>
     getMediaVideoUrl(file) || getImageUrl(file, 'original');
+  const isSameResolvedUrl = (left?: string | null, right?: string | null): boolean => {
+    if (!left || !right) return false;
+    return normalizeImageUrl(left) === normalizeImageUrl(right);
+  };
+  const isLikelyVideoUrl = (value?: string | null): boolean =>
+    Boolean(value && VIDEO_URL_EXTENSION_REGEX.test(value));
+  const hasDisplayableStillThumbnail = (
+    file: MediaFile,
+    thumbSrc: string,
+    videoSrc: string,
+    isVid: boolean,
+    hasProcessedThumb: boolean,
+  ): boolean => {
+    if (!hasProcessedThumb || !thumbSrc) return false;
+    if (!isVid) return true;
+
+    return !isSameResolvedUrl(thumbSrc, videoSrc) && !isLikelyVideoUrl(thumbSrc);
+  };
   const renderHiddenMediaOverlay = () => (
     <>
       <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />
@@ -844,11 +864,18 @@ export function MediaGrid({
                   const stackIsVid = isVideo?.(stackFile) ?? false;
                   const stackThumbUrl = getImageUrl(stackFile, 'thumb');
                   const stackDisplayFilename = getDisplayMediaFilename(stackFile) || stackFile.filename;
+                  const stackVideoSrc = stackIsVid ? getVideoThumbnailSource(stackFile) : '';
+                  const stackThumbSrc = stackFile.thumb || stackThumbUrl || '';
                   const hasProcessedStackThumb = stackIsRaw
                     ? !!(stackFile.thumbnail_path || stackFile.web_path)
                     : true;
-                  const hasDisplayableStackImage = hasProcessedStackThumb && (stackFile.thumb || stackThumbUrl);
-                  const stackVideoSrc = stackIsVid ? getVideoThumbnailSource(stackFile) : '';
+                  const hasDisplayableStackImage = hasDisplayableStillThumbnail(
+                    stackFile,
+                    stackThumbSrc,
+                    stackVideoSrc,
+                    stackIsVid,
+                    hasProcessedStackThumb,
+                  );
 
                   return (
                     <div key={stackFile.id} className="relative h-full min-w-full bg-muted/40">
@@ -860,7 +887,7 @@ export function MediaGrid({
                         />
                       ) : hasDisplayableStackImage ? (
                         <img
-                          src={stackFile.thumb || stackThumbUrl}
+                          src={stackThumbSrc}
                           alt={stackDisplayFilename}
                           className={`h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(stackFile)}`}
                           loading="lazy"
@@ -881,8 +908,14 @@ export function MediaGrid({
           const hasProcessedThumb = isRaw 
             ? !!(file.thumbnail_path || file.web_path)
             : true;
-          const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
-          const thumbSrc = file.thumb || thumbUrl;
+          const thumbSrc = file.thumb || thumbUrl || '';
+          const hasDisplayableImage = hasDisplayableStillThumbnail(
+            file,
+            thumbSrc,
+            videoThumbSrc,
+            isVid,
+            hasProcessedThumb,
+          );
           
           // For videos without a backend thumbnail, generate one client-side
           if (isVid && !hasDisplayableImage) {
@@ -919,7 +952,14 @@ export function MediaGrid({
             const hasProcessedThumb = isRaw 
               ? !!(file.thumbnail_path || file.web_path)
               : true;
-            const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
+            const thumbSrc = file.thumb || thumbUrl || '';
+            const hasDisplayableImage = hasDisplayableStillThumbnail(
+              file,
+              thumbSrc,
+              videoThumbSrc,
+              isVid,
+              hasProcessedThumb,
+            );
             return !hasDisplayableImage ? 'flex' : 'none';
           })() }}
         >
@@ -1050,8 +1090,14 @@ export function MediaGrid({
             <div className="relative aspect-[4/3] bg-muted/40">
             {(() => {
               const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-              const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
-              const thumbSrc = file.thumb || thumbUrl;
+              const thumbSrc = file.thumb || thumbUrl || '';
+              const hasDisplayableImage = hasDisplayableStillThumbnail(
+                file,
+                thumbSrc,
+                videoThumbSrc,
+                isVid,
+                hasProcessedThumb,
+              );
 
               if (isVid && !hasDisplayableImage) {
                 return videoThumbSrc ? (
@@ -1084,7 +1130,14 @@ export function MediaGrid({
               className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
               style={{ display: (() => {
                 const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-                const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
+                const thumbSrc = file.thumb || thumbUrl || '';
+                const hasDisplayableImage = hasDisplayableStillThumbnail(
+                  file,
+                  thumbSrc,
+                  videoThumbSrc,
+                  isVid,
+                  hasProcessedThumb,
+                );
                 return !hasDisplayableImage ? 'flex' : 'none';
               })() }}
             >
@@ -1170,7 +1223,14 @@ export function MediaGrid({
     const hasProcessedThumb = isRaw 
       ? !!(file.thumbnail_path || file.web_path)
       : true;
-    const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+    const thumbSrc = file.thumb || imageUrl || '';
+    const hasDisplayableImage = hasDisplayableStillThumbnail(
+      file,
+      thumbSrc,
+      videoThumbSrc,
+      isVid,
+      hasProcessedThumb,
+    );
 
     return (
       <div
@@ -1209,7 +1269,7 @@ export function MediaGrid({
         <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
           {hasDisplayableImage ? (
             <img
-              src={file.thumb || imageUrl}
+              src={thumbSrc}
               alt={displayFilename}
               className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
               loading="lazy"
@@ -1345,7 +1405,14 @@ export function MediaGrid({
     const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-    const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+    const thumbSrc = file.thumb || imageUrl || '';
+    const hasDisplayableImage = hasDisplayableStillThumbnail(
+      file,
+      thumbSrc,
+      videoThumbSrc,
+      isVid,
+      hasProcessedThumb,
+    );
     const latestCommentText = getLatestCommentText(file);
 
     return (
@@ -1386,7 +1453,7 @@ export function MediaGrid({
             <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
               {hasDisplayableImage ? (
                 <img
-                  src={file.thumb || imageUrl}
+                  src={thumbSrc}
                   alt={displayFilename}
                   className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                   loading="lazy"

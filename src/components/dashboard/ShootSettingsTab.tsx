@@ -84,6 +84,11 @@ const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
   return "automatic";
 };
 
+const resolveMlsImageWidth = (shoot: ShootData): string => {
+  const value = (shoot as any)?.mls_image_width ?? (shoot as any)?.mlsImageWidth ?? '';
+  return value === null || value === undefined ? '' : String(value);
+};
+
 const hasDownloadableModeValue = (shootLike: unknown): boolean => {
   if (!shootLike || typeof shootLike !== "object") {
     return false;
@@ -139,6 +144,8 @@ export function ShootSettingsTab({
   const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
   const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
+  const [timezone, setTimezone] = useState<string>(() => (shoot as any)?.timezone || 'America/New_York');
+  const [mlsImageWidth, setMlsImageWidth] = useState<string>(() => resolveMlsImageWidth(shoot));
 
   const auth = useAuth();
   const role = auth?.user?.role || 'client';
@@ -167,6 +174,8 @@ export function ShootSettingsTab({
     setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
     setIsPrivateExclusive(!!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
     setIsFeaturedShoot(resolveFeaturedState(shoot));
+    setTimezone((shoot as any)?.timezone || 'America/New_York');
+    setMlsImageWidth(resolveMlsImageWidth(shoot));
     setSelectedGhostUserIds(normalizeGhostUserIds(shoot));
   }, [shoot]);
 
@@ -237,7 +246,7 @@ export function ShootSettingsTab({
   const computedTotalQuote = () => (shoot as any)?.payment?.baseQuote ?? 0 + computedTaxAmount();
 
   // ---------- generic toggle persistence ----------
-  const toggleSetting = async (key: string, value: boolean | string | number) => {
+  const toggleSetting = async (key: string, value: boolean | string | number | null) => {
     setSavingToggleKey(key);
     try {
       const base = API_BASE_URL;
@@ -322,6 +331,17 @@ export function ShootSettingsTab({
           } catch {
             // ignore verification errors
           }
+        } else if (key === 'timezone') {
+          const persisted = returned?.timezone ?? value ?? 'America/New_York';
+          setTimezone(String(persisted));
+          onUpdate?.({ timezone: String(persisted) } as any);
+        } else if (key === 'mls_image_width') {
+          const persisted = returned?.mls_image_width ?? returned?.mlsImageWidth ?? value;
+          setMlsImageWidth(persisted === null || persisted === undefined ? '' : String(persisted));
+          onUpdate?.({
+            mls_image_width: persisted,
+            mlsImageWidth: persisted,
+          } as any);
         } else {
           onUpdate?.({ meta: { ...((shoot as any).meta || {}), [key]: value } } as any);
         }
@@ -686,6 +706,25 @@ export function ShootSettingsTab({
     });
   };
 
+  const saveMlsImageWidth = () => {
+    const trimmedValue = mlsImageWidth.trim();
+    if (trimmedValue === '') {
+      void toggleSetting("mls_image_width", null);
+      return;
+    }
+
+    const numericValue = Number(trimmedValue);
+    if (!Number.isInteger(numericValue) || numericValue < 1 || numericValue > 10000) {
+      sonnerToast.error('Enter an MLS image width between 1 and 10000 pixels.');
+      setMlsImageWidth(resolveMlsImageWidth(shoot));
+      return;
+    }
+
+    void toggleSetting("mls_image_width", numericValue).catch(() => {
+      setMlsImageWidth(resolveMlsImageWidth(shoot));
+    });
+  };
+
   // ---------- render ----------
   return (
     <div className="space-y-6 w-full">
@@ -742,6 +781,36 @@ export function ShootSettingsTab({
               disabled={!eligibleForPrivateExclusive || savingToggleKey === 'is_private_listing'}
               className="flex-shrink-0"
             />
+          </div>
+        </div>
+      )}
+
+      {(isAdmin || isClient) && (
+        <div className="border rounded-lg p-3.5 space-y-3">
+          <div className="text-sm font-medium">Timezone</div>
+          <div className="space-y-2">
+            <Label htmlFor="timezone" className="text-xs">Timezone</Label>
+            <Select
+              value={timezone}
+              onValueChange={(value) => {
+                const previousTimezone = timezone;
+                setTimezone(value);
+                void toggleSetting("timezone", value).catch(() => {
+                  setTimezone(previousTimezone);
+                });
+              }}
+              disabled={savingToggleKey === 'timezone'}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
@@ -872,77 +941,28 @@ export function ShootSettingsTab({
 
             {/* Property Details */}
             <div className="border rounded-lg p-3.5 space-y-3">
-              <div className="text-sm font-medium">Property Details</div>
-              <div className="space-y-2">
-                <Label htmlFor="listing_type" className="text-xs">Listing Type</Label>
-                <Select
-                  defaultValue={(shoot as any)?.listing_type || (shoot as any)?.listingType || ''}
-                  onValueChange={(value) => toggleSetting("listing_type", value)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select listing type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="for_sale">For Sale</SelectItem>
-                    <SelectItem value="for_rent">For Rent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="text-sm font-medium">MLS Image Settings</div>
               <div className="space-y-2">
                 <Label htmlFor="mls_image_width" className="text-xs">MLS Image Width (px)</Label>
                 <Input
                   id="mls_image_width"
                   type="number"
                   placeholder="1920"
-                  defaultValue={(shoot as any)?.mls_image_width || ''}
+                  value={mlsImageWidth}
                   className="h-8 text-xs"
+                  min={1}
+                  max={10000}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    if (value) {
-                      toggleSetting("mls_image_width", parseInt(value));
+                    setMlsImageWidth(e.target.value);
+                  }}
+                  onBlur={saveMlsImageWidth}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.currentTarget.blur();
                     }
                   }}
+                  disabled={savingToggleKey === 'mls_image_width'}
                 />
-              </div>
-            </div>
-
-            {/* Google Calendar */}
-            <div className="border rounded-lg p-3.5 space-y-3">
-              <div className="text-sm font-medium">Google Calendar</div>
-              <div className="space-y-2">
-                <Label htmlFor="google_calendar_id" className="text-xs">Calendar ID</Label>
-                <Input
-                  id="google_calendar_id"
-                  type="text"
-                  placeholder="Enter Google Calendar ID"
-                  defaultValue={(shoot as any)?.google_calendar_id || ''}
-                  className="h-8 text-xs"
-                  onChange={(e) => {
-                    toggleSetting("google_calendar_id", e.target.value);
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Timezone */}
-            <div className="border rounded-lg p-3.5 space-y-3">
-              <div className="text-sm font-medium">Timezone</div>
-              <div className="space-y-2">
-                <Label htmlFor="timezone" className="text-xs">Timezone</Label>
-                <Select
-                  defaultValue={(shoot as any)?.timezone || 'America/New_York'}
-                  onValueChange={(value) => toggleSetting("timezone", value)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
-                    <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
-                    <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
-                    <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 

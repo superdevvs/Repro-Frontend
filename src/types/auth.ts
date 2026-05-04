@@ -147,7 +147,7 @@ export interface LinkedAccountSummary {
   linkId?: string | number;
 }
 
-export interface LinkedOwnerSummary {
+export interface LinkedClientSummary {
   id: string;
   name: string;
   email: string;
@@ -161,6 +161,7 @@ export interface LinkedOwnerSummary {
   linkDirection?: 'incoming' | 'outgoing';
 }
 
+export type LinkedOwnerSummary = LinkedClientSummary;
 export type LinkedAccount = AccountLinkRecord;
 
 export interface SharedData {
@@ -196,6 +197,22 @@ export interface PaymentData {
   };
 }
 
+export interface SharedInvoiceData {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  amountPaid: number;
+  balanceDue: number;
+  status: string;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  created_at?: string | null;
+  shoot?: {
+    id: string;
+    address: string;
+  } | null;
+}
+
 export interface ClientSharedShoot {
   id: string;
   address: string;
@@ -211,19 +228,29 @@ export interface ClientSharedOwnerData {
   totalSpent: number;
   properties: PropertyData[];
   paymentHistory: PaymentData[];
+  invoiceHistory: SharedInvoiceData[];
   lastActivity: string | null;
   sharedShoots: ClientSharedShoot[];
 }
 
+export type OwnerSharedClientData = ClientSharedOwnerData;
+
 export interface LinkedSharedVisibilityResponse {
   hasLinkedAccounts: boolean;
-  linkedAccounts: LinkedOwnerSummary[];
+  linkedAccounts: LinkedClientSummary[];
 }
 
 export interface ClientSharedDataResponse {
-  owner: LinkedOwnerSummary;
+  owner?: LinkedOwnerSummary;
+  client?: LinkedClientSummary;
   link: AccountLinkRecord;
   sharedData: ClientSharedOwnerData;
+}
+
+export interface OwnerSharedClientDataResponse {
+  client: LinkedClientSummary;
+  link: AccountLinkRecord;
+  sharedData: OwnerSharedClientData;
 }
 
 export interface AuthSession {

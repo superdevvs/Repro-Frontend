@@ -55,7 +55,7 @@ interface Request {
     id: string;
     name: string;
   };
-  status: 'open' | 'in-progress' | 'resolved';
+  status: 'open' | 'in-progress' | 'resolved' | 'dismissed';
   note: string;
   createdAt: string;
   updatedAt: string;
@@ -245,10 +245,14 @@ export function ShootRequestManager({
   // Filter requests based on role
   const visibleRequests = useMemo(() => {
     let filtered = requests.filter(request => {
+      if (request.status === 'dismissed') return false;
       if (isAdmin) return true;
       if (isClient) {
-        const currentUserId = localStorage.getItem('userId') || '';
-        return request.raisedBy.id === currentUserId;
+        const currentUserId = String(user?.id ?? localStorage.getItem('userId') ?? '');
+        const currentUserName = String(user?.name ?? '');
+        return request.raisedBy.id === currentUserId
+          || request.raisedBy.name === currentUserName
+          || request.raisedBy.role === 'client';
       }
       if (isEditor) {
         return request.assignedToRole === 'editor';
@@ -290,7 +294,7 @@ export function ShootRequestManager({
         case 'oldest':
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         case 'status': {
-          const statusOrder = { 'open': 3, 'in-progress': 2, 'resolved': 1 };
+          const statusOrder: Record<Request['status'], number> = { open: 4, 'in-progress': 3, resolved: 2, dismissed: 1 };
           return statusOrder[b.status] - statusOrder[a.status];
         }
         default:
@@ -299,7 +303,7 @@ export function ShootRequestManager({
     });
 
     return filtered;
-  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isClient, isEditor, isPhotographer]);
+  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isClient, isEditor, isPhotographer, user?.id, user?.name]);
 
   // Create request - send all selected photos in one request using mediaIds array
   const handleCreateRequest = async () => {
@@ -355,6 +359,10 @@ export function ShootRequestManager({
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to create request');
       }
+      const json = await res.json().catch(() => ({}));
+      if (json.data) {
+        setRequests((prev) => [json.data, ...prev.filter((request) => request.id !== json.data.id)]);
+      }
       
       toast({
         title: 'Success',
@@ -370,8 +378,6 @@ export function ShootRequestManager({
       resetCreateForm();
       setCreateDialogOpen(false);
       
-      // Refresh requests
-      onIssueUpdate();
     } catch (error) {
       console.error('Error creating request:', error);
       toast({
@@ -387,8 +393,12 @@ export function ShootRequestManager({
     void handleUpdateStatus(requestId, 'resolved');
   };
 
+  const handleDismissResolved = (requestId: string) => {
+    void handleUpdateStatus(requestId, 'dismissed');
+  };
+
   // Update request status
-  const handleUpdateStatus = async (requestId: string, newStatus: 'open' | 'in-progress' | 'resolved') => {
+  const handleUpdateStatus = async (requestId: string, newStatus: 'open' | 'in-progress' | 'resolved' | 'dismissed') => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/issues/${requestId}`, {
@@ -413,7 +423,13 @@ export function ShootRequestManager({
         );
       }
       
-      if (newStatus === 'resolved') {
+      if (newStatus === 'dismissed') {
+        setRequests((prev) => prev.filter((request) => request.id !== requestId));
+        toast({
+          title: 'Request dismissed',
+          description: 'The resolved request has been closed.',
+        });
+      } else if (newStatus === 'resolved') {
         toast({
           title: "Request Resolved",
           description: "The request has been marked as resolved.",
@@ -656,15 +672,27 @@ export function ShootRequestManager({
                           </div>
 
                           <div className="flex items-center gap-2 pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                              onClick={() => handleMarkResolved(request.id)}
-                            >
-                              <Check className="h-3 w-3 mr-1" />
-                              Mark Resolved
-                            </Button>
+                            {request.status === 'resolved' ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                                onClick={() => handleDismissResolved(request.id)}
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Dismiss
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                                onClick={() => handleMarkResolved(request.id)}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Mark Resolved
+                              </Button>
+                            )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button

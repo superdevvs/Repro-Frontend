@@ -2,8 +2,10 @@ import { API_BASE_URL } from '@/config/env';
 import type {
   AccountLinkRecord,
   ClientSharedDataResponse,
+  LinkedClientSummary,
   LinkedOwnerSummary,
   LinkedSharedVisibilityResponse,
+  OwnerSharedClientDataResponse,
   SharedDetails,
 } from '@/types/auth';
 
@@ -206,24 +208,35 @@ export async function fetchLinkedSharedVisibility(signal?: AbortSignal): Promise
   return parseJson<LinkedSharedVisibilityResponse>(response);
 }
 
-export async function fetchMyLinkedOwners(signal?: AbortSignal): Promise<{ linkedAccounts: LinkedOwnerSummary[]; total: number }> {
+export async function fetchMyLinkedClients(signal?: AbortSignal): Promise<{ linkedAccounts: LinkedClientSummary[]; total: number }> {
   const response = await fetch(`${API_BASE_URL}/api/account-links/my-linked-accounts`, {
     headers: createHeaders(),
     signal,
   });
 
-  return parseJson<{ linkedAccounts: LinkedOwnerSummary[]; total: number }>(response);
+  return parseJson<{ linkedAccounts: LinkedClientSummary[]; total: number }>(response);
+}
+
+export async function fetchMyLinkedOwners(signal?: AbortSignal): Promise<{ linkedAccounts: LinkedOwnerSummary[]; total: number }> {
+  return fetchMyLinkedClients(signal);
+}
+
+export async function fetchMyLinkedClientSharedData(
+  clientId: string,
+  signal?: AbortSignal,
+): Promise<OwnerSharedClientDataResponse> {
+  const query = new URLSearchParams({ clientId });
+  const response = await fetch(`${API_BASE_URL}/api/account-links/my-shared-data?${query}`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<OwnerSharedClientDataResponse>(response);
 }
 
 export async function fetchMySharedData(
   ownerId: string,
   signal?: AbortSignal,
 ): Promise<ClientSharedDataResponse> {
-  const query = new URLSearchParams({ ownerId });
-  const response = await fetch(`${API_BASE_URL}/api/account-links/my-shared-data?${query}`, {
-    headers: createHeaders(),
-    signal,
-  });
-
-  return parseJson<ClientSharedDataResponse>(response);
+  return fetchMyLinkedClientSharedData(ownerId, signal) as Promise<ClientSharedDataResponse>;
 }

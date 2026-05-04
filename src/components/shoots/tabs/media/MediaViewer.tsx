@@ -616,7 +616,6 @@ export function MediaViewer({
         body: JSON.stringify({
           note: flagReason.trim(),
           mediaId: currentFile.id,
-          assignedToRole: 'editor', // Auto-assign to editor for image corrections
         }),
       });
 
@@ -629,7 +628,6 @@ export function MediaViewer({
       setShowRequestComposer(false);
       setFlagReason('');
       setRequestRefreshKey((current) => current + 1);
-      onShootUpdate?.();
       triggerEditingRequestsRefresh();
       triggerDashboardOverviewRefresh();
       triggerShootDetailRefresh(shoot.id);

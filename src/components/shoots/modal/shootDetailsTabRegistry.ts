@@ -27,8 +27,8 @@ const SHOOT_DETAILS_TAB_REGISTRY: ShootDetailsTabDefinition[] = [
   {
     id: 'settings',
     label: 'Settings',
-    isVisible: ({ isAdmin, isRep, isRequestedStatus }) =>
-      !isRequestedStatus && (isAdmin || isRep),
+    isVisible: ({ isAdmin, isRep, isClient, isRequestedStatus }) =>
+      !isRequestedStatus && (isAdmin || isRep || isClient),
   },
   {
     id: 'activity',

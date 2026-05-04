@@ -75,7 +75,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const permission = usePermission();
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const isEditingManager = role === 'editing_manager';
-  const canViewShared = role === 'client' && linkedSharedVisibility.data.hasLinkedAccounts;
+  const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
   
   // Define permissions for each section
   const dashboardPermission = permission.forResource('dashboard');
@@ -155,7 +155,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
     };
   }, [isCollapsed, measureActiveIndicator]);
 
-  if (permission.isLoading || (role === 'client' && linkedSharedVisibility.loading)) {
+  if (permission.isLoading || linkedSharedVisibility.loading) {
     return <SidebarLinksSkeleton isCollapsed={isCollapsed} />;
   }
 

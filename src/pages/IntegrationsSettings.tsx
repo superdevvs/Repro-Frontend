@@ -16,7 +16,7 @@ import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2, CalendarSync } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -194,13 +194,6 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
 export const IntegrationsSettingsContent = () => {
   const { toast } = useToast();
 
-  const [googleCalendarOverview, setGoogleCalendarOverview] = useState<{
-    available: boolean;
-    redirect_uri?: string | null;
-    connected_photographers_count: number;
-    synced_events_count: number;
-  } | null>(null);
-
   // Zillow/Bridge Settings
   const [zillowSettings, setZillowSettings] = useState({
     clientId: '',
@@ -257,14 +250,13 @@ export const IntegrationsSettingsContent = () => {
     try {
       // Try to load from database settings first
       try {
-        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes, googleCalendarRes] = await Promise.all([
+        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes] = await Promise.all([
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow.address_overrides')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.bright_mls')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.iguide')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.dropbox')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.mmm')).catch(() => null),
-          apiClient.get(API_ROUTES.googleCalendar.adminOverview).catch(() => null),
         ]);
 
         if (zillowRes?.data?.success && zillowRes.data.data?.value) {
@@ -291,9 +283,6 @@ export const IntegrationsSettingsContent = () => {
           setMmmSettings(normalizeMmmSettings(mmmRes.data.data.value));
         }
 
-        if (googleCalendarRes?.data?.success && googleCalendarRes.data.data) {
-          setGoogleCalendarOverview(googleCalendarRes.data.data);
-        }
       } catch (err) {
         console.warn('Could not load settings from database, using defaults');
       }
@@ -544,7 +533,7 @@ export const IntegrationsSettingsContent = () => {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="zillow" className="w-full">
-            <TabsList className="grid w-full max-w-5xl grid-cols-6">
+            <TabsList className="grid w-full max-w-5xl grid-cols-5">
               <TabsTrigger value="dropbox">
                 <Upload className="mr-2 h-4 w-4" />
                 Dropbox
@@ -564,10 +553,6 @@ export const IntegrationsSettingsContent = () => {
               <TabsTrigger value="mmm">
                 <Building2 className="mr-2 h-4 w-4" />
                 MMM
-              </TabsTrigger>
-              <TabsTrigger value="google_calendar">
-                <CalendarSync className="mr-2 h-4 w-4" />
-                Google Calendar
               </TabsTrigger>
             </TabsList>
 
@@ -1422,48 +1407,6 @@ export const IntegrationsSettingsContent = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="google_calendar" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Google Calendar OAuth Sync</CardTitle>
-                  <CardDescription>
-                    Photographer-managed one-way shoot sync from REPro to each connected photographer&apos;s primary Google Calendar.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">OAuth Config</p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {googleCalendarOverview?.available ? 'Configured' : 'Not Configured'}
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">Connected Photographers</p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {googleCalendarOverview?.connected_photographers_count ?? 0}
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">Synced Events</p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {googleCalendarOverview?.synced_events_count ?? 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-md bg-muted p-4 space-y-2">
-                    <p className="text-sm font-medium">How it works</p>
-                    <p className="text-sm text-muted-foreground">
-                      Photographers connect their own Google account from Photographer Account. Admins do not connect a shared company calendar here.
-                    </p>
-                    <p className="text-xs text-muted-foreground break-all">
-                      Redirect URI: {googleCalendarOverview?.redirect_uri || 'Not available'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
 
           <div className="flex justify-end gap-4 pt-6">

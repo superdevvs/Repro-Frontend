@@ -56,11 +56,15 @@ const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
 
         try {
           video.currentTime = Math.max(0, safeTime);
+          if (safeTime === 0) {
+            setReady(true);
+          }
         } catch {
           setReady(true);
         }
       }}
       onLoadedData={() => setReady(true)}
+      onCanPlay={() => setReady(true)}
       onSeeked={() => setReady(true)}
       onError={() => setFailed(true)}
     />

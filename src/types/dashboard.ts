@@ -173,7 +173,8 @@ export interface DashboardIssueItem {
 export interface DashboardClientRequest {
   id: string;
   note: string;
-  status: 'open' | 'in-progress' | 'in_progress' | 'resolved';
+  status: 'open' | 'in-progress' | 'in_progress' | 'resolved' | 'dismissed';
+
   shootId: string | number;
   shoot?: {
     id: number | string;

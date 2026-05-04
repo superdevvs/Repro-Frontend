@@ -12,7 +12,7 @@ export const useMobileMenu = () => {
   const { role, logout } = useAuth();
   const permission = usePermission();
   const linkedSharedVisibility = useLinkedSharedVisibility();
-  const canViewShared = role === 'client' && linkedSharedVisibility.data.hasLinkedAccounts;
+  const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

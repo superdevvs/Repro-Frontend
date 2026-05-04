@@ -50,7 +50,7 @@ const HISTORY_PAGE_SIZE = 8;
 
 const statusToSeverity = (status?: string | null): Severity => {
   const normalized = (status || '').toLowerCase();
-  if (normalized === 'resolved') return 'low';
+  if (normalized === 'resolved' || normalized === 'dismissed') return 'low';
   if (normalized === 'in-progress' || normalized === 'in_progress') return 'medium';
   return 'high';
 };
@@ -58,7 +58,7 @@ const statusToSeverity = (status?: string | null): Severity => {
 const normalizeStatus = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
   if (normalized === 'in_progress') return 'in-progress';
-  if (normalized === 'resolved' || normalized === 'in-progress' || normalized === 'open') {
+  if (normalized === 'resolved' || normalized === 'dismissed' || normalized === 'in-progress' || normalized === 'open') {
     return normalized;
   }
   return 'open';
@@ -155,6 +155,57 @@ export const RequestManagerModal: React.FC = () => {
     }
   };
 
+  const handleDismissResolved = async (request: DashboardClientRequest) => {
+    const shootId = request.shootId || request.shoot?.id;
+    if (!shootId) {
+      toast({
+        title: 'Shoot unavailable',
+        description: 'This request is no longer linked to an active shoot.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const requestId = String(request.id);
+    setUpdatingRequestId(requestId);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/issues/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ status: 'dismissed' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to dismiss request');
+      }
+
+      updateRequest(requestId, {
+        status: 'dismissed',
+        updatedAt: new Date().toISOString(),
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
+      }
+      toast({
+        title: 'Request dismissed',
+        description: 'The resolved request has been closed.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Unable to dismiss request',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  };
+
   const handleNotifyConcerned = (recipient: 'photographer' | 'editor' | 'management') => {
     const recipientName = recipient === 'photographer' ? 'Photographer' : 
                           recipient === 'editor' ? 'Editor' : 
@@ -169,7 +220,7 @@ export const RequestManagerModal: React.FC = () => {
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter((request) => {
       const shootId = request.shootId || request.shoot?.id;
-      return Boolean(shootId);
+      return Boolean(shootId) && normalizeStatus(request.status) !== 'dismissed';
     });
 
     // Apply search filter
@@ -210,7 +261,7 @@ export const RequestManagerModal: React.FC = () => {
   }, [requests, searchQuery, severityFilter, sortOption]);
 
   const activeRequests = useMemo(
-    () => filteredAndSortedRequests.filter((request) => normalizeStatus(request.status) !== 'resolved'),
+    () => filteredAndSortedRequests.filter((request) => !['resolved', 'dismissed'].includes(normalizeStatus(request.status))),
     [filteredAndSortedRequests],
   );
 
@@ -443,6 +494,21 @@ export const RequestManagerModal: React.FC = () => {
                           >
                             <Check className="h-3 w-3 mr-1" />
                             {updatingRequestId === requestId ? 'Resolving...' : 'Mark Resolved'}
+                          </Button>
+                        )}
+                        {isResolved && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                            disabled={updatingRequestId === requestId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDismissResolved(request);
+                            }}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            {updatingRequestId === requestId ? 'Closing...' : 'Dismiss'}
                           </Button>
                         )}
                         <DropdownMenu>

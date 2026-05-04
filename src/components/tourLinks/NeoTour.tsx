@@ -11,6 +11,7 @@ import {
   User, Thermometer, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users
 } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
+import { PropertyInfoSummary } from './PropertyInfoSummary';
 
 interface ShootData {
   id: number;
@@ -26,11 +27,23 @@ interface ShootData {
 
 interface PropertyDetails {
   beds?: number;
+  bedrooms?: number;
   baths?: number;
+  bathrooms?: number;
   sqft?: number;
+  squareFeet?: number;
+  square_feet?: number;
   year_built?: number;
   price?: string;
+  lot_size?: string | number;
+  lotSize?: string | number;
+  mls_id?: string | number;
+  mlsId?: string | number;
   description?: string;
+  listing_type?: string;
+  listingType?: string;
+  property_status?: string;
+  propertyStatus?: string;
   building?: Array<{ bedrooms?: number; baths?: number }>;
   areas?: Array<{ areaSquareFeet?: number; type?: string }>;
 }
@@ -168,10 +181,12 @@ export function NeoTour() {
     fetchData();
   }, []);
 
-  const getBeds = () => propertyDetails?.beds || propertyDetails?.building?.[0]?.bedrooms || null;
-  const getBaths = () => propertyDetails?.baths || propertyDetails?.building?.[0]?.baths || null;
+  const getBeds = () => propertyDetails?.beds || propertyDetails?.bedrooms || propertyDetails?.building?.[0]?.bedrooms || null;
+  const getBaths = () => propertyDetails?.baths || propertyDetails?.bathrooms || propertyDetails?.building?.[0]?.baths || null;
   const getSqft = () => {
     if (propertyDetails?.sqft) return propertyDetails.sqft;
+    if (propertyDetails?.squareFeet) return propertyDetails.squareFeet;
+    if (propertyDetails?.square_feet) return propertyDetails.square_feet;
     const area = propertyDetails?.areas?.find(a => a.type?.includes('Finished') || a.type?.includes('Building'));
     return area?.areaSquareFeet || null;
   };
@@ -568,6 +583,8 @@ export function NeoTour() {
           <ChevronDown className="w-8 h-8 text-blue-400" />
         </motion.div>
       </section>
+
+      <PropertyInfoSummary propertyDetails={propertyDetails} variant="neo" />
 
       {/* Image Gallery Section */}
       {photos.length > 0 && (

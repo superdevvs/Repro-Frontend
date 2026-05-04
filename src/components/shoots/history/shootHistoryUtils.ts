@@ -230,6 +230,12 @@ export const getFileWorkflowStage = (file?: ShootFileData | null): string => {
   return String(file?.workflow_stage ?? file?.workflowStage ?? '').toLowerCase()
 }
 
+const hasEditedPreviewStage = (file?: ShootFileData | null): boolean =>
+  /(verified|completed|edited|review|ready|delivered)/.test(getFileWorkflowStage(file))
+
+const hasRawPreviewStage = (file?: ShootFileData | null): boolean =>
+  /(raw|uploaded|capture)/.test(getFileWorkflowStage(file))
+
 export const resolveShootThumbnail = (
   shoot: ShootData,
   preference: ShootThumbnailPreference = 'default',
@@ -252,9 +258,10 @@ export const resolveShootThumbnail = (
 
   const files = (shoot.files ?? []).filter((file) => !(file.is_hidden ?? false))
   const preferredFile =
+    files.find((file) => (file.is_cover || file.isCover) && hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
+    files.find((file) => hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
     files.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => /(raw|uploaded|capture)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => /(verified|completed|edited|review|ready|delivered)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file, preference)) ||
+    files.find((file) => hasRawPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
     files.find((file) => getFilePreviewUrl(file, preference))
 
   return getFilePreviewUrl(preferredFile, preference) || heroPreview

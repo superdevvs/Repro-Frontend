@@ -116,8 +116,8 @@ export function useShootTourPropertyEditor({
     setPropertyStatus(normalizedPropertyValues.propertyStatus)
   }, [normalizedPropertyValues])
 
-  const savePropertyField = async (field: string, value: string) => {
-    if (!canEditPropertyInfo) return
+  const savePropertyField = async (field: string, value: string): Promise<boolean> => {
+    if (!canEditPropertyInfo) return false
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
@@ -138,8 +138,10 @@ export function useShootTourPropertyEditor({
         throw new Error(errorData.message || 'Failed to save')
       }
       onShootUpdate()
+      return true
     } catch (err: unknown) {
       toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save property info.'), variant: 'destructive' })
+      return false
     }
   }
 
@@ -230,7 +232,7 @@ export function useShootTourPropertyEditor({
   }
 
   const handleGenerateDescription = async () => {
-    if (!isAdmin) return
+    if (!canEditPropertyInfo) return
     setIsGeneratingDescription(true)
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
@@ -265,9 +267,10 @@ export function useShootTourPropertyEditor({
     if (!canEditPropertyInfo) return
     setIsSavingDescription(true)
     try {
-      await savePropertyField('property_description', propertyDescription)
-      toast({ title: 'Saved', description: 'Property description updated successfully.' })
-      onShootUpdate()
+      const saved = await savePropertyField('property_description', propertyDescription)
+      if (saved) {
+        toast({ title: 'Saved', description: 'Property description updated successfully.' })
+      }
     } finally {
       setIsSavingDescription(false)
     }

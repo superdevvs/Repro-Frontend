@@ -125,25 +125,42 @@ export const resolveClientDeliveredAssetUrl = (item: unknown) => {
   }
 
   const asset = item as Record<string, unknown>;
-  const candidates = [
-    asset.thumbnail,
-    asset.thumbnail_url,
-    asset.thumbnail_path,
-    asset.thumb,
-    asset.thumb_url,
-    asset.web_url,
-    asset.web_path,
-    asset.medium_url,
-    asset.medium,
-    asset.large_url,
-    asset.large,
-    asset.placeholder_url,
-    asset.placeholder_path,
-    asset.url,
-    asset.path,
-    asset.original_url,
-    asset.original,
-  ];
+  const usesWatermark = Boolean(asset.uses_watermark ?? asset.usesWatermark);
+  const candidates = usesWatermark
+    ? [
+        asset.watermarked_thumbnail_path,
+        asset.watermarked_web_path,
+        asset.watermarked_placeholder_path,
+        asset.thumbnail,
+        asset.thumbnail_url,
+        asset.thumb,
+        asset.thumb_url,
+        asset.web_url,
+        asset.medium_url,
+        asset.medium,
+        asset.large_url,
+        asset.large,
+        asset.placeholder_url,
+      ]
+    : [
+        asset.thumbnail,
+        asset.thumbnail_url,
+        asset.thumbnail_path,
+        asset.thumb,
+        asset.thumb_url,
+        asset.web_url,
+        asset.web_path,
+        asset.medium_url,
+        asset.medium,
+        asset.large_url,
+        asset.large,
+        asset.placeholder_url,
+        asset.placeholder_path,
+        asset.url,
+        asset.path,
+        asset.original_url,
+        asset.original,
+      ];
 
   for (const candidate of candidates) {
     if (typeof candidate !== "string") {

@@ -343,14 +343,11 @@ const ShootDetails: React.FC = () => {
 
       const isQueued = res.status === 202;
 
-      toast({
-        title: isQueued ? 'Finalize started' : 'Success',
-        description: isQueued
-          ? 'Finalize started in background. You can continue working.'
-          : 'Shoot finalized and delivered',
-      });
-
       if (!isQueued) {
+        toast({
+          title: 'Success',
+          description: 'Shoot finalized and delivered',
+        });
         loadShoot();
         return;
       }

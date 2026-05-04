@@ -251,7 +251,7 @@ export function ShootDetailsModalBody({
                   </React.Suspense>
                 </TabsContent>
               )}
-              {(isAdmin || isRep) && (
+              {(isAdmin || isRep || isClient) && (
                 <TabsContent value="settings" className="mt-0">
                   <ShootDetailsSettingsTab
                     shoot={shoot}
