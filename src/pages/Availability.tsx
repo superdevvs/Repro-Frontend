@@ -14,7 +14,6 @@ import {
   subMonths,
 } from "date-fns";
 import { Ban, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -504,7 +503,7 @@ export default function Availability() {
   };
 
   return (
-    <DashboardLayout className={cn("!min-h-0", !isMobile && "!overflow-hidden")}>
+    <>
       <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
         <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "p-3 sm:p-4 pb-6" : "h-full p-6 overflow-hidden")}>
           {isMobile ? (
@@ -921,6 +920,6 @@ export default function Availability() {
           }}
         />
       )}
-    </DashboardLayout>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import React from "react";
+import { Camera, CheckCircle2, KanbanSquare, MessageCircle, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
@@ -48,26 +49,31 @@ export const AdminDashboardView = ({
     {
       id: "shoots",
       label: "Shoots",
+      icon: Camera,
       content: renderShootsTabsCard(),
     },
     {
       id: "completed",
       label: "Completed",
+      icon: CheckCircle2,
       content: renderCompletedShootsCard(),
     },
     {
       id: "assign",
       label: "Assign",
+      icon: Users,
       content: renderAssignPhotographersCard(),
     },
     {
       id: "requests",
       label: "Requests",
+      icon: MessageCircle,
       content: renderPendingReviewsCard(),
     },
     {
       id: "pipeline",
       label: "Pipeline",
+      icon: KanbanSquare,
       content: renderPipelineSection(),
     },
   ] as const;
@@ -110,15 +116,16 @@ export const AdminDashboardView = ({
         onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
         className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
       >
-        <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: "-15px" }}>
+        <div className="sticky top-[-0.75rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4" style={{ marginLeft: "-15px" }}>
           <div className="overflow-x-auto hidden-scrollbar">
-            <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+            <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-background/80 pl-1.5 pr-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/70">
               {mobileTabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
                   className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
                 >
+                  <tab.icon className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {tab.label}
                 </TabsTrigger>
               ))}

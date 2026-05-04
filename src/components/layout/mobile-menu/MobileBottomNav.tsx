@@ -16,7 +16,8 @@ import {
   TicketIcon,
   MessageSquare,
   Link2,
-  MoreHorizontal
+  MoreHorizontal,
+  Plus
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
@@ -29,8 +30,22 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
   const { theme } = useTheme();
   const isLightMode = theme === 'light';
 
-  // Only show the first 5 items in the bottom nav
-  const navItems = filteredItems.slice(0, 5);
+  const dashboardItem = filteredItems.find((item) => item.to === '/dashboard');
+  const shootsItem = filteredItems.find((item) => item.to === '/shoot-history');
+  const bookItem = filteredItems.find((item) => item.to === '/book-shoot');
+  const availabilityItem = filteredItems.find((item) => item.to === '/availability');
+  const centerItem = bookItem
+    ? {
+        ...bookItem,
+        label: 'New Shoot',
+      }
+    : null;
+  const navItems = [
+    dashboardItem,
+    shootsItem,
+    centerItem,
+    availabilityItem,
+  ];
 
   // Function to render the correct icon based on the string name
   const renderIcon = (iconName: string, isActive: boolean) => {
@@ -70,54 +85,63 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
   return (
     <motion.div 
       className={cn(
-        "fixed left-0 right-0 -bottom-[2px] z-50 px-1 pt-2",
+        "fixed left-0 right-0 -bottom-[2px] z-50 px-1 pt-1",
         isLightMode 
-          ? "bg-white/80 backdrop-blur-md border-t border-gray-200 shadow-sm"
-          : "bg-background/50 backdrop-blur-xl border-t border-white/10 shadow-lg"
+          ? "bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm"
+          : "bg-background/80 backdrop-blur-xl border-t border-white/10 shadow-lg"
       )}
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
-      <nav className="flex justify-around items-center max-w-md mx-auto">
-        {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={cn(
-              "flex flex-col items-center justify-center p-1.5 rounded-lg transition-colors",
-              "text-xs",
-              item.isActive
-                ? isLightMode
-                  ? "text-primary bg-primary/5"
-                  : "text-primary bg-primary/20"
-                : isLightMode
-                ? "text-gray-600 hover:text-primary hover:bg-primary/5"
-                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-            )}
-          >
-            {renderIcon(item.icon, item.isActive)}
-            <span className="text-[10px] font-medium">{item.label}</span>
-          </Link>
-        ))}
+      <nav className="grid grid-cols-5 items-end max-w-md mx-auto">
+        {navItems.map((item, index) => {
+          if (!item) {
+            return <div key={`empty-${index}`} />;
+          }
 
-        {/* More button to open full menu */}
+          const isCenter = index === 2;
+
+          return (
+            <Link
+              key={`${item.to}-${item.label}`}
+              to={item.to}
+              className={cn(
+                "flex flex-col items-center justify-end gap-1 rounded-xl px-1 py-0.5 text-xs transition-colors",
+                item.isActive
+                  ? "text-primary"
+                  : isLightMode
+                  ? "text-gray-600 hover:text-primary"
+                  : "text-muted-foreground hover:text-primary"
+              )}
+            >
+              {isCenter ? (
+                <span className="-mt-4 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+                  <Plus className="h-5 w-5" aria-hidden="true" />
+                </span>
+              ) : (
+                renderIcon(item.icon, item.isActive)
+              )}
+              <span className="text-[10px] font-medium leading-none">{item.label}</span>
+            </Link>
+          );
+        })}
+
         <button
           onClick={toggleMenu}
           className={cn(
-            "flex flex-col items-center justify-center p-1.5 rounded-lg transition-colors",
-            "text-xs",
+            "flex flex-col items-center justify-end gap-1 rounded-xl px-1 py-0.5 text-xs transition-colors",
             isLightMode
-              ? "text-gray-600 hover:text-primary hover:bg-primary/5"
-              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+              ? "text-gray-600 hover:text-primary"
+              : "text-muted-foreground hover:text-primary"
           )}
         >
           <MoreHorizontal className={cn(
-            "h-5 w-5 mb-1",
+            "h-5 w-5",
             isLightMode ? "text-gray-600" : "text-muted-foreground"
           )} />
-          <span className="text-[10px] font-medium">More</span>
+          <span className="text-[10px] font-medium leading-none">More</span>
         </button>
       </nav>
     </motion.div>
