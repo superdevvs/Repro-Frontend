@@ -74,6 +74,22 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  const text = await response.text();
+  if (!text.trim()) {
+    return {} as T;
+  }
+
+  return JSON.parse(text) as T;
+};
+
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException && error.name === 'AbortError';
+
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
   if (!media) return undefined;
   return {
@@ -1080,9 +1096,9 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error('Failed to load shoots from server');
           }
 
-          const scheduledJson = await scheduledResponse.json();
-          const completedJson = await completedResponse.json();
-          const deliveredJson = await deliveredResponse.json();
+          const scheduledJson = await parseJsonResponse<any>(scheduledResponse);
+          const completedJson = await parseJsonResponse<any>(completedResponse);
+          const deliveredJson = await parseJsonResponse<any>(deliveredResponse);
 
           const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
           const completedRecords = Array.isArray(completedJson.data) ? completedJson.data : [];
@@ -1133,8 +1149,8 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error('Failed to load shoots from server');
           }
 
-          const scheduledJson = await scheduledResponse.json();
-          const completedJson = await completedResponse.json();
+          const scheduledJson = await parseJsonResponse<any>(scheduledResponse);
+          const completedJson = await parseJsonResponse<any>(completedResponse);
           
           const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
           const completedRecords = Array.isArray(completedJson.data) ? completedJson.data : [];
@@ -1193,6 +1209,13 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
         );
 
+        if (
+          signal?.aborted ||
+          clientTabResponses.every((result) => 'error' in result && isAbortError(result.error))
+        ) {
+          return [];
+        }
+
         if (clientTabResponses.some((result) =>
           'response' in result && (result.response.status === 401 || result.response.status === 419)
         )) {
@@ -1219,7 +1242,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         const clientTabJsonEntries = await Promise.all(
-          successfulClientTabResponses.map(async ({ tab, response }) => [tab, await response.json()] as const),
+          successfulClientTabResponses.map(async ({ tab, response }) => [tab, await parseJsonResponse<any>(response)] as const),
         );
         const clientTabJson = Object.fromEntries(clientTabJsonEntries) as Partial<
           Record<'scheduled' | 'completed' | 'delivered', any>
@@ -1288,7 +1311,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error(errorMessage);
         }
 
-        const json = await response.json();
+        const json = await parseJsonResponse<any>(response);
         const records = Array.isArray(json.data) ? json.data : [];
         allShoots = applyFallbackMedia(records.map(transformShootFromApi));
         
