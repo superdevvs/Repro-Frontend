@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -56,7 +57,13 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { getCategorySpecialtyId } from "@/utils/photographerSpecialties";
-import { listAdminPhotographerEquipments, type PhotographerEquipment } from "@/services/photographerEquipmentService";
+import {
+  createAdminPhotographerEquipment,
+  equipmentStatusLabel,
+  listAdminPhotographerEquipments,
+  type PhotographerEquipment,
+  updateAdminPhotographerEquipment,
+} from "@/services/photographerEquipmentService";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -246,7 +253,16 @@ export function AccountForm({
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const [equipmentRows, setEquipmentRows] = useState<EquipmentDraftRow[]>([]);
   const [existingEquipmentOptions, setExistingEquipmentOptions] = useState<PhotographerEquipment[]>([]);
+  const [assignedEquipmentOptions, setAssignedEquipmentOptions] = useState<PhotographerEquipment[]>([]);
   const [selectedExistingEquipmentIds, setSelectedExistingEquipmentIds] = useState<string[]>([]);
+  const [equipmentManageOpen, setEquipmentManageOpen] = useState(false);
+  const [equipmentSaving, setEquipmentSaving] = useState(false);
+  const [editingEquipmentId, setEditingEquipmentId] = useState<number | null>(null);
+  const [equipmentEditValues, setEquipmentEditValues] = useState({
+    name: "",
+    serialNumber: "",
+    issueDate: "",
+  });
   const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(
     normalizeEmailHealth(initialData?.email_health),
   );
@@ -379,7 +395,10 @@ export function AccountForm({
         });
         setAvatarUrl(initialData.avatar || "");
         setEquipmentRows([]);
+        setAssignedEquipmentOptions([]);
         setSelectedExistingEquipmentIds([]);
+        setEquipmentManageOpen(false);
+        setEditingEquipmentId(null);
       } else {
         hasAutoSelectedDefaultServiceGroupRef.current = false;
         form.reset({
@@ -434,7 +453,10 @@ export function AccountForm({
 
         setAvatarUrl("");
         setEquipmentRows([]);
+        setAssignedEquipmentOptions([]);
         setSelectedExistingEquipmentIds([]);
+        setEquipmentManageOpen(false);
+        setEditingEquipmentId(null);
       }
     }
   }, [currentUser?.id, currentUser?.name, initialData, form, open, viewerRole]);
@@ -468,7 +490,7 @@ export function AccountForm({
   const isClientRole = currentRole === "client";
 
   useEffect(() => {
-    if (!open || currentRole !== "photographer" || initialData) {
+    if (!open || currentRole !== "photographer") {
       return;
     }
 
@@ -478,7 +500,124 @@ export function AccountForm({
         console.error("Failed to load unassigned equipment", error);
         setExistingEquipmentOptions([]);
       });
-  }, [currentRole, initialData, open]);
+  }, [currentRole, open]);
+
+  useEffect(() => {
+    if (!open || currentRole !== "photographer" || !initialData?.id) {
+      setAssignedEquipmentOptions([]);
+      return;
+    }
+
+    listAdminPhotographerEquipments({ photographer_id: String(initialData.id) })
+      .then(setAssignedEquipmentOptions)
+      .catch((error) => {
+        console.error("Failed to load assigned equipment", error);
+        setAssignedEquipmentOptions([]);
+      });
+  }, [currentRole, initialData?.id, open]);
+
+  const refreshPhotographerEquipment = async () => {
+    if (!initialData?.id) {
+      return;
+    }
+
+    const [assigned, all] = await Promise.all([
+      listAdminPhotographerEquipments({ photographer_id: String(initialData.id) }),
+      listAdminPhotographerEquipments(),
+    ]);
+    setAssignedEquipmentOptions(assigned);
+    setExistingEquipmentOptions(all.filter((item) => !item.photographer_id));
+  };
+
+  const handleSaveAccountEquipment = async () => {
+    if (!initialData?.id) {
+      return;
+    }
+
+    if (selectedExistingEquipmentIds.length === 0 && activeEquipmentRows.length === 0) {
+      toast({
+        title: "No equipment selected",
+        description: "Choose existing equipment or add a manual equipment row first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEquipmentSaving(true);
+    try {
+      await Promise.all(selectedExistingEquipmentIds.map((id) =>
+        updateAdminPhotographerEquipment(Number(id), {
+          photographer_id: String(initialData.id),
+        })
+      ));
+
+      for (const row of activeEquipmentRows) {
+        await createAdminPhotographerEquipment({
+          photographer_id: String(initialData.id),
+          name: row.name.trim(),
+          serial_number: row.serialNumber.trim(),
+          issue_date: row.issueDate,
+          photos: row.photos,
+        });
+      }
+
+      setEquipmentRows([]);
+      setSelectedExistingEquipmentIds([]);
+      setEquipmentManageOpen(false);
+      await refreshPhotographerEquipment();
+      toast({ title: "Equipment updated", description: "Assigned equipment is now visible to the photographer." });
+    } catch (error: any) {
+      console.error("Failed to update photographer equipment", error);
+      toast({
+        title: "Equipment update failed",
+        description: error?.response?.data?.message || "Please check the equipment details and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEquipmentSaving(false);
+    }
+  };
+
+  const openEquipmentEdit = (equipment: PhotographerEquipment) => {
+    setEditingEquipmentId(equipment.id);
+    setEquipmentEditValues({
+      name: equipment.name,
+      serialNumber: equipment.serial_number || "",
+      issueDate: equipment.issue_date || "",
+    });
+  };
+
+  const saveEquipmentEdit = async (equipmentId: number) => {
+    if (!equipmentEditValues.name.trim()) {
+      toast({
+        title: "Equipment name required",
+        description: "Enter an equipment name before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEquipmentSaving(true);
+    try {
+      await updateAdminPhotographerEquipment(equipmentId, {
+        name: equipmentEditValues.name.trim(),
+        serial_number: equipmentEditValues.serialNumber.trim(),
+        issue_date: equipmentEditValues.issueDate,
+      });
+      setEditingEquipmentId(null);
+      await refreshPhotographerEquipment();
+      toast({ title: "Equipment saved", description: "Equipment details were updated." });
+    } catch (error: any) {
+      console.error("Failed to save equipment details", error);
+      toast({
+        title: "Could not save equipment",
+        description: error?.response?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEquipmentSaving(false);
+    }
+  };
 
   const localEmailHint = React.useMemo(() => analyzeEmailInput(currentEmail || ""), [currentEmail]);
   const emailHelpState = React.useMemo(() => {
@@ -2074,9 +2213,243 @@ export function AccountForm({
                   </div>
 
                   {initialData ? (
-                    <p className="text-sm text-muted-foreground">
-                      Assigned equipments are managed from Admin Accounting.
-                    </p>
+                    <div className="space-y-3">
+                      {assignedEquipmentOptions.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No equipment is assigned to this photographer yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {assignedEquipmentOptions.map((equipment) => {
+                            const isEditingEquipment = editingEquipmentId === equipment.id;
+
+                            return (
+                              <div
+                                key={equipment.id}
+                                className="rounded-md border border-border/70 bg-background p-3"
+                              >
+                                {isEditingEquipment ? (
+                                  <div className="space-y-3">
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                      <div className="space-y-1.5">
+                                        <FormLabel>Name</FormLabel>
+                                        <Input
+                                          value={equipmentEditValues.name}
+                                          onChange={(event) => setEquipmentEditValues((current) => ({
+                                            ...current,
+                                            name: event.target.value,
+                                          }))}
+                                        />
+                                      </div>
+                                      <div className="space-y-1.5">
+                                        <FormLabel>Serial Number</FormLabel>
+                                        <Input
+                                          value={equipmentEditValues.serialNumber}
+                                          onChange={(event) => setEquipmentEditValues((current) => ({
+                                            ...current,
+                                            serialNumber: event.target.value,
+                                          }))}
+                                        />
+                                      </div>
+                                      <div className="space-y-1.5">
+                                        <FormLabel>Issue Date</FormLabel>
+                                        <Input
+                                          type="date"
+                                          value={equipmentEditValues.issueDate}
+                                          onChange={(event) => setEquipmentEditValues((current) => ({
+                                            ...current,
+                                            issueDate: event.target.value,
+                                          }))}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => saveEquipmentEdit(equipment.id)}
+                                        disabled={equipmentSaving}
+                                      >
+                                        Save Equipment
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setEditingEquipmentId(null)}
+                                        disabled={equipmentSaving}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm font-medium">{equipment.name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {equipment.serial_number ? `Serial ${equipment.serial_number}` : "No serial number"}
+                                        {equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant={equipment.status === "verified" ? "default" : equipment.status === "rejected" ? "destructive" : "outline"}>
+                                        {equipmentStatusLabel(equipment.status)}
+                                      </Badge>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openEquipmentEdit(equipment)}
+                                      >
+                                        Edit
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="rounded-md border border-border/70 bg-background p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-sm font-medium">Assign or add equipment</div>
+                            <p className="text-xs text-muted-foreground">
+                              Add company equipment here without leaving the account editor.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEquipmentManageOpen((open) => !open)}
+                          >
+                            {equipmentManageOpen ? "Hide" : "Manage Equipment"}
+                          </Button>
+                        </div>
+
+                        {equipmentManageOpen && (
+                          <div className="mt-4 space-y-4">
+                            <div className="space-y-2">
+                              <FormLabel>Assign Existing Unassigned Equipment</FormLabel>
+                              {existingEquipmentOptions.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No unassigned equipment available.</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {existingEquipmentOptions.map((equipment) => {
+                                    const id = String(equipment.id);
+                                    const active = selectedExistingEquipmentIds.includes(id);
+                                    return (
+                                      <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => setSelectedExistingEquipmentIds((ids) =>
+                                          active ? ids.filter((value) => value !== id) : [...ids, id]
+                                        )}
+                                        className={cn(
+                                          "rounded-full border px-3 py-1.5 text-sm transition",
+                                          active
+                                            ? "border-primary/40 bg-primary/10 text-primary"
+                                            : "border-border/70 bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                        )}
+                                      >
+                                        {equipment.name}{equipment.serial_number ? ` · ${equipment.serial_number}` : ""}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <FormLabel>New Equipment</FormLabel>
+                                <Button type="button" variant="outline" size="sm" onClick={addEquipmentRow}>
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add Row
+                                </Button>
+                              </div>
+                              {equipmentRows.length === 0 ? (
+                                <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                                  No new equipment rows added.
+                                </div>
+                              ) : equipmentRows.map((row, index) => (
+                                <div key={row.id} className="rounded-md border border-border/70 p-3">
+                                  <div className="mb-3 flex items-center justify-between gap-2">
+                                    <span className="text-sm font-medium">Equipment {index + 1}</span>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeEquipmentRow(row.id)}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="grid gap-3 md:grid-cols-3">
+                                    <div className="space-y-1.5">
+                                      <FormLabel>Name</FormLabel>
+                                      <Input
+                                        value={row.name}
+                                        onChange={(event) => updateEquipmentRow(row.id, { name: event.target.value })}
+                                        placeholder="Camera, iGUIDE machine"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <FormLabel>Serial Number</FormLabel>
+                                      <Input
+                                        value={row.serialNumber}
+                                        onChange={(event) => updateEquipmentRow(row.id, { serialNumber: event.target.value })}
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <FormLabel>Issue Date</FormLabel>
+                                      <Input
+                                        type="date"
+                                        value={row.issueDate}
+                                        onChange={(event) => updateEquipmentRow(row.id, { issueDate: event.target.value })}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 space-y-1.5">
+                                    <FormLabel>Admin Reference Photos</FormLabel>
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      onChange={(event) => updateEquipmentRow(row.id, {
+                                        photos: Array.from(event.target.files || []),
+                                      })}
+                                    />
+                                    {row.photos.length > 0 && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {row.photos.length} photo{row.photos.length === 1 ? "" : "s"} selected
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setEquipmentRows([]);
+                                  setSelectedExistingEquipmentIds([]);
+                                  setEquipmentManageOpen(false);
+                                }}
+                                disabled={equipmentSaving}
+                              >
+                                Cancel Equipment Changes
+                              </Button>
+                              <Button type="button" onClick={handleSaveAccountEquipment} disabled={equipmentSaving}>
+                                {equipmentSaving ? "Saving..." : "Save Equipment"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="space-y-2 rounded-md border border-border/70 bg-background p-3">

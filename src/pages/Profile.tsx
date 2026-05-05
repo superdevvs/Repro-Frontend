@@ -41,9 +41,9 @@ const Profile = () => {
     return <Navigate to="/" replace />;
   }
 
-  const requestedTab = new URLSearchParams(location.search).get('tab');
-  if (user?.role === 'photographer' && requestedTab === 'equipments') {
-    return <Navigate to="/photographer-account?tab=equipments" replace />;
+  if (user?.role === 'photographer') {
+    const search = location.search || '';
+    return <Navigate to={`/photographer-account${search}`} replace />;
   }
 
   // Determine which profile component to render based on user role

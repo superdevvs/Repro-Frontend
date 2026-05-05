@@ -601,7 +601,9 @@ const PhotographerAccount = () => {
                                   <div className="rounded-md border bg-muted/30 p-3">
                                     <div className="grid gap-3 sm:grid-cols-[1fr,auto] sm:items-end">
                                       <div className="space-y-1.5">
-                                        <FormLabel>Upload Verification Photos</FormLabel>
+                                        <label className="text-sm font-medium leading-none text-foreground">
+                                          Upload Verification Photos
+                                        </label>
                                         <Input
                                           type="file"
                                           accept="image/*"

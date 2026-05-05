@@ -523,7 +523,7 @@ export function PhotographerEquipmentWorkspace() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {equipment.photographer?.name || "Unassigned inventory"}{equipment.serial_number ? ` · Serial ${equipment.serial_number}` : ""}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                        {equipment.photographer?.name || "Unassigned equipment"}{equipment.serial_number ? ` · Serial ${equipment.serial_number}` : ""}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {equipment.purchase_date ? `Purchased ${equipment.purchase_date}` : "No purchase date"}
@@ -616,13 +616,13 @@ export function PhotographerEquipmentWorkspace() {
           <div className={financePanelOpen ? "grid gap-5 py-2 lg:grid-cols-[minmax(0,1fr)_340px]" : "grid gap-4 py-2"}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Photographer</Label>
+                <Label>Select Photographer</Label>
                 <Select value={form.photographer_id || "unassigned"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select photographer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
+                    <SelectItem value="unassigned">Select Photographer</SelectItem>
                     {photographers.map((photographer) => (
                       <SelectItem key={photographer.id} value={photographer.id}>
                         {photographer.name}
@@ -633,7 +633,7 @@ export function PhotographerEquipmentWorkspace() {
               </div>
 
               <div className="space-y-2">
-                <Label>Equipment</Label>
+                <Label>Inventory Equipment</Label>
                 {unassignedEquipments.length > 0 ? (
                   <Select
                     value={selectedExistingEquipmentId || (manualEntryOpen ? "new" : "select")}
@@ -643,7 +643,7 @@ export function PhotographerEquipmentWorkspace() {
                       <SelectValue placeholder="Choose existing equipment" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="select">Choose existing equipment</SelectItem>
+                      <SelectItem value="select">Choose from unassigned inventory</SelectItem>
                       {unassignedEquipments.map((equipment) => (
                         <SelectItem key={equipment.id} value={String(equipment.id)}>
                           {equipment.name}{equipment.serial_number ? ` - ${equipment.serial_number}` : ""}
@@ -752,13 +752,13 @@ export function PhotographerEquipmentWorkspace() {
           <div className={editFinancePanelOpen ? "grid gap-5 py-2 lg:grid-cols-[minmax(0,1fr)_340px]" : "grid gap-4 py-2"}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Photographer</Label>
+                <Label>Select Photographer</Label>
                 <Select value={editForm.photographer_id || "unassigned"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select photographer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
+                    <SelectItem value="unassigned">Select Photographer</SelectItem>
                     {photographers.map((photographer) => (
                       <SelectItem key={photographer.id} value={photographer.id}>
                         {photographer.name}
