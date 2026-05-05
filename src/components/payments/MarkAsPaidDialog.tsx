@@ -25,7 +25,7 @@ export interface MarkAsPaidPayload {
   paymentMethod: MarkAsPaidMethod;
   amount?: number;
   shootServiceIds?: string[];
-  allocationStrategy?: 'selected_services';
+  allocationStrategy?: 'oldest_unpaid' | 'selected_services';
   paymentDetails?: PaymentDetails;
   paymentDate?: string | null;
 }
@@ -38,6 +38,8 @@ interface MarkAsPaidDialogProps {
   description?: string;
   confirmLabel?: string;
   serviceItems?: NormalizedShootServiceItem[];
+  outstandingAmount?: number;
+  showAmountControls?: boolean;
 }
 
 const methodOptions: Array<{ value: MarkAsPaidMethod; label: string; helper: string }> = [
@@ -56,6 +58,8 @@ export function MarkAsPaidDialog({
   description = 'Choose a payment method and capture the details for this payment.',
   confirmLabel = 'Mark as Paid',
   serviceItems = [],
+  outstandingAmount,
+  showAmountControls = false,
 }: MarkAsPaidDialogProps) {
   const [method, setMethod] = useState<MarkAsPaidMethod>('zelle');
   const [checkNumber, setCheckNumber] = useState('');
@@ -63,6 +67,9 @@ export function MarkAsPaidDialog({
   const [notes, setNotes] = useState('');
   const [paymentScope, setPaymentScope] = useState<'full' | 'selected'>('full');
   const [selectedServiceItemIds, setSelectedServiceItemIds] = useState<string[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
+  const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const payableServiceItems = useMemo(
@@ -75,6 +82,14 @@ export function MarkAsPaidDialog({
       .reduce((sum, item) => sum + item.balanceDue, 0),
     [payableServiceItems, selectedServiceItemIds],
   );
+  const fullOutstandingAmount = useMemo(() => {
+    const explicitOutstanding = Number(outstandingAmount);
+    if (Number.isFinite(explicitOutstanding) && explicitOutstanding > 0) {
+      return explicitOutstanding;
+    }
+    return payableServiceItems.reduce((sum, item) => sum + item.balanceDue, 0);
+  }, [outstandingAmount, payableServiceItems]);
+  const activeMaxAmount = paymentScope === 'selected' ? selectedServiceAmount : fullOutstandingAmount;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,9 +99,12 @@ export function MarkAsPaidDialog({
     setNotes('');
     setPaymentScope('full');
     setSelectedServiceItemIds([]);
+    setPaymentAmount(fullOutstandingAmount);
+    setPaymentAmountInput(fullOutstandingAmount.toFixed(2));
+    setIsPartialPaymentMode(false);
     setError(null);
     setIsSubmitting(false);
-  }, [isOpen]);
+  }, [fullOutstandingAmount, isOpen]);
 
   useEffect(() => {
     if (paymentScope !== 'selected') return;
@@ -100,6 +118,22 @@ export function MarkAsPaidDialog({
     });
   }, [payableServiceItems, paymentScope]);
 
+  useEffect(() => {
+    if (!showAmountControls) return;
+    if (activeMaxAmount <= 0) {
+      setPaymentAmount(0);
+      setPaymentAmountInput('0.00');
+      setIsPartialPaymentMode(false);
+      return;
+    }
+
+    if (!isPartialPaymentMode || paymentAmount <= 0 || paymentAmount > activeMaxAmount) {
+      setPaymentAmount(activeMaxAmount);
+      setPaymentAmountInput(activeMaxAmount.toFixed(2));
+      setIsPartialPaymentMode(false);
+    }
+  }, [activeMaxAmount, isPartialPaymentMode, paymentAmount, showAmountControls]);
+
   const requiresDate = method === 'check' || method === 'ach';
   const requiresCheckNumber = method === 'check';
   const requiresNotes = method === 'other';
@@ -109,8 +143,46 @@ export function MarkAsPaidDialog({
     if (requiresDate && !paymentDate) return false;
     if (requiresNotes && !notes.trim()) return false;
     if (paymentScope === 'selected' && selectedServiceItemIds.length === 0) return false;
+    if (showAmountControls && (paymentAmount <= 0 || paymentAmount > activeMaxAmount)) return false;
     return true;
-  }, [checkNumber, paymentDate, paymentScope, requiresCheckNumber, requiresDate, requiresNotes, notes, selectedServiceItemIds.length]);
+  }, [activeMaxAmount, checkNumber, paymentAmount, paymentDate, paymentScope, requiresCheckNumber, requiresDate, requiresNotes, notes, selectedServiceItemIds.length, showAmountControls]);
+
+  const updatePaymentAmountFromInput = (value: string) => {
+    let inputValue = value.replace(/[^0-9.]/g, '');
+    const parts = inputValue.split('.');
+    if (parts.length > 2) {
+      inputValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const normalizedParts = inputValue.split('.');
+    if (normalizedParts.length === 2 && normalizedParts[1].length > 2) {
+      inputValue = `${normalizedParts[0]}.${normalizedParts[1].substring(0, 2)}`;
+    }
+
+    setPaymentAmountInput(inputValue);
+    setIsPartialPaymentMode(true);
+
+    const numericValue = parseFloat(inputValue);
+    if (!Number.isNaN(numericValue) && numericValue > 0) {
+      setPaymentAmount(Math.min(numericValue, activeMaxAmount));
+    } else {
+      setPaymentAmount(0);
+    }
+  };
+
+  const normalizePaymentAmountInput = (value: string) => {
+    const numericValue = parseFloat(value);
+    if (Number.isNaN(numericValue) || numericValue < 0.01) {
+      setPaymentAmount(activeMaxAmount);
+      setPaymentAmountInput(activeMaxAmount.toFixed(2));
+      setIsPartialPaymentMode(false);
+      return;
+    }
+
+    const clampedAmount = Math.min(numericValue, activeMaxAmount);
+    setPaymentAmount(clampedAmount);
+    setPaymentAmountInput(clampedAmount.toFixed(2));
+    setIsPartialPaymentMode(clampedAmount + 0.01 < activeMaxAmount);
+  };
 
   const handleConfirm = async () => {
     if (!canSubmit) {
@@ -131,9 +203,17 @@ export function MarkAsPaidDialog({
     try {
       await onConfirm({
         paymentMethod: method,
-        amount: paymentScope === 'selected' ? selectedServiceAmount : undefined,
+        amount: showAmountControls
+          ? paymentAmount
+          : paymentScope === 'selected'
+            ? selectedServiceAmount
+            : undefined,
         shootServiceIds: paymentScope === 'selected' ? selectedServiceItemIds : undefined,
-        allocationStrategy: paymentScope === 'selected' ? 'selected_services' : undefined,
+        allocationStrategy: paymentScope === 'selected'
+          ? 'selected_services'
+          : showAmountControls && paymentAmount + 0.01 < fullOutstandingAmount
+            ? 'oldest_unpaid'
+            : undefined,
         paymentDetails: Object.keys(details).length ? details : null,
         paymentDate: requiresDate ? paymentDate : null,
       });
@@ -235,6 +315,73 @@ export function MarkAsPaidDialog({
                     <span>${selectedServiceAmount.toFixed(2)}</span>
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {showAmountControls && activeMaxAmount > 0 && (
+            <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="manual-payment-amount" className="text-sm">Payment Amount</Label>
+                <span className="text-xs text-muted-foreground">
+                  Max ${activeMaxAmount.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="text-lg font-semibold">$</span>
+                  <Input
+                    id="manual-payment-amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmountInput}
+                    onChange={(event) => updatePaymentAmountFromInput(event.target.value)}
+                    onFocus={(event) => {
+                      event.target.select();
+                      setIsPartialPaymentMode(true);
+                    }}
+                    onBlur={(event) => normalizePaymentAmountInput(event.target.value)}
+                    className="h-10 text-lg font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    placeholder={`Enter amount up to ${activeMaxAmount.toFixed(2)}`}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:w-auto">
+                  <Button
+                    type="button"
+                    variant={!isPartialPaymentMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setPaymentAmount(activeMaxAmount);
+                      setPaymentAmountInput(activeMaxAmount.toFixed(2));
+                      setIsPartialPaymentMode(false);
+                      setError(null);
+                    }}
+                  >
+                    Full
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isPartialPaymentMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      const defaultPartial = Math.ceil(activeMaxAmount * 0.5 * 100) / 100;
+                      setPaymentAmount(defaultPartial);
+                      setPaymentAmountInput(defaultPartial.toFixed(2));
+                      setIsPartialPaymentMode(true);
+                      setError(null);
+                    }}
+                  >
+                    Partial
+                  </Button>
+                </div>
+              </div>
+              {paymentAmount > 0 && paymentAmount + 0.01 < activeMaxAmount && (
+                <p className="text-xs text-muted-foreground">
+                  Remaining after this payment:{' '}
+                  <span className="font-medium text-orange-600">
+                    ${(activeMaxAmount - paymentAmount).toFixed(2)}
+                  </span>
+                </p>
               )}
             </div>
           )}

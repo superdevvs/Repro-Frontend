@@ -60,7 +60,7 @@ type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
 type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 
 const PhotographerAccount = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const { shoots, updateShoot } = useShoots();
   const [activeTab, setActiveTab] = useState(() => {
@@ -75,6 +75,11 @@ const PhotographerAccount = () => {
   const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
   const [equipmentUploads, setEquipmentUploads] = useState<Record<number, File[]>>({});
   const [uploadingEquipmentId, setUploadingEquipmentId] = useState<number | null>(null);
+  const verificationSearchParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const expectedPhotographerId = verificationSearchParams?.get('photographer_id') || verificationSearchParams?.get('photographer');
+  const isEquipmentVerificationLink = verificationSearchParams?.get('verify') === 'equipment' || verificationSearchParams?.get('tab') === 'equipments';
+  const isWrongEquipmentVerificationAccount = isEquipmentVerificationLink
+    && (user?.role !== 'photographer' || Boolean(expectedPhotographerId && String(user?.id) !== expectedPhotographerId));
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -127,10 +132,10 @@ const PhotographerAccount = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'equipments') {
+    if (activeTab === 'equipments' && user?.role === 'photographer' && !isWrongEquipmentVerificationAccount) {
       fetchEquipments();
     }
-  }, [activeTab]);
+  }, [activeTab, isWrongEquipmentVerificationAccount, user?.role]);
 
   const handleEquipmentVerificationUpload = async (equipmentId: number) => {
     const photos = equipmentUploads[equipmentId] || [];
@@ -267,6 +272,36 @@ const PhotographerAccount = () => {
       description: 'Your profile photo has been updated successfully.',
     });
   };
+
+  if (isWrongEquipmentVerificationAccount) {
+    return (
+      <DashboardLayout>
+        <div className="container max-w-3xl py-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sign in as the assigned photographer</CardTitle>
+              <CardDescription>
+                This Verify Equipment link is for a photographer account. You are currently signed in as {user?.name || 'another user'}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please log out, then sign in with the photographer account that received the equipment verification email.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={logout}>
+                  Log Out
+                </Button>
+                <Button type="button" variant="outline" onClick={() => window.location.assign('/profile')}>
+                  Open My Profile
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

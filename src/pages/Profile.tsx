@@ -41,6 +41,12 @@ const Profile = () => {
     return <Navigate to="/" replace />;
   }
 
+  const searchParams = new URLSearchParams(location.search);
+  if (searchParams.get('tab') === 'equipments' || searchParams.get('verify') === 'equipment') {
+    const search = location.search || '?tab=equipments&verify=equipment';
+    return <Navigate to={`/photographer-account${search}`} replace />;
+  }
+
   if (user?.role === 'photographer') {
     const search = location.search || '';
     return <Navigate to={`/photographer-account${search}`} replace />;

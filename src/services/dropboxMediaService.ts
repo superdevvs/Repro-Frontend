@@ -137,6 +137,14 @@ interface UploadFilesIndividuallyConfig {
   appendFields?: (formData: FormData, file: File, index: number) => void;
 }
 
+const createUploadBatchId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 const uploadFilesIndividually = async ({
   endpoint,
   files,
@@ -152,6 +160,7 @@ const uploadFilesIndividually = async ({
   let workflowStatus: string | undefined;
   let workflowStatusChanged = false;
   const errors: MediaUploadErrorItem[] = [];
+  const uploadBatchId = files.length > 1 ? createUploadBatchId() : null;
 
   const updateProgress = () => {
     const uploadedBytes = processedBytes + Array.from(inFlightBytes.values()).reduce((sum, value) => sum + value, 0);
@@ -170,6 +179,11 @@ const uploadFilesIndividually = async ({
       const fileIndex = index + batchIndex;
       const formData = new FormData();
       formData.append('files[]', file);
+      if (uploadBatchId) {
+        formData.append('upload_batch_id', uploadBatchId);
+        formData.append('upload_batch_total', files.length.toString());
+        formData.append('upload_batch_index', fileIndex.toString());
+      }
       appendFields?.(formData, file, fileIndex);
 
       try {

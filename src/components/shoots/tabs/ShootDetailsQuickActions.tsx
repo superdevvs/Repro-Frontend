@@ -498,6 +498,8 @@ export function ShootDetailsQuickActions({
         onClose={() => setIsMarkPaidDialogOpen(false)}
         onConfirm={handleMarkPaidConfirm}
         serviceItems={paymentServiceItems}
+        outstandingAmount={Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0)}
+        showAmountControls
         title="Mark Shoot as Paid"
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"

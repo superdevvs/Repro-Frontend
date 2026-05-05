@@ -105,6 +105,14 @@ const createEquipmentDraftRow = (): EquipmentDraftRow => ({
   photos: [],
 });
 
+const formatEquipmentMoney = (amount?: number | null) => {
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) {
+    return null;
+  }
+
+  return `$${Number(amount).toFixed(2)}`;
+};
+
 // Create schema with viewer role parameter - superadmin can skip mandatory fields
 const createAccountFormSchema = (viewerRole?: string) => z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -254,6 +262,8 @@ export function AccountForm({
   const [equipmentRows, setEquipmentRows] = useState<EquipmentDraftRow[]>([]);
   const [existingEquipmentOptions, setExistingEquipmentOptions] = useState<PhotographerEquipment[]>([]);
   const [assignedEquipmentOptions, setAssignedEquipmentOptions] = useState<PhotographerEquipment[]>([]);
+  const [assignedEquipmentLoading, setAssignedEquipmentLoading] = useState(false);
+  const [assignedEquipmentError, setAssignedEquipmentError] = useState<string | null>(null);
   const [selectedExistingEquipmentIds, setSelectedExistingEquipmentIds] = useState<string[]>([]);
   const [equipmentManageOpen, setEquipmentManageOpen] = useState(false);
   const [equipmentSaving, setEquipmentSaving] = useState(false);
@@ -396,6 +406,7 @@ export function AccountForm({
         setAvatarUrl(initialData.avatar || "");
         setEquipmentRows([]);
         setAssignedEquipmentOptions([]);
+        setAssignedEquipmentError(null);
         setSelectedExistingEquipmentIds([]);
         setEquipmentManageOpen(false);
         setEditingEquipmentId(null);
@@ -454,6 +465,7 @@ export function AccountForm({
         setAvatarUrl("");
         setEquipmentRows([]);
         setAssignedEquipmentOptions([]);
+        setAssignedEquipmentError(null);
         setSelectedExistingEquipmentIds([]);
         setEquipmentManageOpen(false);
         setEditingEquipmentId(null);
@@ -505,15 +517,37 @@ export function AccountForm({
   useEffect(() => {
     if (!open || currentRole !== "photographer" || !initialData?.id) {
       setAssignedEquipmentOptions([]);
+      setAssignedEquipmentLoading(false);
+      setAssignedEquipmentError(null);
       return;
     }
 
+    let cancelled = false;
+    setAssignedEquipmentLoading(true);
+    setAssignedEquipmentError(null);
+
     listAdminPhotographerEquipments({ photographer_id: String(initialData.id) })
-      .then(setAssignedEquipmentOptions)
+      .then((items) => {
+        if (!cancelled) {
+          setAssignedEquipmentOptions(items);
+        }
+      })
       .catch((error) => {
         console.error("Failed to load assigned equipment", error);
-        setAssignedEquipmentOptions([]);
+        if (!cancelled) {
+          setAssignedEquipmentOptions([]);
+          setAssignedEquipmentError("Unable to load assigned equipment. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAssignedEquipmentLoading(false);
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentRole, initialData?.id, open]);
 
   const refreshPhotographerEquipment = async () => {
@@ -2203,6 +2237,9 @@ export function AccountForm({
                     <div className="flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-muted-foreground" />
                       <h3 className="text-sm font-semibold">Equipments</h3>
+                      {initialData && !assignedEquipmentLoading && (
+                        <Badge variant="outline">{assignedEquipmentOptions.length}</Badge>
+                      )}
                     </div>
                     {!initialData && (
                       <Button type="button" variant="outline" size="sm" onClick={addEquipmentRow}>
@@ -2214,7 +2251,16 @@ export function AccountForm({
 
                   {initialData ? (
                     <div className="space-y-3">
-                      {assignedEquipmentOptions.length === 0 ? (
+                      {assignedEquipmentLoading ? (
+                        <div className="flex items-center gap-2 rounded-md border border-dashed border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading assigned equipment...
+                        </div>
+                      ) : assignedEquipmentError ? (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-4 text-sm text-destructive">
+                          {assignedEquipmentError}
+                        </div>
+                      ) : assignedEquipmentOptions.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No equipment is assigned to this photographer yet.
                         </p>
@@ -2222,6 +2268,9 @@ export function AccountForm({
                         <div className="space-y-2">
                           {assignedEquipmentOptions.map((equipment) => {
                             const isEditingEquipment = editingEquipmentId === equipment.id;
+                            const purchaseCost = formatEquipmentMoney(equipment.purchase_cost);
+                            const referencePhotoCount = equipment.photos.filter((photo) => photo.type === "admin_reference").length;
+                            const verificationPhotoCount = equipment.photos.filter((photo) => photo.type === "photographer_verification").length;
 
                             return (
                               <div
@@ -2284,26 +2333,47 @@ export function AccountForm({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0">
-                                      <div className="truncate text-sm font-medium">{equipment.name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {equipment.serial_number ? `Serial ${equipment.serial_number}` : "No serial number"}
-                                        {equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                                  <div className="space-y-3">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium">{equipment.name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {equipment.serial_number ? `Serial ${equipment.serial_number}` : "No serial number"}
+                                          {equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Badge variant={equipment.status === "verified" ? "default" : equipment.status === "rejected" ? "destructive" : "outline"}>
+                                          {equipmentStatusLabel(equipment.status)}
+                                        </Badge>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => openEquipmentEdit(equipment)}
+                                        >
+                                          Edit
+                                        </Button>
                                       </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <Badge variant={equipment.status === "verified" ? "default" : equipment.status === "rejected" ? "destructive" : "outline"}>
-                                        {equipmentStatusLabel(equipment.status)}
-                                      </Badge>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openEquipmentEdit(equipment)}
-                                      >
-                                        Edit
-                                      </Button>
+
+                                    <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                                      <div className="rounded-md bg-muted/40 p-2">
+                                        <div className="font-medium text-foreground">Purchase</div>
+                                        <div>{equipment.purchase_date || "No purchase date"}</div>
+                                      </div>
+                                      <div className="rounded-md bg-muted/40 p-2">
+                                        <div className="font-medium text-foreground">Cost / Rate</div>
+                                        <div>{purchaseCost || "Not added"}</div>
+                                      </div>
+                                      <div className="rounded-md bg-muted/40 p-2">
+                                        <div className="font-medium text-foreground">Vendor</div>
+                                        <div>{equipment.vendor || "Not added"}</div>
+                                      </div>
+                                      <div className="rounded-md bg-muted/40 p-2">
+                                        <div className="font-medium text-foreground">Photos</div>
+                                        <div>{referencePhotoCount} admin / {verificationPhotoCount} verification</div>
+                                      </div>
                                     </div>
                                   </div>
                                 )}

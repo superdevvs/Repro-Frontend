@@ -130,6 +130,7 @@ export function ShootDetailsPageDialogs({
           totalPaid: shoot.payment.totalPaid,
         } : undefined}
         onPaymentSuccess={onPaymentSuccess}
+        onManualPaymentConfirm={!isClient ? onMarkPaidConfirm : undefined}
       />
 
       <MarkAsPaidDialog
@@ -137,6 +138,8 @@ export function ShootDetailsPageDialogs({
         onClose={onMarkPaidDialogClose}
         onConfirm={onMarkPaidConfirm}
         serviceItems={serviceItems}
+        outstandingAmount={amountDue}
+        showAmountControls
         title="Mark Shoot as Paid"
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"

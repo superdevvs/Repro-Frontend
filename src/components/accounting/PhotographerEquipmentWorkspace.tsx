@@ -617,12 +617,12 @@ export function PhotographerEquipmentWorkspace() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Photographer</Label>
-                <Select value={form.photographer_id || "unassigned"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
+                <Select value={form.photographer_id || "select-photographer"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "select-photographer" ? "" : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select photographer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Select Photographer</SelectItem>
+                    <SelectItem value="select-photographer">Select Photographer</SelectItem>
                     {photographers.map((photographer) => (
                       <SelectItem key={photographer.id} value={photographer.id}>
                         {photographer.name}
@@ -633,17 +633,17 @@ export function PhotographerEquipmentWorkspace() {
               </div>
 
               <div className="space-y-2">
-                <Label>Inventory Equipment</Label>
+                <Label>Equipment</Label>
                 {unassignedEquipments.length > 0 ? (
                   <Select
                     value={selectedExistingEquipmentId || (manualEntryOpen ? "new" : "select")}
                     onValueChange={handleExistingEquipmentChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose existing equipment" />
+                      <SelectValue placeholder="Select saved equipment" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="select">Choose from unassigned inventory</SelectItem>
+                      <SelectItem value="select">Select saved equipment from inventory</SelectItem>
                       {unassignedEquipments.map((equipment) => (
                         <SelectItem key={equipment.id} value={String(equipment.id)}>
                           {equipment.name}{equipment.serial_number ? ` - ${equipment.serial_number}` : ""}
@@ -753,12 +753,12 @@ export function PhotographerEquipmentWorkspace() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Photographer</Label>
-                <Select value={editForm.photographer_id || "unassigned"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
+                <Select value={editForm.photographer_id || "select-photographer"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "select-photographer" ? "" : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select photographer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Select Photographer</SelectItem>
+                    <SelectItem value="select-photographer">Select Photographer</SelectItem>
                     {photographers.map((photographer) => (
                       <SelectItem key={photographer.id} value={photographer.id}>
                         {photographer.name}
