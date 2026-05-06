@@ -370,7 +370,7 @@ export function ShootDetailsModal({
       isPhotographer ||
       ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer'].includes(role);
     const status = String(normalizedStatus || shoot.workflowStatus || shoot.status || '').toLowerCase();
-    const allowedStatus = ['scheduled', 'booked', 'raw_upload_pending'].includes(status);
+    const allowedStatus = ['scheduled', 'booked', 'raw_upload_pending', 'uploaded'].includes(status);
     const count = Math.max(
       Number(rawFileCount || 0),
       Number(shoot.rawPhotoCount || 0),
