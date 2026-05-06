@@ -28,6 +28,7 @@ import {
   filterEditorActiveOperationalShoots,
   filterEditorDeliveredOperationalShoots,
   formatCurrency,
+  getShootStatusBadgeClass,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 
@@ -528,6 +529,7 @@ const ShootHistory: React.FC = () => {
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
+                  hideHeroImage
                 />
               ))}
             </div>
@@ -864,7 +866,7 @@ const ShootHistory: React.FC = () => {
                         </CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="capitalize">
+                        <Badge variant="outline" className={`capitalize ${getShootStatusBadgeClass(record.status)}`}>
                           {record.status}
                         </Badge>
                         {(isAdmin || isSuperAdmin) && record.id && (

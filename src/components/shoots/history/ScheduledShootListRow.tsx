@@ -113,6 +113,7 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
 
 // Status configuration for visual consistency
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string }> = {
+  requested: { icon: AlertCircle, color: 'text-sky-600', bgColor: 'bg-sky-50 border-sky-200' },
   scheduled: { icon: CalendarIcon, color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
   booked: { icon: CalendarIcon, color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
   in_progress: { icon: Camera, color: 'text-amber-600', bgColor: 'bg-amber-50 border-amber-200' },

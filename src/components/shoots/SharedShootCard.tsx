@@ -45,11 +45,12 @@ interface SharedShootCardProps {
   onViewInvoice?: (shoot: ShootData) => void;
   onSendToEditing?: (shoot: ShootData) => void | Promise<void>;
   shouldHideClientDetails?: boolean;
+  hideHeroImage?: boolean;
 }
 
 const statusColors: Record<string, string> = {
   // Main status colors
-  requested: 'bg-blue-100 text-blue-700 border-blue-300',
+  requested: 'bg-sky-100 text-sky-700 border-sky-300',
   scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
   booked: 'bg-blue-100 text-blue-700 border-blue-200', // Alias for scheduled
   uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
@@ -95,12 +96,13 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   onViewInvoice,
   onSendToEditing,
   shouldHideClientDetails = false,
+  hideHeroImage = false,
 }) => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const isPreShootStatus = normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'requested' || normalizedStatus === 'on_hold';
   const showScheduleStatusPill = normalizedStatus === 'requested' || normalizedStatus === 'scheduled' || normalizedStatus === 'booked';
-  const heroImage = normalizeImageUrl(shoot.heroImage) || (!isPreShootStatus ? '/placeholder.svg' : null);
+  const heroImage = hideHeroImage ? null : normalizeImageUrl(shoot.heroImage) || (!isPreShootStatus ? '/placeholder.svg' : null);
   // Get status color - check both workflowStatus and status, and handle case-insensitive lookup
   const statusKey = normalizedStatus;
   const statusClass =

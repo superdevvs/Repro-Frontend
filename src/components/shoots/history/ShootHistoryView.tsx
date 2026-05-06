@@ -146,17 +146,31 @@ function SubTabButton({
   active,
   label,
   onClick,
+  tone = 'default',
 }: {
   active: boolean
   label: string
   onClick: () => void
+  tone?: 'default' | 'requested' | 'scheduled' | 'ready' | 'delivered'
 }) {
+  const activeClass =
+    tone === 'requested'
+      ? 'bg-sky-500 text-white shadow-sm hover:bg-sky-500'
+      : tone === 'scheduled'
+        ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-600'
+        : tone === 'ready'
+      ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-500'
+      : tone === 'delivered'
+        ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+        : 'bg-primary text-primary-foreground shadow-sm'
+
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
         active
-          ? 'bg-primary text-primary-foreground'
+          ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
       }`}
     >
@@ -554,8 +568,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
             <div className="flex items-center gap-2">
               <SubTabButton active={deliveredSubTab === 'all'} label="All" onClick={() => setDeliveredSubTab('all')} />
-              <SubTabButton active={deliveredSubTab === 'ready'} label="Ready" onClick={() => setDeliveredSubTab('ready')} />
-              <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} />
+              <SubTabButton active={deliveredSubTab === 'ready'} label="Ready" onClick={() => setDeliveredSubTab('ready')} tone="ready" />
+              <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} tone="delivered" />
             </div>
           ) : activeTab === 'hold' ? (
             <div className="flex items-center gap-2">
@@ -566,8 +580,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           ) : activeTab === 'scheduled' ? (
             <div className="flex items-center gap-2">
               <SubTabButton active={scheduledSubTab === 'all'} label="All" onClick={() => setScheduledSubTab('all')} />
-              <SubTabButton active={scheduledSubTab === 'requested'} label="Requested" onClick={() => setScheduledSubTab('requested')} />
-              <SubTabButton active={scheduledSubTab === 'scheduled'} label="Scheduled" onClick={() => setScheduledSubTab('scheduled')} />
+              <SubTabButton active={scheduledSubTab === 'requested'} label="Requested" onClick={() => setScheduledSubTab('requested')} tone="requested" />
+              <SubTabButton active={scheduledSubTab === 'scheduled'} label="Scheduled" onClick={() => setScheduledSubTab('scheduled')} tone="scheduled" />
             </div>
           ) : (
             <div />

@@ -97,7 +97,7 @@ export function useShootHistoryViewState({
       {
         value: 'delivered',
         icon: CheckCircle2,
-        label: 'Delivered',
+        label: 'Delivery',
         badge: deliveredCount > 0 ? deliveredCount : undefined,
       },
       {

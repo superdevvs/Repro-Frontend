@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
-import { formatCurrency } from './shootHistoryUtils'
+import { formatCurrency, getShootStatusBadgeClass } from './shootHistoryUtils'
 import {
   Building2,
   Calendar as CalendarIcon,
@@ -115,7 +115,7 @@ export const HistoryRow = memo(({
               variant="outline"
               className={cn(
                 'capitalize',
-                record.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''
+                getShootStatusBadgeClass(record.status)
               )}
             >
               {statusLabel}

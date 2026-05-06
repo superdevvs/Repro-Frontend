@@ -251,7 +251,8 @@ export const CompletedAlbumCard = ({
               if (statusKey.includes('uploaded') || statusKey.includes('completed') || statusKey.includes('photos_uploaded') || statusKey.includes('raw_uploaded')) return 'bg-indigo-500 text-white';
               if (statusKey.includes('editing')) return 'bg-purple-500 text-white';
               // Review status removed - no longer needed
-              if (statusKey.includes('delivered') || statusKey.includes('admin_verified') || statusKey.includes('ready_for_client') || statusKey.includes('ready')) return 'bg-emerald-500 text-white';
+              if (statusKey === 'ready' || statusKey === 'ready_for_client') return 'bg-amber-500 text-white';
+              if (statusKey.includes('delivered') || statusKey.includes('admin_verified') || statusKey.includes('workflow_completed') || statusKey.includes('client_delivered') || statusKey.includes('finalized') || statusKey.includes('finalised')) return 'bg-emerald-500 text-white';
               if (statusKey.includes('declined')) return 'bg-red-500 text-white';
               if (statusKey.includes('cancel')) return 'border border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200';
               if (statusKey.includes('hold')) return 'bg-amber-500 text-white';
