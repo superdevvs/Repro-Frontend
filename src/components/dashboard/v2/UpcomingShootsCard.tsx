@@ -5,7 +5,6 @@ import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import {
   MapPin,
-  Flag,
   Sun,
   CloudRain,
   Cloud,
@@ -1185,12 +1184,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         : "border-border hover:border-primary/40"
                     )}
                   >
-                    {/* Top right actions - flag only (invoice available in shoot details modal) */}
-                    {shoot.isFlagged && (
-                      <div className="absolute top-3 right-3 text-destructive">
-                        <Flag size={14} />
-                      </div>
-                    )}
                     {/* ── Mobile layout ── */}
                     <div className="sm:hidden space-y-2.5">
                       {/* Row 1: Date+time badge + Weather (right-aligned) */}
