@@ -351,7 +351,7 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
                 {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
