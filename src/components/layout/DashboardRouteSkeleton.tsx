@@ -96,6 +96,63 @@ const DashboardStatsPanelSkeleton = () => (
   </Panel>
 );
 
+const DashboardMobileTabsSkeleton = () => (
+  <div className="sticky top-[-0.75rem] z-20 -mx-2 px-2 pb-1">
+    <div className="overflow-x-hidden">
+      <div className="inline-flex max-w-full gap-2 rounded-full border border-border/50 bg-background/80 py-1.5 pl-1.5 pr-3 backdrop-blur">
+        <Skeleton className="h-8 w-24 rounded-full" />
+        <Skeleton className="h-8 w-28 rounded-full" />
+        <Skeleton className="h-8 w-24 rounded-full" />
+      </div>
+    </div>
+  </div>
+);
+
+const DashboardMobileShootsPanelSkeleton = () => (
+  <Panel className="min-w-0 space-y-4 overflow-hidden rounded-3xl p-3">
+    <div className="flex items-center justify-between gap-3 pr-10">
+      <div className="flex min-w-0 items-center gap-2">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-7 w-20" />
+      </div>
+      <Skeleton className="h-8 w-8 flex-shrink-0 rounded-full" />
+    </div>
+    <div className="space-y-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+      {Array.from({ length: 2 }).map((_, groupIndex) => (
+        <div key={groupIndex} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-2 w-2 rounded-full" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+          <div className="space-y-2.5 rounded-3xl border border-border bg-card px-5 pb-3.5 pt-4">
+            <div className="flex items-start gap-2">
+              <Skeleton className="h-7 w-36 flex-shrink-0 rounded-xl" />
+              <Skeleton className="ml-auto h-5 w-16 flex-shrink-0 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full max-w-[260px]" />
+              <Skeleton className="h-3 w-full max-w-[180px]" />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-px w-full" />
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-20 flex-shrink-0 rounded-full" />
+              <Skeleton className="h-3 w-36 max-w-[45%]" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </Panel>
+);
+
 const AssignPhotographersSkeleton = () => (
   <Panel className="overflow-hidden rounded-3xl p-0">
     <div className="space-y-4 p-5">
@@ -118,9 +175,13 @@ const AssignPhotographersSkeleton = () => (
 );
 
 const DashboardSkeleton = () => (
-  <div className="space-y-6 px-2 py-4 sm:p-6">
+  <div className="space-y-2.5 px-2 pb-3 pt-1.5 sm:space-y-6 sm:p-6">
     <HeaderSkeleton actions={false} />
-    <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)_380px]">
+    <div className="space-y-2 sm:hidden">
+      <DashboardMobileTabsSkeleton />
+      <DashboardMobileShootsPanelSkeleton />
+    </div>
+    <div className="hidden gap-6 sm:grid xl:grid-cols-[380px_minmax(0,1fr)_380px]">
       <div className="space-y-6">
         <DashboardStatsPanelSkeleton />
         <AssignPhotographersSkeleton />

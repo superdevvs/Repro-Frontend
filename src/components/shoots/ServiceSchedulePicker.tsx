@@ -4,14 +4,26 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import { TimeSelect } from '@/components/ui/time-select';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
 export type ServiceTimeOption = {
   value: string;
   label: string;
+  disabled?: boolean;
 };
 
 type ServiceDatePickerProps = {
@@ -19,6 +31,7 @@ type ServiceDatePickerProps = {
   minDate?: string;
   onChange: (value: string) => void;
   triggerClassName?: string;
+  showIcon?: boolean;
 };
 
 type ServiceTimePickerProps = {
@@ -26,13 +39,17 @@ type ServiceTimePickerProps = {
   options: ServiceTimeOption[];
   onChange: (value: string) => void;
   triggerClassName?: string;
+  isTimeDisabled?: (value: string) => boolean;
+  showIcon?: boolean;
 };
 
 export const buildServiceTimeOptions = (ensure?: string | null): ServiceTimeOption[] => {
   const options: ServiceTimeOption[] = [];
 
-  for (let hour = 5; hour < 23; hour += 1) {
-    for (const minute of ['00', '30']) {
+  for (let hour = 8; hour <= 19; hour += 1) {
+    for (let minuteValue = 0; minuteValue < 60; minuteValue += 5) {
+      if (hour === 19 && minuteValue !== 0) continue;
+      const minute = String(minuteValue).padStart(2, '0');
       const value = `${hour.toString().padStart(2, '0')}:${minute}`;
       const hour12 = hour % 12 || 12;
       const period = hour >= 12 ? 'PM' : 'AM';
@@ -54,6 +71,23 @@ export const buildServiceTimeOptions = (ensure?: string | null): ServiceTimeOpti
   return options;
 };
 
+const normalizeManualTime = (value: string): string | null => {
+  const normalized = value.trim().replace(';', ':');
+  const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = match[3]?.toUpperCase();
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+  if (period === 'AM' && hour === 12) hour = 0;
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (hour < 0 || hour > 23) return null;
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
 const parseInputDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
   const date = new Date(`${value}T12:00:00`);
@@ -70,11 +104,13 @@ export function ServiceDatePicker({
   minDate,
   onChange,
   triggerClassName,
+  showIcon = true,
 }: ServiceDatePickerProps) {
   const selectedDate = parseInputDate(value);
   const minSelectable = parseInputDate(minDate);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [calendarMonth, setCalendarMonth] = useState(() => selectedDate ?? minSelectable ?? new Date());
   const monthOptions = useMemo(
     () =>
@@ -97,28 +133,25 @@ export function ServiceDatePicker({
     }
   }, [value]);
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
-            !value && 'text-muted-foreground',
-            triggerClassName,
-          )}
-        >
-          <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{formatScheduleDateLabel(value)}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        className="z-[180] w-[min(92vw,24rem)] max-w-none rounded-2xl border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md"
-      >
-        <div className="mb-4 rounded-xl border border-border/70 bg-muted/20 p-3">
+  const selectedLabel = formatScheduleDateLabel(value);
+  const trigger = (
+    <Button
+      type="button"
+      variant="outline"
+      className={cn(
+        'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
+        !value && 'text-muted-foreground',
+        triggerClassName,
+      )}
+    >
+      {showIcon ? <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+      <span className="truncate">{selectedLabel}</span>
+    </Button>
+  );
+
+  const picker = (closeOnSelect: boolean) => (
+    <>
+      <div className="mb-4 rounded-xl border border-border/70 bg-muted/20 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -210,7 +243,7 @@ export function ServiceDatePicker({
           onSelect={(date) => {
             if (!date) return;
             onChange(format(date, 'yyyy-MM-dd'));
-            setOpen(false);
+            if (closeOnSelect) setOpen(false);
           }}
           className="w-full p-0"
           classNames={{
@@ -230,6 +263,49 @@ export function ServiceDatePicker({
           }}
           initialFocus
         />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent className="flex h-auto max-h-[76dvh] flex-col">
+          <DrawerHeader className="pb-2 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <DrawerTitle>Select Date</DrawerTitle>
+                <DrawerDescription>Choose a service schedule date</DrawerDescription>
+              </div>
+              <span className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-blue-600 dark:bg-slate-800 dark:text-blue-400">
+                {selectedLabel}
+              </span>
+            </div>
+          </DrawerHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+            {picker(false)}
+          </div>
+
+          <DrawerFooter className="sticky bottom-0 z-10 shrink-0 border-t border-border/70 bg-background/95 pt-3 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+            <Button type="button" className="h-11 w-full" onClick={() => setOpen(false)}>
+              Select
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="z-[180] w-[min(92vw,24rem)] max-w-none rounded-2xl border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md"
+      >
+        {picker(true)}
       </PopoverContent>
     </Popover>
   );
@@ -240,24 +316,92 @@ export function ServiceTimePicker({
   options,
   onChange,
   triggerClassName,
+  isTimeDisabled,
+  showIcon = true,
 }: ServiceTimePickerProps) {
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const selectedLabel = options.find((option) => option.value === value)?.label || value || 'Select time';
+  const pickerValue = value ? selectedLabel : '';
+  const availableTimes = options
+    .filter((option) => !option.disabled && !isTimeDisabled?.(option.value))
+    .map((option) => option.label);
+  const handleTimeChange = (nextValue: string) => {
+    const normalized = normalizeManualTime(nextValue);
+    if (!normalized) return;
+    const option = options.find((item) => item.value === normalized);
+    if (option?.disabled || isTimeDisabled?.(normalized)) return;
+    onChange(normalized);
+  };
+  const trigger = (
+    <Button
+      type="button"
+      variant="outline"
+      className={cn(
+        'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
+        triggerClassName,
+      )}
+    >
+      <Clock className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <span className="truncate">{selectedLabel}</span>
+    </Button>
+  );
+  const picker = (footerAction?: React.ReactNode) => (
+    <div className="rounded-2xl border border-border/70 bg-background/80 p-2">
+      <TimeSelect
+        value={pickerValue}
+        onChange={handleTimeChange}
+        startHour={8}
+        endHour={19}
+        interval={5}
+        availableTimes={availableTimes}
+        placeholder="Select time"
+        footerAction={footerAction}
+      />
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent className="flex h-auto max-h-[66vh] flex-col">
+          <DrawerHeader className="pb-2 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <DrawerTitle>Select Time</DrawerTitle>
+                <DrawerDescription>Choose a service schedule time</DrawerDescription>
+              </div>
+              <span className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-blue-600 dark:bg-slate-800 dark:text-blue-400">
+                {selectedLabel}
+              </span>
+            </div>
+          </DrawerHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+            <div className="mb-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Schedule Time
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{selectedLabel}</p>
+            </div>
+            {picker()}
+          </div>
+
+          <DrawerFooter className="sticky bottom-0 z-10 shrink-0 border-t border-border/70 bg-background/95 pt-3 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+            <Button type="button" className="h-11 w-full" onClick={() => setOpen(false)}>
+              Select
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
-            triggerClassName,
-          )}
-        >
-          <Clock className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{selectedLabel}</span>
-        </Button>
+        {trigger}
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -270,26 +414,11 @@ export function ServiceTimePicker({
           </p>
           <p className="mt-1 text-sm font-semibold text-foreground">{selectedLabel}</p>
         </div>
-        <div className="grid max-h-64 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              className={cn(
-                'rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors',
-                option.value === value
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted/40 text-foreground hover:bg-muted',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        {picker(
+          <Button type="button" size="sm" className="h-8 rounded-xl px-4" onClick={() => setOpen(false)}>
+            Select
+          </Button>
+        )}
       </PopoverContent>
     </Popover>
   );

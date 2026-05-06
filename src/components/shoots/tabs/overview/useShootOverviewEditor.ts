@@ -87,8 +87,10 @@ type PhotographerPickerOption = {
     state?: string;
     zip?: string;
   };
-  availabilitySlots?: Array<{ start_time: string; end_time: string }>;
-  netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
+  availabilitySlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+  netAvailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+  bookedSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+  unavailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
   hasAvailability?: boolean;
   shootsCountToday?: number;
 };
@@ -177,6 +179,39 @@ const buildScheduledAtIso = (dateValue?: string, timeValue?: string) => {
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'uncategorized';
 
+const normalizeDayOfWeek = (value: any): string => {
+  if (value === null || value === undefined) return '';
+  const normalized = String(value).trim().toLowerCase();
+  const days: Record<string, string> = {
+    '0': 'sunday',
+    '1': 'monday',
+    '2': 'tuesday',
+    '3': 'wednesday',
+    '4': 'thursday',
+    '5': 'friday',
+    '6': 'saturday',
+    sun: 'sunday',
+    sunday: 'sunday',
+    mon: 'monday',
+    monday: 'monday',
+    tue: 'tuesday',
+    tues: 'tuesday',
+    tuesday: 'tuesday',
+    wed: 'wednesday',
+    weds: 'wednesday',
+    wednesday: 'wednesday',
+    thu: 'thursday',
+    thur: 'thursday',
+    thurs: 'thursday',
+    thursday: 'thursday',
+    fri: 'friday',
+    friday: 'friday',
+    sat: 'saturday',
+    saturday: 'saturday',
+  };
+  return days[normalized] ?? normalized;
+};
+
 const normalizeCategoryName = (value?: string) => {
   const normalized = (value || '').trim().toLowerCase();
   if (normalized === 'photo' || normalized === 'photos') return 'photos';
@@ -213,6 +248,30 @@ const mapPhotographerPickerOption = (photographer: any): PhotographerPickerOptio
   city: photographer.city || photographer.metadata?.city,
   state: photographer.state || photographer.metadata?.state,
   zip: photographer.zip || photographer.zipcode || photographer.metadata?.zip || photographer.metadata?.zipcode,
+  distance: typeof photographer.distance === 'number' ? photographer.distance : photographer.distance ? Number(photographer.distance) : undefined,
+  distanceFrom: photographer.distanceFrom || photographer.distance_from,
+  previousShootId: photographer.previousShootId || photographer.previous_shoot_id,
+  availabilitySlots: photographer.availabilitySlots || photographer.availability_slots,
+  netAvailableSlots: photographer.netAvailableSlots || photographer.net_available_slots,
+  bookedSlots: photographer.bookedSlots || photographer.booked_slots,
+  unavailableSlots: photographer.unavailableSlots || photographer.unavailable_slots,
+  hasAvailability: photographer.hasAvailability ?? photographer.has_availability,
+  shootsCountToday: photographer.shootsCountToday ?? photographer.shoots_count_today,
+});
+
+const mergePhotographerPickerOption = (
+  base: PhotographerPickerOption,
+  enriched?: PhotographerPickerOption,
+): PhotographerPickerOption => ({
+  ...base,
+  ...(enriched || {}),
+  name: enriched?.name || base.name,
+  email: enriched?.email || base.email,
+  avatar: enriched?.avatar || base.avatar,
+  address: enriched?.address || base.address,
+  city: enriched?.city || base.city,
+  state: enriched?.state || base.state,
+  zip: enriched?.zip || base.zip,
 });
 
 const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption[]> => {
@@ -528,7 +587,13 @@ function usePhotographerAssignmentOptions(
       try {
         const photographersList = await loadPhotographerPickerOptions();
         if (photographersList.length > 0) {
-          setPhotographers(photographersList);
+          setPhotographers((current) => {
+            if (current.length === 0) return photographersList;
+            const currentById = new Map(current.map((photographer) => [String(photographer.id), photographer]));
+            return photographersList.map((photographer) =>
+              mergePhotographerPickerOption(photographer, currentById.get(String(photographer.id))),
+            );
+          });
           setEditPhotographers((current) => current.length > 0 ? current : photographersList);
         }
       } catch (error) {
@@ -545,6 +610,8 @@ function usePhotographerDistanceAvailability(
   photographers: PhotographerPickerOption[],
   isAdminOrRep: boolean,
   getShootLocation: () => { address: string; city: string; state: string; zip: string },
+  scheduleDate: string,
+  scheduleTime: string,
   setPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
   setIsCalculatingDistances: Dispatch<SetStateAction<boolean>>,
   setIsLoadingAvailability: Dispatch<SetStateAction<boolean>>,
@@ -585,9 +652,11 @@ function usePhotographerDistanceAvailability(
         );
         if (!shootCoords) return;
 
-        const photographersWithDistance = await Promise.all(
+        const distanceUpdates = await Promise.all(
           photographers.map(async (photographer) => {
-            if (photographer.distance !== undefined && photographer.originAddress) return photographer;
+            if (photographer.distance !== undefined && photographer.originAddress) {
+              return { id: photographer.id, distance: photographer.distance };
+            }
 
             const sourceAddress = photographer.originAddress?.address || photographer.address;
             const sourceCity = photographer.originAddress?.city || photographer.city;
@@ -595,7 +664,7 @@ function usePhotographerDistanceAvailability(
             const sourceZip = photographer.originAddress?.zip || photographer.zip;
 
             if (!sourceAddress || !sourceCity || !sourceState) {
-              return { ...photographer, distance: undefined };
+              return null;
             }
 
             const photographerCoords = await getCoordinatesFromAddress(
@@ -605,7 +674,7 @@ function usePhotographerDistanceAvailability(
               sourceZip,
             );
             if (!photographerCoords) {
-              return { ...photographer, distance: undefined };
+              return null;
             }
 
             const distance = calculateDistance(
@@ -615,14 +684,23 @@ function usePhotographerDistanceAvailability(
               photographerCoords.lon,
             );
 
-            return {
-              ...photographer,
-              distance: Math.round(distance * 10) / 10,
-            };
+            return { id: photographer.id, distance: Math.round(distance * 10) / 10 };
           }),
         );
 
-        setPhotographers(photographersWithDistance);
+        const distanceById = new Map(
+          distanceUpdates
+            .filter((item): item is { id: string; distance: number } =>
+              Boolean(item && Number.isFinite(item.distance)),
+            )
+            .map((item) => [String(item.id), item.distance]),
+        );
+        if (distanceById.size === 0) return;
+
+        setPhotographers((current) => current.map((photographer) => {
+          const distance = distanceById.get(String(photographer.id));
+          return distance === undefined ? photographer : { ...photographer, distance };
+        }));
       } catch (error) {
         console.error('Error calculating distances:', error);
       } finally {
@@ -640,9 +718,8 @@ function usePhotographerDistanceAvailability(
   ]);
 
   useEffect(() => {
-    if (!assignPhotographerOpen || !isAdminOrRep || photographers.length === 0) return;
+    if (!assignPhotographerOpen || photographers.length === 0) return;
     if (!shootLocation.address || !shootLocation.city || !shootLocation.state) return;
-    if (photographers.every((photographer) => photographer.hasAvailability !== undefined)) return;
 
     let cancelled = false;
     const controller = new AbortController();
@@ -657,14 +734,13 @@ function usePhotographerDistanceAvailability(
         };
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        const now = new Date();
-        const response = await fetch(`${API_BASE_URL}/api/photographer/availability/for-booking`, {
+        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
           signal: controller.signal,
           body: JSON.stringify({
-            date: format(now, 'yyyy-MM-dd'),
-            time: format(now, 'h:mm a'),
+            date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
+            time: to12Hour(scheduleTime || '10:00'),
             shoot_address: shootLocation.address,
             shoot_city: shootLocation.city,
             shoot_state: shootLocation.state,
@@ -677,21 +753,86 @@ function usePhotographerDistanceAvailability(
         const json = await response.json();
         if (cancelled) return;
         const availabilityList = Array.isArray(json.data) ? json.data : [];
+        let rawAvailabilityByPhotographer: Record<string, any[]> = {};
+        try {
+          const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+            method: 'POST',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+              photographer_ids: photographers.map((photographer) => Number(photographer.id)),
+              from_date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
+              to_date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
+            }),
+          });
+          if (bulkResponse.ok) {
+            const bulkJson = await bulkResponse.json();
+            rawAvailabilityByPhotographer = bulkJson?.data || {};
+          }
+        } catch (error) {
+          if (!(error instanceof DOMException && error.name === 'AbortError')) {
+            console.error('Error fetching raw photographer availability:', error);
+          }
+        }
+        const dateStr = scheduleDate || format(new Date(), 'yyyy-MM-dd');
+        const parsedScheduleDate = parseFlexibleDate(dateStr);
+        const dayOfWeek = parsedScheduleDate
+          ? parsedScheduleDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+          : '';
 
         setPhotographers((current) => current.map((photographer) => {
           const match = availabilityList.find((item: any) => String(item.id) === String(photographer.id));
-          if (!match) return photographer;
+          const rawSlots = rawAvailabilityByPhotographer[photographer.id] || rawAvailabilityByPhotographer[String(photographer.id)] || [];
+          const specificDateSlots = rawSlots.filter((slot: any) => {
+            const slotDate = slot?.date ? String(slot.date).slice(0, 10) : '';
+            return slotDate === dateStr;
+          });
+          const weeklySlots = rawSlots.filter((slot: any) => {
+            const slotDate = slot?.date ? String(slot.date).trim() : '';
+            if (slotDate) return false;
+            return normalizeDayOfWeek(slot?.day_of_week) === dayOfWeek;
+          });
+          const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+          const rawAvailableSlots = relevantSlots
+            .filter((slot: any) => !slot.status || slot.status === 'available')
+            .map((slot: any) => ({
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+            }));
+          if (!match) {
+            return {
+              ...photographer,
+              availabilitySlots: rawAvailableSlots.length > 0 ? rawAvailableSlots : photographer.availabilitySlots,
+              netAvailableSlots: rawAvailableSlots.length > 0 ? rawAvailableSlots : photographer.netAvailableSlots,
+              hasAvailability: rawAvailableSlots.length > 0 ? true : photographer.hasAvailability,
+            };
+          }
           const parsedDistance = typeof match.distance === 'number'
             ? match.distance
             : match.distance
             ? Number(match.distance)
+            : match.distance_miles
+            ? Number(match.distance_miles)
             : photographer.distance;
+          const matchNetSlots = match.net_available_slots ?? photographer.netAvailableSlots;
+          const nextAvailableSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : (match.availability_slots ?? photographer.availabilitySlots);
+          const nextNetSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : matchNetSlots;
           return {
             ...photographer,
+            name: match.name || photographer.name,
+            avatar: match.avatar || match.profile_image || match.photo || photographer.avatar,
+            address: match.address || photographer.address,
+            city: match.city || photographer.city,
+            state: match.state || photographer.state,
+            zip: match.zip || photographer.zip,
             distance: Number.isFinite(parsedDistance) ? parsedDistance : photographer.distance,
-            availabilitySlots: match.availability_slots ?? photographer.availabilitySlots,
-            netAvailableSlots: match.net_available_slots ?? photographer.netAvailableSlots,
-            hasAvailability: match.has_availability ?? photographer.hasAvailability,
+            distanceFrom: match.distance_from ?? match.distanceFrom ?? photographer.distanceFrom,
+            previousShootId: match.previous_shoot_id ?? match.previousShootId ?? photographer.previousShootId,
+            availabilitySlots: nextAvailableSlots,
+            netAvailableSlots: nextNetSlots,
+            bookedSlots: match.booked_slots ?? photographer.bookedSlots,
+            unavailableSlots: match.unavailable_slots ?? photographer.unavailableSlots,
+            hasAvailability: rawAvailableSlots.length > 0 || match.has_availability || photographer.hasAvailability,
             shootsCountToday: match.shoots_count_today ?? photographer.shootsCountToday,
           };
         }));
@@ -715,6 +856,8 @@ function usePhotographerDistanceAvailability(
     assignPhotographerOpen,
     isAdminOrRep,
     photographerAvailabilityKey,
+    scheduleDate,
+    scheduleTime,
     setIsLoadingAvailability,
     setPhotographers,
     shootLocationKey,
@@ -770,7 +913,8 @@ export function useShootOverviewEditor({
   const [photographerPickerContext, setPhotographerPickerContext] = useState<PhotographerPickerContext>(null);
   const [photographers, setPhotographers] = useState<PhotographerPickerOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
+  const [sortBy, setSortBy] = useState<'distance' | 'availability'>('distance');
+  const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
@@ -1373,11 +1517,20 @@ export function useShootOverviewEditor({
     setEditPhotographers,
   );
 
+  const photographerPickerScheduleDate = formatDateForInput(
+    String(editedShoot.scheduledDate ?? (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate ?? ''),
+  );
+  const photographerPickerScheduleTime =
+    formatTimeForInput(String(editedShoot.time ?? (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.time ?? ''))
+    || '10:00';
+
   usePhotographerDistanceAvailability(
     assignPhotographerOpen,
     photographers,
     isAdminOrRep,
     getShootLocation,
+    photographerPickerScheduleDate,
+    photographerPickerScheduleTime,
     setPhotographers,
     setIsCalculatingDistances,
     setIsLoadingAvailability,
@@ -1417,7 +1570,24 @@ export function useShootOverviewEditor({
       );
     }
 
+    const hasAvailablePhotographers = filteredPhotographers.some((photographer) =>
+      Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
+    );
+    if (!showAllPhotographers && hasAvailablePhotographers) {
+      filteredPhotographers = filteredPhotographers.filter((photographer) =>
+        Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
+      );
+    }
+
     filteredPhotographers.sort((first, second) => {
+      const firstAvailable = Boolean(first.hasAvailability || first.netAvailableSlots?.length);
+      const secondAvailable = Boolean(second.hasAvailability || second.netAvailableSlots?.length);
+      if (sortBy === 'availability') {
+        if (firstAvailable !== secondAvailable) return firstAvailable ? -1 : 1;
+        const firstSlots = first.netAvailableSlots?.length || 0;
+        const secondSlots = second.netAvailableSlots?.length || 0;
+        if (firstSlots !== secondSlots) return secondSlots - firstSlots;
+      }
       if (sortBy === 'distance') {
         if (first.distance === undefined && second.distance === undefined) return 0;
         if (first.distance === undefined) return 1;
@@ -1428,7 +1598,7 @@ export function useShootOverviewEditor({
     });
 
     return filteredPhotographers;
-  }, [photographerPickerOptions, searchQuery, sortBy]);
+  }, [photographerPickerOptions, searchQuery, showAllPhotographers, sortBy]);
 
   const resolvePhotographerDetails = useCallback((photographerId?: string | null) => {
     if (!photographerId) return null;
@@ -1650,6 +1820,7 @@ export function useShootOverviewEditor({
       photographers,
       searchQuery,
       sortBy,
+      showAllPhotographers,
       isCalculatingDistances,
       isLoadingAvailability,
     },
@@ -1678,6 +1849,7 @@ export function useShootOverviewEditor({
       setSelectedPhotographerId,
       setSearchQuery,
       setSortBy,
+      setShowAllPhotographers,
       updateField,
       handleSave,
       handleCancel,

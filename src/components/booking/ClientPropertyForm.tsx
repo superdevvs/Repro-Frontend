@@ -20,15 +20,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -38,28 +29,25 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
 import {
-  Aperture,
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
   Building2,
-  Camera,
   ChevronsUpDown,
-  Cuboid as Cube,
   Grid3x3,
   Home,
-  Layers,
   Map as MapIcon,
-  Palette,
-  PenTool,
   PlusCircle,
-  Search,
-  Check,
   AlertCircle,
-  Sparkles,
-  Video,
+  Check,
   Info,
-  Star,
   Tag,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -71,27 +59,17 @@ import { AccountForm } from '@/components/accounts/AccountForm';
 import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
 import type { AccountFormValues } from '@/components/accounts/AccountForm';
 import type { User } from '@/components/auth/AuthProvider';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import type { ServiceWithPricing, SqftRange } from '@/utils/servicePricing';
-import { formatPrice, getServicePricingForSqft } from '@/utils/servicePricing';
+import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { cn } from '@/lib/utils';
 import type { EmailHealth } from '@/types/auth';
+import { ServiceSelectionDialog, type ServiceSelectionOption } from '@/components/booking/ServiceSelectionDialog';
 
 
 interface PackageCategory {
@@ -99,7 +77,7 @@ interface PackageCategory {
   name: string;
 }
 
-interface PackageOption extends ServiceWithPricing {
+interface PackageOption extends ServiceSelectionOption {
   id: string;
   name: string;
   description: string;
@@ -110,16 +88,6 @@ interface PackageOption extends ServiceWithPricing {
   delivery_time?: ServiceWithPricing['delivery_time'];
   photographer_pay?: ServiceWithPricing['photographer_pay'];
 }
-
-type CategoryDisplay = {
-  id: string;
-  name: string;
-  count: number;
-  icon: LucideIcon;
-  gradientClass: string;
-  shadowClass: string;
-  isPrimary?: boolean;
-};
 
 type PresenceOption = 'self' | 'other' | 'lockbox';
 
@@ -152,73 +120,7 @@ const extractAptSuite = (rawAddress: string) => {
   return { streetAddress, aptSuite };
 };
 
-const CATEGORY_STYLE_PRESETS = [
-  { gradientClass: 'from-sky-400 via-blue-500 to-indigo-600', shadowClass: 'shadow-lg shadow-blue-500/40' },
-  { gradientClass: 'from-fuchsia-500 via-pink-500 to-rose-500', shadowClass: 'shadow-lg shadow-rose-500/40' },
-  { gradientClass: 'from-amber-400 via-orange-500 to-red-500', shadowClass: 'shadow-lg shadow-orange-500/40' },
-  { gradientClass: 'from-emerald-400 via-green-500 to-teal-500', shadowClass: 'shadow-lg shadow-emerald-500/40' },
-  { gradientClass: 'from-indigo-400 via-violet-500 to-purple-600', shadowClass: 'shadow-lg shadow-indigo-500/40' },
-  { gradientClass: 'from-cyan-400 via-sky-500 to-blue-500', shadowClass: 'shadow-lg shadow-cyan-500/40' },
-] as const;
-
-const ALL_CATEGORY_STYLE = { gradientClass: 'from-slate-600 via-slate-700 to-slate-900', shadowClass: 'shadow-lg shadow-slate-900/30' };
-const FALLBACK_CATEGORY_NAME = 'More services';
-
-const PRIMARY_CATEGORY_ORDER: Record<string, number> = {
-  photos: 1,
-  video: 2,
-  drone: 3,
-  '360': 4,
-  '3d': 4,
-  floor: 5,
-  plan: 5,
-  virtual: 6,
-  staging: 6,
-};
-
-const PRIMARY_CATEGORY_ICONS: Array<{ keyword: string; icon: LucideIcon }> = [
-  { keyword: 'photo', icon: Camera },
-  { keyword: 'video', icon: Video },
-  { keyword: 'drone', icon: Aperture },
-  { keyword: '360', icon: Cube },
-  { keyword: '3d', icon: Cube },
-  { keyword: 'floor', icon: Layers },
-  { keyword: 'plan', icon: Layers },
-  { keyword: 'virtual', icon: Sparkles },
-  { keyword: 'staging', icon: Sparkles },
-];
-
-const FALLBACK_ICONS: LucideIcon[] = [Camera, Video, Aperture, Cube, Layers, Sparkles, Palette, PenTool];
-
-const getCategoryIcon = (name: string, index: number): LucideIcon => {
-  const normalized = name?.toLowerCase?.() ?? '';
-  const match = PRIMARY_CATEGORY_ICONS.find(({ keyword }) => normalized.includes(keyword));
-  if (match) return match.icon;
-  return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
-};
-
-const getCategoryStyle = (index: number) => CATEGORY_STYLE_PRESETS[index % CATEGORY_STYLE_PRESETS.length];
-
-const normalizeCategoryName = (name?: string) => {
-  const normalized = (name || '').trim().toLowerCase();
-  if (normalized === 'photo' || normalized === 'photos') return 'photos';
-  return normalized;
-};
-
-const getPackageCategoryId = (pkg?: PackageOption | null) => {
-  const normalizedName = normalizeCategoryName(pkg?.category?.name);
-  if (normalizedName === 'photos') return 'photos';
-  if (pkg?.category?.id) return pkg.category.id.toString();
-  return normalizedName || 'uncategorized';
-};
-
-const getPackageCategoryName = (pkg?: PackageOption | null) => {
-  const normalizedName = normalizeCategoryName(pkg?.category?.name);
-  if (normalizedName === 'photos') return 'Photos';
-  return pkg?.category?.name ?? FALLBACK_CATEGORY_NAME;
-};
-
-const getServiceSqftRanges = (service?: ServiceWithPricing | null) =>
+const getServiceSqftRanges = (service?: any) =>
   (service?.sqft_ranges || (service as any)?.sqftRanges || []) as SqftRange[];
 
 const getClientServiceGroupIds = (client?: Client | null) => {
@@ -396,7 +298,6 @@ export const ClientPropertyForm = ({
   onClearSavedData,
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [newlyAddedClients, setNewlyAddedClients] = useState<Client[]>([]);
@@ -407,7 +308,6 @@ export const ClientPropertyForm = ({
   const [accountInitialData, setAccountInitialData] = useState<User | undefined>(undefined);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [stateDrawerOpen, setStateDrawerOpen] = useState(false);
-  const [panelCategory, setPanelCategory] = useState<string>('all');
   const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
   const [propertyDetailsData, setPropertyDetailsData] = useState<any>(null);
   const [completeAddress, setCompleteAddress] = useState<string>('');
@@ -603,79 +503,6 @@ export const ClientPropertyForm = ({
     }
   }, [initialData, completeAddress]);
 
-const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
-    if (!visiblePackages?.length) return [];
-    const map = new Map<string, CategoryDisplay>();
-    visiblePackages.forEach((pkg) => {
-      const id = getPackageCategoryId(pkg);
-      const name = getPackageCategoryName(pkg);
-      const existing = map.get(id);
-      if (existing) {
-        existing.count += 1;
-        return;
-      }
-      const normalizedName = name.toLowerCase();
-      const isPrimary = Object.keys(PRIMARY_CATEGORY_ORDER).some(key => normalizedName.includes(key));
-      const palette = getCategoryStyle(map.size);
-      map.set(id, {
-        id,
-        name,
-        count: 1,
-        icon: getCategoryIcon(name, map.size),
-        gradientClass: palette.gradientClass,
-        shadowClass: palette.shadowClass,
-        isPrimary,
-      });
-    });
-    return Array.from(map.values());
-  }, [visiblePackages]);
-
-  const categoryOptions = React.useMemo<CategoryDisplay[]>(() => {
-    if (!visiblePackages?.length) return [];
-
-    const sortedCategories = [...derivedCategories].sort((a, b) => {
-      const aKey = Object.keys(PRIMARY_CATEGORY_ORDER).find(key => a.name.toLowerCase().includes(key));
-      const bKey = Object.keys(PRIMARY_CATEGORY_ORDER).find(key => b.name.toLowerCase().includes(key));
-      const aScore = aKey ? PRIMARY_CATEGORY_ORDER[aKey] : Number.MAX_SAFE_INTEGER;
-      const bScore = bKey ? PRIMARY_CATEGORY_ORDER[bKey] : Number.MAX_SAFE_INTEGER;
-      if (aScore === bScore) return a.name.localeCompare(b.name);
-      return aScore - bScore;
-    });
-
-    return sortedCategories;
-  }, [derivedCategories, visiblePackages]);
-
-  React.useEffect(() => {
-    if (categoryOptions.length === 0) return;
-    const exists = categoryOptions.some(category => category.id === panelCategory);
-    if (!exists) {
-      setPanelCategory(categoryOptions[0].id);
-    }
-  }, [categoryOptions, panelCategory]);
-
-    const panelServices = React.useMemo(() => {
-    if (!visiblePackages?.length) return [];
-    let filtered = panelCategory
-      ? visiblePackages.filter(pkg => getPackageCategoryId(pkg) === panelCategory)
-      : visiblePackages;
-
-    const query = serviceSearchQuery.trim().toLowerCase();
-    if (query) {
-      filtered = filtered.filter((pkg) =>
-        pkg.name.toLowerCase().includes(query) ||
-        (pkg.description || '').toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [panelCategory, visiblePackages, serviceSearchQuery]);
-
-  React.useEffect(() => {
-    if (!serviceDialogOpen) {
-      setServiceSearchQuery('');
-    }
-  }, [serviceDialogOpen]);
-
   const watchedSqft = form.watch('sqft' as any);
   const derivedSqftFromDetails = React.useMemo(() => {
     const details = propertyDetailsData;
@@ -747,7 +574,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     const updatedServices = selectedServices.map(service => {
       const sqftRanges = getServiceSqftRanges(service);
       if (service.pricing_type === 'variable' && sqftRanges.length) {
-        const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft);
+        const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges } as ServiceWithPricing, effectiveSqft);
         return { ...service, price: pricingInfo.price };
       }
       return service;
@@ -899,229 +726,9 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     setIsAccountFormOpen(true);
   };
 
-  const isServiceSelected = (serviceId: string) =>
-    selectedServices.some(service => service.id === serviceId);
-
-  const toggleServiceSelection = (service: PackageOption) => {
-    const exists = isServiceSelected(service.id);
-    let updatedServices: PackageOption[];
-
-    if (exists) {
-      // Remove service
-      updatedServices = selectedServices.filter(selected => selected.id !== service.id);
-    } else {
-      // Add service with sqft-adjusted price if applicable
-      let adjustedService = { ...service };
-      const sqftRanges = getServiceSqftRanges(service);
-      if (service.pricing_type === 'variable' && effectiveSqft && sqftRanges.length) {
-        const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft);
-        adjustedService = { ...service, price: pricingInfo.price };
-      }
-      updatedServices = [...selectedServices, adjustedService];
-    }
-
-    onSelectedServicesChange(updatedServices);
-
-    if (isMobile && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(8);
-    }
-  };
-
   const handleRemoveService = (serviceId: string) => {
     const updated = selectedServices.filter(service => service.id !== serviceId);
     onSelectedServicesChange(updated);
-  };
-
-  const selectedServicesTotal = React.useMemo(
-    () =>
-      selectedServices.reduce((total, service) => {
-        const numericPrice = Number(service.price ?? 0);
-        return total + (Number.isFinite(numericPrice) ? numericPrice : 0);
-      }, 0),
-    [selectedServices],
-  );
-
-  const renderServicePickerBody = (mobileDrawer = false) => (
-    <div className="flex h-full min-h-0 flex-col sm:h-[70vh] sm:flex-row overflow-hidden">
-      <aside className="shrink-0 border-b sm:border-b-0 sm:border-r border-border/60 px-2.5 py-1.5 sm:p-4 sm:w-64 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:overflow-y-auto sm:max-h-[70vh]">
-        <div className="-mx-1.5 flex gap-1.5 overflow-x-auto px-1.5 pb-1 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-col sm:gap-2 sm:overflow-visible sm:pb-0 sm:snap-none">
-          {categoryOptions.map((category) => {
-            const isActive = category.id === panelCategory;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => setPanelCategory(category.id)}
-                className={`snap-start rounded-full sm:rounded-lg border px-3 sm:px-4 py-1.5 sm:py-2.5 text-left transition-all duration-200 flex items-center gap-1.5 sm:gap-3 flex-shrink-0 min-h-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-                  isActive
-                    ? 'border-primary bg-primary text-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)] sm:border-primary/60 sm:bg-primary/10 sm:text-primary sm:shadow-none'
-                    : 'border-border/60 bg-background/80 text-foreground/85 hover:border-primary/40 hover:bg-primary/5 sm:border-transparent sm:bg-transparent sm:text-muted-foreground sm:hover:bg-muted/40'
-                } ${category.id === 'all' ? 'min-w-[112px] sm:w-full' : 'min-w-[98px] sm:w-full'}`}
-              >
-                <div className="hidden h-8 w-8 sm:flex sm:h-9 sm:w-9 rounded-full bg-muted items-center justify-center flex-shrink-0">
-                  <category.icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex items-center gap-1.5 sm:block">
-                  <p className="text-xs sm:text-sm font-medium leading-tight truncate">{category.name}</p>
-                  <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold leading-none tabular-nums sm:hidden ${
-                    isActive
-                      ? 'bg-primary-foreground/20 text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {category.count}
-                  </span>
-                  <p className="hidden sm:block text-[11px] sm:text-xs text-muted-foreground">{category.count} items</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-
-      <div
-        className={cn(
-          "flex-1 min-h-0 overflow-y-auto px-2.5 sm:p-6 space-y-2.5 sm:space-y-4",
-          mobileDrawer ? "pb-4" : "pb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:pb-6"
-        )}
-      >
-        <div className="sticky top-0 z-20 -mx-2.5 px-2.5 py-2 sm:static sm:mx-0 sm:px-0 sm:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 border-b border-border/50 sm:border-0">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search services..."
-              value={serviceSearchQuery}
-              onChange={(event) => setServiceSearchQuery(event.target.value)}
-              className="h-9 text-sm pl-8 border-border/70 focus-visible:ring-primary/40"
-            />
-          </div>
-        </div>
-
-        {packagesLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <Skeleton key={idx} className="h-28 rounded-2xl" />
-            ))}
-          </div>
-        ) : panelServices.length ? (
-          <div className="grid gap-2.5 sm:gap-4 sm:grid-cols-2">
-            {panelServices.map((service) => {
-              const isSelected = isServiceSelected(service.id);
-              const sqftRanges = getServiceSqftRanges(service);
-              const supportsVariablePricing = !!(
-                effectiveSqft &&
-                service.pricing_type === 'variable' &&
-                sqftRanges.length
-              );
-              const pricingInfo = supportsVariablePricing
-                ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft)
-                : null;
-              const displayPrice = pricingInfo
-                ? formatPrice(pricingInfo.price)
-                : formatPrice(Number(service.price ?? 0));
-              const matchedRange = pricingInfo?.matchedRange;
-              const sqftContext = matchedRange
-                ? `${matchedRange.sqft_from.toLocaleString()} - ${matchedRange.sqft_to.toLocaleString()} sqft tier`
-                : supportsVariablePricing
-                  ? `Using default price for ${effectiveSqft?.toLocaleString()} sqft`
-                  : null;
-
-              return (
-                <div
-                  key={service.id}
-                  className={`group relative overflow-hidden rounded-lg sm:rounded-2xl border border-l-4 p-2.5 sm:p-3 cursor-pointer transition-all duration-200 ${
-                    isSelected
-                      ? 'border-primary/55 border-l-primary bg-primary/[0.08] shadow-[0_6px_18px_-12px_rgba(59,130,246,0.65)]'
-                      : 'border-border/70 border-l-border/80 bg-background hover:border-primary/35 hover:border-l-primary/40'
-                  }`}
-                  onClick={() => toggleServiceSelection(service)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] sm:text-base font-semibold leading-tight line-clamp-1">{service.name}</p>
-                      <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground line-clamp-2">
-                        {service.description}
-                      </p>
-                      {sqftContext && (
-                        <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
-                          {sqftContext}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className="text-base sm:text-lg font-semibold tabular-nums leading-none text-foreground">
-                        {displayPrice}
-                      </span>
-                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors sm:hidden ${
-                        isSelected
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border bg-background text-transparent'
-                      }`}>
-                        <Check className="h-3.5 w-3.5" />
-                      </span>
-                      <Checkbox
-                        className="hidden sm:inline-flex"
-                        checked={isSelected}
-                        onClick={(event) => event.stopPropagation()}
-                        onCheckedChange={() => toggleServiceSelection(service)}
-                      />
-                    </div>
-                  </div>
-                  {service.category?.name && (
-                    <div className="mt-1.5 flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
-                        {service.category.name}
-                        {supportsVariablePricing && matchedRange && (
-                          <span className="ml-1 text-[8px] tracking-normal text-primary">SQFT</span>
-                        )}
-                      </Badge>
-                      {isSelected && (
-                        <span className="text-[11px] font-medium text-primary sm:hidden">Selected</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 p-6 text-left text-sm text-muted-foreground">
-            {serviceSearchQuery.trim()
-              ? 'No services match this search in the selected category.'
-              : 'No services exist in this category yet. Pick a different category to continue.'}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderServicePickerFooterContent = (mobileDrawer = false) => (
-    <>
-      <div className={cn("min-w-0", !mobileDrawer && "sm:hidden") }>
-        <p className="text-sm font-semibold leading-tight">
-          {selectedServices.length} Selected · {formatPrice(selectedServicesTotal)}
-        </p>
-      </div>
-      {!mobileDrawer && (
-        <p className="hidden sm:block text-sm text-muted-foreground mr-auto">
-          {selectedServices.length} selected · {formatPrice(selectedServicesTotal)}
-        </p>
-      )}
-      <Button
-        className="h-10 px-5"
-        disabled={selectedServices.length === 0}
-        onClick={() => setServiceDialogOpen(false)}
-      >
-        Done
-      </Button>
-    </>
-  );
-
-
-  const getPackageHighlight = (pkg: { id: string; name: string }) => {
-    if (pkg.name === 'Premium') return { icon: <Star className="h-4 w-4 text-amber-500" />, label: 'Most Popular' };
-    if (pkg.name === 'Standard') return { icon: <Star className="h-4 w-4 text-blue-500" />, label: 'Best Value' };
-    return null;
   };
 
   return (
@@ -1805,47 +1412,23 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   {selectedServices.length ? `${selectedServices.length} item${selectedServices.length > 1 ? 's' : ''}` : 'None yet'}
                 </p>
               </div>
-              {isMobile ? (
-                <Drawer open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
-                  <DrawerTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {selectedServices.length ? 'Edit services' : 'Select services'}
-                    </Button>
-                  </DrawerTrigger>
-                  <DrawerContent className="h-[84vh] max-h-[84vh]">
-                    <DrawerHeader className="pb-2 text-left">
-                      <DrawerTitle>Select services</DrawerTitle>
-                      <DrawerDescription>
-                        Pick the services for this shoot, compare prices quickly, then tap Done.
-                      </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="min-h-0 flex-1 overflow-hidden">{renderServicePickerBody(true)}</div>
-                    <DrawerFooter className="border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
-                      {renderServicePickerFooterContent(true)}
-                    </DrawerFooter>
-                  </DrawerContent>
-                </Drawer>
-              ) : (
-                <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {selectedServices.length ? 'Edit services' : 'Select services'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:!max-h-[90vh] sm:!w-[96vw] sm:!max-w-5xl p-0 gap-0 overflow-hidden [&>button]:right-2 [&>button]:top-2">
-                    <DialogHeader className="px-6 py-4 border-b border-border/80 text-left items-start space-y-1">
-                      <DialogTitle className="w-full pr-10 text-left leading-tight">Select services</DialogTitle>
-                      <DialogDescription className="w-full pr-10 text-left text-sm leading-snug">
-                        Pick the services for this shoot, compare prices quickly, then tap Done.
-                      </DialogDescription>
-                    </DialogHeader>
-                    {renderServicePickerBody(false)}
-                    <DialogFooter className="px-6 py-4 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-row items-center justify-between gap-2 [padding-bottom:1rem]">
-                      {renderServicePickerFooterContent(false)}
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setServiceDialogOpen(true)}
+              >
+                {selectedServices.length ? 'Edit services' : 'Select services'}
+              </Button>
+              <ServiceSelectionDialog
+                open={serviceDialogOpen}
+                onOpenChange={setServiceDialogOpen}
+                services={visiblePackages}
+                selectedServices={selectedServices}
+                onSelectedServicesChange={(services) => onSelectedServicesChange(services as PackageOption[])}
+                servicesLoading={packagesLoading}
+                effectiveSqft={effectiveSqft}
+              />
             </div>
 
             {selectedServices.length === 0 ? (

@@ -25,6 +25,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ import API_ROUTES from '@/lib/api';
 import { CheckCircle2, Check, Clock } from "lucide-react";
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
+import { buildServiceTimeOptions, ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 
 interface SchedulingPhotographer {
   id: string;
@@ -119,23 +121,6 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     before: new Date(),
   };
   const today = React.useMemo(() => new Date(), []);
-  const quickTimes = React.useMemo(
-    () => [
-      '09:30 AM',
-      '10:00 AM',
-      '10:30 AM',
-      '11:00 AM',
-      '11:30 AM',
-      '12:00 PM',
-      '12:30 PM',
-      '01:00 PM',
-      '01:30 PM',
-      '02:00 PM',
-      '02:30 PM',
-      '03:00 PM',
-    ],
-    []
-  );
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isLocationLoading, setIsLocationLoading] = useState(false);
@@ -156,9 +141,10 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     zip?: string;
     distanceFrom?: 'home' | 'previous_shoot';
     previousShootId?: number;
-    availabilitySlots?: Array<{ start_time: string; end_time: string }>;
-    bookedSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
-    netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
+    availabilitySlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+    unavailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+    bookedSlots?: Array<{ start_time: string; end_time: string; status?: string; shoot_id?: number; address?: string; city?: string; state?: string; zip?: string }>;
+    netAvailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
     isAvailableAtTime?: boolean;
     hasAvailability?: boolean;
     shootsCountToday?: number;
@@ -307,6 +293,12 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
   };
 
+  const minutesToTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  };
+
   const buildAvailabilitySegments = (
     slots: Array<{ start_time: string; end_time: string }> = [],
   ) => {
@@ -393,6 +385,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   const handleTimeConfirm = () => {
     if (tempTime) {
+      if (isPhotographerTimeDisabled(photographer, tempTime)) {
+        toast({
+          title: "Time unavailable",
+          description: "The selected photographer is booked or unavailable at that time.",
+          variant: "destructive",
+        });
+        return;
+      }
       setTime(tempTime);
       if (formErrors['time']) {
         const { time: _, ...rest } = formErrors;
@@ -412,6 +412,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       return;
     }
 
+    if (isPhotographerTimeDisabled(photographer, selectedTime)) {
+      toast({
+        title: "Time unavailable",
+        description: "The selected photographer is booked or unavailable at that time.",
+        variant: "destructive",
+      });
+      return;
+    }
     setTime(selectedTime);
     setTempTime(selectedTime);
 
@@ -596,14 +604,90 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       const id = String(photographerItem.id);
       const enriched = byId.get(id);
       byId.set(id, {
-        ...enriched,
         ...photographerItem,
+        ...enriched,
         id,
       });
     }
 
     return Array.from(byId.values());
   }, [photographers, photographersWithDistance]);
+
+  const buildTimeOptionsForRange = (intervalMinutes = 5) => {
+    const options: string[] = [];
+    for (let minutes = 8 * 60; minutes <= 19 * 60; minutes += intervalMinutes) {
+      options.push(to12Hour(minutesToTime(minutes)));
+    }
+    return options;
+  };
+
+  const isTimeWithinSlots = (value: string, slots: Array<{ start_time?: string; end_time?: string }> = []) => {
+    const minutes = timeToMinutes(value);
+    return slots.some((slot) => {
+      if (!slot.start_time || !slot.end_time) return false;
+      const start = timeToMinutes(slot.start_time);
+      const end = timeToMinutes(slot.end_time);
+      return minutes >= start && minutes < end;
+    });
+  };
+
+  const isTimeWithinBlockedSlots = (
+    value: string,
+    slots: Array<{ start_time?: string; end_time?: string }> = [],
+    endBufferMinutes = 0,
+  ) => {
+    const minutes = timeToMinutes(value);
+    return slots.some((slot) => {
+      if (!slot.start_time || !slot.end_time) return false;
+      const start = timeToMinutes(slot.start_time);
+      const end = timeToMinutes(slot.end_time) + endBufferMinutes;
+      return minutes >= start && minutes < end;
+    });
+  };
+
+  const getPhotographerScheduleData = (photographerId?: string | number) => {
+    if (!photographerId) return null;
+    return photographerOptions.find((item) => String(item.id) === String(photographerId)) as any;
+  };
+
+  const isPhotographerTimeDisabled = (photographerId: string | number | undefined, value: string) => {
+    const minutes = timeToMinutes(value);
+    if (minutes < 8 * 60 || minutes > 19 * 60) return true;
+
+    const photographerItem = getPhotographerScheduleData(photographerId);
+    if (!photographerItem) return false;
+
+    const bookedSlots = Array.isArray(photographerItem.bookedSlots) ? photographerItem.bookedSlots : [];
+    const unavailableSlots = Array.isArray(photographerItem.unavailableSlots) ? photographerItem.unavailableSlots : [];
+    if (isTimeWithinBlockedSlots(value, bookedSlots, 30) || isTimeWithinBlockedSlots(value, unavailableSlots)) return true;
+
+    const netSlots = Array.isArray(photographerItem.netAvailableSlots) ? photographerItem.netAvailableSlots : [];
+    if (netSlots.length > 0) return !isTimeWithinSlots(value, netSlots);
+
+    return false;
+  };
+
+  const availableTimesForSelectedPhotographer = useMemo(
+    () => buildTimeOptionsForRange(5).filter((option) => !isPhotographerTimeDisabled(photographer, option)),
+    [photographer, photographerOptions]
+  );
+
+  const suggestedTimes = useMemo(() => {
+    const baseTimes = availableTimesForSelectedPhotographer.filter((option) => {
+      const minutes = timeToMinutes(option);
+      return minutes >= 8 * 60 && minutes <= 19 * 60;
+    });
+
+    return baseTimes.filter((_, index) => index % 6 === 0);
+  }, [availableTimesForSelectedPhotographer]);
+
+  const visibleSuggestedTimes = suggestedTimes.slice(0, 12);
+
+  const buildConflictAwareServiceTimeOptions = (photographerId: string | number | undefined, ensure?: string | null) =>
+    buildServiceTimeOptions(ensure).map((option) => ({
+      ...option,
+      disabled: isPhotographerTimeDisabled(photographerId, option.value),
+    }));
 
   // Filter photographers to only those whose specialties match the active category's services
   const filteredPhotographersForCategory = useMemo(() => {
@@ -905,11 +989,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             state: photographer?.state,
             zip: photographer?.zip,
             availabilitySlots: p.availability_slots,
+            unavailableSlots: p.unavailable_slots,
             bookedSlots: p.booked_slots,
             netAvailableSlots: p.net_available_slots,
             isAvailableAtTime: p.is_available_at_time,
             hasAvailability: p.has_availability,
             shootsCountToday: p.shoots_count_today,
+            distanceFrom: p.distance_from,
+            previousShootId: p.previous_shoot_id,
             travel_range: (photographer as any)?.travel_range ?? null,
             travel_range_unit: (photographer as any)?.travel_range_unit ?? 'miles',
           };
@@ -1093,6 +1180,43 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         ? photographersWithDistance
         : photographerOptions;
 
+    const selectedTimeMinutes = time ? timeToMinutes(time) : null;
+    const getAvailabilityMetrics = (photographerItem: any) => {
+      const rawSlots = Array.isArray(photographerItem.netAvailableSlots) && photographerItem.netAvailableSlots.length > 0
+        ? photographerItem.netAvailableSlots
+        : Array.isArray(photographerItem.availabilitySlots)
+        ? photographerItem.availabilitySlots
+        : [];
+      const slots = rawSlots
+        .map((slot: any) => ({
+          start: timeToMinutes(slot.start_time),
+          end: timeToMinutes(slot.end_time),
+        }))
+        .filter((slot) => Number.isFinite(slot.start) && Number.isFinite(slot.end) && slot.end > slot.start);
+      const availability = photographerAvailability.get(photographerItem.id)
+        || photographerAvailability.get(String(photographerItem.id))
+        || photographerAvailability.get(Number(photographerItem.id));
+      const availableAtSelectedTime = selectedTimeMinutes !== null
+        ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end > selectedTimeMinutes)
+        : false;
+      const firstStart = slots.length > 0 ? Math.min(...slots.map((slot) => slot.start)) : Number.POSITIVE_INFINITY;
+      const totalMinutes = slots.reduce((total, slot) => total + (slot.end - slot.start), 0);
+      const isAvailable = selectedTimeMinutes !== null
+        ? availableAtSelectedTime || Boolean(photographerItem.isAvailableAtTime)
+        : slots.length > 0 || Boolean(availability?.isAvailable || photographerItem.hasAvailability);
+
+      return {
+        isAvailable,
+        availableAtSelectedTime,
+        firstStart,
+        totalMinutes,
+      };
+    };
+
+    if (!showAllPhotographers && (date || time || photographerAvailability.size > 0)) {
+      filtered = filtered.filter((photographerItem) => getAvailabilityMetrics(photographerItem).isAvailable);
+    }
+
     // Multi-category mode: filter by specialties for the active category
     if (isMultiCategory && activeCategoryForPicker && activeCategoryCapabilityForPicker.serviceIds.size > 0) {
       const allowedIds = filteredPhotographersForCategory
@@ -1122,30 +1246,15 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         return aDistance - bDistance;
       };
 
-      // When sorting by distance and a time is selected, bubble available photographers first
-      if (sortBy === 'distance' && time) {
-        const aAvailability = photographerAvailability.get(a.id)
-          || photographerAvailability.get(String(a.id))
-          || photographerAvailability.get(Number(a.id));
-        const bAvailability = photographerAvailability.get(b.id)
-          || photographerAvailability.get(String(b.id))
-          || photographerAvailability.get(Number(b.id));
-        const aIsAvailable = Boolean(aAvailability?.isAvailable);
-        const bIsAvailable = Boolean(bAvailability?.isAvailable);
-        if (aIsAvailable !== bIsAvailable) return aIsAvailable ? -1 : 1;
-      }
-
       if (sortBy === 'availability') {
-        const aAvailability = photographerAvailability.get(a.id)
-          || photographerAvailability.get(String(a.id))
-          || photographerAvailability.get(Number(a.id));
-        const bAvailability = photographerAvailability.get(b.id)
-          || photographerAvailability.get(String(b.id))
-          || photographerAvailability.get(Number(b.id));
-        const aIsAvailable = Boolean(aAvailability?.isAvailable);
-        const bIsAvailable = Boolean(bAvailability?.isAvailable);
+        const aMetrics = getAvailabilityMetrics(a);
+        const bMetrics = getAvailabilityMetrics(b);
 
-        if (aIsAvailable !== bIsAvailable) return aIsAvailable ? -1 : 1;
+        if (aMetrics.availableAtSelectedTime !== bMetrics.availableAtSelectedTime) {
+          return aMetrics.availableAtSelectedTime ? -1 : 1;
+        }
+        if (aMetrics.totalMinutes !== bMetrics.totalMinutes) return bMetrics.totalMinutes - aMetrics.totalMinutes;
+        if (aMetrics.firstStart !== bMetrics.firstStart) return aMetrics.firstStart - bMetrics.firstStart;
         const distanceCompare = compareDistance();
         return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
       }
@@ -1155,7 +1264,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographerOptions, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
+  }, [photographersWithDistance, photographerOptions, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
 
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
@@ -1178,7 +1287,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         >
           <button
             type="button"
-            onClick={() => setSortBy('distance')}
+            onClick={() => {
+              setSortBy('distance');
+            }}
             className={cn(
               "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
               sortBy === 'distance'
@@ -1191,7 +1302,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
           <button
             type="button"
-            onClick={() => setSortBy('availability')}
+            onClick={() => {
+              setSortBy('availability');
+            }}
             className={cn(
               "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
               sortBy === 'availability'
@@ -1277,13 +1390,96 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
           const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
             ? photographerItem.netAvailableSlots
             : photographerItem.availabilitySlots || [];
+          const availabilityScaleStartMinutes = 8 * 60;
+          const availabilityScaleEndMinutes = 20 * 60;
+          const availabilityScaleTotalMinutes = Math.max(1, availabilityScaleEndMinutes - availabilityScaleStartMinutes);
+          const availabilityScaleTickCount = 11;
+          const clampTimelineSlot = (slot: any) => {
+            const startMinutes = Math.max(availabilityScaleStartMinutes, timeToMinutes(slot.start_time));
+            const endMinutes = Math.min(availabilityScaleEndMinutes, timeToMinutes(slot.end_time));
+            if (endMinutes <= startMinutes) return null;
+
+            return {
+              ...slot,
+              start_time: minutesToTime(startMinutes),
+              end_time: minutesToTime(endMinutes),
+            };
+          };
 
           const availabilitySlots = availabilitySource
             .map((slot) => ({
               start_time: normalizeSlotTime(slot.start_time),
               end_time: normalizeSlotTime(slot.end_time),
             }))
-            .filter((slot) => slot.start_time && slot.end_time);
+            .filter((slot) => slot.start_time && slot.end_time)
+            .map(clampTimelineSlot)
+            .filter(Boolean);
+          const unavailableSlots = ((photographerItem as any).unavailableSlots || [])
+            .map((slot: any) => ({
+              start_time: normalizeSlotTime(slot.start_time),
+              end_time: normalizeSlotTime(slot.end_time),
+            }))
+            .filter((slot: any) => slot.start_time && slot.end_time)
+            .map(clampTimelineSlot)
+            .filter(Boolean);
+          const bookedSlots = ((photographerItem as any).bookedSlots || [])
+            .map((slot: any) => ({
+              start_time: normalizeSlotTime(slot.start_time),
+              end_time: normalizeSlotTime(slot.end_time),
+              status: slot.status,
+              shoot_id: slot.shoot_id,
+              address: slot.address,
+              city: slot.city,
+              state: slot.state,
+              zip: slot.zip,
+            }))
+            .filter((slot: any) => slot.start_time && slot.end_time)
+            .map(clampTimelineSlot)
+            .filter(Boolean);
+          const distanceMiles = typeof (photographerItem as any).distance === 'number' && Number.isFinite((photographerItem as any).distance)
+            ? (photographerItem as any).distance
+            : null;
+          const distanceLabel = distanceMiles !== null ? `${distanceMiles.toFixed(1)} mi` : null;
+          const distanceFromLabel = (photographerItem as any).distanceFrom === 'previous_shoot'
+            ? 'from previous shoot'
+            : 'from home';
+          const getLocationInitials = (slot: any) => {
+            const parts = [slot.address, slot.city, slot.state]
+              .filter(Boolean)
+              .flatMap((value) => String(value).split(/\s+/))
+              .map((part) => part.replace(/[^a-z0-9]/gi, ''))
+              .filter(Boolean);
+            return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
+          };
+          const renderTimelineSlot = (
+            slot: any,
+            key: string,
+            className: string,
+            label: string,
+          ) => {
+            const startMinutes = timeToMinutes(slot.start_time);
+            const endMinutes = timeToMinutes(slot.end_time);
+            const leftPercent = ((startMinutes - availabilityScaleStartMinutes) / availabilityScaleTotalMinutes) * 100;
+            const widthPercent = ((endMinutes - startMinutes) / availabilityScaleTotalMinutes) * 100;
+            const clampedLeft = Math.max(0, Math.min(100, leftPercent));
+            const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
+
+            if (clampedWidth <= 0) return null;
+
+            return (
+              <Tooltip key={key}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={className}
+                    style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] whitespace-nowrap px-2 py-1 text-xs">
+                  {label}{slot.address ? ` · ${getLocationInitials(slot)}` : ''} · {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
+                </TooltipContent>
+              </Tooltip>
+            );
+          };
 
           return (
             <button
@@ -1317,6 +1513,20 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
                       {photographerItem.name}
                     </p>
+                    {distanceLabel ? (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                              {distanceLabel}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="px-2 py-1 text-xs">
+                            Distance to shoot {distanceFromLabel}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : null}
                     {(() => {
                       const travelRange = (photographerItem as any).travel_range ?? (photographerItem as any).metadata?.travel_range;
                       const travelUnit = (photographerItem as any).travel_range_unit ?? (photographerItem as any).metadata?.travel_range_unit ?? 'miles';
@@ -1340,29 +1550,49 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     {locationLabel || 'Location unavailable'}
                   </p>
 
-                  <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
-                    {availabilitySlots.map((slot, index) => {
-                      const slotStart = 8 * 60;
-                      const slotEnd = 20 * 60;
-                      const startMinutes = timeToMinutes(slot.start_time);
-                      const endMinutes = timeToMinutes(slot.end_time);
-                      const totalMinutes = slotEnd - slotStart;
-                      const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
-                      const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
-                      const clampedLeft = Math.max(0, Math.min(100, leftPercent));
-                      const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
-
-                      if (clampedWidth <= 0) return null;
-
-                      return (
-                        <span
-                          key={`${photographerItem.id}-slot-${index}`}
-                          className="absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400"
-                          style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-                        />
-                      );
-                    })}
-                  </div>
+                  <TooltipProvider delayDuration={100}>
+                    <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
+                      {availabilitySlots.map((slot, index) => renderTimelineSlot(
+                        slot,
+                        `${photographerItem.id}-slot-${index}`,
+                        "absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400",
+                        "Available"
+                      ))}
+                      {bookedSlots.map((slot: any, index: number) => renderTimelineSlot(
+                        slot,
+                        `${photographerItem.id}-booked-${index}`,
+                        "absolute top-0 bottom-0 rounded-full bg-blue-900 dark:bg-blue-700",
+                        "Booked"
+                      ))}
+                      {unavailableSlots.map((slot: any, index: number) => renderTimelineSlot(
+                        slot,
+                        `${photographerItem.id}-unavailable-${index}`,
+                        "absolute top-0 bottom-0 rounded-full bg-red-500 dark:bg-red-500",
+                        "Unavailable"
+                      ))}
+                    </div>
+                    {availabilitySlots.length > 0 ? (
+                      <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        <span className="shrink-0">8 AM</span>
+                        <div className="flex flex-1 items-center justify-between px-1">
+                          {Array.from({ length: availabilityScaleTickCount }).map((_, index) => {
+                            const tickMinutes = availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1));
+                            return (
+                              <Tooltip key={`${photographerItem.id}-scale-${index}`}>
+                                <TooltipTrigger asChild>
+                                  <span className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80" />
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="px-2 py-1 text-xs">
+                                  {to12Hour(minutesToTime(tickMinutes))}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                        <span className="shrink-0">8 PM</span>
+                      </div>
+                    ) : null}
+                  </TooltipProvider>
                 </div>
 
                 <span
@@ -1485,24 +1715,40 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             </span>
           </div>
 
-          <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-            {quickTimes.map((slot) => (
-              <Button
-                key={slot}
-                type="button"
-                variant={time === slot ? "default" : "outline"}
-                disabled={!date}
-                onClick={() => handleQuickTimeSelect(slot)}
-                className={cn(
-                  "h-11 text-sm font-semibold",
-                  time === slot
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-gray-50 dark:bg-card/60 border-gray-200 dark:border-muted/40 text-slate-900 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-card/70"
-                )}
-              >
-                {slot}
-              </Button>
-            ))}
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Suggested times
+            </p>
+            {visibleSuggestedTimes.length > 0 ? (
+              <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
+                {visibleSuggestedTimes.map((slot) => {
+                  const disabled = !date || isPhotographerTimeDisabled(photographer, slot);
+                  return (
+                    <Button
+                      key={slot}
+                      type="button"
+                      variant={time === slot ? "default" : "outline"}
+                      disabled={disabled}
+                      onClick={() => handleQuickTimeSelect(slot)}
+                      className={cn(
+                        "h-11 text-sm font-semibold",
+                        time === slot
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : disabled
+                            ? "bg-gray-100 text-slate-400 dark:bg-card/40 dark:text-slate-600"
+                            : "bg-gray-50 dark:bg-card/60 border-gray-200 dark:border-muted/40 text-slate-900 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-card/70"
+                      )}
+                    >
+                      {slot}
+                    </Button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
+                No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.
+              </div>
+            )}
           </div>
 
           <Button
@@ -1518,26 +1764,34 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
           {isMobile ? (
             <Drawer open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
-              <DrawerContent className="h-[56vh] max-h-[56vh]">
+              <DrawerContent className="flex h-auto max-h-[66vh] flex-col">
                 <DrawerHeader className="pb-2 text-left">
-                  <DrawerTitle>Select Time</DrawerTitle>
-                  <DrawerDescription>Choose a time for the shoot</DrawerDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <DrawerTitle>Select Time</DrawerTitle>
+                      <DrawerDescription>Choose a time for the shoot</DrawerDescription>
+                    </div>
+                    <span className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-blue-600 dark:bg-slate-800 dark:text-blue-400">
+                      {tempTime || time || 'Select'}
+                    </span>
+                  </div>
                 </DrawerHeader>
 
-                <div className="px-4 pb-2">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
                   <TimeSelect
                     value={tempTime || time}
                     onChange={onTimeChange}
-                    startHour={6}
-                    endHour={21}
+                    startHour={8}
+                    endHour={19}
                     interval={5}
+                    availableTimes={availableTimesForSelectedPhotographer}
                     placeholder="Select a time"
                     className="w-full"
                   />
                 </div>
 
-                <DrawerFooter className="[padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
-                  <Button type="button" className="w-full" onClick={handleTimeConfirm}>
+                <DrawerFooter className="sticky bottom-0 z-10 shrink-0 border-t border-border/70 bg-background/95 pt-3 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+                  <Button type="button" className="h-11 w-full" onClick={handleTimeConfirm}>
                     OK
                   </Button>
                 </DrawerFooter>
@@ -1547,19 +1801,27 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             <Dialog open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
               <DialogContent className="sm:max-w-md w-full">
                 <DialogHeader>
-                  <DialogTitle>Select Time</DialogTitle>
-                  <DialogDescription>
-                    Choose a time for the shoot
-                  </DialogDescription>
+                  <div className="flex items-start justify-between gap-3 pr-8">
+                    <div>
+                      <DialogTitle>Select Time</DialogTitle>
+                      <DialogDescription>
+                        Choose a time for the shoot
+                      </DialogDescription>
+                    </div>
+                    <span className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-blue-600 dark:bg-slate-800 dark:text-blue-400">
+                      {tempTime || time || 'Select'}
+                    </span>
+                  </div>
                 </DialogHeader>
 
                 <div className="mt-4 w-full flex justify-center">
                   <TimeSelect
                     value={tempTime || time}
                     onChange={onTimeChange}
-                    startHour={6}
-                    endHour={21}
+                    startHour={8}
+                    endHour={19}
                     interval={5}
+                    availableTimes={availableTimesForSelectedPhotographer}
                     placeholder="Select a time"
                     className="w-full"
                   />
@@ -1644,20 +1906,20 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                 <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[1fr_140px]">
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
-                    <Input
-                      type="date"
+                    <ServiceDatePicker
                       value={getServiceSchedule(services[0]?.id || '').date}
-                      onChange={(event) => updateServiceSchedules(services.map(s => s.id), { date: event.target.value })}
-                      className="h-9"
+                      onChange={(value) => updateServiceSchedules(services.map(s => s.id), { date: value })}
+                      triggerClassName="h-9"
                     />
                   </div>
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
-                    <Input
-                      type="time"
+                    <ServiceTimePicker
                       value={getServiceSchedule(services[0]?.id || '').time}
-                      onChange={(event) => updateServiceSchedules(services.map(s => s.id), { time: event.target.value })}
-                      className="h-9"
+                      options={buildConflictAwareServiceTimeOptions(getPhotographerForCategory(categoryName), getServiceSchedule(services[0]?.id || '').time)}
+                      onChange={(value) => updateServiceSchedules(services.map(s => s.id), { time: value })}
+                      triggerClassName="h-9"
+                      isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForCategory(categoryName), value)}
                     />
                   </div>
                 </div>
@@ -1679,17 +1941,17 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                           <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
                           <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatScheduleLine(service.id)}</p>
                         </div>
-                        <Input
-                          type="date"
+                        <ServiceDatePicker
                           value={schedule.date}
-                          onChange={(event) => updateServiceSchedules([service.id], { date: event.target.value })}
-                          className="h-9"
+                          onChange={(value) => updateServiceSchedules([service.id], { date: value })}
+                          triggerClassName="h-9"
                         />
-                        <Input
-                          type="time"
+                        <ServiceTimePicker
                           value={schedule.time}
-                          onChange={(event) => updateServiceSchedules([service.id], { time: event.target.value })}
-                          className="h-9"
+                          options={buildConflictAwareServiceTimeOptions(photographer, schedule.time)}
+                          onChange={(value) => updateServiceSchedules([service.id], { time: value })}
+                          triggerClassName="h-9"
+                          isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value)}
                         />
                       </div>
                     );
@@ -1703,7 +1965,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     <DrawerHeader className="pb-2 text-left">
                       <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
                       <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                        Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                        {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
                       </DrawerDescription>
                     </DrawerHeader>
 
@@ -1741,7 +2003,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                         <DialogHeader className="space-y-1 text-left items-start">
                           <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
                           <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                            {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
                           </DialogDescription>
                         </DialogHeader>
 
@@ -1820,7 +2082,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                         Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
                       </DrawerTitle>
                       <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                        Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                        {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
                       </DrawerDescription>
                     </DrawerHeader>
 
@@ -1863,7 +2125,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                             Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
                           </DialogTitle>
                           <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                            {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
                           </DialogDescription>
                         </DialogHeader>
 

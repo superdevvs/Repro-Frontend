@@ -795,13 +795,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             : "border-border hover:border-primary/40"
         )}
       >
-        {/* Top right actions - flag only (invoice available in shoot details modal) */}
-        {shoot.isFlagged && (
-          <div className="absolute top-3 right-3 text-destructive">
-            <Flag size={14} />
-          </div>
-        )}
-
         {/* ── Mobile layout ── */}
         {isCompactMobile && (
           <div className="sm:hidden grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px]">
@@ -867,9 +860,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 );
               })()}
             </div>
-            <div className="ml-auto inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm flex-shrink-0">
-              {renderWeatherIcon(weather?.icon)}
-              <span>{getShootTemperatureLabel(shoot, weather)}</span>
+            <div className="ml-auto flex flex-col items-end gap-1 flex-shrink-0">
+              <div className="inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm">
+                {renderWeatherIcon(weather?.icon)}
+                <span>{getShootTemperatureLabel(shoot, weather)}</span>
+              </div>
+              {shoot.isFlagged && (
+                <span className="inline-flex items-center h-5 gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 text-[10px] font-semibold text-destructive shadow-sm">
+                  <Flag size={10} />
+                  <span>Flagged</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -1021,9 +1022,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
           </div>
 
           <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
-            <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
-              {renderWeatherIcon(weather?.icon)}
-              <span>{getShootTemperatureLabel(shoot, weather)}</span>
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
+                {renderWeatherIcon(weather?.icon)}
+                <span>{getShootTemperatureLabel(shoot, weather)}</span>
+              </div>
+              {shoot.isFlagged && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive shadow-sm">
+                  <Flag size={12} />
+                  <span>Flagged</span>
+                </span>
+              )}
             </div>
             <div className="text-xs text-muted-foreground text-right">
               {isPhotographerRole ? (
@@ -1541,19 +1550,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
   return (
     <Card className="flex flex-col h-full flex-1 relative">
-      <button
-        onClick={() => setIsCompactMobile((prev) => !prev)}
-        className={cn(
-          "sm:hidden absolute top-3 right-12 z-10 h-8 w-8 flex items-center justify-center rounded-full transition-colors",
-          isCompactMobile
-            ? "bg-primary/15 text-primary"
-            : "hover:bg-muted/60 text-muted-foreground"
-        )}
-        aria-label={isCompactMobile ? "Show full shoot cards" : "Show compact shoot cards"}
-      >
-        <List size={16} />
-      </button>
-
       {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
       <button
         onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -1687,6 +1683,20 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCompactMobile((prev) => !prev)}
+            className={cn(
+              "h-9 rounded-full px-3",
+              isCompactMobile
+                ? "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            )}
+            aria-label={isCompactMobile ? "Show full shoot cards" : "Show compact shoot cards"}
+          >
+            <List size={16} />
+          </Button>
         </div>
       )}
 

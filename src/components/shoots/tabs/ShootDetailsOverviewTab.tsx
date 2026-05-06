@@ -366,6 +366,7 @@ export function ShootDetailsOverviewTab({
       photographerPickerContext,
       searchQuery,
       sortBy,
+      showAllPhotographers,
       isCalculatingDistances,
       isLoadingAvailability,
     },
@@ -389,6 +390,7 @@ export function ShootDetailsOverviewTab({
       setSelectedPhotographerId,
       setSearchQuery,
       setSortBy,
+      setShowAllPhotographers,
       updateField,
       clearAddressDerivedState,
       handleAddressSelect,
@@ -1042,13 +1044,14 @@ export function ShootDetailsOverviewTab({
         setSearchQuery={setSearchQuery}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        showAllPhotographers={showAllPhotographers}
+        setShowAllPhotographers={setShowAllPhotographers}
         isCalculatingDistances={isCalculatingDistances}
         isLoadingAvailability={isLoadingAvailability}
         filteredAndSortedPhotographers={filteredAndSortedPhotographers}
         selectedPhotographerId={selectedPhotographerId}
         setSelectedPhotographerId={setSelectedPhotographerId}
         formatLocationLabel={formatLocationLabel}
-        buildAvailabilitySegments={buildAvailabilitySegments}
         formatAvailabilitySummary={formatAvailabilitySummary}
         handleAssignPhotographer={handleAssignPhotographer}
       />

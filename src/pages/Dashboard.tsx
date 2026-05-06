@@ -35,6 +35,7 @@ import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingSh
 import { withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { usePermission } from "@/hooks/usePermission";
+import { DashboardRouteSkeleton } from "@/components/layout/DashboardRouteSkeleton";
 import { DASHBOARD_DESCRIPTION } from "@/features/dashboard/constants";
 import { DevProfiler } from "@/features/dashboard/components/DevProfiler";
 import { useDashboardSections } from "@/features/dashboard/components/DashboardSections";
@@ -58,12 +59,7 @@ import type {
 } from "@/features/dashboard/types";
 
 const DashboardViewFallback = () => (
-  <DashboardLayout>
-    <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col gap-4 sm:gap-6">
-      <PageHeader title="Dashboard" description={DASHBOARD_DESCRIPTION} />
-      <UpcomingShootsCardSkeleton />
-    </div>
-  </DashboardLayout>
+  <DashboardRouteSkeleton pathname="/dashboard" />
 );
 
 const DashboardUnsupportedRoleFallback = ({ role }: { role: string }) => (

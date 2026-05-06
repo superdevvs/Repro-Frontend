@@ -21,6 +21,7 @@ export interface TimeSelectProps {
   placeholder?: string;
   hour24?: boolean;
   autoOpenOnValue?: boolean;
+  footerAction?: React.ReactNode;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -173,6 +174,132 @@ function Dropdown<T extends string | number>(props: {
   );
 }
 
+function WheelColumn<T extends string>(props: {
+  value: T | "";
+  onChange: (v: T) => void;
+  options: { value: T; label: string; disabled?: boolean }[];
+  ariaLabel: string;
+}) {
+  const { value, onChange, options, ariaLabel } = props;
+  const selectedRef = React.useRef<HTMLButtonElement | null>(null);
+  const wheelRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollEndRef = React.useRef<number | null>(null);
+  const touchStartRef = React.useRef<number | null>(null);
+  const lastStepRef = React.useRef(0);
+
+  React.useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: "center" });
+  }, [value]);
+
+  const moveSelection = (direction: 1 | -1) => {
+    const now = Date.now();
+    if (now - lastStepRef.current < 120) return;
+    lastStepRef.current = now;
+
+    const currentIndex = options.findIndex((option) => option.value === value);
+    let nextIndex = currentIndex < 0 ? (direction === 1 ? 0 : options.length - 1) : currentIndex + direction;
+    while (nextIndex >= 0 && nextIndex < options.length) {
+      const option = options[nextIndex];
+      if (!option.disabled) {
+        onChange(option.value);
+        return;
+      }
+      nextIndex += direction;
+    }
+  };
+
+  const settleToNearestOption = () => {
+    const wheel = wheelRef.current;
+    if (!wheel) return;
+
+    const wheelRect = wheel.getBoundingClientRect();
+    const wheelCenter = wheelRect.top + wheelRect.height / 2;
+    const optionButtons = Array.from(wheel.querySelectorAll<HTMLButtonElement>('[data-wheel-option]'));
+    const closest = optionButtons
+      .filter((button) => !button.disabled)
+      .map((button) => ({
+        button,
+        distance: Math.abs(button.getBoundingClientRect().top + button.getBoundingClientRect().height / 2 - wheelCenter),
+      }))
+      .sort((first, second) => first.distance - second.distance)[0]?.button;
+
+    if (!closest) return;
+    const nextValue = closest.dataset.value as T | undefined;
+    if (nextValue && nextValue !== value) onChange(nextValue);
+    closest.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  return (
+    <div
+      role="listbox"
+      tabIndex={0}
+      ref={wheelRef}
+      aria-label={ariaLabel}
+      onWheel={(event) => {
+        event.preventDefault();
+        if (Math.abs(event.deltaY) < 4) return;
+        moveSelection(event.deltaY > 0 ? 1 : -1);
+      }}
+      onTouchStart={(event) => {
+        touchStartRef.current = event.touches[0]?.clientY ?? null;
+      }}
+      onTouchMove={(event) => {
+        if (touchStartRef.current === null) return;
+        const currentY = event.touches[0]?.clientY ?? touchStartRef.current;
+        const delta = touchStartRef.current - currentY;
+        if (Math.abs(delta) < 18) return;
+        event.preventDefault();
+        moveSelection(delta > 0 ? 1 : -1);
+        touchStartRef.current = currentY;
+      }}
+      onTouchEnd={() => {
+        touchStartRef.current = null;
+      }}
+      onScroll={() => {
+        if (scrollEndRef.current) window.clearTimeout(scrollEndRef.current);
+        scrollEndRef.current = window.setTimeout(settleToNearestOption, 90);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          moveSelection(1);
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          moveSelection(-1);
+        }
+      }}
+      className="relative h-[120px] snap-y snap-mandatory overflow-hidden scroll-smooth py-10 overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            ref={selected ? selectedRef : null}
+            data-wheel-option
+            data-value={option.value}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            disabled={option.disabled}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex h-10 w-full snap-center touch-manipulation items-center justify-center rounded-2xl text-center text-2xl font-semibold leading-none transition",
+              selected
+                ? "text-slate-950 dark:text-white"
+                : "text-slate-400 dark:text-slate-500",
+              option.disabled && "cursor-not-allowed opacity-25"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ------------------------- TimeSelect component -------------------------- */
 export function TimeSelect({
   value,
@@ -186,6 +313,7 @@ export function TimeSelect({
   placeholder = "Select time",
   hour24 = false,
   autoOpenOnValue = false,
+  footerAction,
 }: TimeSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -338,11 +466,10 @@ export function TimeSelect({
     () =>
       hours.map((h) => {
         let disabled = false;
-        const testMinute = minutes[0] ?? "00";
-        if (hour24) disabled = !isComboAvailable(h, testMinute);
+        if (hour24) disabled = !minutes.some((testMinute) => isComboAvailable(h, testMinute));
         else {
-          const availAM = isComboAvailable(h, testMinute, "AM");
-          const availPM = isComboAvailable(h, testMinute, "PM");
+          const availAM = minutes.some((testMinute) => isComboAvailable(h, testMinute, "AM"));
+          const availPM = minutes.some((testMinute) => isComboAvailable(h, testMinute, "PM"));
           disabled = !availAM && !availPM;
         }
         return { value: h, label: h, disabled };
@@ -397,53 +524,45 @@ export function TimeSelect({
       )}
       style={{ maxWidth: undefined }}
     >
-      {/* grid: on small screens stack vertically; on sm+ display 3 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start mb-3">
-        <div className="w-full">
-          <Dropdown
+      <div className="relative rounded-3xl bg-gray-50 p-4 dark:bg-slate-950/60">
+        <div className="pointer-events-none absolute left-4 right-4 top-1/2 h-10 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-gray-100 dark:bg-slate-800 dark:ring-slate-700" />
+        <div className="relative grid grid-cols-[1fr_1fr_1.2fr] items-center gap-1">
+          <WheelColumn
             value={hour || ""}
             onChange={(v) => {
               setHour(String(v));
               setUserInteractions(prev => ({ ...prev, hour: true }));
             }}
-            options={hourOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
-            placeholder="Hour"
+            options={hourOptions.map((o) => ({ value: o.value, label: String(Number(o.label)), disabled: o.disabled }))}
             ariaLabel="Select hour"
-            className="w-full"
           />
-        </div>
 
-        <div className="w-full">
-          <Dropdown
+          <WheelColumn
             value={minute || ""}
             onChange={(v) => {
               setMinute(String(v));
               setUserInteractions(prev => ({ ...prev, minute: true }));
             }}
             options={minuteOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
-            placeholder="MM"
             ariaLabel="Select minute"
-            className="w-full"
           />
-        </div>
 
-        <div className="w-full">
-          <Dropdown
-            value={ampm || "AM"}
-            onChange={(v) => {
-              setAmpm(String(v));
-              setUserInteractions(prev => ({ ...prev, ampm: true }));
-            }}
-            options={ampmOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
-            placeholder="AM/PM"
-            ariaLabel="Select AM/PM"
-            className="w-full"
-          />
+          {!hour24 ? (
+            <WheelColumn
+              value={ampm || "AM"}
+              onChange={(v) => {
+                setAmpm(String(v));
+                setUserInteractions(prev => ({ ...prev, ampm: true }));
+              }}
+              options={ampmOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
+              ariaLabel="Select AM or PM"
+            />
+          ) : null}
         </div>
       </div>
 
       {/* Clear button */}
-      <div className="flex items-center">
+      <div className="mt-2 flex items-center justify-between gap-2">
         <button
           type="button"
           className="px-3 py-2 rounded-md text-sm text-slate-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
@@ -458,6 +577,7 @@ export function TimeSelect({
         >
           Clear
         </button>
+        {footerAction}
       </div>
     </div>
   );

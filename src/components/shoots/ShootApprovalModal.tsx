@@ -7,14 +7,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers } from 'lucide-react';
+import { Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, X } from 'lucide-react';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -25,6 +31,8 @@ import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { getAvatarUrl } from '@/utils/defaultAvatars';
 import {
   buildWallClockIso,
   formatDateForWallClockInput,
@@ -36,9 +44,28 @@ interface Photographer {
   name: string;
   avatar?: string;
   email?: string;
+  address?: string;
   city?: string;
   state?: string;
+  zip?: string;
+  distance?: number;
+  distanceFrom?: 'home' | 'previous_shoot';
+  previousShootId?: number;
+  travel_range?: number | null;
+  travel_range_unit?: string;
+  availabilitySlots?: AvailabilitySlot[];
+  netAvailableSlots?: AvailabilitySlot[];
+  unavailableSlots?: AvailabilitySlot[];
+  bookedSlots?: Array<AvailabilitySlot & { status?: string; shoot_id?: number }>;
+  shootsCountToday?: number;
 }
+
+type AvailabilitySlot = {
+  start_time: string;
+  end_time: string;
+};
+
+type PhotographerAvailabilityMap = Record<string, AvailabilitySlot[]>;
 
 interface ShootDetails {
   id: number;
@@ -98,13 +125,32 @@ type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
 
+const normalizeSlotTime = (value?: string) => {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return '00:00';
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+};
+
+const timeToMinutes = (value: string) => {
+  const [hours, minutes] = normalizeSlotTime(value).split(':').map(Number);
+  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+};
+
+const availabilityScaleStartMinutes = 8 * 60;
+const availabilityScaleTotalMinutes = 12 * 60;
+const availabilityScaleTickCount = 9;
+
 const mapPhotographerOption = (photographer: any): Photographer => ({
   id: photographer.id?.toString() || '',
   name: photographer.name || 'Unknown',
   avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
   email: photographer.email || '',
+  address: photographer.address || photographer.metadata?.address || photographer.metadata?.homeAddress,
   city: photographer.city || photographer.metadata?.city,
   state: photographer.state || photographer.metadata?.state,
+  zip: photographer.zip || photographer.zipcode || photographer.metadata?.zip || photographer.metadata?.zipcode,
+  travel_range: photographer.travel_range ?? photographer.metadata?.travel_range ?? null,
+  travel_range_unit: photographer.travel_range_unit ?? photographer.metadata?.travel_range_unit ?? 'miles',
 });
 
 const loadPhotographerOptions = async (initialPhotographers: Photographer[] = []): Promise<Photographer[]> => {
@@ -159,9 +205,13 @@ export function ShootApprovalModal({
   const [photographerPickerContext, setPhotographerPickerContext] = useState<PhotographerPickerContext>(null);
   const [pickerPhotographerId, setPickerPhotographerId] = useState('');
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'distance' | 'availability'>('distance');
+  const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
+  const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
+  const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
   const [notes, setNotes] = useState('');
 
   const normalizeTimeValue = (raw?: string | null): string | null => {
@@ -252,8 +302,10 @@ export function ShootApprovalModal({
   const buildTimeOptions = React.useCallback(
     (ensure?: string | null) => {
       const options: { value: string; label: string }[] = [];
-      for (let h = 5; h < 23; h++) {
-        for (const m of ['00', '30']) {
+      for (let h = 8; h <= 19; h++) {
+        for (let minuteValue = 0; minuteValue < 60; minuteValue += 5) {
+          if (h === 19 && minuteValue !== 0) continue;
+          const m = minuteValue.toString().padStart(2, '0');
           const hour = h.toString().padStart(2, '0');
           const period = h >= 12 ? 'PM' : 'AM';
           const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
@@ -575,15 +627,115 @@ export function ShootApprovalModal({
   };
 
   const filteredPhotographers = useMemo(() => {
-    if (!photographerSearchQuery.trim()) return photographerOptions;
     const query = photographerSearchQuery.trim().toLowerCase();
-    return photographerOptions.filter((photographer) =>
-      photographer.name.toLowerCase().includes(query) ||
-      String(photographer.email || '').toLowerCase().includes(query) ||
-      String(photographer.city || '').toLowerCase().includes(query) ||
-      String(photographer.state || '').toLowerCase().includes(query),
-    );
-  }, [photographerOptions, photographerSearchQuery]);
+    const searched = query
+      ? photographerOptions.filter((photographer) =>
+          photographer.name.toLowerCase().includes(query) ||
+          String(photographer.email || '').toLowerCase().includes(query) ||
+          String(photographer.city || '').toLowerCase().includes(query) ||
+          String(photographer.state || '').toLowerCase().includes(query),
+        )
+      : photographerOptions;
+
+    const filtered = showAllPhotographers
+      ? searched
+      : searched.filter((photographer) => (photographerAvailability[String(photographer.id)] || []).length > 0);
+
+    return [...filtered].sort((first, second) => {
+      if (sortBy === 'availability') {
+        return (photographerAvailability[String(second.id)] || []).length - (photographerAvailability[String(first.id)] || []).length;
+      }
+      const firstDistance = typeof first.distance === 'number' ? first.distance : Number.POSITIVE_INFINITY;
+      const secondDistance = typeof second.distance === 'number' ? second.distance : Number.POSITIVE_INFINITY;
+      return firstDistance - secondDistance;
+    });
+  }, [photographerOptions, photographerSearchQuery, photographerAvailability, showAllPhotographers, sortBy]);
+
+  const formatPhotographerLocationLabel = (photographer?: Photographer | null) =>
+    [photographer?.address, photographer?.city, photographer?.state, photographer?.zip].filter(Boolean).join(', ');
+
+  useEffect(() => {
+    const availabilityDateValue = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
+
+    if (!isOpen || photographerOptions.length === 0 || !availabilityDateValue) {
+      setPhotographerAvailability({});
+      return;
+    }
+
+    const abortController = new AbortController();
+    const fetchAvailability = async () => {
+      setIsLoadingPhotographerAvailability(true);
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const requestAddress = shootDetails?.address || shootDetails?.location?.address || shootAddress || '';
+        const requestCity = shootDetails?.city || shootDetails?.location?.city || '';
+        const requestState = shootDetails?.state || shootDetails?.location?.state || '';
+        const requestZip = shootDetails?.zip || shootDetails?.location?.zip || '';
+
+        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+          method: 'POST',
+          headers,
+          signal: abortController.signal,
+          body: JSON.stringify({
+            date: availabilityDateValue,
+            time: scheduledTime || undefined,
+            shoot_address: requestAddress,
+            shoot_city: requestCity,
+            shoot_state: requestState,
+            shoot_zip: requestZip || '',
+            photographer_ids: photographerOptions.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch photographer availability');
+
+        const json = await response.json();
+        const enrichedPhotographers: any[] = Array.isArray(json?.data) ? json.data : [];
+        const nextAvailability: PhotographerAvailabilityMap = {};
+        const enrichedById = new Map(enrichedPhotographers.map((item) => [String(item.id), item]));
+
+        setPhotographerOptions((current) => current.map((photographer) => {
+          const enriched = enrichedById.get(String(photographer.id));
+          if (!enriched) return photographer;
+          const parsedDistance = typeof enriched.distance === 'number'
+            ? enriched.distance
+            : enriched.distance
+              ? Number.parseFloat(String(enriched.distance))
+              : undefined;
+          const netAvailableSlots = enriched.net_available_slots || enriched.availability_slots || [];
+          nextAvailability[String(photographer.id)] = netAvailableSlots.map((slot: any) => ({
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+          }));
+          return {
+            ...photographer,
+            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
+            distanceFrom: enriched.distance_from,
+            previousShootId: enriched.previous_shoot_id,
+            availabilitySlots: enriched.availability_slots || [],
+            unavailableSlots: enriched.unavailable_slots || [],
+            bookedSlots: enriched.booked_slots || [],
+            netAvailableSlots,
+            shootsCountToday: enriched.shoots_count_today,
+          };
+        }));
+
+        setPhotographerAvailability(nextAvailability);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        console.error('[ShootApprovalModal] Failed to load photographer availability:', error);
+        setPhotographerAvailability({});
+      } finally {
+        setIsLoadingPhotographerAvailability(false);
+      }
+    };
+
+    fetchAvailability();
+
+    return () => abortController.abort();
+  }, [isOpen, photographerOptions.length, scheduledDate, scheduledTime, shootDetails, shootAddress]);
 
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
     const singleCategory = serviceCategoryGroups[0];
@@ -722,9 +874,25 @@ export function ShootApprovalModal({
     () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
     [scheduledDate]
   );
-  const serviceScheduleRows = Array.isArray(services)
-    ? services.filter((service: any) => service && typeof service === 'object' && getServiceIdentifier(service))
-    : [];
+  const serviceScheduleRows = useMemo(() => {
+    const rows = Array.isArray(services)
+      ? services.filter((service: any) => service && typeof service === 'object' && getServiceIdentifier(service))
+      : [];
+
+    return [...rows].sort((first: any, second: any) => {
+      const firstServiceId = getServiceIdentifier(first);
+      const secondServiceId = getServiceIdentifier(second);
+      const firstSchedule = serviceSchedules[firstServiceId] || {};
+      const secondSchedule = serviceSchedules[secondServiceId] || {};
+      const firstDateTime = buildScheduledAtIso(firstSchedule.date || scheduledDateInputValue, firstSchedule.time || scheduledTime);
+      const secondDateTime = buildScheduledAtIso(secondSchedule.date || scheduledDateInputValue, secondSchedule.time || scheduledTime);
+      const firstTime = firstDateTime ? new Date(firstDateTime).getTime() : 0;
+      const secondTime = secondDateTime ? new Date(secondDateTime).getTime() : 0;
+
+      if (firstTime !== secondTime) return firstTime - secondTime;
+      return getServiceName(first).localeCompare(getServiceName(second));
+    });
+  }, [services, serviceSchedules, scheduledDateInputValue, scheduledTime]);
   const updateServiceSchedule = (serviceId: string, field: 'date' | 'time', value: string) => {
     setServiceSchedules((current) => ({
       ...current,
@@ -735,10 +903,102 @@ export function ShootApprovalModal({
     }));
   };
 
+  const renderPhotographerAssignments = () => (
+    <div className="space-y-3 rounded-xl border border-border p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <User className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">Photographers</p>
+      </div>
+
+      {hasMultiplePhotographerCategories ? (
+        <div className="space-y-2">
+          {serviceCategoryGroups.map((group) => {
+            const selectedPhotographer = resolvePhotographerDetails(
+              perCategoryPhotographers[group.key] || photographerId,
+            );
+
+            return (
+              <div
+                key={group.key}
+                className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
+              >
+                <div className="min-w-0 space-y-1 text-xs">
+                  <div className="text-[10px] font-medium uppercase text-muted-foreground">
+                    {group.name}
+                  </div>
+                  <div className="font-medium">
+                    {selectedPhotographer?.name || 'Unassigned'}
+                  </div>
+                  {selectedPhotographer?.email && (
+                    <div className="truncate text-muted-foreground">
+                      {selectedPhotographer.email}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() =>
+                    openPhotographerPicker({
+                      categoryKey: group.key,
+                      categoryName: group.name,
+                    })
+                  }
+                >
+                  {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5">
+          <div className="min-w-0 space-y-1 text-xs">
+            <div className="font-medium">
+              {resolvePhotographerDetails(photographerId)?.name || 'Unassigned'}
+            </div>
+            {resolvePhotographerDetails(photographerId)?.email && (
+              <div className="truncate text-muted-foreground">
+                {resolvePhotographerDetails(photographerId)?.email}
+              </div>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 text-xs"
+            onClick={() => openPhotographerPicker(null)}
+          >
+            {resolvePhotographerDetails(photographerId) ? 'Edit photographer' : 'Select photographer'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderApprovalNotes = () => (
+    <div className="space-y-2 rounded-xl border border-border p-4">
+      <Label className="text-xs">Approval Notes (optional)</Label>
+      <Textarea
+        placeholder="Add internal notes..."
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={4}
+        className="resize-none"
+      />
+      <p className="text-[11px] text-muted-foreground">
+        Visible to the internal team in the shoot notes and history views after approval.
+      </p>
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] md:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4">
+      <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[900px] md:max-w-[1150px] xl:max-w-[1320px]">
+        <DialogHeader className="shrink-0 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10">
               <Check className="h-5 w-5 text-green-500" />
@@ -758,7 +1018,8 @@ export function ShootApprovalModal({
             <Skeleton className="h-48 md:h-64 w-full md:w-1/2 rounded-xl" />
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
             {/* Left Column - Shoot Details */}
             <div className="flex-1 space-y-4">
               <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-4 h-full">
@@ -860,8 +1121,8 @@ export function ShootApprovalModal({
               </div>
             </div>
 
-            {/* Right Column - Scheduling */}
-            <div className="flex-1 space-y-4">
+            {/* Middle Column - Scheduling */}
+            <div className="space-y-4">
               <div className="rounded-xl border border-border p-4 space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -872,107 +1133,24 @@ export function ShootApprovalModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Date *</Label>
-                    <div className="relative">
-                      <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="date"
-                        min={minSelectableDate}
-                        value={scheduledDateInputValue}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setScheduledDate(value ? new Date(`${value}T12:00:00`) : undefined);
-                        }}
-                        className="h-9 pl-9"
-                      />
-                    </div>
+                    <ServiceDatePicker
+                      value={scheduledDateInputValue}
+                      minDate={minSelectableDate}
+                      onChange={(value) => {
+                        const nextDate = new Date(`${value}T12:00:00`);
+                        setScheduledDate(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
+                      }}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label className="text-xs">Time</Label>
-                    <Select value={scheduledTime} onValueChange={setScheduledTime}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ServiceTimePicker
+                      value={scheduledTime}
+                      options={timeOptions}
+                      onChange={setScheduledTime}
+                    />
                   </div>
-                </div>
-
-                {/* Photographer */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Photographer</Label>
-                  {hasMultiplePhotographerCategories ? (
-                    <div className="space-y-2">
-                      {serviceCategoryGroups.map((group) => {
-                        const selectedPhotographer = resolvePhotographerDetails(
-                          perCategoryPhotographers[group.key] || photographerId,
-                        );
-
-                        return (
-                          <div
-                            key={group.key}
-                            className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
-                          >
-                            <div className="min-w-0 space-y-1 text-xs">
-                              <div className="text-[10px] font-medium uppercase text-muted-foreground">
-                                {group.name}
-                              </div>
-                              <div className="font-medium">
-                                {selectedPhotographer?.name || 'Unassigned'}
-                              </div>
-                              {selectedPhotographer?.email && (
-                                <div className="truncate text-muted-foreground">
-                                  {selectedPhotographer.email}
-                                </div>
-                              )}
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 shrink-0 text-xs"
-                              onClick={() =>
-                                openPhotographerPicker({
-                                  categoryKey: group.key,
-                                  categoryName: group.name,
-                                })
-                              }
-                            >
-                              {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5">
-                      <div className="min-w-0 space-y-1 text-xs">
-                        <div className="font-medium">
-                          {resolvePhotographerDetails(photographerId)?.name || 'Unassigned'}
-                        </div>
-                        {resolvePhotographerDetails(photographerId)?.email && (
-                          <div className="truncate text-muted-foreground">
-                            {resolvePhotographerDetails(photographerId)?.email}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 shrink-0 text-xs"
-                        onClick={() => openPhotographerPicker(null)}
-                      >
-                        {resolvePhotographerDetails(photographerId) ? 'Edit photographer' : 'Select photographer'}
-                      </Button>
-                    </div>
-                  )}
                 </div>
 
                 {serviceScheduleRows.length > 0 && (
@@ -1004,25 +1182,18 @@ export function ShootApprovalModal({
                               </Badge>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                              <Input
-                                type="date"
-                                min={minSelectableDate}
+                              <ServiceDatePicker
                                 value={serviceDate}
-                                onChange={(event) => updateServiceSchedule(serviceId, 'date', event.target.value)}
-                                className="h-8 text-xs"
+                                minDate={minSelectableDate}
+                                onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
+                                triggerClassName="h-8 rounded-lg px-2"
                               />
-                              <Select value={serviceTime} onValueChange={(value) => updateServiceSchedule(serviceId, 'time', value)}>
-                                <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue placeholder="Time" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {timeOptions.map((option) => (
-                                    <SelectItem key={`${serviceId}-${option.value}`} value={option.value}>
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <ServiceTimePicker
+                                value={serviceTime}
+                                options={timeOptions}
+                                onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
+                                triggerClassName="h-8 rounded-lg px-2"
+                              />
                             </div>
                           </div>
                         );
@@ -1031,26 +1202,17 @@ export function ShootApprovalModal({
                   </div>
                 )}
               </div>
-
-              {/* Approval Notes */}
-              <div className="rounded-xl border border-border p-4 space-y-2">
-                <Label className="text-xs">Approval Notes (optional)</Label>
-                <Textarea
-                  placeholder="Add internal notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  className="resize-none"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Visible to the internal team in the shoot notes and history views after approval.
-                </p>
-              </div>
             </div>
+
+            <div className="space-y-4">
+              {renderPhotographerAssignments()}
+              {renderApprovalNotes()}
+            </div>
+          </div>
           </div>
         )}
 
-        <DialogFooter className="pt-4 gap-2">
+        <DialogFooter className="shrink-0 gap-2 border-t border-border/60 px-4 py-4 sm:px-6">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
@@ -1073,42 +1235,92 @@ export function ShootApprovalModal({
           </Button>
         </DialogFooter>
 
-        <Dialog open={photographerPickerOpen} onOpenChange={(open) => {
+        <Drawer shouldScaleBackground={false} open={photographerPickerOpen} onOpenChange={(open) => {
           if (!open) {
             closePhotographerPicker();
           }
         }}>
-          <DialogContent className="w-[92vw] max-h-[90vh] overflow-hidden p-0 sm:max-w-2xl">
-            <div className="flex h-full flex-col sm:h-[70vh]">
-              <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-                <DialogHeader className="items-start space-y-1 text-left">
-                  <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
+          <DrawerContent className="z-[190] flex max-h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-slate-800/80 bg-background">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
+                <DrawerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-2 h-8 w-8 rounded-full"
+                    onClick={closePhotographerPicker}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <DrawerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
                     {photographerPickerContext?.categoryName
                       ? `Select Photographer for ${photographerPickerContext.categoryName}`
                       : 'Select Photographer'}
-                  </DialogTitle>
-                  <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                  </DrawerTitle>
+                  <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                     Curated network - {filteredPhotographers.length} available
-                  </DialogDescription>
-                </DialogHeader>
+                  </DrawerDescription>
+                </DrawerHeader>
 
                 <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by name or area..."
-                      value={photographerSearchQuery}
-                      onChange={(e) => setPhotographerSearchQuery(e.target.value)}
-                      className="h-11 rounded-full bg-slate-50 pl-9 dark:bg-slate-900/50"
-                    />
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by name or area..."
+                        value={photographerSearchQuery}
+                        onChange={(e) => setPhotographerSearchQuery(e.target.value)}
+                        className="h-10 rounded-full bg-slate-50 pl-9 sm:h-9 dark:bg-slate-900/50"
+                      />
+                    </div>
+                    <div className="-mx-0.5 flex min-w-0 items-center gap-1.5 overflow-x-auto px-0.5 pb-1 sm:mx-0 sm:gap-2 sm:pb-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                      <Button type="button" size="sm" variant={sortBy === 'distance' ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setSortBy('distance')}>
+                        Distance
+                      </Button>
+                      <Button type="button" size="sm" variant={sortBy === 'availability' ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setSortBy('availability')}>
+                        Availability
+                      </Button>
+                      <Button type="button" size="sm" variant={showAllPhotographers ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setShowAllPhotographers((current) => !current)}>
+                        Show All
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden sm:pr-2">
                   {filteredPhotographers.length > 0 ? (
-                    <div className="grid gap-3">
+                    <div className="grid gap-2.5 sm:gap-3">
                       {filteredPhotographers.map((photographer) => {
                         const isSelected = pickerPhotographerId === String(photographer.id);
+                        const locationLabel = formatPhotographerLocationLabel(photographer);
+                        const availabilitySlots = photographerAvailability[String(photographer.id)] || [];
+                        const bookedSlots = photographer.bookedSlots || [];
+                        const unavailableSlots = photographer.unavailableSlots || [];
+                        const distanceLabel = typeof photographer.distance === 'number' && Number.isFinite(photographer.distance)
+                          ? `${photographer.distance.toFixed(1)} mi`
+                          : null;
+                        const bookedCount = bookedSlots.length;
+                        const unavailableCount = unavailableSlots.length;
+                        const travelRange = photographer.travel_range;
+                        const travelUnit = photographer.travel_range_unit || 'miles';
+                        const rangeInMiles = travelUnit === 'km' && travelRange != null ? travelRange * 0.621371 : travelRange;
+                        const isOutOfRange = typeof photographer.distance === 'number' && rangeInMiles != null && photographer.distance > rangeInMiles;
+                        const renderTimelineSlot = (slot: AvailabilitySlot, key: string, className: string) => {
+                          const startMinutes = timeToMinutes(slot.start_time);
+                          const endMinutes = timeToMinutes(slot.end_time);
+                          const leftPercent = ((startMinutes - availabilityScaleStartMinutes) / availabilityScaleTotalMinutes) * 100;
+                          const widthPercent = ((endMinutes - startMinutes) / availabilityScaleTotalMinutes) * 100;
+                          const clampedLeft = Math.max(0, Math.min(100, leftPercent));
+                          const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
+                          if (clampedWidth <= 0) return null;
+                          return (
+                            <span
+                              key={key}
+                              className={className}
+                              style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
+                            />
+                          );
+                        };
 
                         return (
                           <button
@@ -1116,50 +1328,91 @@ export function ShootApprovalModal({
                             key={photographer.id}
                             onClick={() => setPickerPhotographerId(String(photographer.id))}
                             className={cn(
-                              'w-full rounded-2xl border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
+                              'w-full min-w-0 rounded-2xl border px-2.5 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:px-4',
                               isSelected
                                 ? 'border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30'
                                 : 'border-slate-200/70 bg-white/70 hover:border-blue-400/50 dark:border-slate-800/70 dark:bg-slate-900/40',
                             )}
                           >
-                            <div className="flex items-start gap-4">
-                              <Avatar className="h-12 w-12 shrink-0">
-                                <AvatarImage src={photographer.avatar} alt={photographer.name} />
+                            <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
+                              <Avatar
+                                className={cn(
+                                  'h-9 w-9 shrink-0 sm:h-11 sm:w-11',
+                                  isSelected && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950',
+                                )}
+                              >
+                                <AvatarImage
+                                  src={getAvatarUrl(photographer.avatar, 'photographer', undefined, photographer.id)}
+                                  alt={photographer.name}
+                                />
                                 <AvatarFallback>{photographer.name?.charAt(0)}</AvatarFallback>
                               </Avatar>
 
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                      {photographer.name}
-                                    </div>
-                                    {photographer.email && (
-                                      <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                                        {photographer.email}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <span
-                                    className={cn(
-                                      'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors',
-                                      isSelected
-                                        ? 'border-blue-600 bg-blue-600 text-white'
-                                        : 'border-slate-300/80 dark:border-slate-700/80',
-                                    )}
-                                    aria-hidden="true"
-                                  >
-                                    {isSelected ? <Check className="h-4 w-4" /> : null}
-                                  </span>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <p className="min-w-0 max-w-full truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {photographer.name}
+                                  </p>
+                                  {distanceLabel ? (
+                                    <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                                      {distanceLabel}
+                                    </span>
+                                  ) : null}
+                                  {photographer.distanceFrom === 'previous_shoot' ? (
+                                    <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                                      from last shoot
+                                    </span>
+                                  ) : null}
+                                  {isOutOfRange ? (
+                                    <span className="shrink-0 rounded border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-400">
+                                      Out of range
+                                    </span>
+                                  ) : null}
                                 </div>
 
-                                {(photographer.city || photographer.state) && (
-                                  <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-                                    {[photographer.city, photographer.state].filter(Boolean).join(', ')}
+                                <p className="mt-0.5 min-w-0 truncate text-xs text-slate-500 dark:text-slate-400">
+                                  {locationLabel || photographer.email || 'Location unavailable'}
+                                </p>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                  {photographer.shootsCountToday ? <span>{photographer.shootsCountToday} shoot{photographer.shootsCountToday === 1 ? '' : 's'} today</span> : null}
+                                  {bookedCount > 0 ? <span className="text-blue-700 dark:text-blue-300">{bookedCount} booked</span> : null}
+                                  {unavailableCount > 0 ? <span className="text-red-600 dark:text-red-400">{unavailableCount} unavailable</span> : null}
+                                </div>
+
+                                <div className="mt-2 space-y-1">
+                                  <div className="relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                    {availabilitySlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-slot-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-500 dark:bg-blue-400'))}
+                                    {bookedSlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-booked-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-900 dark:bg-blue-700'))}
+                                    {unavailableSlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-unavailable-${index}`, 'absolute bottom-0 top-0 rounded-full bg-red-500 dark:bg-red-500'))}
                                   </div>
-                                )}
+                                  {availabilitySlots.length > 0 ? (
+                                    <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                      <span className="shrink-0">8 AM</span>
+                                      <div className="flex flex-1 items-center justify-between px-1">
+                                        {Array.from({ length: availabilityScaleTickCount }).map((_, index) => (
+                                          <span key={`${photographer.id}-scale-${index}`} className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80" />
+                                        ))}
+                                      </div>
+                                      <span className="shrink-0">8 PM</span>
+                                    </div>
+                                  ) : null}
+                                  {isLoadingPhotographerAvailability ? (
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Loading availability...</p>
+                                  ) : null}
+                                </div>
                               </div>
+
+                              <span
+                                className={cn(
+                                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors sm:h-8 sm:w-8',
+                                  isSelected
+                                    ? 'border-blue-600 bg-blue-600 text-white'
+                                    : 'border-slate-300/80 dark:border-slate-700/80',
+                                )}
+                                aria-hidden="true"
+                              >
+                                {isSelected ? <Check className="h-4 w-4" /> : null}
+                              </span>
                             </div>
                           </button>
                         );
@@ -1172,7 +1425,7 @@ export function ShootApprovalModal({
                   )}
                 </div>
 
-                <div className="flex-shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-0 dark:border-slate-800/70 dark:bg-slate-950/50">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar
@@ -1186,7 +1439,7 @@ export function ShootApprovalModal({
                         {resolvePhotographerDetails(pickerPhotographerId) ? (
                           <>
                             <AvatarImage
-                              src={resolvePhotographerDetails(pickerPhotographerId)?.avatar}
+                              src={getAvatarUrl(resolvePhotographerDetails(pickerPhotographerId)?.avatar, 'photographer', undefined, pickerPhotographerId)}
                               alt={resolvePhotographerDetails(pickerPhotographerId)?.name}
                             />
                             <AvatarFallback>{resolvePhotographerDetails(pickerPhotographerId)?.name?.charAt(0)}</AvatarFallback>
@@ -1199,7 +1452,7 @@ export function ShootApprovalModal({
                       </Avatar>
 
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-blue-500/80 sm:tracking-[0.28em]">
                           {photographerPickerContext?.categoryName
                             ? `Photographer for ${photographerPickerContext.categoryName}`
                             : 'Selected specialist'}
@@ -1210,23 +1463,22 @@ export function ShootApprovalModal({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 self-stretch lg:self-auto">
-                      <Button variant="outline" onClick={handleClearPhotographerPicker} className="flex-1 lg:flex-none">
+                    <div className="grid min-w-0 grid-cols-2 gap-2 self-stretch sm:flex sm:self-auto">
+                      <Button variant="outline" onClick={handleClearPhotographerPicker} className="col-span-2 h-10 min-w-0 px-2 text-xs sm:col-span-1 sm:h-9 sm:px-3 sm:text-sm">
                         Leave unassigned
                       </Button>
-                      <Button variant="ghost" onClick={closePhotographerPicker} className="flex-1 lg:flex-none">
+                      <Button variant="ghost" onClick={closePhotographerPicker} className="h-10 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
                         Discard
                       </Button>
-                      <Button onClick={handleConfirmPhotographerPicker} disabled={!pickerPhotographerId} className="flex-1 lg:flex-none">
-                        Use selection
+                      <Button onClick={handleConfirmPhotographerPicker} disabled={!pickerPhotographerId} className="h-10 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
+                        <span className="truncate">Use selection</span>
                       </Button>
                     </div>
                   </div>
                 </div>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </DrawerContent>
+        </Drawer>
       </DialogContent>
     </Dialog>
   );
