@@ -165,7 +165,7 @@ const Dashboard = () => {
   const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");
-  const canViewDashboardClientRequests = canViewAdminDashboard || role === "editor";
+  const canViewDashboardClientRequests = canViewAdminDashboard || ["client", "editor", "photographer"].includes(role);
   const canLoadAvailability = !isEditingManager && can("dashboard-availability", "view");
   const canViewDashboardEditingRequests = can("dashboard-editing-requests", "view");
   const canViewContactActions = can("dashboard-contact-actions", "view");
@@ -382,7 +382,6 @@ const Dashboard = () => {
     openShootInModalById,
     registerShootOpenHandler,
     removeRequest,
-    shoots,
     toast,
   });
 
@@ -581,6 +580,8 @@ const Dashboard = () => {
       return (
         <Suspense fallback={<DashboardViewFallback />}>
           <ClientDashboardView
+            clientRequests={clientRequests}
+            clientRequestsLoading={clientRequestsLoading}
             clientCompletedRecords={clientCompletedRecords}
             clientDesktopLeftColumnRef={clientDesktopLeftColumnRef}
             clientDesktopShootsHeight={clientDesktopShootsHeight}
@@ -609,6 +610,8 @@ const Dashboard = () => {
       return (
         <Suspense fallback={<DashboardViewFallback />}>
           <PhotographerDashboardView
+            clientRequests={clientRequests}
+            clientRequestsLoading={clientRequestsLoading}
             greetingTitleFullName={greetingTitleFullName}
             photographerDelivered={photographerDelivered}
             photographerPendingReviews={photographerPendingReviews}

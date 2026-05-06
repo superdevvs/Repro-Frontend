@@ -1,10 +1,11 @@
 import React, { Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import type { WeatherInfo } from "@/services/weatherService";
-import type { DashboardShootSummary } from "@/types/dashboard";
+import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
 
 import { RoleDashboardLayout } from "../components/RoleDashboardLayout";
 
@@ -15,6 +16,8 @@ const LazyCompletedShootsCard = lazy(() =>
 );
 
 interface PhotographerDashboardViewProps {
+  clientRequests: DashboardClientRequest[];
+  clientRequestsLoading: boolean;
   greetingTitleFullName: React.ReactNode;
   photographerDelivered: DashboardShootSummary[];
   photographerPendingReviews: DashboardShootSummary[];
@@ -24,6 +27,8 @@ interface PhotographerDashboardViewProps {
 }
 
 export const PhotographerDashboardView = ({
+  clientRequests,
+  clientRequestsLoading,
   greetingTitleFullName,
   photographerDelivered,
   photographerPendingReviews,
@@ -32,6 +37,20 @@ export const PhotographerDashboardView = ({
   onSelectShoot,
 }: PhotographerDashboardViewProps) => {
   const navigate = useNavigate();
+  const requestsCard = (
+    <div id="requests-queue">
+      <PendingReviewsCard
+        reviews={[]}
+        issues={[]}
+        onSelect={(shoot) => onSelectShoot(shoot)}
+        emptyRequestsText="No active requests."
+        title="Requests"
+        clientRequests={clientRequests}
+        clientRequestsLoading={clientRequestsLoading}
+        showClientTab
+      />
+    </div>
+  );
   const photographerMobileTabs = [
     {
       id: "shoots",
@@ -43,6 +62,11 @@ export const PhotographerDashboardView = ({
           role="photographer"
         />
       ),
+    },
+    {
+      id: "requests",
+      label: "Requests",
+      content: requestsCard,
     },
     {
       id: "completed",
@@ -83,7 +107,7 @@ export const PhotographerDashboardView = ({
         ]}
         upcomingShoots={photographerUpcoming}
         pendingReviews={photographerPendingReviews}
-        pendingCard={null}
+        pendingCard={requestsCard}
         onSelectShoot={onSelectShoot}
         role="photographer"
         mobileTabs={photographerMobileTabs.map((tab) => ({ ...tab }))}

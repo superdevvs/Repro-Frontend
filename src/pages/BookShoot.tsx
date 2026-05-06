@@ -21,6 +21,16 @@ import { useWeatherData } from '@/hooks/useWeatherData';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -135,6 +145,25 @@ const duplicateCheckIgnoredStatuses = new Set([
   'declined',
   'rejected',
   'archived',
+]);
+
+const duplicateLocationWarningStatuses = new Set([
+  'scheduled',
+  'booked',
+  'uploaded',
+  'editing',
+  'review',
+  'ready',
+  'ready_for_review',
+  'pending_review',
+  'editing_complete',
+  'editing_issue',
+  'qc',
+  'delivered',
+  'completed',
+  'delivered_to_client',
+  'ready_for_client',
+  'admin_verified',
 ]);
 
 const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -286,6 +315,7 @@ const BookShoot = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [completedBooking, setCompletedBooking] = useState<CompletedBookingSnapshot | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [duplicateLocationDialogOpen, setDuplicateLocationDialogOpen] = useState(false);
   const [createdShootId, setCreatedShootId] = useState<string | number | undefined>(undefined);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clientPropertyFormKey, setClientPropertyFormKey] = useState(0);
@@ -303,6 +333,7 @@ const BookShoot = () => {
     return `${dh}:${String(m).padStart(2, '0')} ${mer}`;
   };
   const { fetchShoots } = useShoots();
+  const duplicateLocationWarningAcceptedRef = useRef(false);
 
   // Hide body scroll on this page; rely on layout/main scroll only
   useEffect(() => {
@@ -356,6 +387,9 @@ const BookShoot = () => {
       }
 
       const location = shoot.location;
+      if (!location) {
+        return false;
+      }
       const shootAddressKeys = [
         location.fullAddress,
         buildNormalizedAddress({
@@ -372,7 +406,200 @@ const BookShoot = () => {
     });
   }, [address, city, date, editShootId, shoots, state, zip]);
 
-  const showSameDayAddressWarning = step === 2 && Boolean(sameDayAddressShoot);
+  const sameAddressScheduledDates = React.useMemo(() => {
+    const selectedAddressKey = normalizeDuplicateAddressKey(
+      buildNormalizedAddress({ address, city, state, zip }) || address,
+    );
+    const todayDateKey = getDateKey(new Date());
+
+    if (!selectedAddressKey) {
+      return [];
+    }
+
+    const dateKeys = shoots
+      .filter((shoot) => {
+        if (!shoot || (editShootId && String(shoot.id) === String(editShootId))) {
+          return false;
+        }
+
+        const scheduledDateKey = getDateKey(shoot.scheduledDate);
+        if (!scheduledDateKey || scheduledDateKey < todayDateKey) {
+          return false;
+        }
+
+        const statusKey = String(shoot.status || shoot.workflowStatus || '').trim().toLowerCase();
+        if (duplicateCheckIgnoredStatuses.has(statusKey)) {
+          return false;
+        }
+
+        const location = shoot.location;
+        if (!location) {
+          return false;
+        }
+        const shootAddressKeys = [
+          location.fullAddress,
+          buildNormalizedAddress({
+            address: location.address,
+            city: location.city,
+            state: location.state,
+            zip: location.zip,
+          }),
+        ]
+          .map(normalizeDuplicateAddressKey)
+          .filter(Boolean);
+
+        return shootAddressKeys.includes(selectedAddressKey);
+      })
+      .map((shoot) => getDateKey(shoot.scheduledDate))
+      .filter(Boolean);
+
+    return Array.from(new Set(dateKeys)).sort();
+  }, [address, city, editShootId, shoots, state, zip]);
+
+  const formatDateKeyForWarning = React.useCallback((dateKey: string) => {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    if (!year || !month || !day) {
+      return dateKey;
+    }
+    return formatDate(new Date(year, month - 1, day, 12, 0, 0));
+  }, [formatDate]);
+
+  const addressScheduledWarningMessage = React.useMemo(() => {
+    if (sameAddressScheduledDates.length === 0) {
+      return '';
+    }
+
+    const displayDates = sameAddressScheduledDates.slice(0, 3).map(formatDateKeyForWarning);
+    const remainingCount = sameAddressScheduledDates.length - displayDates.length;
+    const datesLabel = [
+      displayDates.join(', '),
+      remainingCount > 0 ? `and ${remainingCount} more` : '',
+    ].filter(Boolean).join(' ');
+
+    return sameAddressScheduledDates.length === 1
+      ? `A shoot is already scheduled at this address on ${datesLabel}. Please check this before selecting date and time.`
+      : `Shoots are already scheduled at this address on ${datesLabel}. Please check these before selecting date and time.`;
+  }, [formatDateKeyForWarning, sameAddressScheduledDates]);
+
+  const sameDayAddressWarningMessage = React.useMemo(() => {
+    if (!sameDayAddressShoot || !date) {
+      return '';
+    }
+
+    return `A shoot is already scheduled at this address for ${formatDate(date)}. Please check this before selecting a time.`;
+  }, [date, formatDate, sameDayAddressShoot]);
+
+  const duplicateLocationWarningShoot = React.useMemo(() => {
+    const selectedAddressKey = normalizeDuplicateAddressKey(
+      buildNormalizedAddress({ address, city, state, zip }) || address,
+    );
+
+    if (!date || !selectedAddressKey) {
+      return undefined;
+    }
+
+    const selectedTime = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      12,
+    ).getTime();
+    const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+
+    const candidates = shoots
+      .filter((shoot) => {
+        if (!shoot || (editShootId && String(shoot.id) === String(editShootId))) {
+          return false;
+        }
+
+        const statusKeys = [
+          shoot.status,
+          shoot.workflowStatus,
+          (shoot as any).workflow_status,
+        ]
+          .map((value) => String(value || '').trim().toLowerCase())
+          .filter(Boolean);
+
+        if (!statusKeys.some((statusKey) => duplicateLocationWarningStatuses.has(statusKey))) {
+          return false;
+        }
+
+        const existingDateKey = getDateKey(shoot.scheduledDate || (shoot as any).scheduled_date);
+        if (!existingDateKey) {
+          return false;
+        }
+
+        const [year, month, day] = existingDateKey.split('-').map(Number);
+        if (!year || !month || !day) {
+          return false;
+        }
+
+        const existingTime = new Date(year, month - 1, day, 12).getTime();
+        if (Math.abs(existingTime - selectedTime) > oneMonthMs) {
+          return false;
+        }
+
+        const location = shoot.location;
+        if (!location) {
+          return false;
+        }
+
+        const shootAddressKeys = [
+          location.fullAddress,
+          buildNormalizedAddress({
+            address: location.address,
+            city: location.city,
+            state: location.state,
+            zip: location.zip,
+          }),
+        ]
+          .map(normalizeDuplicateAddressKey)
+          .filter(Boolean);
+
+        return shootAddressKeys.includes(selectedAddressKey);
+      })
+      .sort((a, b) => {
+        const aDate = getDateKey(a.scheduledDate || (a as any).scheduled_date);
+        const bDate = getDateKey(b.scheduledDate || (b as any).scheduled_date);
+        return Math.abs(new Date(`${aDate}T12:00:00`).getTime() - selectedTime) - Math.abs(new Date(`${bDate}T12:00:00`).getTime() - selectedTime);
+      });
+
+    return candidates[0];
+  }, [address, city, date, editShootId, shoots, state, zip]);
+
+  const duplicateLocationPopupMessage = React.useMemo(() => {
+    if (!duplicateLocationWarningShoot) {
+      return '';
+    }
+
+    const scheduledDateKey = getDateKey(
+      duplicateLocationWarningShoot.scheduledDate || (duplicateLocationWarningShoot as any).scheduled_date,
+    );
+    const scheduledDateLabel = scheduledDateKey
+      ? formatDateKeyForWarning(scheduledDateKey)
+      : 'a nearby date';
+    const scheduledTime = duplicateLocationWarningShoot.time
+      ? to12Hour(toTimeInputValue(duplicateLocationWarningShoot.time))
+      : 'the scheduled time';
+    const statusKeys = [
+      duplicateLocationWarningShoot.status,
+      duplicateLocationWarningShoot.workflowStatus,
+      (duplicateLocationWarningShoot as any).workflow_status,
+    ]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const statusLabel = statusKeys.some((statusKey) => ['scheduled', 'booked'].includes(statusKey))
+      ? 'scheduled'
+      : 'completed';
+
+    return `This shoot has already been ${statusLabel} on ${scheduledDateLabel} at ${scheduledTime}. Are you sure you want to schedule it again?`;
+  }, [duplicateLocationWarningShoot, formatDateKeyForWarning]);
+
+  useEffect(() => {
+    duplicateLocationWarningAcceptedRef.current = false;
+  }, [address, city, date, state, time, zip]);
+
+  const showAddressScheduledWarning = step === 1 && Boolean(addressScheduledWarningMessage);
   
   // Check if user should have form data cached (admin, rep, or photographer)
   const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
@@ -1297,6 +1524,12 @@ const BookShoot = () => {
         return;
       }
 
+      if (duplicateLocationPopupMessage && !duplicateLocationWarningAcceptedRef.current) {
+        setDuplicateLocationDialogOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Convert time from 12-hour format (e.g., "02:05 PM") to 24-hour format (e.g., "14:05:00")
       let time24Hour = '00:00:00';
       if (time) {
@@ -1473,6 +1706,7 @@ const BookShoot = () => {
         }
         setCompletedBooking(completedSnapshot);
         clearBookingDraftState();
+        duplicateLocationWarningAcceptedRef.current = false;
         setIsComplete(true);
         // Refresh shoots list in the background — don't block the UI transition
         fetchShoots().catch(() => {});
@@ -1533,6 +1767,7 @@ const BookShoot = () => {
 
   const resetForm = () => {
     clearBookingDraftState();
+    duplicateLocationWarningAcceptedRef.current = false;
     setIsComplete(false);
     setCompletedBooking(null);
     setCreatedShootId(undefined);
@@ -1791,12 +2026,12 @@ type CompletedBookingSnapshot = {
                   title={currentStepContent.title}
                   description={currentStepContent.description}
                 />
-                {showSameDayAddressWarning && (
+                {showAddressScheduledWarning && (
                   <div className="w-full rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 shadow-sm md:ml-auto md:max-w-xl">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-300" />
                       <p className="leading-5">
-                        This shoot is already booked for this address on the same day. Please check your date.
+                        {addressScheduledWarningMessage}
                       </p>
                     </div>
                   </div>
@@ -1864,6 +2099,7 @@ type CompletedBookingSnapshot = {
                   photographers={photographers}
                   handleSubmit={handleSubmit}
                   goBack={goBack}
+                  sameDayAddressWarningMessage={sameDayAddressWarningMessage}
                   showClearSavedData={shouldCacheForm && hasCachedData}
                   onClearSavedData={handleClearCache}
                 />
@@ -1892,6 +2128,28 @@ type CompletedBookingSnapshot = {
             )}
           </AnimatePresence>
       </div>
+      <AlertDialog open={duplicateLocationDialogOpen} onOpenChange={setDuplicateLocationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possible duplicate shoot</AlertDialogTitle>
+            <AlertDialogDescription>
+              {duplicateLocationPopupMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                duplicateLocationWarningAcceptedRef.current = true;
+                setDuplicateLocationDialogOpen(false);
+                void handleSubmit();
+              }}
+            >
+              Continue scheduling
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

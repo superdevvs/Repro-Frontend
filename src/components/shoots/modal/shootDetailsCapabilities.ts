@@ -148,7 +148,7 @@ export const getShootDetailsCapabilities = ({
   );
   const canRequestCancellation = Boolean(
     shoot &&
-      isClient &&
+      isRep &&
       !isCancellationRequested &&
       ['scheduled', 'booked', 'on_hold', 'editing', 'uploaded'].includes(normalizedStatus),
   );

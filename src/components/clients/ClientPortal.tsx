@@ -49,6 +49,7 @@ type PortfolioItem = {
   bathrooms?: number;
   sqft?: number;
   status?: string;
+  isDelivered?: boolean;
 };
 
 type LoadError = {
@@ -243,6 +244,7 @@ export function ClientPortal() {
             photos: s.files_count || gallery.length || 0,
             badge: s.status || 'Completed',
             status: (s.workflow_status || s.status || '').toLowerCase(),
+            isDelivered: Boolean(s.is_delivered || s.isDelivered),
             gallery: gallery.length ? gallery : (primaryImage ? [normalizeImageUrl(primaryImage)].filter(Boolean) : []),
             iguideUrl: iguideUrl || undefined,
             brandedTourUrl: s.branded_tour_url || s.brandedTourUrl || `${window.location.origin}/tour/branded?shootId=${encodeURIComponent(String(s.id))}`,
@@ -451,17 +453,18 @@ export function ClientPortal() {
 
         {/* Tabs */}
         {(() => {
-          const deliveredStatuses = ['delivered', 'ready_for_client', 'admin_verified', 'ready'];
+          const deliveredStatuses = ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'workflow_completed', 'client_delivered', 'finalized', 'finalised'];
+          const isShootDelivered = (shoot: PortfolioItem) => shoot.isDelivered || deliveredStatuses.includes(shoot.status || '');
+          const isShootSold = (shoot: PortfolioItem) => shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented';
+          const isShootPending = (shoot: PortfolioItem) => shoot.propertyStatus === 'pending' || !isShootDelivered(shoot);
           const currentShoots = shoots.filter(s => {
-            const isDelivered = deliveredStatuses.includes(s.status || '');
-            const isSold = s.propertyStatus === 'sold' || s.propertyStatus === 'rented';
-            const isPending = s.propertyStatus === 'pending';
+            const isDelivered = isShootDelivered(s);
+            const isSold = isShootSold(s);
+            const isPending = isShootPending(s);
             return isDelivered && !isSold && !isPending;
           });
-          const pendingShoots = shoots.filter(s => s.propertyStatus === 'pending');
-          const soldShoots = shoots.filter(s =>
-            s.propertyStatus === 'sold' || s.propertyStatus === 'rented'
-          );
+          const pendingShoots = shoots.filter(s => isShootPending(s) && !isShootSold(s));
+          const soldShoots = shoots.filter(s => isShootSold(s));
           const filteredShoots = listingsTab === 'current' ? currentShoots
             : listingsTab === 'pending' ? pendingShoots
             : soldShoots;
@@ -501,7 +504,7 @@ export function ClientPortal() {
               {filteredShoots.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {filteredShoots.map((shoot) => {
-                    const isDelivered = deliveredStatuses.includes(shoot.status || '');
+                    const isDelivered = isShootDelivered(shoot);
                     const statusLabel = shoot.propertyStatus === 'coming_soon'
                       ? 'Coming Soon'
                       : shoot.propertyStatus === 'pending'

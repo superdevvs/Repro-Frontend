@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import {
-  MapPin, BedDouble, Bath, Maximize, ChevronDown, X,
+  MapPin, BedDouble, Bath, Maximize, ChevronDown,
   ChevronLeft, ChevronRight, Video, Layers, FileText, Mail, Phone,
   User, Thermometer, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users
 } from "lucide-react";
@@ -805,15 +805,6 @@ export function NeoTour() {
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-slate-950 border-none shadow-none sm:rounded-none overflow-hidden">
           <div className="relative w-full h-full flex items-center justify-center min-h-[80vh]">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 z-50 rounded-full bg-slate-800/50 hover:bg-slate-700/50 text-white"
-              onClick={() => setLightboxOpen(false)}
-            >
-              <X className="w-5 h-5" />
-            </Button>
-            
             <Button
               variant="ghost"
               size="icon"

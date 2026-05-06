@@ -7,7 +7,6 @@ import type {
   DashboardClientRequest,
   DashboardShootModalNavigationState,
 } from "@/types/dashboard";
-import type { ShootData } from "@/types/shoots";
 import type { EditingRequest } from "@/services/editingRequestService";
 
 import type { CommandBarState, OpenShootInModalOptions } from "../types";
@@ -33,7 +32,6 @@ interface UseDashboardRequestsParams {
   openShootInModalById: OpenShootInModalById;
   registerShootOpenHandler: RegisterShootOpenHandler;
   removeRequest: (requestId: string) => void;
-  shoots: ShootData[];
   toast: ToastFn;
 }
 
@@ -45,7 +43,6 @@ export const useDashboardRequests = ({
   openShootInModalById,
   registerShootOpenHandler,
   removeRequest,
-  shoots,
   toast,
 }: UseDashboardRequestsParams) => {
   const dashboardNavigationState = location.state as DashboardShootModalNavigationState | null;
@@ -206,27 +203,6 @@ export const useDashboardRequests = ({
     navigate,
     openShootInModalById,
   ]);
-
-  useEffect(() => {
-    if (!canViewDashboardClientRequests || !clientRequests.length || shoots.length === 0) return;
-
-    const activeShootIds = new Set(shoots.map((shoot) => String(shoot.id)));
-    const staleRequestIds = new Set(
-      clientRequests
-        .filter((request) => {
-          const requestShootId = request.shootId ?? request.shoot?.id;
-          return !requestShootId || !activeShootIds.has(String(requestShootId));
-        })
-        .map((request) => String(request.id)),
-    );
-
-    if (staleRequestIds.size === 0) return;
-
-    setClientRequests((prev) =>
-      prev.filter((request) => !staleRequestIds.has(String(request.id))),
-    );
-    staleRequestIds.forEach((requestId) => removeRequest(requestId));
-  }, [canViewDashboardClientRequests, clientRequests, removeRequest, shoots]);
 
   useEffect(() => {
     registerShootOpenHandler(openShootRequestsFromRequestManager);

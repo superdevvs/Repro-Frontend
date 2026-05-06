@@ -209,8 +209,25 @@ export const uploadPhotographerVerificationPhotos = async (equipmentId: number, 
 };
 
 export const openEquipmentPhoto = async (photo: PhotographerEquipmentPhoto) => {
-  const response = await apiClient.get(photo.url.replace(/^\/api/, ""), { responseType: "blob" });
-  const blobUrl = URL.createObjectURL(response.data);
-  window.open(blobUrl, "_blank", "noopener,noreferrer");
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  const popup = window.open("", "_blank");
+  if (popup) {
+    popup.opener = null;
+    popup.document.write("<!doctype html><title>Loading photo...</title><body style=\"margin:0;min-height:100vh;display:grid;place-items:center;background:#030619;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;\">Loading photo...</body>");
+  }
+
+  try {
+    const response = await apiClient.get(photo.url.replace(/^\/api/, ""), { responseType: "blob" });
+    const blobUrl = URL.createObjectURL(response.data);
+    if (popup) {
+      popup.location.href = blobUrl;
+    } else {
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (error) {
+    if (popup) {
+      popup.document.body.textContent = "Unable to load photo. Please try again.";
+    }
+    throw error;
+  }
 };

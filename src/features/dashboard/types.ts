@@ -8,7 +8,7 @@ import type { DashboardShootModalTab, DashboardShootSummary } from "@/types/dash
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 
 export type MobileDashboardTab = "shoots" | "assign" | "requests" | "completed" | "pipeline";
-export type MobileClientDashboardTab = "shoots" | "invoices" | "actions";
+export type MobileClientDashboardTab = "shoots" | "requests" | "invoices" | "actions";
 export type MobileEditingManagerTab = "shoots" | "requests" | "ready" | "pipeline";
 
 export type CommandBarState = {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -72,11 +72,14 @@ interface ShootRequestManagerProps {
   isClient: boolean;
   onIssueUpdate: () => void;
   preselectedMediaIds?: string[]; // Pre-selected media IDs when opened from media tab
+  initialRequests?: Request[];
 }
 
 type StatusFilter = 'all' | 'open' | 'in-progress' | 'resolved';
 type SortOption = 'newest' | 'oldest' | 'status';
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
+const EMPTY_PRESELECTED_MEDIA_IDS: string[] = [];
+const EMPTY_INITIAL_REQUESTS: Request[] = [];
 
 // Map status to severity for display consistency with dashboard
 const getSeverityFromStatus = (status: string): 'high' | 'medium' | 'low' => {
@@ -105,7 +108,8 @@ export function ShootRequestManager({
   isEditor,
   isClient,
   onIssueUpdate,
-  preselectedMediaIds = [],
+  preselectedMediaIds = EMPTY_PRESELECTED_MEDIA_IDS,
+  initialRequests = EMPTY_INITIAL_REQUESTS,
 }: ShootRequestManagerProps) {
   const { toast } = useToast();
   const { user, isImpersonating } = useAuth();
@@ -126,16 +130,29 @@ export function ShootRequestManager({
   const [photographers, setPhotographers] = useState<Array<{ id: string; name: string }>>([]);
   const [mediaFiles, setMediaFiles] = useState<Array<{ id: string; filename: string; url?: string; thumbnail?: string }>>([]);
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
+  const requestsLengthRef = useRef(0);
+  const preselectedMediaIdsKey = preselectedMediaIds.join('|');
+
+  useEffect(() => {
+    requestsLengthRef.current = requests.length;
+  }, [requests.length]);
+
+  useEffect(() => {
+    if (!isOpen || initialRequests.length === 0) return;
+    setRequests(initialRequests);
+  }, [initialRequests, isOpen]);
 
   // Load requests
   useEffect(() => {
     if (!isOpen || !shootId) return;
+    const controller = new AbortController();
     
     const loadRequests = async () => {
-      setLoading(true);
+      setLoading(requestsLengthRef.current === 0);
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/issues`, {
+          signal: controller.signal,
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
@@ -147,20 +164,26 @@ export function ShootRequestManager({
           setRequests(json.data || json || []);
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error('Error loading requests:', error);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
     
     loadRequests();
-    
+    return () => controller.abort();
+  }, [isOpen, shootId]);
+
+  useEffect(() => {
+    if (!isOpen || !preselectedMediaIdsKey) return;
+
     // If preselected media IDs provided, auto-open create dialog and pre-select them
-    if (preselectedMediaIds.length > 0) {
-      setSelectedMediaIds(new Set(preselectedMediaIds));
-      setCreateDialogOpen(true);
-    }
-  }, [isOpen, shootId, onIssueUpdate, preselectedMediaIds]);
+    setSelectedMediaIds(new Set(preselectedMediaIdsKey.split('|').filter(Boolean)));
+    setCreateDialogOpen(true);
+  }, [isOpen, preselectedMediaIdsKey]);
 
   // Load media files for request creation - get image files with URLs
   useEffect(() => {
@@ -607,7 +630,7 @@ export function ShootRequestManager({
 
             {/* Requests List */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              {loading ? (
+              {loading && requests.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-muted-foreground">Loading requests...</div>
                 </div>

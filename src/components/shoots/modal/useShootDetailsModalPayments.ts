@@ -100,6 +100,8 @@ export function useShootDetailsModalPayments({
     }
     if (payload.shootServiceIds?.length) {
       body.shoot_service_ids = payload.shootServiceIds;
+    }
+    if (payload.allocationStrategy) {
       body.allocation_strategy = payload.allocationStrategy;
     }
 

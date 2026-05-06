@@ -62,6 +62,7 @@ interface BookingContentAreaProps {
   photographers: any[];
   handleSubmit: () => void;
   goBack: () => void;
+  sameDayAddressWarningMessage?: string;
   showClearSavedData?: boolean;
   onClearSavedData?: () => void;
 }
@@ -113,6 +114,7 @@ export function BookingContentArea({
   photographers,
   handleSubmit,
   goBack,
+  sameDayAddressWarningMessage = '',
   showClearSavedData = false,
   onClearSavedData,
 }: BookingContentAreaProps) {
@@ -163,6 +165,7 @@ export function BookingContentArea({
           photographers={photographers}
           handleSubmit={handleSubmit}
           goBack={goBack}
+          sameDayAddressWarningMessage={sameDayAddressWarningMessage}
         />
       )}
       

@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
+import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
-import type { DashboardShootSummary } from "@/types/dashboard";
+import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
 import type { ShootData } from "@/types/shoots";
 import type { useToast } from "@/hooks/use-toast";
 import { normalizeEmailHealth } from "@/utils/emailHealth";
@@ -38,6 +39,8 @@ import type { MobileClientDashboardTab } from "../types";
 type ToastFn = ReturnType<typeof useToast>["toast"];
 
 interface ClientDashboardViewProps {
+  clientRequests: DashboardClientRequest[];
+  clientRequestsLoading: boolean;
   clientCompletedRecords: ClientShootRecord[];
   clientDesktopLeftColumnRef: React.RefObject<HTMLDivElement | null>;
   clientDesktopShootsHeight: number | null;
@@ -61,6 +64,8 @@ interface ClientDashboardViewProps {
 }
 
 export const ClientDashboardView = ({
+  clientRequests,
+  clientRequestsLoading,
   clientCompletedRecords,
   clientDesktopLeftColumnRef,
   clientDesktopShootsHeight,
@@ -119,8 +124,16 @@ export const ClientDashboardView = ({
       const token = localStorage.getItem("authToken") || localStorage.getItem("token");
       const normalizedStatus = (record.summary.workflowStatus || record.summary.status || "").toLowerCase();
       const isRequestedShoot = normalizedStatus === "requested";
-      const endpoint = isRequestedShoot ? "withdraw-request" : "request-cancellation";
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/${endpoint}`, {
+      if (!isRequestedShoot) {
+        toast({
+          title: "Cancellation unavailable",
+          description: "Only requested shoots can be cancelled from the client dashboard.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/withdraw-request`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -128,16 +141,14 @@ export const ClientDashboardView = ({
           Accept: "application/json",
         },
         body: JSON.stringify({
-          reason: isRequestedShoot ? "Client withdrew requested shoot" : "Client requested cancellation",
+          reason: "Client withdrew requested shoot",
         }),
       });
 
       if (response.ok) {
         toast({
-          title: isRequestedShoot ? "Shoot cancelled" : "Cancellation request submitted",
-          description: isRequestedShoot
-            ? `Your requested shoot for ${record.summary.addressLine} has been cancelled.`
-            : `Your cancellation request for ${record.summary.addressLine} is pending admin approval.`,
+          title: "Shoot cancelled",
+          description: `Your requested shoot for ${record.summary.addressLine} has been cancelled.`,
         });
         refresh();
       } else {
@@ -220,10 +231,26 @@ export const ClientDashboardView = ({
     />
   );
 
+  const clientRequestsContent = (
+    <div id="requests-queue">
+      <PendingReviewsCard
+        reviews={[]}
+        issues={[]}
+        onSelect={(shoot) => onSetSelectedShoot(shoot)}
+        emptyRequestsText="No active requests."
+        title="Requests"
+        clientRequests={clientRequests}
+        clientRequestsLoading={clientRequestsLoading}
+        showClientTab
+      />
+    </div>
+  );
+
   const clientMetricsContent = <RoleMetricTilesCard tiles={clientMetricTiles} />;
 
   const clientMobileTabs = [
     { id: "shoots" as const, label: "Shoots", content: clientShootsContent },
+    { id: "requests" as const, label: "Requests", content: clientRequestsContent },
     { id: "invoices" as const, label: "Invoices", content: clientInvoicesContent },
   ];
 
@@ -268,6 +295,7 @@ export const ClientDashboardView = ({
         className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6"
       >
         {clientMetricsContent}
+        {clientRequestsContent}
         {clientInvoicesContent}
       </div>
       <div className="md:col-span-9 md:min-h-0">

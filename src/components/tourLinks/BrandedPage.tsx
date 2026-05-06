@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, BedDouble, Bath, Maximize, Download, X, ChevronLeft, ChevronRight,
+  MapPin, BedDouble, Bath, Maximize, Download, ChevronLeft, ChevronRight,
   Video, Layers, FileText, Mail, Phone, User, Link2, ExternalLink, Users,
   Car, Facebook, Linkedin, Instagram, Tag, DollarSign,
 } from "lucide-react";
@@ -724,9 +724,6 @@ export function BrandedPage() {
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none shadow-none sm:rounded-none overflow-hidden">
           <div className="relative w-full h-full flex items-center justify-center min-h-[80vh]">
-            <Button variant="ghost" size="icon" className="absolute top-4 right-4 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white" onClick={() => setLightboxOpen(false)}>
-              <X className="w-5 h-5" />
-            </Button>
             <Button variant="ghost" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white h-12 w-12" onClick={() => navigateLightbox("prev")}>
               <ChevronLeft className="w-8 h-8" />
             </Button>

@@ -921,6 +921,20 @@ export function AccountForm({
       delete metadataPayload.editing_capabilities;
     }
 
+    const canAssignRepForPayload = canEditCreatedBy || (canAssignClientRep && values.role === 'client');
+    if (values.role === 'client' && canAssignRepForPayload) {
+      if (values.created_by_id) {
+        metadataPayload.accountRepId = String(values.created_by_id);
+        metadataPayload.account_rep_id = Number.isNaN(Number(values.created_by_id))
+          ? values.created_by_id
+          : Number(values.created_by_id);
+      }
+      if (values.created_by_name) {
+        metadataPayload.accountRep = values.created_by_name;
+        metadataPayload.account_rep = values.created_by_name;
+      }
+    }
+
     // Add photographer-specific data to metadata
     if (values.role === 'photographer') {
       if (values.pilotLicenseFile) {
@@ -953,7 +967,6 @@ export function AccountForm({
       payload.metadata = metadataPayload;
     }
 
-    const canAssignRepForPayload = canEditCreatedBy || (canAssignClientRep && values.role === 'client');
     const shouldSendEmailOverride = values.role === 'client' && emailWarningOverride;
 
     // If editing, include created_by fields if superadmin or permitted admin is assigning a rep

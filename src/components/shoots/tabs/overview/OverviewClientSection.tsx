@@ -42,6 +42,9 @@ export function OverviewClientSection({
     return null;
   }
 
+  const rep = shoot.client?.rep || shoot.rep || null;
+  const repName = typeof rep === 'string' ? rep : rep?.name;
+
   return (
     <div className="p-2.5 border rounded-lg bg-card">
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -121,8 +124,8 @@ export function OverviewClientSection({
           {isAdmin && (
             <div className="text-xs text-right">
               <div className="text-[10px] text-muted-foreground uppercase mb-0.5">Rep</div>
-              {(shoot.client as any)?.rep ? (
-                <div className="font-medium">{(shoot.client as any).rep.name}</div>
+              {repName ? (
+                <div className="font-medium">{repName}</div>
               ) : (
                 <div className="text-muted-foreground">No rep</div>
               )}

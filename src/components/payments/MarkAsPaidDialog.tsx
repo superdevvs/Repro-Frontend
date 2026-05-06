@@ -119,6 +119,13 @@ export function MarkAsPaidDialog({
   }, [payableServiceItems, paymentScope]);
 
   useEffect(() => {
+    if (payableServiceItems.length <= 1 && paymentScope === 'selected') {
+      setPaymentScope('full');
+      setSelectedServiceItemIds([]);
+    }
+  }, [payableServiceItems.length, paymentScope]);
+
+  useEffect(() => {
     if (!showAmountControls) return;
     if (activeMaxAmount <= 0) {
       setPaymentAmount(0);
@@ -264,7 +271,7 @@ export function MarkAsPaidDialog({
             </RadioGroup>
           </div>
 
-          {payableServiceItems.length > 0 && (
+          {payableServiceItems.length > 1 && (
             <div className="space-y-3">
               <Label className="text-sm">Payment Scope</Label>
               <div className="grid gap-2 sm:grid-cols-2">

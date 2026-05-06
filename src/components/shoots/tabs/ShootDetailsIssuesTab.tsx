@@ -540,6 +540,7 @@ export function ShootDetailsIssuesTab({
         isEditor={isEditor}
         isClient={isClient}
         onIssueUpdate={handleRequestUpdate}
+        initialRequests={requests}
       />
 
       <MediaViewer

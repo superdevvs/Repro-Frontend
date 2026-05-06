@@ -332,14 +332,16 @@ export default function Accounts() {
 
   const getAccountRepInfo = useCallback((user: UserType) => {
     const metadata = user.metadata || {};
-    const rawRepId = metadata.accountRepId || (user as any).account_rep_id || (user as any).rep_id || (user as any).created_by_id;
+    const explicitRepId = metadata.accountRepId || metadata.account_rep_id || metadata.repId || metadata.rep_id || (user as any).account_rep_id || (user as any).rep_id;
+    const createdById = (user as any).created_by_id;
+    const rawRepId = explicitRepId || createdById;
     const repUser = rawRepId ? users.find((candidate) => String(candidate.id) === String(rawRepId)) : undefined;
+    const hasExplicitRepAssignment = Boolean(explicitRepId);
     
     // Check if the potential rep is a superadmin - if so, don't show them as rep
     const isRepUserSuperAdmin = repUser && repUser.role === 'superadmin';
     
     // Get potential rep names from various sources - check by ID first, then by name
-    const createdById = (user as any).created_by_id;
     const createdByUserById = createdById ? users.find(u => String(u.id) === String(createdById)) : undefined;
     const createdByUserByName = user.created_by_name ? users.find(u => u.name === user.created_by_name) : undefined;
     const createdByUser = createdByUserById || createdByUserByName;
@@ -348,16 +350,17 @@ export default function Accounts() {
     const inferredName =
       // Prefer explicit accountRep metadata if present
       metadata.accountRep ||
+      metadata.account_rep ||
+      metadata.rep ||
+      user.accountRep ||
+      (repUser && (!isRepUserSuperAdmin || hasExplicitRepAssignment) ? repUser.name : undefined) ||
       // Fall back to backend "created by" fields, but ONLY if they're not superadmins
       // Prefer the user found by ID (more reliable)
       (createdByUserById && !isCreatedBySuperAdmin ? createdByUserById.name : undefined) ||
       (user.created_by_name && !isCreatedBySuperAdmin ? user.created_by_name : undefined) ||
       (user.createdBy && !isCreatedBySuperAdmin ? user.createdBy : undefined) ||
       // Then check any other legacy / helper fields
-      metadata.rep ||
-      user.accountRep ||
       // Use rep user name only if they're not a superadmin
-      (repUser && !isRepUserSuperAdmin ? repUser.name : undefined) ||
       undefined;
 
     if (!rawRepId && !inferredName) {

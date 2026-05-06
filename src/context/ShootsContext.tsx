@@ -1501,7 +1501,11 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             
             // Merge nested objects properly
             if (updates.client) {
-              merged.client = updates.client; // Replace entire client object
+              merged.client = {
+                ...shoot.client,
+                ...updates.client,
+                rep: updates.client.rep ?? updates.rep ?? shoot.client?.rep ?? shoot.rep ?? null,
+              };
             }
             if (updates.photographer) {
               merged.photographer = updates.photographer; // Replace entire photographer object

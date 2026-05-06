@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSelect } from "@/components/ui/time-select";
 import { format } from "date-fns";
-import { MapPin, User, Package, ChevronRight, Loader2, Search } from "lucide-react";
+import { AlertTriangle, MapPin, User, Package, ChevronRight, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -82,6 +82,7 @@ interface SchedulingFormProps {
   serviceSchedules?: Record<string, { date?: string; time?: string }>;
   setServiceSchedules?: React.Dispatch<React.SetStateAction<Record<string, { date?: string; time?: string }>>>;
   selectedServices?: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
+  sameDayAddressWarningMessage?: string;
 }
 
 export const SchedulingForm: React.FC<SchedulingFormProps> = ({
@@ -112,6 +113,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   serviceSchedules = {},
   setServiceSchedules,
   selectedServices = [],
+  sameDayAddressWarningMessage = '',
 }) => {
   const disabledDates = {
     before: new Date(),
@@ -1464,6 +1466,15 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['date']}</p>
           )}
         </div>
+
+        {sameDayAddressWarningMessage && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 shadow-sm dark:text-amber-100">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-600 dark:text-amber-300" />
+              <p className="leading-5">{sameDayAddressWarningMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Time Selection Section */}
         <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">

@@ -176,7 +176,7 @@ export const ShootListRow = ({
             className={cn(
               'uppercase tracking-wide',
               isCancelledStatus &&
-                'border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200'
+                '!border-red-500 bg-red-500/10 !text-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:!border-red-400 dark:bg-red-950/40 dark:!text-red-400'
             )}
           >
             {statusLabel || 'status'}

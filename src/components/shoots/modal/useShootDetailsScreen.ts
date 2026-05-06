@@ -3,6 +3,7 @@ import { ShootData } from '@/types/shoots';
 import { useShoot } from '@/hooks/useShoot';
 import { useShootDetailsController } from './useShootDetailsController';
 import { useShootRawFileCount } from './useShootRawFileCount';
+import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 
 interface UseShootDetailsScreenInput {
   shootId: string | number | null | undefined;
@@ -58,6 +59,14 @@ export function useShootDetailsScreen({
       return shootData ?? null;
     }
   }, [refetchShoot, shootData, shootId]);
+
+  useEffect(() => {
+    if (!shootId || !enabled) return;
+
+    return registerShootDetailRefresh(shootId, () => {
+      void refreshShoot();
+    });
+  }, [enabled, refreshShoot, shootId]);
 
   const rawFileCount = useShootRawFileCount(
     shoot?.id ?? shootId,

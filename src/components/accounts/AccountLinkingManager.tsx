@@ -867,7 +867,7 @@ export function AccountLinkingManager() {
                       </div>
                     </div>
 
-                    <DialogFooter className="flex-col gap-2 space-x-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                    <DialogFooter className="flex-col items-stretch gap-2 space-x-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 sm:flex-col sm:items-stretch sm:space-x-0">
                       <div className="grid w-full gap-2 sm:grid-cols-2">
                         <Button
                           variant="outline"

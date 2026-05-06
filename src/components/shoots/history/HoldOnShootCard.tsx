@@ -126,8 +126,8 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; bgC
   ready: { icon: CheckCircle2, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200' },
   on_hold: { icon: PauseCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   hold_on: { icon: PauseCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
-  cancelled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
-  canceled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
+  cancelled: { icon: XCircle, color: '!text-red-500 dark:!text-red-400', bgColor: 'bg-red-500/10 !border-red-500 dark:!border-red-400' },
+  canceled: { icon: XCircle, color: '!text-red-500 dark:!text-red-400', bgColor: 'bg-red-500/10 !border-red-500 dark:!border-red-400' },
   awaiting_date: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   payment_pending: { icon: DollarSign, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
 }
@@ -185,7 +185,11 @@ export const HoldOnShootCard = ({
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  const rawHoldStatus = String(shoot.holdStatus ?? '').trim().toLowerCase()
+  const rawShootStatus = String(shoot.workflowStatus ?? shoot.status ?? '').trim().toLowerCase()
+  const isCancelledStatus = rawShootStatus === 'cancelled' || rawShootStatus === 'canceled'
+  const rawHoldStatus = isCancelledStatus
+    ? rawShootStatus
+    : String(shoot.holdStatus ?? rawShootStatus).trim().toLowerCase()
   const normalizedHoldStatus = holdStatusAliasMap[rawHoldStatus] ?? rawHoldStatus
   const holdStatusKey = normalizedHoldStatus && normalizedHoldStatus !== 'on_hold'
     ? normalizedHoldStatus
@@ -197,7 +201,7 @@ export const HoldOnShootCard = ({
   const displayTime = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : 'Awaiting confirmation'
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
+  const shootStatus = rawShootStatus
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
