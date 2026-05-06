@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, BedDouble, Bath, Maximize, Download, ChevronLeft, ChevronRight,
-  Link2, ExternalLink, Car, Tag, FileText,
+  Link2, ExternalLink, Car, DollarSign, FileText,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
+import { formatTourPrice } from './tourDisplayUtils';
 
 interface ShootData {
   id: number;
@@ -208,6 +209,7 @@ export function MlsCompliant() {
   const mlsId = propertyDetails?.mls_id || propertyDetails?.mlsId || null;
   const listingType = propertyDetails?.listing_type || propertyDetails?.listingType || null;
   const propertyStatus = propertyDetails?.property_status || propertyDetails?.propertyStatus || null;
+  const listPrice = formatTourPrice(propertyDetails?.price);
   const hasStats = beds || baths || sqft || garageCars;
 
   const orderedEmbeds = useMemo(() => {
@@ -289,6 +291,8 @@ export function MlsCompliant() {
                 key={heroIndex}
                 src={heroSlides[heroIndex % heroSlides.length]}
                 alt="Hero"
+                loading="eager"
+                decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0, scale: 1.05 }}
                 animate={{ opacity: 1, scale: 1.15 }}
@@ -340,10 +344,25 @@ export function MlsCompliant() {
         </div>
       </div>
 
+      {listPrice && (
+        <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
+          <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 md:p-7 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">List Price</div>
+                <div className="mt-1 text-3xl md:text-5xl font-extrabold text-foreground">{listPrice}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Stats Row — dividers */}
-      {(hasStats || propertyDetails?.price || lotSize || mlsId) && (() => {
+      {(hasStats || lotSize || mlsId) && (() => {
         const statItems: { icon: React.ReactNode; label: string; value: string }[] = [];
-        if (propertyDetails?.price) statItems.push({ icon: <Tag className="w-7 h-7 text-muted-foreground" />, label: 'List Price', value: propertyDetails.price });
         if (beds != null) statItems.push({ icon: <BedDouble className="w-7 h-7 text-muted-foreground" />, label: 'Beds', value: String(beds) });
         if (baths != null) statItems.push({ icon: <Bath className="w-7 h-7 text-muted-foreground" />, label: 'Baths', value: String(baths) });
         if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
@@ -395,7 +414,7 @@ export function MlsCompliant() {
                 )}
                 onClick={() => openLightbox(index)}
               >
-                <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500" />
+                <img src={photo} alt={`Photo ${index + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
               </motion.div>
             ))}
@@ -430,7 +449,7 @@ export function MlsCompliant() {
                       <div className="w-full [&_iframe]:w-full [&_iframe]:min-h-[360px] [&_iframe]:rounded-xl [&_iframe]:border [&_iframe]:border-border/40" dangerouslySetInnerHTML={{ __html: applyAutoplayToEmbedHtml(value) }} />
                     ) : (
                       <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/40">
-                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen title={embed.title || `Embed ${index + 1}`} />
+                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen loading="lazy" title={embed.title || `Embed ${index + 1}`} />
                       </div>
                     )}
                   </div>
@@ -454,6 +473,7 @@ export function MlsCompliant() {
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                     allowFullScreen
+                    loading="lazy"
                     title="Video Tour"
                   />
                 ) : (
@@ -470,7 +490,7 @@ export function MlsCompliant() {
         <section id="tour" className="max-w-6xl mx-auto px-6 mt-10">
           <h2 className="text-2xl font-bold text-foreground mb-6">3D Tour</h2>
           <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg">
-            <iframe src={appendAutoplayParam(matterportUrl || iguideUrl || '')} className="w-full h-full border-0" allow="fullscreen; vr; autoplay" allowFullScreen title="3D Tour" />
+            <iframe src={appendAutoplayParam(matterportUrl || iguideUrl || '')} className="w-full h-full border-0" allow="fullscreen; vr; autoplay" allowFullScreen loading="lazy" title="3D Tour" />
           </div>
         </section>
       )}
@@ -484,7 +504,7 @@ export function MlsCompliant() {
               <div key={index} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
                 <h3 className="font-semibold mb-3">Level {index + 1}</h3>
                 <div className="flex-1 flex items-center justify-center min-h-[200px]">
-                  <img src={fp} alt={`Floor Plan ${index + 1}`} className="max-w-full max-h-[300px] object-contain" />
+                  <img src={fp} alt={`Floor Plan ${index + 1}`} loading="lazy" decoding="async" className="max-w-full max-h-[300px] object-contain" />
                 </div>
                 <Button variant="outline" className="mt-4 rounded-full w-full" asChild>
                   <a href={fp} download target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2" />Download</a>

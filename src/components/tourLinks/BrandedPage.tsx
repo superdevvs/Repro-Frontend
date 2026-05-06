@@ -8,11 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, BedDouble, Bath, Maximize, Download, ChevronLeft, ChevronRight,
   Video, Layers, FileText, Mail, Phone, User, Link2, ExternalLink, Users,
-  Car, Facebook, Linkedin, Instagram, Tag, DollarSign,
+  Car, Facebook, Linkedin, Instagram, DollarSign,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
+import { formatTourPrice } from './tourDisplayUtils';
 
 interface ShootData {
   id: number;
@@ -237,6 +238,7 @@ export function BrandedPage() {
   const mlsId = propertyDetails?.mls_id || propertyDetails?.mlsId || null;
   const listingType = propertyDetails?.listing_type || propertyDetails?.listingType || null;
   const propertyStatus = propertyDetails?.property_status || propertyDetails?.propertyStatus || null;
+  const listPrice = formatTourPrice(propertyDetails?.price);
   const hasStats = beds || baths || sqft || garageCars;
 
   const orderedEmbeds = useMemo(() => {
@@ -326,6 +328,8 @@ export function BrandedPage() {
                 key={heroIndex}
                 src={heroSlides[heroIndex % heroSlides.length]}
                 alt="Hero"
+                loading="eager"
+                decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0, scale: 1.05 }}
                 animate={{ opacity: 1, scale: 1.15 }}
@@ -425,7 +429,24 @@ export function BrandedPage() {
                   <p className="text-sm text-muted-foreground mt-0.5">{shoot.client_company}</p>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
+                {lotSize && (
+                  <div className="rounded-2xl border border-border/40 bg-card px-3 py-2 shadow-sm">
+                    <div className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Lot Size</div>
+                    <div className="mt-1 text-lg font-extrabold text-foreground leading-none">{String(lotSize)}</div>
+                  </div>
+                )}
+                {listPrice && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 shadow-sm">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <DollarSign className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">List Price</div>
+                      <div className="mt-1 text-lg font-extrabold text-foreground leading-none">{listPrice}</div>
+                    </div>
+                  </div>
+                )}
                 {branding?.facebook_url && (
                   <a href={branding.facebook_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
                     <Facebook className="w-[18px] h-[18px]" />
@@ -489,18 +510,37 @@ export function BrandedPage() {
               </div>
             </div>
           </div>
+          {(lotSize || listPrice) && (
+            <div className="mt-2 flex items-center justify-start gap-2">
+              {lotSize && (
+                <div className="rounded-xl border border-border/40 bg-card px-2.5 py-1.5 shadow-sm">
+                  <div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Lot Size</div>
+                  <div className="mt-0.5 text-sm font-extrabold text-foreground leading-none">{String(lotSize)}</div>
+                </div>
+              )}
+              {listPrice && (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-2.5 py-1.5 shadow-sm">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <DollarSign className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">List Price</div>
+                    <div className="mt-0.5 text-sm font-extrabold text-foreground leading-none">{listPrice}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Stats Row — icon above label above value, with dividers */}
-      {(hasStats || propertyDetails?.price || lotSize || mlsId) && (() => {
+      {(hasStats || mlsId) && (() => {
         const statItems: { icon: React.ReactNode; label: string; value: string }[] = [];
-        if (propertyDetails?.price) statItems.push({ icon: <Tag className="w-7 h-7 text-muted-foreground" />, label: 'List Price', value: propertyDetails.price });
         if (beds != null) statItems.push({ icon: <BedDouble className="w-7 h-7 text-muted-foreground" />, label: 'Beds', value: String(beds) });
         if (baths != null) statItems.push({ icon: <Bath className="w-7 h-7 text-muted-foreground" />, label: 'Baths', value: String(baths) });
         if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
         if (sqft != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Square Feet', value: sqft.toLocaleString() });
-        if (lotSize != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Lot Size', value: String(lotSize) });
         if (mlsId != null) statItems.push({ icon: <FileText className="w-7 h-7 text-muted-foreground" />, label: 'MLS', value: String(mlsId) });
         return (
           <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
@@ -550,6 +590,8 @@ export function BrandedPage() {
                 <img
                   src={photo}
                   alt={`Photo ${index + 1}`}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
@@ -586,7 +628,7 @@ export function BrandedPage() {
                       <div className="w-full [&_iframe]:w-full [&_iframe]:min-h-[360px] [&_iframe]:rounded-xl [&_iframe]:border [&_iframe]:border-border/40" dangerouslySetInnerHTML={{ __html: applyAutoplayToEmbedHtml(value) }} />
                     ) : (
                       <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/40">
-                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen title={embed.title || `Embed ${index + 1}`} />
+                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen loading="lazy" title={embed.title || `Embed ${index + 1}`} />
                       </div>
                     )}
                   </div>
@@ -610,6 +652,7 @@ export function BrandedPage() {
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                     allowFullScreen
+                    loading="lazy"
                     title="Video Tour"
                   />
                 ) : (
@@ -631,6 +674,7 @@ export function BrandedPage() {
               className="w-full h-full border-0"
               allow="fullscreen; vr; autoplay"
               allowFullScreen
+              loading="lazy"
               title="3D Tour"
             />
           </div>
@@ -646,7 +690,7 @@ export function BrandedPage() {
               <div key={index} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
                 <h3 className="font-semibold mb-3">Level {index + 1}</h3>
                 <div className="flex-1 flex items-center justify-center min-h-[200px]">
-                  <img src={fp} alt={`Floor Plan ${index + 1}`} className="max-w-full max-h-[300px] object-contain" />
+                  <img src={fp} alt={`Floor Plan ${index + 1}`} loading="lazy" decoding="async" className="max-w-full max-h-[300px] object-contain" />
                 </div>
                 <Button variant="outline" className="mt-4 rounded-full w-full" asChild>
                   <a href={fp} download target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2" />Download</a>
@@ -677,7 +721,7 @@ export function BrandedPage() {
 
             <div className="flex items-center gap-4 mb-6">
               {shoot?.client_avatar ? (
-                <img src={shoot.client_avatar} alt={shoot?.client_name} className="w-12 h-12 rounded-full object-cover border-2 border-primary/20 shrink-0" />
+                <img src={shoot.client_avatar} alt={shoot?.client_name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover border-2 border-primary/20 shrink-0" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0">
                   {getInitials(shoot?.client_name)}

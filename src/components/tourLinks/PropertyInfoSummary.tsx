@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Bath, BedDouble, FileText, Maximize, Ruler, Tag } from 'lucide-react';
+import { Bath, BedDouble, DollarSign, FileText, Maximize, Ruler } from 'lucide-react';
+import { formatTourPrice } from './tourDisplayUtils';
 
 type PropertyDetailValue = string | number | null | undefined;
 
@@ -59,7 +60,7 @@ export function PropertyInfoSummary({ propertyDetails, variant = 'default', clas
   const beds = getFirstFilled(propertyDetails?.beds, propertyDetails?.bedrooms);
   const baths = getFirstFilled(propertyDetails?.baths, propertyDetails?.bathrooms);
   const sqft = getFirstFilled(propertyDetails?.sqft, propertyDetails?.squareFeet, propertyDetails?.square_feet);
-  const price = getFirstFilled(propertyDetails?.price);
+  const price = formatTourPrice(getFirstFilled(propertyDetails?.price));
   const lotSize = getFirstFilled(propertyDetails?.lot_size, propertyDetails?.lotSize);
   const mls = getFirstFilled(propertyDetails?.mls_id, propertyDetails?.mlsId);
   const description = getFirstFilled(propertyDetails?.description);
@@ -70,12 +71,11 @@ export function PropertyInfoSummary({ propertyDetails, variant = 'default', clas
     beds ? { label: 'Beds', value: beds, icon: BedDouble } : null,
     baths ? { label: 'Baths', value: baths, icon: Bath } : null,
     sqft ? { label: 'Square Feet', value: formatNumberValue(sqft), icon: Maximize } : null,
-    price ? { label: 'List Price', value: price, icon: Tag } : null,
     lotSize ? { label: 'Lot Size', value: lotSize, icon: Ruler } : null,
     mls ? { label: 'MLS', value: mls, icon: FileText } : null,
   ].filter(Boolean) as Array<{ label: string; value: string; icon: React.ComponentType<{ className?: string }> }>;
 
-  if (!stats.length && !description && !listingType && !status) {
+  if (!stats.length && !price && !description && !listingType && !status) {
     return null;
   }
 
@@ -88,6 +88,19 @@ export function PropertyInfoSummary({ propertyDetails, variant = 'default', clas
             {status && status !== 'available' && <Badge variant="outline" className="border-blue-400/50 text-blue-200">{formatStatus(status)}</Badge>}
           </div>
           {description && <p className="text-base md:text-lg leading-relaxed text-slate-200 whitespace-pre-line mb-6">{description}</p>}
+          {price && (
+            <div className="mb-5 rounded-3xl border border-blue-400/30 bg-blue-500/10 p-5 md:p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-blue-200 font-semibold">List Price</div>
+                  <div className="mt-1 text-2xl md:text-4xl font-extrabold text-white">{price}</div>
+                </div>
+              </div>
+            </div>
+          )}
           {stats.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {stats.map(({ label, value, icon: Icon }) => (
@@ -112,6 +125,19 @@ export function PropertyInfoSummary({ propertyDetails, variant = 'default', clas
           {status && status !== 'available' && <Badge variant="outline">{formatStatus(status)}</Badge>}
         </div>
         {description && <p className="text-sm md:text-base leading-relaxed text-muted-foreground whitespace-pre-line mb-5">{description}</p>}
+        {price && (
+          <div className="mb-5 rounded-3xl border border-primary/20 bg-primary/5 p-5 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">List Price</div>
+                <div className="mt-1 text-2xl md:text-4xl font-extrabold text-foreground">{price}</div>
+              </div>
+            </div>
+          </div>
+        )}
         {stats.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {stats.map(({ label, value, icon: Icon }) => (

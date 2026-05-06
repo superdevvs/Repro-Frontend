@@ -506,6 +506,8 @@ export function NeoTour() {
             <img
               src={(heroPhotos.length > 0 ? heroPhotos : photos)[0]}
               alt="Hero Property"
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -621,6 +623,8 @@ export function NeoTour() {
                   <img
                     src={photo}
                     alt={`Property photo ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover aspect-square group-hover:scale-110 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -725,6 +729,7 @@ export function NeoTour() {
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                   allowFullScreen
+                  loading="lazy"
                   title="Video Tour"
                 />
               ) : null}
@@ -817,6 +822,7 @@ export function NeoTour() {
             <img
               src={photos[lightboxIndex]}
               alt={`Property photo ${lightboxIndex + 1}`}
+              decoding="async"
               className="max-w-full max-h-[90vh] object-contain"
             />
 
