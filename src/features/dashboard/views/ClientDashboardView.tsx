@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CreditCard } from "lucide-react";
 import { format } from "date-fns";
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
-import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
 import type { ShootData } from "@/types/shoots";
@@ -29,10 +28,16 @@ import { usePermission } from "@/hooks/usePermission";
 import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
+import {
+  CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT,
+  emitClientDashboardOnboardingState,
+} from "@/lib/clientDashboardOnboardingEvents";
 
+import { ClientDashboardOnboarding } from "../components/ClientDashboardOnboarding";
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
 import { DASHBOARD_DESCRIPTION } from "../constants";
+import { useClientDashboardOnboarding } from "../hooks/useClientDashboardOnboarding";
 import { useClientDashboardMetrics } from "../hooks/useDashboardMetrics";
 import type { MobileClientDashboardTab } from "../types";
 
@@ -58,6 +63,7 @@ interface ClientDashboardViewProps {
   onManageClientEmail: () => void;
   onOpenSupportEmail: (subject: string, body?: string) => void;
   onResendClientVerification: () => void | Promise<void>;
+  onOpenClientRequests: () => void;
   onSetMobileClientTab: (tab: MobileClientDashboardTab) => void;
   onSetOpenDownloadOnSelect: (open: boolean) => void;
   onSetSelectedShoot: (shoot: DashboardShootSummary | null) => void;
@@ -83,6 +89,7 @@ export const ClientDashboardView = ({
   onManageClientEmail,
   onOpenSupportEmail,
   onResendClientVerification,
+  onOpenClientRequests,
   onSetMobileClientTab,
   onSetOpenDownloadOnSelect,
   onSetSelectedShoot,
@@ -109,11 +116,41 @@ export const ClientDashboardView = ({
   const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
   const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
+  const clientOnboarding = useClientDashboardOnboarding(user);
   const shootToPayServiceItems = shootToPay
     ? getShootServiceItems(shootToPay.data).filter((item) => item.balanceDue > 0.01)
     : [];
   const shootToPayBalanceDue =
     (shootToPay?.data.payment?.totalQuote ?? 0) - (shootToPay?.data.payment?.totalPaid ?? 0);
+  const activeClientRequestCount = clientRequests.filter((request) =>
+    request.status === "open" || request.status === "in-progress" || request.status === "in_progress",
+  ).length;
+
+  useEffect(() => {
+    const visible = Boolean(
+      clientOnboarding.onboardingState.eligible &&
+      !clientOnboarding.onboardingState.completedAt,
+    );
+
+    emitClientDashboardOnboardingState({ visible });
+
+    return () => emitClientDashboardOnboardingState({ visible: false });
+  }, [
+    clientOnboarding.onboardingState.completedAt,
+    clientOnboarding.onboardingState.eligible,
+  ]);
+
+  useEffect(() => {
+    const handleReplayRequest = () => clientOnboarding.replay();
+    window.addEventListener(CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT, handleReplayRequest);
+    return () => window.removeEventListener(CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT, handleReplayRequest);
+  }, [clientOnboarding]);
+
+  useEffect(() => {
+    if (mobileClientTab === "requests") {
+      onSetMobileClientTab("shoots");
+    }
+  }, [mobileClientTab, onSetMobileClientTab]);
 
   const handleReschedule = (record: ClientShootRecord) => {
     setShootToReschedule(record.data);
@@ -188,69 +225,80 @@ export const ClientDashboardView = ({
     onOpenSupportEmail("Shoot assistance needed");
   };
   const clientEmailNotice = (
-    <ClientEmailHealthNotice
-      email={user?.email}
-      emailHealth={normalizeEmailHealth(user?.email_health)}
-      onManageEmail={onManageClientEmail}
-      onResendVerification={onResendClientVerification}
-      resendPending={clientEmailActionPending}
-      variant="banner"
-    />
-  );
-
-  const clientShootsContent = (
-    <ClientMyShoots
-      upcoming={clientUpcomingRecords}
-      completed={clientCompletedRecords}
-      onHold={clientOnHoldRecords}
-      currentUserId={user?.id ?? null}
-      onSelect={(record) => onSetSelectedShoot(record.summary)}
-      onReschedule={handleReschedule}
-      onCancel={handleCancelShoot}
-      onContactSupport={() => handleContactSupport()}
-      onDownload={handleDownloadShoot}
-      onRebook={handleRebookShoot}
-      onRequestRevision={handleRequestRevision}
-      onHoldAction={handleHoldAction}
-      onPayment={(record) => {
-        setShootToPay(record);
-        setPaymentModalOpen(true);
-      }}
-      onBookNewShoot={() => navigate("/book-shoot")}
-    />
-  );
-
-  const clientInvoicesContent = (
-    <ClientInvoicesCard
-      summary={clientBillingSummary}
-      onViewAll={() => navigate("/accounting")}
-      onPay={() => {
-        setSelectedShootsForPayment([]);
-        setPaymentSelectionOpen(true);
-      }}
-    />
-  );
-
-  const clientRequestsContent = (
-    <div id="requests-queue">
-      <PendingReviewsCard
-        reviews={[]}
-        issues={[]}
-        onSelect={(shoot) => onSetSelectedShoot(shoot)}
-        emptyRequestsText="No active requests."
-        title="Requests"
-        clientRequests={clientRequests}
-        clientRequestsLoading={clientRequestsLoading}
-        showClientTab
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      <ClientEmailHealthNotice
+        email={user?.email}
+        emailHealth={normalizeEmailHealth(user?.email_health)}
+        onManageEmail={onManageClientEmail}
+        onResendVerification={onResendClientVerification}
+        resendPending={clientEmailActionPending}
+        variant="banner"
+      />
+      <ClientDashboardOnboarding
+        welcomeOpen={clientOnboarding.welcomeOpen}
+        tourOpen={clientOnboarding.tourOpen}
+        isMobile={isMobile}
+        currentMobileTab={mobileClientTab}
+        lastStep={clientOnboarding.onboardingState.lastStep}
+        showReplay={false}
+        onStart={clientOnboarding.startTour}
+        onDismiss={clientOnboarding.dismiss}
+        onComplete={(lastStep) => clientOnboarding.complete({ lastStep })}
+        onProgress={clientOnboarding.saveProgress}
+        onReplay={clientOnboarding.replay}
+        onSetMobileTab={onSetMobileClientTab}
       />
     </div>
   );
 
-  const clientMetricsContent = <RoleMetricTilesCard tiles={clientMetricTiles} />;
+  const clientShootsContent = (
+    <div data-onboarding-target="client-dashboard-shoots" className="flex min-h-0 flex-1 flex-col">
+      <ClientMyShoots
+        upcoming={clientUpcomingRecords}
+        completed={clientCompletedRecords}
+        onHold={clientOnHoldRecords}
+        currentUserId={user?.id ?? null}
+        onSelect={(record) => onSetSelectedShoot(record.summary)}
+        onReschedule={handleReschedule}
+        onCancel={handleCancelShoot}
+        onContactSupport={() => handleContactSupport()}
+        onDownload={handleDownloadShoot}
+        onRebook={handleRebookShoot}
+        onRequestRevision={handleRequestRevision}
+        onHoldAction={handleHoldAction}
+        onPayment={(record) => {
+          setShootToPay(record);
+          setPaymentModalOpen(true);
+        }}
+        onBookNewShoot={() => navigate("/book-shoot")}
+        activeRequestCount={activeClientRequestCount}
+        requestsLoading={clientRequestsLoading}
+        onOpenRequests={onOpenClientRequests}
+      />
+    </div>
+  );
+
+  const clientInvoicesContent = (
+    <div data-onboarding-target="client-dashboard-invoices">
+      <ClientInvoicesCard
+        summary={clientBillingSummary}
+        onViewAll={() => navigate("/accounting")}
+        onPay={() => {
+          setSelectedShootsForPayment([]);
+          setPaymentSelectionOpen(true);
+        }}
+      />
+    </div>
+  );
+
+  const clientMetricsContent = (
+    <div data-onboarding-target="client-dashboard-metrics">
+      <RoleMetricTilesCard tiles={clientMetricTiles} />
+    </div>
+  );
 
   const clientMobileTabs = [
     { id: "shoots" as const, label: "Shoots", content: clientShootsContent },
-    { id: "requests" as const, label: "Requests", content: clientRequestsContent },
     { id: "invoices" as const, label: "Invoices", content: clientInvoicesContent },
   ];
 
@@ -262,7 +310,10 @@ export const ClientDashboardView = ({
         onValueChange={(val) => onSetMobileClientTab(val as MobileClientDashboardTab)}
         className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
       >
-        <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div
+          data-onboarding-target="client-dashboard-mobile-tabs"
+          className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        >
           <div className="overflow-x-auto hidden-scrollbar">
             <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
               {clientMobileTabs.map((tab) => (
@@ -292,10 +343,10 @@ export const ClientDashboardView = ({
     <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-12 md:items-start">
       <div
         ref={clientDesktopLeftColumnRef}
+        data-client-dashboard-left-column="true"
         className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6"
       >
         {clientMetricsContent}
-        {clientRequestsContent}
         {clientInvoicesContent}
       </div>
       <div className="md:col-span-9 md:min-h-0">
@@ -303,7 +354,10 @@ export const ClientDashboardView = ({
           className="min-h-0"
           style={
             clientDesktopShootsHeight
-              ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
+              ? {
+                  height: `${clientDesktopShootsHeight}px`,
+                  maxHeight: `${clientDesktopShootsHeight}px`,
+                }
               : undefined
           }
         >

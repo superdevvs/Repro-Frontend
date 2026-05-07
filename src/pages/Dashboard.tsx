@@ -381,6 +381,10 @@ const Dashboard = () => {
     toast,
   });
 
+  const openClientRequestManager = useCallback(() => {
+    openModal(clientRequests);
+  }, [clientRequests, openModal]);
+
   const {
     cancellationShoots,
     cancellationRequestCount,
@@ -595,6 +599,7 @@ const Dashboard = () => {
             onManageClientEmail={handleManageClientEmail}
             onOpenSupportEmail={openSupportEmail}
             onResendClientVerification={handleResendClientVerification}
+            onOpenClientRequests={openClientRequestManager}
             onSetMobileClientTab={setMobileClientTab}
             onSetOpenDownloadOnSelect={setOpenDownloadOnSelect}
             onSetSelectedShoot={setSelectedShoot}

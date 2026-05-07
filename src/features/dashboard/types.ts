@@ -67,6 +67,9 @@ export interface ClientMyShootsProps {
   onHoldAction: (record: ClientShootRecord) => void;
   onPayment: (record: ClientShootRecord) => void;
   onBookNewShoot: () => void;
+  activeRequestCount?: number;
+  requestsLoading?: boolean;
+  onOpenRequests?: () => void;
 }
 
 export interface ClientShootTileProps {

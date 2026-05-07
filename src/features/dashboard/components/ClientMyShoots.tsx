@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, CalendarPlus, Download, Ghost, Image as ImageIcon, LayoutGrid, List } from "lucide-react";
+import { CalendarDays, CalendarPlus, Download, Ghost, Image as ImageIcon, Inbox, LayoutGrid, List } from "lucide-react";
 
 import { Card } from "@/components/dashboard/v2/SharedComponents";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,9 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   onHoldAction,
   onPayment,
   onBookNewShoot,
+  activeRequestCount = 0,
+  requestsLoading = false,
+  onOpenRequests,
 }) => {
   const tabs: Array<{ key: "upcoming" | "completed" | "hold"; label: string; count: number }> = [
     { key: "upcoming", label: "Scheduled", count: upcoming.length },
@@ -183,25 +186,43 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
               ))}
             </div>
           </div>
-          {activeTab === "completed" && list.length > 0 && (
-            <div className="flex items-center border rounded-md overflow-hidden">
-              <button
-                onClick={() => toggleDeliveredView('grid')}
-                className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                title="Grid view"
+          <div className="flex items-center gap-2" data-onboarding-target="client-dashboard-requests">
+            {onOpenRequests && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-2 rounded-full px-3 text-xs"
+                onClick={onOpenRequests}
               >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => toggleDeliveredView('list')}
-                className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                title="List view"
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+                <Inbox className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Requests</span>
+                <Badge className="h-5 min-w-5 rounded-full px-1.5 text-[10px]">
+                  {requestsLoading ? "…" : activeRequestCount}
+                </Badge>
+              </Button>
+            )}
+            {activeTab === "completed" && list.length > 0 && (
+              <div className="flex items-center border rounded-md overflow-hidden">
+                <button
+                  onClick={() => toggleDeliveredView('grid')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => toggleDeliveredView('list')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
         <div className="flex flex-1 min-h-0 flex-col">
           {list.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
@@ -335,7 +356,10 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
       prevProps.onRequestRevision === nextProps.onRequestRevision &&
       prevProps.onHoldAction === nextProps.onHoldAction &&
       prevProps.onPayment === nextProps.onPayment &&
-      prevProps.onBookNewShoot === nextProps.onBookNewShoot
+      prevProps.onBookNewShoot === nextProps.onBookNewShoot &&
+      prevProps.activeRequestCount === nextProps.activeRequestCount &&
+      prevProps.requestsLoading === nextProps.requestsLoading &&
+      prevProps.onOpenRequests === nextProps.onOpenRequests
     );
   }
 );
