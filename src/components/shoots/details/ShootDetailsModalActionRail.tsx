@@ -641,9 +641,11 @@ export function ShootDetailsModalHeader({
                     <Copy className="h-3.5 w-3.5" />
                   )}
                 </Button>
+                <div className="hidden sm:flex flex-shrink-0">{statusBadge}</div>
+                {paymentBadge ? <div className="hidden sm:flex flex-shrink-0">{paymentBadge}</div> : null}
               </div>
-              <div className="flex-shrink-0">{statusBadge}</div>
-              {paymentBadge ? <div className="flex-shrink-0">{paymentBadge}</div> : null}
+              <div className="sm:hidden flex-shrink-0">{statusBadge}</div>
+              {paymentBadge ? <div className="sm:hidden flex-shrink-0">{paymentBadge}</div> : null}
             </div>
 
             {createdByLabel && (
