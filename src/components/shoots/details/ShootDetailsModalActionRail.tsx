@@ -203,7 +203,7 @@ export function ShootDetailsModalActionRail({
 
   return (
     <>
-      <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-24 max-w-[calc(100%-8rem)]">
+      <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-16 max-w-[calc(100%-6rem)]">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {isEditMode ? (
             <>
