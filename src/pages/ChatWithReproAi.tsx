@@ -836,21 +836,21 @@ const ChatWithReproAi = () => {
         <div className="flex flex-col">
           {tabMode === 'chat' && (
             <div className="mt-0 flex flex-col">
-              <AnimatePresence mode="sync" initial={false}>
+              <AnimatePresence mode="sync">
                 {viewMode === 'home' ? (
                   <motion.div
                     key="home"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.08 }}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.24, ease: 'easeOut' }}
                     className="mt-4 md:mt-0 flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 py-10 min-h-[calc(100vh-64px-200px)]"
                   >
                     {/* Welcome Section - Centered */}
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.1 }}
+                      initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: 0.08, duration: 0.3, ease: 'easeOut' }}
                       className="flex flex-col items-center justify-center space-y-2 md:space-y-4 text-center max-w-2xl px-2 mx-auto"
                     >
                       <ReproAiIcon
@@ -926,9 +926,9 @@ const ChatWithReproAi = () => {
                           return (
                             <motion.div
                               key={index}
-                              initial={{ opacity: 0, y: 20 }}
+                              initial={{ opacity: 0, y: 20, scale: 0.97 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.2 + index * 0.1 }}
+                              transition={{ delay: 0.2 + index * 0.08, duration: 0.28, ease: 'easeOut' }}
                               whileHover={{ y: -4, transition: { duration: 0.2 } }}
                               className="h-full"
                             >
