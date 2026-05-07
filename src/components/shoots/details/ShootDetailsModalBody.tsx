@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import {
   CheckCircle,
   CheckSquare,
+  Download,
   DollarSign as DollarSignIcon,
   FileText,
   Loader2,
@@ -56,6 +57,7 @@ interface ShootDetailsModalBodyProps {
   isEditor: boolean;
   isClient: boolean;
   isEditingManager: boolean;
+  isDelivered: boolean;
   shouldHideClientDetails: boolean;
   isRequestedStatus: boolean;
   isCancelledOrDeclined: boolean;
@@ -73,6 +75,10 @@ interface ShootDetailsModalBodyProps {
   isLoadingInvoice: boolean;
   isSendingToEditing?: boolean;
   isFinalising?: boolean;
+  canOpenDeliveredDownloadDialog?: boolean;
+  canPrivilegedProgressDownload?: boolean;
+  isDownloading?: boolean;
+  isPublishingToBrightMls?: boolean;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   hasInflightUploads?: boolean;
@@ -86,9 +92,12 @@ interface ShootDetailsModalBodyProps {
   setSelectedFileIds: (ids: string[]) => void;
   setEditActions: (actions: { save: () => void; cancel: () => void } | null) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
+  setIsDownloadDialogOpen: (open: boolean) => void;
   handleTabChange: (value: string) => void;
   handleProcessPayment: () => void;
   handleShowInvoice: () => void;
+  handleProgressMediaDownload: () => void;
+  handleSendToBrightMls: () => void;
   handleResumeFromHold: () => void;
   handleSendToEditing: () => void;
   handleFinalise: () => void;
@@ -111,6 +120,7 @@ export function ShootDetailsModalBody({
   isEditor,
   isClient,
   isEditingManager,
+  isDelivered,
   shouldHideClientDetails,
   isRequestedStatus,
   isCancelledOrDeclined,
@@ -128,6 +138,10 @@ export function ShootDetailsModalBody({
   isLoadingInvoice,
   isSendingToEditing = false,
   isFinalising = false,
+  canOpenDeliveredDownloadDialog = false,
+  canPrivilegedProgressDownload = false,
+  isDownloading = false,
+  isPublishingToBrightMls = false,
   canSubmitRaw = false,
   canSubmitEdits = false,
   hasInflightUploads = false,
@@ -141,9 +155,12 @@ export function ShootDetailsModalBody({
   setSelectedFileIds,
   setEditActions,
   setIsMarkPaidDialogOpen,
+  setIsDownloadDialogOpen,
   handleTabChange,
   handleProcessPayment,
   handleShowInvoice,
+  handleProgressMediaDownload,
+  handleSendToBrightMls,
   handleResumeFromHold,
   handleSendToEditing,
   handleFinalise,
@@ -161,6 +178,8 @@ export function ShootDetailsModalBody({
     activeTab === 'media' &&
     ((activeMediaDisplayTab === 'uploaded' && canSubmitRaw) ||
       (activeMediaDisplayTab === 'edited' && canSubmitEdits));
+  const showDesktopDownloadActions = canOpenDeliveredDownloadDialog || canPrivilegedProgressDownload;
+  const showDesktopPublishAction = isDelivered && !isEditor && !isPhotographer;
   const showMobileSubmitActions =
     !isEditMode &&
     !isRequestedStatus &&
@@ -357,9 +376,55 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+                {canOpenDeliveredDownloadDialog && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                    onClick={() => setIsDownloadDialogOpen(true)}
+                    disabled={isDownloading}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
+                  </Button>
+                )}
+                {canPrivilegedProgressDownload && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                    onClick={handleProgressMediaDownload}
+                    disabled={isDownloading}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
+                  </Button>
+                )}
+                {showDesktopPublishAction && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 hover:bg-transparent"
+                    onClick={handleSendToBrightMls}
+                    disabled={isPublishingToBrightMls}
+                  >
+                    {isPublishingToBrightMls ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Sending...
+                      </span>
+                    ) : (
+                      <img
+                        src="/brightmls-media-sync-button.svg"
+                        alt="Publish to Bright MLS"
+                        className="h-8 w-auto rounded-full"
+                      />
+                    )}
+                  </Button>
+                )}
                 {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
                   <Button
                     variant="default"

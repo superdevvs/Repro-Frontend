@@ -591,6 +591,23 @@ export function ShootDetailsModal({
 
     void handleEditorDownloadRaw();
   }, [activeMediaDisplayTab, handleDownloadMedia, handleEditorDownloadRaw]);
+  const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
+  const canOpenDeliveredDownloadDialog =
+    !isEditor &&
+    !isPhotographer &&
+    (isDelivered || (isClient && clientReleaseAccess.canClientDownload) || (!isClient && editedMediaCount > 0)) &&
+    (!isClient || clientReleaseAccess.canClientDownload);
+  const canPrivilegedProgressDownload =
+    !canOpenDeliveredDownloadDialog &&
+    !isDelivered &&
+    (isAdmin || isEditingManager) &&
+    !isEditor &&
+    !isPhotographer &&
+    !isClient &&
+    (
+      (activeMediaDisplayTab === 'uploaded' && hasRawDownloadSelection) ||
+      (activeMediaDisplayTab === 'edited' && editedMediaCount > 0)
+    );
 
   useEffect(() => {
     if (!isOpen || !openDownloadDialog || !clientReleaseAccess.canClientDownload) return;
@@ -880,6 +897,7 @@ export function ShootDetailsModal({
           isEditor={isEditor}
           isClient={isClient}
           isEditingManager={isEditingManager}
+          isDelivered={isDelivered}
           shouldHideClientDetails={shouldHideClientDetails}
           isRequestedStatus={isRequestedStatus}
           isCancelledOrDeclined={isCancelledOrDeclined}
@@ -888,6 +906,10 @@ export function ShootDetailsModal({
           isEditMode={isEditMode}
           isSavingChanges={isSavingChanges}
           editActions={editActions}
+          canOpenDeliveredDownloadDialog={canOpenDeliveredDownloadDialog}
+          canPrivilegedProgressDownload={canPrivilegedProgressDownload}
+          isDownloading={isDownloading}
+          isPublishingToBrightMls={isPublishingToBrightMls}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
@@ -903,9 +925,12 @@ export function ShootDetailsModal({
           setSelectedFileIds={setSelectedFileIds}
           setEditActions={setEditActions}
           setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
+          setIsDownloadDialogOpen={setIsDownloadDialogOpen}
           handleTabChange={handleTabChange}
           handleProcessPayment={handleProcessPayment}
           handleShowInvoice={handleShowInvoice}
+          handleProgressMediaDownload={handleProgressMediaDownload}
+          handleSendToBrightMls={handleSendToBrightMls}
           handleResumeFromHold={handleResumeFromHold}
           handleSendToEditing={handleSendToEditing}
           handleFinalise={handleFinalise}

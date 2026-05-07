@@ -319,33 +319,6 @@ export function ShootDetailsModalActionRail({
                   <span>{cancelActionLabel}</span>
                 </Button>
               )}
-              {canOpenDeliveredDownloadDialog && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                  onClick={() => {
-                    blurActiveElement();
-                    setIsDownloadDialogOpen(true);
-                  }}
-                  disabled={isDownloading}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
-                </Button>
-              )}
-              {canPrivilegedProgressDownload && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                  onClick={handleProgressMediaDownload}
-                  disabled={isProgressDownloadDisabled}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
-                </Button>
-              )}
               {isDelivered && isPhotographer && (
                 <Button
                   variant="outline"
@@ -356,28 +329,6 @@ export function ShootDetailsModalActionRail({
                 >
                   <Download className="h-3 w-3 mr-1" />
                   <span>{isDownloading ? 'Downloading...' : 'Download RAW'}</span>
-                </Button>
-              )}
-              {isDelivered && !isEditor && !isPhotographer && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 hover:bg-transparent"
-                  onClick={handleSendToBrightMls}
-                  disabled={isPublishingToBrightMls}
-                >
-                  {isPublishingToBrightMls ? (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Sending...
-                    </span>
-                  ) : (
-                    <img
-                      src="/brightmls-media-sync-button.svg"
-                      alt="Publish to Bright MLS"
-                      className="h-8 w-auto rounded-full"
-                    />
-                  )}
                 </Button>
               )}
               {showMmmPunchoutButtons && (
