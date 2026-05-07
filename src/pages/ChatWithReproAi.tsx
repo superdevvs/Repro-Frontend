@@ -71,7 +71,7 @@ const ChatWithReproAi = () => {
   const isSendingRef = useRef(false);
   const shouldAutoScrollRef = useRef(false);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('chat');
+  const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
