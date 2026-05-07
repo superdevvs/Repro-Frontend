@@ -58,7 +58,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useUpload } from '@/context/UploadContext';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { fotelloService, type EditingType } from '@/services/fotelloService';
+import { autoenhanceService, type EditingType } from '@/services/autoenhanceService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isRawFile } from '@/services/rawPreviewService';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
@@ -476,14 +476,14 @@ export function useShootDetailsMediaTab({
   }, [clientEditedMediaTabs, editedMediaTab, isClient]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
-  const canAccessFotello = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
+  const canAccessAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
   
   useEffect(() => {
-    if (!canAccessFotello) return;
+    if (!canAccessAutoenhance) return;
     
     const loadEditingTypes = async () => {
       try {
-        const types = await fotelloService.getEditingTypes();
+        const types = await autoenhanceService.getEditingTypes();
         setEditingTypes(types);
         if (types.length > 0) {
           setSelectedEditingType(types[0].id);
@@ -493,7 +493,7 @@ export function useShootDetailsMediaTab({
       }
     };
     loadEditingTypes();
-  }, [canAccessFotello]);
+  }, [canAccessAutoenhance]);
 
   // Load files using React Query hooks for deduplication and caching
   const rawFilesEnabled = Boolean(shoot.id) && !isClient;

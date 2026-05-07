@@ -69,8 +69,9 @@ const ChatWithReproAi = () => {
   const mainScrollRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const isSendingRef = useRef(false);
+  const shouldAutoScrollRef = useRef(false);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [viewMode, setViewMode] = useState<ViewMode>('chat');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
@@ -193,7 +194,7 @@ const ChatWithReproAi = () => {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (tabMode !== 'chat' || viewMode !== 'chat' || visibleMessages.length === 0) {
+    if (tabMode !== 'chat' || viewMode !== 'chat' || visibleMessages.length === 0 || !shouldAutoScrollRef.current) {
       return;
     }
 
@@ -201,7 +202,7 @@ const ChatWithReproAi = () => {
     if (!scrollOwner) return;
 
     const scrollToLatest = () => {
-      scrollOwner.scrollTop = scrollOwner.scrollHeight;
+      scrollOwner.scrollTop = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight);
     };
 
     scrollToLatest();
@@ -267,6 +268,7 @@ const ChatWithReproAi = () => {
       setMessages(response.messages);
       // Clear suggestions when loading a session (they'll come from next AI response)
       setCurrentSuggestions([]);
+      shouldAutoScrollRef.current = false;
     } catch (error) {
       console.error('Failed to load session messages:', error);
       toast({
@@ -291,6 +293,7 @@ const ChatWithReproAi = () => {
     if (!messageToSend || isSendingRef.current) return;
 
     isSendingRef.current = true;
+    shouldAutoScrollRef.current = true;
     setIsLoading(true);
     const userMessage: AiMessage = {
       id: `temp-${Date.now()}`,
@@ -698,7 +701,7 @@ const ChatWithReproAi = () => {
   const suggestionFallbacks = pagePrompts ?? defaultPrompts;
 
   return (
-    <DashboardLayout hideNavbar={false} className="!p-0 !pb-0 !min-h-0">
+    <DashboardLayout hideNavbar={false} hideFooter className="!p-0 !pb-0 !min-h-0">
       {/* Let content grow naturally so <main> scrolls */}
       <div className="flex flex-col flex-1">
         {/* ── TOP AREA: sticky page header + controls ── */}
@@ -958,18 +961,8 @@ const ChatWithReproAi = () => {
                     className="flex flex-col"
                   >
                     {/* Messages List */}
-                    <div className="px-2 md:px-6 space-y-4 pb-4 pt-4 md:pt-6 flex flex-col max-w-5xl mx-auto w-full">
-                    {visibleMessages.length === 0 ? (
-                      <div className="flex items-end justify-center flex-1 min-h-0">
-                        <div className="flex flex-col items-center justify-center text-center pb-6">
-                          <ReproAiIcon
-                            className={`w-16 h-16 md:w-20 md:h-20 mb-4 ${isMobile ? 'text-blue-500/70' : 'opacity-50'}`}
-                            useSolid={isMobile}
-                          />
-                          <p className="text-muted-foreground text-sm md:text-base">Start a conversation with Robbie</p>
-                        </div>
-                      </div>
-                    ) : (
+                    <div className="px-2 md:px-6 space-y-4 pb-4 pt-24 md:pt-28 flex flex-col max-w-5xl mx-auto w-full">
+                    {visibleMessages.length > 0 && (
                       <AnimatePresence>
                         {visibleMessages.map((msg, index) => (
                           <motion.div
@@ -1233,7 +1226,7 @@ const ChatWithReproAi = () => {
 
         {/* ── BOTTOM AREA: fixed chat bar ── */}
         {tabMode === 'chat' && (
-          <div className="border-t border-border/10 bg-background fixed bottom-16 md:bottom-auto left-0 right-0 md:relative pb-[max(0.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] md:pb-2 z-50">
+          <div className="border-t border-border/10 bg-background fixed bottom-16 md:sticky md:bottom-0 left-0 right-0 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] md:pb-2 z-[80]">
             <div className={cn(
               "max-w-5xl mx-auto px-4 pb-0",
               viewMode === 'chat' ? "pt-4 md:pt-6" : "pt-3"

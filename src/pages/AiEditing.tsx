@@ -40,7 +40,7 @@ import {
   X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { fotelloService, type EditingType, type EditingJob } from '@/services/fotelloService';
+import { autoenhanceService, type EditingType, type EditingJob } from '@/services/autoenhanceService';
 import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { format } from 'date-fns';
@@ -379,7 +379,7 @@ const AiEditing = () => {
 
   const loadEditingTypes = async () => {
     try {
-      const types = await fotelloService.getEditingTypes();
+      const types = await autoenhanceService.getEditingTypes();
       setEditingTypes(types);
       if (types.length > 0 && !selectedEditingType) {
         setSelectedEditingType(types[0].id);
@@ -413,7 +413,7 @@ const AiEditing = () => {
     }
 
     if (bracketingMethod === 'count') {
-      // Group every 5 images (like Fotello - one stacked image per 5 images)
+      // Group every 5 images for Autoenhance HDR processing
       const groups: { group: number; files: MediaFile[] }[] = [];
       for (let i = 0; i < rawFiles.length; i += 5) {
         const groupFiles = rawFiles.slice(i, i + 5);
@@ -729,7 +729,7 @@ const AiEditing = () => {
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/fotello/edit`, {
+      const response = await fetch(`${API_BASE_URL}/api/autoenhance/edit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1211,7 +1211,7 @@ const AiEditing = () => {
                     )}
                   </>
                 ) : (
-                  /* Show grouped brackets for unedited shoots (like Fotello - one per 5 images) */
+                  /* Show grouped brackets for unedited shoots */
                   groupedFiles.length > 0 ? (
                     <div className="space-y-4">
                       <div>

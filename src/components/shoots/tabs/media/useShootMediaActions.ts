@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useUpload } from '@/context/UploadContext';
-import { fotelloService } from '@/services/fotelloService';
+import { autoenhanceService } from '@/services/autoenhanceService';
 import {
   triggerDashboardOverviewRefresh,
   triggerShootDetailRefresh,
@@ -293,7 +293,7 @@ export function useShootMediaActions({
     setSubmittingAiEdit(true);
     try {
       const fileIds = Array.from(selectedFiles).map((id) => parseInt(id, 10));
-      await fotelloService.submitEditing({
+      await autoenhanceService.submitEditing({
         shoot_id: Number(shoot.id),
         file_ids: fileIds,
         editing_type: selectedEditingType,
@@ -302,7 +302,7 @@ export function useShootMediaActions({
 
       toast({
         title: 'Success',
-        description: `Submitted ${fileIds.length} image(s) for AI editing`,
+        description: `Submitted ${fileIds.length} image(s) to Autoenhance`,
       });
 
       setShowAiEditDialog(false);

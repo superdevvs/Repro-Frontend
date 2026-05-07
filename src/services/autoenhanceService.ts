@@ -11,7 +11,10 @@ export interface EditingJob {
   id: number;
   shoot_id: number;
   shoot_file_id?: number;
-  fotello_job_id?: string;
+  provider?: string;
+  provider_job_id?: string;
+  provider_order_id?: string;
+  autoenhance_image_id?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   editing_type: string;
   editing_params?: Record<string, any>;
@@ -39,34 +42,22 @@ export interface ListJobsParams {
   page?: number;
 }
 
-export const fotelloService = {
-  /**
-   * Get available editing types
-   */
+export const autoenhanceService = {
   async getEditingTypes(): Promise<EditingType[]> {
-    const response = await apiClient.get('/fotello/editing-types');
+    const response = await apiClient.get('/autoenhance/editing-types');
     return response.data.data || response.data || [];
   },
 
-  /**
-   * Submit image(s) for AI editing
-   */
   async submitEditing(request: SubmitEditingRequest): Promise<EditingJob[]> {
-    const response = await apiClient.post('/fotello/edit', request);
+    const response = await apiClient.post('/autoenhance/edit', request);
     return response.data.data || response.data || [];
   },
 
-  /**
-   * Get job status
-   */
   async getJobStatus(jobId: number): Promise<EditingJob> {
-    const response = await apiClient.get(`/fotello/jobs/${jobId}`);
+    const response = await apiClient.get(`/autoenhance/jobs/${jobId}`);
     return response.data.data || response.data;
   },
 
-  /**
-   * List all jobs
-   */
   async listJobs(params?: ListJobsParams): Promise<{
     data: EditingJob[];
     meta?: {
@@ -76,18 +67,14 @@ export const fotelloService = {
       total: number;
     };
   }> {
-    const response = await apiClient.get('/fotello/jobs', { params });
+    const response = await apiClient.get('/autoenhance/jobs', { params });
     return {
       data: response.data.data || response.data || [],
       meta: response.data.meta,
     };
   },
 
-  /**
-   * Cancel a job
-   */
   async cancelJob(jobId: number): Promise<void> {
-    await apiClient.post(`/fotello/jobs/${jobId}/cancel`);
+    await apiClient.post(`/autoenhance/jobs/${jobId}/cancel`);
   },
 };
-

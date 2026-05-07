@@ -90,6 +90,18 @@ const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
 const isAbortError = (error: unknown) =>
   error instanceof DOMException && error.name === 'AbortError';
 
+const shouldAutoFetchShootsForPath = (path: string) =>
+  path === '/dashboard'
+  || path === '/accounts'
+  || path === '/book-shoot'
+  || path === '/accounting'
+  || path === '/invoices'
+  || path === '/shoot-history'
+  || path === '/shoot-calendar'
+  || path.startsWith('/accounts/')
+  || path.startsWith('/shoots/')
+  || path.startsWith('/photographer');
+
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
   if (!media) return undefined;
   return {
@@ -1365,33 +1377,22 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [handleSessionExpired, persistShoots, user?.role]);
 
   const refreshShoots = useCallback(async (): Promise<void> => {
-    const currentPath = locationRef.current;
-    const isDashboardRoute = currentPath === '/dashboard';
-    const isAccountsRoute = currentPath.startsWith('/accounts');
-    const shouldUseLightweight = isDashboardRoute || isAccountsRoute;
-    if (shouldUseLightweight) {
-      await fetchShoots(undefined, 1, 25, { includeFiles: false });
+    if (!shouldAutoFetchShootsForPath(locationRef.current)) {
       return;
     }
-    await fetchShoots();
+    await fetchShoots(undefined, 1, 25, { includeFiles: false });
   }, [fetchShoots, user?.role]);
 
   // Fetch shoots once on mount and when user/role changes — NOT on every route change
   useEffect(() => {
-    const controller = new AbortController();
-    const currentPath = locationRef.current;
-    const isDashboardRoute = currentPath === '/dashboard';
-    const isAccountsRoute = currentPath.startsWith('/accounts');
-    const shouldUseLightweight = isDashboardRoute || isAccountsRoute;
-
-    if (shouldUseLightweight) {
-      fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);
-    } else {
-      fetchShoots(controller.signal).catch(() => undefined);
+    if (!shouldAutoFetchShootsForPath(location.pathname)) {
+      return;
     }
+    const controller = new AbortController();
+    fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);
 
     return () => controller.abort();
-  }, [fetchShoots, user?.role]);
+  }, [fetchShoots, location.pathname, user?.role]);
 
   useEffect(() => {
     if (!user?.id) return;

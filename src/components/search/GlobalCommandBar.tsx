@@ -42,7 +42,8 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
   const fetchShoots = shootsContext?.fetchShoots;
   const isAdminExperience = ["admin", "superadmin"].includes(role);
   const canViewAvailability = ["admin", "superadmin", "salesRep", "sales_rep", "photographer"].includes(role);
-  const canLoadEditingRequests = isAdminExperience || role === "salesRep";
+  const canLoadEditingRequests = open && (isAdminExperience || role === "salesRep");
+
   const { requests: editingRequests } = useEditingRequests(canLoadEditingRequests);
   const [clientRequests, setClientRequests] = useState<DashboardClientRequest[]>([]);
   const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
@@ -72,7 +73,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
   }, [onOpenChange]);
 
   useEffect(() => {
-    if (!isAdminExperience) {
+    if (!open || !isAdminExperience) {
       setClientRequests([]);
       return;
     }
@@ -125,7 +126,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
       cancelled = true;
       controller.abort();
     };
-  }, [isAdminExperience]);
+  }, [open, isAdminExperience]);
 
   const matchesQuery = useCallback((value: string, query: string) => {
     if (!query) return true;

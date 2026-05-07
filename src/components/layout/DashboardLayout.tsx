@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { PageTransition } from './PageTransition';
@@ -17,14 +17,17 @@ interface DashboardLayoutProps {
   children?: React.ReactNode;
   className?: string;
   hideNavbar?: boolean;
+  hideFooter?: boolean;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false }) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false, hideFooter = false }) => {
   const isInsideDashboardLayout = React.useContext(DashboardLayoutContext);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
   const contentPadding = isMobile ? 'p-3 pb-20' : 'p-3';
+  const shouldHideFooter = hideFooter || location.pathname.startsWith('/chat-with-reproai');
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
@@ -67,22 +70,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               <PageTransition className="flex flex-col min-h-full">
                 {children || <Outlet />}
               </PageTransition>
-              <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">
-                © {new Date().getFullYear()} R/E Pro Photos ·{' '}
-                <Link
-                  to="/terms-and-conditions"
-                  className="transition-colors hover:text-foreground"
-                >
-                  Terms and Conditions
-                </Link>{' '}
-                ·{' '}
-                <Link
-                  to="/privacy-policy"
-                  className="transition-colors hover:text-foreground"
-                >
-                  Privacy Policy
-                </Link>
-              </footer>
+              {!shouldHideFooter && (
+                <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">
+                  © {new Date().getFullYear()} R/E Pro Photos ·{' '}
+                  <Link
+                    to="/terms-and-conditions"
+                    className="transition-colors hover:text-foreground"
+                  >
+                    Terms and Conditions
+                  </Link>{' '}
+                  ·{' '}
+                  <Link
+                    to="/privacy-policy"
+                    className="transition-colors hover:text-foreground"
+                  >
+                    Privacy Policy
+                  </Link>
+                </footer>
+              )}
             </main>
           </ErrorBoundary>
           {isMobile && <MobileMenu />}
