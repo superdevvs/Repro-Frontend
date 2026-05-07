@@ -115,6 +115,10 @@ const FullScreenSpinner = () => (
 const DashboardRouteFallback = () => {
   const location = useLocation();
 
+  if (location.pathname === '/chat-with-reproai') {
+    return null;
+  }
+
   return <DashboardRouteSkeleton pathname={location.pathname} />;
 };
 
