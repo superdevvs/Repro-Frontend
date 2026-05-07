@@ -1278,34 +1278,36 @@ const ChatWithReproAi = () => {
                     }}
                     disabled={isLoading}
                   />
-                  <div className="hidden md:flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <LinkIcon className="h-4 w-4" />
+                  <div className="flex items-center gap-2">
+                    <div className="hidden md:flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <LinkIcon className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <FileIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
+                      <Mic className="h-4 w-4 md:h-5 md:w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <FileIcon className="h-4 w-4" />
+                    <Button 
+                      size="icon" 
+                      className="h-8 w-8 md:h-9 md:w-9 p-0 rounded-full hover:scale-105 transition-transform"
+                      onClick={() => handleSendMessage()}
+                      disabled={isLoading || !message.trim()}
+                      style={{
+                        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.5), inset 0px 2px 4px rgba(255, 255, 255, 0.25)',
+                      }}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 md:h-5 md:w-5 text-white animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                      )}
                     </Button>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0">
-                  <Mic className="h-4 w-4 md:h-5 md:w-5" />
-                </Button>
-                <Button 
-                  size="icon" 
-                  className="h-9 w-9 md:h-10 md:w-10 p-0 rounded-full flex-shrink-0 hover:scale-105 transition-transform"
-                  onClick={() => handleSendMessage()}
-                  disabled={isLoading || !message.trim()}
-                  style={{
-                    background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-                    boxShadow: '0 4px 14px rgba(59, 130, 246, 0.5), inset 0px 2px 4px rgba(255, 255, 255, 0.25)',
-                  }}
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 md:h-5 md:w-5 text-white animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                  )}
-                </Button>
               </div>
 
               {/* Disclaimer */}
