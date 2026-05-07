@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   PlayCircle,
+  Save,
   Send,
   Upload as UploadIcon,
 } from 'lucide-react';
@@ -61,6 +62,8 @@ interface ShootDetailsModalBodyProps {
   isPaid: boolean;
   isClientReleaseLocked: boolean;
   isEditMode: boolean;
+  isSavingChanges: boolean;
+  editActions: { save: () => void; cancel: () => void } | null;
   isMediaExpanded: boolean;
   showTourAnalytics: boolean;
   canResumeFromHold: boolean;
@@ -114,6 +117,8 @@ export function ShootDetailsModalBody({
   isPaid,
   isClientReleaseLocked,
   isEditMode,
+  isSavingChanges,
+  editActions,
   isMediaExpanded,
   showTourAnalytics,
   canResumeFromHold,
@@ -166,11 +171,12 @@ export function ShootDetailsModalBody({
     !isRequestedStatus &&
     !isCancelledOrDeclined &&
     (canMarkPaidOnMobile || canProcessPaymentOnMobile);
-  const showMobileFooter = showMobileSubmitActions || showMobilePaymentActions;
+  const showMobileEditActions = isEditMode && activeTab === 'overview';
+  const showMobileFooter = showMobileSubmitActions || showMobilePaymentActions || showMobileEditActions;
 
   return (
     <>
-      <div className={`flex flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0 sm:flex-1 sm:min-h-0`}>
+      <div className={`flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
         >
@@ -454,6 +460,38 @@ export function ShootDetailsModalBody({
       {showMobileFooter && (
         <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           <div className="flex gap-2 w-full overflow-x-auto">
+            {showMobileEditActions && (
+              <>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1 h-10 text-sm px-3 whitespace-nowrap"
+                  onClick={() => editActions?.save()}
+                  disabled={!editActions || isSavingChanges}
+                >
+                  {isSavingChanges ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1.5" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 px-4 text-sm whitespace-nowrap"
+                  onClick={() => editActions?.cancel()}
+                  disabled={!editActions || isSavingChanges}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
             {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
               <Button
                 variant="default"
@@ -486,7 +524,7 @@ export function ShootDetailsModalBody({
                 <span>{isSubmittingEdits ? 'Submitting…' : 'Submit Edits'}</span>
               </Button>
             )}
-            {canMarkPaidOnMobile && (
+            {!isEditMode && canMarkPaidOnMobile && (
               <Button
                 variant="default"
                 size="sm"
@@ -497,7 +535,7 @@ export function ShootDetailsModalBody({
                 <span>Mark as Paid</span>
               </Button>
             )}
-            {canProcessPaymentOnMobile && (
+            {!isEditMode && canProcessPaymentOnMobile && (
               <Button
                 variant="default"
                 size="sm"

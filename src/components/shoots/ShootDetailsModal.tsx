@@ -854,9 +854,6 @@ export function ShootDetailsModal({
           paymentBadge={paymentBadge}
           activeTab={activeTab}
           visibleTabs={visibleTabs}
-          isEditMode={isEditMode}
-          isSavingChanges={isSavingChanges}
-          editActions={editActions}
           handleTabChange={handleTabChange}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
           onClose={onClose}
@@ -889,6 +886,8 @@ export function ShootDetailsModal({
           isPaid={isPaid}
           isClientReleaseLocked={clientReleaseAccess.isClientReleaseLocked}
           isEditMode={isEditMode}
+          isSavingChanges={isSavingChanges}
+          editActions={editActions}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}

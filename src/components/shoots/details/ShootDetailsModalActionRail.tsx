@@ -638,9 +638,6 @@ interface ShootDetailsModalHeaderProps {
   paymentBadge?: React.ReactNode;
   activeTab: VisibleTabId;
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
-  isEditMode: boolean;
-  isSavingChanges: boolean;
-  editActions: { save: () => void; cancel: () => void } | null;
   handleTabChange: (value: string) => void;
   setIsMobileActionsOpen: (open: boolean) => void;
   onClose: () => void;
@@ -653,9 +650,6 @@ export function ShootDetailsModalHeader({
   paymentBadge,
   activeTab,
   visibleTabs,
-  isEditMode,
-  isSavingChanges,
-  editActions,
   handleTabChange,
   setIsMobileActionsOpen,
   onClose,
@@ -674,12 +668,12 @@ export function ShootDetailsModalHeader({
   };
 
   return (
-    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
+    <div className="z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
       <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-1.5">
         <div className="flex items-start justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0 w-full sm:w-auto">
-            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
-              <div className="group/address flex min-w-0 max-w-full items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+              <div className="group/address flex min-w-0 flex-1 items-center gap-1.5">
                 <h2 className="min-w-0 text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
                 <Button
                   type="button"
@@ -726,38 +720,6 @@ export function ShootDetailsModalHeader({
           </div>
         </div>
 
-        {isEditMode && (
-          <div className="w-full sm:hidden flex items-center justify-end gap-2 mt-2">
-            <Button
-              variant="default"
-              size="sm"
-              className="h-8 text-xs px-3"
-              onClick={() => editActions?.save()}
-              disabled={!editActions || isSavingChanges}
-            >
-              {isSavingChanges ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5 mr-1.5" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs px-3"
-              onClick={() => editActions?.cancel()}
-              disabled={!editActions || isSavingChanges}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
