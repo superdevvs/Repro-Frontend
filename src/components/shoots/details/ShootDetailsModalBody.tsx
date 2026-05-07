@@ -197,7 +197,7 @@ export function ShootDetailsModalBody({
             </Tabs>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-0 sm:py-2.5">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 pb-0 sm:px-4 sm:py-2.5">
             <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsContent value="overview" className="mt-0">
                 <ShootDetailsOverviewTab
@@ -315,7 +315,7 @@ export function ShootDetailsModalBody({
         </div>
 
         <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} sm:hidden flex-1 min-h-0 flex-col bg-background`}>
-          <div className="flex-1 min-h-0 overflow-y-auto px-2">
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-2">
             <ShootDetailsMediaTab
               shoot={shoot}
               isAdmin={isAdmin}
