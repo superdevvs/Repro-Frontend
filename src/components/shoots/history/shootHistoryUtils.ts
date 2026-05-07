@@ -8,8 +8,8 @@ import {
   ShootFileData,
 } from '@/types/shoots'
 
-export const LIGHT_SHOOT_PLACEHOLDER = '/no-image-placeholder.svg'
-export const DARK_SHOOT_PLACEHOLDER = '/no-image-placeholder-dark.svg'
+export const LIGHT_SHOOT_PLACEHOLDER = '/no-image-placeholder-light.svg'
+export const DARK_SHOOT_PLACEHOLDER = '/no-image-placeholder.svg'
 
 export type ShootThumbnailPreference = 'thumb' | 'default'
 

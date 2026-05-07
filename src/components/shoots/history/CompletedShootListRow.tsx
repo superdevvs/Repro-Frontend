@@ -18,13 +18,14 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
-import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
+import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
   Calendar as CalendarIcon,
   Camera,
   Check,
   CheckCircle2,
+  ChevronRight,
   Clock,
   CreditCard,
   DollarSign,
@@ -215,27 +216,119 @@ export const CompletedShootListRow = ({
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
   const displayImage = showPlaceholder ? placeholderImage : heroImage
+  const services = Array.isArray(shoot.services) ? shoot.services : []
+  const serviceLabels = services.map(getServiceLabel).filter(Boolean)
 
   return (
     <Card
-      className="cursor-pointer hover:border-primary/60 hover:shadow-md transition-all group"
+      className="cursor-pointer overflow-hidden hover:border-primary/60 hover:shadow-md transition-all group"
       onClick={() => onSelect(shoot)}
     >
-      <div className="flex items-stretch gap-3 sm:gap-4 p-3 sm:p-4">
+      <div className="sm:hidden">
+        <div className="flex gap-3 px-3 pb-2.5 pt-3">
+          <div className="relative h-[115px] w-32 flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-sm">
+            <img
+              src={displayImage}
+              alt={shoot.location.address}
+              className="absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImgErrored(true)}
+            />
+            <Badge
+              variant="outline"
+              className={cn(
+                'absolute left-2 top-2 h-5 rounded-full px-2 text-[10px] font-semibold capitalize leading-none shadow-sm',
+                getShootStatusBadgeClass(statusValue)
+              )}
+            >
+              {statusLabel || 'Status'}
+            </Badge>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <h3 className="min-w-0 flex-1 truncate text-[15px] font-bold leading-tight" title={shoot.location.address}>
+                {shoot.location.address}
+              </h3>
+              <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {onDownload && (
+                  <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onDownload(shoot, 'full')} title="Downloads">
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="mb-2 truncate text-[12px] leading-tight text-muted-foreground" title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}>
+              {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                <span>{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
+              </span>
+              {shoot.time && shoot.time !== 'TBD' && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>{formatTime(shoot.time)}</span>
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/50 pt-2">
+              <div className="min-w-0 text-[11px] text-muted-foreground">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {!isEditor ? <Camera className="h-3.5 w-3.5 shrink-0" /> : <User className="h-3.5 w-3.5 shrink-0" />}
+                  <span className="truncate font-semibold text-foreground">
+                    {!isEditor ? (shoot.photographer?.name ?? 'Unassigned') : shoot.client.name}
+                  </span>
+                </div>
+              </div>
+              {canShowPaymentStatus && (
+                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="h-6 shrink-0 rounded-full px-2 text-[10px] leading-none">
+                  {paymentBadgeLabel}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between border-t border-border/50 px-3 py-1.5">
+          <div className="flex min-w-0 items-center text-[12px] text-muted-foreground">
+            <div className="flex min-w-0 items-center gap-2 pr-3">
+              <Layers className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium text-foreground">Services</span>
+              {serviceLabels.length > 0 ? (
+                <Badge variant="secondary" className="h-5 rounded-full px-2 text-[10px]">
+                  {serviceLabels.length}
+                </Badge>
+              ) : (
+                <span className="truncate italic">None</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 border-l border-border/70 pl-3">
+              <Image className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap">{photoCount} photos</span>
+            </div>
+          </div>
+          <div className="ml-3 flex shrink-0 items-center gap-1.5 border-l border-border/70 pl-3" onClick={(e) => e.stopPropagation()}>
+            {onViewInvoice && (
+              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onViewInvoice(shoot)} title="View Invoice">
+                <FileText className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {(isSuperAdmin || isAdmin) && onDelete && (
+              <Button size="icon" variant="destructive" className="h-7 w-7 bg-red-500 hover:bg-red-600" onClick={() => onDelete(shoot)} title="Delete">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+      <div className="hidden items-stretch gap-3 p-3 sm:flex sm:gap-4 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div
-          className={cn(
-            'relative w-28 aspect-[4/3] overflow-hidden rounded-lg flex-shrink-0 self-start shadow-sm sm:w-40 min-[1180px]:w-44',
-            showPlaceholder ? 'bg-transparent' : 'bg-muted'
-          )}
-        >
+        <div className="relative w-32 aspect-[16/10] overflow-hidden rounded-lg flex-shrink-0 self-start bg-muted shadow-sm sm:w-48 min-[1180px]:w-56">
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className={cn(
-              'absolute inset-0 h-full w-full',
-              showPlaceholder ? 'object-contain' : 'object-cover'
-            )}
+            className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
             onError={() => setImgErrored(true)}
           />
@@ -247,12 +340,23 @@ export const CompletedShootListRow = ({
             {/* Top row: Address + date */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
             <div className="min-w-0 flex-1">
-              <h3
-                className="mb-1 text-[0.92rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[0.98rem]"
-                title={shoot.location.address}
-              >
-                {shoot.location.address}
-              </h3>
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <h3
+                  className="text-[0.92rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[0.98rem]"
+                  title={shoot.location.address}
+                >
+                  {shoot.location.address}
+                </h3>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'h-5 rounded-full px-2 text-[10px] font-semibold capitalize leading-none',
+                    getShootStatusBadgeClass(statusValue)
+                  )}
+                >
+                  {statusLabel || 'Status'}
+                </Badge>
+              </div>
               <p
                 className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
                 title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}

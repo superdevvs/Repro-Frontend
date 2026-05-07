@@ -46,7 +46,7 @@ const shouldRebaseAbsoluteUrl = (url: URL) =>
 export const PLACEHOLDER_IMAGE_MARKERS = [
   '/placeholder.svg',
   '/no-image-placeholder.svg',
-  '/no-image-placeholder-dark.svg',
+  '/no-image-placeholder-light.svg',
   'placeholder.svg',
   'no-image-placeholder',
 ];

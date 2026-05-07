@@ -74,6 +74,45 @@ const normalizeShootServices = (services: unknown): string[] => {
     .filter((service): service is string => Boolean(service))
 }
 
+const MobileOperationalSkeleton = ({ count = 3 }: { count?: number }) => (
+  <div className="space-y-3 md:hidden">
+    {Array.from({ length: count }).map((_, index) => (
+      <div key={index} className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+        <Skeleton className="h-44 w-full rounded-none" />
+        <div className="space-y-4 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-5 w-3/4 rounded-md" />
+              <Skeleton className="h-4 w-1/2 rounded-md" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20 rounded-md" />
+              <Skeleton className="h-4 w-16 rounded-md" />
+            </div>
+          </div>
+          <div className="space-y-2 border-t border-border/50 pt-3">
+            <Skeleton className="h-3 w-20 rounded-md" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-28 rounded-full" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 border-t border-border/50 pt-3">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16 rounded-md" />
+              <Skeleton className="h-4 w-24 rounded-md" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-24 rounded-md" />
+              <Skeleton className="h-4 w-20 rounded-md" />
+            </div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
 const ShootHistory: React.FC = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -583,11 +622,16 @@ const ShootHistory: React.FC = () => {
     
     if (loading && (activeTab === 'completed' || activeTab === 'delivered' || activeTab === 'editing' || activeTab === 'edited')) {
       return (
-        <div className="masonry-grid">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Skeleton key={item} className="h-72 w-full rounded-xl" />
-          ))}
-        </div>
+        <>
+          <MobileOperationalSkeleton />
+          <div className="hidden md:block">
+            <div className="masonry-grid">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <Skeleton key={item} className="h-72 w-full rounded-xl" />
+              ))}
+            </div>
+          </div>
+        </>
       )
     }
 
@@ -696,11 +740,16 @@ const ShootHistory: React.FC = () => {
   const holdOnContent = useMemo(() => {
     if (loading && activeTab === 'hold') {
       return (
-        <div className="masonry-grid">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-40 w-full rounded-xl" />
-          ))}
-        </div>
+        <>
+          <MobileOperationalSkeleton />
+          <div className="hidden md:block">
+            <div className="masonry-grid">
+              {[1, 2, 3].map((item) => (
+                <Skeleton key={item} className="h-40 w-full rounded-xl" />
+              ))}
+            </div>
+          </div>
+        </>
       )
     }
 

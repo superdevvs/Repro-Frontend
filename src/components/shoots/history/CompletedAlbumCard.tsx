@@ -192,6 +192,7 @@ export const CompletedAlbumCard = ({
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
+  const displayImage = showPlaceholder ? placeholderImage : heroImage
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const canShowPaymentStatus = showPaymentStatus && Boolean(onViewInvoice) && (
@@ -220,22 +221,14 @@ export const CompletedAlbumCard = ({
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className={cn('relative h-64 overflow-hidden', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
-        {showPlaceholder ? (
-          <img 
-            src={placeholderImage}
-            alt="No images yet" 
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <img 
-            src={heroImage} 
-            alt={shoot.location.address} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            onError={() => setImgErrored(true)}
-          />
-        )}
+      <div className="relative h-64 overflow-hidden bg-muted">
+        <img
+          src={displayImage}
+          alt={showPlaceholder ? 'No images yet' : shoot.location.address}
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          onError={() => setImgErrored(true)}
+        />
         {!showPlaceholder ? (
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         ) : null}

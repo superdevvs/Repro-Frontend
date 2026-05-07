@@ -632,7 +632,7 @@ export function ShootDetailsModal({
   };
 
   const statusBadge = shoot
-    ? getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')
+    ? getStatusBadge(shoot.workflowStatus || shoot.status || 'booked')
     : null;
   const paymentBadge = useMemo(() => {
     if (!shoot) return null;

@@ -34,8 +34,8 @@ export function OverviewScheduleWeatherSection({
   const currentTimeValue = String(editedShoot.time ?? shoot.time ?? '');
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]">
-      <div className="p-2.5 border rounded-lg bg-card">
+    <div className="grid grid-cols-[1fr_0.78fr_1fr] gap-1.5 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]">
+      <div className="min-w-0 p-2 border rounded-lg bg-card sm:p-2.5">
         {isEditMode ? (
           <div className="flex items-center">
             <ServiceDatePicker
@@ -45,14 +45,14 @@ export function OverviewScheduleWeatherSection({
             />
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm font-medium text-foreground">{scheduleDateDisplay}</span>
+            <span className="truncate text-xs font-medium text-foreground sm:text-sm">{scheduleDateDisplay}</span>
           </div>
         )}
       </div>
 
-      <div className="p-2.5 border rounded-lg bg-card">
+      <div className="min-w-0 p-2 border rounded-lg bg-card sm:p-2.5">
         {isEditMode ? (
           <div className="flex items-center">
             <ServiceTimePicker
@@ -63,27 +63,27 @@ export function OverviewScheduleWeatherSection({
             />
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
             <ClockIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm font-medium text-foreground">{scheduleTimeDisplay || 'Not set'}</span>
+            <span className="truncate text-xs font-medium text-foreground sm:text-sm">{scheduleTimeDisplay || 'Not set'}</span>
           </div>
         )}
       </div>
 
-      <div className="p-2.5 border rounded-lg bg-card">
-        <div className="flex items-center gap-2">
+      <div className="min-w-0 p-2 border rounded-lg bg-card sm:p-2.5">
+        <div className="flex items-center gap-1 min-w-0 sm:gap-2">
           {weatherIcon}
           {hasWeatherDetails ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
               {formattedTemperature && (
-                <span className="text-sm font-medium text-foreground">{formattedTemperature}</span>
+                <span className="shrink-0 text-xs font-medium text-foreground sm:text-sm">{formattedTemperature}</span>
               )}
               {weatherDescription && (
-                <span className="text-sm text-muted-foreground capitalize">{weatherDescription}</span>
+                <span className="truncate text-xs text-muted-foreground capitalize sm:text-sm">{weatherDescription}</span>
               )}
             </div>
           ) : (
-            <span className="text-sm text-muted-foreground">No data</span>
+            <span className="truncate text-xs text-muted-foreground sm:text-sm">No data</span>
           )}
         </div>
       </div>

@@ -18,7 +18,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
-import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
+import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -175,6 +175,7 @@ export const ScheduledShootListRow = ({
   const statusKey = displayStatus === 'hold_on' ? 'on_hold' : displayStatus
   const statusLabel = formatWorkflowStatus(displayStatus)
   const config = statusConfig[statusKey] ?? statusConfig[displayStatus] ?? statusConfig.scheduled
+  const statusBadgeClass = getShootStatusBadgeClass(statusKey)
   const StatusIcon = config.icon
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
@@ -228,7 +229,7 @@ export const ScheduledShootListRow = ({
             </div>
             {/* Status - Right Side (mobile only) */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge className={cn('capitalize font-medium', config.bgColor, config.color)}>
+              <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
                 <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                 {statusLabel}
               </Badge>
@@ -258,7 +259,7 @@ export const ScheduledShootListRow = ({
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-lg font-bold leading-tight break-words text-primary">{shoot.location.address}</h3>
-              <Badge className={cn('hidden md:inline-flex capitalize font-medium', config.bgColor, config.color)}>
+              <Badge variant="outline" className={cn('hidden md:inline-flex capitalize font-medium', statusBadgeClass)}>
                 <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                 {statusLabel}
               </Badge>

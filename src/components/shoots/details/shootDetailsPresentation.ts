@@ -1,139 +1,50 @@
 import { ShootData } from '@/types/shoots';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { normalizeShootDetailsStatus } from '@/components/shoots/modal/shootDetailsCapabilities';
+import { getShootStatusBadgeClass } from '@/components/shoots/history/shootHistoryUtils';
 
 type PaymentBadgeVariant = 'default' | 'secondary' | 'destructive';
 type WorkflowBadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+const createWorkflowBadge = (
+  status: string,
+  label: string,
+  variant: WorkflowBadgeVariant,
+) => ({
+  label,
+  variant,
+  className: getShootStatusBadgeClass(status),
+});
 
 export const shootDetailsWorkflowBadgeMap: Record<
   string,
   { label: string; variant: WorkflowBadgeVariant; className: string }
 > = {
-  requested: {
-    label: 'Requested',
-    variant: 'secondary',
-    className: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
-  },
-  booked: {
-    label: 'Scheduled',
-    variant: 'secondary',
-    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  },
-  scheduled: {
-    label: 'Scheduled',
-    variant: 'default',
-    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  },
-  raw_upload_pending: {
-    label: 'Awaiting RAW',
-    variant: 'outline',
-    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  },
-  uploaded: {
-    label: 'Uploaded',
-    variant: 'default',
-    className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  },
-  raw_uploaded: {
-    label: 'Uploaded',
-    variant: 'default',
-    className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  },
-  photos_uploaded: {
-    label: 'Uploaded',
-    variant: 'default',
-    className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  },
-  in_progress: {
-    label: 'Uploaded',
-    variant: 'default',
-    className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  },
-  completed: {
-    label: 'Uploaded',
-    variant: 'default',
-    className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  },
-  raw_issue: {
-    label: 'RAW Issue',
-    variant: 'destructive',
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
-  },
-  editing: {
-    label: 'Editing',
-    variant: 'secondary',
-    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-  },
-  editing_uploaded: {
-    label: 'In Review',
-    variant: 'default',
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  },
-  ready_for_review: {
-    label: 'In Review',
-    variant: 'default',
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  },
-  pending_review: {
-    label: 'In Review',
-    variant: 'default',
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  },
-  review: {
-    label: 'In Review',
-    variant: 'default',
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  },
-  editing_issue: {
-    label: 'Editing Issue',
-    variant: 'destructive',
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
-  },
-  delivered: {
-    label: 'Delivered',
-    variant: 'default',
-    className: 'bg-green-600/10 text-green-700 border-green-600/20',
-  },
-  ready_for_client: {
-    label: 'Delivered',
-    variant: 'default',
-    className: 'bg-green-600/10 text-green-700 border-green-600/20',
-  },
-  admin_verified: {
-    label: 'Delivered',
-    variant: 'default',
-    className: 'bg-green-600/10 text-green-700 border-green-600/20',
-  },
-  ready: {
-    label: 'Ready',
-    variant: 'default',
-    className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  },
-  on_hold: {
-    label: 'On Hold',
-    variant: 'destructive',
-    className: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
-  },
-  hold_on: {
-    label: 'On Hold',
-    variant: 'destructive',
-    className: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
-  },
-  cancelled: {
-    label: 'Cancelled',
-    variant: 'destructive',
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
-  },
-  canceled: {
-    label: 'Cancelled',
-    variant: 'destructive',
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
-  },
-  declined: {
-    label: 'Declined',
-    variant: 'destructive',
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
-  },
+  requested: createWorkflowBadge('requested', 'Requested', 'secondary'),
+  booked: createWorkflowBadge('booked', 'Scheduled', 'secondary'),
+  scheduled: createWorkflowBadge('scheduled', 'Scheduled', 'default'),
+  raw_upload_pending: createWorkflowBadge('raw_upload_pending', 'Awaiting RAW', 'outline'),
+  uploaded: createWorkflowBadge('uploaded', 'Uploaded', 'default'),
+  raw_uploaded: createWorkflowBadge('raw_uploaded', 'Uploaded', 'default'),
+  photos_uploaded: createWorkflowBadge('photos_uploaded', 'Uploaded', 'default'),
+  in_progress: createWorkflowBadge('in_progress', 'Uploaded', 'default'),
+  completed: createWorkflowBadge('completed', 'Uploaded', 'default'),
+  raw_issue: createWorkflowBadge('raw_issue', 'RAW Issue', 'destructive'),
+  editing: createWorkflowBadge('editing', 'Editing', 'secondary'),
+  editing_uploaded: createWorkflowBadge('editing_uploaded', 'In Review', 'default'),
+  ready_for_review: createWorkflowBadge('ready_for_review', 'In Review', 'default'),
+  pending_review: createWorkflowBadge('pending_review', 'In Review', 'default'),
+  review: createWorkflowBadge('review', 'In Review', 'default'),
+  editing_issue: createWorkflowBadge('editing_issue', 'Editing Issue', 'destructive'),
+  delivered: createWorkflowBadge('delivered', 'Delivered', 'default'),
+  ready_for_client: createWorkflowBadge('ready_for_client', 'Delivered', 'default'),
+  admin_verified: createWorkflowBadge('admin_verified', 'Delivered', 'default'),
+  ready: createWorkflowBadge('ready', 'Ready', 'default'),
+  on_hold: createWorkflowBadge('on_hold', 'On Hold', 'destructive'),
+  hold_on: createWorkflowBadge('hold_on', 'On Hold', 'destructive'),
+  cancelled: createWorkflowBadge('cancelled', 'Cancelled', 'destructive'),
+  canceled: createWorkflowBadge('canceled', 'Cancelled', 'destructive'),
+  declined: createWorkflowBadge('declined', 'Declined', 'destructive'),
 };
 
 const shootDetailsPaymentBadgeMap: Record<
@@ -156,7 +67,7 @@ export const getShootDetailsStatusBadgeInfo = (status?: string | null) => {
     shootDetailsWorkflowBadgeMap[normalizedStatus] ?? {
       label: status || 'Unknown',
       variant: 'secondary' as WorkflowBadgeVariant,
-      className: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+      className: getShootStatusBadgeClass(status),
     }
   );
 };
