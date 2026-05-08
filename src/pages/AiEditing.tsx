@@ -249,6 +249,7 @@ const AiEditing = () => {
   }, []);
 
   const loadShoots = async () => {
+    setLoading(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
@@ -256,34 +257,55 @@ const AiEditing = () => {
         return;
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/shoots`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const shootsData = (data.data || data || []).map((shoot: any) => ({
-          id: shoot.id,
-          address: shoot.address || `Shoot #${shoot.id}`,
-          status: shoot.status || 'pending',
-          workflowStatus: shoot.workflowStatus || shoot.workflow_status || shoot.status,
-          photo_count: shoot.photo_count || shoot.files?.length || 0,
-          created_by: shoot.created_by || shoot.user?.name || 'Unknown',
-          created_at: shoot.created_at || shoot.createdAt || new Date().toISOString(),
-          thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) && shoot.preview_images.length > 0 ? shoot.preview_images[0] : null),
-          auto_edit_enabled: shoot.auto_edit_enabled || false,
-        }));
-        setShoots(shootsData);
-      } else if (response.status === 401) {
+      const tabs = ['scheduled', 'completed', 'delivered'];
+      const responses = await Promise.all(
+        tabs.map((tab) =>
+          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            },
+          })
+        )
+      );
+
+      const unauthorized = responses.find((response) => response.status === 401);
+      if (unauthorized) {
         toast({
           title: 'Authentication Error',
           description: 'Please log in again',
           variant: 'destructive',
         });
+        return;
       }
+
+      const failed = responses.find((response) => !response.ok);
+      if (failed) {
+        throw new Error('Failed to load shoots');
+      }
+
+      const payloads = await Promise.all(responses.map((response) => response.json()));
+      const shootsById = new Map<number, ShootWithEditing>();
+
+      payloads.forEach((data) => {
+        const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        items.forEach((shoot: any) => {
+          const mappedShoot: ShootWithEditing = {
+            id: shoot.id,
+            address: shoot.address || `Shoot #${shoot.id}`,
+            status: shoot.status || 'pending',
+            workflowStatus: shoot.workflowStatus || shoot.workflow_status || shoot.status,
+            photo_count: shoot.photo_count || shoot.photoCount || shoot.files_count || shoot.files?.length || 0,
+            created_by: shoot.created_by || shoot.user?.name || 'Unknown',
+            created_at: shoot.created_at || shoot.createdAt || new Date().toISOString(),
+            thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) && shoot.preview_images.length > 0 ? shoot.preview_images[0] : null),
+            auto_edit_enabled: shoot.auto_edit_enabled || false,
+          };
+          shootsById.set(mappedShoot.id, mappedShoot);
+        });
+      });
+
+      setShoots(Array.from(shootsById.values()));
     } catch (error) {
       console.error('Failed to load shoots:', error);
       toast({
@@ -291,13 +313,13 @@ const AiEditing = () => {
         description: 'Failed to load shoots. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadListings = async () => {
-    setLoading(true);
     try {
-      // Listings are empty by default
       setListings([]);
     } catch (error) {
       console.error('Failed to load listings:', error);
@@ -306,8 +328,6 @@ const AiEditing = () => {
         description: 'Failed to load listings',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -547,6 +567,7 @@ const AiEditing = () => {
     setViewMode('upload');
     setSelectedShoot(null);
     setSelectedFiles(new Set());
+    setSearchTerm('');
   };
 
   const handleEditImage = () => {

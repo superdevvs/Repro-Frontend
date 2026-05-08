@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
 import { Check, X, Loader2, MapPin, User } from 'lucide-react';
+import { API_BASE_URL } from '@/config/env';
+import { useToast } from '@/hooks/use-toast';
 
 type RequestsTab = 'client' | 'editing' | 'cancellation';
 
@@ -60,7 +62,30 @@ const severityFromStatus = (status?: string | null): DashboardIssueItem['severit
 
 const isActiveClientRequest = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
-  return normalized !== 'resolved' && normalized !== 'completed';
+  return normalized !== 'dismissed';
+};
+
+const isResolvedClientRequest = (status?: string | null) => {
+  const normalized = (status || '').toLowerCase();
+  return normalized === 'resolved' || normalized === 'completed';
+};
+
+const isWithinResolvedGracePeriod = (request: DashboardClientRequest) => {
+  if (!isResolvedClientRequest(request.status)) {
+    return true;
+  }
+
+  const referenceTime = request.updatedAt || request.createdAt;
+  if (!referenceTime) {
+    return true;
+  }
+
+  const timestamp = new Date(referenceTime).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return true;
+  }
+
+  return Date.now() - timestamp < 24 * 60 * 60 * 1000;
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -104,15 +129,70 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   onRejectCancellation,
 }) => {
   const { openModal } = useRequestManager();
+  const { toast } = useToast();
   const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
+  const [dismissedClientRequestIds, setDismissedClientRequestIds] = useState<Set<string>>(new Set());
+  const [dismissingClientRequestId, setDismissingClientRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
   const [cancellationActionLoading, setCancellationActionLoading] = useState<number | null>(null);
 
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
   const safeClientRequests = Array.isArray(clientRequests) ? clientRequests : [];
-  const activeClientRequests = safeClientRequests.filter((request) => isActiveClientRequest(request.status));
+  const activeClientRequests = safeClientRequests.filter((request) => (
+    isActiveClientRequest(request.status) &&
+    isWithinResolvedGracePeriod(request) &&
+    !dismissedClientRequestIds.has(String(request.id))
+  ));
   const displayClientRequests = showClientTab;
+
+  const handleDismissClientRequest = async (request: DashboardClientRequest) => {
+    const shootId = request.shootId || request.shoot?.id;
+    if (!shootId) {
+      toast({
+        title: 'Shoot unavailable',
+        description: 'This request is no longer linked to an active shoot.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const requestId = String(request.id);
+    setDismissingClientRequestId(requestId);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/issues/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ status: 'dismissed' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to dismiss request');
+      }
+
+      setDismissedClientRequestIds((prev) => new Set(prev).add(requestId));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
+      }
+      toast({
+        title: 'Request dismissed',
+        description: 'The resolved request has been closed.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Unable to dismiss request',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDismissingClientRequestId(null);
+    }
+  };
 
   const activeEditingRequests = Array.isArray(editingRequests) 
     ? editingRequests.filter(r => r && r.status !== 'completed') 
@@ -176,7 +256,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {activeClientRequests.slice(0, 7).map((request) => (
+                    {activeClientRequests.slice(0, 7).map((request) => {
+                      const isResolved = isResolvedClientRequest(request.status);
+                      const requestId = String(request.id);
+
+                      return (
                       <button
                         key={request.id}
                         onClick={() => openModal(safeClientRequests, String(request.id))}
@@ -190,6 +274,32 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                             <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(severityFromStatus(request.status)))}>
                               {request.status}
                             </Badge>
+                            {isResolved && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                className="inline-flex h-6 items-center rounded-md border border-border/70 px-2 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  void handleDismissClientRequest(request);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key !== 'Enter' && event.key !== ' ') {
+                                    return;
+                                  }
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  void handleDismissClientRequest(request);
+                                }}
+                              >
+                                {dismissingClientRequestId === requestId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  'Dismiss'
+                                )}
+                              </span>
+                            )}
                           </div>
                         </div>
                         {request.shoot?.client?.name && (
@@ -198,7 +308,8 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                           </p>
                         )}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )
