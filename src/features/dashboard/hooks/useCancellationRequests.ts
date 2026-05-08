@@ -92,7 +92,7 @@ export const useCancellationRequests = ({
 
   const cancellationRequestCount = cancellationShoots.length;
 
-  const handleApproveCancellation = async (shootId: number) => {
+  const handleApproveCancellation = async (shootId: number, decision: "charge_fee" | "waive_fee" = "charge_fee") => {
     const token = localStorage.getItem("authToken") || localStorage.getItem("token");
     const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve-cancellation`, {
       method: "POST",
@@ -101,9 +101,18 @@ export const useCancellationRequests = ({
         "Content-Type": "application/json",
         Accept: "application/json",
       },
+      body: JSON.stringify({
+        decision,
+        ...(decision === "charge_fee" ? { cancellation_fee: 60 } : {}),
+      }),
     });
     if (res.ok) {
-      toast({ title: "Cancellation approved", description: "Shoot has been cancelled." });
+      toast({
+        title: "Cancellation approved",
+        description: decision === "charge_fee"
+          ? "Shoot has been cancelled and a $60 cancellation fee was applied."
+          : "Shoot has been cancelled with no cancellation fee.",
+      });
       refresh();
       void fetchPendingCancellationShoots();
       if (fetchShoots) fetchShoots().catch(() => {});

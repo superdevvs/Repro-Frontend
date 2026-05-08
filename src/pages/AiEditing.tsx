@@ -1,81 +1,44 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  ExternalLink,
+  Image as ImageIcon,
+  Loader2,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Upload,
+  XCircle,
+} from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Slider } from '@/components/ui/slider';
-import {
-  Sparkles,
-  Image as ImageIcon,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Download,
-  Eye,
-  Search,
-  Upload,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Home,
-  Sun,
-  Moon,
-  Plus,
-  RefreshCw,
-  Grid3x3,
-  Film,
-  Pencil,
-  Send,
-  CheckCircle,
-  X,
-} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { autoenhanceService, type EditingType, type EditingJob } from '@/services/autoenhanceService';
+import { autoenhanceService, type EditingJob, type EditingType } from '@/services/autoenhanceService';
 import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { format } from 'date-fns';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
-import { FileUploader } from '@/components/media/FileUploader';
-import { VideoGenerationTab } from '@/components/video-generation/VideoGenerationTab';
-import { PresetManagement } from '@/components/video-generation/PresetManagement';
-import { VideoErrorBoundary } from '@/components/video-generation/VideoErrorBoundary';
-
-type ViewMode = 'list' | 'detail' | 'edit' | 'upload' | 'preferences';
-type TopTab = 'image-editing' | 'video-generation' | 'settings';
 
 interface ShootWithEditing {
   id: number;
   address: string;
   status: string;
   workflowStatus?: string;
-  editor_id?: number | null;
-  editor?: {
-    id: number;
-  } | null;
   photo_count?: number;
   created_by?: string;
   created_at: string;
-  thumbnail?: string;
-  editing_jobs?: EditingJob[];
+  thumbnail?: string | null;
   auto_edit_enabled?: boolean;
 }
 
@@ -91,202 +54,109 @@ interface MediaFile {
   fileType?: string;
   workflowStage?: string;
   created_at?: string;
-  bracketGroup?: number;
   isEdited?: boolean;
-  // Processed paths
-  thumbnail_path?: string;
-  web_path?: string;
-  placeholder_path?: string;
-  // Watermarked paths
-  watermarked_storage_path?: string;
-  watermarked_thumbnail_path?: string;
-  watermarked_web_path?: string;
-  watermarked_placeholder_path?: string;
 }
+
+type ViewMode = 'overview' | 'select-shoot' | 'select-files' | 'review';
+type JobStatus = EditingJob['status'];
+
+const statusConfig: Record<JobStatus, { label: string; className: string; icon: React.ElementType }> = {
+  pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
+  processing: { label: 'Processing', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Loader2 },
+  completed: { label: 'Completed', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
+  failed: { label: 'Failed', className: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
+  cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-800 border-slate-200', icon: XCircle },
+};
+
+const editingTypeLabels: Record<string, string> = {
+  enhance: 'Enhance',
+  sky_replace: 'Sky Replacement',
+  hdr_merge: 'HDR Bracket Merge',
+  vertical_correction: 'Vertical Correction',
+  window_pull: 'Window Pull',
+};
 
 const AiEditing = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [topTab, setTopTab] = useState<TopTab>('image-editing');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
-  const [listings, setListings] = useState<ShootWithEditing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
-  const [selectedEditingType, setSelectedEditingType] = useState<string>('enhance');
-  const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
   const [availableFiles, setAvailableFiles] = useState<MediaFile[]>([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Editing panel state
-  const [selectedStyle, setSelectedStyle] = useState<'signature' | 'natural' | 'twilight'>('signature');
-  const [exposure, setExposure] = useState(0);
-  const [contrast, setContrast] = useState(0);
-  const [temp, setTemp] = useState(0);
-  const [tint, setTint] = useState(0);
-  const [saturation, setSaturation] = useState(0);
-  const [highlights, setHighlights] = useState(0);
-  const [sharpening, setSharpening] = useState(0);
-  const [aspectRatio, setAspectRatio] = useState('original');
-  const [autoPerspective, setAutoPerspective] = useState(true);
-  const [skyReplacement, setSkyReplacement] = useState(true);
-  const [viewModeOption, setViewModeOption] = useState<'carousel' | 'filmstrip'>('carousel');
-  const [bracketingMethod, setBracketingMethod] = useState<'time' | 'count' | 'manual'>('time');
-  const [bracketingTime, setBracketingTime] = useState(2);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isEditor, setIsEditor] = useState(false);
-  const [isPhotographer, setIsPhotographer] = useState(false);
-  const [isSendingToEditing, setIsSendingToEditing] = useState(false);
-  
-  // Modal states
-  const [showEditConfigModal, setShowEditConfigModal] = useState(false);
-  const [showUploadSection, setShowUploadSection] = useState(false);
-  const [pendingShoot, setPendingShoot] = useState<ShootWithEditing | null>(null);
-  const [editConfigParams, setEditConfigParams] = useState<Record<string, any>>({});
-  const [autoEditEnabled, setAutoEditEnabled] = useState(false);
-  
-  // Bracketed image grouping
-  const [groupedFiles, setGroupedFiles] = useState<{ group: number; files: MediaFile[] }[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
+  const [selectedEditingType, setSelectedEditingType] = useState('enhance');
+  const [jobs, setJobs] = useState<EditingJob[]>([]);
+  const [loadingShoots, setLoadingShoots] = useState(true);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [jobStatusFilter, setJobStatusFilter] = useState<'all' | JobStatus>('all');
+  const [enhanceType, setEnhanceType] = useState('neutral');
+  const [verticalCorrection, setVerticalCorrection] = useState(true);
+  const [lensCorrection, setLensCorrection] = useState(true);
+  const [windowPullType, setWindowPullType] = useState('NONE');
+  const [cloudType, setCloudType] = useState('CLEAR');
+  const [bracketCount, setBracketCount] = useState(5);
+  const [notes, setNotes] = useState('');
 
-  // Load shoots and editing types
-  useEffect(() => {
-    loadShoots();
-    loadEditingTypes();
-    loadListings();
-    if (user) {
-      setIsAdmin(user.role === 'admin' || user.role === 'superadmin' || user.role === 'editing_manager');
-      setIsEditor(user.role === 'editor');
-      setIsPhotographer(user.role === 'photographer');
-    }
-  }, [user]);
+  const canUseAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(user?.role || '');
 
-  // Load files when shoot is selected
-  useEffect(() => {
-    if (selectedShoot) {
-      loadShootFiles(selectedShoot.id);
-    } else {
-      setAvailableFiles([]);
-      setSelectedFiles(new Set());
-      setCurrentImageIndex(0);
-      setGroupedFiles([]);
-    }
-  }, [selectedShoot]);
-
-  // Group files by brackets (every 5 images or by time)
-  useEffect(() => {
-    if (availableFiles.length > 0) {
-      groupFilesByBrackets();
-    }
-  }, [availableFiles, bracketingMethod, bracketingTime]);
-
-  // Helper function to get image URL with proper fallback
-  const getImageUrl = useCallback((file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'): string => {
-    const baseUrl = API_BASE_URL;
-    
-    const resolveUrl = (value: string): string => {
-      if (/^https?:\/\//i.test(value)) return value;
-      if (value.startsWith('/')) return `${baseUrl}${value}`;
-      return `${baseUrl}/${value}`;
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    return {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
     };
-    
-    // Try size-specific URL first
-    const sizeMap: Record<string, keyof MediaFile> = {
-      thumb: 'thumb_url',
-      medium: 'medium_url',
-      large: 'large_url',
-      original: 'original_url',
-    };
-    
-    const sizeKey = sizeMap[size];
-    const sizeUrl = file[sizeKey as keyof MediaFile] as string | undefined;
-    
-    if (sizeUrl) {
-      return resolveUrl(sizeUrl);
-    }
-    
-    // Avoid loading originals for thumbnails/medium previews
-    if (size === 'thumb') {
-      // Use placeholder if available, otherwise return empty
-      if (file.placeholder_path) return resolveUrl(file.placeholder_path);
-      return '';
-    }
-    
-    if (size === 'medium') {
-      // Use thumb if available, otherwise return empty
-      if (file.thumb_url) return resolveUrl(file.thumb_url);
-      return '';
-    }
-    
-    if (size === 'large' && file.medium_url) {
-      return resolveUrl(file.medium_url);
-    }
-    
-    // Only allow original fallback for large/original sizes
-    const allowOriginalFallback = size === 'large' || size === 'original';
-    if (!allowOriginalFallback) {
-      return '';
-    }
-    
-    // Fallback to original
-    if (file.original_url) {
-      return resolveUrl(file.original_url);
-    }
-    
-    // Final fallback
-    if (file.url) {
-      return resolveUrl(file.url);
-    }
-    
-    if (file.path) {
-      const clean = file.path.replace(/^\/+/, '');
-      return `${baseUrl}/${clean}`;
-    }
-    
-    return '';
   }, []);
 
-  const loadShoots = async () => {
-    setLoading(true);
+  const resolveImageUrl = useCallback((value?: string | null) => {
+    if (!value) return '';
+    if (value.startsWith('http') || value.startsWith('data:') || value.startsWith('blob:')) return value;
+    return `${API_BASE_URL}/${value.replace(/^\/+/, '')}`;
+  }, []);
+
+  const getImageUrl = useCallback((file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium') => {
+    if (size === 'thumb') return resolveImageUrl(file.thumb_url || file.medium_url || file.url || file.path);
+    if (size === 'medium') return resolveImageUrl(file.medium_url || file.large_url || file.url || file.path);
+    if (size === 'large') return resolveImageUrl(file.large_url || file.original_url || file.url || file.path);
+    return resolveImageUrl(file.original_url || file.large_url || file.url || file.path);
+  }, [resolveImageUrl]);
+
+  const loadEditingTypes = useCallback(async () => {
+    try {
+      const types = await autoenhanceService.getEditingTypes();
+      setEditingTypes(types);
+      if (types.length > 0 && !types.some((type) => type.id === selectedEditingType)) {
+        setSelectedEditingType(types[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load Autoenhance editing types:', error);
+      toast({
+        title: 'Autoenhance options unavailable',
+        description: 'Using built-in Autoenhance options for now.',
+      });
+    }
+  }, [selectedEditingType, toast]);
+
+  const loadShoots = useCallback(async () => {
+    setLoadingShoots(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) {
-        console.warn('No auth token found');
-        return;
-      }
-      
+      if (!token) return;
       const tabs = ['scheduled', 'completed', 'delivered'];
       const responses = await Promise.all(
-        tabs.map((tab) =>
-          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json',
-            },
-          })
-        )
+        tabs.map((tab) => fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, { headers: getAuthHeaders() }))
       );
-
-      const unauthorized = responses.find((response) => response.status === 401);
-      if (unauthorized) {
-        toast({
-          title: 'Authentication Error',
-          description: 'Please log in again',
-          variant: 'destructive',
-        });
+      if (responses.some((response) => response.status === 401)) {
+        toast({ title: 'Authentication Error', description: 'Please log in again', variant: 'destructive' });
         return;
       }
-
       const failed = responses.find((response) => !response.ok);
-      if (failed) {
-        throw new Error('Failed to load shoots');
-      }
-
+      if (failed) throw new Error('Failed to load shoots');
       const payloads = await Promise.all(responses.map((response) => response.json()));
       const shootsById = new Map<number, ShootWithEditing>();
-
       payloads.forEach((data) => {
         const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
         items.forEach((shoot: any) => {
@@ -296,1534 +166,344 @@ const AiEditing = () => {
             status: shoot.status || 'pending',
             workflowStatus: shoot.workflowStatus || shoot.workflow_status || shoot.status,
             photo_count: shoot.photo_count || shoot.photoCount || shoot.files_count || shoot.files?.length || 0,
-            created_by: shoot.created_by || shoot.user?.name || 'Unknown',
+            created_by: shoot.created_by || shoot.user?.name || shoot.client?.name || 'Unknown',
             created_at: shoot.created_at || shoot.createdAt || new Date().toISOString(),
-            thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) && shoot.preview_images.length > 0 ? shoot.preview_images[0] : null),
+            thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) ? shoot.preview_images[0] : null),
             auto_edit_enabled: shoot.auto_edit_enabled || false,
           };
           shootsById.set(mappedShoot.id, mappedShoot);
         });
       });
-
       setShoots(Array.from(shootsById.values()));
     } catch (error) {
       console.error('Failed to load shoots:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load shoots. Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to load shoots. Please try again.', variant: 'destructive' });
     } finally {
-      setLoading(false);
+      setLoadingShoots(false);
     }
-  };
+  }, [getAuthHeaders, toast]);
 
-  const loadListings = async () => {
-    try {
-      setListings([]);
-    } catch (error) {
-      console.error('Failed to load listings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load listings',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const loadShootFiles = async (shootId: number) => {
+  const loadShootFiles = useCallback(async (shootId: number) => {
     setLoadingFiles(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) {
-        console.warn('No auth token found');
-        return;
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const files = (data.data || data || []).filter((f: any) => {
-          const name = (f.filename || '').toLowerCase();
-          return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
-        }).map((f: any) => ({
-          id: f.id,
-          filename: f.filename || `file-${f.id}`,
-          url: f.url,
-          path: f.path,
-          thumb_url: f.thumb_url || f.thumb,
-          medium_url: f.medium_url || f.medium,
-          large_url: f.large_url || f.large,
-          original_url: f.original_url || f.original,
-          fileType: f.fileType || f.file_type,
-          workflowStage: f.workflow_stage || f.workflowStage,
-          created_at: f.created_at || f.createdAt,
-          isEdited: f.workflow_stage === 'completed' || f.workflow_stage === 'edited' || f.workflowStage === 'completed',
-        }));
-        setAvailableFiles(files);
-        if (files.length > 0 && currentImageIndex >= files.length) {
-          setCurrentImageIndex(0);
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files`, { headers: getAuthHeaders() });
+      if (!response.ok) {
+        if (response.status === 404) {
+          setAvailableFiles([]);
+          return;
         }
-      } else if (response.status === 404) {
-        setAvailableFiles([]);
-        toast({
-          title: 'No Files',
-          description: 'This shoot has no image files',
-          variant: 'default',
-        });
-      } else if (response.status === 401) {
-        toast({
-          title: 'Authentication Error',
-          description: 'Please log in again',
-          variant: 'destructive',
-        });
+        throw new Error('Failed to load shoot files');
       }
+      const data = await response.json();
+      const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const files = items
+        .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || ''))
+        .map((file: any) => ({
+          id: file.id,
+          filename: file.filename || `file-${file.id}`,
+          url: file.url,
+          path: file.path,
+          thumb_url: file.thumb_url || file.thumb || file.thumbnail_url,
+          medium_url: file.medium_url || file.medium || file.web_url,
+          large_url: file.large_url || file.large || file.original_url,
+          original_url: file.original_url || file.original,
+          fileType: file.fileType || file.file_type,
+          workflowStage: file.workflow_stage || file.workflowStage,
+          created_at: file.created_at || file.createdAt,
+          isEdited: ['completed', 'edited'].includes(String(file.workflow_stage || file.workflowStage || '').toLowerCase()) || file.media_type === 'edited',
+        }));
+      setAvailableFiles(files);
     } catch (error) {
-      console.error('Failed to load files:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load shoot files',
-        variant: 'destructive',
-      });
+      console.error('Failed to load shoot files:', error);
       setAvailableFiles([]);
+      toast({ title: 'Error', description: 'Failed to load shoot files', variant: 'destructive' });
     } finally {
       setLoadingFiles(false);
     }
-  };
+  }, [getAuthHeaders, toast]);
 
-  const loadEditingTypes = async () => {
+  const loadJobs = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoadingJobs(true);
     try {
-      const types = await autoenhanceService.getEditingTypes();
-      setEditingTypes(types);
-      if (types.length > 0 && !selectedEditingType) {
-        setSelectedEditingType(types[0].id);
-      }
+      const response = await autoenhanceService.listJobs({ per_page: 20 });
+      setJobs(response.data);
     } catch (error) {
-      console.error('Failed to load editing types:', error);
-      toast({
-        title: 'Warning',
-        description: 'Failed to load editing types. Using defaults.',
-        variant: 'default',
-      });
-    }
-  };
-
-  // Group files by brackets (one per 5 images or by time)
-  // Only group if shoot hasn't been edited yet (no edited files exist)
-  const groupFilesByBrackets = useCallback(() => {
-    if (availableFiles.length === 0) {
-      setGroupedFiles([]);
-      return;
-    }
-
-    const rawFiles = availableFiles.filter(f => !f.isEdited);
-    const hasEditedFiles = availableFiles.some(f => f.isEdited);
-    
-    // Only show grouped view if there are no edited files (shoot not yet edited)
-    // Once edited, show all files normally
-    if (hasEditedFiles) {
-      setGroupedFiles([]);
-      return;
-    }
-
-    if (bracketingMethod === 'count') {
-      // Group every 5 images for Autoenhance HDR processing
-      const groups: { group: number; files: MediaFile[] }[] = [];
-      for (let i = 0; i < rawFiles.length; i += 5) {
-        const groupFiles = rawFiles.slice(i, i + 5);
-        if (groupFiles.length > 0) {
-          groups.push({
-            group: Math.floor(i / 5) + 1,
-            files: groupFiles,
-          });
-        }
-      }
-      setGroupedFiles(groups);
-    } else if (bracketingMethod === 'time') {
-      // Group by time (within bracketingTime seconds)
-      const groups: { group: number; files: MediaFile[] }[] = [];
-      let currentGroup: MediaFile[] = [];
-      let currentGroupNum = 1;
-      let lastTime: Date | null = null;
-
-      rawFiles.forEach((file, index) => {
-        const fileTime = file.created_at ? new Date(file.created_at) : new Date();
-        
-        if (lastTime === null) {
-          lastTime = fileTime;
-          currentGroup = [file];
-        } else {
-          const timeDiff = Math.abs(fileTime.getTime() - lastTime.getTime()) / 1000;
-          if (timeDiff <= bracketingTime) {
-            currentGroup.push(file);
-          } else {
-            if (currentGroup.length > 0) {
-              groups.push({ group: currentGroupNum++, files: currentGroup });
-            }
-            currentGroup = [file];
-            lastTime = fileTime;
-          }
-        }
-      });
-
-      if (currentGroup.length > 0) {
-        groups.push({ group: currentGroupNum, files: currentGroup });
-      }
-      setGroupedFiles(groups);
-    } else {
-      // Manual - show all files individually
-      setGroupedFiles(rawFiles.map((file, index) => ({ group: index + 1, files: [file] })));
-    }
-  }, [availableFiles, bracketingMethod, bracketingTime]);
-
-  const handleShootSelect = (shoot: ShootWithEditing) => {
-    // Check if shoot has photos
-    if (shoot.photo_count === 0 || shoot.photo_count === undefined) {
-      // Show modal for shoots without photos (admin can enable auto-edit)
-      if (isAdmin) {
-        setPendingShoot(shoot);
-        setShowEditConfigModal(true);
-        return;
-      } else {
-        toast({
-          title: 'No Photos',
-          description: 'This shoot has no photos uploaded yet',
-          variant: 'default',
-        });
-        return;
-      }
-    }
-    
-    // For shoots with photos, show edit config modal first
-    setPendingShoot(shoot);
-    setShowEditConfigModal(true);
-  };
-
-  const handleConfirmEditConfig = () => {
-    if (!pendingShoot) return;
-
-    // If auto-edit is enabled and shoot has no photos, save that setting
-    if (autoEditEnabled && (pendingShoot.photo_count === 0 || pendingShoot.photo_count === undefined)) {
-      handleEnableAutoEdit(pendingShoot.id);
-    }
-
-    // Proceed to detail view
-    setSelectedShoot(pendingShoot);
-    setViewMode('detail');
-    setSelectedFiles(new Set());
-    setCurrentImageIndex(0);
-    setShowEditConfigModal(false);
-    setPendingShoot(null);
-  };
-
-  const handleEnableAutoEdit = async (shootId: number) => {
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ 
-          auto_edit_enabled: true,
-          auto_edit_preferences: {
-            editing_type: selectedEditingType,
-            style: selectedStyle,
-            auto_perspective: autoPerspective,
-            sky_replacement: skyReplacement,
-            ...editConfigParams,
-          },
-        }),
-      });
-      
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Auto-edit enabled for this shoot',
-        });
-        await loadShoots();
-      }
-    } catch (error) {
-      console.error('Failed to enable auto-edit:', error);
-    }
-  };
-
-  const handleBackToList = () => {
-    setViewMode('list');
-    setSelectedShoot(null);
-    setSelectedFiles(new Set());
-    setCurrentImageIndex(0);
-  };
-
-  const handleNewEdit = () => {
-    setViewMode('upload');
-    setSelectedShoot(null);
-    setSelectedFiles(new Set());
-    setSearchTerm('');
-  };
-
-  const handleEditImage = () => {
-    if (selectedFiles.size > 0) {
-      setViewMode('edit');
-    } else {
-      toast({
-        title: 'No Selection',
-        description: 'Please select at least one image to edit',
-        variant: 'default',
-      });
-    }
-  };
-
-  const handleOpenPreferences = () => {
-    setViewMode('preferences');
-  };
-
-  const handleFileToggle = (fileId: number) => {
-    const newSelected = new Set(selectedFiles);
-    if (newSelected.has(fileId)) {
-      newSelected.delete(fileId);
-    } else {
-      newSelected.add(fileId);
-    }
-    setSelectedFiles(newSelected);
-  };
-
-  const handleSendToEditing = async () => {
-    if (!selectedShoot || isSendingToEditing) return;
-    try {
-      setIsSendingToEditing(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      if (selectedShoot.editor?.id) {
-        const assignResponse = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/assign-editor`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ editor_id: selectedShoot.editor.id }),
-        });
-
-        if (!assignResponse.ok) {
-          const errorData = await assignResponse.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to assign editor');
-        }
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/start-editing`, {
-        method: 'POST',
-        headers,
-      });
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Shoot sent to editing',
-        });
-        await loadShoots();
-        if (selectedShoot) {
-          setSelectedShoot({ ...selectedShoot, status: 'editing' });
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to send to editing');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to send to editing',
-        variant: 'destructive',
-      });
+      console.error('Failed to load Autoenhance jobs:', error);
+      toast({ title: 'Error', description: 'Failed to load Autoenhance jobs', variant: 'destructive' });
     } finally {
-      setIsSendingToEditing(false);
+      if (showLoader) setLoadingJobs(false);
     }
+  }, [toast]);
+
+  useEffect(() => {
+    loadShoots();
+    loadEditingTypes();
+    loadJobs();
+  }, [loadEditingTypes, loadJobs, loadShoots]);
+
+  useEffect(() => {
+    const hasActiveJobs = jobs.some((job) => ['pending', 'processing'].includes(job.status));
+    if (!hasActiveJobs) return;
+    const interval = window.setInterval(() => loadJobs(false), 10000);
+    return () => window.clearInterval(interval);
+  }, [jobs, loadJobs]);
+
+  useEffect(() => {
+    if (selectedShoot) {
+      loadShootFiles(selectedShoot.id);
+    } else {
+      setAvailableFiles([]);
+      setSelectedFiles(new Set());
+    }
+  }, [loadShootFiles, selectedShoot]);
+
+  const rawFiles = useMemo(() => availableFiles.filter((file) => !file.isEdited), [availableFiles]);
+  const editedFiles = useMemo(() => availableFiles.filter((file) => file.isEdited), [availableFiles]);
+  const filteredShoots = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return shoots;
+    return shoots.filter((shoot) => shoot.address.toLowerCase().includes(term) || String(shoot.id).includes(term));
+  }, [searchTerm, shoots]);
+  const filteredJobs = useMemo(() => {
+    if (jobStatusFilter === 'all') return jobs;
+    return jobs.filter((job) => job.status === jobStatusFilter);
+  }, [jobStatusFilter, jobs]);
+  const activeJobs = jobs.filter((job) => ['pending', 'processing'].includes(job.status)).length;
+  const completedJobs = jobs.filter((job) => job.status === 'completed').length;
+  const failedJobs = jobs.filter((job) => job.status === 'failed').length;
+
+  const selectedRawFiles = useMemo(() => rawFiles.filter((file) => selectedFiles.has(file.id)), [rawFiles, selectedFiles]);
+  const selectedEditingTypeMeta = editingTypes.find((type) => type.id === selectedEditingType);
+
+  const buildSubmitParams = () => {
+    const params: Record<string, any> = { notes: notes.trim() || undefined };
+    if (selectedEditingType === 'enhance') {
+      params.enhance_type = enhanceType;
+      params.vertical_correction = verticalCorrection;
+      params.lens_correction = lensCorrection;
+      params.window_pull_type = windowPullType;
+    }
+    if (selectedEditingType === 'sky_replace') {
+      params.cloud_type = cloudType;
+    }
+    if (selectedEditingType === 'hdr_merge') {
+      params.hdr = true;
+      params.bracket_count = bracketCount;
+    }
+    if (selectedEditingType === 'vertical_correction') {
+      params.vertical_correction = true;
+    }
+    if (selectedEditingType === 'window_pull') {
+      params.window_pull_type = windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType;
+    }
+    Object.keys(params).forEach((key) => params[key] === undefined && delete params[key]);
+    return params;
   };
 
-  const handleMarkComplete = async () => {
-    if (!selectedShoot) return;
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ status: 'completed' }),
-      });
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Shoot marked as complete',
-        });
-        await loadShoots();
-        if (selectedShoot) {
-          setSelectedShoot({ ...selectedShoot, status: 'completed' });
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to mark complete');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to mark complete',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeliver = async () => {
-    if (!selectedShoot) return;
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/deliver`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Shoot delivered successfully',
-        });
-        await loadShoots();
-        if (selectedShoot) {
-          setSelectedShoot({ ...selectedShoot, workflowStatus: 'delivered' });
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to deliver');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to deliver shoot',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleAddMorePhotos = () => {
-    setShowUploadSection(!showUploadSection);
-  };
-
-  const handleEnhanceListing = () => {
-    if (availableFiles.length === 0) {
-      toast({
-        title: 'No Photos',
-        description: 'Please upload photos first',
-        variant: 'default',
-      });
-      return;
-    }
-    // Select all files and open edit view
-    const allFileIds = new Set(availableFiles.map(f => f.id));
-    setSelectedFiles(allFileIds);
-    setViewMode('edit');
-  };
-
-  const handleApplyEdit = async () => {
-    if (selectedFiles.size === 0) {
-      toast({
-        title: 'No Selection',
-        description: 'Please select images to edit',
-        variant: 'default',
-      });
-      return;
-    }
-
-    if (!selectedShoot) return;
-
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/autoenhance/edit`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          shoot_id: selectedShoot.id,
-          file_ids: Array.from(selectedFiles),
-          editing_type: selectedEditingType,
-          params: {
-            style: selectedStyle,
-            exposure,
-            contrast,
-            temp,
-            tint,
-            saturation,
-            highlights,
-            sharpening,
-            aspect_ratio: aspectRatio,
-            auto_perspective: autoPerspective,
-            sky_replacement: skyReplacement,
-            ...editConfigParams,
-          },
-        }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Editing job submitted successfully',
-        });
-        setViewMode('detail');
-        setSelectedFiles(new Set());
-        await loadShootFiles(selectedShoot.id);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to submit editing job');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to apply edits',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const filteredListings = listings.filter(listing =>
-    listing.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredShoots = shoots.filter(shoot =>
-    shoot.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStatusBadge = (shoot: ShootWithEditing) => {
-    // Determine status based on workflowStatus first, then status
-    const workflowStatus = shoot.workflowStatus?.toLowerCase() || shoot.status?.toLowerCase() || 'pending';
-    
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string; icon?: any }> = {
-      scheduled: { label: 'Scheduled', variant: 'secondary', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
-      booked: { label: 'Scheduled', variant: 'secondary', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
-      completed: { label: 'Completed', variant: 'default', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
-      edited: { label: 'Edited', variant: 'default', className: 'bg-purple-100 text-purple-800 border-purple-200', icon: Sparkles },
-      editing: { label: 'Editing', variant: 'default', className: 'bg-purple-100 text-purple-800 border-purple-200', icon: Sparkles },
-      delivered: { label: 'Delivered', variant: 'default', className: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle2 },
-      pending: { label: 'Pending', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
-      processing: { label: 'Processing', variant: 'default', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Loader2 },
-      failed: { label: 'Failed', variant: 'destructive', icon: XCircle },
-      'admin_verified': { label: 'Completed', variant: 'default', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
-      'photos_uploaded': { label: 'Completed', variant: 'default', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
-    };
-    
-    const config = statusConfig[workflowStatus] || statusConfig.pending;
-    const Icon = config.icon || Clock;
-    
+  const getStatusBadge = (status: JobStatus) => {
+    const config = statusConfig[status];
+    const Icon = config.icon;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        <Icon className="h-3 w-3 mr-1" />
+      <Badge variant="outline" className={config.className}>
+        <Icon className={`mr-1 h-3 w-3 ${status === 'processing' ? 'animate-spin' : ''}`} />
         {config.label}
       </Badge>
     );
   };
 
-  // List View
-  const renderListView = () => (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg sm:text-2xl font-semibold">{filteredListings.length} listings</h2>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-initial">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search listings..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-64"
-            />
-          </div>
-          <Button onClick={handleNewEdit} size="sm" className="bg-primary hover:bg-primary/90 text-white shrink-0">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">New Listing</span>
-          </Button>
-        </div>
-      </div>
+  const startNewEdit = () => {
+    setSelectedShoot(null);
+    setSelectedFiles(new Set());
+    setSearchTerm('');
+    setViewMode('select-shoot');
+  };
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      ) : filteredListings.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-12">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-1">No listings yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Get started by creating your first listing
-              </p>
-              <Button onClick={handleNewEdit} className="bg-primary hover:bg-primary/90 text-white">
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Listing
-              </Button>
-            </div>
+  const selectShoot = (shoot: ShootWithEditing) => {
+    setSelectedShoot(shoot);
+    setSelectedFiles(new Set());
+    setViewMode('select-files');
+  };
+
+  const toggleFile = (fileId: number) => {
+    setSelectedFiles((current) => {
+      const next = new Set(current);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  };
+
+  const selectAllRawFiles = () => {
+    setSelectedFiles(new Set(rawFiles.map((file) => file.id)));
+  };
+
+  const submitAutoenhance = async () => {
+    if (!selectedShoot || selectedFiles.size === 0) return;
+    setSubmitting(true);
+    try {
+      await autoenhanceService.submitEditing({
+        shoot_id: selectedShoot.id,
+        file_ids: Array.from(selectedFiles),
+        editing_type: selectedEditingType,
+        params: buildSubmitParams(),
+      });
+      toast({ title: 'Submitted to Autoenhance', description: `${selectedFiles.size} image(s) submitted for processing.` });
+      setSelectedFiles(new Set());
+      setViewMode('overview');
+      await loadJobs(false);
+    } catch (error: any) {
+      toast({
+        title: 'Submission failed',
+        description: error?.response?.data?.message || error?.message || 'Failed to submit Autoenhance job',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="md:col-span-2 border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Start an Autoenhance edit
+            </CardTitle>
+            <CardDescription>Select a shoot, choose source photos, configure Autoenhance options, and submit jobs.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={startNewEdit} disabled={!canUseAutoenhance} className="bg-primary hover:bg-primary/90 text-white">
+              <Upload className="mr-2 h-4 w-4" />
+              New Autoenhance Edit
+            </Button>
+            {!canUseAutoenhance && <p className="mt-3 text-sm text-muted-foreground">Your role does not have access to Autoenhance submissions.</p>}
           </CardContent>
         </Card>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <Card className="hidden sm:block">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Listing</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Photos</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Created At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredListings.map((listing) => {
-                    const imageUrl = listing.thumbnail 
-                      ? (listing.thumbnail.startsWith('http') ? listing.thumbnail : `${API_BASE_URL}/${listing.thumbnail.replace(/^\//, '')}`)
-                      : null;
-                    return (
-                      <TableRow
-                        key={listing.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleShootSelect(listing)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={listing.address}
-                                className="w-12 h-12 object-cover rounded"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <span className="font-medium">{listing.address}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(listing)}</TableCell>
-                        <TableCell>{listing.photo_count || 0}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-primary text-xs font-semibold">
-                                {listing.created_by?.charAt(0).toUpperCase() || 'C'}
-                              </span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {listing.created_at ? format(new Date(listing.created_at), 'MMM d, yyyy') : '—'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Active Jobs</CardDescription>
+            <CardTitle>{activeJobs}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Completed</CardDescription>
+            <CardTitle>{completedJobs}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
-          {/* Mobile Card List */}
-          <div className="sm:hidden space-y-2">
-            {filteredListings.map((listing) => {
-              const imageUrl = listing.thumbnail 
-                ? (listing.thumbnail.startsWith('http') ? listing.thumbnail : `${API_BASE_URL}/${listing.thumbnail.replace(/^\//, '')}`)
-                : null;
-              return (
-                <div
-                  key={listing.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border bg-card cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => handleShootSelect(listing)}
-                >
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={listing.address}
-                      className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+      <Card>
+        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Recent Autoenhance jobs</CardTitle>
+            <CardDescription>Track submitted image enhancements and review failures.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as 'all' | JobStatus)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={() => loadJobs()} disabled={loadingJobs}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingJobs ? (
+            <HorizontalLoader message="Loading Autoenhance jobs..." />
+          ) : filteredJobs.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center">
+              <ImageIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold">No Autoenhance jobs yet</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Start a new edit to submit images to Autoenhance.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredJobs.map((job) => (
+                <div key={job.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">Job #{job.id}</span>
+                      {getStatusBadge(job.status)}
+                      <Badge variant="secondary">{editingTypeLabels[job.editing_type] || job.editing_type}</Badge>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{listing.address}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {getStatusBadge(listing)}
-                      <span className="text-xs text-muted-foreground">{listing.photo_count || 0} photos</span>
+                    <div className="text-sm text-muted-foreground">
+                      Shoot #{job.shoot_id}{job.shoot_file_id ? ` · File #${job.shoot_file_id}` : ''} · {job.created_at ? format(new Date(job.created_at), 'MMM d, yyyy h:mm a') : '—'}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {listing.created_at ? format(new Date(listing.created_at), 'MMM d, yyyy') : '—'}
-                    </p>
+                    {job.error_message && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" />{job.error_message}</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    {job.edited_image_url && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={resolveImageUrl(job.edited_image_url)} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Open result
+                        </a>
+                      </Button>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 
-  // Detail View
-  const renderDetailView = () => {
-    if (!selectedShoot) {
-      handleBackToList();
-      return null;
-    }
-
-    return (
-      <div className="space-y-4 pb-20 sm:pb-4">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground overflow-x-auto">
-          <Button variant="ghost" size="sm" className="shrink-0 h-7 px-2 sm:h-8 sm:px-3" onClick={handleBackToList}>
-            <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-            Dashboard
-          </Button>
-          <span>/</span>
-          <span className="shrink-0">Listings</span>
-          <span>/</span>
-          <span className="text-foreground truncate">{selectedShoot.address}</span>
-        </div>
-
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button variant="ghost" size="sm" className="shrink-0 h-8 w-8 p-0" onClick={handleBackToList}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-base sm:text-2xl font-semibold truncate">{selectedShoot.address}</h1>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="sm" className="h-8 text-xs sm:text-sm">
-              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Settings</span>
-            </Button>
-            {isAdmin && (
-              <>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={handleSendToEditing}
-                  disabled={isSendingToEditing}
-                >
-                  {isSendingToEditing ? (
-                    <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
-                  <span className="sm:hidden">{isSendingToEditing ? 'Sending...' : 'Edit'}</span>
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white"
-                  onClick={handleMarkComplete}
-                >
-                  <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Mark Complete</span>
-                  <span className="sm:hidden">Complete</span>
-                </Button>
-              </>
-            )}
-            <Button 
-              className="h-8 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white" 
-              size="sm"
-              onClick={handleDeliver}
-            >
-              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-              Deliver
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="photos" className="w-full">
-          <TabsList>
-            <TabsTrigger value="photos">Photos</TabsTrigger>
-          </TabsList>
-          <TabsContent value="photos" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                {loadingFiles ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  `${availableFiles.length} Photos`
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                <Select defaultValue="mls">
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mls">Export for MLS</SelectItem>
-                  </SelectContent>
-                </Select>
-                {selectedFiles.size > 0 && (
-                  <Button onClick={handleEditImage} className="bg-purple-600 hover:bg-purple-700 text-white">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    AI Edit ({selectedFiles.size})
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Image Grid */}
-            {loadingFiles ? (
-              <HorizontalLoader message="Loading files..." />
-            ) : availableFiles.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No photos available for this listing</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                {/* Check if shoot has been edited - if yes, show edited images separately */}
-                {availableFiles.some(f => f.isEdited) ? (
-                  <>
-                    {/* Edited Images Section - Show first if any exist */}
-                    {availableFiles.filter(f => f.isEdited).length > 0 && (
-                      <div className="space-y-4">
-                        <div>
-                          <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-purple-500" />
-                            Edited Photos ({availableFiles.filter(f => f.isEdited).length})
-                          </h3>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                            {availableFiles.filter(f => f.isEdited).map((file, index) => {
-                              const imageUrl = getImageUrl(file, 'medium');
-                              const isSelected = selectedFiles.has(file.id);
-                              const fileIndex = availableFiles.findIndex(f => f.id === file.id);
-
-                              return (
-                                <div
-                                  key={file.id}
-                                  className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
-                                    isSelected
-                                      ? 'border-purple-500 ring-2 ring-purple-200'
-                                      : 'border-green-500 hover:border-green-600'
-                                  }`}
-                                  onClick={() => {
-                                    if (fileIndex >= 0) {
-                                      setCurrentImageIndex(fileIndex);
-                                      handleFileToggle(file.id);
-                                    }
-                                  }}
-                                >
-                                  {imageUrl ? (
-                                    <img
-                                      src={imageUrl}
-                                      alt={file.filename}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    Edited
-                                  </div>
-                                  {isSelected && (
-                                    <div className="absolute top-2 right-2 bg-purple-500 text-white rounded-full p-1">
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Raw Images (if any remain unedited) */}
-                    {availableFiles.filter(f => !f.isEdited).length > 0 && (
-                      <div className="space-y-4 mt-6">
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Raw Photos ({availableFiles.filter(f => !f.isEdited).length})</h3>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                            {availableFiles.filter(f => !f.isEdited).map((file, index) => {
-                              const imageUrl = getImageUrl(file, 'medium');
-                              const isSelected = selectedFiles.has(file.id);
-                              const fileIndex = availableFiles.findIndex(f => f.id === file.id);
-
-                              return (
-                                <div
-                                  key={file.id}
-                                  className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
-                                    isSelected
-                                      ? 'border-purple-500 ring-2 ring-purple-200'
-                                      : 'border-border hover:border-primary/50'
-                                  }`}
-                                  onClick={() => {
-                                    if (fileIndex >= 0) {
-                                      setCurrentImageIndex(fileIndex);
-                                      handleFileToggle(file.id);
-                                    }
-                                  }}
-                                >
-                                  {imageUrl ? (
-                                    <img
-                                      src={imageUrl}
-                                      alt={file.filename}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  {isSelected && (
-                                    <div className="absolute top-2 right-2 bg-purple-500 text-white rounded-full p-1">
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  /* Show grouped brackets for unedited shoots */
-                  groupedFiles.length > 0 ? (
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Raw Photos (Grouped by Brackets)</h3>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          Showing one representative image per bracket group. Each group contains up to 5 images.
-                        </p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                          {groupedFiles.map((group, groupIndex) => {
-                            // Show only the first image of each bracket group (stacked representation)
-                            const representativeFile = group.files[0];
-                            const imageUrl = getImageUrl(representativeFile, 'medium');
-                            const isSelected = selectedFiles.has(representativeFile.id);
-                            const fileIndex = availableFiles.findIndex(f => f.id === representativeFile.id);
-
-                            return (
-                              <div
-                                key={`group-${group.group}`}
-                                className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'border-purple-500 ring-2 ring-purple-200'
-                                    : 'border-border hover:border-primary/50'
-                                }`}
-                                onClick={() => {
-                                  if (fileIndex >= 0) {
-                                    setCurrentImageIndex(fileIndex);
-                                    handleFileToggle(representativeFile.id);
-                                  }
-                                }}
-                              >
-                                {imageUrl ? (
-                                  <img
-                                    src={imageUrl}
-                                    alt={representativeFile.filename}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                  </div>
-                                )}
-                                {group.files.length > 1 && (
-                                  <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                    <Grid3x3 className="h-3 w-3" />
-                                    {group.files.length} images
-                                  </div>
-                                )}
-                                {isSelected && (
-                                  <div className="absolute top-2 right-2 bg-purple-500 text-white rounded-full p-1">
-                                    <CheckCircle2 className="h-4 w-4" />
-                                  </div>
-                                )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 truncate">
-                                  Bracket {group.group}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Fallback: Show all files individually if no grouping */
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                      {availableFiles.map((file, index) => {
-                        const imageUrl = getImageUrl(file, 'medium');
-                        const isSelected = selectedFiles.has(file.id);
-                        const fileIndex = availableFiles.findIndex(f => f.id === file.id);
-
-                        return (
-                          <div
-                            key={file.id}
-                            className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
-                              isSelected
-                                ? 'border-purple-500 ring-2 ring-purple-200'
-                                : 'border-border hover:border-primary/50'
-                            }`}
-                            onClick={() => {
-                              if (fileIndex >= 0) {
-                                setCurrentImageIndex(fileIndex);
-                                handleFileToggle(file.id);
-                              }
-                            }}
-                          >
-                            {imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={file.filename}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-muted flex items-center justify-center">
-                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                              </div>
-                            )}
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 bg-purple-500 text-white rounded-full p-1">
-                                <CheckCircle2 className="h-4 w-4" />
-                              </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 truncate">
-                              {selectedShoot.address}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
-                )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {/* Upload Photos Section */}
-        {showUploadSection && selectedShoot && (
-          <Card className="mt-4">
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Upload Photos</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Photo upload functionality will be implemented here
-                  </p>
-                </div>
-                {selectedShoot && (
-                  <FileUploader
-                    shootId={selectedShoot.id.toString()}
-                    onUploadComplete={(files, notes) => {
-                      toast({
-                        title: 'Upload Complete',
-                        description: `${files.length} file(s) uploaded successfully`,
-                      });
-                      // Reload shoot files after upload
-                      if (selectedShoot) {
-                        loadShootFiles(selectedShoot.id);
-                      }
-                      setShowUploadSection(false);
-                    }}
-                    expectedPhotoCount={(selectedShoot as any)?.expectedFinalCount || (selectedShoot as any)?.package?.expectedDeliveredCount || selectedShoot?.photo_count || 0}
-                    bracketMode={(selectedShoot as any)?.bracketMode || (selectedShoot as any)?.package?.bracketMode || null}
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Bottom Actions */}
-        <div className="flex items-center justify-between border-t pt-4">
-          <Button variant="outline" onClick={handleOpenPreferences}>
-            <Settings className="h-4 w-4 mr-2" />
-            Preferences
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline"
-              onClick={handleAddMorePhotos}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add More Photos
-            </Button>
-            <Button 
-              className="bg-primary hover:bg-primary/90 text-white"
-              onClick={handleEnhanceListing}
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Enhance Listing
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Edit View (Adjust Panel)
-  const renderEditView = () => {
-    if (!selectedShoot || availableFiles.length === 0) {
-      if (!selectedShoot) {
-        handleBackToList();
-      } else {
-        setViewMode('detail');
-      }
-      return null;
-    }
-
-    const currentFile = availableFiles[currentImageIndex];
-    if (!currentFile) {
-      setCurrentImageIndex(0);
-      return null;
-    }
-
-    const imageUrl = getImageUrl(currentFile, 'large');
-
-    return (
-      <div className="flex h-[calc(100vh-200px)] gap-4">
-        {/* Main Image Area */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 relative bg-muted rounded-lg overflow-hidden">
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={currentFile.filename}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '';
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ImageIcon className="h-12 w-12 text-muted-foreground" />
-              </div>
-            )}
-          </div>
-          {/* Image Carousel */}
-          <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-2">
-            {availableFiles.map((file, index) => {
-              const fileImageUrl = getImageUrl(file, 'thumb');
-              const isSelected = index === currentImageIndex;
-
-              return (
-                <div
-                  key={file.id}
-                  className={`relative w-20 h-20 rounded overflow-hidden border-2 cursor-pointer flex-shrink-0 ${
-                    isSelected ? 'border-blue-500' : 'border-border'
-                  }`}
-                  onClick={() => setCurrentImageIndex(index)}
-                >
-                  {fileImageUrl ? (
-                    <img
-                      src={fileImageUrl}
-                      alt={file.filename}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Adjust Panel */}
-        <div className="w-80 border-l pl-4 overflow-y-auto">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Adjust</h3>
-              <Button variant="ghost" size="sm" onClick={() => setViewMode('detail')}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* FOTON 6.0 STYLES */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">FOTON 6.0 STYLES</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant={selectedStyle === 'signature' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedStyle('signature')}
-                  className="flex flex-col items-center gap-1 h-auto py-3"
-                >
-                  <Home className="h-5 w-5" />
-                  <span className="text-xs">Signature</span>
-                </Button>
-                <Button
-                  variant={selectedStyle === 'natural' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedStyle('natural')}
-                  className="flex flex-col items-center gap-1 h-auto py-3"
-                >
-                  <Sun className="h-5 w-5" />
-                  <span className="text-xs">Natural</span>
-                </Button>
-                <Button
-                  variant={selectedStyle === 'twilight' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedStyle('twilight')}
-                  className="flex flex-col items-center gap-1 h-auto py-3"
-                >
-                  <Moon className="h-5 w-5" />
-                  <span className="text-xs">Twilight</span>
-                  <Badge variant="secondary" className="text-xs mt-1">14 DAYS FREE</Badge>
-                </Button>
-              </div>
-            </div>
-
-            {/* MY PROFILES */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">MY PROFILES</Label>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative aspect-video rounded border overflow-hidden">
-                  <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded p-0.5">
-                    <Pencil className="h-3 w-3" />
-                  </div>
-                </div>
-                <div className="relative aspect-video rounded border overflow-hidden">
-                  <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded p-0.5">
-                    <Pencil className="h-3 w-3" />
-                  </div>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="w-full">
-                Apply to all
-              </Button>
-            </div>
-
-            {/* BASIC */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">BASIC</Label>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Exposure</Label>
-                    <span className="text-sm text-muted-foreground">{exposure}</span>
-                  </div>
-                  <Slider
-                    value={[exposure]}
-                    onValueChange={(value) => setExposure(value[0])}
-                    min={-100}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Contrast</Label>
-                    <span className="text-sm text-muted-foreground">{contrast}</span>
-                  </div>
-                  <Slider
-                    value={[contrast]}
-                    onValueChange={(value) => setContrast(value[0])}
-                    min={-100}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* COLOR */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">COLOR</Label>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Temp</Label>
-                    <span className="text-sm text-muted-foreground">{temp}</span>
-                  </div>
-                  <Slider
-                    value={[temp]}
-                    onValueChange={(value) => setTemp(value[0])}
-                    min={-100}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Tint</Label>
-                    <span className="text-sm text-muted-foreground">{tint}</span>
-                  </div>
-                  <Slider
-                    value={[tint]}
-                    onValueChange={(value) => setTint(value[0])}
-                    min={-100}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Saturation</Label>
-                    <span className="text-sm text-muted-foreground">{saturation}</span>
-                  </div>
-                  <Slider
-                    value={[saturation]}
-                    onValueChange={(value) => setSaturation(value[0])}
-                    min={-100}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* TONE */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">TONE</Label>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">Highlights</Label>
-                  <span className="text-sm text-muted-foreground">{highlights}</span>
-                </div>
-                <Slider
-                  value={[highlights]}
-                  onValueChange={(value) => setHighlights(value[0])}
-                  min={-100}
-                  max={100}
-                  step={1}
-                />
-              </div>
-            </div>
-
-            {/* DETAIL */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">DETAIL</Label>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">Sharpening</Label>
-                  <span className="text-sm text-muted-foreground">{sharpening}</span>
-                </div>
-                <Slider
-                  value={[sharpening]}
-                  onValueChange={(value) => setSharpening(value[0])}
-                  min={0}
-                  max={100}
-                  step={1}
-                />
-              </div>
-            </div>
-
-            {/* ASPECT RATIO */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">ASPECT RATIO</Label>
-                <Grid3x3 className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {['original', 'freeform', '3:2', '4:3', '16:9'].map((ratio) => (
-                  <Button
-                    key={ratio}
-                    variant={aspectRatio === ratio ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAspectRatio(ratio)}
-                    className="aspect-square"
-                  >
-                    {ratio === 'original' && <ImageIcon className="h-4 w-4" />}
-                    {ratio === 'freeform' && <Grid3x3 className="h-4 w-4" />}
-                    {ratio !== 'original' && ratio !== 'freeform' && (
-                      <span className="text-xs">{ratio}</span>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* OPTIONS */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">OPTIONS</Label>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Auto Perspective Correction</Label>
-                  <Switch
-                    checked={autoPerspective}
-                    onCheckedChange={setAutoPerspective}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Sky Replacement</Label>
-                  <Switch
-                    checked={skyReplacement}
-                    onCheckedChange={setSkyReplacement}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 pt-4 border-t">
-              <Button variant="outline" className="flex-1" onClick={() => setViewMode('detail')}>
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1 bg-primary hover:bg-primary/90 text-white"
-                onClick={handleApplyEdit}
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Upload View
-  const renderUploadView = () => (
+  const renderSelectShoot = () => (
     <div className="space-y-4">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
-          <Home className="h-4 w-4 mr-1" />
-          Dashboard
-        </Button>
-        <span>/</span>
-        <span>Listings</span>
-        <span>/</span>
-        <span className="text-foreground">New Listing</span>
-      </div>
-
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg sm:text-2xl font-semibold">Select a Shoot</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Choose an existing shoot to create a new listing for AI editing</p>
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('overview')} className="mb-2 px-0">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Back to overview
+          </Button>
+          <h2 className="text-2xl font-semibold">Choose a shoot</h2>
+          <p className="text-sm text-muted-foreground">Select the shoot containing photos you want to process with Autoenhance.</p>
         </div>
-        <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search shoots..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full sm:w-64"
-          />
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search shoots..." className="pl-10" />
         </div>
       </div>
-
-      {/* Shoots Grid */}
-      {loading ? (
+      {loadingShoots ? (
         <HorizontalLoader message="Loading shoots..." />
       ) : filteredShoots.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No shoots found</h3>
-            <p className="text-muted-foreground">
-              {searchTerm ? 'Try adjusting your search terms' : 'No shoots available to create listings from'}
-            </p>
+            <ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">No shoots found</h3>
+            <p className="text-muted-foreground">Try adjusting your search or refresh shoots.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredShoots.map((shoot) => {
-            const imageUrl = shoot.thumbnail 
-              ? (shoot.thumbnail.startsWith('http') ? shoot.thumbnail : `${API_BASE_URL}/${shoot.thumbnail.replace(/^\//, '')}`)
-              : null;
+            const imageUrl = resolveImageUrl(shoot.thumbnail);
             return (
-              <Card
-                key={shoot.id}
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => {
-                  handleShootSelect(shoot);
-                }}
-              >
+              <Card key={shoot.id} className="cursor-pointer transition-colors hover:border-primary" onClick={() => selectShoot(shoot)}>
                 <CardContent className="p-0">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={shoot.address}
-                      className="w-full h-36 sm:h-48 object-cover rounded-t-lg"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div className={`w-full h-36 sm:h-48 bg-muted rounded-t-lg items-center justify-center ${imageUrl ? 'hidden' : 'flex'}`}>
-                    <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold truncate">{shoot.address}</h3>
-                      {getStatusBadge(shoot)}
+                  {imageUrl ? <img src={imageUrl} alt={shoot.address} className="h-44 w-full rounded-t-lg object-cover" /> : <div className="flex h-44 items-center justify-center rounded-t-lg bg-muted"><ImageIcon className="h-10 w-10 text-muted-foreground" /></div>}
+                  <div className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-semibold leading-tight">{shoot.address}</h3>
+                      <Badge variant="outline">{shoot.workflowStatus || shoot.status}</Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{shoot.photo_count || 0} photos</span>
-                      <span>{shoot.created_at ? format(new Date(shoot.created_at), 'MMM d, yyyy') : '—'}</span>
-                    </div>
+                    <div className="text-sm text-muted-foreground">{shoot.photo_count || 0} photos · {shoot.created_at ? format(new Date(shoot.created_at), 'MMM d, yyyy') : '—'}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -1834,386 +514,221 @@ const AiEditing = () => {
     </div>
   );
 
-  // Preferences View
-  const renderPreferencesView = () => {
-    if (!selectedShoot) {
-      setViewMode('detail');
-      return null;
-    }
-
+  const renderFileCard = (file: MediaFile) => {
+    const imageUrl = getImageUrl(file, 'medium');
+    const isSelected = selectedFiles.has(file.id);
     return (
-      <div className="flex h-[calc(100vh-200px)] gap-4">
-        {/* Main Content */}
-        <div className="flex-1">
-          {availableFiles.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">{selectedShoot.address}</h2>
-                <Button variant="ghost" size="sm" onClick={() => setViewMode('detail')}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="text-sm text-muted-foreground">{availableFiles.length} Photos</div>
-              {currentImageIndex < availableFiles.length && (
-                <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                  <img
-                    src={getImageUrl(availableFiles[currentImageIndex], 'large')}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '';
-                    }}
-                  />
-                  <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                    {currentImageIndex + 1}/{availableFiles.length}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Preferences Panel */}
-        <div className="w-80 border-l pl-4 overflow-y-auto">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Preferences</h3>
-              <Button variant="ghost" size="sm" onClick={() => setViewMode('detail')}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Bracketing Method */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bracketing Method</Label>
-              <RadioGroup value={bracketingMethod} onValueChange={(v) => setBracketingMethod(v as any)}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="time" id="time" />
-                  <Label htmlFor="time" className="font-normal cursor-pointer">Time</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="count" id="count" />
-                  <Label htmlFor="count" className="font-normal cursor-pointer"># Count</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="manual" id="manual" />
-                  <Label htmlFor="manual" className="font-normal cursor-pointer">Manual</Label>
-                </div>
-              </RadioGroup>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">Time (seconds)</Label>
-                  <span className="text-sm text-muted-foreground">{bracketingTime}s</span>
-                </div>
-                <Slider
-                  value={[bracketingTime]}
-                  onValueChange={(value) => setBracketingTime(value[0])}
-                  min={1}
-                  max={10}
-                  step={1}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Group photos taken within <strong>{bracketingTime} seconds</strong> of each other
-                </p>
-              </div>
-            </div>
-
-            {/* View Mode */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">View Mode</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={viewModeOption === 'carousel' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewModeOption('carousel')}
-                  className="flex flex-col items-center gap-2 h-auto py-3"
-                >
-                  <Grid3x3 className="h-5 w-5" />
-                  <span className="text-xs">Carousel</span>
-                </Button>
-                <Button
-                  variant={viewModeOption === 'filmstrip' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewModeOption('filmstrip')}
-                  className="flex flex-col items-center gap-2 h-auto py-3"
-                >
-                  <Film className="h-5 w-5" />
-                  <span className="text-xs">Filmstrip</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Enhancement Preferences */}
-            <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Enhancement Preferences</Label>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Perspective Correction</Label>
-                  <div className="flex gap-1">
-                    <Button
-                      variant={autoPerspective ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setAutoPerspective(true)}
-                    >
-                      On
-                    </Button>
-                    <Button
-                      variant={!autoPerspective ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setAutoPerspective(false)}
-                    >
-                      Off
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Exterior Sky Replacement</Label>
-                  <div className="flex gap-1">
-                    <Button
-                      variant={skyReplacement ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSkyReplacement(true)}
-                    >
-                      On
-                    </Button>
-                    <Button
-                      variant={!skyReplacement ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSkyReplacement(false)}
-                    >
-                      Off
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Enhancement Style</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative aspect-video rounded border overflow-hidden">
-                      <div className="absolute inset-0 bg-muted" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 text-center">
-                        Signature
-                      </div>
-                    </div>
-                    <div className="relative aspect-video rounded border overflow-hidden">
-                      <div className="absolute inset-0 bg-muted" />
-                      <div className="absolute bottom-0 left-0 bg-black/50 text-white text-xs p-1 text-center">
-                        Natural
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <button key={file.id} type="button" onClick={() => toggleFile(file.id)} className={`group overflow-hidden rounded-lg border text-left transition ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'hover:border-primary/60'}`}>
+        <div className="relative aspect-[4/3] bg-muted">
+          {imageUrl ? <img src={imageUrl} alt={file.filename} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><ImageIcon className="h-8 w-8 text-muted-foreground" /></div>}
+          <div className="absolute left-2 top-2">
+            <Badge className={isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/80 text-foreground'}>{isSelected ? 'Selected' : 'Select'}</Badge>
           </div>
         </div>
-      </div>
+        <div className="p-3">
+          <p className="truncate text-sm font-medium">{file.filename}</p>
+          <p className="text-xs text-muted-foreground">File #{file.id}</p>
+        </div>
+      </button>
     );
   };
 
+  const renderSelectFiles = () => (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('select-shoot')} className="mb-2 px-0">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Change shoot
+          </Button>
+          <h2 className="text-2xl font-semibold">Select source photos</h2>
+          <p className="text-sm text-muted-foreground">{selectedShoot?.address}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={selectAllRawFiles} disabled={rawFiles.length === 0}>Select all raw</Button>
+          <Button variant="outline" onClick={() => setSelectedFiles(new Set())}>Clear</Button>
+          <Button onClick={() => setViewMode('review')} disabled={selectedFiles.size === 0} className="bg-primary hover:bg-primary/90 text-white">
+            Continue ({selectedFiles.size})
+          </Button>
+        </div>
+      </div>
+      {loadingFiles ? (
+        <HorizontalLoader message="Loading shoot files..." />
+      ) : rawFiles.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">No raw photos available</h3>
+            <p className="text-muted-foreground">Upload source photos to this shoot before submitting to Autoenhance.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{rawFiles.map(renderFileCard)}</div>
+          {editedFiles.length > 0 && <p className="text-sm text-muted-foreground">{editedFiles.length} edited/completed image(s) hidden from source selection.</p>}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderAutoenhanceOptions = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Autoenhance options</CardTitle>
+        <CardDescription>{selectedEditingTypeMeta?.description || 'Choose how Autoenhance should process the selected images.'}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-2">
+          <Label>Processing mode</Label>
+          <Select value={selectedEditingType} onValueChange={setSelectedEditingType}>
+            <SelectTrigger><SelectValue placeholder="Select Autoenhance mode" /></SelectTrigger>
+            <SelectContent>
+              {(editingTypes.length ? editingTypes : Object.entries(editingTypeLabels).map(([id, name]) => ({ id, name, description: '' }))).map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedEditingType === 'enhance' && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Enhance style</Label>
+              <Select value={enhanceType} onValueChange={setEnhanceType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warm">Warm</SelectItem>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                  <SelectItem value="modern">Modern</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-4"><Label>Vertical correction</Label><Switch checked={verticalCorrection} onCheckedChange={setVerticalCorrection} /></div>
+              <div className="flex items-center justify-between gap-4"><Label>Lens correction</Label><Switch checked={lensCorrection} onCheckedChange={setLensCorrection} /></div>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Window pull</Label>
+              <Select value={windowPullType} onValueChange={setWindowPullType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">None</SelectItem>
+                  <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
+                  <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {selectedEditingType === 'sky_replace' && (
+          <div className="space-y-2">
+            <Label>Cloud type</Label>
+            <Select value={cloudType} onValueChange={setCloudType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CLEAR">Clear</SelectItem>
+                <SelectItem value="LOW_CLOUD">Low cloud</SelectItem>
+                <SelectItem value="HIGH_CLOUD">High cloud</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {selectedEditingType === 'hdr_merge' && (
+          <div className="space-y-2">
+            <Label>Bracket count</Label>
+            <Input type="number" min={2} max={9} value={bracketCount} onChange={(event) => setBracketCount(Number(event.target.value) || 5)} />
+          </div>
+        )}
+
+        {selectedEditingType === 'window_pull' && (
+          <div className="space-y-2">
+            <Label>Window pull type</Label>
+            <Select value={windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType} onValueChange={setWindowPullType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
+                <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Notes</Label>
+          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional internal instructions for this Autoenhance batch..." />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderReview = () => (
+    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="space-y-5">
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('select-files')} className="px-0">
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Back to photos
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle>Review selection</CardTitle>
+            <CardDescription>{selectedShoot?.address}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">{selectedRawFiles.map(renderFileCard)}</div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="space-y-5">
+        {renderAutoenhanceOptions()}
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Shoot</span><span className="font-medium">#{selectedShoot?.id}</span></div>
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Selected images</span><span className="font-medium">{selectedFiles.size}</span></div>
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Mode</span><span className="font-medium">{editingTypeLabels[selectedEditingType] || selectedEditingType}</span></div>
+            <Button className="w-full bg-primary hover:bg-primary/90 text-white" onClick={submitAutoenhance} disabled={submitting || selectedFiles.size === 0}>
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Submit to Autoenhance
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
-          {/* Top-level tab navigation */}
-          <div className="flex items-center justify-between">
-            <PageHeader
-              badge="AI Studio"
-              title="AI Studio"
-              description="AI-powered photo editing and video generation"
-            />
-          </div>
-          <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
-            <button
-              onClick={() => setTopTab('image-editing')}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                topTab === 'image-editing'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}
-            >
-              Image Editing
-            </button>
-            <button
-              onClick={() => setTopTab('video-generation')}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                topTab === 'video-generation'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}
-            >
-              Video Generation
-            </button>
-            {(user?.role === 'admin' || user?.role === 'superadmin') && (
-              <button
-                onClick={() => setTopTab('settings')}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  topTab === 'settings'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-              >
-                Settings
-              </button>
-            )}
-          </div>
-
-          {/* Image Editing tab (existing functionality) */}
-          {topTab === 'image-editing' && (
-            <>
-              {viewMode === 'list' && renderListView()}
-              {viewMode === 'detail' && renderDetailView()}
-              {viewMode === 'edit' && renderEditView()}
-              {viewMode === 'upload' && renderUploadView()}
-              {viewMode === 'preferences' && renderPreferencesView()}
-            </>
-          )}
-
-          {/* Video Generation tab */}
-          {topTab === 'video-generation' && (
-            <VideoErrorBoundary fallbackTitle="Video generation encountered an error">
-              <VideoGenerationTab />
-            </VideoErrorBoundary>
-          )}
-
-          {/* Settings tab (admin only) */}
-          {topTab === 'settings' && (
-            <div className="space-y-8">
-              <VideoErrorBoundary fallbackTitle="Failed to load preset management">
-                <PresetManagement />
-              </VideoErrorBoundary>
+      <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
+        <PageHeader
+          title="Autoenhance Editing"
+          description="Submit property photos to Autoenhance, track processing, and review completed outputs."
+          action={
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => loadJobs()} disabled={loadingJobs}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
+                Refresh jobs
+              </Button>
+              <Button onClick={startNewEdit} className="bg-primary hover:bg-primary/90 text-white">
+                <Sparkles className="mr-2 h-4 w-4" />
+                New Edit
+              </Button>
             </div>
-          )}
+          }
+        />
 
-          {/* Edit Configuration Modal */}
-          <Dialog open={showEditConfigModal} onOpenChange={setShowEditConfigModal}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Configure AI Editing</DialogTitle>
-                <DialogDescription>
-                  {pendingShoot?.photo_count === 0 || pendingShoot?.photo_count === undefined
-                    ? 'This shoot has no photos yet. Enable auto-edit to automatically process photos when they are uploaded.'
-                    : 'Select editing options for this shoot'}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-6 py-4">
-                {/* Auto-edit option (only for shoots without photos and admin) */}
-                {(pendingShoot?.photo_count === 0 || pendingShoot?.photo_count === undefined) && isAdmin && (
-                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
-                    <Checkbox
-                      id="auto-edit"
-                      checked={autoEditEnabled}
-                      onCheckedChange={(checked) => setAutoEditEnabled(checked === true)}
-                    />
-                    <Label htmlFor="auto-edit" className="flex-1 cursor-pointer">
-                      <div className="font-medium">Enable Auto-Edit</div>
-                      <div className="text-sm text-muted-foreground">
-                        Automatically edit photos when uploaded using preset preferences
-                      </div>
-                    </Label>
-                  </div>
-                )}
+        {failedJobs > 0 && (
+          <Card className="border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+            <CardContent className="flex items-center gap-3 py-4">
+              <AlertCircle className="h-5 w-5" />
+              <span>{failedJobs} recent Autoenhance job(s) failed. Review the job list for details.</span>
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Editing Type Selection */}
-                <div className="space-y-2">
-                  <Label>Editing Type</Label>
-                  <Select
-                    value={selectedEditingType}
-                    onValueChange={setSelectedEditingType}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select editing type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {editingTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Style Selection */}
-                <div className="space-y-2">
-                  <Label>Enhancement Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      variant={selectedStyle === 'signature' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedStyle('signature')}
-                      className="flex flex-col items-center gap-1 h-auto py-3"
-                    >
-                      <Home className="h-5 w-5" />
-                      <span className="text-xs">Signature</span>
-                    </Button>
-                    <Button
-                      variant={selectedStyle === 'natural' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedStyle('natural')}
-                      className="flex flex-col items-center gap-1 h-auto py-3"
-                    >
-                      <Sun className="h-5 w-5" />
-                      <span className="text-xs">Natural</span>
-                    </Button>
-                    <Button
-                      variant={selectedStyle === 'twilight' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedStyle('twilight')}
-                      className="flex flex-col items-center gap-1 h-auto py-3"
-                    >
-                      <Moon className="h-5 w-5" />
-                      <span className="text-xs">Twilight</span>
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Options */}
-                <div className="space-y-3">
-                  <Label>Options</Label>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="auto-perspective" className="font-normal">Auto Perspective Correction</Label>
-                    <Switch
-                      id="auto-perspective"
-                      checked={autoPerspective}
-                      onCheckedChange={setAutoPerspective}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="sky-replacement" className="font-normal">Sky Replacement</Label>
-                    <Switch
-                      id="sky-replacement"
-                      checked={skyReplacement}
-                      onCheckedChange={setSkyReplacement}
-                    />
-                  </div>
-                </div>
-
-                {/* Additional Parameters */}
-                <div className="space-y-2">
-                  <Label>Additional Notes (Optional)</Label>
-                  <Textarea
-                    placeholder="Add any specific editing requirements..."
-                    className="min-h-[100px]"
-                    value={editConfigParams.notes || ''}
-                    onChange={(e) => setEditConfigParams({ ...editConfigParams, notes: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setShowEditConfigModal(false);
-                  setPendingShoot(null);
-                }}>
-                  Cancel
-                </Button>
-                <Button onClick={handleConfirmEditConfig} className="bg-primary hover:bg-primary/90 text-white">
-                  Continue
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+        {viewMode === 'overview' && renderOverview()}
+        {viewMode === 'select-shoot' && renderSelectShoot()}
+        {viewMode === 'select-files' && renderSelectFiles()}
+        {viewMode === 'review' && renderReview()}
+      </div>
     </DashboardLayout>
   );
 };

@@ -38,7 +38,7 @@ interface PendingReviewsCardProps {
   // Cancellation requests props
   cancellationShoots?: DashboardCancellationItem[];
   showCancellationTab?: boolean;
-  onApproveCancellation?: (shootId: number) => Promise<void>;
+  onApproveCancellation?: (shootId: number, decision?: 'charge_fee' | 'waive_fee') => Promise<void>;
   onRejectCancellation?: (shootId: number) => Promise<void>;
 }
 
@@ -134,7 +134,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const [dismissedClientRequestIds, setDismissedClientRequestIds] = useState<Set<string>>(new Set());
   const [dismissingClientRequestId, setDismissingClientRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
-  const [cancellationActionLoading, setCancellationActionLoading] = useState<number | null>(null);
+  const [cancellationActionLoading, setCancellationActionLoading] = useState<string | null>(null);
 
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
@@ -412,7 +412,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
                   {safeCancellationShoots.slice(0, 7).map((shoot) => {
-                    const isActioning = cancellationActionLoading === shoot.id;
+                    const chargeActionKey = `${shoot.id}:charge`;
+                    const waiveActionKey = `${shoot.id}:waive`;
+                    const rejectActionKey = `${shoot.id}:reject`;
+                    const isActioning = cancellationActionLoading?.startsWith(`${shoot.id}:`) ?? false;
                     return (
                       <div
                         key={shoot.id}
@@ -443,12 +446,26 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                             disabled={isActioning}
                             onClick={async () => {
                               if (!onApproveCancellation) return;
-                              setCancellationActionLoading(shoot.id);
-                              try { await onApproveCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
+                              setCancellationActionLoading(chargeActionKey);
+                              try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
                             }}
                           >
-                            {isActioning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
-                            Accept
+                            {cancellationActionLoading === chargeActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                            Charge $60
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] gap-1 px-2 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
+                            disabled={isActioning}
+                            onClick={async () => {
+                              if (!onApproveCancellation) return;
+                              setCancellationActionLoading(waiveActionKey);
+                              try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
+                            }}
+                          >
+                            {cancellationActionLoading === waiveActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                            Waive fee
                           </Button>
                           <Button
                             size="sm"
@@ -457,11 +474,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                             disabled={isActioning}
                             onClick={async () => {
                               if (!onRejectCancellation) return;
-                              setCancellationActionLoading(shoot.id);
+                              setCancellationActionLoading(rejectActionKey);
                               try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
                             }}
                           >
-                            {isActioning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
+                            {cancellationActionLoading === rejectActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
                             Reject
                           </Button>
                         </div>

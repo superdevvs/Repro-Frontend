@@ -320,7 +320,7 @@ export function ShootDetailsModalDialogs({
             <DialogTitle>Cancellation Fee Notice</DialogTitle>
             <DialogDescription>
               {isClientCancellationFeeNotice
-                ? 'A $60 cancellation fee may be applied if this scheduled shoot is cancelled.'
+                ? 'You are trying to cancel a scheduled shoot within 4 hours of the shoot time or outside the free cancellation period. A cancellation fee of $60 may be applied.'
                 : 'This shoot is scheduled within 3-4 hours. A cancellation fee of $60 may apply.'}
             </DialogDescription>
           </DialogHeader>
@@ -328,7 +328,7 @@ export function ShootDetailsModalDialogs({
             <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
               <p className="text-sm text-amber-800 dark:text-amber-200">
                 <strong>Notice:</strong> {isClientCancellationFeeNotice
-                  ? 'Your cancellation request will be sent to admin for approval. If approved, a $60 cancellation fee may replace the original service charges on the invoice.'
+                  ? 'Your cancellation request will be sent to admin or your sales representative for approval before the shoot is cancelled.'
                   : 'This shoot is scheduled within 3-4 hours. According to our policy, a cancellation fee of $60 may be charged.'}
               </p>
             </div>

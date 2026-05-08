@@ -47,7 +47,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
   const { toast } = useToast();
   const [shoots, setShoots] = useState<CancellationShoot[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const getToken = () => localStorage.getItem('authToken') || localStorage.getItem('token');
 
@@ -89,8 +89,8 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
     if (open) fetchPendingCancellations();
   }, [open, fetchPendingCancellations]);
 
-  const handleApprove = async (shootId: number) => {
-    setActionLoading(shootId);
+  const handleApprove = async (shootId: number, decision: 'charge_fee' | 'waive_fee') => {
+    setActionLoading(`${shootId}:${decision}`);
     try {
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve-cancellation`, {
         method: 'POST',
@@ -99,9 +99,18 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        body: JSON.stringify({
+          decision,
+          ...(decision === 'charge_fee' ? { cancellation_fee: 60 } : {}),
+        }),
       });
       if (res.ok) {
-        toast({ title: 'Cancellation approved', description: 'Shoot has been cancelled.' });
+        toast({
+          title: 'Cancellation approved',
+          description: decision === 'charge_fee'
+            ? 'Shoot has been cancelled and a $60 cancellation fee was applied.'
+            : 'Shoot has been cancelled with no cancellation fee.',
+        });
         setShoots(prev => prev.filter(s => s.id !== shootId));
         onActionComplete?.();
       } else {
@@ -116,7 +125,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
   };
 
   const handleReject = async (shootId: number) => {
-    setActionLoading(shootId);
+    setActionLoading(`${shootId}:reject`);
     try {
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/reject-cancellation`, {
         method: 'POST',
@@ -177,7 +186,10 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
           ) : (
             <div className="space-y-2 pb-2">
               {shoots.map((shoot) => {
-                const isActioning = actionLoading === shoot.id;
+                const chargeActionKey = `${shoot.id}:charge_fee`;
+                const waiveActionKey = `${shoot.id}:waive_fee`;
+                const rejectActionKey = `${shoot.id}:reject`;
+                const isActioning = actionLoading?.startsWith(`${shoot.id}:`) ?? false;
                 const dateStr = formatDate(shoot);
                 const normalizedStatus = String(shoot.status || '').toLowerCase();
                 const canApplyCancellationFee = ['scheduled', 'booked', 'on_hold'].includes(normalizedStatus);
@@ -221,7 +233,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                     )}
                     {canApplyCancellationFee && (
                       <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                        Approval will apply a $60 cancellation fee and waive service charges.
+                        Choose whether to apply or waive the $60 cancellation fee.
                       </p>
                     )}
 
@@ -232,10 +244,20 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         variant="outline"
                         className="h-7 text-xs gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
                         disabled={isActioning}
-                        onClick={() => handleApprove(shoot.id)}
+                        onClick={() => handleApprove(shoot.id, 'charge_fee')}
                       >
-                        {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
-                        {canApplyCancellationFee ? 'Accept + $60' : 'Accept'}
+                        {actionLoading === chargeActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
+                        Charge $60
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
+                        disabled={isActioning}
+                        onClick={() => handleApprove(shoot.id, 'waive_fee')}
+                      >
+                        {actionLoading === waiveActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
+                        Waive fee
                       </Button>
                       <Button
                         size="sm"
@@ -244,7 +266,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         disabled={isActioning}
                         onClick={() => handleReject(shoot.id)}
                       >
-                        {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" strokeWidth={2} />}
+                        {actionLoading === rejectActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" strokeWidth={2} />}
                         Reject
                       </Button>
                     </div>
