@@ -22,7 +22,10 @@ import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dash
 import type { ShootData } from "@/types/shoots";
 import type { useToast } from "@/hooks/use-toast";
 import { normalizeEmailHealth } from "@/utils/emailHealth";
-import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
+import {
+  CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS,
+  type ClientShootRecord,
+} from "@/utils/dashboardDerivedUtils";
 import { API_BASE_URL } from "@/config/env";
 import { usePermission } from "@/hooks/usePermission";
 import { useClientBilling } from "@/hooks/useClientBilling";
@@ -526,14 +529,13 @@ export const ClientDashboardView = ({
                 return balance > 1;
               });
 
-            const deliveredStatuses = ["delivered", "admin_verified", "ready", "ready_for_client", "completed", "finalized"];
             const dueNowShoots = allUnpaidShoots.filter(record => {
               const status = (record.data.workflowStatus || record.data.status || "").toLowerCase();
-              return deliveredStatuses.some(s => status.includes(s));
+              return CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS.some(s => status.includes(s));
             });
             const upcomingShoots = allUnpaidShoots.filter(record => {
               const status = (record.data.workflowStatus || record.data.status || "").toLowerCase();
-              return !deliveredStatuses.some(s => status.includes(s));
+              return !CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS.some(s => status.includes(s));
             });
 
             const isSelected = (record: ClientShootRecord) =>

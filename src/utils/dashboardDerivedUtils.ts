@@ -54,7 +54,6 @@ export const CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS = [
   "ready_for_client",
   "client_delivered",
   "admin_verified",
-  "ready",
   "workflow_completed",
 ];
 export const CANCELED_STATUS_KEYWORDS = ["canceled", "cancelled", "no_show"];
@@ -270,7 +269,7 @@ export const hasClientVisibleDeliveredService = (shoot: ShootData) =>
 export const isClientVisibleCompletedRecord = (record: ClientShootRecord) =>
   isClientVisibleCompletedSummary(record.summary) ||
   hasClientVisibleDeliveredService(record.data) ||
-  (matchesStatus(record.summary, DELIVERED_STATUS_KEYWORDS) &&
+  (matchesStatus(record.summary, CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS) &&
     record.summary.paymentStatus !== "paid");
 
 export const isCanceledSummary = (summary: DashboardShootSummary) =>
@@ -332,7 +331,7 @@ export const buildClientInvoiceSummary = (shoots: ShootData[]) => {
   };
 
   // Delivered statuses - these are "due now" if unpaid
-  const deliveredStatuses = ["delivered", "admin_verified", "ready", "ready_for_client", "completed", "finalized"];
+  const deliveredStatuses = ["delivered", "admin_verified", "ready_for_client", "client_delivered", "workflow_completed", "finalized"];
 
   shoots.forEach((shoot) => {
     const payment = shoot.payment;
