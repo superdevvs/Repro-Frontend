@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSelect } from "@/components/ui/time-select";
 import { format } from "date-fns";
-import { AlertTriangle, MapPin, User, Package, ChevronRight, Loader2, Search } from "lucide-react";
+import { AlertTriangle, MapPin, User, Package, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -155,6 +155,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     nextAvailableTimes: string[];
   }>>(new Map());
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  const suggestedTimesRailRef = React.useRef<HTMLDivElement | null>(null);
+  const [canScrollSuggestedTimesLeft, setCanScrollSuggestedTimesLeft] = useState(false);
+  const [canScrollSuggestedTimesRight, setCanScrollSuggestedTimesRight] = useState(false);
 
   const formatLocationLabel = (location?: {
     address?: string;
@@ -613,9 +616,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     return Array.from(byId.values());
   }, [photographers, photographersWithDistance]);
 
-  const buildTimeOptionsForRange = (intervalMinutes = 5) => {
+  const buildTimeOptionsForRange = (intervalMinutes = 5, startHour = 8, endHour = 20) => {
     const options: string[] = [];
-    for (let minutes = 8 * 60; minutes <= 19 * 60; minutes += intervalMinutes) {
+    for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += intervalMinutes) {
       options.push(to12Hour(minutesToTime(minutes)));
     }
     return options;
@@ -652,7 +655,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   const isPhotographerTimeDisabled = (photographerId: string | number | undefined, value: string) => {
     const minutes = timeToMinutes(value);
-    if (minutes < 8 * 60 || minutes > 19 * 60) return true;
+    if (minutes < 8 * 60 || minutes > 20 * 60) return true;
 
     const photographerItem = getPhotographerScheduleData(photographerId);
     if (!photographerItem) return false;
@@ -673,18 +676,79 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   );
 
   const suggestedTimes = useMemo(() => {
-    const baseTimes = availableTimesForSelectedPhotographer.filter((option) => {
+    if (!date) return [];
+    return buildTimeOptionsForRange(15).filter((option) => {
       const minutes = timeToMinutes(option);
-      return minutes >= 8 * 60 && minutes <= 19 * 60;
+      return minutes >= 8 * 60 && minutes <= 20 * 60 && !isPhotographerTimeDisabled(photographer, option);
     });
+  }, [date, photographer, photographerOptions]);
 
-    return baseTimes.filter((_, index) => index % 6 === 0);
-  }, [availableTimesForSelectedPhotographer]);
+  const updateSuggestedTimesScrollState = React.useCallback(() => {
+    const element = suggestedTimesRailRef.current;
+    if (!element) {
+      setCanScrollSuggestedTimesLeft(false);
+      setCanScrollSuggestedTimesRight(false);
+      return;
+    }
+    const maxScrollLeft = element.scrollWidth - element.clientWidth;
+    setCanScrollSuggestedTimesLeft(element.scrollLeft > 2);
+    setCanScrollSuggestedTimesRight(element.scrollLeft < maxScrollLeft - 2);
+  }, []);
 
-  const visibleSuggestedTimes = suggestedTimes.slice(0, 12);
+  const handleSuggestedTimesWheel = React.useCallback((event: WheelEvent) => {
+    const element = suggestedTimesRailRef.current;
+    if (!element) return;
+    if (element.scrollWidth <= element.clientWidth) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const scrollDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    element.scrollLeft += scrollDelta;
+    window.requestAnimationFrame(updateSuggestedTimesScrollState);
+  }, [updateSuggestedTimesScrollState]);
 
-  // All times from 8am to 8pm for horizontal scrollable display
-  const allTimeOptions = useMemo(() => buildTimeOptionsForRange(5), []);
+  const scrollSuggestedTimesBy = React.useCallback((direction: 'left' | 'right') => {
+    const element = suggestedTimesRailRef.current;
+    if (!element) return;
+    element.scrollBy({
+      left: direction === 'left' ? -Math.max(240, element.clientWidth * 0.8) : Math.max(240, element.clientWidth * 0.8),
+      behavior: 'smooth',
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!date || suggestedTimes.length === 0) return;
+    if (time && !isPhotographerTimeDisabled(photographer, time)) return;
+
+    const firstAvailableTime = suggestedTimes[0];
+    setTime(firstAvailableTime);
+    setTempTime(firstAvailableTime);
+    setFormErrors((previousErrors) => {
+      if (!previousErrors.time) return previousErrors;
+      const { time: _, ...rest } = previousErrors;
+      return rest;
+    });
+  }, [date, photographer, setFormErrors, setTime, suggestedTimes, time]);
+
+  useEffect(() => {
+    updateSuggestedTimesScrollState();
+  }, [suggestedTimes, updateSuggestedTimesScrollState]);
+
+  useEffect(() => {
+    const element = suggestedTimesRailRef.current;
+    if (!element) return;
+    element.addEventListener('wheel', handleSuggestedTimesWheel, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', handleSuggestedTimesWheel);
+    };
+  }, [handleSuggestedTimesWheel, suggestedTimes]);
+
+  useEffect(() => {
+    const element = suggestedTimesRailRef.current;
+    if (!element) return;
+    const selectedButton = element.querySelector<HTMLButtonElement>(`[data-suggested-time="${time}"]`);
+    selectedButton?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    window.requestAnimationFrame(updateSuggestedTimesScrollState);
+  }, [suggestedTimes, time, updateSuggestedTimesScrollState]);
 
   const buildConflictAwareServiceTimeOptions = (photographerId: string | number | undefined, ensure?: string | null) =>
     buildServiceTimeOptions(ensure).map((option) => ({
@@ -1720,34 +1784,83 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Select time (8am - 8pm)
+              Suggested times
             </p>
-            <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-muted/60 dark:scrollbar-track-muted/30">
-              <div className="flex gap-2 min-w-max">
-                {allTimeOptions.map((slot) => {
-                  const disabled = !date || isPhotographerTimeDisabled(photographer, slot);
-                  return (
-                    <Button
-                      key={slot}
-                      type="button"
-                      variant={time === slot ? "default" : "outline"}
-                      disabled={disabled}
-                      onClick={() => handleQuickTimeSelect(slot)}
-                      className={cn(
-                        "h-10 px-3 text-sm font-semibold whitespace-nowrap",
-                        time === slot
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : disabled
-                            ? "bg-gray-100 text-slate-400 dark:bg-card/40 dark:text-slate-600"
-                            : "bg-gray-50 dark:bg-card/60 border-gray-200 dark:border-muted/40 text-slate-900 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-card/70"
-                      )}
-                    >
-                      {slot}
-                    </Button>
-                  );
-                })}
+            {suggestedTimes.length > 0 ? (
+              <div className="relative overflow-hidden bg-white dark:bg-card/40">
+                <div
+                  ref={suggestedTimesRailRef}
+                  className="flex gap-2 overflow-x-auto overflow-y-hidden py-1 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  onScroll={updateSuggestedTimesScrollState}
+                >
+                  {suggestedTimes.map((slot) => {
+                    const disabled = isPhotographerTimeDisabled(photographer, slot);
+                    return (
+                      <Button
+                        key={slot}
+                        type="button"
+                        variant={time === slot ? "default" : "outline"}
+                        disabled={disabled}
+                        data-suggested-time={slot}
+                        onClick={() => handleQuickTimeSelect(slot)}
+                        className={cn(
+                          "h-11 min-w-[104px] shrink-0 rounded-xl border px-4 text-sm font-semibold shadow-sm transition-all",
+                          time === slot
+                            ? "border-blue-500 bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-700"
+                            : "border-gray-200 bg-gray-50 text-slate-900 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-muted/40 dark:bg-card/60 dark:text-slate-100 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10 dark:hover:text-blue-200"
+                        )}
+                      >
+                        {slot}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-white from-0% via-white via-70% to-transparent dark:from-[#090e13] dark:from-0% dark:via-[#090e13] dark:via-70% dark:to-transparent",
+                    !canScrollSuggestedTimesLeft && "opacity-0"
+                  )}
+                />
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-white from-0% via-white via-70% to-transparent dark:from-[#090e13] dark:from-0% dark:via-[#090e13] dark:via-70% dark:to-transparent",
+                    !canScrollSuggestedTimesRight && "opacity-0"
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Scroll suggested times left"
+                  disabled={!canScrollSuggestedTimesLeft}
+                  onClick={() => scrollSuggestedTimesBy('left')}
+                  className={cn(
+                    "absolute left-0 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white dark:border-slate-700 dark:bg-[#090e13] dark:text-slate-100 dark:hover:bg-[#090e13]",
+                    !canScrollSuggestedTimesLeft && "pointer-events-none opacity-0"
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Scroll suggested times right"
+                  disabled={!canScrollSuggestedTimesRight}
+                  onClick={() => scrollSuggestedTimesBy('right')}
+                  className={cn(
+                    "absolute right-0 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white dark:border-slate-700 dark:bg-[#090e13] dark:text-slate-100 dark:hover:bg-[#090e13]",
+                    !canScrollSuggestedTimesRight && "pointer-events-none opacity-0"
+                  )}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
+                No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.
+              </div>
+            )}
           </div>
 
           <Button
@@ -1781,7 +1894,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     value={tempTime || time}
                     onChange={onTimeChange}
                     startHour={8}
-                    endHour={19}
+                    endHour={20}
                     interval={5}
                     availableTimes={availableTimesForSelectedPhotographer}
                     placeholder="Select a time"
@@ -1818,7 +1931,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     value={tempTime || time}
                     onChange={onTimeChange}
                     startHour={8}
-                    endHour={19}
+                    endHour={20}
                     interval={5}
                     availableTimes={availableTimesForSelectedPhotographer}
                     placeholder="Select a time"

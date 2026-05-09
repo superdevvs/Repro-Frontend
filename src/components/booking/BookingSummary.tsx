@@ -151,12 +151,12 @@ export function BookingSummary({
                 </div>
               )}
               {hasWeather && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <CloudSun className="h-3.5 w-3.5 text-blue-400" />
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <CloudSun className="h-4 w-4 text-blue-500" />
                   <span className="font-medium text-slate-800 dark:text-slate-200">
                     {weather?.temperature !== undefined && weather?.temperature !== null ? formatTemperature(weather.temperature) : '--°'}
                   </span>
-                  {weather?.condition && <span className="truncate">{weather.condition}</span>}
+                  {weather?.condition && <span className="truncate text-slate-900 dark:text-white">{weather.condition}</span>}
                 </div>
               )}
             </div>

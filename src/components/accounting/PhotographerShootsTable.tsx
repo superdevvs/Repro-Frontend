@@ -213,10 +213,10 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
         </div>
       )}
 
-      {filteredShoots.length > ITEMS_PER_PAGE && (
-        <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      {filteredShoots.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="text-muted-foreground">
-            Showing {rangeStart}-{rangeEnd} of {filteredShoots.length} shoots
+            Showing {rangeStart}-{rangeEnd} of {filteredShoots.length} shoot{filteredShoots.length === 1 ? '' : 's'} · Page {safePage} of {totalPages}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -225,6 +225,7 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={safePage === 1}
             >
+              <ChevronLeft className="mr-1 h-3.5 w-3.5" />
               Previous
             </Button>
             <Button
@@ -234,6 +235,7 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
               disabled={safePage >= totalPages}
             >
               Next
+              <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -262,85 +264,87 @@ function ShootEarningsGridCard({
   const scheduledDate = getShootScheduledDate(shoot);
   const displayDate = completedDate || scheduledDate;
 
+  const primaryService = shoot.services?.[0];
+
   return (
-    <div className="overflow-hidden rounded-[28px] border border-border/70 bg-background/60 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg">
-      <div className="relative h-44 overflow-hidden border-b border-border/60 bg-muted/40">
-        <img src={heroImage} alt={shoot.location.address} className="h-full w-full object-cover" loading="lazy" />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent p-4">
-          <div className="flex items-center justify-between gap-3">
-            <Badge className={cn('border', getStatusTone(status))}>
-              {status}
-            </Badge>
-            <Badge className={cn('border', getPayoutTone(payoutStatus))}>
-              {getPayoutLabel(payoutStatus)}
-            </Badge>
-          </div>
+    <button
+      type="button"
+      onClick={() => onViewShoot?.(shoot)}
+      disabled={!onViewShoot}
+      className="group relative flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg disabled:cursor-default disabled:opacity-100 disabled:hover:translate-y-0"
+      aria-label={`Open ${shoot.location.address} shoot overview`}
+    >
+      {/* Hero image (16:10 keeps the card compact while still showing the property well) */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+        <img
+          src={heroImage}
+          alt={shoot.location.address}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          loading="lazy"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background/30" />
+
+        {/* Top row: status pill (left) + diagonal-arrow icon button (right) */}
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/85 px-2.5 py-0.5 text-[11px] font-medium capitalize text-foreground backdrop-blur-sm">
+            <CalendarIcon className="h-3 w-3" />
+            {status}
+          </span>
+          <span
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-background/85 text-foreground backdrop-blur-sm transition-colors',
+              onViewShoot && 'group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground',
+            )}
+            aria-hidden="true"
+          >
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
-        <div>
-          <p className="truncate text-lg font-semibold">{shoot.location.address}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {shoot.client?.name || 'Unknown client'}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-primary/20 bg-primary/10 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-primary/80">Photographer Pay</p>
-            <p className="mt-2 text-xl font-semibold">{formatCurrency(pay)}</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              {payoutStatus === 'paid' ? 'Payout Date' : 'Shoot Date'}
-            </p>
-            <p className="mt-2 text-sm font-semibold">
-              {formatDateLabel(payoutStatus === 'paid' ? payoutDate : displayDate)}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              {completedDate ? `Completed ${formatDateLabel(completedDate)}` : `Scheduled ${formatDateLabel(scheduledDate)}`}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              {shoot.location.city}, {shoot.location.state}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {shoot.services.slice(0, 3).map((service) => (
-              <Badge key={`${shoot.id}-${service}`} variant="outline" className="max-w-full truncate rounded-full">
-                {service}
-              </Badge>
-            ))}
-            {shoot.services.length > 3 && (
-              <Badge variant="outline" className="rounded-full">
-                +{shoot.services.length - 3} more
-              </Badge>
+      {/* Body */}
+      <div className="flex flex-col gap-2 p-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight">{shoot.location.address}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            {displayDate && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {formatDateLabel(displayDate)}
+              </span>
+            )}
+            {displayDate && shoot.location.city && (
+              <span className="text-border" aria-hidden="true">·</span>
+            )}
+            {shoot.location.city && (
+              <span className="inline-flex items-center gap-1 truncate">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{shoot.location.city}{shoot.location.state ? `, ${shoot.location.state}` : ''}</span>
+              </span>
             )}
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          onClick={() => onViewShoot?.(shoot)}
-          disabled={!onViewShoot}
-          className="w-full justify-between rounded-2xl"
-        >
-          <span className="inline-flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            View Shoot
-          </span>
-          <ArrowUpRight className="h-4 w-4" />
-        </Button>
+        <div className="border-t border-border/60" />
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {primaryService ? (
+            <Badge variant="outline" className="max-w-[55%] truncate rounded-md px-1.5 py-0 text-[11px] font-normal text-foreground">
+              {primaryService}
+              {shoot.services && shoot.services.length > 1 && (
+                <span className="ml-1 text-muted-foreground">+{shoot.services.length - 1}</span>
+              )}
+            </Badge>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[11px] text-muted-foreground">My Pay</span>
+            <span className="text-base font-semibold text-primary tabular-nums">{formatCurrency(pay)}</span>
+          </div>
+        </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -384,8 +388,8 @@ function ShootEarningsListRow({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-left sm:min-w-[180px] sm:text-right">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-primary/80">Photographer Pay</p>
+        <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-left sm:min-w-[160px] sm:text-right">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-primary/80">My Pay</p>
           <p className="mt-1 text-xl font-semibold">{formatCurrency(pay)}</p>
         </div>
         <Button

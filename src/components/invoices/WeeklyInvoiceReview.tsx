@@ -34,9 +34,14 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Download,
   DollarSign,
   ReceiptText,
+  Camera,
+  Info,
+  Eye,
 } from 'lucide-react';
 import {
   WeeklyInvoice,
@@ -84,7 +89,8 @@ const approvalStatusConfig: Record<string, { label: string; className: string; i
   },
 };
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 4;
+const FETCH_PAGE_SIZE = 100; // Pull a large batch so aggregate stats reflect all invoices, then paginate the list client-side.
 
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -94,6 +100,47 @@ const formatCurrency = (amount: number | string) => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+/**
+ * Format the billing period range as "Week <Sun start> – <Sat end>, <year>".
+ * Backend invoices for client/photographer often store billing_period_start
+ * and billing_period_end as the same date (the issued/closed date). When that
+ * happens we still want to show the user the actual Sun→Sat week the invoice
+ * covers, so we derive the surrounding week from the available date.
+ */
+const formatBillingPeriod = (start: string, end: string): string => {
+  if (!start && !end) return 'N/A';
+
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+
+  const sameDay =
+    startDate && endDate &&
+    Math.abs(endDate.getTime() - startDate.getTime()) < 1000 * 60 * 60 * 24;
+
+  // When start and end collapse to the same date, derive the Sun→Sat week
+  // window that contains it so the user sees a real range (e.g. "Week May 17 – May 23, 2026").
+  let weekStart: Date | null = startDate;
+  let weekEnd: Date | null = endDate;
+  if (sameDay && startDate) {
+    const dayOfWeek = startDate.getDay(); // 0 = Sun … 6 = Sat
+    weekStart = new Date(startDate);
+    weekStart.setDate(startDate.getDate() - dayOfWeek);
+    weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+  }
+
+  if (!weekStart) return formatDate(end);
+  if (!weekEnd) return formatDate(start);
+
+  // Render as "May 17 – May 23, 2026" when the year matches, else full dates.
+  if (weekStart.getFullYear() === weekEnd.getFullYear()) {
+    const startShort = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${startShort} – ${formatDate(weekEnd.toISOString())}`;
+  }
+
+  return `${formatDate(weekStart.toISOString())} – ${formatDate(weekEnd.toISOString())}`;
 };
 
 export const WeeklyInvoiceReview: React.FC = () => {
@@ -214,6 +261,16 @@ export const WeeklyInvoiceReview: React.FC = () => {
         return getPhotographerPayForShoot(shoot, user);
       }
 
+      // Distribute the shoot's photographer pay equally across its charges so
+      // line totals reflect photographer payout (and sum to the shoot's pay)
+      // rather than the client-billed line amount.
+      if (sameShootCharges.length > 1) {
+        const shootPay = getPhotographerPayForShoot(shoot, user);
+        if (shootPay > 0) {
+          return Number((shootPay / sameShootCharges.length).toFixed(2));
+        }
+      }
+
       return Number(rawAmount || 0);
     },
     [invoiceRole, shootLookup, user],
@@ -223,18 +280,19 @@ export const WeeklyInvoiceReview: React.FC = () => {
     try {
       setLoading(true);
       const fetchFn = invoiceRole === 'photographer' ? fetchPhotographerInvoices : fetchSalesRepInvoices;
-      const response = await fetchFn({ page: currentPage, per_page: ITEMS_PER_PAGE });
+      // Fetch a large batch so the new design's aggregate stats and the left
+      // list both have the full dataset to work with. The list itself is
+      // paginated client-side via {currentPage}.
+      const response = await fetchFn({ page: 1, per_page: FETCH_PAGE_SIZE });
       setInvoices(response.data || []);
-      setCurrentPage(response.current_page || 1);
-      setLastPage(response.last_page || 1);
-      setTotalInvoices(response.total || 0);
+      setTotalInvoices(response.total || (response.data || []).length);
     } catch (error) {
       console.error('Failed to load weekly invoices:', error);
       toast({ title: 'Failed to load invoices', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [currentPage, invoiceRole, toast]);
+  }, [invoiceRole, toast]);
 
   useEffect(() => {
     loadInvoices();
@@ -243,8 +301,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const canModify = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status) && invoice.status === 'draft';
 
+  // Accept (submit-for-approval) requires the invoice be a draft per the backend
+  // PhotographerInvoiceController::submitForApproval / Invoice::canBeModifiedByPhotographer.
+  // Locking canReview to the same gate prevents 422 "Invoice cannot be submitted
+  // for approval in its current state" when the user clicks Accept on a non-draft.
   const canReview = (invoice: WeeklyInvoice) =>
-    ['pending', 'rejected'].includes(invoice.approval_status);
+    ['pending', 'rejected'].includes(invoice.approval_status) && invoice.status === 'draft';
 
   const handleRequestModification = async () => {
     if (!selectedInvoice) return;
@@ -416,18 +478,115 @@ export const WeeklyInvoiceReview: React.FC = () => {
     );
   }
 
+  // Compute the photographer's payout for an invoice. Charges may not always
+  // map cleanly to a single service (mismatched description / multiple charges
+  // per shoot), so we compute the payout at the SHOOT level: for each unique
+  // shoot referenced by a charge item we add the photographer's pay for that
+  // shoot once. Charge items that have no shoot_id fall back to their raw
+  // amount so manual / off-shoot lines are still counted.
+  const computeInvoicePhotographerPay = (invoice: WeeklyInvoice): number => {
+    if (invoiceRole !== 'photographer') {
+      return (invoice.items || [])
+        .filter((i) => i.type === 'charge')
+        .reduce((sum, item) => sum + getChargeDisplayAmount(invoice, item), 0);
+    }
+
+    const charges = (invoice.items || []).filter((i) => i.type === 'charge');
+    const seenShootIds = new Set<string>();
+    let payout = 0;
+    charges.forEach((item) => {
+      if (item.shoot_id != null) {
+        const key = String(item.shoot_id);
+        if (seenShootIds.has(key)) return;
+        seenShootIds.add(key);
+        const shoot = shootLookup.get(key);
+        if (shoot) {
+          payout += getPhotographerPayForShoot(shoot, user);
+          return;
+        }
+      }
+      // Fallback: no shoot mapping → use the raw line amount.
+      payout += parseFloat(String(item.total_amount || 0));
+    });
+    return payout;
+  };
+
+  // -------- Aggregate stats across all loaded invoices --------
+  const aggregateStats = invoices.reduce(
+    (acc, invoice) => {
+      const invoiceCharges = (invoice.items || []).filter((i) => i.type === 'charge');
+      const invoiceExpenses = (invoice.items || []).filter((i) => i.type === 'expense');
+      const chargesTotal = computeInvoicePhotographerPay(invoice);
+      const expensesTotal = invoiceExpenses.reduce(
+        (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
+        0,
+      );
+      acc.totalAmount += chargesTotal + expensesTotal;
+      acc.totalShoots += invoiceCharges.length;
+      acc.totalExpensesAmount += expensesTotal;
+      if (invoice.approval_status === 'pending') {
+        acc.pendingReviewCount += 1;
+      }
+      return acc;
+    },
+    { totalAmount: 0, totalShoots: 0, totalExpensesAmount: 0, pendingReviewCount: 0 },
+  );
+
+  // Client-side pagination of the left list.
+  const clientLastPage = Math.max(1, Math.ceil(invoices.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, clientLastPage);
+  const pagedInvoices = invoices.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
+  );
+
+  // Auto-select first invoice when none is selected (or selection no longer present).
+  if (!selectedInvoice || !invoices.find((inv) => inv.id === selectedInvoice.id)) {
+    if (invoices.length > 0) {
+      // Avoid setting state during render: defer.
+      Promise.resolve().then(() => setSelectedInvoice(invoices[0]));
+    }
+  }
+
+  // Detail computations for the right pane.
+  const detailInvoice = selectedInvoice && invoices.find((i) => i.id === selectedInvoice.id)
+    ? selectedInvoice
+    : invoices[0] ?? null;
+  const detailCharges = detailInvoice
+    ? (detailInvoice.items || []).filter((i) => i.type === 'charge')
+    : [];
+  const detailExpenses = detailInvoice
+    ? (detailInvoice.items || []).filter((i) => i.type === 'expense')
+    : [];
+  const detailShootPay = detailInvoice ? computeInvoicePhotographerPay(detailInvoice) : 0;
+  const detailExpensesTotal = detailExpenses.reduce(
+    (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
+    0,
+  );
+  const detailTotal = detailShootPay + detailExpensesTotal;
+  const detailStatusCfg = detailInvoice
+    ? approvalStatusConfig[detailInvoice.approval_status] || approvalStatusConfig.pending
+    : null;
+  const shootPayPct = detailTotal > 0 ? Math.round((detailShootPay / detailTotal) * 100) : 0;
+  const expensePct = detailTotal > 0 ? Math.round((detailExpensesTotal / detailTotal) * 100) : 0;
+
   return (
+    // Outer wrapper for the redesigned Weekly Invoices section.
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">{reviewCopy.sectionTitle}</h2>
-          <p className="text-sm text-muted-foreground">
-            {reviewCopy.sectionDescription}
-          </p>
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold">{reviewCopy.sectionTitle}</h2>
+            <p className="text-sm text-muted-foreground">{reviewCopy.sectionDescription}.</p>
+          </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="self-start">
               <Download className="mr-2 h-4 w-4" />
               Export Report
             </Button>
@@ -440,274 +599,383 @@ export const WeeklyInvoiceReview: React.FC = () => {
         </DropdownMenu>
       </div>
 
-      {invoices.map((invoice) => {
-        const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
-        const charges = (invoice.items || []).filter((i) => i.type === 'charge');
-        const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
-        const totalCharges = charges.reduce((sum, item) => sum + getChargeDisplayAmount(invoice, item), 0);
-        const totalExpenses = expenses.reduce((s, i) => s + parseFloat(String(i.total_amount || 0)), 0);
-        const invoiceDisplayTotal = totalCharges + totalExpenses;
-        const isExpanded = expandedInvoiceId === invoice.id;
-        const reviewActionLabel = invoice.approval_status === 'pending' ? 'Review' : 'Review Response';
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/60 bg-card/50 p-4 sm:grid-cols-3 lg:grid-cols-5">
+        {[
+          {
+            icon: <FileText className="h-5 w-5" />,
+            value: invoices.length.toString(),
+            label: 'Invoices',
+            iconBg: 'bg-blue-500/10 text-blue-500',
+          },
+          {
+            icon: <DollarSign className="h-5 w-5" />,
+            value: formatCurrency(aggregateStats.totalAmount),
+            label: 'Total Invoice Amount',
+            iconBg: 'bg-emerald-500/10 text-emerald-500',
+          },
+          {
+            icon: <Camera className="h-5 w-5" />,
+            value: aggregateStats.totalShoots.toString(),
+            label: 'Shoots',
+            iconBg: 'bg-violet-500/10 text-violet-500',
+          },
+          {
+            icon: <ReceiptText className="h-5 w-5" />,
+            value: formatCurrency(aggregateStats.totalExpensesAmount),
+            label: 'Expenses',
+            iconBg: 'bg-teal-500/10 text-teal-500',
+          },
+          {
+            icon: <Clock className="h-5 w-5" />,
+            value: aggregateStats.pendingReviewCount.toString(),
+            label: 'Pending Review',
+            iconBg: 'bg-amber-500/10 text-amber-500',
+          },
+        ].map((stat) => (
+          <div key={stat.label} className="flex items-center gap-3">
+            <div className={cn('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg', stat.iconBg)}>
+              {stat.icon}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold">{stat.value}</p>
+              <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-        return (
-          <Card key={invoice.id} className="overflow-hidden rounded-2xl border border-border/70 bg-card/80">
-            <CardHeader className="flex flex-col gap-4 border-b border-border/60 px-4 py-4 sm:px-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      {/* Two-column layout: invoice list + detail */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* LEFT: invoice list */}
+        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/50 p-4 lg:col-span-1">
+          <div className="flex-1 min-h-0 space-y-2 overflow-y-auto">
+            {pagedInvoices.map((invoice) => {
+              const isActive = detailInvoice?.id === invoice.id;
+              const charges = (invoice.items || []).filter((i) => i.type === 'charge');
+              const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
+              const chargesTotal = computeInvoicePhotographerPay(invoice);
+              const expensesTotal = expenses.reduce(
+                (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
+                0,
+              );
+              const itemTotal = chargesTotal + expensesTotal;
+              const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
+              const statusDot = invoice.approval_status === 'pending'
+                ? 'bg-amber-500'
+                : invoice.approval_status === 'rejected'
+                  ? 'bg-destructive'
+                  : 'bg-emerald-500';
+              const subLabel = charges.length === 0 && expenses.length === 0
+                ? 'No payout'
+                : `${charges.length} shoot${charges.length === 1 ? '' : 's'}`;
+
+              return (
                 <button
                   type="button"
-                  onClick={() => setExpandedInvoiceId(isExpanded ? null : invoice.id)}
-                  className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
+                  key={invoice.id}
+                  onClick={() => setSelectedInvoice(invoice)}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
+                    isActive
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border/60 hover:border-border hover:bg-muted/40',
+                  )}
                 >
-                  <div className="flex min-w-0 flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
-                      </CardTitle>
-                      <Badge variant="outline" className={cn('flex items-center gap-1 font-medium', statusCfg.className)}>
-                        {statusCfg.icon}
-                        {statusCfg.label}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {reviewCopy.cardDescription}
-                    </p>
+                  <div className={cn(
+                    'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
+                    isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                  )}>
+                    <Calendar className="h-4 w-4" />
                   </div>
-
-                  <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2">
-                    <div className="text-right">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-primary/80">{reviewCopy.totalLabel}</p>
-                      <p className="mt-1 text-xl font-semibold">{formatCurrency(invoiceDisplayTotal)}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', statusDot)} />
+                      <span className="truncate">{statusCfg.label} · {subLabel}</span>
                     </div>
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-1">
+                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(itemTotal)}</p>
+                    <ChevronRight className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-muted-foreground')} />
                   </div>
                 </button>
+              );
+            })}
+          </div>
 
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  {canReview(invoice) ? (
-                    <Button size="sm" onClick={() => openReviewDialog(invoice)}>
-                      {reviewActionLabel}
-                    </Button>
-                  ) : null}
+          {/* Left-pane pagination */}
+          <div className="flex flex-col gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing {pagedInvoices.length} of {invoices.length} invoice{invoices.length === 1 ? '' : 's'}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 rounded-md p-0"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={safePage === 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              {Array.from({ length: clientLastPage }).map((_, idx) => {
+                const pageNum = idx + 1;
+                return (
                   <Button
-                    variant="outline"
+                    key={pageNum}
+                    variant={pageNum === safePage ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setExpandedInvoiceId(isExpanded ? null : invoice.id)}
+                    className="h-7 w-7 rounded-md p-0 text-xs"
+                    onClick={() => setCurrentPage(pageNum)}
                   >
-                    {isExpanded ? 'Hide Details' : 'View Details'}
+                    {pageNum}
                   </Button>
-                </div>
-              </div>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 rounded-md p-0"
+                onClick={() => setCurrentPage((page) => Math.min(clientLastPage, page + 1))}
+                disabled={safePage >= clientLastPage}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.chargeLabel}</p>
-                  <p className="mt-1.5 text-base font-semibold">{formatCurrency(totalCharges)}</p>
+        {/* RIGHT: Selected invoice detail */}
+        {detailInvoice && detailStatusCfg ? (
+          <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card/50 p-4 lg:col-span-2">
+            {/* Title + actions */}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold">
+                    {formatBillingPeriod(detailInvoice.billing_period_start, detailInvoice.billing_period_end)}
+                  </h3>
+                  <Badge variant="outline" className={cn('flex items-center gap-1 font-medium', detailStatusCfg.className)}>
+                    {detailStatusCfg.icon}
+                    {detailStatusCfg.label}
+                  </Badge>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.expenseLabel}</p>
-                  <p className="mt-1.5 text-base font-semibold">{formatCurrency(totalExpenses)}</p>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.chargeCountLabel}</p>
-                  <p className="mt-1.5 text-base font-semibold">{charges.length}</p>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.expenseCountLabel}</p>
-                  <p className="mt-1.5 text-base font-semibold">{expenses.length}</p>
-                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{reviewCopy.cardDescription}</p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {canReview(detailInvoice) && (
+                  <Button size="sm" onClick={() => openReviewDialog(detailInvoice)}>
+                    {detailInvoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response'}
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={expandedInvoiceId === detailInvoice.id ? 'default' : 'outline'}
+                  onClick={() => setExpandedInvoiceId(expandedInvoiceId === detailInvoice.id ? null : detailInvoice.id)}
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5" />
+                  {expandedInvoiceId === detailInvoice.id ? 'Back to Summary' : 'View Details'}
+                </Button>
+              </div>
+            </div>
 
-              {invoice.rejection_reason && invoice.approval_status === 'rejected' ? (
-                <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    Modification Request
+            {/* Summary view (shown by default; hidden when View Details is active) */}
+            {expandedInvoiceId !== detailInvoice.id && (
+            <>
+            {/* 4 stat tiles */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[
+                {
+                  icon: <DollarSign className="h-5 w-5" />,
+                  iconBg: 'bg-blue-500/10 text-blue-500',
+                  label: 'Invoice Total',
+                  value: formatCurrency(detailTotal),
+                },
+                {
+                  icon: <Camera className="h-5 w-5" />,
+                  iconBg: 'bg-emerald-500/10 text-emerald-500',
+                  label: reviewCopy.chargeLabel,
+                  value: formatCurrency(detailShootPay),
+                },
+                {
+                  icon: <ReceiptText className="h-5 w-5" />,
+                  iconBg: 'bg-violet-500/10 text-violet-500',
+                  label: reviewCopy.expenseLabel,
+                  value: formatCurrency(detailExpensesTotal),
+                  subtitle: `${detailExpenses.length} expense item${detailExpenses.length === 1 ? '' : 's'}`,
+                },
+                {
+                  icon: <Camera className="h-5 w-5" />,
+                  iconBg: 'bg-teal-500/10 text-teal-500',
+                  label: reviewCopy.chargeCountLabel,
+                  value: detailCharges.length.toString(),
+                },
+              ].map((tile) => (
+                <div key={tile.label} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                  <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', tile.iconBg)}>
+                    {tile.icon}
                   </div>
-                  <p className="mt-2 text-sm text-foreground">{invoice.rejection_reason}</p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">{tile.label}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums">{tile.value}</p>
+                  {'subtitle' in tile && tile.subtitle && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{tile.subtitle}</p>
+                  )}
                 </div>
-              ) : null}
-            </CardHeader>
+              ))}
+            </div>
 
-            {isExpanded && (
-              <CardContent className="flex flex-col gap-5 p-5">
-                <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr]">
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+            {/* Payout Breakdown */}
+            <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+              <h4 className="text-sm font-semibold">Payout Breakdown</h4>
+              <div className="mt-3 space-y-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-blue-500" />
+                    <span>{reviewCopy.chargeLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold tabular-nums">{formatCurrency(detailShootPay)}</span>
+                    <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-500">
+                      {shootPayPct}%
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span>{reviewCopy.expenseLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold tabular-nums">{formatCurrency(detailExpensesTotal)}</span>
+                    <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-500">
+                      {expensePct}%
+                    </Badge>
+                  </div>
+                </div>
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between gap-3 text-base font-semibold">
+                  <span>Total Invoice Amount</span>
+                  <span className="tabular-nums">{formatCurrency(detailTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Status banner */}
+            <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                <Info className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium">
+                  {detailInvoice.approval_status === 'pending' && 'This invoice is currently pending review.'}
+                  {detailInvoice.approval_status === 'rejected' && 'This invoice needs your attention — modification was requested.'}
+                  {detailInvoice.approval_status === 'pending_approval' && 'Accepted — awaiting accounting approval.'}
+                  {(detailInvoice.approval_status === 'approved' || detailInvoice.approval_status === 'accounts_approved')
+                    && 'Approved — payment is being processed.'}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {detailInvoice.approval_status === 'pending'
+                    ? 'You can review the line items, verify the details, and approve or request changes.'
+                    : detailInvoice.approval_status === 'rejected'
+                      ? detailInvoice.rejection_reason || 'Open the review dialog to update the invoice.'
+                      : 'No further action required from you on this invoice.'}
+                </p>
+              </div>
+            </div>
+            </>
+            )}
+
+            {/* Detail view (shown only when View Details is active; replaces the summary) */}
+            {expandedInvoiceId === detailInvoice.id && (
+              <div className="grid gap-4 rounded-xl border border-border/60 bg-background/40 p-4 lg:grid-cols-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ReceiptText className="h-4 w-4 text-primary" />
+                    <h5 className="text-sm font-semibold">{reviewCopy.breakdownTitle}</h5>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {detailCharges.length === 0 && (
+                      <p className="rounded-lg border border-dashed border-border/50 px-3 py-4 text-center text-xs text-muted-foreground">
+                        {reviewCopy.breakdownEmpty}
+                      </p>
+                    )}
+                    {detailCharges.map((item) => (
+                      <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.description}</p>
+                          <p className="text-xs text-muted-foreground">{reviewCopy.breakdownItemDescription}</p>
+                        </div>
+                        <p className="font-semibold tabular-nums">
+                          {formatCurrency(getChargeDisplayAmount(detailInvoice, item))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <ReceiptText className="h-4 w-4 text-primary" />
-                      <h4 className="text-sm font-semibold">{reviewCopy.breakdownTitle}</h4>
+                      <DollarSign className="h-4 w-4 text-primary" />
+                      <h5 className="text-sm font-semibold">{reviewCopy.expensesTitle}</h5>
                     </div>
-                    <div className="mt-4 flex flex-col gap-2">
-                      {charges.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-start justify-between gap-3 rounded-2xl border border-border/50 bg-background/60 px-4 py-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{item.description}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {reviewCopy.breakdownItemDescription}
-                            </p>
-                          </div>
-                          <p className="text-sm font-semibold whitespace-nowrap">
-                            {formatCurrency(getChargeDisplayAmount(invoice, item))}
-                          </p>
-                        </div>
-                      ))}
-                      {charges.length === 0 && (
-                        <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
-                          {reviewCopy.breakdownEmpty}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-primary" />
-                        <h4 className="text-sm font-semibold">{reviewCopy.expensesTitle}</h4>
-                      </div>
-                      <div className="mt-4 flex flex-col gap-2">
-                        {expenses.length > 0 ? (
-                          expenses.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-start justify-between gap-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-3"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">{item.description}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">Expense reimbursement</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold whitespace-nowrap">
-                                  +{formatCurrency(item.total_amount)}
-                                </p>
-                                {canModify(invoice) && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                                    onClick={() => handleRemoveExpense(invoice, item)}
-                                    disabled={actionLoading}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
-                            {reviewCopy.expensesEmpty}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Summary</p>
-                      <div className="mt-3 flex flex-col gap-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Shoot lines</span>
-                          <span className="font-medium">{charges.length}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Expense lines</span>
-                          <span className="font-medium">{expenses.length}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Review state</span>
-                          <span className="font-medium">{statusCfg.label}</span>
-                        </div>
-                        <Separator className="my-2" />
-                        <div className="flex items-center justify-between text-base font-semibold">
-                          <span>Total</span>
-                          <span>{formatCurrency(invoiceDisplayTotal)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {reviewCopy.footerSummary(charges.length, expenses.length)}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canModify(invoice) && (
+                    {canModify(detailInvoice) && (
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-7 text-xs"
                         onClick={() => {
-                          setSelectedInvoice(invoice);
+                          setSelectedInvoice(detailInvoice);
                           setExpenseOpen(true);
                         }}
                       >
-                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        <Plus className="mr-1 h-3 w-3" />
                         {reviewCopy.addExpenseLabel}
                       </Button>
                     )}
-                    {canReview(invoice) && (
-                      <Button size="sm" onClick={() => openReviewDialog(invoice)}>
-                        {reviewActionLabel}
-                      </Button>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {detailExpenses.length === 0 && (
+                      <p className="rounded-lg border border-dashed border-border/50 px-3 py-4 text-center text-xs text-muted-foreground">
+                        {reviewCopy.expensesEmpty}
+                      </p>
                     )}
-                    {invoice.approval_status === 'rejected' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleResubmit(invoice)}
-                        disabled={actionLoading}
-                      >
-                        {actionLoading && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-                        Accept & Resubmit
-                      </Button>
-                    )}
-                    {['approved', 'accounts_approved'].includes(invoice.approval_status) && (
-                      <Badge className="bg-green-100 text-green-800">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Approved - Payment Processing
-                      </Badge>
-                    )}
+                    {detailExpenses.map((item) => (
+                      <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.description}</p>
+                          <p className="text-xs text-muted-foreground">Expense reimbursement</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold tabular-nums">+{formatCurrency(item.total_amount)}</p>
+                          {canModify(detailInvoice) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveExpense(detailInvoice, item)}
+                              disabled={actionLoading}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </CardContent>
+              </div>
             )}
-          </Card>
-        );
-      })}
-
-      {lastPage > 1 && (
-        <div className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            Page {currentPage} of {lastPage} · {totalInvoices} invoice{totalInvoices === 1 ? '' : 's'}
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1 || loading}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((page) => Math.min(lastPage, page + 1))}
-              disabled={currentPage >= lastPage || loading}
-            >
-              Next
-            </Button>
+        ) : (
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/50 p-8 lg:col-span-2">
+            <p className="text-sm text-muted-foreground">Select an invoice from the left to view details.</p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Review Dialog */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>

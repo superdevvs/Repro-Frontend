@@ -140,6 +140,14 @@ const MEDIA_TYPE_SUMMARY_LABELS: Record<UploadQueueMediaType, string> = {
   floorplan: 'Floorplan',
 };
 
+const createUploadBatchId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 const triggerUploadRefreshes = (shootId: string | number) => {
   triggerShootDetailRefresh(shootId);
   triggerShootHistoryRefresh();
@@ -794,6 +802,8 @@ export function EditedUploadSection({
     );
     const uploadNote = notes.trim();
 
+    const uploadBatchId = filesForUpload.length > 1 ? createUploadBatchId() : null;
+
     trackUpload({
       shootId: String(shoot.id),
       shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
@@ -808,6 +818,11 @@ export function EditedUploadSection({
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
               formData.append('files[]', file);
               formData.append('upload_type', 'edited');
+              if (uploadBatchId) {
+                formData.append('upload_batch_id', uploadBatchId);
+                formData.append('upload_batch_total', String(filesForUpload.length));
+                formData.append('upload_batch_index', String(index));
+              }
               if (uploadNote) {
                 formData.append('editor_notes', uploadNote);
               }
@@ -1256,6 +1271,12 @@ export function RawUploadSection({
     setUploadProgress(0);
     setUploadIssues([]);
 
+    // Always allocate a batch id for raw uploads. The backend uses (batch_offset +
+    // batch_index) to assign deterministic bracket_group/sequence values across
+    // parallel XHR requests; a missing batch id falls back to the racy count-based
+    // path that can collapse multiple files into the same bracket_group.
+    const uploadBatchId = createUploadBatchId();
+
     trackUpload({
       shootId: String(shoot.id),
       shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
@@ -1271,6 +1292,9 @@ export function RawUploadSection({
               formData.append('files[]', file);
               formData.append('upload_type', 'raw');
               formData.append('bracket_mode', String(bracketMultiplier));
+              formData.append('upload_batch_id', uploadBatchId);
+              formData.append('upload_batch_total', String(filesForUpload.length));
+              formData.append('upload_batch_index', String(index));
               if (noteValue) {
                 formData.append('photographer_notes', noteValue);
               }
@@ -1405,7 +1429,7 @@ export function RawUploadSection({
   };
 
   return (
-    <div className="flex flex-1 flex-col space-y-3">
+    <div className="flex flex-1 min-h-0 flex-col space-y-3">
       {shootRequiresBrackets && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm font-medium text-foreground">Bracket Type</div>
@@ -1428,40 +1452,52 @@ export function RawUploadSection({
         </div>
       )}
 
-      <div className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-md border bg-muted/40 p-2">
-          <div className="text-muted-foreground">Expected</div>
-          <div className="text-base font-semibold text-foreground">{expectedCount}</div>
-          {photoServices.length > 0 && (
-            <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-              {photoServices.map((service) => (
-                <div key={`${service.name}-${service.count}`}>
-                  {service.name}: {shootRequiresBrackets ? service.count * bracketMultiplier : service.count}
+      {/* Summary tiles split into two grouped rows so each fits on a single line
+          on typical desktop widths:
+            1. Counters (Expected / Existing / Selected) with subtle separators.
+            2. Tagged media types (Extras + Virtual Staging / Green Grass / Twilight /
+               Drone / Floorplan) with separators. */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-stretch divide-x divide-border/60 overflow-hidden rounded-md border bg-muted/40 text-xs">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
+            <div className="text-muted-foreground truncate">Expected</div>
+            <div className="text-base font-semibold text-foreground">{expectedCount}</div>
+            {photoServices.length > 0 && (
+              <div className="mt-0.5 space-y-0.5 text-[10px] text-muted-foreground">
+                {photoServices.map((service) => (
+                  <div key={`${service.name}-${service.count}`} className="truncate">
+                    {service.name}: {shootRequiresBrackets ? service.count * bracketMultiplier : service.count}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
+            <div className="text-muted-foreground truncate">Existing</div>
+            <div className="text-base font-semibold text-foreground">{totalRawCount}</div>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
+            <div className="text-muted-foreground truncate">Selected</div>
+            <div className="text-base font-semibold text-foreground">{uploadedCount}</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-stretch divide-x divide-border/60 overflow-hidden rounded-md border bg-muted/40 text-xs">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
+            <div className="text-muted-foreground truncate">Extras</div>
+            <div className="text-base font-semibold text-foreground">{queueCounts.extra}</div>
+          </div>
+          {specialCountCards
+            .filter((card) => card.type !== 'extra')
+            .map((card) => (
+              <div key={card.type} className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
+                <div className="text-muted-foreground truncate" title={card.summaryLabel}>
+                  {card.summaryLabel}
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="text-base font-semibold text-foreground">{card.count}</div>
+              </div>
+            ))}
         </div>
-        <div className="rounded-md border bg-muted/40 p-2">
-          <div className="text-muted-foreground">Existing</div>
-          <div className="text-base font-semibold text-foreground">{totalRawCount}</div>
-        </div>
-        <div className="rounded-md border bg-muted/40 p-2">
-          <div className="text-muted-foreground">Selected</div>
-          <div className="text-base font-semibold text-foreground">{uploadedCount}</div>
-        </div>
-        <div className="rounded-md border bg-muted/40 p-2">
-          <div className="text-muted-foreground">Tagged Extras</div>
-          <div className="text-base font-semibold text-foreground">{queueCounts.extra}</div>
-        </div>
-        {specialCountCards
-          .filter((card) => card.type !== 'extra')
-          .map((card) => (
-            <div key={card.type} className="rounded-md border bg-muted/40 p-2">
-              <div className="text-muted-foreground">{card.label}</div>
-              <div className="text-base font-semibold text-foreground">{card.count}</div>
-            </div>
-          ))}
       </div>
 
       {missingCount > 0 && totalRawCount > 0 && (
@@ -1545,14 +1581,20 @@ export function RawUploadSection({
       />
 
       {selectedFiles.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+        // Flex column that fills the remaining vertical space inside the upload tab.
+        // The selected-files list takes flex-1 (uses every available pixel and scrolls
+        // internally) so the user sees as many files as possible without the page
+        // expanding. Notes textarea sits at fixed height directly below, and the
+        // primary "Upload Raw Files" action button is anchored at the bottom — sitting
+        // just above the modal footer instead of floating mid-page.
+        <div className="flex flex-1 min-h-0 flex-col space-y-2">
+          <div className="flex-shrink-0 flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
             <span>Selected Files ({selectedFiles.length})</span>
             <span className="text-xs font-normal text-muted-foreground">
               (FP = floorplan, VS = virtual staging, GG = green grass, TW = twilight, DR = drone, EX = extra)
             </span>
           </div>
-          <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+          <div className="flex-1 min-h-0 space-y-1 overflow-y-auto rounded-md border p-2">
             {selectedFiles.map((file, index) => (
               <div key={getQueueFileKey(file, index)} className="rounded-md p-2 transition-colors hover:bg-muted/40">
                 <div className="flex items-start gap-2">
@@ -1584,7 +1626,7 @@ export function RawUploadSection({
             ))}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="flex-shrink-0 space-y-1.5">
             <div className="text-sm font-medium text-foreground">Notes for Editor (Optional)</div>
             <Textarea
               value={notes}
@@ -1594,7 +1636,12 @@ export function RawUploadSection({
             />
           </div>
 
-          <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
+          <Button
+            type="button"
+            className="flex-shrink-0 w-full"
+            onClick={handleUpload}
+            disabled={isUploading || selectedFiles.length === 0}
+          >
             {isUploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

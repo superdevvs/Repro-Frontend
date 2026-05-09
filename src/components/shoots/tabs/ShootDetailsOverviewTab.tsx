@@ -923,31 +923,50 @@ export function ShootDetailsOverviewTab({
         />
       )}
 
-      {isAssignedPhotographer && (
-        <div className="p-2.5 border rounded-lg bg-card">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Internal Marketing</span>
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">Featured Shoot</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Mark this shoot for internal marketing and featured collections.
+      {(() => {
+        const canManageFeaturedShoot = isAdmin || isRep || role === 'editing_manager';
+        if (!canManageFeaturedShoot) {
+          return null;
+        }
+
+        const normalizedStatus = String(
+          (shoot as any)?.workflowStatus
+            || (shoot as any)?.workflow_status
+            || (shoot as any)?.status
+            || '',
+        ).toLowerCase();
+        const featuredAllowedStatuses = new Set(['ready', 'delivered']);
+        const featuredAvailable = featuredAllowedStatuses.has(normalizedStatus);
+        const featuredDisabled = isSavingFeaturedShoot || !featuredAvailable;
+
+        return (
+          <div className="p-2.5 border rounded-lg bg-card">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Internal Marketing</span>
+            <div className={`flex items-center justify-between gap-4 ${!featuredAvailable ? 'opacity-50' : ''}`}>
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Featured Shoot</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {featuredAvailable
+                    ? 'Mark this shoot for internal marketing and featured collections.'
+                    : 'Available once the shoot reaches Ready or Delivered status.'}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isSavingFeaturedShoot ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : null}
+                <Switch
+                  checked={isFeaturedShoot}
+                  onCheckedChange={(checked: boolean) => {
+                    void handleFeaturedShootToggle(checked);
+                  }}
+                  disabled={featuredDisabled}
+                />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isSavingFeaturedShoot ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : null}
-              <Switch
-                checked={isFeaturedShoot}
-                onCheckedChange={(checked: boolean) => {
-                  void handleFeaturedShootToggle(checked);
-                }}
-                disabled={isSavingFeaturedShoot}
-              />
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Completion Info Card - Only show if completed */}
       {!isEditor && shoot.completedDate && (

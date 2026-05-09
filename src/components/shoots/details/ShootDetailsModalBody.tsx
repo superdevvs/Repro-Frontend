@@ -178,6 +178,12 @@ export function ShootDetailsModalBody({
     activeTab === 'media' &&
     ((activeMediaDisplayTab === 'uploaded' && canSubmitRaw) ||
       (activeMediaDisplayTab === 'edited' && canSubmitEdits));
+  // Desktop layout always renders the media panel on the right side (Media tab is
+  // filtered out of visibleTabs on desktop), so the desktop submit gating only
+  // depends on the active media-display sub-tab + permission flags.
+  const showDesktopSubmitActions =
+    (activeMediaDisplayTab === 'uploaded' && canSubmitRaw && !!handleSubmitRaw) ||
+    (activeMediaDisplayTab === 'edited' && canSubmitEdits && !!handleSubmitEdits);
   const showDesktopDownloadActions = canOpenDeliveredDownloadDialog || canPrivilegedProgressDownload;
   const showDesktopPublishAction = isDelivered && !isEditor && !isPhotographer;
   const showMobileSubmitActions =
@@ -353,7 +359,7 @@ export function ShootDetailsModalBody({
         </div>
 
         <div className="hidden sm:flex w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t sm:border-t-0">
-          <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-4">
             {showTourAnalytics ? (
               <React.Suspense fallback={null}>
                 <LazyTourAnalyticsPanel shootId={shoot.id} onBack={() => setShowTourAnalytics(false)} />
@@ -376,7 +382,7 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showDesktopSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
                 {canOpenDeliveredDownloadDialog && (
@@ -425,7 +431,7 @@ export function ShootDetailsModalBody({
                     )}
                   </Button>
                 )}
-                {activeTab === 'media' && activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
+                {activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
                   <Button
                     variant="default"
                     size="sm"
@@ -441,7 +447,7 @@ export function ShootDetailsModalBody({
                     <span>{isSubmittingRaw ? 'Submitting…' : 'Submit Raw Files'}</span>
                   </Button>
                 )}
-                {activeTab === 'media' && activeMediaDisplayTab === 'edited' && canSubmitEdits && handleSubmitEdits && (
+                {activeMediaDisplayTab === 'edited' && canSubmitEdits && handleSubmitEdits && (
                   <Button
                     variant="default"
                     size="sm"

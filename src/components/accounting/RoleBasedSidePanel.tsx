@@ -504,52 +504,40 @@ function PhotographerSidePanel({
       const dateA = getShootCompletedDate(a)?.getTime() ?? 0;
       const dateB = getShootCompletedDate(b)?.getTime() ?? 0;
       return dateB - dateA;
-    })
-    .slice(0, 6);
+    });
 
   return (
-    <Card className="border overflow-hidden flex-1 flex flex-col min-h-[520px]">
-      <CardHeader className="gap-3 border-b border-border/60 pb-4">
+    // Stretch to match the sibling chart column's height (the parent grid uses
+    // items-stretch + flex-col container). The inner list (CardContent below) handles
+    // overflow-y-auto so longer lists scroll inside the card without the card growing
+    // past the chart and breaking the bottom alignment.
+    <Card className="border overflow-hidden flex-1 flex flex-col min-h-[420px]">
+      <CardHeader className="gap-2 border-b border-border/60 pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-3xl">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               Recent Shoot Earnings
             </CardTitle>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Completed shoots in {periodLabel.toLowerCase()} with photographer pay and payout status.
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              Completed shoots & payouts ({periodLabel.toLowerCase()})
             </p>
           </div>
-          <div className="rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/80">
+          <div className="flex-shrink-0 rounded-xl border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-right">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-primary/80">
               {periodLabel}
             </p>
-            <p className="mt-1 text-sm font-semibold text-foreground">
+            <p className="text-xs font-semibold text-foreground">
               {recentCompletedShoots.length} shoot{recentCompletedShoots.length === 1 ? '' : 's'}
             </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Visible Here</p>
-            <p className="mt-2 text-sm font-semibold">Completed shoots only</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Ordering</p>
-            <p className="mt-2 text-sm font-semibold">Latest completion first</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Coverage</p>
-            <p className="mt-2 text-sm font-semibold">Paid and pending payouts</p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0">
         <div className="flex h-full flex-col">
           {recentCompletedShoots.length > 0 ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto px-3 py-3">
+              <div className="space-y-2">
               {recentCompletedShoots.map((shoot: any) => {
                 const completedDate = getShootCompletedDate(shoot);
                 const scheduledDate = getShootScheduledDate(shoot);
@@ -560,66 +548,61 @@ function PhotographerSidePanel({
                   shoot.location?.address ||
                   shoot.location?.fullAddress ||
                   'Shoot';
+                const cityState = shoot.location?.city && shoot.location?.state
+                  ? `${shoot.location.city}, ${shoot.location.state}`
+                  : null;
+                const dateLabel = completedDate
+                  ? formatTransactionDate(completedDate.toISOString())
+                  : scheduledDate
+                    ? formatTransactionDate(scheduledDate.toISOString())
+                    : null;
 
                 return (
                   <div
                     key={shoot.id}
                     className={cn(
-                      'rounded-2xl border p-4 transition-colors',
+                      'rounded-lg border px-3 py-2 transition-colors',
                       isPaid
-                        ? 'border-emerald-500/15 bg-emerald-500/5'
-                        : 'border-amber-500/15 bg-amber-500/5',
+                        ? 'border-emerald-500/20 bg-emerald-500/5'
+                        : 'border-amber-500/20 bg-amber-500/5',
                     )}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-2">
-                          <div
-                            className={cn(
-                              'mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full',
-                              isPaid ? 'bg-emerald-500' : 'bg-amber-500',
-                            )}
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">
-                              {address}
-                            </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                              <span className="inline-flex items-center gap-1">
-                                <Calendar className="h-3.5 w-3.5" />
-                                {completedDate
-                                  ? `Completed ${formatTransactionDate(completedDate.toISOString())}`
-                                  : scheduledDate
-                                  ? `Scheduled ${formatTransactionDate(scheduledDate.toISOString())}`
-                                  : 'Date unavailable'}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <MapPin className="h-3.5 w-3.5" />
-                                {(shoot.location?.city && shoot.location?.state)
-                                  ? `${shoot.location.city}, ${shoot.location.state}`
-                                  : 'Location unavailable'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold">${pay.toLocaleString()}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
                         <div
                           className={cn(
-                            'mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                            'h-2 w-2 flex-shrink-0 rounded-full',
+                            isPaid ? 'bg-emerald-500' : 'bg-amber-500',
+                          )}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium leading-tight">
+                            {address}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {[dateLabel, cityState].filter(Boolean).join(' · ') || 'Awaiting completion'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <p className="text-sm font-semibold tabular-nums">
+                          ${pay.toLocaleString()}
+                        </p>
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
                             isPaid
                               ? 'bg-emerald-500/10 text-emerald-500'
                               : 'bg-amber-500/10 text-amber-500',
                           )}
                         >
                           {isPaid ? (
-                            <CheckCircle2 className="h-3 w-3" />
+                            <CheckCircle2 className="h-2.5 w-2.5" />
                           ) : (
-                            <Clock className="h-3 w-3" />
+                            <Clock className="h-2.5 w-2.5" />
                           )}
                           {isPaid ? 'Paid' : 'Pending'}
-                        </div>
+                        </span>
                       </div>
                     </div>
                   </div>

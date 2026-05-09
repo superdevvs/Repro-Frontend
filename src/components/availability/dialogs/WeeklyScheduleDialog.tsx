@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TimeSelect } from "@/components/ui/time-select";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ const DEFAULT_SCHEDULE: NewWeeklyScheduleState = {
   endTime: "17:00",
   status: "available",
   days: [true, true, true, true, true, false, false],
-  recurring: true,
+  recurring: false,
   note: "",
 };
 
@@ -252,32 +252,11 @@ export function WeeklyScheduleDialog({
         <DialogHeader>
           <DialogTitle>Add Schedule</DialogTitle>
           <DialogDescription>
-            Create availability schedule for {getPhotographerName(selectedPhotographer)}. Choose recurring weekly schedule or specific dates.
+            Create availability schedule for {getPhotographerName(selectedPhotographer)}. Pick a date range, or check the box to repeat it weekly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Schedule Type</Label>
-            <Select
-              value={newWeeklySchedule.recurring ? "recurring" : "specific"}
-              onValueChange={(value) =>
-                setNewWeeklySchedule({
-                  ...newWeeklySchedule,
-                  recurring: value === "recurring"
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select schedule type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recurring">Recurring Weekly</SelectItem>
-                <SelectItem value="specific">Specific Date</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="space-y-2">
             <Label>Status</Label>
             <div className="flex gap-2">
@@ -333,6 +312,62 @@ export function WeeklyScheduleDialog({
             </div>
           </div>
 
+          {!newWeeklySchedule.recurring && (
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      availabilityDateButtonClass,
+                      !specificDateFrom && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {specificDateFrom ? format(specificDateFrom, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className={availabilityDatePopoverClass} align="start">
+                  <Calendar
+                    mode="single"
+                    selected={specificDateFrom}
+                    onSelect={(nextDate) => {
+                      if (!nextDate) return;
+                      // Keep from === to so the existing save handler (which
+                      // iterates the From→To range) creates a single-day slot.
+                      setSpecificDateFrom(nextDate);
+                      setSpecificDateTo(nextDate);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                For multi-day patterns, check <span className="font-medium">Repeat weekly</span> below.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 p-3">
+            <Checkbox
+              id="weekly-recurring"
+              checked={newWeeklySchedule.recurring}
+              onCheckedChange={(checked) =>
+                setNewWeeklySchedule({ ...newWeeklySchedule, recurring: checked === true })
+              }
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="weekly-recurring" className="text-sm font-medium cursor-pointer">
+                Repeat weekly
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Apply this schedule every week on the days you select below.
+              </p>
+            </div>
+          </div>
+
           {newWeeklySchedule.recurring && (
             <div className="space-y-2">
               <Label>Repeat Days</Label>
@@ -356,80 +391,6 @@ export function WeeklyScheduleDialog({
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {!newWeeklySchedule.recurring && (
-            <div className="space-y-3">
-              <Label>Date Range</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">From</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          availabilityDateButtonClass,
-                          !specificDateFrom && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {specificDateFrom ? format(specificDateFrom, "PPP") : "Pick a start date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className={availabilityDatePopoverClass} align="start">
-                      <Calendar
-                        mode="single"
-                        selected={specificDateFrom}
-                        onSelect={(nextDate) => {
-                          if (!nextDate) return;
-                          setSpecificDateFrom(nextDate);
-                          if (!specificDateTo || nextDate > specificDateTo) {
-                            setSpecificDateTo(nextDate);
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">To</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          availabilityDateButtonClass,
-                          !specificDateTo && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {specificDateTo ? format(specificDateTo, "PPP") : "Pick an end date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className={availabilityDatePopoverClass} align="start">
-                      <Calendar
-                        mode="single"
-                        selected={specificDateTo}
-                        onSelect={(nextDate) => {
-                          if (!nextDate) return;
-                          setSpecificDateTo(nextDate);
-                          if (!specificDateFrom || nextDate < specificDateFrom) {
-                            setSpecificDateFrom(nextDate);
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Pick the same date in both fields for a one-day schedule.
-                {specificScheduleDates.length > 0 ? ` ${specificScheduleDates.length} day(s) selected.` : ""}
-              </p>
             </div>
           )}
 

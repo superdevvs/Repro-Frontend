@@ -150,6 +150,7 @@ export function ShootSettingsTab({
   const auth = useAuth();
   const role = auth?.user?.role || 'client';
   const isSalesRep = role === 'salesRep';
+  const isEditingManager = role === 'editing_manager';
 
   const [savingToggleKey, setSavingToggleKey] = useState<string | null>(null); // to show loading state per toggle
 
@@ -180,7 +181,7 @@ export function ShootSettingsTab({
   }, [shoot]);
 
   const canManagePrivateExclusive = isAdmin || isClient || isSalesRep;
-  const canManageFeaturedShoot = isAdmin || isSalesRep;
+  const canManageFeaturedShoot = isAdmin || isSalesRep || isEditingManager;
   const canManageGhostUsersResolved = canManageGhostUsers || isAdmin || isSalesRep;
 
   const normalizedStatus = String((shoot as any)?.workflowStatus || (shoot as any)?.workflow_status || (shoot as any)?.status || '').toLowerCase();
@@ -728,30 +729,38 @@ export function ShootSettingsTab({
   // ---------- render ----------
   return (
     <div className="space-y-6 w-full">
-      {canManageFeaturedShoot && (
-        <div className="border rounded-lg p-3.5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">Featured Shoot</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Internal marketing flag for promoting standout shoots
+      {canManageFeaturedShoot && (() => {
+        const featuredAvailable = ['ready', 'delivered'].includes(normalizedStatus);
+        const featuredDisabled = !featuredAvailable || savingToggleKey === 'is_featured';
+
+        return (
+          <div className="border rounded-lg p-3.5">
+            <div className={`flex items-center justify-between gap-4 ${!featuredAvailable ? 'opacity-50' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">Featured Shoot</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {featuredAvailable
+                    ? 'Internal marketing flag for promoting standout shoots'
+                    : 'Available once the shoot reaches Ready or Delivered status.'}
+                </div>
               </div>
+              <Switch
+                checked={isFeaturedShoot}
+                onCheckedChange={(checked: boolean) => {
+                  if (!featuredAvailable) return;
+                  const previousValue = isFeaturedShoot;
+                  setIsFeaturedShoot(checked);
+                  void updateFeaturedSetting(checked).catch(() => {
+                    setIsFeaturedShoot(previousValue);
+                  });
+                }}
+                disabled={featuredDisabled}
+                className="flex-shrink-0"
+              />
             </div>
-            <Switch
-              checked={isFeaturedShoot}
-              onCheckedChange={(checked: boolean) => {
-                const previousValue = isFeaturedShoot;
-                setIsFeaturedShoot(checked);
-                void updateFeaturedSetting(checked).catch(() => {
-                  setIsFeaturedShoot(previousValue);
-                });
-              }}
-              disabled={savingToggleKey === 'is_featured'}
-              className="flex-shrink-0"
-            />
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Private Exclusive Toggle */}
       {canManagePrivateExclusive && (

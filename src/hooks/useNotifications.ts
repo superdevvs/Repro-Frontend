@@ -113,6 +113,8 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   hold_rejected: 'Hold Rejected',
   shoot_editing_started: 'Editing Started',
   shoot_submitted_for_review: 'Submitted for Review',
+  shoot_submitted_edited: 'Edited Files Submitted',
+  shoot_submitted_raw: 'Raw Files Submitted',
   payment_done: 'Payment Received',
   payment_marked_paid: 'Payment Marked Paid',
   payment_received: 'Payment Received',

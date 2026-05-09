@@ -1069,7 +1069,7 @@ export function useShootDetailsMediaTab({
     const rawStackSize = Number(shoot.bracketMode ?? shoot.package?.bracketMode ?? 0);
 
     return (
-      <div className="relative h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
+      <div className="relative h-full m-0 sm:mx-0 sm:my-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
         <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
           <MediaGrid
             files={files}

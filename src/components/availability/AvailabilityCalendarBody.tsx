@@ -47,6 +47,96 @@ import type {
 
 type ViewMode = "day" | "week" | "month";
 
+/**
+ * Convert "HH:mm" to total minutes since midnight.
+ */
+const toMinutesOfDay = (hhmm: string): number => {
+  if (!hhmm) return 0;
+  const [hStr, mStr] = hhmm.split(":");
+  return (Number(hStr) || 0) * 60 + (Number(mStr) || 0);
+};
+
+/**
+ * Convert total minutes since midnight back to "HH:mm".
+ */
+const minutesToHhmm = (minutes: number): string => {
+  const safe = Math.max(0, Math.min(24 * 60, Math.round(minutes)));
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+};
+
+/**
+ * Split available slots around overlapping unavailable slots so the calendar
+ * shows e.g. "Available 9 AM – 10 AM | Unavailable 10 AM – 11 AM | Available 11 AM – 5 PM"
+ * instead of an Available bar that visually runs straight through the
+ * unavailable block. Operates per-photographer so slots from different
+ * photographers don't affect each other.
+ */
+const splitAvailableAroundUnavailable = (slots: Availability[]): Availability[] => {
+  const result: Availability[] = [];
+
+  for (const slot of slots) {
+    if (slot.status !== "available") {
+      result.push(slot);
+      continue;
+    }
+
+    const slotStart = toMinutesOfDay(slot.startTime);
+    const slotEnd = toMinutesOfDay(slot.endTime);
+
+    if (slotEnd <= slotStart) {
+      result.push(slot);
+      continue;
+    }
+
+    const overlaps = slots
+      .filter(
+        (other) =>
+          other.id !== slot.id &&
+          other.status === "unavailable" &&
+          (other.photographerId == null || slot.photographerId == null
+            ? true
+            : String(other.photographerId) === String(slot.photographerId)),
+      )
+      .map((other) => ({
+        start: Math.max(slotStart, toMinutesOfDay(other.startTime)),
+        end: Math.min(slotEnd, toMinutesOfDay(other.endTime)),
+      }))
+      .filter((range) => range.end > range.start)
+      .sort((a, b) => a.start - b.start);
+
+    if (overlaps.length === 0) {
+      result.push(slot);
+      continue;
+    }
+
+    let cursor = slotStart;
+    let segIdx = 0;
+    for (const range of overlaps) {
+      if (range.start > cursor) {
+        result.push({
+          ...slot,
+          id: `${slot.id}-seg-${segIdx++}`,
+          startTime: minutesToHhmm(cursor),
+          endTime: minutesToHhmm(range.start),
+        });
+      }
+      cursor = Math.max(cursor, range.end);
+    }
+    if (cursor < slotEnd) {
+      result.push({
+        ...slot,
+        id: `${slot.id}-seg-${segIdx++}`,
+        startTime: minutesToHhmm(cursor),
+        endTime: minutesToHhmm(slotEnd),
+      });
+    }
+  }
+
+  return result;
+};
+
 interface AvailabilityCalendarBodyProps {
   viewMode: ViewMode;
   isMobile: boolean;
@@ -162,10 +252,51 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
               const isTodayDate = isToday(day);
               const isCurrentMonth = isSameMonth(day, monthStart);
 
-              const hasBooked = allSlots.some(s => s.status === 'booked');
-              const hasAvailable = allSlots.some(s => (s.status ?? 'available') !== 'unavailable' && s.status !== 'booked');
-              const hasUnavailable = allSlots.some(s => s.status === 'unavailable');
               const hasSlots = allSlots.length > 0;
+
+              // Build per-cell Availability list and split available bars around
+              // overlapping unavailable ranges (mirrors the day/week views).
+              const cellAvailabilities: Availability[] = allSlots.map((s, slotIdx) => ({
+                id: String(s.id ?? `${dayStr}-${slotIdx}`),
+                photographerId: String(s.photographer_id),
+                date: dayStr,
+                startTime: toHhMm(s.start_time),
+                endTime: toHhMm(s.end_time),
+                status: (s.status === 'unavailable' ? 'unavailable' : s.status === 'booked' ? 'booked' : 'available') as AvailabilityStatus,
+                origin: specific.some((sp) => sp.id === s.id) ? 'specific' : 'weekly',
+                shoot_id: s.shoot_id,
+                shootDetails: s.shoot_details,
+              }));
+              const splitCellSlots = splitAvailableAroundUnavailable(cellAvailabilities);
+
+              // Sort by start time so chips render chronologically.
+              const cellSlotsSorted = [...splitCellSlots].sort((a, b) =>
+                toMinutesOfDay(a.startTime) - toMinutesOfDay(b.startTime),
+              );
+
+              // Limit how many event chips render directly; overflow → "+N more".
+              const MONTH_VIEW_VISIBLE_CHIPS = isMobile ? 1 : 3;
+              const visibleSlots = cellSlotsSorted.slice(0, MONTH_VIEW_VISIBLE_CHIPS);
+              const hiddenCount = Math.max(0, cellSlotsSorted.length - visibleSlots.length);
+
+              const formatChipTime = (hhmm: string) => {
+                const [hStr, mStr] = hhmm.split(':');
+                const h = Number(hStr) || 0;
+                const m = Number(mStr) || 0;
+                const period = h >= 12 ? 'pm' : 'am';
+                const display = h % 12 === 0 ? 12 : h % 12;
+                return m === 0 ? `${display}${period}` : `${display}:${mStr}${period}`;
+              };
+
+              const chipLabel = (slot: Availability) => {
+                if (slot.status === 'booked') {
+                  return slot.shootDetails?.address || 'Booked shoot';
+                }
+                if (slot.status === 'unavailable') {
+                  return 'Unavailable';
+                }
+                return 'Available';
+              };
 
               const buttonEl = (
                 <button
@@ -179,17 +310,17 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                     if (isMobile && setMobileTab) setMobileTab("details");
                   }}
                   className={cn(
-                    "relative border-r last:border-r-0 flex flex-col items-start justify-start h-full transition-colors hover:bg-muted/50 w-full",
-                    isMobile ? "p-1 sm:p-1.5" : "p-1.5",
+                    "relative border-r last:border-r-0 flex flex-col items-stretch justify-start h-full transition-colors hover:bg-muted/50 w-full text-left",
+                    isMobile ? "p-1 gap-0.5" : "p-1.5 gap-1",
                     !isCurrentMonth && "opacity-40",
-                    isSelected && "bg-primary text-primary-foreground",
+                    isSelected && "bg-primary/10",
                     isTodayDate && !isSelected && "border-2 border-primary bg-primary/5"
                   )}
                 >
                   <span className={cn(
-                    "font-medium mb-0.5",
+                    "font-medium",
                     isMobile ? "text-[10px] sm:text-xs" : "text-xs",
-                    isSelected && "text-primary-foreground",
+                    isSelected && "text-primary",
                     isTodayDate && !isSelected && "text-primary font-semibold",
                     !isCurrentMonth && "text-muted-foreground"
                   )}>
@@ -197,20 +328,24 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                   </span>
 
                   {hasSlots && (
-                    <div className="flex flex-col gap-0.5 w-full mt-0.5">
-                      {hasAvailable && (
-                        <div className="h-0.5 w-full rounded-full bg-green-500" title="Available" />
-                      )}
-                      {hasBooked && (
-                        <div className="h-0.5 w-full rounded-full bg-blue-500" title="Booked" />
-                      )}
-                      {hasUnavailable && (
-                        <div className="h-0.5 w-full rounded-full bg-red-500" title="Unavailable" />
-                      )}
-                      {allSlots.length > 3 && (
-                        <div className="text-[7px] text-muted-foreground leading-tight">
-                          +{allSlots.length - 3}
+                    <div className="flex flex-col gap-0.5 w-full overflow-hidden">
+                      {visibleSlots.map((slot) => (
+                        <div
+                          key={slot.id}
+                          className={cn(
+                            "flex items-center gap-1 truncate rounded-sm border-l-2 px-1 py-0.5 text-[10px] leading-tight",
+                            slot.status === 'available' && 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                            slot.status === 'booked' && 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                            slot.status === 'unavailable' && 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400',
+                          )}
+                          title={`${chipLabel(slot)} · ${formatChipTime(slot.startTime)} – ${formatChipTime(slot.endTime)}`}
+                        >
+                          <span className="font-semibold">{formatChipTime(slot.startTime)}</span>
+                          <span className="truncate">{chipLabel(slot)}</span>
                         </div>
+                      ))}
+                      {hiddenCount > 0 && (
+                        <div className="px-1 text-[9px] text-muted-foreground">+{hiddenCount} more</div>
                       )}
                     </div>
                   )}
@@ -437,7 +572,7 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
             const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
             const allRelevantSlots = [...bookedSlots, ...availabilitySlots];
 
-            const daySlots = allRelevantSlots.map((s, slotIdx): Availability => ({
+            const rawDaySlots = allRelevantSlots.map((s, slotIdx): Availability => ({
               id: String(s.id ?? `${dayStr}-${slotIdx}`),
               photographerId: String(s.photographer_id),
               date: dayStr,
@@ -448,6 +583,12 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
               shoot_id: s.shoot_id,
               shootDetails: s.shoot_details,
             }));
+
+            // Trim "available" slots so they don't visually run through any
+            // overlapping "unavailable" range (e.g. 9–5 available with 10–11
+            // unavailable becomes 9–10 available + 10–11 unavailable + 11–5
+            // available). Booked + unavailable slots pass through unchanged.
+            const daySlots = splitAvailableAroundUnavailable(rawDaySlots);
 
             const hasBookedSlots = daySlots.some(s => s.status === 'booked');
             const hasAvailableSlots = daySlots.some(s => s.status === 'available');
@@ -807,11 +948,63 @@ function DayView(props: AvailabilityCalendarBodyProps) {
     toast,
   } = props;
 
+  // Hour clicked via right-click; drives the dynamic "Schedule/Block at HH:00"
+  // menu items so right-click works anywhere on the day view (including
+  // directly on top of the absolutely-positioned slot bars/avatars).
+  const [contextMenuHour, setContextMenuHour] = React.useState<number>(dayViewStartHour);
+
   if (!date) {
     return <div className="w-full h-full flex flex-col" />;
   }
 
   const hourHeight = isMobile ? 48 : 64;
+
+  const captureHourFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Walk up to the scrollable day-view container so we measure relative to
+    // the same element regardless of which child the user right-clicked on.
+    const container = dayViewScrollRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top + container.scrollTop;
+    const totalHeight = Math.max(1, container.scrollHeight);
+    const ratio = Math.min(1, Math.max(0, offsetY / totalHeight));
+    const hourIdx = Math.floor(ratio * dayViewHourCount);
+    const clamped = Math.max(0, Math.min(dayViewHourCount - 1, hourIdx));
+    setContextMenuHour(dayViewStartHour + clamped);
+  };
+
+  const contextTimeStr = `${contextMenuHour.toString().padStart(2, '0')}:00`;
+  const contextNextHourStr = `${Math.min(24, contextMenuHour + 1).toString().padStart(2, '0')}:00`;
+  const contextTimeDisplay = to12HourDisplay(contextTimeStr);
+
+  const handleContextMenuSchedule = () => {
+    if (!date) {
+      toast({ title: "Select a date", description: "Please select a date before scheduling.", variant: "destructive" });
+      return;
+    }
+    setRightClickedDate(date);
+    setRightClickedTime(contextTimeStr);
+    if (selectedPhotographer === "all") {
+      toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" });
+      return;
+    }
+    setIsWeeklyScheduleDialogOpen(true);
+  };
+
+  const handleContextMenuBlock = () => {
+    if (!date) {
+      toast({ title: "Select a date", description: "Please select a date before blocking.", variant: "destructive" });
+      return;
+    }
+    setRightClickedDate(date);
+    setRightClickedTime(contextTimeStr);
+    if (selectedPhotographer === "all") {
+      toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" });
+      return;
+    }
+    setBlockSchedule({ date, startTime: contextTimeStr, endTime: contextNextHourStr });
+    setIsBlockDialogOpen(true);
+  };
 
   const getSlotPosition = (startTime: string, endTime: string) => {
     const cleanStart = startTime.replace(/\s*(AM|PM)/i, '').trim();
@@ -829,7 +1022,10 @@ function DayView(props: AvailabilityCalendarBodyProps) {
     return { top, height };
   };
 
-  const daySlots = getSelectedDateAvailabilities();
+  // Same trim as the week view: replace each available slot with its
+  // sub-segments around overlapping unavailable ranges so the bar doesn't run
+  // straight through a blocked window.
+  const daySlots = splitAvailableAroundUnavailable(getSelectedDateAvailabilities());
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (dayViewTimeScrollRef.current) {
@@ -995,62 +1191,26 @@ function DayView(props: AvailabilityCalendarBodyProps) {
               </span>
             )}
           </div>
-          <div
-            ref={dayViewScrollRef}
-            className={cn(
-              "relative flex flex-col",
-              !isMobile && "flex-1 min-h-0 overflow-hidden"
-            )}
-            onScroll={handleScroll}
-          >
-            {Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
-              const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-              return (
-                <div key={hour} className={cn(isMobile ? "min-h-[3rem]" : "flex-1 min-h-0")}>
-                  <ContextMenu>
-                    <ContextMenuTrigger asChild>
-                      <div className="h-full border-b border-dashed border-muted cursor-context-menu" />
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => {
-                        if (!date) {
-                          toast({ title: "Select a date", description: "Please select a date before scheduling.", variant: "destructive" });
-                          return;
-                        }
-                        setRightClickedDate(date);
-                        setRightClickedTime(timeStr);
-                        if (selectedPhotographer === "all") {
-                          toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" });
-                          return;
-                        }
-                        setIsWeeklyScheduleDialogOpen(true);
-                      }}>
-                        <Clock className="h-4 w-4 mr-2" />
-                        Schedule at {timeStr}
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => {
-                        if (!date) {
-                          toast({ title: "Select a date", description: "Please select a date before blocking.", variant: "destructive" });
-                          return;
-                        }
-                        setRightClickedDate(date);
-                        setRightClickedTime(timeStr);
-                        if (selectedPhotographer === "all") {
-                          toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" });
-                          return;
-                        }
-                        const nextHour = String(hour + 1).padStart(2, '0') + ':00';
-                        setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
-                        setIsBlockDialogOpen(true);
-                      }}>
-                        <Ban className="h-4 w-4 mr-2" />
-                        Block at {timeStr}
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                </div>
-              );
-            })}
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <div
+                ref={dayViewScrollRef}
+                className={cn(
+                  "relative flex flex-col cursor-context-menu",
+                  !isMobile && "flex-1 min-h-0 overflow-hidden"
+                )}
+                onScroll={handleScroll}
+                onContextMenu={captureHourFromEvent}
+              >
+                {Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => (
+                  <div
+                    key={hour}
+                    className={cn(
+                      "border-b border-dashed border-muted",
+                      isMobile ? "min-h-[3rem]" : "flex-1 min-h-0",
+                    )}
+                  />
+                ))}
 
             {(() => {
               if (daySlots.length === 0) {
@@ -1173,7 +1333,19 @@ function DayView(props: AvailabilityCalendarBodyProps) {
                 );
               });
             })()}
-          </div>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={handleContextMenuSchedule}>
+                <Clock className="h-4 w-4 mr-2" />
+                Schedule at {contextTimeDisplay}
+              </ContextMenuItem>
+              <ContextMenuItem onClick={handleContextMenuBlock}>
+                <Ban className="h-4 w-4 mr-2" />
+                Block at {contextTimeDisplay}
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         </div>
       </div>
     </div>

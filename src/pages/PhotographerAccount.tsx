@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useShoots } from '@/context/ShootsContext';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -24,10 +23,22 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, CameraIcon, CreditCard, Eye, MapPin, Phone, Settings, Upload, User, UserIcon, Wrench } from 'lucide-react';
-import { format } from 'date-fns';
-import { ShootsDialogs } from '@/components/dashboard/ShootsDialogs';
-import { ShootData } from '@/types/shoots';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
+import { API_BASE_URL } from '@/config/env';
+import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import {
   equipmentStatusLabel,
@@ -43,7 +54,15 @@ const personalInfoSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
   phone: z.string().min(10, { message: 'Please enter a valid phone number.' }),
   bio: z.string().optional(),
-  location: z.string().min(2, { message: 'Please enter your location.' }),
+  portfolioWebsite: z.string().optional().or(z.literal('')),
+  currentPassword: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  state: z.string().optional().or(z.literal('')),
+  zip: z.string().optional().or(z.literal('')),
+  travelRange: z.number().min(1).max(500),
+  travelRangeUnit: z.enum(['miles', 'km']),
+  weeklyInvoice: z.boolean(),
 });
 
 const specialtiesSchema = z.object({
@@ -60,17 +79,31 @@ type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
 type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 
 const PhotographerAccount = () => {
-  const { user, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const { toast } = useToast();
-  const { shoots, updateShoot } = useShoots();
+  const {
+    preferences: displayPreferences,
+    setTemperatureUnit,
+    setTimeFormat,
+  } = useUserPreferences();
+  const { saveProfile } = useSelfProfileSave();
+
+  // Pull values previously stored on user.metadata so we can hydrate the form.
+  const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
+  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
+  const taxInfoSubmitted = Boolean(userMetadata.tax_document_submitted_at || userMetadata.tax_document_url);
+  const taxDocumentName = String(userMetadata.tax_document_name ?? '');
+  const taxSubmittedAt = String(userMetadata.tax_document_submitted_at ?? '');
+
+  // Tax / license document upload state.
+  const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+  const [selectedTaxDocument, setSelectedTaxDocument] = useState<File | null>(null);
+  const [taxNotes, setTaxNotes] = useState('');
+  const [isTaxSubmitting, setIsTaxSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'personal';
     return new URLSearchParams(window.location.search).get('tab') || 'personal';
   });
-  const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string>(user?.avatar || '');
   const [equipments, setEquipments] = useState<PhotographerEquipment[]>([]);
   const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
   const [equipmentUploads, setEquipmentUploads] = useState<Record<number, File[]>>({});
@@ -93,26 +126,6 @@ const PhotographerAccount = () => {
       window.history.replaceState({}, '', url.toString());
     }
   };
-
-  // Filter shoots by this photographer
-  const photographerShoots = shoots.filter(shoot => 
-    user && shoot.photographer.name === user.name
-  );
-  
-  // Stats
-  const completedShootsCount = photographerShoots.filter(shoot => shoot.status === 'completed').length;
-  const scheduledShootsCount = photographerShoots.filter(shoot => shoot.status === 'scheduled').length;
-  const totalEarnings = photographerShoots
-    .filter(shoot => shoot.status === 'completed')
-    .reduce((sum, shoot) => sum + shoot.payment.totalPaid || 0, 0);
-  
-  // Most recent shoots
-  const recentShoots = [...photographerShoots]
-    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
-    .slice(0, 5);
-  
-  // Filter completed shoots
-  const completedShoots = photographerShoots.filter(shoot => shoot.status === 'completed');
 
   const fetchEquipments = async () => {
     setIsEquipmentLoading(true);
@@ -166,47 +179,6 @@ const PhotographerAccount = () => {
     }
   };
 
-  // Handle opening upload dialog
-  const handleUploadMedia = (shoot: ShootData) => {
-    setSelectedShoot(shoot);
-    setIsUploadDialogOpen(true);
-  };
-
-  // Handle upload complete
-  const handleUploadComplete = (files: File[]) => {
-    if (!selectedShoot) return;
-    
-    // Sample demo images from Unsplash for demonstration
-    const demoImages = [
-      "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=800&q=80",
-      "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=800&q=80",
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80",
-      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&q=80",
-      "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800&q=80",
-    ];
-    
-    // Create valid image URLs from demo images for testing purposes
-    const photoUrls = files
-      .filter(file => file.type.startsWith('image/'))
-      .map((_, index) => {
-        // Use Unsplash demo images that actually load
-        return demoImages[index % demoImages.length];
-      });
-    
-    updateShoot(selectedShoot.id, {
-      media: {
-        ...selectedShoot.media,
-        photos: [...(selectedShoot.media?.photos || []), ...photoUrls]
-      }
-    });
-    
-    setIsUploadDialogOpen(false);
-    toast({
-      title: "Upload Complete",
-      description: `${files.length} files have been uploaded successfully.`
-    });
-  };
-
   // Form for personal info
   const personalInfoForm = useForm<PersonalInfoFormValues>({
     resolver: zodResolver(personalInfoSchema),
@@ -214,8 +186,16 @@ const PhotographerAccount = () => {
       name: user?.name || '',
       email: user?.email || '',
       phone: user?.phone || '',
-      bio: '',
-      location: '',
+      bio: String(savedPreferences.bio ?? ''),
+      portfolioWebsite: String(savedPreferences.portfolioWebsite ?? ''),
+      currentPassword: '',
+      address: user?.address || '',
+      city: user?.city || '',
+      state: user?.state || '',
+      zip: user?.zipcode || '',
+      travelRange: Number(userMetadata.travel_range ?? 25),
+      travelRangeUnit: (userMetadata.travel_range_unit as 'miles' | 'km') ?? 'miles',
+      weeklyInvoice: savedPreferences.weeklyInvoice ?? true,
     },
   });
 
@@ -236,14 +216,79 @@ const PhotographerAccount = () => {
     },
   });
 
-  const onPersonalInfoSubmit = (data: PersonalInfoFormValues) => {
-    console.log('Updating personal info:', data);
-    
-    // In a real app, you would update the user's profile in the database
-    toast({
-      title: 'Profile updated',
-      description: 'Your personal information has been updated successfully.',
-    });
+  const onPersonalInfoSubmit = async (data: PersonalInfoFormValues) => {
+    try {
+      const result = await saveProfile({
+        name: data.name,
+        email: data.email,
+        current_password: data.email !== user?.email ? data.currentPassword : undefined,
+        phone_number: data.phone,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        travel_range: data.travelRange,
+        travel_range_unit: data.travelRangeUnit,
+        preferences: {
+          bio: data.bio || null,
+          portfolioWebsite: data.portfolioWebsite || null,
+          weeklyInvoice: data.weeklyInvoice,
+        },
+      });
+      personalInfoForm.setValue('currentPassword', '');
+      if (!result.reauthRequired) {
+        toast({
+          title: 'Profile updated',
+          description: result.message || 'Your personal information has been updated successfully.',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update profile.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTaxDocumentSubmit = async () => {
+    if (!selectedTaxDocument) {
+      toast({ title: 'Choose a document', description: 'Please select a file to upload.', variant: 'destructive' });
+      return;
+    }
+    setIsTaxSubmitting(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      const payload = new FormData();
+      payload.append('document', selectedTaxDocument);
+      if (taxNotes.trim()) payload.append('notes', taxNotes.trim());
+
+      const response = await fetch(`${API_BASE_URL}/api/profile/tax-document`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        body: payload,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to submit document');
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user });
+      }
+      setSelectedTaxDocument(null);
+      setTaxNotes('');
+      setTaxDialogOpen(false);
+      toast({ title: 'Document submitted', description: 'Your document has been uploaded successfully.' });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to upload document.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTaxSubmitting(false);
+    }
   };
 
   const onSpecialtiesSubmit = (data: SpecialtiesFormValues) => {
@@ -264,9 +309,9 @@ const PhotographerAccount = () => {
     });
   };
 
-  // Handle profile image change
-  const handleProfileImageChange = (url: string) => {
-    setProfileImage(url);
+  // Handle profile image change — ImageUpload handles the actual upload to the
+  // backend; we just surface a confirmation toast here.
+  const handleProfileImageChange = (_url: string) => {
     toast({
       title: 'Profile photo updated',
       description: 'Your profile photo has been updated successfully.',
@@ -305,265 +350,325 @@ const PhotographerAccount = () => {
 
   return (
     <DashboardLayout>
-      <div className="container max-w-5xl py-6">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left side - Profile summary */}
-          <div className="lg:w-1/3 space-y-6">
-            {/* Profile card */}
+      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
+        <PageHeader
+          title="Settings"
+          description="Manage your photographer profile and preferences"
+        />
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+          <AutoExpandingTabsList
+            tabs={[
+              { value: 'personal', icon: User, label: 'Personal Info' },
+              { value: 'specialties', icon: Camera, label: 'Specialties' },
+              { value: 'equipments', icon: Wrench, label: 'Equipments' },
+              { value: 'notifications', icon: Settings, label: 'Preferences' },
+            ]}
+            value={activeTab}
+            className="mb-6"
+          />
+                  
+          {/* Personal Info Tab */}
+          <TabsContent value="personal" className="space-y-4">
+            {/* Profile picture + identity badge (matches Settings.tsx pattern) */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Photographer Profile</CardTitle>
-                <CardDescription>Manage your account details</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center text-center pt-4">
-                <ImageUpload 
-                  onChange={handleProfileImageChange}
-                  initialImage={user?.avatar}
-                  className="h-24 w-24 mb-4"
-                />
-                
-                <h3 className="text-xl font-bold">{user?.name || 'Photographer'}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{user?.email || 'email@example.com'}</p>
-                
-                <div className="w-full border-t pt-4 mt-2">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Location:
-                    </span>
-                    <span>New York, NY</span>
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <div className="shrink-0">
+                    <ImageUpload
+                      onChange={handleProfileImageChange}
+                      initialImage={user?.avatar}
+                      className="h-24 w-24"
+                    />
                   </div>
-                  
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Phone:
+                  <div className="flex-1 text-center sm:text-left space-y-1 min-w-0">
+                    <h2 className="text-xl font-semibold truncate">{user?.name || 'Your Name'}</h2>
+                    <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                    <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                      Photographer
                     </span>
-                    <span>{user?.phone || 'Not provided'}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center">
-                      <CreditCard className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Member since:
-                    </span>
-                    <span>Jan 2023</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Stats card */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="border rounded-md p-4 text-center">
-                    <p className="text-2xl font-bold">{completedShootsCount}</p>
-                    <p className="text-sm text-muted-foreground">Completed shoots</p>
-                  </div>
-                  <div className="border rounded-md p-4 text-center">
-                    <p className="text-2xl font-bold">{scheduledShootsCount}</p>
-                    <p className="text-sm text-muted-foreground">Upcoming</p>
-                  </div>
-                  <div className="border rounded-md p-4 text-center col-span-2">
-                    <p className="text-2xl font-bold">${totalEarnings.toFixed(2)}</p>
-                    <p className="text-sm text-muted-foreground">Total earnings</p>
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="font-medium mb-2">Recent Shoots</h4>
-                  <div className="space-y-2">
-                    {recentShoots.length > 0 ? (
-                      recentShoots.map(shoot => (
-                        <div key={shoot.id} className="flex justify-between items-center text-sm">
-                          <span className="truncate max-w-[180px]">{shoot.location.address}</span>
-                          <Badge variant="outline">
-                            {format(new Date(shoot.scheduledDate), 'MMM dd')}
-                          </Badge>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No recent shoots</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Right side - Settings tabs */}
-          <div className="lg:w-2/3">
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Settings</CardTitle>
-                <CardDescription>
-                  Manage your account settings and preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={handleTabChange}>
-                  <AutoExpandingTabsList
-                    tabs={[
-                      { value: 'personal', icon: User, label: 'Personal Info' },
-                      { value: 'specialties', icon: Camera, label: 'Specialties' },
-                      { value: 'equipments', icon: Wrench, label: 'Equipments' },
-                      { value: 'notifications', icon: Settings, label: 'Preferences' },
-                      { value: 'completed-shoots', icon: Upload, label: 'Media' },
-                    ]}
-                    value={activeTab}
-                    className="mb-6"
-                  />
-                  
-                  {/* Personal Info Tab */}
-                  <TabsContent value="personal">
-                    <Form {...personalInfoForm}>
-                      <form onSubmit={personalInfoForm.handleSubmit(onPersonalInfoSubmit)} className="space-y-4">
-                        <FormField
-                          control={personalInfoForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Full Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter your full name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={personalInfoForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter your email" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                This email will be used for communications.
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={personalInfoForm.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Phone Number</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter your phone number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={personalInfoForm.control}
-                          name="location"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Location</FormLabel>
-                              <FormControl>
-                                <Input placeholder="City, State" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={personalInfoForm.control}
-                          name="bio"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bio</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Tell us a bit about yourself and your photography experience..." 
-                                  className="min-h-[100px]"
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <Button type="submit" className="w-full">Save Changes</Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
-                  
-                  {/* Specialties Tab */}
-                  <TabsContent value="specialties">
-                    <Form {...specialtiesForm}>
-                      <form onSubmit={specialtiesForm.handleSubmit(onSpecialtiesSubmit)} className="space-y-6">
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-medium">Photography Services</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Select all the services you provide as a photographer
-                          </p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {['Residential', 'Commercial', 'Aerial', 'Virtual Tour', 'Twilight', 'HDR', 'Floor Plans', 'Video', '3D Tour'].map((specialty) => (
-                              <div key={specialty} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`specialty-${specialty}`}
-                                  value={specialty}
-                                  onChange={(e) => {
-                                    const currentSpecialties = specialtiesForm.getValues().specialties;
-                                    if (e.target.checked) {
-                                      specialtiesForm.setValue('specialties', [...currentSpecialties, specialty]);
-                                    } else {
-                                      specialtiesForm.setValue(
-                                        'specialties',
-                                        currentSpecialties.filter((s) => s !== specialty)
-                                      );
-                                    }
-                                  }}
-                                  checked={specialtiesForm.watch('specialties').includes(specialty)}
-                                  className="h-4 w-4 rounded border-gray-300"
-                                />
-                                <label htmlFor={`specialty-${specialty}`}>{specialty}</label>
-                              </div>
-                            ))}
+
+            <Form {...personalInfoForm}>
+              <form onSubmit={personalInfoForm.handleSubmit(onPersonalInfoSubmit)} className="space-y-4">
+                {/* Personal Information card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Personal Information</CardTitle>
+                    <CardDescription>Your name and how clients reach you</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="name"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Full Name</FormLabel>
+                                  <FormControl><Input placeholder="Enter your full name" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="email"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Email</FormLabel>
+                                  <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
+                                  <FormDescription>Changing this requires your current password.</FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="phone"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Phone Number</FormLabel>
+                                  <FormControl><Input placeholder="(123) 456-7890" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="portfolioWebsite"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Portfolio Website</FormLabel>
+                                  <FormControl>
+                                    <div className="flex">
+                                      <Input placeholder="https://your-portfolio.com" {...field} className="rounded-r-none" />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="rounded-l-none"
+                                        disabled={!field.value}
+                                        onClick={() => field.value && window.open(String(field.value), '_blank')}
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                           </div>
-                          
-                          <h3 className="text-lg font-medium pt-4">Property Types</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Select the types of properties you're comfortable shooting
-                          </p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {['Single Family', 'Multi-Family', 'Condo/Townhouse', 'Apartment', 'Vacant Land', 'Office', 'Retail', 'Industrial'].map((propertyType) => (
-                              <div key={propertyType} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`property-${propertyType}`}
-                                  value={propertyType}
-                                  className="h-4 w-4 rounded border-gray-300"
-                                />
-                                <label htmlFor={`property-${propertyType}`}>{propertyType}</label>
-                              </div>
-                            ))}
+                          <FormField
+                            control={personalInfoForm.control}
+                            name="currentPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Current Password</FormLabel>
+                                <FormControl><Input type="password" placeholder="Required only if you change your email" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={personalInfoForm.control}
+                            name="bio"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bio</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Tell us a bit about yourself and your photography experience..."
+                                    className="min-h-[100px]"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                  </CardContent>
+                </Card>
+
+                {/* Location card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Location</CardTitle>
+                    <CardDescription>Used to assign you nearby shoots</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                          <FormField
+                            control={personalInfoForm.control}
+                            name="address"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Street Address</FormLabel>
+                                <FormControl><Input placeholder="123 Main St" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="city"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>City</FormLabel>
+                                  <FormControl><Input placeholder="City" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="state"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>State</FormLabel>
+                                  <FormControl><Input placeholder="State" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
+                              name="zip"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ZIP Code</FormLabel>
+                                  <FormControl><Input placeholder="ZIP" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                           </div>
+
+                          {/* Travel Range slider with miles/km toggle */}
+                          <FormField
+                            control={personalInfoForm.control}
+                            name="travelRange"
+                            render={({ field }) => {
+                              const unit = personalInfoForm.watch('travelRangeUnit');
+                              return (
+                                <FormItem className="rounded-md border p-4">
+                                  <div className="flex items-center justify-between">
+                                    <FormLabel className="!m-0">Travel Range</FormLabel>
+                                    <div className="flex items-center gap-1 rounded-md bg-muted p-0.5">
+                                      {(['miles', 'km'] as const).map((u) => (
+                                        <button
+                                          key={u}
+                                          type="button"
+                                          onClick={() => personalInfoForm.setValue('travelRangeUnit', u)}
+                                          className={cn(
+                                            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                                            unit === u
+                                              ? 'bg-primary text-primary-foreground shadow-sm'
+                                              : 'text-muted-foreground hover:text-foreground',
+                                          )}
+                                        >
+                                          {u === 'miles' ? 'Miles' : 'Km'}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <FormDescription>How far you're willing to travel from your address for shoots</FormDescription>
+                                  <FormControl>
+                                    <Slider
+                                      min={1}
+                                      max={100}
+                                      step={1}
+                                      value={[Number(field.value) || 25]}
+                                      onValueChange={(v) => field.onChange(v[0])}
+                                      className="pt-2"
+                                    />
+                                  </FormControl>
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>1 {unit}</span>
+                                    <span className="text-sm font-semibold text-foreground">{Number(field.value) || 25} {unit}</span>
+                                    <span>100 {unit}</span>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
+                          />
+                  </CardContent>
+                  <CardFooter className="border-t pt-4 flex justify-end">
+                    <Button type="submit">Save Changes</Button>
+                  </CardFooter>
+                </Card>
+              </form>
+            </Form>
+          </TabsContent>
+                  
+          {/* Specialties Tab */}
+          <TabsContent value="specialties" className="space-y-4">
+            <Form {...specialtiesForm}>
+              <form onSubmit={specialtiesForm.handleSubmit(onSpecialtiesSubmit)} className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Photography Services</CardTitle>
+                    <CardDescription>Select all the services you provide as a photographer</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {['Residential', 'Commercial', 'Aerial', 'Virtual Tour', 'Twilight', 'HDR', 'Floor Plans', 'Video', '3D Tour'].map((specialty) => (
+                        <div key={specialty} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`specialty-${specialty}`}
+                            value={specialty}
+                            onChange={(e) => {
+                              const currentSpecialties = specialtiesForm.getValues().specialties;
+                              if (e.target.checked) {
+                                specialtiesForm.setValue('specialties', [...currentSpecialties, specialty]);
+                              } else {
+                                specialtiesForm.setValue(
+                                  'specialties',
+                                  currentSpecialties.filter((s) => s !== specialty)
+                                );
+                              }
+                            }}
+                            checked={specialtiesForm.watch('specialties').includes(specialty)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <label htmlFor={`specialty-${specialty}`} className="text-sm">{specialty}</label>
                         </div>
-                        
-                        <Button type="submit" className="w-full">Save Specialties</Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Property Types</CardTitle>
+                    <CardDescription>Select the types of properties you're comfortable shooting</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {['Single Family', 'Multi-Family', 'Condo/Townhouse', 'Apartment', 'Vacant Land', 'Office', 'Retail', 'Industrial'].map((propertyType) => (
+                        <div key={propertyType} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`property-${propertyType}`}
+                            value={propertyType}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <label htmlFor={`property-${propertyType}`} className="text-sm">{propertyType}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t pt-4 flex justify-end">
+                    <Button type="submit">Save Specialties</Button>
+                  </CardFooter>
+                </Card>
+              </form>
+            </Form>
+          </TabsContent>
                   
                   {/* Equipments Tab */}
                   <TabsContent value="equipments">
@@ -672,139 +777,196 @@ const PhotographerAccount = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Notifications Tab */}
-                  <TabsContent value="notifications">
-                    <Form {...notificationsForm}>
-                      <form onSubmit={notificationsForm.handleSubmit(onNotificationsSubmit)} className="space-y-6">
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-medium">Notification Preferences</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Choose how you want to be notified about new shoots and updates
-                          </p>
-                          
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between border p-4 rounded-md">
-                              <div>
-                                <h4 className="font-medium">Email Notifications</h4>
-                                <p className="text-sm text-muted-foreground">Receive updates via email</p>
-                              </div>
-                              <input
-                                type="checkbox"
-                                checked={notificationsForm.watch('email_notifications')}
-                                onChange={(e) => notificationsForm.setValue('email_notifications', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                            </div>
-                            
-                            <div className="flex items-center justify-between border p-4 rounded-md">
-                              <div>
-                                <h4 className="font-medium">SMS Notifications</h4>
-                                <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
-                              </div>
-                              <input
-                                type="checkbox"
-                                checked={notificationsForm.watch('sms_notifications')}
-                                onChange={(e) => notificationsForm.setValue('sms_notifications', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                            </div>
-                          </div>
-                          
-                        </div>
-                        
-                        <Button type="submit" className="w-full">Save Preferences</Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
-                  
-                  {/* Completed Shoots Media Tab */}
-                  <TabsContent value="completed-shoots">
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium">Completed Shoots</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Upload and manage media for your completed shoots.
-                      </p>
-                      
-                      {completedShoots.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-4">
-                          {completedShoots.map(shoot => (
-                            <Card key={shoot.id} className="overflow-hidden">
-                              <CardContent className="p-4">
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <h4 className="font-medium">{shoot.location.address}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {format(new Date(shoot.completedDate || shoot.scheduledDate), 'MMM dd, yyyy')}
-                                    </p>
-                                  </div>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => handleUploadMedia(shoot)}
-                                    className="flex items-center gap-1"
-                                  >
-                                    <Upload className="h-4 w-4" />
-                                    <span>Upload Media</span>
-                                  </Button>
-                                </div>
-                                
-                                {shoot.media && shoot.media.photos && shoot.media.photos.length > 0 && (
-                                  <div className="mt-4">
-                                    <h5 className="text-sm font-medium mb-2">Uploaded Photos ({shoot.media.photos.length})</h5>
-                                    <div className="grid grid-cols-4 gap-2">
-                                      {shoot.media.photos.slice(0, 4).map((photo, index) => (
-                                        <div key={index} className="aspect-square rounded-md overflow-hidden">
-                                          <img 
-                                            src={photo} 
-                                            alt={`Property photo ${index + 1}`} 
-                                            className="w-full h-full object-cover"
-                                          />
-                                        </div>
-                                      ))}
-                                      {shoot.media.photos.length > 4 && (
-                                        <div className="col-span-4 text-center mt-2">
-                                          <Button 
-                                            variant="link" 
-                                            size="sm" 
-                                            onClick={() => {
-                                              setSelectedShoot(shoot);
-                                              setIsDetailOpen(true);
-                                            }}
-                                          >
-                                            View all {shoot.media.photos.length} photos
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center p-8 border rounded-lg">
-                          <p className="text-muted-foreground">No completed shoots found.</p>
-                        </div>
-                      )}
+          {/* Preferences Tab */}
+          <TabsContent value="notifications" className="space-y-4">
+            {/* Business / Documents card */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base">Business</CardTitle>
+                <CardDescription>Invoicing preferences and required documents</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <FormField
+                  control={personalInfoForm.control}
+                  name="weeklyInvoice"
+                  render={({ field }) => (
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="weeklyInvoice">Weekly Invoice</Label>
+                        <p className="text-sm text-muted-foreground">Receive weekly payment summaries</p>
+                      </div>
+                      <Switch
+                        id="weeklyInvoice"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  )}
+                />
+                <div className="flex items-start justify-between gap-4 rounded-md border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="taxInfo" className="flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      Tax / License Document
+                    </Label>
+                    <p className="text-sm text-muted-foreground">W-9, business license, or equivalent documentation</p>
+                    {taxDocumentName && (
+                      <p className="text-xs text-muted-foreground">
+                        {taxDocumentName}
+                        {taxSubmittedAt ? ` • Submitted ${new Date(taxSubmittedAt).toLocaleDateString()}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={taxInfoSubmitted ? 'outline' : 'destructive'}>
+                      {taxInfoSubmitted ? 'Submitted' : 'Required'}
+                    </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={taxInfoSubmitted ? 'outline' : 'default'}
+                      onClick={() => setTaxDialogOpen(true)}
+                    >
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                      {taxInfoSubmitted ? 'Update' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The Weekly Invoice toggle is saved with your profile. Use the Save Changes button on the Personal Info tab.
+                </p>
               </CardContent>
             </Card>
-          </div>
-        </div>
+
+            {/* Display preferences card */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base">Display</CardTitle>
+                <CardDescription>How dates, times, and temperatures appear across the dashboard</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between rounded-md border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="timeFormat">24-Hour Time</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {displayPreferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="timeFormat"
+                    checked={displayPreferences.timeFormat === '24h'}
+                    onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="temperatureUnit">Temperature in Celsius</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {displayPreferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="temperatureUnit"
+                    checked={displayPreferences.temperatureUnit === 'celsius'}
+                    onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notifications card */}
+            <Form {...notificationsForm}>
+              <form onSubmit={notificationsForm.handleSubmit(onNotificationsSubmit)}>
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Notifications</CardTitle>
+                    <CardDescription>Choose how you want to be notified about new shoots and updates</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="emailNotifications">Email Notifications</Label>
+                        <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                      </div>
+                      <Switch
+                        id="emailNotifications"
+                        checked={notificationsForm.watch('email_notifications')}
+                        onCheckedChange={(checked) => notificationsForm.setValue('email_notifications', checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="smsNotifications">SMS Notifications</Label>
+                        <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
+                      </div>
+                      <Switch
+                        id="smsNotifications"
+                        checked={notificationsForm.watch('sms_notifications')}
+                        onCheckedChange={(checked) => notificationsForm.setValue('sms_notifications', checked)}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t pt-4 flex justify-end">
+                    <Button type="submit">Save Notifications</Button>
+                  </CardFooter>
+                </Card>
+              </form>
+            </Form>
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Upload Media and Shoot Detail Dialogs */}
-      <ShootsDialogs 
-        selectedShoot={selectedShoot}
-        isDetailOpen={isDetailOpen}
-        isUploadDialogOpen={isUploadDialogOpen}
-        setIsDetailOpen={setIsDetailOpen}
-        setIsUploadDialogOpen={setIsUploadDialogOpen}
-        onUploadComplete={handleUploadComplete}
-      />
+      {/* Tax / License document upload dialog */}
+      <Dialog open={taxDialogOpen} onOpenChange={(open) => {
+        setTaxDialogOpen(open);
+        if (!open) {
+          setSelectedTaxDocument(null);
+          setTaxNotes('');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Tax / License Document</DialogTitle>
+            <DialogDescription>
+              W-9, business license, or any equivalent documentation. PDF, PNG, or JPG up to 10 MB.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="tax-doc-file">Document</Label>
+              <Input
+                id="tax-doc-file"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={(e) => setSelectedTaxDocument(e.target.files?.[0] ?? null)}
+              />
+              {selectedTaxDocument && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedTaxDocument.name} · {(selectedTaxDocument.size / 1024).toFixed(0)} KB
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tax-doc-notes">Notes (optional)</Label>
+              <Textarea
+                id="tax-doc-notes"
+                value={taxNotes}
+                onChange={(e) => setTaxNotes(e.target.value)}
+                placeholder="Anything we should know about this document"
+                className="min-h-[72px] resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaxDialogOpen(false)} disabled={isTaxSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleTaxDocumentSubmit} disabled={isTaxSubmitting || !selectedTaxDocument}>
+              {isTaxSubmitting ? 'Uploading…' : 'Upload Document'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

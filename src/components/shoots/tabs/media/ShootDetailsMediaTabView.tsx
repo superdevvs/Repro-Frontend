@@ -117,25 +117,49 @@ export function ShootDetailsMediaTabView(props: any) {
     )
   );
   const renderEditedTab = () => (
-    isPhotographer ? (
-      <button
-        type="button"
-        className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
-        onClick={() => {
-          const mlsLink = getPreferredMlsTourLink(shoot);
-          if (mlsLink) {
-            window.open(mlsLink, '_blank', 'noopener,noreferrer');
-          } else {
-            // Open the app's MLS tour page for this shoot
-            const baseUrl = window.location.origin;
-            window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
-          }
-        }}
-      >
-        <ExternalLink className="h-3 w-3" />
-        Edited Media
-      </button>
-    ) : (
+    isPhotographer ? (() => {
+      // Photographer-only Edited Media link → MLS tour. Only enabled once the
+      // shoot has reached Ready or Delivered status; otherwise greyed out and
+      // non-clickable (no edited deliverables exist yet).
+      const photographerEditedTabStatus = String(
+        (shoot as any)?.workflowStatus
+          || (shoot as any)?.workflow_status
+          || (shoot as any)?.status
+          || '',
+      ).toLowerCase();
+      const photographerEditedAllowed = ['ready', 'delivered'].includes(photographerEditedTabStatus);
+
+      return (
+        <button
+          type="button"
+          aria-disabled={!photographerEditedAllowed}
+          title={photographerEditedAllowed ? undefined : 'Available once the shoot reaches Ready or Delivered status.'}
+          className={`text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 font-medium rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1 ${
+            photographerEditedAllowed
+              ? 'text-primary hover:bg-primary/10 cursor-pointer'
+              : 'text-muted-foreground/60 opacity-50 cursor-not-allowed pointer-events-none'
+          }`}
+          onClick={(event) => {
+            if (!photographerEditedAllowed) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            const mlsLink = getPreferredMlsTourLink(shoot);
+            if (mlsLink) {
+              window.open(mlsLink, '_blank', 'noopener,noreferrer');
+            } else {
+              // Open the app's MLS tour page for this shoot
+              const baseUrl = window.location.origin;
+              window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
+            }
+          }}
+        >
+          <ExternalLink className="h-3 w-3" />
+          Edited Media
+        </button>
+      );
+    })() : (
       <TabsTrigger 
         value="edited" 
         className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
@@ -170,7 +194,7 @@ export function ShootDetailsMediaTabView(props: any) {
   );
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-0" style={{ height: '100%', minHeight: '100%' }}>
       {/* Download progress popup */}
       {downloadPopup.visible && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center pointer-events-none">
@@ -246,7 +270,7 @@ export function ShootDetailsMediaTabView(props: any) {
                 setDisplayTab('edited');
               }
             }} className="flex-1 min-w-0">
-              <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b">
+              <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b rounded-none">
                 {/* Media tab - visible to all */}
                 <TabsTrigger 
                   value="media" 
@@ -656,7 +680,7 @@ export function ShootDetailsMediaTabView(props: any) {
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div className="flex-1 flex flex-col min-h-0 p-2.5">
-            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col flex-1">
+            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col flex-1 min-h-0">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */
                 <AdminUploadSection

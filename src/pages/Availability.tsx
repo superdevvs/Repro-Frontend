@@ -130,7 +130,7 @@ export default function Availability() {
     endTime: "21:00",
     status: "available",
     days: [true, true, true, true, true, false, false],
-    recurring: true,
+    recurring: false,
     note: "",
   });
   const [specificDateFrom, setSpecificDateFrom] = useState<Date | undefined>(date ?? new Date());
