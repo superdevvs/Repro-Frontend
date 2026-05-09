@@ -7,6 +7,20 @@ export interface EditingType {
   params?: Record<string, any>;
 }
 
+export interface EditingJobShoot {
+  id: number;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+}
+
+export interface EditingJobSourceFile {
+  id: number;
+  filename?: string | null;
+  thumb_url?: string | null;
+}
+
 export interface EditingJob {
   id: number;
   shoot_id: number;
@@ -26,6 +40,15 @@ export interface EditingJob {
   completed_at?: string;
   created_at: string;
   updated_at: string;
+  shoot?: EditingJobShoot | null;
+  source_file?: EditingJobSourceFile | null;
+}
+
+export interface ConnectionStatus {
+  success: boolean;
+  status: number;
+  message?: string;
+  editing_types_count?: number;
 }
 
 export interface SubmitEditingRequest {
@@ -76,5 +99,15 @@ export const autoenhanceService = {
 
   async cancelJob(jobId: number): Promise<void> {
     await apiClient.post(`/autoenhance/jobs/${jobId}/cancel`);
+  },
+
+  async retryJob(jobId: number): Promise<EditingJob> {
+    const response = await apiClient.post(`/autoenhance/jobs/${jobId}/retry`);
+    return response.data.data || response.data;
+  },
+
+  async getConnectionStatus(): Promise<ConnectionStatus> {
+    const response = await apiClient.get('/autoenhance/connection-status');
+    return response.data.data || response.data;
   },
 };

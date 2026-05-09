@@ -1,17 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   Clock,
   ExternalLink,
   Image as ImageIcon,
+  Info,
   Loader2,
+  Maximize2,
   RefreshCw,
+  RotateCw,
   Search,
+  Settings2,
   Sparkles,
   Upload,
+  X,
   XCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -24,11 +32,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { autoenhanceService, type EditingJob, type EditingType } from '@/services/autoenhanceService';
+import {
+  autoenhanceService,
+  type ConnectionStatus,
+  type EditingJob,
+  type EditingType,
+} from '@/services/autoenhanceService';
 import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { cn } from '@/lib/utils';
+import { AiEditingStepper } from '@/components/ai-editing/AiEditingStepper';
+import { AiEditingModePicker } from '@/components/ai-editing/AiEditingModePicker';
+import { AiEditingJobCard } from '@/components/ai-editing/AiEditingJobCard';
+import { AiEditingComparisonLightbox } from '@/components/ai-editing/AiEditingComparisonLightbox';
 
 interface ShootWithEditing {
   id: number;
@@ -36,7 +56,9 @@ interface ShootWithEditing {
   status: string;
   workflowStatus?: string;
   photo_count?: number;
-  created_by?: string;
+  raw_photo_count?: number;
+  edited_photo_count?: number;
+  client_name?: string;
   created_at: string;
   thumbnail?: string | null;
   auto_edit_enabled?: boolean;
@@ -55,18 +77,12 @@ interface MediaFile {
   workflowStage?: string;
   created_at?: string;
   isEdited?: boolean;
+  isAiEdited?: boolean;
 }
 
-type ViewMode = 'overview' | 'select-shoot' | 'select-files' | 'review';
+type ViewMode = 'activity' | 'select-shoot' | 'select-files' | 'configure';
 type JobStatus = EditingJob['status'];
-
-const statusConfig: Record<JobStatus, { label: string; className: string; icon: React.ElementType }> = {
-  pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
-  processing: { label: 'Processing', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Loader2 },
-  completed: { label: 'Completed', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
-  failed: { label: 'Failed', className: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
-  cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-800 border-slate-200', icon: XCircle },
-};
+type StatusFilter = 'all' | JobStatus;
 
 const editingTypeLabels: Record<string, string> = {
   enhance: 'Enhance',
@@ -76,10 +92,21 @@ const editingTypeLabels: Record<string, string> = {
   window_pull: 'Window Pull',
 };
 
+const STEPPER_STEPS = [
+  { id: 'select-shoot', label: 'Shoot', description: 'Pick a property' },
+  { id: 'select-files', label: 'Photos', description: 'Choose source images' },
+  { id: 'configure', label: 'Configure', description: 'Mode, options & submit' },
+];
+
+const MAX_BATCH_SIZE = 100;
+
 const AiEditing = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [viewMode, setViewMode] = useState<ViewMode>('overview');
+  const navigate = useNavigate();
+
+  const [viewMode, setViewMode] = useState<ViewMode>('activity');
+
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
   const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
   const [availableFiles, setAvailableFiles] = useState<MediaFile[]>([]);
@@ -87,19 +114,30 @@ const AiEditing = () => {
   const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
   const [selectedEditingType, setSelectedEditingType] = useState('enhance');
   const [jobs, setJobs] = useState<EditingJob[]>([]);
+  const [connection, setConnection] = useState<ConnectionStatus | null>(null);
+
   const [loadingShoots, setLoadingShoots] = useState(true);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [mutatingJobId, setMutatingJobId] = useState<number | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [jobStatusFilter, setJobStatusFilter] = useState<'all' | JobStatus>('all');
-  const [enhanceType, setEnhanceType] = useState('neutral');
+  const [jobStatusFilter, setJobStatusFilter] = useState<StatusFilter>('all');
+  const [jobShootFilter, setJobShootFilter] = useState('');
+
+  const [enhanceType, setEnhanceType] = useState<'warm' | 'neutral' | 'modern'>('neutral');
   const [verticalCorrection, setVerticalCorrection] = useState(true);
   const [lensCorrection, setLensCorrection] = useState(true);
-  const [windowPullType, setWindowPullType] = useState('NONE');
-  const [cloudType, setCloudType] = useState('CLEAR');
+  const [windowPullType, setWindowPullType] = useState<'NONE' | 'ONLY_WINDOWS' | 'WINDOWS_WITH_SKIES'>('NONE');
+  const [cloudType, setCloudType] = useState<'CLEAR' | 'LOW_CLOUD' | 'HIGH_CLOUD'>('CLEAR');
   const [bracketCount, setBracketCount] = useState(5);
   const [notes, setNotes] = useState('');
+
+  const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
+  const [comparisonJob, setComparisonJob] = useState<EditingJob | null>(null);
+
+  const lastShiftAnchorRef = useRef<number | null>(null);
 
   const canUseAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(user?.role || '');
 
@@ -117,12 +155,36 @@ const AiEditing = () => {
     return `${API_BASE_URL}/${value.replace(/^\/+/, '')}`;
   }, []);
 
-  const getImageUrl = useCallback((file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium') => {
-    if (size === 'thumb') return resolveImageUrl(file.thumb_url || file.medium_url || file.url || file.path);
-    if (size === 'medium') return resolveImageUrl(file.medium_url || file.large_url || file.url || file.path);
-    if (size === 'large') return resolveImageUrl(file.large_url || file.original_url || file.url || file.path);
-    return resolveImageUrl(file.original_url || file.large_url || file.url || file.path);
-  }, [resolveImageUrl]);
+  const getImageUrl = useCallback(
+    (file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium') => {
+      if (size === 'thumb') return resolveImageUrl(file.thumb_url || file.medium_url || file.url || file.path);
+      if (size === 'medium') return resolveImageUrl(file.medium_url || file.large_url || file.url || file.path);
+      if (size === 'large') return resolveImageUrl(file.large_url || file.original_url || file.url || file.path);
+      return resolveImageUrl(file.original_url || file.large_url || file.url || file.path);
+    },
+    [resolveImageUrl],
+  );
+
+  const parseJsonResponse = useCallback(async (response: Response) => {
+    if (response.status === 204) return {};
+    const text = await response.text();
+    if (!text.trim()) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const loadConnectionStatus = useCallback(async () => {
+    try {
+      const status = await autoenhanceService.getConnectionStatus();
+      setConnection(status);
+    } catch (error) {
+      console.warn('Failed to fetch Autoenhance connection status', error);
+      setConnection({ success: false, status: 503, message: 'Status unavailable' });
+    }
+  }, []);
 
   const loadEditingTypes = useCallback(async () => {
     try {
@@ -134,8 +196,8 @@ const AiEditing = () => {
     } catch (error) {
       console.error('Failed to load Autoenhance editing types:', error);
       toast({
-        title: 'Autoenhance options unavailable',
-        description: 'Using built-in Autoenhance options for now.',
+        title: 'Editing modes unavailable',
+        description: 'Falling back to built-in Autoenhance modes.',
       });
     }
   }, [selectedEditingType, toast]);
@@ -147,7 +209,11 @@ const AiEditing = () => {
       if (!token) return;
       const tabs = ['scheduled', 'completed', 'delivered'];
       const responses = await Promise.all(
-        tabs.map((tab) => fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, { headers: getAuthHeaders() }))
+        tabs.map((tab) =>
+          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, {
+            headers: getAuthHeaders(),
+          }),
+        ),
       );
       if (responses.some((response) => response.status === 401)) {
         toast({ title: 'Authentication Error', description: 'Please log in again', variant: 'destructive' });
@@ -155,7 +221,7 @@ const AiEditing = () => {
       }
       const failed = responses.find((response) => !response.ok);
       if (failed) throw new Error('Failed to load shoots');
-      const payloads = await Promise.all(responses.map((response) => response.json()));
+      const payloads = await Promise.all(responses.map((response) => parseJsonResponse(response)));
       const shootsById = new Map<number, ShootWithEditing>();
       payloads.forEach((data) => {
         const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
@@ -165,86 +231,114 @@ const AiEditing = () => {
             address: shoot.address || `Shoot #${shoot.id}`,
             status: shoot.status || 'pending',
             workflowStatus: shoot.workflowStatus || shoot.workflow_status || shoot.status,
-            photo_count: shoot.photo_count || shoot.photoCount || shoot.files_count || shoot.files?.length || 0,
-            created_by: shoot.created_by || shoot.user?.name || shoot.client?.name || 'Unknown',
+            photo_count:
+              shoot.photo_count ?? shoot.photoCount ?? shoot.files_count ?? (Array.isArray(shoot.files) ? shoot.files.length : 0),
+            raw_photo_count: shoot.raw_photo_count ?? shoot.rawPhotoCount,
+            edited_photo_count: shoot.edited_photo_count ?? shoot.editedPhotoCount,
+            client_name: shoot.client?.name || shoot.client_name || shoot.user?.name,
             created_at: shoot.created_at || shoot.createdAt || new Date().toISOString(),
-            thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) ? shoot.preview_images[0] : null),
+            thumbnail:
+              shoot.thumbnail ||
+              shoot.hero_image ||
+              shoot.heroImage ||
+              shoot.cover_image ||
+              (Array.isArray(shoot.preview_images) ? shoot.preview_images[0] : null),
             auto_edit_enabled: shoot.auto_edit_enabled || false,
           };
           shootsById.set(mappedShoot.id, mappedShoot);
         });
       });
-      setShoots(Array.from(shootsById.values()));
+      const ordered = Array.from(shootsById.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setShoots(ordered);
     } catch (error) {
       console.error('Failed to load shoots:', error);
       toast({ title: 'Error', description: 'Failed to load shoots. Please try again.', variant: 'destructive' });
     } finally {
       setLoadingShoots(false);
     }
-  }, [getAuthHeaders, toast]);
+  }, [getAuthHeaders, parseJsonResponse, toast]);
 
-  const loadShootFiles = useCallback(async (shootId: number) => {
-    setLoadingFiles(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files`, { headers: getAuthHeaders() });
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAvailableFiles([]);
-          return;
+  const loadShootFiles = useCallback(
+    async (shootId: number) => {
+      setLoadingFiles(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files`, { headers: getAuthHeaders() });
+        if (!response.ok) {
+          if (response.status === 404) {
+            setAvailableFiles([]);
+            return;
+          }
+          throw new Error('Failed to load shoot files');
         }
-        throw new Error('Failed to load shoot files');
+        const data = await parseJsonResponse(response);
+        const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const files: MediaFile[] = items
+          .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || ''))
+          .map((file: any) => {
+            const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
+            const isEdited =
+              ['completed', 'verified', 'edited'].includes(stage) ||
+              file.media_type === 'edited' ||
+              file.is_ai_edited === true;
+            return {
+              id: file.id,
+              filename: file.filename || `file-${file.id}`,
+              url: file.url,
+              path: file.path,
+              thumb_url: file.thumb_url || file.thumb || file.thumbnail_url,
+              medium_url: file.medium_url || file.medium || file.web_url,
+              large_url: file.large_url || file.large || file.original_url,
+              original_url: file.original_url || file.original,
+              fileType: file.fileType || file.file_type,
+              workflowStage: stage,
+              created_at: file.created_at || file.createdAt,
+              isEdited,
+              isAiEdited: file.is_ai_edited === true,
+            } as MediaFile;
+          });
+        setAvailableFiles(files);
+      } catch (error) {
+        console.error('Failed to load shoot files:', error);
+        setAvailableFiles([]);
+        toast({ title: 'Error', description: 'Failed to load shoot files', variant: 'destructive' });
+      } finally {
+        setLoadingFiles(false);
       }
-      const data = await response.json();
-      const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      const files = items
-        .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || ''))
-        .map((file: any) => ({
-          id: file.id,
-          filename: file.filename || `file-${file.id}`,
-          url: file.url,
-          path: file.path,
-          thumb_url: file.thumb_url || file.thumb || file.thumbnail_url,
-          medium_url: file.medium_url || file.medium || file.web_url,
-          large_url: file.large_url || file.large || file.original_url,
-          original_url: file.original_url || file.original,
-          fileType: file.fileType || file.file_type,
-          workflowStage: file.workflow_stage || file.workflowStage,
-          created_at: file.created_at || file.createdAt,
-          isEdited: ['completed', 'edited'].includes(String(file.workflow_stage || file.workflowStage || '').toLowerCase()) || file.media_type === 'edited',
-        }));
-      setAvailableFiles(files);
-    } catch (error) {
-      console.error('Failed to load shoot files:', error);
-      setAvailableFiles([]);
-      toast({ title: 'Error', description: 'Failed to load shoot files', variant: 'destructive' });
-    } finally {
-      setLoadingFiles(false);
-    }
-  }, [getAuthHeaders, toast]);
+    },
+    [getAuthHeaders, parseJsonResponse, toast],
+  );
 
-  const loadJobs = useCallback(async (showLoader = true) => {
-    if (showLoader) setLoadingJobs(true);
-    try {
-      const response = await autoenhanceService.listJobs({ per_page: 20 });
-      setJobs(response.data);
-    } catch (error) {
-      console.error('Failed to load Autoenhance jobs:', error);
-      toast({ title: 'Error', description: 'Failed to load Autoenhance jobs', variant: 'destructive' });
-    } finally {
-      if (showLoader) setLoadingJobs(false);
-    }
-  }, [toast]);
+  const loadJobs = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setLoadingJobs(true);
+      try {
+        const response = await autoenhanceService.listJobs({ per_page: 30 });
+        setJobs(response.data);
+      } catch (error) {
+        console.error('Failed to load Autoenhance jobs:', error);
+        if (showLoader) {
+          toast({ title: 'Error', description: 'Failed to load Autoenhance jobs', variant: 'destructive' });
+        }
+      } finally {
+        if (showLoader) setLoadingJobs(false);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     loadShoots();
     loadEditingTypes();
     loadJobs();
-  }, [loadEditingTypes, loadJobs, loadShoots]);
+    loadConnectionStatus();
+  }, [loadConnectionStatus, loadEditingTypes, loadJobs, loadShoots]);
 
   useEffect(() => {
-    const hasActiveJobs = jobs.some((job) => ['pending', 'processing'].includes(job.status));
-    if (!hasActiveJobs) return;
-    const interval = window.setInterval(() => loadJobs(false), 10000);
+    const hasActive = jobs.some((job) => ['pending', 'processing'].includes(job.status));
+    if (!hasActive) return;
+    const interval = window.setInterval(() => loadJobs(false), 8000);
     return () => window.clearInterval(interval);
   }, [jobs, loadJobs]);
 
@@ -257,23 +351,60 @@ const AiEditing = () => {
     }
   }, [loadShootFiles, selectedShoot]);
 
-  const rawFiles = useMemo(() => availableFiles.filter((file) => !file.isEdited), [availableFiles]);
-  const editedFiles = useMemo(() => availableFiles.filter((file) => file.isEdited), [availableFiles]);
+  const rawFiles = useMemo(
+    () => availableFiles.filter((file) => !file.isEdited && !file.isAiEdited),
+    [availableFiles],
+  );
+  const editedFiles = useMemo(
+    () => availableFiles.filter((file) => file.isEdited || file.isAiEdited),
+    [availableFiles],
+  );
+
   const filteredShoots = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return shoots;
-    return shoots.filter((shoot) => shoot.address.toLowerCase().includes(term) || String(shoot.id).includes(term));
+    return shoots.filter(
+      (shoot) =>
+        shoot.address.toLowerCase().includes(term) ||
+        String(shoot.id).includes(term) ||
+        (shoot.client_name || '').toLowerCase().includes(term),
+    );
   }, [searchTerm, shoots]);
-  const filteredJobs = useMemo(() => {
-    if (jobStatusFilter === 'all') return jobs;
-    return jobs.filter((job) => job.status === jobStatusFilter);
-  }, [jobStatusFilter, jobs]);
-  const activeJobs = jobs.filter((job) => ['pending', 'processing'].includes(job.status)).length;
-  const completedJobs = jobs.filter((job) => job.status === 'completed').length;
-  const failedJobs = jobs.filter((job) => job.status === 'failed').length;
 
-  const selectedRawFiles = useMemo(() => rawFiles.filter((file) => selectedFiles.has(file.id)), [rawFiles, selectedFiles]);
+  const filteredJobs = useMemo(() => {
+    const term = jobShootFilter.trim().toLowerCase();
+    return jobs.filter((job) => {
+      if (jobStatusFilter !== 'all' && job.status !== jobStatusFilter) return false;
+      if (term) {
+        const haystack = `${job.shoot?.address || ''} ${job.shoot_id} ${job.source_file?.filename || ''} ${job.editing_type}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [jobShootFilter, jobStatusFilter, jobs]);
+
+  const stats = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    return {
+      active: jobs.filter((job) => ['pending', 'processing'].includes(job.status)).length,
+      completed: jobs.filter((job) => job.status === 'completed').length,
+      failed: jobs.filter((job) => job.status === 'failed').length,
+      today: jobs.filter((job) => {
+        const created = job.created_at ? new Date(job.created_at) : null;
+        return created && created >= todayStart;
+      }).length,
+    };
+  }, [jobs]);
+
+  const selectedRawFiles = useMemo(
+    () => rawFiles.filter((file) => selectedFiles.has(file.id)),
+    [rawFiles, selectedFiles],
+  );
+
   const selectedEditingTypeMeta = editingTypes.find((type) => type.id === selectedEditingType);
+  const isAutoenhanceConfigured = connection?.success !== false;
 
   const buildSubmitParams = () => {
     const params: Record<string, any> = { notes: notes.trim() || undefined };
@@ -300,41 +431,63 @@ const AiEditing = () => {
     return params;
   };
 
-  const getStatusBadge = (status: JobStatus) => {
-    const config = statusConfig[status];
-    const Icon = config.icon;
-    return (
-      <Badge variant="outline" className={config.className}>
-        <Icon className={`mr-1 h-3 w-3 ${status === 'processing' ? 'animate-spin' : ''}`} />
-        {config.label}
-      </Badge>
-    );
-  };
-
   const startNewEdit = () => {
+    if (!canUseAutoenhance) return;
     setSelectedShoot(null);
     setSelectedFiles(new Set());
     setSearchTerm('');
+    lastShiftAnchorRef.current = null;
     setViewMode('select-shoot');
   };
+
+  const goToActivity = useCallback(() => {
+    setViewMode('activity');
+    lastShiftAnchorRef.current = null;
+  }, []);
 
   const selectShoot = (shoot: ShootWithEditing) => {
     setSelectedShoot(shoot);
     setSelectedFiles(new Set());
+    lastShiftAnchorRef.current = null;
     setViewMode('select-files');
   };
 
-  const toggleFile = (fileId: number) => {
+  const toggleFile = (fileId: number, event?: React.MouseEvent) => {
     setSelectedFiles((current) => {
       const next = new Set(current);
+
+      if (event?.shiftKey && lastShiftAnchorRef.current !== null) {
+        const ids = rawFiles.map((file) => file.id);
+        const a = ids.indexOf(lastShiftAnchorRef.current);
+        const b = ids.indexOf(fileId);
+        if (a !== -1 && b !== -1) {
+          const [start, end] = a < b ? [a, b] : [b, a];
+          for (let index = start; index <= end; index++) next.add(ids[index]);
+          return next;
+        }
+      }
+
       if (next.has(fileId)) next.delete(fileId);
       else next.add(fileId);
+      lastShiftAnchorRef.current = fileId;
       return next;
     });
   };
 
-  const selectAllRawFiles = () => {
-    setSelectedFiles(new Set(rawFiles.map((file) => file.id)));
+  const selectAllRawFiles = useCallback(() => {
+    if (rawFiles.length === 0) return;
+    if (rawFiles.length > MAX_BATCH_SIZE) {
+      toast({
+        title: 'Large batch',
+        description: `Selecting ${MAX_BATCH_SIZE} of ${rawFiles.length} photos. Submit in multiple batches if needed.`,
+      });
+    }
+    setSelectedFiles(new Set(rawFiles.slice(0, MAX_BATCH_SIZE).map((file) => file.id)));
+  }, [rawFiles, toast]);
+
+  const clearSelection = () => {
+    setSelectedFiles(new Set());
+    lastShiftAnchorRef.current = null;
   };
 
   const submitAutoenhance = async () => {
@@ -347,388 +500,1019 @@ const AiEditing = () => {
         editing_type: selectedEditingType,
         params: buildSubmitParams(),
       });
-      toast({ title: 'Submitted to Autoenhance', description: `${selectedFiles.size} image(s) submitted for processing.` });
+      toast({
+        title: 'Submitted to Autoenhance',
+        description: `${selectedFiles.size} image(s) queued. Track progress in Activity.`,
+      });
       setSelectedFiles(new Set());
-      setViewMode('overview');
+      lastShiftAnchorRef.current = null;
+      setNotes('');
+      setViewMode('activity');
+      setJobStatusFilter('all');
       await loadJobs(false);
     } catch (error: any) {
-      toast({
-        title: 'Submission failed',
-        description: error?.response?.data?.message || error?.message || 'Failed to submit Autoenhance job',
-        variant: 'destructive',
-      });
+      const description =
+        error?.response?.data?.message || error?.message || 'Failed to submit Autoenhance job';
+      toast({ title: 'Submission failed', description, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const renderOverview = () => (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="md:col-span-2 border-primary/30 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Start an Autoenhance edit
-            </CardTitle>
-            <CardDescription>Select a shoot, choose source photos, configure Autoenhance options, and submit jobs.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={startNewEdit} disabled={!canUseAutoenhance} className="bg-primary hover:bg-primary/90 text-white">
-              <Upload className="mr-2 h-4 w-4" />
-              New Autoenhance Edit
-            </Button>
-            {!canUseAutoenhance && <p className="mt-3 text-sm text-muted-foreground">Your role does not have access to Autoenhance submissions.</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Active Jobs</CardDescription>
-            <CardTitle>{activeJobs}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Completed</CardDescription>
-            <CardTitle>{completedJobs}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Recent Autoenhance jobs</CardTitle>
-            <CardDescription>Track submitted image enhancements and review failures.</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as 'all' | JobStatus)}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={() => loadJobs()} disabled={loadingJobs}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingJobs ? (
-            <HorizontalLoader message="Loading Autoenhance jobs..." />
-          ) : filteredJobs.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <ImageIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <h3 className="font-semibold">No Autoenhance jobs yet</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Start a new edit to submit images to Autoenhance.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredJobs.map((job) => (
-                <div key={job.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">Job #{job.id}</span>
-                      {getStatusBadge(job.status)}
-                      <Badge variant="secondary">{editingTypeLabels[job.editing_type] || job.editing_type}</Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Shoot #{job.shoot_id}{job.shoot_file_id ? ` · File #${job.shoot_file_id}` : ''} · {job.created_at ? format(new Date(job.created_at), 'MMM d, yyyy h:mm a') : '—'}
-                    </div>
-                    {job.error_message && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" />{job.error_message}</div>}
-                  </div>
-                  <div className="flex gap-2">
-                    {job.edited_image_url && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={resolveImageUrl(job.edited_image_url)} target="_blank" rel="noreferrer">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Open result
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+  const handleRetryJob = useCallback(
+    async (job: EditingJob) => {
+      setMutatingJobId(job.id);
+      try {
+        await autoenhanceService.retryJob(job.id);
+        toast({ title: 'Job re-queued', description: `Job #${job.id} has been queued for retry.` });
+        await loadJobs(false);
+      } catch (error: any) {
+        const description =
+          error?.response?.data?.message || error?.message || 'Failed to retry job';
+        toast({ title: 'Retry failed', description, variant: 'destructive' });
+      } finally {
+        setMutatingJobId(null);
+      }
+    },
+    [loadJobs, toast],
   );
 
-  const renderSelectShoot = () => (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Button variant="ghost" size="sm" onClick={() => setViewMode('overview')} className="mb-2 px-0">
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Back to overview
+  const handleCancelJob = useCallback(
+    async (job: EditingJob) => {
+      setMutatingJobId(job.id);
+      try {
+        await autoenhanceService.cancelJob(job.id);
+        toast({ title: 'Job cancelled', description: `Job #${job.id} cancelled.` });
+        await loadJobs(false);
+      } catch (error: any) {
+        const description =
+          error?.response?.data?.message || error?.message || 'Failed to cancel job';
+        toast({ title: 'Cancel failed', description, variant: 'destructive' });
+      } finally {
+        setMutatingJobId(null);
+      }
+    },
+    [loadJobs, toast],
+  );
+
+  const handleOpenComparison = useCallback((job: EditingJob) => {
+    setComparisonJob(job);
+  }, []);
+
+  const handleOpenShoot = useCallback(
+    (job: EditingJob) => {
+      if (job.shoot_id) navigate(`/shoots/${job.shoot_id}`);
+    },
+    [navigate],
+  );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+
+      if (event.key === 'Escape') {
+        if (previewFile) {
+          setPreviewFile(null);
+          return;
+        }
+        if (comparisonJob) return;
+        if (viewMode === 'configure') setViewMode('select-files');
+        else if (viewMode === 'select-files') setViewMode('select-shoot');
+        else if (viewMode === 'select-shoot') goToActivity();
+      }
+
+      if (viewMode === 'select-files' && (event.key === 'a' || event.key === 'A') && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        selectAllRawFiles();
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [comparisonJob, goToActivity, previewFile, selectAllRawFiles, viewMode]);
+
+  const renderConnectionAlert = () => {
+    if (isAutoenhanceConfigured) return null;
+    return (
+      <Card className="border-amber-300/60 bg-amber-50/80 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+        <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold">Autoenhance is not configured</p>
+              <p className="text-xs">{connection?.message || 'Add an API key in Settings → Integrations to enable AI editing.'}</p>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline" className="self-start sm:self-auto">
+            <a href="/settings?tab=integrations">
+              <Settings2 className="mr-2 h-3.5 w-3.5" />
+              Open settings
+            </a>
           </Button>
-          <h2 className="text-2xl font-semibold">Choose a shoot</h2>
-          <p className="text-sm text-muted-foreground">Select the shoot containing photos you want to process with Autoenhance.</p>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderStatTile = (
+    label: string,
+    value: number,
+    accent: string,
+    onClick: () => void,
+    Icon: React.ElementType,
+    description?: string,
+    isActive = false,
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4 text-left transition-all hover:shadow-md',
+        isActive ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40',
+      )}
+    >
+      <span aria-hidden className={cn('absolute inset-0 -z-0 bg-gradient-to-br opacity-80', accent)} />
+      <div className="relative z-10 flex items-start justify-between gap-2">
+        <div className="space-y-0.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="text-2xl sm:text-3xl font-bold leading-none">{value}</p>
+          {description && <p className="text-[11px] text-muted-foreground">{description}</p>}
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search shoots..." className="pl-10" />
+        <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg border bg-background/80 backdrop-blur')}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground/80" />
         </div>
       </div>
-      {loadingShoots ? (
-        <HorizontalLoader message="Loading shoots..." />
-      ) : filteredShoots.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No shoots found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or refresh shoots.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredShoots.map((shoot) => {
-            const imageUrl = resolveImageUrl(shoot.thumbnail);
-            return (
-              <Card key={shoot.id} className="cursor-pointer transition-colors hover:border-primary" onClick={() => selectShoot(shoot)}>
-                <CardContent className="p-0">
-                  {imageUrl ? <img src={imageUrl} alt={shoot.address} className="h-44 w-full rounded-t-lg object-cover" /> : <div className="flex h-44 items-center justify-center rounded-t-lg bg-muted"><ImageIcon className="h-10 w-10 text-muted-foreground" /></div>}
-                  <div className="space-y-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="font-semibold leading-tight">{shoot.address}</h3>
-                      <Badge variant="outline">{shoot.workflowStatus || shoot.status}</Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">{shoot.photo_count || 0} photos · {shoot.created_at ? format(new Date(shoot.created_at), 'MMM d, yyyy') : '—'}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+    </button>
+  );
+
+  const renderHeroStats = () => (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      {renderStatTile(
+        'Active',
+        stats.active,
+        'from-blue-500/15 via-blue-500/5 to-transparent',
+        () => {
+          setJobStatusFilter('processing');
+          setViewMode('activity');
+        },
+        Loader2,
+        'Pending + processing',
+        jobStatusFilter === 'processing',
+      )}
+      {renderStatTile(
+        'Completed',
+        stats.completed,
+        'from-emerald-500/15 via-emerald-500/5 to-transparent',
+        () => {
+          setJobStatusFilter('completed');
+          setViewMode('activity');
+        },
+        CheckCircle2,
+        'Recent successes',
+        jobStatusFilter === 'completed',
+      )}
+      {renderStatTile(
+        'Failed',
+        stats.failed,
+        'from-red-500/15 via-red-500/5 to-transparent',
+        () => {
+          setJobStatusFilter('failed');
+          setViewMode('activity');
+        },
+        XCircle,
+        'Need attention',
+        jobStatusFilter === 'failed',
+      )}
+      {renderStatTile(
+        'Today',
+        stats.today,
+        'from-violet-500/15 via-violet-500/5 to-transparent',
+        () => {
+          setJobStatusFilter('all');
+          setViewMode('activity');
+        },
+        Sparkles,
+        'Submitted today',
+        false,
       )}
     </div>
   );
 
-  const renderFileCard = (file: MediaFile) => {
-    const imageUrl = getImageUrl(file, 'medium');
-    const isSelected = selectedFiles.has(file.id);
+  const renderActivity = () => (
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-3 border-b border-border/60 bg-muted/30 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-base sm:text-lg">Recent activity</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Track Autoenhance jobs, retry failures, or open completed results.
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:flex-none sm:w-56">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={jobShootFilter}
+              onChange={(event) => setJobShootFilter(event.target.value)}
+              placeholder="Filter by address, file..."
+              className="h-9 pl-8 text-xs sm:text-sm"
+            />
+          </div>
+          <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as StatusFilter)}>
+            <SelectTrigger className="h-9 w-[120px] sm:w-[140px] text-xs sm:text-sm">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => loadJobs()} disabled={loadingJobs} className="h-9">
+            <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loadingJobs && 'animate-spin')} />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4">
+        {loadingJobs ? (
+          <HorizontalLoader message="Loading Autoenhance jobs..." />
+        ) : filteredJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-semibold">
+                {jobs.length === 0 ? 'No Autoenhance jobs yet' : 'No jobs match these filters'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {jobs.length === 0
+                  ? 'Submit raw photos to start your first batch.'
+                  : 'Try clearing the filters or pick a different status.'}
+              </p>
+            </div>
+            {jobs.length === 0 ? (
+              <Button onClick={startNewEdit} disabled={!canUseAutoenhance}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Start your first edit
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setJobStatusFilter('all');
+                  setJobShootFilter('');
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
+            {filteredJobs.map((job) => (
+              <AiEditingJobCard
+                key={job.id}
+                job={job}
+                editingTypeLabels={editingTypeLabels}
+                resolveImageUrl={resolveImageUrl}
+                onCompare={handleOpenComparison}
+                onCancel={handleCancelJob}
+                onRetry={handleRetryJob}
+                onOpenSource={handleOpenShoot}
+                isMutating={mutatingJobId === job.id}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const renderShootCard = (shoot: ShootWithEditing) => {
+    const imageUrl = resolveImageUrl(shoot.thumbnail);
+    const isSelected = selectedShoot?.id === shoot.id;
+    const photos = shoot.photo_count ?? shoot.raw_photo_count ?? 0;
     return (
-      <button key={file.id} type="button" onClick={() => toggleFile(file.id)} className={`group overflow-hidden rounded-lg border text-left transition ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'hover:border-primary/60'}`}>
-        <div className="relative aspect-[4/3] bg-muted">
-          {imageUrl ? <img src={imageUrl} alt={file.filename} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><ImageIcon className="h-8 w-8 text-muted-foreground" /></div>}
-          <div className="absolute left-2 top-2">
-            <Badge className={isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/80 text-foreground'}>{isSelected ? 'Selected' : 'Select'}</Badge>
+      <button
+        key={shoot.id}
+        type="button"
+        onClick={() => selectShoot(shoot)}
+        className={cn(
+          'group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:shadow-md',
+          isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40',
+        )}
+      >
+        <div className="relative aspect-[16/10] w-full bg-muted">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={shoot.address}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+              onError={(event) => {
+                (event.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ImageIcon className="h-10 w-10 text-muted-foreground" />
+            </div>
+          )}
+          <div className="absolute right-2 top-2 flex flex-wrap items-center gap-1 justify-end max-w-[70%]">
+            <Badge variant="secondary" className="text-[10px] capitalize">
+              {(shoot.workflowStatus || shoot.status || '').replace(/_/g, ' ')}
+            </Badge>
+            {photos > 0 && (
+              <Badge variant="outline" className="bg-background/80 text-[10px] backdrop-blur">
+                <ImageIcon className="mr-1 h-3 w-3" />
+                {photos}
+              </Badge>
+            )}
           </div>
         </div>
-        <div className="p-3">
-          <p className="truncate text-sm font-medium">{file.filename}</p>
-          <p className="text-xs text-muted-foreground">File #{file.id}</p>
+        <div className="flex-1 space-y-1 p-3 sm:p-4">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{shoot.address}</h3>
+          <p className="truncate text-xs text-muted-foreground">
+            {shoot.client_name ? `${shoot.client_name} · ` : ''}
+            {shoot.created_at ? format(new Date(shoot.created_at), 'MMM d, yyyy') : '—'}
+          </p>
         </div>
       </button>
     );
   };
 
-  const renderSelectFiles = () => (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Button variant="ghost" size="sm" onClick={() => setViewMode('select-shoot')} className="mb-2 px-0">
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Change shoot
-          </Button>
-          <h2 className="text-2xl font-semibold">Select source photos</h2>
-          <p className="text-sm text-muted-foreground">{selectedShoot?.address}</p>
+  const renderSelectShoot = () => (
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-3 border-b border-border/60 bg-muted/30 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-base sm:text-lg">Choose a shoot</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Pick the property containing the source photos you want to enhance.
+          </CardDescription>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={selectAllRawFiles} disabled={rawFiles.length === 0}>Select all raw</Button>
-          <Button variant="outline" onClick={() => setSelectedFiles(new Set())}>Clear</Button>
-          <Button onClick={() => setViewMode('review')} disabled={selectedFiles.size === 0} className="bg-primary hover:bg-primary/90 text-white">
-            Continue ({selectedFiles.size})
-          </Button>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search address, client, or shoot ID..."
+            className="pl-10"
+            autoFocus
+          />
         </div>
-      </div>
-      {loadingFiles ? (
-        <HorizontalLoader message="Loading shoot files..." />
-      ) : rawFiles.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No raw photos available</h3>
-            <p className="text-muted-foreground">Upload source photos to this shoot before submitting to Autoenhance.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{rawFiles.map(renderFileCard)}</div>
-          {editedFiles.length > 0 && <p className="text-sm text-muted-foreground">{editedFiles.length} edited/completed image(s) hidden from source selection.</p>}
-        </div>
-      )}
-    </div>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4">
+        {loadingShoots ? (
+          <HorizontalLoader message="Loading shoots..." />
+        ) : filteredShoots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <ImageIcon className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-semibold">No matching shoots</h3>
+              <p className="text-sm text-muted-foreground">
+                {searchTerm
+                  ? 'Try a different address, client name, or shoot ID.'
+                  : 'There are no shoots available yet. Create a shoot first.'}
+              </p>
+            </div>
+            <Button variant="outline" onClick={loadShoots}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredShoots.map(renderShootCard)}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 
-  const renderAutoenhanceOptions = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle>Autoenhance options</CardTitle>
-        <CardDescription>{selectedEditingTypeMeta?.description || 'Choose how Autoenhance should process the selected images.'}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-2">
-          <Label>Processing mode</Label>
-          <Select value={selectedEditingType} onValueChange={setSelectedEditingType}>
-            <SelectTrigger><SelectValue placeholder="Select Autoenhance mode" /></SelectTrigger>
-            <SelectContent>
-              {(editingTypes.length ? editingTypes : Object.entries(editingTypeLabels).map(([id, name]) => ({ id, name, description: '' }))).map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+  const renderFileTile = (file: MediaFile) => {
+    const imageUrl = getImageUrl(file, 'medium');
+    const isSelected = selectedFiles.has(file.id);
+    return (
+      <div
+        key={file.id}
+        className={cn(
+          'group relative overflow-hidden rounded-lg border bg-card transition-all',
+          isSelected
+            ? 'border-primary ring-2 ring-primary/40 shadow-sm shadow-primary/10'
+            : 'border-border hover:border-primary/40 hover:shadow-sm',
+        )}
+      >
+        <button
+          type="button"
+          aria-pressed={isSelected}
+          onClick={(event) => toggleFile(file.id, event)}
+          className="block w-full text-left"
+        >
+          <div className="relative aspect-[4/3] w-full bg-muted">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={file.filename}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                onError={(event) => {
+                  (event.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+            <span
+              className={cn(
+                'absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors',
+                isSelected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-white/80 bg-black/40 text-white opacity-0 group-hover:opacity-100',
+              )}
+            >
+              {isSelected ? '✓' : ''}
+            </span>
+          </div>
+          <div className="px-2 pb-2 pt-1.5">
+            <p className="truncate text-xs font-medium">{file.filename}</p>
+            <p className="text-[10px] text-muted-foreground">#{file.id}</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          aria-label={`Preview ${file.filename}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            setPreviewFile(file);
+          }}
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  };
 
-        {selectedEditingType === 'enhance' && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Enhance style</Label>
-              <Select value={enhanceType} onValueChange={setEnhanceType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="warm">Warm</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                  <SelectItem value="modern">Modern</SelectItem>
-                </SelectContent>
-              </Select>
+  const renderSelectFiles = () => (
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-3 border-b border-border/60 bg-muted/30 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-base sm:text-lg">Select source photos</CardTitle>
+          <CardDescription className="text-xs sm:text-sm line-clamp-2">
+            {selectedShoot?.address || 'Pick raw photos to send to Autoenhance.'}
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="text-[11px]">
+            {selectedFiles.size} selected
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={selectAllRawFiles}
+            disabled={rawFiles.length === 0}
+          >
+            Select all{rawFiles.length > MAX_BATCH_SIZE ? ` (first ${MAX_BATCH_SIZE})` : ''}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={clearSelection}
+            disabled={selectedFiles.size === 0}
+          >
+            Clear
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4">
+        {loadingFiles ? (
+          <HorizontalLoader message="Loading shoot files..." />
+        ) : rawFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <ImageIcon className="h-6 w-6" />
             </div>
-            <div className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center justify-between gap-4"><Label>Vertical correction</Label><Switch checked={verticalCorrection} onCheckedChange={setVerticalCorrection} /></div>
-              <div className="flex items-center justify-between gap-4"><Label>Lens correction</Label><Switch checked={lensCorrection} onCheckedChange={setLensCorrection} /></div>
+            <div className="space-y-1">
+              <h3 className="font-semibold">No raw photos available</h3>
+              <p className="text-sm text-muted-foreground">
+                Upload source photos to this shoot before submitting to Autoenhance.
+              </p>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>Window pull</Label>
-              <Select value={windowPullType} onValueChange={setWindowPullType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">None</SelectItem>
-                  <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
-                  <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
-                </SelectContent>
-              </Select>
+            <Button variant="outline" onClick={() => selectedShoot && loadShootFiles(selectedShoot.id)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {rawFiles.map(renderFileTile)}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
+              <span>
+                Showing {rawFiles.length} raw photo{rawFiles.length === 1 ? '' : 's'}.
+                {editedFiles.length > 0 && ` ${editedFiles.length} already-edited image(s) hidden.`}
+              </span>
+              <span className="hidden sm:inline">
+                Tip: <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px]">Shift</kbd>+click to select a range,{' '}
+                <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px]">Ctrl</kbd>+
+                <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px]">A</kbd> to select all.
+              </span>
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
 
-        {selectedEditingType === 'sky_replace' && (
+  const renderModeOptions = () => {
+    if (selectedEditingType === 'enhance') {
+      return (
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Cloud type</Label>
-            <Select value={cloudType} onValueChange={setCloudType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Enhance style</Label>
+            <Select value={enhanceType} onValueChange={(value) => setEnhanceType(value as typeof enhanceType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CLEAR">Clear</SelectItem>
-                <SelectItem value="LOW_CLOUD">Low cloud</SelectItem>
-                <SelectItem value="HIGH_CLOUD">High cloud</SelectItem>
+                <SelectItem value="warm">Warm</SelectItem>
+                <SelectItem value="neutral">Neutral</SelectItem>
+                <SelectItem value="modern">Modern</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        )}
-
-        {selectedEditingType === 'hdr_merge' && (
-          <div className="space-y-2">
-            <Label>Bracket count</Label>
-            <Input type="number" min={2} max={9} value={bracketCount} onChange={(event) => setBracketCount(Number(event.target.value) || 5)} />
+          <div className="space-y-3 rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="vertical-correction" className="text-sm">Vertical correction</Label>
+              <Switch
+                id="vertical-correction"
+                checked={verticalCorrection}
+                onCheckedChange={setVerticalCorrection}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="lens-correction" className="text-sm">Lens correction</Label>
+              <Switch id="lens-correction" checked={lensCorrection} onCheckedChange={setLensCorrection} />
+            </div>
           </div>
-        )}
-
-        {selectedEditingType === 'window_pull' && (
-          <div className="space-y-2">
-            <Label>Window pull type</Label>
-            <Select value={windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType} onValueChange={setWindowPullType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <div className="space-y-2 md:col-span-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Window pull</Label>
+            <Select value={windowPullType} onValueChange={(value) => setWindowPullType(value as typeof windowPullType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
+                <SelectItem value="NONE">None</SelectItem>
                 <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
                 <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Label>Notes</Label>
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional internal instructions for this Autoenhance batch..." />
         </div>
-      </CardContent>
-    </Card>
-  );
+      );
+    }
 
-  const renderReview = () => (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-      <div className="space-y-5">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('select-files')} className="px-0">
-          <ChevronLeft className="mr-1 h-4 w-4" />
-          Back to photos
-        </Button>
+    if (selectedEditingType === 'sky_replace') {
+      return (
+        <div className="space-y-2 md:max-w-xs">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Cloud type</Label>
+          <Select value={cloudType} onValueChange={(value) => setCloudType(value as typeof cloudType)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="CLEAR">Clear</SelectItem>
+              <SelectItem value="LOW_CLOUD">Low cloud</SelectItem>
+              <SelectItem value="HIGH_CLOUD">High cloud</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    if (selectedEditingType === 'hdr_merge') {
+      return (
+        <div className="space-y-2 md:max-w-xs">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bracket count</Label>
+          <Input
+            type="number"
+            min={2}
+            max={9}
+            value={bracketCount}
+            onChange={(event) => setBracketCount(Math.max(2, Math.min(9, Number(event.target.value) || 5)))}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Photos are grouped sequentially in batches of this size for HDR processing.
+          </p>
+        </div>
+      );
+    }
+
+    if (selectedEditingType === 'window_pull') {
+      return (
+        <div className="space-y-2 md:max-w-xs">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Window pull type</Label>
+          <Select
+            value={windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType}
+            onValueChange={(value) => setWindowPullType(value as typeof windowPullType)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
+              <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        No additional options for this mode.
+      </div>
+    );
+  };
+
+  const renderConfigure = () => (
+    <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Review selection</CardTitle>
-            <CardDescription>{selectedShoot?.address}</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Processing mode</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              {selectedEditingTypeMeta?.description ||
+                'Choose how Autoenhance should process the selected images.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">{selectedRawFiles.map(renderFileCard)}</div>
+            <AiEditingModePicker
+              modes={editingTypes}
+              selectedModeId={selectedEditingType}
+              onSelect={setSelectedEditingType}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Mode options</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Tune options for the selected processing mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>{renderModeOptions()}</CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Notes</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Optional internal context attached to this batch.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="e.g. Twilight retake, prioritize sky replacement..."
+              className="min-h-[88px]"
+            />
           </CardContent>
         </Card>
       </div>
-      <div className="space-y-5">
-        {renderAutoenhanceOptions()}
-        <Card>
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Shoot</span><span className="font-medium">#{selectedShoot?.id}</span></div>
-            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Selected images</span><span className="font-medium">{selectedFiles.size}</span></div>
-            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Mode</span><span className="font-medium">{editingTypeLabels[selectedEditingType] || selectedEditingType}</span></div>
-            <Button className="w-full bg-primary hover:bg-primary/90 text-white" onClick={submitAutoenhance} disabled={submitting || selectedFiles.size === 0}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Submit to Autoenhance
+
+      <div className="space-y-4">
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Review</CardTitle>
+            <CardDescription className="text-xs">{selectedShoot?.address}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Shoot</span>
+                <span className="font-medium">#{selectedShoot?.id}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Selected images</span>
+                <span className="font-medium">{selectedFiles.size}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Mode</span>
+                <span className="font-medium">{editingTypeLabels[selectedEditingType] || selectedEditingType}</span>
+              </div>
+            </div>
+
+            {selectedRawFiles.length > 0 && (
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                {selectedRawFiles.slice(0, 8).map((file) => {
+                  const url = getImageUrl(file, 'thumb');
+                  return (
+                    <div key={file.id} className="aspect-square overflow-hidden rounded-md border bg-muted">
+                      {url ? (
+                        <img
+                          src={url}
+                          alt={file.filename}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                          onError={(event) => {
+                            (event.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {selectedRawFiles.length > 8 && (
+                  <div className="flex aspect-square items-center justify-center rounded-md border bg-muted text-xs font-semibold text-muted-foreground">
+                    +{selectedRawFiles.length - 8}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={submitAutoenhance}
+              disabled={submitting || selectedFiles.size === 0 || !isAutoenhanceConfigured}
+            >
+              {submitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              {submitting
+                ? 'Submitting...'
+                : `Submit ${selectedFiles.size} image${selectedFiles.size === 1 ? '' : 's'}`}
             </Button>
+
+            {!isAutoenhanceConfigured && (
+              <p className="rounded-md border border-amber-300/50 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                Autoenhance is not configured. Add your API key in Settings → Integrations.
+              </p>
+            )}
+
+            <div className="flex items-start gap-2 rounded-md border bg-background/60 px-3 py-2 text-[11px] text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5" />
+              <span>
+                Each image is queued individually. Track progress, retry failures, or compare results in Activity.
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 
+  const renderStepper = () => (
+    <Card className="overflow-hidden border-primary/20">
+      <CardContent className="space-y-3 p-3 sm:p-4">
+        <AiEditingStepper
+          steps={STEPPER_STEPS}
+          currentStepId={viewMode === 'activity' ? STEPPER_STEPS[0].id : viewMode}
+          onStepClick={(stepId) => {
+            if (stepId === 'select-shoot') setViewMode('select-shoot');
+            else if (stepId === 'select-files' && selectedShoot) setViewMode('select-files');
+            else if (stepId === 'configure' && selectedShoot && selectedFiles.size > 0) setViewMode('configure');
+          }}
+          isStepReachable={(stepId) => {
+            if (stepId === 'select-shoot') return true;
+            if (stepId === 'select-files') return Boolean(selectedShoot);
+            if (stepId === 'configure') return Boolean(selectedShoot) && selectedFiles.size > 0;
+            return false;
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const stepActionLabel = (() => {
+    if (viewMode === 'select-shoot') return selectedShoot ? 'Continue' : 'Pick a shoot';
+    if (viewMode === 'select-files') return selectedFiles.size === 0 ? 'Select photos' : `Continue · ${selectedFiles.size}`;
+    return submitting ? 'Submitting...' : `Submit · ${selectedFiles.size}`;
+  })();
+
+  const stepCanAdvance = (() => {
+    if (viewMode === 'select-shoot') return Boolean(selectedShoot);
+    if (viewMode === 'select-files') return selectedFiles.size > 0;
+    return selectedFiles.size > 0 && isAutoenhanceConfigured && !submitting;
+  })();
+
+  const handleStepNext = () => {
+    if (viewMode === 'select-shoot' && selectedShoot) setViewMode('select-files');
+    else if (viewMode === 'select-files' && selectedFiles.size > 0) setViewMode('configure');
+    else if (viewMode === 'configure') submitAutoenhance();
+  };
+
+  const handleStepBack = () => {
+    if (viewMode === 'select-shoot') goToActivity();
+    else if (viewMode === 'select-files') setViewMode('select-shoot');
+    else if (viewMode === 'configure') setViewMode('select-files');
+  };
+
+  const renderEditFlow = () => (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" onClick={goToActivity} className="px-2">
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Back to activity
+        </Button>
+        {selectedShoot && (
+          <Badge variant="outline" className="max-w-[60vw] truncate">
+            {selectedShoot.address}
+          </Badge>
+        )}
+      </div>
+      {renderStepper()}
+      {viewMode === 'select-shoot' && renderSelectShoot()}
+      {viewMode === 'select-files' && renderSelectFiles()}
+      {viewMode === 'configure' && renderConfigure()}
+    </div>
+  );
+
+  const renderEditFlowFooter = () => {
+    if (viewMode === 'activity') return null;
+    return (
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur sm:px-6"
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <Button variant="outline" size="sm" onClick={handleStepBack}>
+            <ChevronLeft className="mr-1.5 h-4 w-4" />
+            Back
+          </Button>
+          <div className="hidden text-xs text-muted-foreground sm:block">
+            {viewMode === 'select-shoot'
+              ? 'Step 1 of 3'
+              : viewMode === 'select-files'
+              ? 'Step 2 of 3'
+              : 'Step 3 of 3'}
+          </div>
+          <Button size="sm" onClick={handleStepNext} disabled={!stepCanAdvance}>
+            {viewMode === 'configure' ? (
+              <Sparkles className="mr-1.5 h-4 w-4" />
+            ) : (
+              <ArrowRight className="mr-1.5 h-4 w-4" />
+            )}
+            {stepActionLabel}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const previewUrl = previewFile ? getImageUrl(previewFile, 'large') : '';
+  const enhancedUrlForComparison = comparisonJob?.edited_image_url
+    ? resolveImageUrl(comparisonJob.edited_image_url)
+    : null;
+  const sourceUrlForComparison = comparisonJob
+    ? comparisonJob.source_file?.thumb_url
+      ? resolveImageUrl(comparisonJob.source_file.thumb_url)
+      : resolveImageUrl(comparisonJob.original_image_url)
+    : null;
+  const comparisonTitle = comparisonJob
+    ? `${editingTypeLabels[comparisonJob.editing_type] || comparisonJob.editing_type} · Job #${comparisonJob.id}`
+    : '';
+  const comparisonSubtitle = comparisonJob?.shoot?.address || '';
+
   return (
     <DashboardLayout>
-      <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
+      <div className="space-y-4 px-2 pt-3 pb-32 sm:space-y-6 sm:p-6 sm:pb-6">
         <PageHeader
-          title="Autoenhance Editing"
-          description="Submit property photos to Autoenhance, track processing, and review completed outputs."
+          title="AI Editing"
+          description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
           action={
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => loadJobs()} disabled={loadingJobs}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${loadingJobs ? 'animate-spin' : ''}`} />
-                Refresh jobs
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => loadJobs()} disabled={loadingJobs}>
+                <RefreshCw className={cn('mr-1.5 h-4 w-4', loadingJobs && 'animate-spin')} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
-              <Button onClick={startNewEdit} className="bg-primary hover:bg-primary/90 text-white">
-                <Sparkles className="mr-2 h-4 w-4" />
-                New Edit
+              <Button size="sm" onClick={startNewEdit} disabled={!canUseAutoenhance}>
+                <Sparkles className="mr-1.5 h-4 w-4" />
+                <span className="hidden sm:inline">New edit</span>
+                <span className="sm:hidden">New</span>
               </Button>
             </div>
           }
         />
 
-        {failedJobs > 0 && (
-          <Card className="border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
-            <CardContent className="flex items-center gap-3 py-4">
-              <AlertCircle className="h-5 w-5" />
-              <span>{failedJobs} recent Autoenhance job(s) failed. Review the job list for details.</span>
+        {!canUseAutoenhance ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold">Access restricted</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your role does not have access to AI editing. Contact your admin if you need access.
+              </p>
             </CardContent>
           </Card>
+        ) : (
+          <>
+            {renderConnectionAlert()}
+
+            {viewMode === 'activity' ? (
+              <>
+                {renderHeroStats()}
+                {stats.failed > 0 && (
+                  <Card className="border-red-300/60 bg-red-50/70 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">
+                    <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                        <p className="text-sm">
+                          {stats.failed} job{stats.failed === 1 ? '' : 's'} failed recently. Review and retry to recover.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="self-start sm:self-auto"
+                        onClick={() => setJobStatusFilter('failed')}
+                      >
+                        Show failed jobs
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+                {renderActivity()}
+              </>
+            ) : (
+              renderEditFlow()
+            )}
+          </>
         )}
 
-        {viewMode === 'overview' && renderOverview()}
-        {viewMode === 'select-shoot' && renderSelectShoot()}
-        {viewMode === 'select-files' && renderSelectFiles()}
-        {viewMode === 'review' && renderReview()}
+        {renderEditFlowFooter()}
       </div>
+
+      <Dialog open={Boolean(previewFile)} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+          <div className="flex flex-col">
+            <div className="flex items-start justify-between gap-3 border-b bg-background/95 px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold">{previewFile?.filename}</h2>
+                <p className="truncate text-xs text-muted-foreground">
+                  {previewFile?.created_at ? format(new Date(previewFile.created_at), 'MMM d, yyyy h:mm a') : '—'}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setPreviewFile(null)} aria-label="Close preview">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="bg-black">
+              {previewUrl ? (
+                <img src={previewUrl} alt={previewFile?.filename} className="max-h-[80vh] w-full object-contain" />
+              ) : (
+                <div className="flex h-[40vh] w-full items-center justify-center text-sm text-muted-foreground">
+                  Preview unavailable.
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 text-xs text-muted-foreground">
+              <span>File #{previewFile?.id}</span>
+              {previewFile && (
+                <Button
+                  size="sm"
+                  variant={selectedFiles.has(previewFile.id) ? 'default' : 'outline'}
+                  onClick={() => toggleFile(previewFile.id)}
+                >
+                  {selectedFiles.has(previewFile.id) ? 'Selected' : 'Select photo'}
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AiEditingComparisonLightbox
+        open={Boolean(comparisonJob)}
+        onOpenChange={(open) => !open && setComparisonJob(null)}
+        originalUrl={sourceUrlForComparison}
+        enhancedUrl={enhancedUrlForComparison}
+        title={comparisonTitle}
+        subtitle={comparisonSubtitle}
+      />
     </DashboardLayout>
   );
 };
