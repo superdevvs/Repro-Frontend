@@ -683,6 +683,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   const visibleSuggestedTimes = suggestedTimes.slice(0, 12);
 
+  // All times from 8am to 8pm for horizontal scrollable display
+  const allTimeOptions = useMemo(() => buildTimeOptionsForRange(5), []);
+
   const buildConflictAwareServiceTimeOptions = (photographerId: string | number | undefined, ensure?: string | null) =>
     buildServiceTimeOptions(ensure).map((option) => ({
       ...option,
@@ -1717,11 +1720,11 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Suggested times
+              Select time (8am - 8pm)
             </p>
-            {visibleSuggestedTimes.length > 0 ? (
-              <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-                {visibleSuggestedTimes.map((slot) => {
+            <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-muted/60 dark:scrollbar-track-muted/30">
+              <div className="flex gap-2 min-w-max">
+                {allTimeOptions.map((slot) => {
                   const disabled = !date || isPhotographerTimeDisabled(photographer, slot);
                   return (
                     <Button
@@ -1731,7 +1734,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                       disabled={disabled}
                       onClick={() => handleQuickTimeSelect(slot)}
                       className={cn(
-                        "h-11 text-sm font-semibold",
+                        "h-10 px-3 text-sm font-semibold whitespace-nowrap",
                         time === slot
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : disabled
@@ -1744,11 +1747,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                   );
                 })}
               </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
-                No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.
-              </div>
-            )}
+            </div>
           </div>
 
           <Button
