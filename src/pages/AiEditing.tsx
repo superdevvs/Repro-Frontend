@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
@@ -47,6 +46,7 @@ import { AiEditingStepper } from '@/components/ai-editing/AiEditingStepper';
 import { AiEditingModePicker } from '@/components/ai-editing/AiEditingModePicker';
 import { AiEditingJobCard } from '@/components/ai-editing/AiEditingJobCard';
 import { AiEditingComparisonLightbox } from '@/components/ai-editing/AiEditingComparisonLightbox';
+import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 
 interface ShootWithEditing {
   id: number;
@@ -105,7 +105,6 @@ const UNSUPPORTED_MODE_IDS = new Set<string>(['hdr_merge']);
 const AiEditing = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
 
@@ -136,6 +135,7 @@ const AiEditing = () => {
 
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
   const [comparisonJob, setComparisonJob] = useState<EditingJob | null>(null);
+  const [overviewShootId, setOverviewShootId] = useState<number | null>(null);
 
   const lastShiftAnchorRef = useRef<number | null>(null);
 
@@ -560,9 +560,9 @@ const AiEditing = () => {
 
   const handleOpenShoot = useCallback(
     (job: EditingJob) => {
-      if (job.shoot_id) navigate(`/shoots/${job.shoot_id}`);
+      if (job.shoot_id) setOverviewShootId(job.shoot_id);
     },
-    [navigate],
+    [],
   );
 
   const toggleEnhancementMode = (modeId: string) => {
@@ -1499,6 +1499,15 @@ const AiEditing = () => {
         title={comparisonTitle}
         subtitle={comparisonSubtitle}
       />
+
+      {overviewShootId && (
+        <ShootDetailsModal
+          shootId={overviewShootId}
+          isOpen={Boolean(overviewShootId)}
+          onClose={() => setOverviewShootId(null)}
+          initialTab="overview"
+        />
+      )}
     </DashboardLayout>
   );
 };
