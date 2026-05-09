@@ -22,6 +22,7 @@ interface BookingContentAreaProps {
   clientPropertyFormData: any;
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
   onClientChange?: (clientId: string) => void;
+  onPropertyDraftChange?: (data: any) => void;
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
@@ -74,6 +75,7 @@ export function BookingContentArea({
   clientPropertyFormData,
   onAddressFieldsChange,
   onClientChange,
+  onPropertyDraftChange,
   date,
   setDate,
   time,
@@ -131,6 +133,7 @@ export function BookingContentArea({
           clients={clients}
           onAddressFieldsChange={onAddressFieldsChange}
           onClientChange={onClientChange}
+          onPropertyDraftChange={onPropertyDraftChange}
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
           packagesLoading={packagesLoading}

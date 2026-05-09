@@ -671,35 +671,36 @@ const BookShoot = () => {
         const parsed = JSON.parse(cachedData);
         
         // Restore form fields
-        if (parsed.client && !isClientAccount) {
+        if (typeof parsed.client === 'string' && !isClientAccount) {
           setClient(parsed.client);
         }
-        if (parsed.address) setAddress(parsed.address);
-        if (parsed.city) setCity(parsed.city);
-        if (parsed.state) setState(parsed.state);
-        if (parsed.zip) setZip(parsed.zip);
+        if (typeof parsed.address === 'string') setAddress(parsed.address);
+        if (typeof parsed.city === 'string') setCity(parsed.city);
+        if (typeof parsed.state === 'string') setState(parsed.state);
+        if (typeof parsed.zip === 'string') setZip(parsed.zip);
         if (parsed.date) {
           const restoredDate = new Date(parsed.date);
           if (!isNaN(restoredDate.getTime())) {
             setDate(restoredDate);
           }
         }
-        if (parsed.time) setTime(parsed.time);
-        if (parsed.photographer) setPhotographer(parsed.photographer);
+        if (typeof parsed.time === 'string') setTime(parsed.time);
+        if (typeof parsed.photographer === 'string') setPhotographer(parsed.photographer);
         if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
         if (parsed.serviceSchedules) setServiceSchedules(parsed.serviceSchedules);
         if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
           setSelectedServices(parsed.selectedServices);
         }
-        if (parsed.notes) setNotes(parsed.notes);
-        if (parsed.companyNotes) setCompanyNotes(parsed.companyNotes);
-        if (parsed.photographerNotes) setPhotographerNotes(parsed.photographerNotes);
-        if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
+        if (typeof parsed.notes === 'string') setNotes(parsed.notes);
+        if (typeof parsed.companyNotes === 'string') setCompanyNotes(parsed.companyNotes);
+        if (typeof parsed.photographerNotes === 'string') setPhotographerNotes(parsed.photographerNotes);
+        if (typeof parsed.editorNotes === 'string') setEditorNotes(parsed.editorNotes);
         if (parsed.bypassPayment !== undefined) setBypassPayment(parsed.bypassPayment);
         if (parsed.sendNotification !== undefined) setSendNotification(parsed.sendNotification);
         if (typeof parsed.adjustedTotalInput === 'string') setAdjustedTotalInput(parsed.adjustedTotalInput);
-        if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
-        if (parsed.propertyDetails) setPropertyDetails(parsed.propertyDetails);
+        if (Object.prototype.hasOwnProperty.call(parsed, 'propertyDetails')) {
+          setPropertyDetails(parsed.propertyDetails);
+        }
         if (parsed.propertySqft !== undefined && parsed.propertySqft !== null) {
           setPropertySqft(Number(parsed.propertySqft));
         } else if (parsed.propertyDetails) {
@@ -709,7 +710,7 @@ const BookShoot = () => {
             null;
           setPropertySqft(derivedSqft ? Number(derivedSqft) : null);
         }
-        
+        setClientPropertyFormKey((prev) => prev + 1);
         // Form data restored from cache
       }
     } catch (error) {
@@ -1795,6 +1796,37 @@ const BookShoot = () => {
     setClient(clientId);
   }, []);
 
+  const handlePropertyDraftChange = React.useCallback(
+    (data: any) => {
+      if (!data) return;
+      if (!isClientAccount && typeof data.clientId === 'string') {
+        setClient(data.clientId);
+      }
+      if (typeof data.shootNotes === 'string' || typeof data.propertyInfo === 'string') {
+        setNotes(data.shootNotes || data.propertyInfo || '');
+      }
+      if (typeof data.companyNotes === 'string') {
+        setCompanyNotes(data.companyNotes);
+      }
+      if (typeof data.photographerNotes === 'string') {
+        setPhotographerNotes(data.photographerNotes);
+      }
+      if (typeof data.editorNotes === 'string') {
+        setEditorNotes(data.editorNotes);
+      }
+      if (Object.prototype.hasOwnProperty.call(data, 'property_details')) {
+        setPropertyDetails(data.property_details || null);
+      }
+      const derivedSqft =
+        (data.sqft !== undefined && data.sqft !== null && data.sqft !== '' ? Number(data.sqft) : null) ??
+        data.property_details?.sqft ??
+        data.property_details?.livingArea ??
+        null;
+      setPropertySqft(derivedSqft !== null && !Number.isNaN(Number(derivedSqft)) ? Number(derivedSqft) : null);
+    },
+    [isClientAccount],
+  );
+
   const updateClientCompanyNotes = React.useCallback(
     async (clientId: string, notesValue: string) => {
       if (!clientId) return;
@@ -1859,12 +1891,17 @@ const BookShoot = () => {
       propertyCity: city,
       propertyState: state,
       propertyZip: zip,
-      completeAddress: address,
+      completeAddress: propertyDetails?.completeAddress ?? address,
+      aptSuite: propertyDetails?.aptSuite ?? undefined,
       propertyInfo: notes,
       shootNotes: notes,
       companyNotes: companyNotes,
       photographerNotes: photographerNotes,
       editorNotes: editorNotes,
+      listingType: propertyDetails?.listingType ?? undefined,
+      presenceOption: propertyDetails?.presenceOption ?? undefined,
+      propertyDetails: propertyDetails,
+      property_details: propertyDetails,
       bedRooms: propertyDetails?.bedrooms ?? propertyDetails?.bedRooms ?? undefined,
       bathRooms: propertyDetails?.bathrooms ?? propertyDetails?.bathRooms ?? undefined,
       sqft: propertySqft ?? undefined,
@@ -1878,7 +1915,7 @@ const BookShoot = () => {
       if (!isClientAccount && data.clientId) {
         setClient(data.clientId);
       }
-      setAddress(data.propertyAddress);
+      setAddress(data.completeAddress || data.propertyAddress);
       setCity(data.propertyCity);
       // Normalize state when setting from address lookup
       const normalizedState = normalizeState(data.propertyState);
@@ -2059,6 +2096,7 @@ type CompletedBookingSnapshot = {
                   clientPropertyFormData={clientPropertyFormData}
                   onAddressFieldsChange={handleAddressFieldsChange}
                   onClientChange={handleClientChange}
+                  onPropertyDraftChange={handlePropertyDraftChange}
                   date={date}
                   setDate={setDate}
                   time={time}

@@ -268,6 +268,10 @@ type ClientPropertyFormProps = {
     selectedPackage?: string;
     completeAddress?: string;
     aptSuite?: string;
+    listingType?: 'for_sale' | 'for_rent';
+    presenceOption?: PresenceOption;
+    propertyDetails?: any;
+    property_details?: any;
   };
   isClientAccount?: boolean;
   packages: PackageOption[];
@@ -275,6 +279,7 @@ type ClientPropertyFormProps = {
   /** ✅ Add this line **/
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
   onClientChange?: (clientId: string) => void;
+  onPropertyDraftChange?: (data: any) => void;
   selectedServices: PackageOption[];
   onSelectedServicesChange: (services: PackageOption[]) => void;
   packagesLoading?: boolean;
@@ -291,6 +296,7 @@ export const ClientPropertyForm = ({
   clients,
   onAddressFieldsChange,
   onClientChange,
+  onPropertyDraftChange,
   selectedServices,
   onSelectedServicesChange,
   packagesLoading = false,
@@ -308,9 +314,17 @@ export const ClientPropertyForm = ({
   const [accountInitialData, setAccountInitialData] = useState<User | undefined>(undefined);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [stateDrawerOpen, setStateDrawerOpen] = useState(false);
-  const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
-  const [propertyDetailsData, setPropertyDetailsData] = useState<any>(null);
-  const [completeAddress, setCompleteAddress] = useState<string>('');
+  const [presenceOption, setPresenceOption] = useState<PresenceOption>(() => {
+    const initialPresence =
+      initialData.presenceOption ||
+      initialData.propertyDetails?.presenceOption ||
+      initialData.property_details?.presenceOption;
+    return initialPresence === 'other' || initialPresence === 'lockbox' || initialPresence === 'self'
+      ? initialPresence
+      : 'self';
+  });
+  const [propertyDetailsData, setPropertyDetailsData] = useState<any>(() => initialData.propertyDetails || initialData.property_details || null);
+  const [completeAddress, setCompleteAddress] = useState<string>(() => initialData.completeAddress || initialData.propertyAddress || '');
   const [submitAttemptNotice, setSubmitAttemptNotice] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -532,6 +546,66 @@ export const ClientPropertyForm = ({
     return null;
   }, [watchedSqft, derivedSqftFromDetails]);
 
+  const buildPropertyDraftData = React.useCallback(
+    (
+      values?: Partial<FormValues>,
+      overrides?: {
+        completeAddress?: string;
+        propertyDetailsData?: any;
+        presenceOption?: PresenceOption;
+      },
+    ) => {
+      const currentValues = {
+        ...form.getValues(),
+        ...(values || {}),
+      } as any;
+      const currentCompleteAddress = overrides?.completeAddress ?? completeAddress;
+      const currentPropertyDetails = overrides?.propertyDetailsData ?? propertyDetailsData;
+      const currentPresenceOption = overrides?.presenceOption ?? presenceOption;
+      const normalizedComplete =
+        currentCompleteAddress ||
+        [
+          currentValues.propertyAddress,
+          currentValues.propertyCity,
+          currentValues.propertyState,
+          currentValues.propertyZip,
+        ]
+          .filter(Boolean)
+          .join(', ')
+          .trim();
+      const toOptionalNumber = (value: unknown) => {
+        if (value === '' || value === null || value === undefined) {
+          return undefined;
+        }
+        const numericValue = Number(value);
+        return Number.isNaN(numericValue) ? undefined : numericValue;
+      };
+      const mergedPropertyDetails = {
+        ...(currentPropertyDetails || {}),
+        presenceOption: currentPresenceOption,
+        aptSuite: currentValues.aptSuite?.trim() || undefined,
+        completeAddress: normalizedComplete || undefined,
+        lockboxCode: currentValues.lockboxCode?.trim() || undefined,
+        lockboxLocation: currentValues.lockboxLocation?.trim() || undefined,
+        accessContactName: currentValues.accessContactName?.trim() || undefined,
+        accessContactPhone: currentValues.accessContactPhone?.trim() || undefined,
+        bedrooms: toOptionalNumber(currentValues.bedRooms),
+        bathrooms: toOptionalNumber(currentValues.bathRooms),
+        sqft: toOptionalNumber(currentValues.sqft),
+        propertyType: currentValues.propertyType || undefined,
+        listingType: currentValues.listingType || undefined,
+      };
+
+      return {
+        ...currentValues,
+        completeAddress: normalizedComplete || undefined,
+        property_details: mergedPropertyDetails,
+        listingType: currentValues.listingType || undefined,
+      };
+    },
+    [completeAddress, form, presenceOption, propertyDetailsData],
+  );
+
   const clearAddressDerivedState = React.useCallback(
     ({ keepSearchField = true }: { keepSearchField?: boolean } = {}) => {
       const resetOptions = {
@@ -553,14 +627,31 @@ export const ClientPropertyForm = ({
       form.setValue('sqft' as any, undefined, resetOptions);
       setCompleteAddress('');
       setPropertyDetailsData(null);
+      const nextValues = {
+        ...form.getValues(),
+        propertyAddress: keepSearchField ? form.getValues('propertyAddress') || '' : '',
+        aptSuite: '',
+        propertyCity: '',
+        propertyState: '',
+        propertyZip: '',
+        bedRooms: undefined,
+        bathRooms: undefined,
+        sqft: undefined,
+      } as any;
       onAddressFieldsChange?.({
         address: keepSearchField ? form.getValues('propertyAddress') || '' : '',
         city: '',
         state: '',
         zip: '',
       });
+      onPropertyDraftChange?.(
+        buildPropertyDraftData(nextValues, {
+          completeAddress: '',
+          propertyDetailsData: null,
+        }),
+      );
     },
-    [form, onAddressFieldsChange],
+    [buildPropertyDraftData, form, onAddressFieldsChange, onPropertyDraftChange],
   );
 
   const buildLookupPropertyDetails = React.useCallback((address: any) => {
@@ -617,38 +708,19 @@ export const ClientPropertyForm = ({
     lastClientIdRef.current = watchedClientId;
   }, [watchedClientId, allClients, isClientAccount, form]);
 
+  React.useEffect(() => {
+    if (!onPropertyDraftChange) return;
+    const subscription = form.watch((values, info) => {
+      if (!info?.name) return;
+      onPropertyDraftChange(buildPropertyDraftData(values as Partial<FormValues>));
+    });
+    return () => subscription.unsubscribe?.();
+  }, [buildPropertyDraftData, form, onPropertyDraftChange]);
+
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
 
-    const normalizedComplete =
-      completeAddress ||
-      [data.propertyAddress, data.propertyCity, data.propertyState, data.propertyZip]
-        .filter(Boolean)
-        .join(', ')
-        .trim();
-
-    // Merge property details from address lookup with access info from form
-    // Convert empty strings to undefined to avoid saving empty values
-    const mergedPropertyDetails = {
-      ...(propertyDetailsData || {}),
-      presenceOption: presenceOption,
-      lockboxCode: data.lockboxCode?.trim() || undefined,
-      lockboxLocation: data.lockboxLocation?.trim() || undefined,
-      accessContactName: data.accessContactName?.trim() || undefined,
-      accessContactPhone: data.accessContactPhone?.trim() || undefined,
-      // Include property measurements from form
-      bedrooms: data.bedRooms || undefined,
-      bathrooms: data.bathRooms || undefined,
-      sqft: data.sqft || undefined,
-      propertyType: data.propertyType || undefined,
-    };
-    
-    const baseData = {
-      ...data,
-      completeAddress: normalizedComplete || undefined,
-      property_details: Object.keys(mergedPropertyDetails).length > 0 ? mergedPropertyDetails : undefined,
-      listingType: (data as any).listingType || undefined,
-    };
+    const baseData = buildPropertyDraftData(data);
 
     if (isClientAccount) {
       onComplete({
@@ -1013,8 +1085,9 @@ export const ClientPropertyForm = ({
                         form.setValue('bathRooms' as any, address.bathrooms ?? undefined, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
                         form.setValue('sqft' as any, address.sqft ?? undefined, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
 
+                        const lookupPropertyDetails = buildLookupPropertyDetails(address);
                         setCompleteAddress(normalizedStreet);
-                        setPropertyDetailsData(buildLookupPropertyDetails(address));
+                        setPropertyDetailsData(lookupPropertyDetails);
 
                         onAddressFieldsChange?.({
                           address: normalizedStreet,
@@ -1022,6 +1095,25 @@ export const ClientPropertyForm = ({
                           state: normalizedState,
                           zip,
                         });
+                        onPropertyDraftChange?.(
+                          buildPropertyDraftData(
+                            {
+                              ...form.getValues(),
+                              propertyAddress: normalizedStreet,
+                              aptSuite: resolvedAptSuite,
+                              propertyCity: city,
+                              propertyState: normalizedState,
+                              propertyZip: zip,
+                              bedRooms: address.bedrooms ?? undefined,
+                              bathRooms: address.bathrooms ?? undefined,
+                              sqft: address.sqft ?? undefined,
+                            } as any,
+                            {
+                              completeAddress: normalizedStreet,
+                              propertyDetailsData: lookupPropertyDetails,
+                            },
+                          ),
+                        );
                       }}
                       placeholder="Start typing the property address..."
                       className={cn(
@@ -1046,7 +1138,15 @@ export const ClientPropertyForm = ({
                   <Input
                     id="completeAddress"
                     value={completeAddress}
-                    onChange={(e) => setCompleteAddress(e.target.value)}
+                    onChange={(e) => {
+                      const nextCompleteAddress = e.target.value;
+                      setCompleteAddress(nextCompleteAddress);
+                      onPropertyDraftChange?.(
+                        buildPropertyDraftData(undefined, {
+                          completeAddress: nextCompleteAddress,
+                        }),
+                      );
+                    }}
                     placeholder="Street address"
                     className={cn('font-medium', showMissingFieldStroke('propertyAddress') && invalidFieldClassName)}
                   />
@@ -1481,7 +1581,15 @@ export const ClientPropertyForm = ({
                 <RadioGroup
                   className="flex flex-wrap gap-4"
                   value={presenceOption}
-                  onValueChange={(value) => setPresenceOption(value as PresenceOption)}
+                  onValueChange={(value) => {
+                    const nextPresenceOption = value as PresenceOption;
+                    setPresenceOption(nextPresenceOption);
+                    onPropertyDraftChange?.(
+                      buildPropertyDraftData(undefined, {
+                        presenceOption: nextPresenceOption,
+                      }),
+                    );
+                  }}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem id="presence-self" value="self" />
