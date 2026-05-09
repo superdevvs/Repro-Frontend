@@ -5,8 +5,9 @@ import type { EditingType } from '@/services/autoenhanceService';
 
 interface AiEditingModePickerProps {
   modes: EditingType[];
-  selectedModeId: string;
-  onSelect: (modeId: string) => void;
+  selectedModeIds: Set<string>;
+  onToggle: (modeId: string) => void;
+  disabledModeIds?: Set<string>;
   disabled?: boolean;
 }
 
@@ -28,37 +29,39 @@ const MODE_TONE: Record<string, string> = {
 
 export const AiEditingModePicker: React.FC<AiEditingModePickerProps> = ({
   modes,
-  selectedModeId,
-  onSelect,
+  selectedModeIds,
+  onToggle,
+  disabledModeIds,
   disabled,
 }) => {
   if (modes.length === 0) return null;
 
   return (
     <div
-      role="radiogroup"
-      aria-label="Autoenhance editing mode"
+      role="group"
+      aria-label="Autoenhance editing options"
       className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
     >
       {modes.map((mode) => {
         const Icon = MODE_ICONS[mode.id] || Sparkles;
-        const isSelected = mode.id === selectedModeId;
+        const isSelected = selectedModeIds.has(mode.id);
+        const isDisabled = disabled || disabledModeIds?.has(mode.id);
         const tone = MODE_TONE[mode.id] || 'from-primary/10 via-primary/5 to-transparent';
 
         return (
           <button
             key={mode.id}
             type="button"
-            role="radio"
+            role="checkbox"
             aria-checked={isSelected}
-            disabled={disabled}
-            onClick={() => onSelect(mode.id)}
+            disabled={isDisabled}
+            onClick={() => onToggle(mode.id)}
             className={cn(
               'group relative flex flex-col items-start gap-2 overflow-hidden rounded-xl border p-3 sm:p-4 text-left transition-all',
               isSelected
                 ? 'border-primary ring-2 ring-primary/30 shadow-sm shadow-primary/10'
                 : 'border-border hover:border-primary/50 hover:shadow-sm',
-              disabled && 'opacity-60 cursor-not-allowed',
+              isDisabled && 'opacity-60 cursor-not-allowed',
             )}
           >
             <span
@@ -80,7 +83,7 @@ export const AiEditingModePicker: React.FC<AiEditingModePickerProps> = ({
               </span>
               {isSelected && (
                 <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-                  Selected
+                  Included
                 </span>
               )}
             </div>

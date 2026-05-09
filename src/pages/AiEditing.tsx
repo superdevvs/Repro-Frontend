@@ -18,7 +18,6 @@ import {
   Search,
   Settings2,
   Sparkles,
-  Upload,
   X,
   XCircle,
 } from 'lucide-react';
@@ -32,7 +31,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -83,9 +81,11 @@ interface MediaFile {
 type ViewMode = 'activity' | 'select-shoot' | 'select-files' | 'configure';
 type JobStatus = EditingJob['status'];
 type StatusFilter = 'all' | JobStatus;
+type EnhancementModeId = 'enhance' | 'sky_replace' | 'vertical_correction' | 'window_pull';
 
 const editingTypeLabels: Record<string, string> = {
   enhance: 'Enhance',
+  enhance_custom: 'Custom Autoenhance',
   sky_replace: 'Sky Replacement',
   hdr_merge: 'HDR Bracket Merge',
   vertical_correction: 'Vertical Correction',
@@ -99,6 +99,8 @@ const STEPPER_STEPS = [
 ];
 
 const MAX_BATCH_SIZE = 100;
+const COMBINABLE_MODE_IDS = new Set<string>(['enhance', 'sky_replace', 'vertical_correction', 'window_pull']);
+const UNSUPPORTED_MODE_IDS = new Set<string>(['hdr_merge']);
 
 const AiEditing = () => {
   const { user } = useAuth();
@@ -112,7 +114,7 @@ const AiEditing = () => {
   const [availableFiles, setAvailableFiles] = useState<MediaFile[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
-  const [selectedEditingType, setSelectedEditingType] = useState('enhance');
+  const [selectedEnhancementIds, setSelectedEnhancementIds] = useState<Set<EnhancementModeId>>(new Set(['enhance']));
   const [jobs, setJobs] = useState<EditingJob[]>([]);
   const [connection, setConnection] = useState<ConnectionStatus | null>(null);
 
@@ -126,12 +128,10 @@ const AiEditing = () => {
   const [jobStatusFilter, setJobStatusFilter] = useState<StatusFilter>('all');
   const [jobShootFilter, setJobShootFilter] = useState('');
 
-  const [enhanceType, setEnhanceType] = useState<'warm' | 'neutral' | 'modern'>('neutral');
-  const [verticalCorrection, setVerticalCorrection] = useState(true);
+  const [enhanceType, setEnhanceType] = useState<'neutral'>('neutral');
   const [lensCorrection, setLensCorrection] = useState(true);
-  const [windowPullType, setWindowPullType] = useState<'NONE' | 'ONLY_WINDOWS' | 'WINDOWS_WITH_SKIES'>('NONE');
-  const [cloudType, setCloudType] = useState<'CLEAR' | 'LOW_CLOUD' | 'HIGH_CLOUD'>('CLEAR');
-  const [bracketCount, setBracketCount] = useState(5);
+  const [windowPullType, setWindowPullType] = useState<'ONLY_WINDOWS' | 'WITH_SKIES'>('ONLY_WINDOWS');
+  const [cloudType, setCloudType] = useState<'CLEAR' | 'LOW_CLOUD' | 'LOW_CLOUD_LOW_SAT' | 'HIGH_CLOUD'>('CLEAR');
   const [notes, setNotes] = useState('');
 
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
@@ -190,9 +190,6 @@ const AiEditing = () => {
     try {
       const types = await autoenhanceService.getEditingTypes();
       setEditingTypes(types);
-      if (types.length > 0 && !types.some((type) => type.id === selectedEditingType)) {
-        setSelectedEditingType(types[0].id);
-      }
     } catch (error) {
       console.error('Failed to load Autoenhance editing types:', error);
       toast({
@@ -200,7 +197,7 @@ const AiEditing = () => {
         description: 'Falling back to built-in Autoenhance modes.',
       });
     }
-  }, [selectedEditingType, toast]);
+  }, [toast]);
 
   const loadShoots = useCallback(async () => {
     setLoadingShoots(true);
@@ -403,29 +400,31 @@ const AiEditing = () => {
     [rawFiles, selectedFiles],
   );
 
-  const selectedEditingTypeMeta = editingTypes.find((type) => type.id === selectedEditingType);
+  const selectedModeList = useMemo(() => Array.from(selectedEnhancementIds), [selectedEnhancementIds]);
+  const selectedModeLabel = useMemo(
+    () => selectedModeList.map((id) => editingTypeLabels[id] || id).join(' + '),
+    [selectedModeList],
+  );
+  const submitEditingType = selectedModeList.length === 1 ? selectedModeList[0] : 'enhance_custom';
   const isAutoenhanceConfigured = connection?.success !== false;
 
   const buildSubmitParams = () => {
-    const params: Record<string, any> = { notes: notes.trim() || undefined };
-    if (selectedEditingType === 'enhance') {
+    const params: Record<string, any> = {
+      notes: notes.trim() || undefined,
+      editing_options: selectedModeList,
+      enhance: selectedEnhancementIds.has('enhance'),
+      lens_correction: lensCorrection,
+      vertical_correction: selectedEnhancementIds.has('vertical_correction'),
+    };
+    if (selectedEnhancementIds.has('enhance')) {
       params.enhance_type = enhanceType;
-      params.vertical_correction = verticalCorrection;
-      params.lens_correction = lensCorrection;
-      params.window_pull_type = windowPullType;
     }
-    if (selectedEditingType === 'sky_replace') {
+    if (selectedEnhancementIds.has('sky_replace')) {
+      params.sky_replacement = true;
       params.cloud_type = cloudType;
     }
-    if (selectedEditingType === 'hdr_merge') {
-      params.hdr = true;
-      params.bracket_count = bracketCount;
-    }
-    if (selectedEditingType === 'vertical_correction') {
-      params.vertical_correction = true;
-    }
-    if (selectedEditingType === 'window_pull') {
-      params.window_pull_type = windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType;
+    if (selectedEnhancementIds.has('window_pull')) {
+      params.window_pull_type = windowPullType;
     }
     Object.keys(params).forEach((key) => params[key] === undefined && delete params[key]);
     return params;
@@ -497,7 +496,7 @@ const AiEditing = () => {
       await autoenhanceService.submitEditing({
         shoot_id: selectedShoot.id,
         file_ids: Array.from(selectedFiles),
-        editing_type: selectedEditingType,
+        editing_type: submitEditingType,
         params: buildSubmitParams(),
       });
       toast({
@@ -565,6 +564,28 @@ const AiEditing = () => {
     },
     [navigate],
   );
+
+  const toggleEnhancementMode = (modeId: string) => {
+    if (!COMBINABLE_MODE_IDS.has(modeId)) {
+      toast({
+        title: 'HDR workflow is separate',
+        description: 'HDR bracket merging requires Autoenhance order/bracket processing and is not part of combined single-image enhancement yet.',
+      });
+      return;
+    }
+
+    setSelectedEnhancementIds((current) => {
+      const next = new Set(current);
+      const typedModeId = modeId as EnhancementModeId;
+      if (next.has(typedModeId)) {
+        if (next.size === 1) return next;
+        next.delete(typedModeId);
+      } else {
+        next.add(typedModeId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -1036,9 +1057,9 @@ const AiEditing = () => {
   );
 
   const renderModeOptions = () => {
-    if (selectedEditingType === 'enhance') {
-      return (
-        <div className="grid gap-4 md:grid-cols-2">
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        {selectedEnhancementIds.has('enhance') && (
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Enhance style</Label>
             <Select value={enhanceType} onValueChange={(value) => setEnhanceType(value as typeof enhanceType)}>
@@ -1046,102 +1067,64 @@ const AiEditing = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="warm">Warm</SelectItem>
                 <SelectItem value="neutral">Neutral</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Autoenhance API version 5 supports neutral style; unsupported styles are not sent.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3 rounded-lg border p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="lens-correction" className="text-sm">Lens correction</Label>
+            <Switch id="lens-correction" checked={lensCorrection} onCheckedChange={setLensCorrection} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm">Vertical correction</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Toggle the Vertical Correction card to include or remove it.
+              </p>
+            </div>
+            <Badge variant={selectedEnhancementIds.has('vertical_correction') ? 'default' : 'secondary'}>
+              {selectedEnhancementIds.has('vertical_correction') ? 'Included' : 'Off'}
+            </Badge>
+          </div>
+        </div>
+
+        {selectedEnhancementIds.has('sky_replace') && (
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Cloud type</Label>
+            <Select value={cloudType} onValueChange={(value) => setCloudType(value as typeof cloudType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CLEAR">Clear</SelectItem>
+                <SelectItem value="LOW_CLOUD">Low cloud</SelectItem>
+                <SelectItem value="LOW_CLOUD_LOW_SAT">Low cloud neutral</SelectItem>
+                <SelectItem value="HIGH_CLOUD">High cloud</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-3 rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="vertical-correction" className="text-sm">Vertical correction</Label>
-              <Switch
-                id="vertical-correction"
-                checked={verticalCorrection}
-                onCheckedChange={setVerticalCorrection}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="lens-correction" className="text-sm">Lens correction</Label>
-              <Switch id="lens-correction" checked={lensCorrection} onCheckedChange={setLensCorrection} />
-            </div>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Window pull</Label>
+        )}
+
+        {selectedEnhancementIds.has('window_pull') && (
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Window pull type</Label>
             <Select value={windowPullType} onValueChange={(value) => setWindowPullType(value as typeof windowPullType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="NONE">None</SelectItem>
                 <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
-                <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
+                <SelectItem value="WITH_SKIES">Windows with skies</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-      );
-    }
-
-    if (selectedEditingType === 'sky_replace') {
-      return (
-        <div className="space-y-2 md:max-w-xs">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Cloud type</Label>
-          <Select value={cloudType} onValueChange={(value) => setCloudType(value as typeof cloudType)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="CLEAR">Clear</SelectItem>
-              <SelectItem value="LOW_CLOUD">Low cloud</SelectItem>
-              <SelectItem value="HIGH_CLOUD">High cloud</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      );
-    }
-
-    if (selectedEditingType === 'hdr_merge') {
-      return (
-        <div className="space-y-2 md:max-w-xs">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bracket count</Label>
-          <Input
-            type="number"
-            min={2}
-            max={9}
-            value={bracketCount}
-            onChange={(event) => setBracketCount(Math.max(2, Math.min(9, Number(event.target.value) || 5)))}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Photos are grouped sequentially in batches of this size for HDR processing.
-          </p>
-        </div>
-      );
-    }
-
-    if (selectedEditingType === 'window_pull') {
-      return (
-        <div className="space-y-2 md:max-w-xs">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Window pull type</Label>
-          <Select
-            value={windowPullType === 'NONE' ? 'ONLY_WINDOWS' : windowPullType}
-            onValueChange={(value) => setWindowPullType(value as typeof windowPullType)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ONLY_WINDOWS">Only windows</SelectItem>
-              <SelectItem value="WINDOWS_WITH_SKIES">Windows with skies</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      );
-    }
-
-    return (
-      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        No additional options for this mode.
+        )}
       </div>
     );
   };
@@ -1151,18 +1134,21 @@ const AiEditing = () => {
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Processing mode</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Enhancement options</CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              {selectedEditingTypeMeta?.description ||
-                'Choose how Autoenhance should process the selected images.'}
+              Select one or more Autoenhance options to combine in the same job.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <AiEditingModePicker
               modes={editingTypes}
-              selectedModeId={selectedEditingType}
-              onSelect={setSelectedEditingType}
+              selectedModeIds={selectedEnhancementIds}
+              onToggle={toggleEnhancementMode}
+              disabledModeIds={UNSUPPORTED_MODE_IDS}
             />
+            <p className="mt-3 text-xs text-muted-foreground">
+              HDR bracket merge uses Autoenhance order/bracket endpoints and stays disabled here until that workflow is wired separately.
+            </p>
           </CardContent>
         </Card>
 
@@ -1170,7 +1156,7 @@ const AiEditing = () => {
           <CardHeader>
             <CardTitle className="text-base">Mode options</CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Tune options for the selected processing mode.
+              Tune options for the selected enhancement combination.
             </CardDescription>
           </CardHeader>
           <CardContent>{renderModeOptions()}</CardContent>
@@ -1211,8 +1197,8 @@ const AiEditing = () => {
                 <span className="font-medium">{selectedFiles.size}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Mode</span>
-                <span className="font-medium">{editingTypeLabels[selectedEditingType] || selectedEditingType}</span>
+                <span className="text-muted-foreground">Options</span>
+                <span className="text-right font-medium">{selectedModeLabel}</span>
               </div>
             </div>
 
