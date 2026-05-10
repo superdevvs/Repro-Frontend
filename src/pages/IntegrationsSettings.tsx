@@ -218,6 +218,9 @@ export const IntegrationsSettingsContent = () => {
     apiUsername: '',
     apiPassword: '',
     apiKey: '',
+    appId: '',
+    appToken: '',
+    webhookSecret: '',
     enabled: true,
   });
   const [testingIguide, setTestingIguide] = useState(false);
@@ -311,6 +314,9 @@ export const IntegrationsSettingsContent = () => {
           apiUsername: '',
           apiPassword: '',
           apiKey: '',
+          appId: '',
+          appToken: '',
+          webhookSecret: '',
           enabled: true,
         });
       }
@@ -1126,16 +1132,68 @@ export const IntegrationsSettingsContent = () => {
                         placeholder="Enter API Key (optional, if using key-based auth)"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="iguide-app-id">Portal App ID</Label>
+                      <Input
+                        id="iguide-app-id"
+                        type="text"
+                        value={iguideSettings.appId}
+                        onChange={(e) =>
+                          setIguideSettings({ ...iguideSettings, appId: e.target.value })
+                        }
+                        placeholder="X-Plntr-App-Id"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="iguide-app-token">Portal App Token</Label>
+                      <Input
+                        id="iguide-app-token"
+                        type="password"
+                        value={iguideSettings.appToken}
+                        onChange={(e) =>
+                          setIguideSettings({ ...iguideSettings, appToken: e.target.value })
+                        }
+                        placeholder="X-Plntr-App-Token"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="iguide-webhook-secret">Webhook Shared Secret (optional)</Label>
+                      <Input
+                        id="iguide-webhook-secret"
+                        type="password"
+                        value={iguideSettings.webhookSecret}
+                        onChange={(e) =>
+                          setIguideSettings({ ...iguideSettings, webhookSecret: e.target.value })
+                        }
+                        placeholder="Used to verify HMAC-SHA256 X-Iguide-Signature headers"
+                      />
+                    </div>
                   </div>
 
-                  <div className="rounded-md bg-muted p-3">
+                  <div className="rounded-md bg-muted p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Webhook URL:</strong>{' '}
+                        <code className="text-[11px] bg-background px-1 rounded">{window.location.origin}/iguide_webhook.php</code>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const url = `${window.location.origin}/iguide_webhook.php`;
+                          if (navigator.clipboard) {
+                            void navigator.clipboard.writeText(url);
+                          }
+                        }}
+                      >
+                        Copy URL
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      <strong>Webhook URL:</strong>{' '}
-                      {window.location.origin}/iguide_webhook.php
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Configure this URL in your iGUIDE account settings to receive automatic
-                      updates.
+                      Configure this URL in your iGUIDE Portal app webhook settings to receive automatic
+                      ready events when photographers publish iGuides.
                     </p>
                   </div>
 

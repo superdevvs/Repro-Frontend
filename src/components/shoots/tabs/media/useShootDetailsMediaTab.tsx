@@ -279,6 +279,7 @@ export function useShootDetailsMediaTab({
     editedExtras,
     iguideUrl,
     iguideFloorplans,
+    iguideSync,
     shootHasVideoService,
     canDownload,
     showUploadTab,
@@ -1266,6 +1267,7 @@ export function useShootDetailsMediaTab({
         shootHasVideoService={shootHasVideoService}
         iguideUrl={iguideUrl}
         iguideFloorplans={iguideFloorplans}
+        iguideSync={iguideSync}
         uploadedFloorplans={uploadedFloorplans}
         uploadedVirtualStaging={uploadedVirtualStaging}
         uploadedGreenGrass={uploadedGreenGrass}

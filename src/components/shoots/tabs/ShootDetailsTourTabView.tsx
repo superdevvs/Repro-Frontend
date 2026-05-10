@@ -74,6 +74,14 @@ export function ShootDetailsTourTabView(props: any) {
     confirmDelete3D,
     renderLinkActionButtons,
     iguideSync,
+    iguidePropertyIdInput,
+    setIguidePropertyIdInput,
+    iguideWorkOrderIdInput,
+    setIguideWorkOrderIdInput,
+    saveIguideIdentifiers,
+    isSavingIguideIdentifiers,
+    syncIguideNow,
+    isSyncingIguide,
     qrCodeDialog,
     onQrDialogOpenChange,
     onQrImageError,
@@ -717,46 +725,163 @@ export function ShootDetailsTourTabView(props: any) {
             {/* iGuide Section */}
             {showIguideSection && (
               <div className="space-y-3">
-                <h4 className="font-semibold text-sm">iGuide</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm">iGuide</h4>
+                  {syncIguideNow && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={syncIguideNow}
+                      disabled={isSyncingIguide}
+                      title="Re-fetch iGuide deliverables from youriguide.com"
+                    >
+                      {isSyncingIguide ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync iGuide now</>)}
+                    </Button>
+                  )}
+                </div>
                 {/* iGuide sync info */}
                 {(() => {
-                          const iguideTourUrl = iguideSync.url;
-                          const iguideFloorplans = iguideSync.floorplans;
-                          const iguidePropertyId = iguideSync.propertyId;
-                          const iguideLastSyncedAt = iguideSync.lastSyncedAt;
-                  if (!iguideTourUrl && !iguideFloorplans.length && !iguidePropertyId && !iguideLastSyncedAt) return null;
+                  const s = iguideSync || {};
+                  const iguideTourUrl = s.url;
+                  const iguideFloorplans = s.floorplans || [];
+                  const iguidePropertyId = s.propertyId;
+                  const iguideWorkOrderId = s.workOrderId;
+                  const iguideLastSyncedAt = s.lastSyncedAt;
+                  const billing = s.billing;
+                  const hasAny = Boolean(
+                    iguideTourUrl || iguideFloorplans.length || iguidePropertyId
+                      || iguideWorkOrderId || iguideLastSyncedAt || s.unbrandedUrl
+                      || s.embeddedUrl || s.manageUrl || s.embedImageUrl || billing,
+                  );
+                  if (!hasAny) return null;
                   return (
-                    <div className="border rounded-lg p-3 space-y-1.5 text-xs">
-                      {iguideTourUrl && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Tour:</span>
-                          <a href={iguideTourUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                    <div className="border rounded-lg p-3 space-y-2 text-xs">
+                      {s.embedImageUrl && (
+                        <a
+                          href={iguideTourUrl || s.embedImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full max-h-40 overflow-hidden rounded border"
+                          title="Open iGuide tour"
+                        >
+                          <img src={s.embedImageUrl} alt="iGuide preview" className="w-full h-full object-cover" />
+                        </a>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {iguideTourUrl && (
+                          <a
+                            href={iguideTourUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
                             Open tour <ExternalLink className="h-3 w-3" />
                           </a>
+                        )}
+                        {s.unbrandedUrl && (
+                          <a
+                            href={s.unbrandedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            Unbranded <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        {s.embeddedUrl && (
+                          <a
+                            href={s.embeddedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            Embed page <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        {isAdmin && s.manageUrl && (
+                          <a
+                            href={s.manageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            Manage on iGuide <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                      {(iguidePropertyId || iguideWorkOrderId || iguideLastSyncedAt) && (
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                          {iguidePropertyId && (
+                            <>
+                              <span className="text-muted-foreground">Property ID:</span>
+                              <span className="font-medium truncate" title={iguidePropertyId}>{iguidePropertyId}</span>
+                            </>
+                          )}
+                          {iguideWorkOrderId && (
+                            <>
+                              <span className="text-muted-foreground">Work order:</span>
+                              <span className="font-medium truncate" title={iguideWorkOrderId}>{iguideWorkOrderId}</span>
+                            </>
+                          )}
+                          {iguideLastSyncedAt && (
+                            <>
+                              <span className="text-muted-foreground">Last sync:</span>
+                              <span className="font-medium">{new Date(iguideLastSyncedAt).toLocaleString()}</span>
+                            </>
+                          )}
                         </div>
                       )}
-                      {iguidePropertyId && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Property ID:</span>
-                          <span className="font-medium">{iguidePropertyId}</span>
+                      {billing && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {billing.iguideType && (
+                            <Badge variant="secondary" className="text-[10px] uppercase">{billing.iguideType}</Badge>
+                          )}
+                          {Array.isArray(billing.addons) && billing.addons.map((addon: string) => (
+                            <Badge key={addon} variant="outline" className="text-[10px] uppercase">{addon}</Badge>
+                          ))}
+                          {typeof billing.billableAreaSqFeet === 'number' && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {Math.round(billing.billableAreaSqFeet).toLocaleString()} sqft
+                            </Badge>
+                          )}
                         </div>
                       )}
-                      {iguideLastSyncedAt && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Last sync:</span>
-                          <span className="font-medium">{new Date(iguideLastSyncedAt).toLocaleDateString()}</span>
+                      {(s.pdfMetricUrl || s.pdfImperialUrl) && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {s.pdfImperialUrl && (
+                            <a
+                              href={s.pdfImperialUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Download className="h-3 w-3" /> Floor plan PDF (Imperial)
+                            </a>
+                          )}
+                          {s.pdfMetricUrl && (
+                            <a
+                              href={s.pdfMetricUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Download className="h-3 w-3" /> Floor plan PDF (Metric)
+                            </a>
+                          )}
                         </div>
                       )}
                       {iguideFloorplans.length > 0 && (
                         <div className="space-y-1 pt-1">
-                          <span className="text-[10px] uppercase text-muted-foreground">Floorplans</span>
-                          <div className="space-y-1">
+                          <span className="text-[10px] uppercase text-muted-foreground">All deliverables</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                             {iguideFloorplans.map((floorplan: any, index: number) => {
                               const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
                               if (!url) return null;
-                              const label = typeof floorplan === 'string' ? `Floorplan ${index + 1}` : floorplan?.filename || `Floorplan ${index + 1}`;
+                              const label = typeof floorplan === 'string'
+                                ? `Floorplan ${index + 1}`
+                                : (floorplan?.label || floorplan?.filename || `Floorplan ${index + 1}`);
                               return (
-                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block">
+                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                                   {label}
                                 </a>
                               );
@@ -767,6 +892,42 @@ export function ShootDetailsTourTabView(props: any) {
                     </div>
                   );
                 })()}
+                {/* Admin-only iGuide identifier inputs (drives webhook matching). */}
+                {isAdmin && (saveIguideIdentifiers || setIguidePropertyIdInput) && (
+                  <div className="border rounded-lg p-3 space-y-2 text-xs">
+                    <span className="text-[10px] uppercase text-muted-foreground">iGuide matching</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Property ID</Label>
+                        <Input
+                          value={iguidePropertyIdInput ?? ''}
+                          onChange={(e) => setIguidePropertyIdInput && setIguidePropertyIdInput(e.target.value)}
+                          placeholder="igYGFV5GG6V8DD1"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Work order ID</Label>
+                        <Input
+                          value={iguideWorkOrderIdInput ?? ''}
+                          onChange={(e) => setIguideWorkOrderIdInput && setIguideWorkOrderIdInput(e.target.value)}
+                          placeholder="WO1234 or shoot:123"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={saveIguideIdentifiers}
+                        disabled={isSavingIguideIdentifiers}
+                      >
+                        {isSavingIguideIdentifiers ? 'Saving…' : 'Save identifiers'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {visibleIguideKeys.map((key) => {
                   const label = key === 'iguide_branded' ? 'iGuide Branded Link' : 'iGuide MLS Link';
                   const url = tourLinks[key] || '';

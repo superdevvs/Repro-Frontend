@@ -412,9 +412,17 @@ export interface ShootData {
     [key: string]: ShootTourLinkValue;
   };
   iguideTourUrl?: string;
+  iguide_tour_url?: string;
   iguideFloorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
+  iguide_floorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
   iguidePropertyId?: string;
+  iguide_property_id?: string;
+  iguideWorkOrderId?: string;
+  iguide_work_order_id?: string;
   iguideLastSyncedAt?: string;
+  iguide_last_synced_at?: string;
+  iguideData?: Record<string, unknown> | null;
+  iguide_data?: Record<string, unknown> | null;
   files?: ShootFileData[];
   tourPurchased?: boolean; // Add this field for ImportShootsDialog
   propertyDetails?: {

@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
+import { IguideMediaPanel } from './IguideMediaPanel';
 import { getPreferredMlsTourLink } from '@/utils/shootTourData';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
 
@@ -63,6 +64,7 @@ export function ShootDetailsMediaTabView(props: any) {
     shootHasVideoService,
     iguideUrl,
     iguideFloorplans,
+    iguideSync,
     uploadedFloorplans,
     uploadedVirtualStaging,
     uploadedGreenGrass,
@@ -878,29 +880,7 @@ export function ShootDetailsMediaTabView(props: any) {
                     )}
                   
                   {uploadedMediaTab === 'iguide' && iguideUrl && (
-                    <div className="h-full m-2.5 border rounded-lg bg-card p-4">
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <h4 className="font-medium mb-2">iGuide 3D Tour</h4>
-                          <a
-                            href={iguideUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                          >
-                            View 3D Tour <ChevronRight className="h-3 w-3" />
-                          </a>
-                        </div>
-                        <div className="aspect-video w-full rounded-lg overflow-hidden border">
-                          <iframe
-                            src={iguideUrl}
-                            className="w-full h-full"
-                            allowFullScreen
-                            title="iGuide 3D Tour"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <IguideMediaPanel iguideUrl={iguideUrl} iguideSync={iguideSync} />
                   )}
                   
                   {uploadedMediaTab === 'floorplans' && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
@@ -1127,29 +1107,7 @@ export function ShootDetailsMediaTabView(props: any) {
                     )}
                   
                   {editedMediaTab === 'iguide' && iguideUrl && (
-                    <div className="h-full m-2.5 border rounded-lg bg-card p-4">
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <h4 className="font-medium mb-2">iGuide 3D Tour</h4>
-                          <a
-                            href={iguideUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                          >
-                            View 3D Tour <ChevronRight className="h-3 w-3" />
-                          </a>
-                        </div>
-                        <div className="aspect-video w-full rounded-lg overflow-hidden border">
-                          <iframe
-                            src={iguideUrl}
-                            className="w-full h-full"
-                            allowFullScreen
-                            title="iGuide 3D Tour"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <IguideMediaPanel iguideUrl={iguideUrl} iguideSync={iguideSync} />
                   )}
                   
                   {editedMediaTab === 'floorplans' && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (

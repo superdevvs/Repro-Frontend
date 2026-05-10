@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 import type { ShootData } from '@/types/shoots';
 import type { MediaFile } from '@/hooks/useShootFiles';
-import { getPreferredIguideUrl, normalizeIguideFloorplans } from '@/utils/shootTourData';
+import {
+  getNormalizedIguideSync,
+  getPreferredIguideUrl,
+  normalizeIguideFloorplans,
+} from '@/utils/shootTourData';
 
 const VIDEO_EXTENSION_REGEX = /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i;
 
@@ -141,9 +145,36 @@ export function useShootMediaDerivedData({
   const editedExtras = useMemo(() => filterExtraFiles(editedFiles), [editedFiles]);
 
   const iguideUrl = getPreferredIguideUrl(shoot);
-  const iguideFloorplans: Array<{ url: string; filename?: string }> = useMemo(
-    () => normalizeIguideFloorplans(shoot),
-    [shoot],
+  const iguideSync = useMemo(() => getNormalizedIguideSync(shoot as any), [shoot]);
+
+  // Collect asset_keys / urls already ingested into ShootFiles so the URL-only
+  // floorplan link cards don't double-show the same items.
+  const ingestedIguideKeys = useMemo(() => {
+    const keys = new Set<string>();
+    const urls = new Set<string>();
+    const collect = (files: MediaFile[]) => {
+      for (const file of files) {
+        const meta = ((file as any)?.metadata ?? {}) as Record<string, unknown>;
+        if (!meta || meta.source !== 'iguide') continue;
+        const key = typeof meta.iguide_asset_key === 'string' ? meta.iguide_asset_key : '';
+        const url = typeof meta.original_url === 'string' ? meta.original_url : '';
+        if (key) keys.add(key);
+        if (url) urls.add(url);
+      }
+    };
+    collect(rawFiles);
+    collect(editedFiles);
+    return { keys, urls };
+  }, [rawFiles, editedFiles]);
+
+  const iguideFloorplans = useMemo(
+    () =>
+      normalizeIguideFloorplans(shoot).filter((fp) => {
+        if (fp.asset_key && ingestedIguideKeys.keys.has(fp.asset_key)) return false;
+        if (fp.url && ingestedIguideKeys.urls.has(fp.url)) return false;
+        return true;
+      }),
+    [shoot, ingestedIguideKeys],
   );
 
   const shootHasVideoService = useMemo(() => {
@@ -226,6 +257,7 @@ export function useShootMediaDerivedData({
     editedExtras,
     iguideUrl,
     iguideFloorplans,
+    iguideSync,
     shootHasVideoService,
     canDownload,
     showUploadTab,

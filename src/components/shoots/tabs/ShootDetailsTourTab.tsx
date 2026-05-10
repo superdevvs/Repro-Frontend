@@ -86,6 +86,11 @@ export function ShootDetailsTourTab({
     show_garage: false,
   });
   const [isSavingTourSettings, setIsSavingTourSettings] = useState(false);
+  // iGuide identifier inputs (admin-only) and one-shot sync action.
+  const [iguidePropertyIdInput, setIguidePropertyIdInput] = useState<string>('');
+  const [iguideWorkOrderIdInput, setIguideWorkOrderIdInput] = useState<string>('');
+  const [isSavingIguideIdentifiers, setIsSavingIguideIdentifiers] = useState(false);
+  const [isSyncingIguide, setIsSyncingIguide] = useState(false);
   const sourceTourLinks = useMemo(
     () => getRawTourLinks(shoot as any) as Record<string, any>,
     [(shoot as any)?.tourLinks, (shoot as any)?.tour_links],
@@ -123,8 +128,12 @@ export function ShootDetailsTourTab({
       (shoot as any)?.iguide_floorplans,
       (shoot as any)?.iguidePropertyId,
       (shoot as any)?.iguide_property_id,
+      (shoot as any)?.iguideWorkOrderId,
+      (shoot as any)?.iguide_work_order_id,
       (shoot as any)?.iguideLastSyncedAt,
       (shoot as any)?.iguide_last_synced_at,
+      (shoot as any)?.iguideData,
+      (shoot as any)?.iguide_data,
     ],
   );
   const {
@@ -998,6 +1007,85 @@ export function ShootDetailsTourTab({
       setIsDeleting3D(null);
     }
   };
+  // Initialize iGuide identifier inputs from server-provided values.
+  useEffect(() => {
+    setIguidePropertyIdInput((prev) => (prev === iguideSync.propertyId ? prev : iguideSync.propertyId || ''));
+    setIguideWorkOrderIdInput((prev) => (prev === iguideSync.workOrderId ? prev : iguideSync.workOrderId || ''));
+  }, [iguideSync.propertyId, iguideSync.workOrderId]);
+
+  const saveIguideIdentifiers = async () => {
+    if (!isAdmin) return;
+    setIsSavingIguideIdentifiers(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          iguide_property_id: iguidePropertyIdInput.trim() || null,
+          iguide_work_order_id: iguideWorkOrderIdInput.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save iGuide identifiers' }));
+        throw new Error(errorData.message || 'Failed to save iGuide identifiers');
+      }
+      toast({
+        title: 'Saved',
+        description: 'iGuide identifiers updated. Webhooks will now match this shoot.',
+      });
+      onShootUpdate();
+    } catch (err: any) {
+      console.error('Save iGuide identifiers failed', err);
+      toast({
+        title: 'Error',
+        description: err?.message || 'Failed to save iGuide identifiers.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingIguideIdentifiers(false);
+    }
+  };
+
+  const syncIguideNow = async () => {
+    setIsSyncingIguide(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/iguide/sync`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || 'iGuide sync failed');
+      }
+      const queued = Number(json?.queued_assets ?? 0);
+      toast({
+        title: 'iGuide synced',
+        description: queued > 0
+          ? `Pulled ${queued} deliverable(s) from youriguide.com.`
+          : 'iGuide metadata refreshed.',
+      });
+      onShootUpdate();
+    } catch (err: any) {
+      console.error('Sync iGuide failed', err);
+      toast({
+        title: 'iGuide sync failed',
+        description: err?.message || 'No matching iGuide was found for this shoot.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingIguide(false);
+    }
+  };
+
   const renderLinkActionButtons = (
     type: string,
     options?: {
@@ -1177,6 +1265,14 @@ export function ShootDetailsTourTab({
       confirmDelete3D={confirmDelete3D}
       renderLinkActionButtons={renderLinkActionButtons}
       iguideSync={iguideSync}
+      iguidePropertyIdInput={iguidePropertyIdInput}
+      setIguidePropertyIdInput={setIguidePropertyIdInput}
+      iguideWorkOrderIdInput={iguideWorkOrderIdInput}
+      setIguideWorkOrderIdInput={setIguideWorkOrderIdInput}
+      saveIguideIdentifiers={saveIguideIdentifiers}
+      isSavingIguideIdentifiers={isSavingIguideIdentifiers}
+      syncIguideNow={syncIguideNow}
+      isSyncingIguide={isSyncingIguide}
       qrCodeDialog={qrCodeDialog}
       onQrDialogOpenChange={(open: boolean) => setQrCodeDialog({ ...qrCodeDialog, open })}
       onQrImageError={() => {

@@ -13,7 +13,11 @@ type ShootLike = Partial<ShootData> & {
   iguide_tour_url?: string;
   iguide_floorplans?: unknown;
   iguide_property_id?: string;
+  iguide_work_order_id?: string;
+  iguideWorkOrderId?: string;
   iguide_last_synced_at?: string;
+  iguide_data?: LooseRecord | null;
+  iguideData?: LooseRecord | null;
   mls_compliant_link?: string;
   bedrooms?: string | number | null;
   bedRooms?: string | number | null;
@@ -172,9 +176,20 @@ export const getPreferredIguideUrl = (shoot?: ShootLike | null): string => {
   );
 };
 
+export type NormalizedIguideFloorplan = {
+  url: string;
+  filename: string;
+  label?: string;
+  type?: string;
+  units?: string;
+  asset_key?: string;
+  floor_name?: string;
+  floor_id?: number | string | null;
+};
+
 export const normalizeIguideFloorplans = (
   shoot?: ShootLike | null,
-): Array<{ url: string; filename?: string }> => {
+): NormalizedIguideFloorplan[] => {
   const source = pickFirst(shoot?.iguideFloorplans, shoot?.iguide_floorplans, []) as unknown;
   if (!Array.isArray(source)) {
     return [];
@@ -183,32 +198,139 @@ export const normalizeIguideFloorplans = (
   return source
     .map((floorplan) => {
       if (typeof floorplan === 'string') {
-        return { url: floorplan, filename: 'Floorplan' };
+        return { url: floorplan, filename: 'Floorplan' } as NormalizedIguideFloorplan;
       }
 
       if (!floorplan || typeof floorplan !== 'object') {
         return null;
       }
 
-      const url = String((floorplan as LooseRecord).url || (floorplan as LooseRecord).path || '');
+      const fp = floorplan as LooseRecord;
+      const url = String(fp.url || fp.path || '');
       if (!url) {
         return null;
       }
 
       return {
         url,
-        filename: String((floorplan as LooseRecord).filename || 'Floorplan'),
-      };
+        filename: String(fp.filename || 'Floorplan'),
+        label: typeof fp.label === 'string' ? fp.label : undefined,
+        type: typeof fp.type === 'string' ? fp.type : undefined,
+        units: typeof fp.units === 'string' ? fp.units : undefined,
+        asset_key: typeof fp.asset_key === 'string' ? fp.asset_key : undefined,
+        floor_name: typeof fp.floor_name === 'string' ? fp.floor_name : undefined,
+        floor_id: (fp.floor_id as number | string | null | undefined) ?? null,
+      } as NormalizedIguideFloorplan;
     })
-    .filter((floorplan): floorplan is { url: string; filename: string } => Boolean(floorplan?.url));
+    .filter((floorplan): floorplan is NormalizedIguideFloorplan => Boolean(floorplan?.url));
 };
 
-export const getNormalizedIguideSync = (shoot?: ShootLike | null) => ({
-  url: getPreferredIguideUrl(shoot),
-  floorplans: normalizeIguideFloorplans(shoot),
-  propertyId: String(pickFirst(shoot?.iguidePropertyId, shoot?.iguide_property_id) ?? ''),
-  lastSyncedAt: String(pickFirst(shoot?.iguideLastSyncedAt, shoot?.iguide_last_synced_at) ?? ''),
-});
+export type NormalizedIguideBilling = {
+  iguideType?: string;
+  package?: string;
+  addons: string[];
+  billableAreaSqFeet?: number;
+  billableAreaSqMeters?: number;
+};
+
+export type NormalizedIguideSync = {
+  url: string;
+  unbrandedUrl: string;
+  embeddedUrl: string;
+  manageUrl: string;
+  embedImageUrl: string;
+  galleryFrontUrl: string;
+  galleryZipUrl: string;
+  galleryLowResZipUrl: string;
+  sphereZipUrl: string;
+  offlineZipUrl: string;
+  pdfMetricUrl: string;
+  pdfImperialUrl: string;
+  propertyId: string;
+  workOrderId: string;
+  iguideAlias: string;
+  defaultViewId: string;
+  authToken: string;
+  lastSyncedAt: string;
+  floorplans: NormalizedIguideFloorplan[];
+  jpgMetric: Array<{ id: number | null; floor_name: string | null; url: string }>;
+  jpgImperial: Array<{ id: number | null; floor_name: string | null; url: string }>;
+  billing: NormalizedIguideBilling | null;
+  raw: LooseRecord;
+};
+
+const getRawIguideData = (shoot?: ShootLike | null): LooseRecord =>
+  asLooseRecord(shoot?.iguideData ?? shoot?.iguide_data);
+
+type JpgFloorEntry = { id: number | null; floor_name: string | null; url: string };
+
+const normalizeJpgFloors = (source: unknown): JpgFloorEntry[] => {
+  if (!Array.isArray(source)) return [];
+  const out: JpgFloorEntry[] = [];
+  for (const entry of source) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as LooseRecord;
+    const url = typeof e.url === 'string' ? e.url : '';
+    if (!url) continue;
+    out.push({
+      id: typeof e.id === 'number' ? e.id : null,
+      floor_name:
+        typeof e.floor_name === 'string'
+          ? e.floor_name
+          : typeof e.floorName === 'string'
+            ? e.floorName
+            : null,
+      url,
+    });
+  }
+  return out;
+};
+
+const normalizeBilling = (raw: LooseRecord): NormalizedIguideBilling | null => {
+  const billing = asLooseRecord(raw.billing);
+  if (!billing || Object.keys(billing).length === 0) return null;
+  const addons = Array.isArray(billing.addons) ? billing.addons.filter((a) => typeof a === 'string') : [];
+  return {
+    iguideType: typeof billing.iguideType === 'string' ? billing.iguideType : undefined,
+    package: typeof billing.package === 'string' ? billing.package : undefined,
+    addons: addons as string[],
+    billableAreaSqFeet:
+      typeof billing.billableAreaSqFeet === 'number' ? billing.billableAreaSqFeet : undefined,
+    billableAreaSqMeters:
+      typeof billing.billableAreaSqMeters === 'number' ? billing.billableAreaSqMeters : undefined,
+  };
+};
+
+export const getNormalizedIguideSync = (shoot?: ShootLike | null): NormalizedIguideSync => {
+  const raw = getRawIguideData(shoot);
+  const pickStr = (...values: unknown[]) => String(pickFirst(...values) ?? '');
+
+  return {
+    url: getPreferredIguideUrl(shoot),
+    unbrandedUrl: pickStr(raw.unbranded_url),
+    embeddedUrl: pickStr(raw.embedded_url),
+    manageUrl: pickStr(raw.manage_url),
+    embedImageUrl: pickStr(raw.embed_image_url),
+    galleryFrontUrl: pickStr(raw.gallery_front_url),
+    galleryZipUrl: pickStr(raw.gallery_zip_url),
+    galleryLowResZipUrl: pickStr(raw.gallery_low_res_zip_url),
+    sphereZipUrl: pickStr(raw.sphere_zip_url),
+    offlineZipUrl: pickStr(raw.offline_zip_url),
+    pdfMetricUrl: pickStr(raw.pdf_metric_url),
+    pdfImperialUrl: pickStr(raw.pdf_imperial_url),
+    propertyId: pickStr(shoot?.iguidePropertyId, shoot?.iguide_property_id, raw.property_id),
+    workOrderId: pickStr(shoot?.iguideWorkOrderId, shoot?.iguide_work_order_id, raw.work_order_id),
+    iguideAlias: pickStr(raw.iguide_alias),
+    defaultViewId: pickStr(raw.default_view_id),
+    authToken: pickStr(raw.authtoken),
+    lastSyncedAt: pickStr(shoot?.iguideLastSyncedAt, shoot?.iguide_last_synced_at),
+    floorplans: normalizeIguideFloorplans(shoot),
+    jpgMetric: normalizeJpgFloors(raw.jpg_metric),
+    jpgImperial: normalizeJpgFloors(raw.jpg_imperial),
+    billing: normalizeBilling(raw),
+    raw,
+  };
+};
 
 export const getPreferredMlsTourLink = (shoot?: ShootLike | null): string => {
   const links = normalizeTourLinks(shoot);
