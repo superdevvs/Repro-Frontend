@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowUpRight, Copy, Loader2, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CalendarClock, Copy, Loader2, UploadCloud } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -103,12 +103,23 @@ export function EditorRawLinksCard({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [shareLinksByShoot, setShareLinksByShoot] = React.useState<Record<string, ShareLink | null>>({});
+  const [scheduleSummary, setScheduleSummary] = React.useState<{
+    today: number;
+    tomorrow: number;
+    thisWeek: number;
+  } | null>(null);
+  const [scheduleSummaryLoading, setScheduleSummaryLoading] = React.useState(true);
 
+  const MAX_VISIBLE_SHOOTS = 5;
   const sortedShoots = React.useMemo(() => sortShoots(shoots), [shoots]);
-  const hasMoreShoots = sortedShoots.length > 2;
-  const missingRawCount = React.useMemo(
-    () => sortedShoots.filter((shoot) => !hasRawAssets(shoot)).length,
+  const visibleShoots = React.useMemo(
+    () => sortedShoots.slice(0, MAX_VISIBLE_SHOOTS),
     [sortedShoots],
+  );
+  const hasMoreShoots = sortedShoots.length > MAX_VISIBLE_SHOOTS;
+  const missingRawCount = React.useMemo(
+    () => visibleShoots.filter((shoot) => !hasRawAssets(shoot)).length,
+    [visibleShoots],
   );
 
   React.useEffect(() => {
@@ -166,6 +177,49 @@ export function EditorRawLinksCard({
     };
   }, [sortedShoots]);
 
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadScheduleSummary = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/schedule-summary`, {
+          headers: {
+            ...getApiHeaders(),
+            Accept: 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          if (isMounted) setScheduleSummaryLoading(false);
+          return;
+        }
+
+        const payload = await response.json();
+        const data = (payload && typeof payload === 'object' && 'data' in payload)
+          ? (payload.data as Record<string, unknown>)
+          : (payload as Record<string, unknown>);
+
+        if (!isMounted || !data) return;
+
+        setScheduleSummary({
+          today: Number(data.scheduled_today ?? 0),
+          tomorrow: Number(data.scheduled_tomorrow ?? 0),
+          thisWeek: Number(data.scheduled_this_week ?? 0),
+        });
+      } catch {
+        // Silently swallow — header gracefully degrades.
+      } finally {
+        if (isMounted) setScheduleSummaryLoading(false);
+      }
+    };
+
+    void loadScheduleSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleOpenShoot = (shootId: string | number) => {
     if (onOpenShoot) {
       onOpenShoot(shootId);
@@ -210,19 +264,60 @@ export function EditorRawLinksCard({
   return (
     <Card className="h-full bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.96))] dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.10),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))]">
       <div className="flex h-full flex-col">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-[1.8rem] font-semibold tracking-tight leading-none">Raw Files</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Latest assigned shoots with raw access
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              <CalendarClock className="h-4 w-4 text-sky-500 dark:text-sky-300" />
+              <span>Workload outlook</span>
+            </div>
+            <Badge
+              variant="outline"
+              className="shrink-0 whitespace-nowrap rounded-full border-slate-200/90 bg-white/75 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+            >
+              {sortedShoots.length} assigned
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className="rounded-full border-slate-200/90 bg-white/75 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
-          >
-            {sortedShoots.length} assigned
-          </Badge>
+
+          <div className="flex items-stretch divide-x divide-slate-200/70 rounded-xl border border-slate-200/80 bg-white/55 dark:divide-white/10 dark:border-white/10 dark:bg-white/[0.025]">
+            {([
+              { label: 'Today', value: scheduleSummary?.today ?? 0, primary: true },
+              { label: 'Tomorrow', value: scheduleSummary?.tomorrow ?? 0, primary: false },
+              { label: 'This week', value: scheduleSummary?.thisWeek ?? 0, primary: false },
+            ] as const).map((stat) => {
+              const isLoading = scheduleSummaryLoading && !scheduleSummary;
+              return (
+                <div
+                  key={stat.label}
+                  className="flex flex-1 flex-col items-center gap-1 px-2 py-3"
+                >
+                  <span
+                    className={cn(
+                      'text-[26px] font-semibold leading-none tabular-nums',
+                      stat.primary
+                        ? 'text-sky-600 dark:text-sky-300'
+                        : 'text-foreground/85',
+                    )}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      stat.value
+                    )}
+                  </span>
+                  <span
+                    className={cn(
+                      'text-[10px] font-semibold uppercase tracking-[0.18em]',
+                      stat.primary
+                        ? 'text-sky-600/85 dark:text-sky-300/85'
+                        : 'text-muted-foreground',
+                    )}
+                  >
+                    {stat.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {isLoading && shoots.length === 0 ? (
@@ -253,9 +348,9 @@ export function EditorRawLinksCard({
               </div>
             ) : null}
 
-            <div className="rounded-[24px] border border-slate-200/90 bg-white/65 p-2 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
-                {sortedShoots.map((shoot, index) => {
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+                {visibleShoots.map((shoot, index) => {
                   const rawCount = getRawFileCount(shoot);
                   const isReady = hasRawAssets(shoot);
                   const shareLink = shareLinksByShoot[String(shoot.id)]?.share_url;
@@ -335,7 +430,7 @@ export function EditorRawLinksCard({
 
             {hasMoreShoots ? (
               <p className="text-xs text-muted-foreground">
-                Showing the latest 2 first. Scroll for more assigned shoots.
+                Showing the latest {MAX_VISIBLE_SHOOTS}. Open the editing queue to see all assigned shoots.
               </p>
             ) : null}
 

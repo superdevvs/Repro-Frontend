@@ -15,6 +15,7 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { UploadDropzone, UploadProgressCard, UploadResultsPanel, type UploadIssue } from './MediaUploadPanels';
+import { finalizeEditedUploadQueue } from '@/services/dropboxMediaService';
 
 type ShootMediaServiceObject = {
   name?: string;
@@ -689,6 +690,8 @@ export function EditedUploadSection({
   }));
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmittingAfterUpload, setIsSubmittingAfterUpload] = useState(false);
+  const [pendingSubmitAfterUpload, setPendingSubmitAfterUpload] = useState(false);
   const [notes, setNotes] = useState('');
   const inputId = `edited-upload-input-${shoot.id}`;
 
@@ -705,6 +708,8 @@ export function EditedUploadSection({
     setUploadIssues([]);
     setUploadProgress(0);
     setIsUploading(false);
+    setIsSubmittingAfterUpload(false);
+    setPendingSubmitAfterUpload(false);
     setNotes('');
     setUploadLimitHint(buildUploadLimitDescription({
       per_file: '2GB',
@@ -758,7 +763,12 @@ export function EditedUploadSection({
     });
   };
 
-  const startUpload = (overrideFiles?: File[], overrideClassifications?: QueueClassificationMap) => {
+  const startUpload = (
+    overrideFiles?: File[],
+    overrideClassifications?: QueueClassificationMap,
+    options?: { submitAfter?: boolean },
+  ) => {
+    const submitAfter = Boolean(options?.submitAfter) && Boolean(isEditor);
     const nextFiles = overrideFiles ?? selectedFiles;
     if (nextFiles.length === 0 || isUploading) {
       return;
@@ -779,6 +789,7 @@ export function EditedUploadSection({
       setQueueClassifications({});
       setIsUploading(false);
       setUploadProgress(0);
+      setPendingSubmitAfterUpload(false);
       return;
     }
 
@@ -787,11 +798,14 @@ export function EditedUploadSection({
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
 
     toast({
-      title: 'Edited upload started',
-      description: `${nextFiles.length} file${nextFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
+      title: submitAfter ? 'Upload & submit started' : 'Edited upload started',
+      description: submitAfter
+        ? `${nextFiles.length} file${nextFiles.length !== 1 ? 's are' : ' is'} uploading; edits will be submitted automatically when complete.`
+        : `${nextFiles.length} file${nextFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
     });
 
     setIsUploading(true);
+    setPendingSubmitAfterUpload(submitAfter);
     setUploadProgress(0);
     setUploadIssues([]);
 
@@ -937,6 +951,7 @@ export function EditedUploadSection({
             }, {});
             setSelectedFiles(failedFiles);
             setQueueClassifications(failedClassificationMap);
+            setPendingSubmitAfterUpload(false);
             return;
           }
 
@@ -945,6 +960,34 @@ export function EditedUploadSection({
           setUploadIssues([]);
           setNotes('');
           onUploadComplete();
+
+          if (submitAfter) {
+            try {
+              setIsSubmittingAfterUpload(true);
+              const finalizeRes = await finalizeEditedUploadQueue(shoot.id, getApiHeaders());
+              const changed = Boolean((finalizeRes as any)?.workflow_status_changed);
+              toast({
+                title: changed ? 'Edited files submitted' : 'Already submitted',
+                description: (finalizeRes as any)?.message
+                  || (changed ? 'Shoot moved to Ready for client review.' : 'These edits were already submitted.'),
+              });
+              triggerUploadRefreshes(shoot.id);
+            } catch (submitError: any) {
+              const payload = submitError?.response?.data;
+              const description = payload?.message
+                || (submitError instanceof Error ? submitError.message : 'Failed to submit edits.');
+              toast({
+                title: 'Submit edits failed',
+                description,
+                variant: 'destructive',
+              });
+            } finally {
+              setIsSubmittingAfterUpload(false);
+              setPendingSubmitAfterUpload(false);
+            }
+          } else {
+            setPendingSubmitAfterUpload(false);
+          }
         } finally {
           setIsUploading(false);
         }
@@ -954,6 +997,10 @@ export function EditedUploadSection({
 
   const handleUpload = () => {
     startUpload();
+  };
+
+  const handleUploadAndSubmit = () => {
+    startUpload(undefined, undefined, { submitAfter: true });
   };
 
   const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
@@ -1084,19 +1131,66 @@ export function EditedUploadSection({
             />
           </div>
 
-          <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
-            {isUploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading Edited Files
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Edited Files
-              </>
-            )}
-          </Button>
+          {isEditor ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:flex-1"
+                onClick={handleUpload}
+                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0}
+              >
+                {isUploading && !pendingSubmitAfterUpload ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading Edited Files
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Edited Files
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                className="w-full sm:flex-1"
+                onClick={handleUploadAndSubmit}
+                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0}
+              >
+                {isSubmittingAfterUpload ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting Edits
+                  </>
+                ) : isUploading && pendingSubmitAfterUpload ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading & Submitting
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload & Submit Edits
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
+              {isUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading Edited Files
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Edited Files
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
     </div>
