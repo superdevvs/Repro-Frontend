@@ -82,6 +82,16 @@ export function ShootDetailsTourTabView(props: any) {
     isSavingIguideIdentifiers,
     syncIguideNow,
     isSyncingIguide,
+    // CubiCasa
+    cubicasaSync,
+    cubicasaOrderIdInput,
+    setCubicasaOrderIdInput,
+    cubicasaExternalIdInput,
+    setCubicasaExternalIdInput,
+    saveCubicasaIdentifiers,
+    isSavingCubicasaIdentifiers,
+    syncCubicasaNow,
+    isSyncingCubicasa,
     qrCodeDialog,
     onQrDialogOpenChange,
     onQrImageError,
@@ -975,6 +985,114 @@ export function ShootDetailsTourTabView(props: any) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {/* CubiCasa Section — floor-plan ingestion only (no tour links). */}
+            {(cubicasaSync || isAdmin) && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm">CubiCasa Floor Plans</h4>
+                  {syncCubicasaNow && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={syncCubicasaNow}
+                      disabled={isSyncingCubicasa}
+                      title="Re-fetch CubiCasa floor plans from app.cubi.casa"
+                    >
+                      {isSyncingCubicasa ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync CubiCasa now</>)}
+                    </Button>
+                  )}
+                </div>
+                {(() => {
+                  const c = cubicasaSync || {};
+                  const status = c.status;
+                  const productType = c.productType;
+                  const lastSyncedAt = c.lastSyncedAt;
+                  const orderId = c.orderId;
+                  const externalId = c.externalId;
+                  const hasAny = Boolean(status || orderId || externalId || lastSyncedAt);
+                  if (!hasAny && !isAdmin) return null;
+                  const statusVariant: any = (() => {
+                    const s = (status || '').toString().toLowerCase();
+                    if (s === 'ready') return 'default';
+                    if (s === 'fixing') return 'destructive';
+                    if (s === 'pending') return 'secondary';
+                    return 'outline';
+                  })();
+                  return (
+                    <div className="border rounded-lg p-3 space-y-2 text-xs">
+                      <p className="text-muted-foreground text-[11px]">
+                        Floor plans appear under <strong>Media → Edited → Floor Plans</strong> once CubiCasa
+                        marks the order as <em>Ready</em>.
+                      </p>
+                      {(status || productType) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {status && <Badge variant={statusVariant}>{status}</Badge>}
+                          {productType && <span className="text-muted-foreground">{productType}</span>}
+                        </div>
+                      )}
+                      {(orderId || externalId || lastSyncedAt) && (
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                          {orderId && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Order ID:</span>{' '}
+                              <span className="font-mono">{orderId}</span>
+                            </div>
+                          )}
+                          {externalId && (
+                            <div>
+                              <span className="text-muted-foreground">External ID:</span>{' '}
+                              <span className="font-mono">{externalId}</span>
+                            </div>
+                          )}
+                          {lastSyncedAt && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Last synced:</span>{' '}
+                              <span>{new Date(lastSyncedAt).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {/* Admin-only CubiCasa identifier inputs (drives webhook matching). */}
+                {isAdmin && saveCubicasaIdentifiers && (
+                  <div className="border rounded-lg p-3 space-y-2 text-xs">
+                    <span className="text-[10px] uppercase text-muted-foreground">CubiCasa matching</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Order ID</Label>
+                        <Input
+                          value={cubicasaOrderIdInput ?? ''}
+                          onChange={(e) => setCubicasaOrderIdInput && setCubicasaOrderIdInput(e.target.value)}
+                          placeholder="9ba65f04-3ee2-4de9-a098-ece787ceee57"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">External ID (optional)</Label>
+                        <Input
+                          value={cubicasaExternalIdInput ?? ''}
+                          onChange={(e) => setCubicasaExternalIdInput && setCubicasaExternalIdInput(e.target.value)}
+                          placeholder="shoot:123"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={saveCubicasaIdentifiers}
+                        disabled={isSavingCubicasaIdentifiers}
+                      >
+                        {isSavingCubicasaIdentifiers ? 'Saving…' : 'Save identifiers'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {/* Zillow 3D Section */}

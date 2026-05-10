@@ -50,6 +50,10 @@ export const API_ROUTES = {
     iguide: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/sync`,
     },
+    cubicasaShoot: {
+      sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/sync`,
+      identifiers: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/identifiers`,
+    },
     brightMls: {
       publish: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/bright-mls/publish`,
       queue: `${BASE_URL}/api/integrations/mls-queue`,

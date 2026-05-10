@@ -91,6 +91,11 @@ export function ShootDetailsTourTab({
   const [iguideWorkOrderIdInput, setIguideWorkOrderIdInput] = useState<string>('');
   const [isSavingIguideIdentifiers, setIsSavingIguideIdentifiers] = useState(false);
   const [isSyncingIguide, setIsSyncingIguide] = useState(false);
+  // CubiCasa identifier inputs + manual sync action (parallel to iGuide).
+  const [cubicasaOrderIdInput, setCubicasaOrderIdInput] = useState<string>('');
+  const [cubicasaExternalIdInput, setCubicasaExternalIdInput] = useState<string>('');
+  const [isSavingCubicasaIdentifiers, setIsSavingCubicasaIdentifiers] = useState(false);
+  const [isSyncingCubicasa, setIsSyncingCubicasa] = useState(false);
   const sourceTourLinks = useMemo(
     () => getRawTourLinks(shoot as any) as Record<string, any>,
     [(shoot as any)?.tourLinks, (shoot as any)?.tour_links],
@@ -1013,6 +1018,56 @@ export function ShootDetailsTourTab({
     setIguideWorkOrderIdInput((prev) => (prev === iguideSync.workOrderId ? prev : iguideSync.workOrderId || ''));
   }, [iguideSync.propertyId, iguideSync.workOrderId]);
 
+  // Build the CubiCasa view-model from server fields. Mirrors iguideSync.
+  const cubicasaSync = useMemo(() => {
+    const s: any = shoot as any;
+    const data = (s?.cubicasaData ?? s?.cubicasa_data) || {};
+    const tourLinksRaw = (s?.tourLinks ?? s?.tour_links) || {};
+    const branded = data?.tour?.link
+      || tourLinksRaw?.cubicasa_branded
+      || tourLinksRaw?.cubicasa
+      || s?.cubicasaTourUrl
+      || s?.cubicasa_tour_url
+      || null;
+    const unbranded = data?.tour?.mls_compliance_link
+      || tourLinksRaw?.cubicasa_mls
+      || null;
+    return {
+      orderId: s?.cubicasaOrderId ?? s?.cubicasa_order_id ?? null,
+      externalId: s?.cubicasaExternalId ?? s?.cubicasa_external_id ?? null,
+      status: s?.cubicasaStatus ?? s?.cubicasa_status ?? null,
+      productType: s?.cubicasaProductType ?? s?.cubicasa_product_type ?? null,
+      brandedUrl: branded,
+      unbrandedUrl: unbranded,
+      lastSyncedAt: s?.cubicasaLastSyncedAt ?? s?.cubicasa_last_synced_at ?? null,
+      lastStatusAt: s?.cubicasaLastStatusAt ?? s?.cubicasa_last_status_at ?? null,
+      data,
+    };
+  }, [
+    (shoot as any)?.cubicasaOrderId,
+    (shoot as any)?.cubicasa_order_id,
+    (shoot as any)?.cubicasaExternalId,
+    (shoot as any)?.cubicasa_external_id,
+    (shoot as any)?.cubicasaStatus,
+    (shoot as any)?.cubicasa_status,
+    (shoot as any)?.cubicasaProductType,
+    (shoot as any)?.cubicasa_product_type,
+    (shoot as any)?.cubicasaTourUrl,
+    (shoot as any)?.cubicasa_tour_url,
+    (shoot as any)?.cubicasaData,
+    (shoot as any)?.cubicasa_data,
+    (shoot as any)?.cubicasaLastSyncedAt,
+    (shoot as any)?.cubicasa_last_synced_at,
+    (shoot as any)?.tourLinks,
+    (shoot as any)?.tour_links,
+  ]);
+
+  // Seed admin inputs from server values.
+  useEffect(() => {
+    setCubicasaOrderIdInput((prev) => (prev === (cubicasaSync.orderId || '') ? prev : (cubicasaSync.orderId || '')));
+    setCubicasaExternalIdInput((prev) => (prev === (cubicasaSync.externalId || '') ? prev : (cubicasaSync.externalId || '')));
+  }, [cubicasaSync.orderId, cubicasaSync.externalId]);
+
   const saveIguideIdentifiers = async () => {
     if (!isAdmin) return;
     setIsSavingIguideIdentifiers(true);
@@ -1094,6 +1149,87 @@ export function ShootDetailsTourTab({
       });
     } finally {
       setIsSyncingIguide(false);
+    }
+  };
+
+  const saveCubicasaIdentifiers = async () => {
+    if (!isAdmin) return;
+    setIsSavingCubicasaIdentifiers(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/cubicasa/identifiers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          cubicasa_order_id: cubicasaOrderIdInput.trim() || null,
+          cubicasa_external_id: cubicasaExternalIdInput.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save CubiCasa identifiers' }));
+        throw new Error(errorData?.message || 'Failed to save CubiCasa identifiers');
+      }
+      toast({
+        title: 'Saved',
+        description: 'CubiCasa identifiers updated. Webhooks will now match this shoot.',
+      });
+      onShootUpdate();
+    } catch (err: any) {
+      console.error('Save CubiCasa identifiers failed', err);
+      toast({
+        title: 'Error',
+        description: err?.message || 'Failed to save CubiCasa identifiers.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingCubicasaIdentifiers(false);
+    }
+  };
+
+  const syncCubicasaNow = async () => {
+    setIsSyncingCubicasa(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/cubicasa/sync`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.mode === 'not-linked') {
+        toast({
+          title: 'No CubiCasa order linked',
+          description: 'Paste the CubiCasa Order ID under "CubiCasa matching" first, then click Save.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || 'CubiCasa sync failed');
+      }
+      const queued = Number(json?.queued_assets ?? 0);
+      toast({
+        title: 'CubiCasa synced',
+        description: queued > 0
+          ? `Queued ${queued} deliverable(s) for download from CubiCasa.`
+          : 'CubiCasa metadata refreshed.',
+      });
+      onShootUpdate();
+    } catch (err: any) {
+      console.error('Sync CubiCasa failed', err);
+      toast({
+        title: 'CubiCasa sync failed',
+        description: err?.message || 'Could not fetch CubiCasa order.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingCubicasa(false);
     }
   };
 
@@ -1284,6 +1420,15 @@ export function ShootDetailsTourTab({
       isSavingIguideIdentifiers={isSavingIguideIdentifiers}
       syncIguideNow={syncIguideNow}
       isSyncingIguide={isSyncingIguide}
+      cubicasaSync={cubicasaSync}
+      cubicasaOrderIdInput={cubicasaOrderIdInput}
+      setCubicasaOrderIdInput={setCubicasaOrderIdInput}
+      cubicasaExternalIdInput={cubicasaExternalIdInput}
+      setCubicasaExternalIdInput={setCubicasaExternalIdInput}
+      saveCubicasaIdentifiers={saveCubicasaIdentifiers}
+      isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
+      syncCubicasaNow={syncCubicasaNow}
+      isSyncingCubicasa={isSyncingCubicasa}
       qrCodeDialog={qrCodeDialog}
       onQrDialogOpenChange={(open: boolean) => setQrCodeDialog({ ...qrCodeDialog, open })}
       onQrImageError={() => {
