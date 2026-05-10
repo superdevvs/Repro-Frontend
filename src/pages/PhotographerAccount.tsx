@@ -40,10 +40,10 @@ import { API_BASE_URL } from '@/config/env';
 import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from '@/components/profile/ImageUpload';
+import { EquipmentVerificationDialog } from '@/components/equipment/EquipmentVerificationDialog';
 import {
   equipmentStatusLabel,
   listMyPhotographerEquipments,
-  openEquipmentPhoto,
   type PhotographerEquipment,
   uploadPhotographerVerificationPhotos,
 } from '@/services/photographerEquipmentService';
@@ -108,6 +108,7 @@ const PhotographerAccount = () => {
   const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
   const [equipmentUploads, setEquipmentUploads] = useState<Record<number, File[]>>({});
   const [uploadingEquipmentId, setUploadingEquipmentId] = useState<number | null>(null);
+  const [verificationEquipment, setVerificationEquipment] = useState<PhotographerEquipment | null>(null);
   const verificationSearchParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
   const expectedPhotographerId = verificationSearchParams?.get('photographer_id') || verificationSearchParams?.get('photographer');
   const isEquipmentVerificationLink = verificationSearchParams?.get('verify') === 'equipment' || verificationSearchParams?.get('tab') === 'equipments';
@@ -704,36 +705,18 @@ const PhotographerAccount = () => {
                                 )}
                               </CardHeader>
                               <CardContent className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-medium">Admin Reference Photos</h4>
-                                    {referencePhotos.length === 0 ? (
-                                      <p className="text-sm text-muted-foreground">No reference photos uploaded.</p>
-                                    ) : (
-                                      <div className="flex flex-wrap gap-2">
-                                        {referencePhotos.map((photo) => (
-                                          <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
-                                            <Eye className="mr-2 h-4 w-4" />
-                                            {photo.original_name || 'View photo'}
-                                          </Button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-medium">Your Verification Photos</h4>
-                                    {verificationPhotos.length === 0 ? (
-                                      <p className="text-sm text-muted-foreground">No verification photos submitted.</p>
-                                    ) : (
-                                      <div className="flex flex-wrap gap-2">
-                                        {verificationPhotos.map((photo) => (
-                                          <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
-                                            <Eye className="mr-2 h-4 w-4" />
-                                            {photo.original_name || 'View photo'}
-                                          </Button>
-                                        ))}
-                                      </div>
-                                    )}
+                                <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                      <h4 className="text-sm font-medium">Equipment Images</h4>
+                                      <p className="text-xs text-muted-foreground">
+                                        {verificationPhotos.length} verification · {referencePhotos.length} admin reference
+                                      </p>
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setVerificationEquipment(equipment)}>
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View images
+                                    </Button>
                                   </div>
                                 </div>
 
@@ -916,7 +899,15 @@ const PhotographerAccount = () => {
         </Tabs>
       </div>
 
-      {/* Tax / License document upload dialog */}
+      <EquipmentVerificationDialog
+        equipment={verificationEquipment}
+        open={Boolean(verificationEquipment)}
+        onOpenChange={(open) => {
+          if (!open) setVerificationEquipment(null);
+        }}
+        viewerLabel="photographer"
+      />
+
       <Dialog open={taxDialogOpen} onOpenChange={(open) => {
         setTaxDialogOpen(open);
         if (!open) {

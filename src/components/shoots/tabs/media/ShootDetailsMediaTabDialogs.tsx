@@ -2,9 +2,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShootRequestManager } from '../ShootRequestManager';
 import { MediaViewer } from './MediaViewer';
-import { Sparkles } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 
 export function ShootDetailsMediaTabDialogs(props: any) {
   const {
@@ -31,6 +33,11 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     showAiEditDialog,
     setShowAiEditDialog,
     selectedFiles,
+    editingTypes,
+    selectedEditingType,
+    setSelectedEditingType,
+    submittingAiEdit,
+    handleAiEdit,
     requestManagerOpen,
     setRequestManagerOpen,
     isPhotographer,
@@ -71,48 +78,54 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         <DialogContent className="max-w-lg w-[90vw] p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
             <div>
-              <DialogTitle className="text-base">Ai Edit</DialogTitle>
+              <DialogTitle className="text-base">Send to Autoenhance</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Send raw images to AI for editing after upload
+                Queue selected raw photos for Autoenhance processing.
               </DialogDescription>
             </div>
           </DialogHeader>
-          <div className="relative">
-            <div className="p-5 space-y-4 blur-[2px] opacity-60 pointer-events-none select-none" aria-hidden="true">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ['Exposure Balance', 'Auto-correct highlights and shadows'],
-                  ['Sky Cleanup', 'Enhance outdoor scenes with clean sky replacement'],
-                  ['Window Pull', 'Balance interiors with brighter window views'],
-                  ['Color Polish', 'Refine tones for listing-ready delivery'],
-                ].map(([title, description]) => (
-                  <div key={title} className="border rounded-lg p-3 space-y-1.5">
-                    <div className="h-20 bg-muted rounded flex items-center justify-center">
-                      <Sparkles className="h-8 w-8 text-muted-foreground/40" />
-                    </div>
-                    <p className="text-xs font-medium">{title}</p>
-                    <p className="text-[10px] text-muted-foreground">{description}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1 h-9 bg-muted rounded" />
-                <div className="w-28 h-9 bg-violet-200 rounded dark:bg-violet-900" />
-              </div>
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[1px]">
-              <div className="bg-card border shadow-lg rounded-xl px-6 py-4 text-center space-y-2">
-                <Sparkles className="h-8 w-8 mx-auto text-violet-500" />
-                <h3 className="text-lg font-semibold">Coming Soon</h3>
-                <p className="text-sm text-muted-foreground max-w-[260px]">
-                  AI image editing will be available in a future update.
+          <div className="p-5 space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">
+                  {selectedFiles?.size || 0} selected image{selectedFiles?.size === 1 ? '' : 's'}
                 </p>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Each selected image will be queued as an Autoenhance job and tracked in the AI Editing activity queue.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Autoenhance mode</Label>
+              <Select value={selectedEditingType} onValueChange={setSelectedEditingType} disabled={submittingAiEdit}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Autoenhance mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(editingTypes || []).map((type: any) => (
+                    <SelectItem key={type.id} value={type.id} disabled={type.id === 'hdr_merge'}>
+                      {type.name}{type.id === 'hdr_merge' ? ' (coming soon)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                HDR bracket merge needs the dedicated grouped workflow and is not available from this quick action yet.
+              </p>
             </div>
           </div>
-          <div className="px-4 pb-4 flex justify-end">
+          <div className="px-4 pb-4 flex flex-wrap justify-end gap-2">
+            <Button variant="outline" asChild>
+              <a href="/ai-editing">View Autoenhance Queue</a>
+            </Button>
             <Button variant="outline" onClick={() => setShowAiEditDialog(false)}>
               Close
+            </Button>
+            <Button onClick={handleAiEdit} disabled={submittingAiEdit || !selectedEditingType || !selectedFiles?.size}>
+              {submittingAiEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Submit
             </Button>
           </div>
         </DialogContent>

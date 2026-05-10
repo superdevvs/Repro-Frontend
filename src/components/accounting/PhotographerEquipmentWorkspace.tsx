@@ -13,6 +13,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -20,13 +27,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiClient } from "@/services/api";
+import { EquipmentVerificationDialog } from "@/components/equipment/EquipmentVerificationDialog";
 import {
   approvePhotographerEquipment,
   createAdminPhotographerEquipment,
   deleteAdminPhotographerEquipment,
   equipmentStatusLabel,
   listAdminPhotographerEquipments,
-  openEquipmentPhoto,
   rejectPhotographerEquipment,
   sendPhotographerEquipmentVerificationEmail,
   type EquipmentStatus,
@@ -34,7 +41,7 @@ import {
   updateAdminPhotographerEquipment,
   uploadAdminEquipmentPhotos,
 } from "@/services/photographerEquipmentService";
-import { Check, Edit, Eye, Mail, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { Check, Edit, Eye, Mail, MoreHorizontal, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type PhotographerOption = {
@@ -90,6 +97,7 @@ export function PhotographerEquipmentWorkspace() {
   const [editFinancePanelOpen, setEditFinancePanelOpen] = useState(false);
   const [rowPhotos, setRowPhotos] = useState<Record<number, File[]>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [verificationEquipment, setVerificationEquipment] = useState<PhotographerEquipment | null>(null);
 
   const loadPhotographers = async () => {
     const response = await apiClient.get("/admin/photographers");
@@ -383,6 +391,14 @@ export function PhotographerEquipmentWorkspace() {
     );
   };
 
+  const openVerificationDialog = (equipment: PhotographerEquipment) => {
+    setVerificationEquipment(equipment);
+  };
+
+  const closeVerificationDialog = () => {
+    setVerificationEquipment(null);
+  };
+
   const renderFinancialPanel = (
     values: EquipmentFormState,
     setValues: React.Dispatch<React.SetStateAction<EquipmentFormState>>,
@@ -513,90 +529,125 @@ export function PhotographerEquipmentWorkspace() {
               const rowSelectedPhotos = rowPhotos[equipment.id] || [];
 
               return (
-                <div key={equipment.id} className="rounded-lg border bg-background p-4">
-                  <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr,auto] lg:items-start">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{equipment.name}</h3>
-                        <Badge variant={equipment.status === "verified" ? "default" : equipment.status === "rejected" ? "destructive" : "outline"}>
+                <div key={equipment.id} className="rounded-xl border border-border/70 bg-background/80 px-3 py-3 transition hover:border-primary/35 hover:bg-muted/10">
+                  <div className="grid gap-2 lg:grid-cols-[minmax(240px,1fr)_150px_210px_auto] xl:grid-cols-[minmax(260px,1fr)_160px_230px_auto] lg:items-center">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h3 className="truncate text-base font-semibold leading-tight">{equipment.name}</h3>
+                        <Badge variant={equipment.status === "verified" ? "default" : equipment.status === "rejected" ? "destructive" : "outline"} className="shrink-0">
                           {equipmentStatusLabel(equipment.status)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {equipment.photographer?.name || "Unassigned equipment"}{equipment.serial_number ? ` · Serial ${equipment.serial_number}` : ""}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
+                      <div className="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span className="truncate">{equipment.photographer?.name || "Unassigned equipment"}</span>
+                        {equipment.serial_number && <span className="truncate">Serial {equipment.serial_number}</span>}
+                      </div>
+                      <div className="mt-1 truncate text-xs text-muted-foreground">
                         {equipment.purchase_date ? `Purchased ${equipment.purchase_date}` : "No purchase date"}
                         {equipment.purchase_cost != null ? ` · $${equipment.purchase_cost.toLocaleString()}` : ""}
                         {equipment.vendor ? ` · ${equipment.vendor}` : ""}
                         {equipment.expense_id ? " · Expense linked" : ""}
-                      </p>
-                      {equipment.rejection_reason && (
-                        <p className="text-sm text-destructive">{equipment.rejection_reason}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      <div className="flex flex-wrap gap-2">
-                        {referencePhotos.map((photo) => (
-                        <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Reference
-                          </Button>
-                        ))}
-                        {verificationPhotos.map((photo) => (
-                          <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Verification
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(event) => setRowPhotos((current) => ({
-                            ...current,
-                            [equipment.id]: Array.from(event.target.files || []),
-                          }))}
-                        />
-                        <Button type="button" variant="outline" onClick={() => handleReferenceUpload(equipment)} disabled={rowSelectedPhotos.length === 0 || busyId === equipment.id}>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Admin Reference
-                        </Button>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(equipment)} disabled={busyId === equipment.id}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                    <Button
+                      type="button"
+                      variant="accent"
+                      size="sm"
+                      onClick={() => openVerificationDialog(equipment)}
+                      className="h-9 justify-between rounded-lg px-2.5"
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <Eye className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Verify</span>
+                      </span>
+                      <span className="ml-1.5 shrink-0 rounded-full bg-background/60 px-1.5 py-0.5 text-[10px]">
+                        {verificationPhotos.length}/{referencePhotos.length}
+                      </span>
+                    </Button>
+
+                    <div className="flex min-w-0 gap-2">
+                      <Label
+                        htmlFor={`admin-reference-upload-${equipment.id}`}
+                        className="flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-between rounded-lg border border-dashed border-border/80 bg-background/60 px-2.5 text-xs transition hover:border-primary/60 hover:bg-background"
+                      >
+                        <span className="truncate">
+                          {rowSelectedPhotos.length > 0 ? `${rowSelectedPhotos.length} selected` : "Ref images"}
+                        </span>
+                        <Upload className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                      </Label>
+                      <Input
+                        id={`admin-reference-upload-${equipment.id}`}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="sr-only"
+                        onChange={(event) => setRowPhotos((current) => ({
+                          ...current,
+                          [equipment.id]: Array.from(event.target.files || []),
+                        }))}
+                      />
+                      <Button type="button" size="sm" variant="secondary" onClick={() => handleReferenceUpload(equipment)} disabled={rowSelectedPhotos.length === 0 || busyId === equipment.id} className="h-9 shrink-0 px-2.5">
+                        Upload
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => runEquipmentAction(equipment.id, () => sendPhotographerEquipmentVerificationEmail(equipment.id), "Verification email sent")} disabled={busyId === equipment.id}>
+                    </div>
+
+                    <div className="flex items-center justify-start gap-2 lg:justify-end">
+                      <Button size="sm" variant="outline" onClick={() => runEquipmentAction(equipment.id, () => sendPhotographerEquipmentVerificationEmail(equipment.id), "Verification email sent")} disabled={busyId === equipment.id} className="h-9">
                         <Mail className="mr-2 h-4 w-4" />
-                        Send Mail
+                        Send
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => runEquipmentAction(equipment.id, () => approvePhotographerEquipment(equipment.id), "Equipment approved")} disabled={busyId === equipment.id}>
+                      <Button size="sm" onClick={() => runEquipmentAction(equipment.id, () => approvePhotographerEquipment(equipment.id), "Equipment approved")} disabled={busyId === equipment.id} className="h-9">
                         <Check className="mr-2 h-4 w-4" />
                         Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleReject(equipment)} disabled={busyId === equipment.id}>
-                        <X className="mr-2 h-4 w-4" />
-                        Reject
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => runEquipmentAction(equipment.id, () => deleteAdminPhotographerEquipment(equipment.id), "Equipment deleted")} disabled={busyId === equipment.id}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" disabled={busyId === equipment.id} className="h-9 w-9">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">More equipment actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onSelect={() => openEditDialog(equipment)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleReject(equipment)}>
+                            <X className="mr-2 h-4 w-4" />
+                            Reject
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => runEquipmentAction(equipment.id, () => deleteAdminPhotographerEquipment(equipment.id), "Equipment deleted")}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
+                  {equipment.rejection_reason && (
+                    <p className="mt-3 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      {equipment.rejection_reason}
+                    </p>
+                  )}
                 </div>
               );
             })
           )}
         </CardContent>
       </Card>
+
+      <EquipmentVerificationDialog
+        equipment={verificationEquipment}
+        open={Boolean(verificationEquipment)}
+        onOpenChange={(open) => {
+          if (!open) closeVerificationDialog();
+        }}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);

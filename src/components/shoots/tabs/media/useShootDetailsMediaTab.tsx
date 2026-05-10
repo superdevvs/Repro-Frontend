@@ -811,8 +811,6 @@ export function useShootDetailsMediaTab({
     handleDownloadSingleFile,
   } = useShootMediaActions({
     shoot,
-    isAdmin,
-    isClient,
     role,
     displayTab,
     selectedFiles,

@@ -21,6 +21,13 @@ export interface EditingJobSourceFile {
   thumb_url?: string | null;
 }
 
+export interface EditingJobOutputFile {
+  id: number;
+  filename?: string | null;
+  url?: string | null;
+  thumb_url?: string | null;
+}
+
 export interface EditingJob {
   id: number;
   shoot_id: number;
@@ -42,6 +49,7 @@ export interface EditingJob {
   updated_at: string;
   shoot?: EditingJobShoot | null;
   source_file?: EditingJobSourceFile | null;
+  output_file?: EditingJobOutputFile | null;
 }
 
 export interface ConnectionStatus {

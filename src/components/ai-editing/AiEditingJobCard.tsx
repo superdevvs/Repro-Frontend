@@ -99,7 +99,18 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
   const sourceThumb = job.source_file?.thumb_url
     ? resolveImageUrl(job.source_file.thumb_url)
     : resolveImageUrl(job.original_image_url);
-  const enhancedThumb = job.edited_image_url ? resolveImageUrl(job.edited_image_url) : '';
+  const enhancedPreview = job.output_file?.thumb_url
+    ? resolveImageUrl(job.output_file.thumb_url)
+    : job.output_file?.url
+    ? resolveImageUrl(job.output_file.url)
+    : job.edited_image_url
+    ? resolveImageUrl(job.edited_image_url)
+    : '';
+  const enhancedResultUrl = job.output_file?.url
+    ? resolveImageUrl(job.output_file.url)
+    : job.edited_image_url
+    ? resolveImageUrl(job.edited_image_url)
+    : enhancedPreview;
 
   const address = job.shoot?.address || `Shoot #${job.shoot_id}`;
   const filename = job.source_file?.filename || (job.shoot_file_id ? `File #${job.shoot_file_id}` : null);
@@ -130,9 +141,9 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
               </span>
             </div>
             <div className="relative overflow-hidden border-l border-background">
-              {enhancedThumb ? (
+              {enhancedPreview ? (
                 <>
-                  <Thumb url={enhancedThumb} alt="Enhanced" />
+                  <Thumb url={enhancedPreview} alt="Enhanced" />
                   <span className="absolute bottom-1 right-1 rounded bg-emerald-500/90 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                     AI
                   </span>
@@ -184,9 +195,9 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
                 Compare
               </Button>
             )}
-            {isCompleted && enhancedThumb && (
+            {isCompleted && enhancedResultUrl && (
               <Button asChild size="sm" variant="outline" className="h-8">
-                <a href={enhancedThumb} target="_blank" rel="noreferrer">
+                <a href={enhancedResultUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                   Open result
                 </a>

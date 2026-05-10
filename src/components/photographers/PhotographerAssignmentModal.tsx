@@ -15,8 +15,8 @@ import { API_ROUTES } from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO, isToday, isTomorrow, addDays, isPast } from 'date-fns';
-import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft } from 'lucide-react';
+import { format, parseISO, isToday, isTomorrow, addDays, isPast, isSameDay } from 'date-fns';
+import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, Loader2, MapPin } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import {
   Select,
@@ -65,6 +65,74 @@ export const PhotographerAssignmentModal: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<'all' | 'compatible'>('all');
 
+  const parseShootDate = (shoot: DashboardShootSummary): Date | null => {
+    if (!shoot.startTime) return null;
+    const parsed = new Date(shoot.startTime);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const formatSlotTime = (value?: string | null) => {
+    if (!value) return 'TBD';
+    const [hours, minutes] = value.split(':');
+    const hour = Number(hours);
+    if (!Number.isFinite(hour)) return value;
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes || '00'} ${suffix}`;
+  };
+
+  const normalizeStatus = (value?: string | null) => String(value || '').toLowerCase();
+
+  const isAssignableShoot = (shoot: DashboardShootSummary) => {
+    const status = normalizeStatus(shoot.workflowStatus || shoot.status);
+    if (['completed', 'delivered', 'cancelled', 'editing', 'uploaded'].includes(status)) return false;
+    return Boolean(parseShootDate(shoot));
+  };
+
+  const timeToMinutes = (value?: string | null) => {
+    if (!value) return null;
+    if (value.includes('T')) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) return parsed.getHours() * 60 + parsed.getMinutes();
+    }
+    const match = value.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+    if (!match) return null;
+    let hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const meridian = match[3]?.toUpperCase();
+    if (meridian === 'PM' && hours !== 12) hours += 12;
+    if (meridian === 'AM' && hours === 12) hours = 0;
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const rangesOverlap = (startA: number, endA: number, startB: number, endB: number) => startA < endB && endA > startB;
+
+  const slotAppliesToDate = (slot: AvailabilitySlot, targetDate: Date) => {
+    const dateStr = format(targetDate, 'yyyy-MM-dd');
+    if (slot.date) return String(slot.date).slice(0, 10) === dateStr;
+    if (slot.day_of_week) return slot.day_of_week.toLowerCase() === format(targetDate, 'EEEE').toLowerCase();
+    return false;
+  };
+
+  const getAvailabilitySlotsForDate = (targetDate: Date, status?: AvailabilitySlot['status']) => availabilitySlots
+    .filter((slot) => slotAppliesToDate(slot, targetDate))
+    .filter((slot) => (status ? slot.status === status : true))
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  const isShootCompatibleWithDate = (shoot: DashboardShootSummary, targetDate: Date) => {
+    const shootDate = parseShootDate(shoot);
+    if (!shootDate || !isSameDay(shootDate, targetDate)) return false;
+    const shootStart = timeToMinutes(shoot.startTime || shoot.timeLabel);
+    if (shootStart === null) return false;
+    const shootEnd = shootStart + 120;
+    return getAvailabilitySlotsForDate(targetDate, 'available').some((slot) => {
+      const slotStart = timeToMinutes(slot.start_time);
+      const slotEnd = timeToMinutes(slot.end_time);
+      return slotStart !== null && slotEnd !== null && rangesOverlap(shootStart, shootEnd, slotStart, slotEnd);
+    });
+  };
+
   // Fetch availability and shoots when modal opens
   useEffect(() => {
     if (!isOpen || !photographer) return;
@@ -101,13 +169,19 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
         console.log('Fetched shoots:', rawShoots.length, rawShoots);
 
-        // Get photographer's assigned shoots (all, not just today)
-        const assignedShoots = rawShoots.filter((shoot) => shoot.photographer?.id === photographer.id);
+        const sortedShoots = [...rawShoots].sort((a, b) => {
+          const aDate = parseShootDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const bDate = parseShootDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          return aDate - bDate;
+        });
+
+        // Get photographer's assigned scheduled shoots (all, not just today)
+        const assignedShoots = sortedShoots.filter((shoot) => shoot.photographer?.id === photographer.id && isAssignableShoot(shoot));
         setPhotographerSchedule(assignedShoots);
         console.log('Assigned shoots:', assignedShoots.length);
 
-        // Filter shoots that don't have a photographer or can be reassigned
-        const mappedShoots = rawShoots.filter((shoot) => !shoot.photographer?.id || shoot.photographer.id !== photographer.id);
+        // Filter shoots that need assignment or can be reassigned
+        const mappedShoots = sortedShoots.filter((shoot) => isAssignableShoot(shoot) && (!shoot.photographer?.id || shoot.photographer.id !== photographer.id));
         setUpcomingShoots(mappedShoots);
         console.log('Assignable shoots:', mappedShoots.length);
       } catch (error) {
@@ -144,7 +218,10 @@ export const PhotographerAssignmentModal: React.FC = () => {
         body: JSON.stringify({ photographer_id: photographer.id }),
       });
 
-      if (!res.ok) throw new Error('Failed to assign photographer');
+      if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null);
+        throw new Error(errorPayload?.message || errorPayload?.error || 'Failed to assign photographer');
+      }
 
       const shoot = upcomingShoots.find(s => s.id === shootId);
       toast({
@@ -155,7 +232,14 @@ export const PhotographerAssignmentModal: React.FC = () => {
       // Remove from list and add to schedule immediately for UI feedback
       setUpcomingShoots(prev => prev.filter(s => s.id !== shootId));
       if (shoot) {
-        setPhotographerSchedule(prev => [...prev, shoot]);
+        setPhotographerSchedule(prev => [...prev, {
+          ...shoot,
+          photographer: {
+            id: photographer.id,
+            name: photographer.name,
+            avatar: photographer.avatar,
+          },
+        }]);
       }
 
       // Refresh availability and shoots data from API (reuse existing token)
@@ -189,11 +273,17 @@ export const PhotographerAssignmentModal: React.FC = () => {
         const dashboardData = await fetchDashboardOverview(token || undefined);
         const rawShoots = dashboardData?.upcomingShoots ?? [];
 
-        const assignedShoots = rawShoots.filter((s) => s.photographer?.id === photographer.id);
+        const sortedShoots = [...rawShoots].sort((a, b) => {
+          const aDate = parseShootDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const bDate = parseShootDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          return aDate - bDate;
+        });
+
+        const assignedShoots = sortedShoots.filter((s) => s.photographer?.id === photographer.id && isAssignableShoot(s));
         setPhotographerSchedule(assignedShoots);
         console.log('Refreshed - Assigned shoots:', assignedShoots.length);
 
-        const mappedShoots = rawShoots.filter((s) => !s.photographer?.id || s.photographer.id !== photographer.id);
+        const mappedShoots = sortedShoots.filter((s) => isAssignableShoot(s) && (!s.photographer?.id || s.photographer.id !== photographer.id));
         setUpcomingShoots(mappedShoots);
         console.log('Refreshed - Assignable shoots:', mappedShoots.length);
       } catch (err) {
@@ -202,7 +292,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to assign photographer',
+        description: error instanceof Error ? error.message : 'Failed to assign photographer',
         variant: 'destructive',
       });
     } finally {
@@ -210,73 +300,41 @@ export const PhotographerAssignmentModal: React.FC = () => {
     }
   };
 
-  // Build timeline for selected date
   const timelineSlots = useMemo(() => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const dayName = format(selectedDate, 'EEEE').toLowerCase();
     const slots: TimelineSlot[] = [];
-    const hours = Array.from({ length: 13 }, (_, i) => i + 7); // 7 AM to 7 PM
-
-    // Get booked slots for this date
-    const bookedShoots = photographerSchedule.filter(shoot => {
-      if (isToday(selectedDate)) {
-        // For today, check if shoot is scheduled for today
-        return shoot.dayLabel?.toLowerCase().includes('today') || 
-               shoot.dayLabel?.toLowerCase().includes(format(selectedDate, 'MMM d').toLowerCase());
-      }
-      // For other dates, check if dayLabel matches
-      return shoot.dayLabel?.toLowerCase().includes(format(selectedDate, 'MMM d').toLowerCase());
+    const hours = Array.from({ length: 13 }, (_, i) => i + 7);
+    const bookedShoots = photographerSchedule.filter((shoot) => {
+      const shootDate = parseShootDate(shoot);
+      return shootDate ? isSameDay(shootDate, selectedDate) : false;
     });
+    const availableSlots = getAvailabilitySlotsForDate(selectedDate, 'available');
+    const bookedSlots = getAvailabilitySlotsForDate(selectedDate, 'booked');
 
-    // Get all slots (available and booked) for this date
-    const allSlotsForDate = availabilitySlots.filter(slot => {
-      // Show both available and booked slots
-      if (slot.status !== 'available' && slot.status !== 'booked') return false;
-      
-      // Check specific date match
-      if (slot.date) {
-        return slot.date === dateStr;
-      }
-      // Check day of week match
-      if (slot.day_of_week) {
-        return slot.day_of_week.toLowerCase() === dayName;
-      }
-      return false;
-    });
-
-    // Separate available and booked slots
-    const availableSlots = allSlotsForDate.filter(slot => slot.status === 'available');
-    const bookedSlots = allSlotsForDate.filter(slot => slot.status === 'booked');
-    
-    // Timeline calculated for selected date
-
-    // Build timeline
     for (let i = 0; i < hours.length - 1; i++) {
       const startHour = hours[i];
       const endHour = hours[i + 1];
       const startTime = `${String(startHour).padStart(2, '0')}:00`;
       const endTime = `${String(endHour).padStart(2, '0')}:00`;
+      const slotStartMinutes = startHour * 60;
+      const slotEndMinutes = endHour * 60;
 
-      // Check if this slot is booked (from booked shoots or booked slots from API)
       const bookedShoot = bookedShoots.find(shoot => {
-        const shootTime = shoot.startTime || shoot.timeLabel;
-        if (!shootTime) return false;
-        const [hour] = shootTime.split(':');
-        return parseInt(hour) >= startHour && parseInt(hour) < endHour;
+        const shootStart = timeToMinutes(shoot.startTime || shoot.timeLabel);
+        if (shootStart === null) return false;
+        return rangesOverlap(slotStartMinutes, slotEndMinutes, shootStart, shootStart + 120);
       });
 
-      // Also check booked slots from API
       const bookedSlot = bookedSlots.find(slot => {
-        const [slotStartHour] = slot.start_time.split(':');
-        const [slotEndHour] = slot.end_time.split(':');
-        // Check if this hour slot overlaps with booked slot
-        return (parseInt(slotStartHour) < endHour && parseInt(slotEndHour) > startHour);
+        const slotStart = timeToMinutes(slot.start_time);
+        const slotEnd = timeToMinutes(slot.end_time);
+        return slotStart !== null && slotEnd !== null && rangesOverlap(slotStartMinutes, slotEndMinutes, slotStart, slotEnd);
       });
 
-      // Check if this slot is available
       const availableSlot = availableSlots.find(slot => {
-        const [slotStartHour] = slot.start_time.split(':');
-        return parseInt(slotStartHour) >= startHour && parseInt(slotStartHour) < endHour;
+        const slotStart = timeToMinutes(slot.start_time);
+        const slotEnd = timeToMinutes(slot.end_time);
+        return slotStart !== null && slotEnd !== null && rangesOverlap(slotStartMinutes, slotEndMinutes, slotStart, slotEnd);
       });
 
       const isPastTime = isPast(parseISO(`${dateStr}T${endTime}`));
@@ -289,7 +347,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
           id: bookedShoot.id,
           address: bookedShoot.addressLine,
           client: bookedShoot.clientName || 'Client TBD',
-          time: bookedShoot.timeLabel || '',
+          time: bookedShoot.timeLabel || format(parseShootDate(bookedShoot) || selectedDate, 'h:mm a'),
         } : undefined,
       });
     }
@@ -297,36 +355,15 @@ export const PhotographerAssignmentModal: React.FC = () => {
     return slots;
   }, [selectedDate, availabilitySlots, photographerSchedule]);
 
-  // Get next availability
   const nextAvailability = useMemo(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const todaySlots = availabilitySlots.filter(slot => 
-      slot.date === today && slot.status === 'available'
-    );
-    if (todaySlots.length > 0) {
-      const sorted = todaySlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
-      return {
-        date: 'Today',
-        time: `${sorted[0].start_time} - ${sorted[0].end_time}`,
-        slot: sorted[0],
-      };
-    }
-
-    // Check next 7 days
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 0; i <= 14; i++) {
       const checkDate = addDays(new Date(), i);
-      const dateStr = format(checkDate, 'yyyy-MM-dd');
-      const dayName = format(checkDate, 'EEEE').toLowerCase();
-      const daySlots = availabilitySlots.filter(slot => {
-        if (slot.date) return slot.date === dateStr && slot.status === 'available';
-        if (slot.day_of_week) return slot.day_of_week.toLowerCase() === dayName && slot.status === 'available';
-        return false;
-      });
+      const daySlots = getAvailabilitySlotsForDate(checkDate, 'available');
       if (daySlots.length > 0) {
-        const sorted = daySlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+        const sorted = [...daySlots].sort((a, b) => a.start_time.localeCompare(b.start_time));
         return {
-          date: isTomorrow(checkDate) ? 'Tomorrow' : format(checkDate, 'MMM d'),
-          time: `${sorted[0].start_time} - ${sorted[0].end_time}`,
+          date: isToday(checkDate) ? 'Today' : isTomorrow(checkDate) ? 'Tomorrow' : format(checkDate, 'MMM d'),
+          time: `${formatSlotTime(sorted[0].start_time)} - ${formatSlotTime(sorted[0].end_time)}`,
           slot: sorted[0],
         };
       }
@@ -334,44 +371,24 @@ export const PhotographerAssignmentModal: React.FC = () => {
     return null;
   }, [availabilitySlots]);
 
-  // Filter assignable shoots
   const filteredShoots = useMemo(() => {
     let filtered = upcomingShoots;
 
-    // Don't filter by date - show all unassigned shoots
-    // The user can see all available shoots and assign them regardless of the selected date
-
     if (filterType === 'compatible') {
-      // Filter by compatible time slots (only if date is selected and has availability)
-      if (timelineSlots.some(slot => slot.status === 'available')) {
-        filtered = filtered.filter(shoot => {
-          const shootTime = shoot.startTime || shoot.timeLabel;
-          if (!shootTime) return true; // Include shoots without time
-          return timelineSlots.some(slot => {
-            if (slot.status !== 'available') return false;
-            const [slotStart] = slot.start.split(':');
-            const [shootHour] = shootTime.split(':');
-            return Math.abs(parseInt(slotStart) - parseInt(shootHour)) <= 1;
-          });
-        });
-      }
+      filtered = filtered.filter(shoot => {
+        const shootDate = parseShootDate(shoot);
+        return shootDate ? isShootCompatibleWithDate(shoot, shootDate) : false;
+      });
     }
 
     return filtered;
-  }, [upcomingShoots, filterType, timelineSlots]);
+  }, [upcomingShoots, filterType, availabilitySlots]);
 
-  // Get upcoming days summary
   const upcomingDaysSummary = useMemo(() => {
     const summary = [];
     for (let i = 1; i <= 3; i++) {
       const checkDate = addDays(selectedDate, i);
-      const dateStr = format(checkDate, 'yyyy-MM-dd');
-      const dayName = format(checkDate, 'EEEE').toLowerCase();
-      const daySlots = availabilitySlots.filter(slot => {
-        if (slot.date) return slot.date === dateStr && slot.status === 'available';
-        if (slot.day_of_week) return slot.day_of_week.toLowerCase() === dayName && slot.status === 'available';
-        return false;
-      });
+      const daySlots = getAvailabilitySlotsForDate(checkDate, 'available');
       summary.push({
         date: checkDate,
         label: isTomorrow(checkDate) ? 'Tomorrow' : format(checkDate, 'EEE'),
@@ -397,6 +414,17 @@ export const PhotographerAssignmentModal: React.FC = () => {
     editing: 'Editing',
     offline: 'Offline',
   };
+
+  const selectedDateAssignedShoots = photographerSchedule.filter((shoot) => {
+    const shootDate = parseShootDate(shoot);
+    return shootDate ? isSameDay(shootDate, selectedDate) : false;
+  });
+  const selectedDateAvailableSlots = getAvailabilitySlotsForDate(selectedDate, 'available');
+  const selectedDateLabel = isToday(selectedDate)
+    ? 'Today'
+    : isTomorrow(selectedDate)
+      ? 'Tomorrow'
+      : format(selectedDate, 'MMM d');
 
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
@@ -500,19 +528,22 @@ export const PhotographerAssignmentModal: React.FC = () => {
               {/* Metrics Strip */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div className="p-3 rounded-lg border bg-card">
-                  <p className="text-xs text-muted-foreground mb-1">Jobs today</p>
-                  <p className="text-xl font-semibold">{photographer.loadToday} / 5</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Daily capacity</p>
+                  <p className="text-xs text-muted-foreground mb-1">Jobs on {selectedDateLabel}</p>
+                  <p className="text-xl font-semibold">{selectedDateAssignedShoots.length}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{photographer.loadToday} scheduled today</p>
                 </div>
                 <div className="p-3 rounded-lg border bg-card">
-                  <p className="text-xs text-muted-foreground mb-1">Next availability</p>
+                  <p className="text-xs text-muted-foreground mb-1">Available windows</p>
                   {nextAvailability ? (
                     <>
-                      <p className="text-lg font-semibold">{nextAvailability.time.split(' - ')[0]}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{nextAvailability.date}</p>
+                      <p className="text-lg font-semibold">{selectedDateAvailableSlots.length}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Next: {nextAvailability.date} · {nextAvailability.time.split(' - ')[0]}</p>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No availability</p>
+                    <>
+                      <p className="text-lg font-semibold">0</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">No availability loaded</p>
+                    </>
                   )}
                 </div>
               </div>
@@ -521,7 +552,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               <div>
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Availability Timeline
+                  {selectedDateLabel} timeline
                 </h4>
                 {loading ? (
                   <div className="space-y-2">
@@ -543,7 +574,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                         )}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium whitespace-nowrap">{slot.start} - {slot.end}</span>
+                          <span className="font-medium whitespace-nowrap">{formatSlotTime(slot.start)} - {formatSlotTime(slot.end)}</span>
                           <Badge
                             variant={slot.status === 'available' ? 'default' : 'secondary'}
                             className={cn(
@@ -552,7 +583,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                               slot.status === 'booked' && 'bg-slate-600 text-white',
                             )}
                           >
-                            {slot.status === 'available' ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
+                            {slot.status === 'available' ? 'Open' : slot.status === 'booked' ? 'Booked' : slot.status === 'past' ? 'Past' : 'Closed'}
                           </Badge>
                         </div>
                         {slot.shoot && (
@@ -708,20 +739,42 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 ) : filteredShoots.length > 0 ? (
                   <div className="space-y-3">
                     {filteredShoots.map((shoot) => {
-                      const isCompatible = timelineSlots.some(slot => slot.status === 'available');
+                      const shootDate = parseShootDate(shoot);
+                      const isCompatible = shootDate ? isShootCompatibleWithDate(shoot, shootDate) : false;
+                      const isReassignment = Boolean(shoot.photographer?.id);
                       return (
                         <div
                           key={shoot.id}
-                          className="p-4 rounded-lg border bg-card hover:border-primary/40 transition-all"
+                          className={cn(
+                            "p-4 rounded-xl border bg-card transition-all hover:border-primary/40",
+                            isCompatible && "border-emerald-200 dark:border-emerald-900/70",
+                          )}
                         >
                           <div className="flex items-start justify-between gap-3 mb-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base font-semibold">{shoot.timeLabel}</span>
-                                <span className="text-xs text-muted-foreground">{shoot.dayLabel}</span>
+                              <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="gap-1 text-[11px]">
+                                  <Calendar className="h-3 w-3" />
+                                  {shootDate ? format(shootDate, 'EEE, MMM d') : shoot.dayLabel}
+                                </Badge>
+                                <Badge variant="outline" className="gap-1 text-[11px]">
+                                  <Clock className="h-3 w-3" />
+                                  {shoot.timeLabel || (shootDate ? format(shootDate, 'h:mm a') : 'Time TBD')}
+                                </Badge>
+                                {isReassignment && (
+                                  <Badge variant="secondary" className="text-[11px]">
+                                    Reassign from {shoot.photographer?.name}
+                                  </Badge>
+                                )}
                               </div>
-                              <p className="text-sm font-medium text-foreground mb-1">{shoot.addressLine}</p>
-                              <p className="text-xs text-muted-foreground">{shoot.clientName || 'Client TBD'}</p>
+                              <p className="mb-1 flex items-start gap-1.5 text-sm font-medium text-foreground">
+                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span>{shoot.addressLine}</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {shoot.clientName || 'Client TBD'}
+                                {shoot.services.length > 0 && ` · ${shoot.services.map(service => service.label).join(', ')}`}
+                              </p>
                             </div>
                             <Badge
                               variant={isCompatible ? 'default' : 'secondary'}
@@ -729,20 +782,23 @@ export const PhotographerAssignmentModal: React.FC = () => {
                                 isCompatible && 'bg-emerald-500 text-white',
                               )}
                             >
-                              {isCompatible ? 'Fits schedule' : 'Check compatibility'}
+                              {isCompatible ? 'Fits schedule' : 'Outside availability'}
                             </Badge>
                           </div>
                           <Button
                             size="sm"
                             onClick={() => handleAssignPhotographer(shoot.id)}
-                            disabled={assigning === shoot.id}
+                            disabled={assigning !== null}
                             className="w-full"
                           >
                             {assigning === shoot.id ? (
-                              'Assigning...'
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Assigning...
+                              </>
                             ) : (
                               <>
-                                Assign {photographer.name.split(' ')[0]}
+                                {isReassignment ? 'Reassign' : 'Assign'} {photographer.name.split(' ')[0]}
                               </>
                             )}
                           </Button>
@@ -753,8 +809,14 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 ) : (
                   <div className="p-6 rounded-lg border bg-muted/30 text-center">
                     <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm font-medium mb-1">No shoots available</p>
-                    <p className="text-xs text-muted-foreground">No shoots match this photographer for the selected date.</p>
+                    <p className="text-sm font-medium mb-1">
+                      {filterType === 'compatible' ? 'No compatible scheduled shoots' : 'No assignable scheduled shoots'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {filterType === 'compatible'
+                        ? 'Try All to include shoots outside this photographer’s availability windows.'
+                        : 'All scheduled shoots are already assigned to this photographer or are no longer assignable.'}
+                    </p>
                   </div>
                 )}
               </div>

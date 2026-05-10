@@ -261,41 +261,45 @@ const AiEditing = () => {
     async (shootId: number) => {
       setLoadingFiles(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files`, { headers: getAuthHeaders() });
-        if (!response.ok) {
-          if (response.status === 404) {
-            setAvailableFiles([]);
-            return;
-          }
-          throw new Error('Failed to load shoot files');
-        }
-        const data = await parseJsonResponse(response);
-        const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        const files: MediaFile[] = items
-          .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || ''))
-          .map((file: any) => {
-            const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
-            const isEdited =
-              ['completed', 'verified', 'edited'].includes(stage) ||
-              file.media_type === 'edited' ||
-              file.is_ai_edited === true;
-            return {
-              id: file.id,
-              filename: file.filename || `file-${file.id}`,
-              url: file.url,
-              path: file.path,
-              thumb_url: file.thumb_url || file.thumb || file.thumbnail_url,
-              medium_url: file.medium_url || file.medium || file.web_url,
-              large_url: file.large_url || file.large || file.original_url,
-              original_url: file.original_url || file.original,
-              fileType: file.fileType || file.file_type,
-              workflowStage: stage,
-              created_at: file.created_at || file.createdAt,
-              isEdited,
-              isAiEdited: file.is_ai_edited === true,
-            } as MediaFile;
-          });
-        setAvailableFiles(files);
+        const responses = await Promise.all(
+          ['raw', 'edited'].map((type) =>
+            fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}`, { headers: getAuthHeaders() }),
+          ),
+        );
+        const failed = responses.find((response) => !response.ok && response.status !== 404);
+        if (failed) throw new Error('Failed to load shoot files');
+
+        const payloads = await Promise.all(
+          responses.map((response) => (response.ok ? parseJsonResponse(response) : Promise.resolve({ data: [] }))),
+        );
+        const filesById = new Map<number, MediaFile>();
+        payloads.forEach((data, payloadIndex) => {
+          const type = payloadIndex === 0 ? 'raw' : 'edited';
+          const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+          items
+            .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || file.stored_filename || ''))
+            .forEach((file: any) => {
+              const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
+              const id = Number(file.id);
+              if (!Number.isFinite(id)) return;
+              filesById.set(id, {
+                id,
+                filename: file.filename || file.stored_filename || `file-${file.id}`,
+                url: file.url,
+                path: file.path,
+                thumb_url: file.thumb_url || file.thumb || file.thumbnail_url,
+                medium_url: file.medium_url || file.medium || file.web_url,
+                large_url: file.large_url || file.large || file.original_url,
+                original_url: file.original_url || file.original,
+                fileType: file.fileType || file.file_type,
+                workflowStage: stage,
+                created_at: file.created_at || file.createdAt,
+                isEdited: type === 'edited' || file.media_type === 'edited',
+                isAiEdited: file.is_ai_edited === true,
+              } as MediaFile);
+            });
+        });
+        setAvailableFiles(Array.from(filesById.values()));
       } catch (error) {
         console.error('Failed to load shoot files:', error);
         setAvailableFiles([]);
@@ -356,6 +360,11 @@ const AiEditing = () => {
     () => availableFiles.filter((file) => file.isEdited || file.isAiEdited),
     [availableFiles],
   );
+  const sourceFiles = useMemo(
+    () => (rawFiles.length > 0 ? rawFiles : availableFiles.filter((file) => !file.isAiEdited)),
+    [availableFiles, rawFiles],
+  );
+  const usingEditedSources = rawFiles.length === 0 && sourceFiles.length > 0;
 
   const filteredShoots = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -396,8 +405,8 @@ const AiEditing = () => {
   }, [jobs]);
 
   const selectedRawFiles = useMemo(
-    () => rawFiles.filter((file) => selectedFiles.has(file.id)),
-    [rawFiles, selectedFiles],
+    () => sourceFiles.filter((file) => selectedFiles.has(file.id)),
+    [sourceFiles, selectedFiles],
   );
 
   const selectedModeList = useMemo(() => Array.from(selectedEnhancementIds), [selectedEnhancementIds]);
@@ -456,7 +465,7 @@ const AiEditing = () => {
       const next = new Set(current);
 
       if (event?.shiftKey && lastShiftAnchorRef.current !== null) {
-        const ids = rawFiles.map((file) => file.id);
+        const ids = sourceFiles.map((file) => file.id);
         const a = ids.indexOf(lastShiftAnchorRef.current);
         const b = ids.indexOf(fileId);
         if (a !== -1 && b !== -1) {
@@ -474,15 +483,15 @@ const AiEditing = () => {
   };
 
   const selectAllRawFiles = useCallback(() => {
-    if (rawFiles.length === 0) return;
-    if (rawFiles.length > MAX_BATCH_SIZE) {
+    if (sourceFiles.length === 0) return;
+    if (sourceFiles.length > MAX_BATCH_SIZE) {
       toast({
         title: 'Large batch',
-        description: `Selecting ${MAX_BATCH_SIZE} of ${rawFiles.length} photos. Submit in multiple batches if needed.`,
+        description: `Selecting ${MAX_BATCH_SIZE} of ${sourceFiles.length} photos. Submit in multiple batches if needed.`,
       });
     }
-    setSelectedFiles(new Set(rawFiles.slice(0, MAX_BATCH_SIZE).map((file) => file.id)));
-  }, [rawFiles, toast]);
+    setSelectedFiles(new Set(sourceFiles.slice(0, MAX_BATCH_SIZE).map((file) => file.id)));
+  }, [sourceFiles, toast]);
 
   const clearSelection = () => {
     setSelectedFiles(new Set());
@@ -1000,9 +1009,9 @@ const AiEditing = () => {
             size="sm"
             className="h-8"
             onClick={selectAllRawFiles}
-            disabled={rawFiles.length === 0}
+            disabled={sourceFiles.length === 0}
           >
-            Select all{rawFiles.length > MAX_BATCH_SIZE ? ` (first ${MAX_BATCH_SIZE})` : ''}
+            Select all{sourceFiles.length > MAX_BATCH_SIZE ? ` (first ${MAX_BATCH_SIZE})` : ''}
           </Button>
           <Button
             variant="ghost"
@@ -1018,7 +1027,7 @@ const AiEditing = () => {
       <CardContent className="p-3 sm:p-4">
         {loadingFiles ? (
           <HorizontalLoader message="Loading shoot files..." />
-        ) : rawFiles.length === 0 ? (
+        ) : sourceFiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <ImageIcon className="h-6 w-6" />
@@ -1036,13 +1045,18 @@ const AiEditing = () => {
           </div>
         ) : (
           <div className="space-y-3">
+            {usingEditedSources && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                No raw-stage photos were found, so showing available non-Autoenhance source images for this shoot.
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {rawFiles.map(renderFileTile)}
+              {sourceFiles.map(renderFileTile)}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
               <span>
-                Showing {rawFiles.length} raw photo{rawFiles.length === 1 ? '' : 's'}.
-                {editedFiles.length > 0 && ` ${editedFiles.length} already-edited image(s) hidden.`}
+                Showing {sourceFiles.length} source photo{sourceFiles.length === 1 ? '' : 's'}.
+                {!usingEditedSources && editedFiles.length > 0 && ` ${editedFiles.length} already-edited image(s) hidden.`}
               </span>
               <span className="hidden sm:inline">
                 Tip: <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px]">Shift</kbd>+click to select a range,{' '}
@@ -1367,7 +1381,11 @@ const AiEditing = () => {
   };
 
   const previewUrl = previewFile ? getImageUrl(previewFile, 'large') : '';
-  const enhancedUrlForComparison = comparisonJob?.edited_image_url
+  const enhancedUrlForComparison = comparisonJob?.output_file?.url
+    ? resolveImageUrl(comparisonJob.output_file.url)
+    : comparisonJob?.output_file?.thumb_url
+    ? resolveImageUrl(comparisonJob.output_file.thumb_url)
+    : comparisonJob?.edited_image_url
     ? resolveImageUrl(comparisonJob.edited_image_url)
     : null;
   const sourceUrlForComparison = comparisonJob

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSelect } from "@/components/ui/time-select";
 import { format } from "date-fns";
-import { AlertTriangle, MapPin, User, Package, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
+import { AlertTriangle, ArrowRight, MapPin, User, Package, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -158,6 +158,16 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const suggestedTimesRailRef = React.useRef<HTMLDivElement | null>(null);
   const [canScrollSuggestedTimesLeft, setCanScrollSuggestedTimesLeft] = useState(false);
   const [canScrollSuggestedTimesRight, setCanScrollSuggestedTimesRight] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => date ?? new Date());
+  const [calendarAvailability, setCalendarAvailability] = useState<{
+    availableDates: Set<string>;
+    unavailableDates: Set<string>;
+    loading: boolean;
+  }>({
+    availableDates: new Set(),
+    unavailableDates: new Set(),
+    loading: false,
+  });
 
   const formatLocationLabel = (location?: {
     address?: string;
@@ -281,6 +291,24 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     return map[str] ?? str;
   };
 
+  const getDateKey = (value: Date) => format(value, 'yyyy-MM-dd');
+
+  const getMonthBounds = (value: Date) => {
+    const start = new Date(value.getFullYear(), value.getMonth(), 1);
+    const end = new Date(value.getFullYear(), value.getMonth() + 1, 0);
+    return { start, end };
+  };
+
+  const buildDateKeysInRange = (start: Date, end: Date) => {
+    const keys: string[] = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    while (cursor <= end) {
+      keys.push(getDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return keys;
+  };
+
   const normalizeAddressKey = (value: { address?: string; city?: string; state?: string; zip?: string }) => {
     const joined = [value.address, value.city, value.state, value.zip]
       .filter(Boolean)
@@ -346,6 +374,122 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       hasAvailabilityData,
     };
   }, [photographersWithDistance, photographers, photographerAvailability]);
+
+  useEffect(() => {
+    if (date) {
+      setCalendarMonth(date);
+    }
+  }, [date]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchCalendarAvailability = async () => {
+      if (photographers.length === 0) {
+        setCalendarAvailability({
+          availableDates: new Set(),
+          unavailableDates: new Set(),
+          loading: false,
+        });
+        return;
+      }
+
+      const { start, end } = getMonthBounds(calendarMonth);
+      setCalendarAvailability(previous => ({
+        ...previous,
+        loading: true,
+      }));
+
+      try {
+        const token = localStorage.getItem('authToken');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const response = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+          method: 'POST',
+          headers,
+          signal: abortController.signal,
+          body: JSON.stringify({
+            photographer_ids: photographers.map(p => Number(p.id)),
+            from_date: getDateKey(start),
+            to_date: getDateKey(end),
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch calendar availability');
+
+        const json = await response.json();
+        const rawAvailabilityByPhotographer: Record<string, any[]> = json?.data || {};
+        const dateKeys = buildDateKeysInRange(start, end);
+        const availabilityByDate = new Map<string, boolean>();
+
+        for (const dateKey of dateKeys) {
+          const dayOfWeek = normalizeDayOfWeek(new Date(`${dateKey}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' }));
+          let hasAvailability = false;
+
+          for (const photographerItem of photographers) {
+            const rawSlots = rawAvailabilityByPhotographer[photographerItem.id] || rawAvailabilityByPhotographer[String(photographerItem.id)] || [];
+            const specificDateSlots = rawSlots.filter((slot: any) => {
+              const slotDate = slot?.date ? String(slot.date).slice(0, 10) : '';
+              return slotDate === dateKey;
+            });
+            const weeklySlots = rawSlots.filter((slot: any) => {
+              const slotDate = slot?.date ? String(slot.date).trim() : '';
+              if (slotDate) return false;
+              return normalizeDayOfWeek(slot?.day_of_week) === dayOfWeek;
+            });
+            const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+            if (relevantSlots.some((slot: any) => !slot.status || slot.status === 'available')) {
+              hasAvailability = true;
+              break;
+            }
+          }
+
+          availabilityByDate.set(dateKey, hasAvailability);
+        }
+
+        const todayKey = getDateKey(today);
+        const availableDates = new Set<string>();
+        const unavailableDates = new Set<string>();
+
+        availabilityByDate.forEach((hasAvailability, dateKey) => {
+          if (dateKey < todayKey) return;
+          if (hasAvailability) {
+            availableDates.add(dateKey);
+          } else {
+            unavailableDates.add(dateKey);
+          }
+        });
+
+        setCalendarAvailability({
+          availableDates,
+          unavailableDates,
+          loading: false,
+        });
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
+        setCalendarAvailability({
+          availableDates: new Set(),
+          unavailableDates: new Set(),
+          loading: false,
+        });
+      }
+    };
+
+    fetchCalendarAvailability();
+
+    return () => abortController.abort();
+  }, [calendarMonth, photographers, today]);
+
+  const calendarAvailableDays = useMemo(
+    () => Array.from(calendarAvailability.availableDates).map(dateKey => new Date(`${dateKey}T12:00:00`)),
+    [calendarAvailability.availableDates],
+  );
+
+  const calendarUnavailableDays = useMemo(
+    () => Array.from(calendarAvailability.unavailableDates).map(dateKey => new Date(`${dateKey}T12:00:00`)),
+    [calendarAvailability.unavailableDates],
+  );
 
   const onDateChange = (newDate: Date | undefined) => {
     if (newDate) {
@@ -1739,9 +1883,19 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
               mode="single"
               selected={date}
               onSelect={onDateChange}
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
               disabled={disabledDates}
               defaultMonth={date ?? today}
               fromMonth={today}
+              modifiers={{
+                available: calendarAvailableDays,
+                unavailable: calendarUnavailableDays,
+              }}
+              modifiersClassNames={{
+                available: "after:absolute after:bottom-0.5 after:left-1/2 after:h-px after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-emerald-400",
+                unavailable: "after:absolute after:bottom-0.5 after:left-1/2 after:h-px after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-amber-400",
+              }}
               className="border-none bg-transparent p-0 pointer-events-auto"
               classNames={{
                 caption: "relative flex items-center justify-center",
@@ -1751,12 +1905,23 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                 nav_button_previous: "static",
                 nav_button_next: "static",
                 head_cell: "text-slate-500 rounded-md w-full font-medium text-xs sm:text-sm flex-1 text-center",
-                day: "h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-full text-sm sm:text-base font-medium aria-selected:opacity-100",
-                day_selected: "bg-primary text-primary-foreground rounded-full",
-                day_today: "bg-accent text-accent-foreground rounded-full",
+                day: "relative h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-xl text-sm sm:text-base font-medium aria-selected:opacity-100",
+                day_selected: "bg-primary text-primary-foreground rounded-xl",
+                day_today: "bg-accent text-accent-foreground rounded-xl",
                 cell: "relative p-0 text-center text-sm sm:text-base focus-within:relative focus-within:z-20 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md flex-1",
               }}
             />
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-px w-4 rounded-full bg-emerald-400" />
+                Availability
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-px w-4 rounded-full bg-amber-400" />
+                No availability
+              </span>
+              {calendarAvailability.loading && <span>Checking dates...</span>}
+            </div>
           </div>
 
           {formErrors['date'] && (
@@ -1966,78 +2131,83 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
           )}
 
           {/* Multi-category: per-category photographer triggers */}
-          {isMultiCategory && serviceCategories.map(([categoryName, services]) => {
-            const catPhotographer = getPhotographerDetailsForCategory(categoryName);
-            return (
-              <div key={categoryName} className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {categoryName}
-                  <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
-                    ({services.map(s => s.name).join(', ')})
-                  </span>
-                </p>
-                <div
-                  className={cn(
-                    "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
-                    time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
-                  )}
-                  onClick={() => {
-                    if (!time) {
-                      toast({
-                        title: "Select time first",
-                        description: "Please choose a time before selecting a photographer.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    setActiveCategoryForPicker(categoryName);
-                    // Pre-select the currently assigned photographer for this category
-                    const currentId = getPhotographerForCategory(categoryName);
-                    if (currentId) setPhotographer?.(currentId);
-                    setPhotographerDialogOpen(true);
-                  }}
-                >
-                  <div className="flex items-center min-w-0">
-                    {catPhotographer ? (
-                      <>
-                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10 mr-2.5 sm:mr-3 shrink-0">
-                          <AvatarImage
-                            src={getAvatarUrl((catPhotographer as any).avatar, 'photographer', undefined, catPhotographer.id)}
-                            alt={catPhotographer.name}
+          {isMultiCategory && (
+            <div className="space-y-3">
+              {serviceCategories.map(([categoryName, services]) => {
+                const catPhotographer = getPhotographerDetailsForCategory(categoryName);
+                return (
+                  <div key={categoryName} className="min-w-0 space-y-1">
+                    <p className="truncate text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {categoryName}
+                      <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
+                        ({services.map(s => s.name).join(', ')})
+                      </span>
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <div
+                        className={cn(
+                          "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+                          time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
+                        )}
+                        onClick={() => {
+                          if (!time) {
+                            toast({
+                              title: "Select time first",
+                              description: "Please choose a time before selecting a photographer.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          setActiveCategoryForPicker(categoryName);
+                          const currentId = getPhotographerForCategory(categoryName);
+                          if (currentId) setPhotographer?.(currentId);
+                          setPhotographerDialogOpen(true);
+                        }}
+                      >
+                        <div className="flex items-center min-w-0">
+                          {catPhotographer ? (
+                            <>
+                              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 mr-2.5 sm:mr-3 shrink-0">
+                                <AvatarImage
+                                  src={getAvatarUrl((catPhotographer as any).avatar, 'photographer', undefined, catPhotographer.id)}
+                                  alt={catPhotographer.name}
+                                />
+                                <AvatarFallback>{catPhotographer.name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{catPhotographer.name}</span>
+                            </>
+                          ) : (
+                            <span className="truncate text-slate-500 dark:text-slate-400 text-sm">Select a photographer</span>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
+                          <ServiceDatePicker
+                            value={getServiceSchedule(services[0]?.id || '').date}
+                            onChange={(value) => updateServiceSchedules(services.map(s => s.id), { date: value })}
+                            triggerClassName="h-9"
                           />
-                          <AvatarFallback>{catPhotographer.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{catPhotographer.name}</span>
-                      </>
-                    ) : (
-                      <span className="truncate text-slate-500 dark:text-slate-400 text-sm">Select a photographer</span>
-                    )}
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                          <ServiceTimePicker
+                            value={getServiceSchedule(services[0]?.id || '').time}
+                            options={buildConflictAwareServiceTimeOptions(getPhotographerForCategory(categoryName), getServiceSchedule(services[0]?.id || '').time)}
+                            onChange={(value) => updateServiceSchedules(services.map(s => s.id), { time: value })}
+                            triggerClassName="h-9"
+                            isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForCategory(categoryName), value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
-                </div>
-                <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[1fr_140px]">
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
-                    <ServiceDatePicker
-                      value={getServiceSchedule(services[0]?.id || '').date}
-                      onChange={(value) => updateServiceSchedules(services.map(s => s.id), { date: value })}
-                      triggerClassName="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
-                    <ServiceTimePicker
-                      value={getServiceSchedule(services[0]?.id || '').time}
-                      options={buildConflictAwareServiceTimeOptions(getPhotographerForCategory(categoryName), getServiceSchedule(services[0]?.id || '').time)}
-                      onChange={(value) => updateServiceSchedules(services.map(s => s.id), { time: value })}
-                      triggerClassName="h-9"
-                      isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForCategory(categoryName), value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
 
           {/* Single-category: original single photographer trigger with inline Drawer/Dialog */}
           {!isMultiCategory && (
@@ -2310,22 +2480,25 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
       </div>
 
-      <Button
-        type="button"
-        onClick={handleSubmit}
-        className="w-full h-14 text-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-      >
-        CONFIRM
-      </Button>
-
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={goBack}
-        className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-      >
-        Back
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={goBack}
+          className="h-14 min-w-[150px] border-slate-200 bg-white text-base font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-muted/40 dark:bg-card/60 dark:text-slate-300 dark:hover:bg-card/80 dark:hover:text-white"
+        >
+          <ChevronLeft className="mr-2 h-5 w-5" />
+          Back
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          className="h-14 flex-1 text-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+        >
+          CONFIRM
+          <ArrowRight className="ml-2 h-5 w-5" />
+        </Button>
+      </div>
     </div>
   );
 };

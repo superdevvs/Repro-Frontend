@@ -52,8 +52,6 @@ export interface DownloadPopupState {
 
 interface UseShootMediaActionsParams {
   shoot: ShootData;
-  isAdmin: boolean;
-  isClient: boolean;
   role: string;
   displayTab: 'uploaded' | 'edited';
   selectedFiles: Set<string>;
@@ -111,7 +109,6 @@ const buildUploadWarningDescription = (errors: string[], totalCount: number): st
 
 export function useShootMediaActions({
   shoot,
-  isAdmin,
   role,
   displayTab,
   selectedFiles,
@@ -137,6 +134,7 @@ export function useShootMediaActions({
 }: UseShootMediaActionsParams) {
   const normalizedRole = String(role || '').trim().toLowerCase();
   const isEditorRole = normalizedRole === 'editor';
+  const canSubmitAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(normalizedRole);
 
   const handleDirectDrop = async (event: React.DragEvent<HTMLDivElement>, uploadType: 'raw' | 'edited') => {
     event.preventDefault();
@@ -265,10 +263,10 @@ export function useShootMediaActions({
   };
 
   const handleAiEdit = async () => {
-    if (!isAdmin) {
+    if (!canSubmitAutoenhance) {
       toast({
         title: 'Not authorized',
-        description: 'Only admins can submit AI edits at this time.',
+        description: 'Your role does not have access to Autoenhance submissions.',
         variant: 'destructive',
       });
       return;
