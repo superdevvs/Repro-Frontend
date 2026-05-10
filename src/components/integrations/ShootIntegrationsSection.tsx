@@ -104,9 +104,19 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         onRefresh?.();
       }
     } catch (error: any) {
+      const data = error.response?.data;
+      // App Tokens cannot fetch on demand; they only receive webhooks.
+      if (data?.mode === 'webhook-only') {
+        toast({
+          title: 'Auto-sync via webhook',
+          description:
+            "Manual fetch isn't supported with this iGuide token. Data will fill in automatically when the iGuide is published.",
+        });
+        return;
+      }
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to sync iGUIDE data.",
+        description: data?.message || "Failed to sync iGUIDE data.",
         variant: "destructive",
       });
     } finally {

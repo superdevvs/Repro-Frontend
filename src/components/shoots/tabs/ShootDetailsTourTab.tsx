@@ -1055,7 +1055,7 @@ export function ShootDetailsTourTab({
     setIsSyncingIguide(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/iguide/sync`, {
+      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/iguide/sync`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1063,6 +1063,17 @@ export function ShootDetailsTourTab({
         },
       });
       const json = await res.json().catch(() => ({}));
+      // 409 + mode=webhook-only is an expected state for App-Token auth: the
+      // Portal blocks signed apps from on-demand reads, but data still flows
+      // automatically when iGuide publishes the tour and fires the webhook.
+      if (json?.mode === 'webhook-only') {
+        toast({
+          title: 'Auto-sync via webhook',
+          description:
+            'Manual fetch isn\'t supported with this iGuide token. Data will fill in automatically when the iGuide is published.',
+        });
+        return;
+      }
       if (!res.ok || json?.success === false) {
         throw new Error(json?.message || 'iGuide sync failed');
       }
