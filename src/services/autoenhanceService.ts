@@ -66,6 +66,11 @@ export interface SubmitEditingRequest {
   params?: Record<string, any>;
 }
 
+export interface SubmitBracketEditingRequest extends SubmitEditingRequest {
+  /** Number of images per HDR bracket — must be 3 or 5. Files must be a multiple of this size. */
+  bracket_size: 3 | 5;
+}
+
 export interface ListJobsParams {
   shoot_id?: number;
   status?: string;
@@ -81,6 +86,19 @@ export const autoenhanceService = {
 
   async submitEditing(request: SubmitEditingRequest): Promise<EditingJob[]> {
     const response = await apiClient.post('/autoenhance/edit', request);
+    return response.data.data || response.data || [];
+  },
+
+  /**
+   * Submit a set of files as Autoenhance HDR brackets.
+   *
+   * Files are split into chunks of `bracket_size` (3 or 5) **in the given
+   * order** — each chunk is uploaded sharing one bracket_id and order_id, so
+   * Autoenhance merges the bracket into a single enhanced output. The backend
+   * creates one AiEditingJob per bracket.
+   */
+  async submitBracketEditing(request: SubmitBracketEditingRequest): Promise<EditingJob[]> {
+    const response = await apiClient.post('/autoenhance/bracket-edit', request);
     return response.data.data || response.data || [];
   },
 

@@ -174,6 +174,10 @@ const AiEditing = () => {
   const [cloudType, setCloudType] = useState<'CLEAR' | 'LOW_CLOUD' | 'LOW_CLOUD_LOW_SAT' | 'HIGH_CLOUD'>('CLEAR');
   const [notes, setNotes] = useState('');
 
+  // HDR bracket merging — when set to 3 or 5, selected files are grouped in
+  // selection order and each group is merged into a single enhanced output.
+  const [bracketSize, setBracketSize] = useState<0 | 3 | 5>(0);
+
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
   const [comparisonJob, setComparisonJob] = useState<EditingJob | null>(null);
   const [overviewShootId, setOverviewShootId] = useState<number | null>(null);
@@ -313,16 +317,31 @@ const AiEditing = () => {
         const payloads = await Promise.all(
           responses.map((response) => (response.ok ? parseJsonResponse(response) : Promise.resolve({ data: [] }))),
         );
+        // Accept JPEG/PNG/etc AND camera RAW formats (NEF/CR2/CR3/ARW/DNG/RAF/ORF/RW2 etc.)
+        // so that RAW-only shoots are listed correctly in the picker.
+        const allowedExt = /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif|nef|cr2|cr3|crw|arw|dng|raf|orf|rw2|nrw|sr2|srf|pef|x3f|3fr|fff|iiq|mrw|mef|kdc|dcr|erf|nrw|rwl)$/i;
         const filesById = new Map<number, MediaFile>();
         payloads.forEach((data, payloadIndex) => {
-          const type = payloadIndex === 0 ? 'raw' : 'edited';
           const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
           items
-            .filter((file: any) => /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/i.test(file.filename || file.stored_filename || ''))
+            .filter((file: any) => allowedExt.test(file.filename || file.stored_filename || ''))
             .forEach((file: any) => {
-              const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
               const id = Number(file.id);
               if (!Number.isFinite(id)) return;
+              // Don't let the second pass (?type=edited) overwrite a raw entry — once
+              // we've recorded a file from the raw bucket, keep it.
+              if (filesById.has(id) && payloadIndex === 1) return;
+              const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
+              const mediaType = String(file.media_type || file.mediaType || '').toLowerCase();
+              const isAiEdited = file.is_ai_edited === true;
+              // Trust the file's own metadata, not the query bucket: a file is
+              // "edited" only if it self-identifies as such.
+              const isEdited =
+                isAiEdited
+                || mediaType === 'edited'
+                || mediaType === 'final'
+                || stage === 'completed'
+                || stage === 'edited';
               filesById.set(id, {
                 id,
                 filename: file.filename || file.stored_filename || `file-${file.id}`,
@@ -335,8 +354,8 @@ const AiEditing = () => {
                 fileType: file.fileType || file.file_type,
                 workflowStage: stage,
                 created_at: file.created_at || file.createdAt,
-                isEdited: type === 'edited' || file.media_type === 'edited',
-                isAiEdited: file.is_ai_edited === true,
+                isEdited,
+                isAiEdited,
               } as MediaFile);
             });
         });
@@ -872,18 +891,45 @@ const AiEditing = () => {
 
   const submitAutoenhance = async () => {
     if (!selectedShoot || selectedFiles.size === 0) return;
+
+    // HDR bracket validation: file count must be a multiple of bracket size.
+    if (bracketSize !== 0 && selectedFiles.size % bracketSize !== 0) {
+      toast({
+        title: 'Bracket count mismatch',
+        description: `Selected ${selectedFiles.size} photo(s) — for ${bracketSize}-shot brackets, pick a multiple of ${bracketSize}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await autoenhanceService.submitEditing({
-        shoot_id: selectedShoot.id,
-        file_ids: Array.from(selectedFiles),
-        editing_type: submitEditingType,
-        params: buildSubmitParams(),
-      });
-      toast({
-        title: 'Submitted to Autoenhance',
-        description: `${selectedFiles.size} image(s) queued. Track progress in Activity.`,
-      });
+      const fileIds = Array.from(selectedFiles);
+      if (bracketSize !== 0) {
+        const result = await autoenhanceService.submitBracketEditing({
+          shoot_id: selectedShoot.id,
+          file_ids: fileIds,
+          bracket_size: bracketSize,
+          editing_type: submitEditingType,
+          params: buildSubmitParams(),
+        });
+        const bracketCount = Array.isArray(result) ? result.length : Math.floor(fileIds.length / bracketSize);
+        toast({
+          title: 'HDR brackets submitted',
+          description: `${bracketCount} bracket job(s) queued (${bracketSize} photos each). Track progress in Activity.`,
+        });
+      } else {
+        await autoenhanceService.submitEditing({
+          shoot_id: selectedShoot.id,
+          file_ids: fileIds,
+          editing_type: submitEditingType,
+          params: buildSubmitParams(),
+        });
+        toast({
+          title: 'Submitted to Autoenhance',
+          description: `${selectedFiles.size} image(s) queued. Track progress in Activity.`,
+        });
+      }
       setSelectedFiles(new Set());
       lastShiftAnchorRef.current = null;
       setNotes('');
@@ -2026,9 +2072,6 @@ const AiEditing = () => {
               onToggle={toggleEnhancementMode}
               disabledModeIds={UNSUPPORTED_MODE_IDS}
             />
-            <p className="mt-3 text-xs text-muted-foreground">
-              HDR bracket merge uses Autoenhance order/bracket endpoints and stays disabled here until that workflow is wired separately.
-            </p>
           </CardContent>
         </Card>
 
@@ -2040,6 +2083,66 @@ const AiEditing = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>{renderModeOptions()}</CardContent>
+        </Card>
+
+        {/* HDR bracket merging — group selected photos into 3- or 5-shot brackets,
+            each merged into a single enhanced output. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">HDR brackets</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Merge multiple exposures of the same scene into one enhanced image. Select photos in
+              bracket order — every {bracketSize || 'N'} consecutive selected photos becomes one bracket.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {([0, 3, 5] as const).map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setBracketSize(size)}
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition',
+                    bracketSize === size
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  <div className="text-sm font-semibold">
+                    {size === 0 ? 'Off' : `${size}-shot`}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    {size === 0 ? 'Single-image enhance' : `Merge groups of ${size}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {bracketSize !== 0 && (
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                {selectedFiles.size === 0 ? (
+                  <span className="text-muted-foreground">
+                    Pick at least {bracketSize} photos to form your first bracket.
+                  </span>
+                ) : selectedFiles.size % bracketSize === 0 ? (
+                  <span className="text-foreground">
+                    <strong>{Math.floor(selectedFiles.size / bracketSize)}</strong> bracket
+                    {Math.floor(selectedFiles.size / bracketSize) === 1 ? '' : 's'} ×{' '}
+                    <strong>{bracketSize}</strong> photos ={' '}
+                    <strong>{selectedFiles.size}</strong> source photos →{' '}
+                    <strong>{Math.floor(selectedFiles.size / bracketSize)}</strong> enhanced output
+                    {Math.floor(selectedFiles.size / bracketSize) === 1 ? '' : 's'}.
+                  </span>
+                ) : (
+                  <span className="text-amber-700 dark:text-amber-300">
+                    Selected {selectedFiles.size} photos — needs to be a multiple of {bracketSize}
+                    {' '}({Math.floor(selectedFiles.size / bracketSize) * bracketSize} or{' '}
+                    {(Math.floor(selectedFiles.size / bracketSize) + 1) * bracketSize}).
+                  </span>
+                )}
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         <Card>
@@ -2080,6 +2183,15 @@ const AiEditing = () => {
                 <span className="text-muted-foreground">Options</span>
                 <span className="text-right font-medium">{selectedModeLabel}</span>
               </div>
+              {bracketSize !== 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">HDR brackets</span>
+                  <span className="font-medium">
+                    {Math.floor(selectedFiles.size / bracketSize)} × {bracketSize}-shot
+                    {selectedFiles.size > 0 && selectedFiles.size % bracketSize !== 0 && ' (mismatch)'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {selectedRawFiles.length > 0 && (
@@ -2114,21 +2226,40 @@ const AiEditing = () => {
               </div>
             )}
 
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={submitAutoenhance}
-              disabled={submitting || selectedFiles.size === 0 || !isAutoenhanceConfigured}
-            >
-              {submitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              {submitting
+            {(() => {
+              const bracketActive = bracketSize !== 0;
+              const bracketCountMismatch =
+                bracketActive && selectedFiles.size > 0 && selectedFiles.size % bracketSize !== 0;
+              const bracketCount = bracketActive ? Math.floor(selectedFiles.size / bracketSize) : 0;
+              const submitDisabled =
+                submitting
+                || selectedFiles.size === 0
+                || !isAutoenhanceConfigured
+                || bracketCountMismatch
+                || (bracketActive && bracketCount === 0);
+
+              const buttonLabel = submitting
                 ? 'Submitting...'
-                : `Submit ${selectedFiles.size} image${selectedFiles.size === 1 ? '' : 's'}`}
-            </Button>
+                : bracketActive
+                  ? `Submit ${bracketCount} HDR bracket${bracketCount === 1 ? '' : 's'}`
+                  : `Submit ${selectedFiles.size} image${selectedFiles.size === 1 ? '' : 's'}`;
+
+              return (
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={submitAutoenhance}
+                  disabled={submitDisabled}
+                >
+                  {submitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  {buttonLabel}
+                </Button>
+              );
+            })()}
 
             {!isAutoenhanceConfigured && (
               <p className="rounded-md border border-amber-300/50 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
@@ -2173,13 +2304,20 @@ const AiEditing = () => {
   const stepActionLabel = (() => {
     if (viewMode === 'select-shoot') return selectedShoot ? 'Continue' : 'Pick a shoot';
     if (viewMode === 'select-files') return selectedFiles.size === 0 ? 'Select photos' : `Continue · ${selectedFiles.size}`;
-    return submitting ? 'Submitting...' : `Submit · ${selectedFiles.size}`;
+    if (submitting) return 'Submitting...';
+    if (bracketSize !== 0) {
+      const count = Math.floor(selectedFiles.size / bracketSize);
+      return `Submit · ${count} bracket${count === 1 ? '' : 's'}`;
+    }
+    return `Submit · ${selectedFiles.size}`;
   })();
 
   const stepCanAdvance = (() => {
     if (viewMode === 'select-shoot') return Boolean(selectedShoot);
     if (viewMode === 'select-files') return selectedFiles.size > 0;
-    return selectedFiles.size > 0 && isAutoenhanceConfigured && !submitting;
+    const bracketMismatch =
+      bracketSize !== 0 && (selectedFiles.size === 0 || selectedFiles.size % bracketSize !== 0);
+    return selectedFiles.size > 0 && isAutoenhanceConfigured && !submitting && !bracketMismatch;
   })();
 
   const handleStepNext = () => {

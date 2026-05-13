@@ -164,10 +164,10 @@ const ExclusiveListingGridCard = ({
       className={`group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1 ${isHidden ? 'opacity-70' : ''}`}
       onClick={handleClick}
       style={{
-        boxShadow: '0 26px 56px -36px rgba(8, 12, 10, 0.38)',
+        boxShadow: '0 26px 56px -36px rgba(6, 10, 14, 0.38)',
       }}
     >
-      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-[#101611]">
+      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-[#060a0e]">
         <img
           src={heroUrl}
           alt={listing.address}
@@ -175,8 +175,8 @@ const ExclusiveListingGridCard = ({
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.1)_0%,rgba(5,7,6,0.02)_22%,rgba(5,7,6,0.18)_50%,rgba(8,12,10,0.36)_66%,rgba(8,12,10,0.8)_84%,rgba(8,12,10,0.96)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(8,12,10,0)_0%,rgba(8,12,10,0.32)_20%,rgba(8,12,10,0.68)_52%,rgba(8,12,10,0.94)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,10,14,0.1)_0%,rgba(6,10,14,0.02)_22%,rgba(6,10,14,0.18)_50%,rgba(6,10,14,0.36)_66%,rgba(6,10,14,0.8)_84%,rgba(6,10,14,0.96)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(6,10,14,0)_0%,rgba(6,10,14,0.32)_20%,rgba(6,10,14,0.68)_52%,rgba(6,10,14,0.94)_100%)]" />
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">

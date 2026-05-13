@@ -545,7 +545,11 @@ export function ShootDetailsModal({
     canWithdrawRequestedShoot,
     canRequestCancellation,
     isWithinCancellationFeeWindow,
-    refreshShoot,
+    // Use refreshShootAndParent so workflow actions (finalize, hold, cancel,
+    // send-to-editing, etc.) also notify the dashboard list to refetch. Without
+    // this, status changes (e.g. Ready -> Delivered after finalize) only update
+    // the modal's local state and the dashboard cards stay stale until refresh.
+    refreshShoot: refreshShootAndParent,
     setShoot,
     updateShoot,
     onShootUpdate,
