@@ -36,6 +36,7 @@ export interface AiChatSession {
   title: string;
   topic: 'booking' | 'listing' | 'insight' | 'general';
   messageCount?: number;
+  preview?: string | null;
   createdAt: string;
   updatedAt: string;
 }

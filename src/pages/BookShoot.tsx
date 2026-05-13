@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { BookingStepIndicator } from '@/components/booking/BookingStepIndicator';
@@ -31,10 +30,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 
 type SqftRange = {
   id?: number;
@@ -2038,8 +2038,7 @@ type CompletedBookingSnapshot = {
   const currentStepContent = getCurrentStepContent();
 
   return (
-    // Match Shoot History padding; scroll only within the page content (navbar/sidebar/summary stay fixed)
-    <DashboardLayout>
+    <>
       <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
           <AnimatePresence mode="wait">
             {isComplete ? (
@@ -2075,7 +2074,20 @@ type CompletedBookingSnapshot = {
                 )}
               </div>
 
-              <BookingStepIndicator currentStep={step} totalSteps={3} />
+              <div className="flex items-center gap-3">
+                <BookingStepIndicator currentStep={step} totalSteps={3} />
+                {step === 1 && shouldCacheForm && hasCachedData && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearCache}
+                    className="hidden h-[52px] gap-2 px-4 md:inline-flex"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Clear saved data
+                  </Button>
+                )}
+              </div>
               </div>
             )}
           </AnimatePresence>
@@ -2188,7 +2200,7 @@ type CompletedBookingSnapshot = {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </DashboardLayout>
+    </>
   );
 };
 

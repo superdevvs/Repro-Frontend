@@ -112,8 +112,11 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
     ? resolveImageUrl(job.edited_image_url)
     : enhancedPreview;
 
-  const address = job.shoot?.address || `Shoot #${job.shoot_id}`;
   const filename = job.source_file?.filename || (job.shoot_file_id ? `File #${job.shoot_file_id}` : null);
+  // Title fallback for ad-hoc / quick-edit jobs that aren't tied to a shoot.
+  const isDirectUpload = !job.shoot_id;
+  const address = job.shoot?.address
+    || (isDirectUpload ? (filename ? 'Direct upload' : 'Direct upload') : `Shoot #${job.shoot_id}`);
   const editingType = editingTypeLabels[job.editing_type] || job.editing_type;
   const referenceTime = job.completed_at || job.started_at || job.created_at;
   const relativeTime = referenceTime ? formatDistanceToNow(new Date(referenceTime), { addSuffix: true }) : null;
@@ -133,29 +136,26 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
     >
       <div className="grid grid-cols-[88px,1fr] sm:grid-cols-[112px,1fr] gap-3 p-3 sm:p-4">
         <div className="relative h-22 w-22 sm:h-28 sm:w-28 overflow-hidden rounded-lg border bg-muted">
-          <div className="absolute inset-0 grid grid-cols-2">
-            <div className="relative overflow-hidden">
-              <Thumb url={sourceThumb} alt={filename || 'Source image'} />
-              <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-                Src
-              </span>
+          {enhancedPreview ? (
+            // Split view — only when we actually have an enhanced result to compare against.
+            <div className="absolute inset-0 grid grid-cols-2">
+              <div className="relative overflow-hidden">
+                <Thumb url={sourceThumb} alt={filename || 'Source image'} />
+                <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                  Src
+                </span>
+              </div>
+              <div className="relative overflow-hidden border-l border-background">
+                <Thumb url={enhancedPreview} alt="Enhanced" />
+                <span className="absolute bottom-1 right-1 rounded bg-emerald-500/90 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                  AI
+                </span>
+              </div>
             </div>
-            <div className="relative overflow-hidden border-l border-background">
-              {enhancedPreview ? (
-                <>
-                  <Thumb url={enhancedPreview} alt="Enhanced" />
-                  <span className="absolute bottom-1 right-1 rounded bg-emerald-500/90 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-                    AI
-                  </span>
-                </>
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-muted/60 text-muted-foreground">
-                  <StatusIcon className={cn('h-5 w-5', isProcessing && 'animate-spin')} />
-                  <span className="text-[9px] font-semibold uppercase tracking-wide">{statusInfo.label}</span>
-                </div>
-              )}
-            </div>
-          </div>
+          ) : (
+            // Single-pane source thumb — no empty placeholder pane, no SRC label
+            <Thumb url={sourceThumb} alt={filename || 'Source image'} />
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-2">
@@ -175,12 +175,33 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
             </p>
           </div>
 
-          {isFailed && job.error_message && (
-            <div className="flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-              <span className="line-clamp-2">{job.error_message}</span>
+          {/* Status row — prominent, below the title, replaces the in-thumb status overlay */}
+          <div
+            className={cn(
+              'flex items-start gap-2 rounded-md border px-2 py-1.5 text-xs',
+              isFailed && 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200',
+              isProcessing && 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200',
+              isCompleted && 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
+              !isFailed && !isProcessing && !isCompleted && 'border-border/60 bg-muted/40 text-muted-foreground',
+            )}
+          >
+            <StatusIcon className={cn('mt-0.5 h-3.5 w-3.5 flex-shrink-0', isProcessing && 'animate-spin')} />
+            <div className="min-w-0 flex-1 leading-snug">
+              <span className="font-semibold">{statusInfo.label}</span>
+              {isFailed && job.error_message && (
+                <>
+                  <span className="px-1 opacity-60">·</span>
+                  <span className="opacity-90 line-clamp-2">{job.error_message}</span>
+                </>
+              )}
+              {isProcessing && (
+                <span className="ml-1 opacity-80">— Autoenhance is working on this image…</span>
+              )}
+              {isCompleted && (
+                <span className="ml-1 opacity-80">— Result is ready to compare or open.</span>
+              )}
             </div>
-          )}
+          </div>
 
           {isProcessing && (
             <div className="h-1 w-full overflow-hidden rounded-full bg-muted">

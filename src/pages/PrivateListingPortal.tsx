@@ -33,6 +33,8 @@ import {
   ExternalLink,
   X,
   Globe,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
@@ -62,6 +64,7 @@ interface PrivateListing {
   };
   tourLinks?: Record<string, any>;
   isPrivateListing: boolean;
+  isListingHidden: boolean;
   listing_type?: 'for_sale' | 'for_rent';
   bedrooms?: number;
   bathrooms?: number;
@@ -99,9 +102,21 @@ const getBrandedTourUrl = (shootId: string): string => {
 const ExclusiveListingGridCard = ({
   listing,
   onOpen,
+  selectionMode = false,
+  selected = false,
+  canManageVisibility = false,
+  savingVisibility = false,
+  onToggleSelect,
+  onUnhide,
 }: {
   listing: PrivateListing;
   onOpen: (listing: PrivateListing) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  canManageVisibility?: boolean;
+  savingVisibility?: boolean;
+  onToggleSelect?: (listing: PrivateListing) => void;
+  onUnhide?: (listing: PrivateListing) => void;
 }) => {
   const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
   const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
@@ -134,12 +149,20 @@ const ExclusiveListingGridCard = ({
       : listing.listing_type === 'for_sale'
         ? 'For Sale'
         : null;
+  const isHidden = listing.isListingHidden;
+  const handleClick = () => {
+    if (selectionMode) {
+      if (!isHidden) onToggleSelect?.(listing);
+      return;
+    }
+    onOpen(listing);
+  };
 
   return (
     <Card
       key={listing.id}
-      className="group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1"
-      onClick={() => onOpen(listing)}
+      className={`group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1 ${isHidden ? 'opacity-70' : ''}`}
+      onClick={handleClick}
       style={{
         boxShadow: '0 26px 56px -36px rgba(8, 12, 10, 0.38)',
       }}
@@ -157,17 +180,51 @@ const ExclusiveListingGridCard = ({
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
-            <Badge
-              variant="outline"
-              className="rounded-full border-white/80 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-slate-900 shadow-sm"
-            >
-              <Lock className="mr-1.5 h-3 w-3" />
-              Exclusive Listing
-            </Badge>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#8fc2ff] bg-[#79b3ff] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm transition-colors duration-300 group-hover:bg-[#5ea4ff]">
-              <span>Open</span>
-              <ExternalLink className="h-3 w-3" />
+            <div className="flex flex-wrap items-center gap-2">
+              {selectionMode && !isHidden && (
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/80 text-xs font-bold ${
+                    selected ? 'bg-white text-slate-900' : 'bg-black/25 text-white'
+                  }`}
+                >
+                  {selected ? '✓' : ''}
+                </span>
+              )}
+              <Badge
+                variant="outline"
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] shadow-sm ${
+                  isHidden
+                    ? 'border-amber-200 bg-amber-100 text-amber-900'
+                    : 'border-white/80 bg-white text-slate-900'
+                }`}
+              >
+                <Lock className="mr-1.5 h-3 w-3" />
+                {isHidden ? 'Hidden Listing' : 'Exclusive Listing'}
+              </Badge>
             </div>
+            {isHidden && canManageVisibility ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8 rounded-full px-3 text-xs"
+                disabled={savingVisibility}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onUnhide?.(listing);
+                }}
+              >
+                Unhide
+              </Button>
+            ) : selectionMode ? (
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/25 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm">
+                <span>{selected ? 'Selected' : 'Select'}</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#8fc2ff] bg-[#79b3ff] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm transition-colors duration-300 group-hover:bg-[#5ea4ff]">
+                <span>Open</span>
+                <ExternalLink className="h-3 w-3" />
+              </div>
+            )}
           </div>
 
           <div className="mt-auto space-y-4">
@@ -257,7 +314,12 @@ const PrivateListingPortal = () => {
   const [deliveredSearch, setDeliveredSearch] = useState('');
   const [deliveredShoots, setDeliveredShoots] = useState<any[]>([]);
   const [selectedShootIds, setSelectedShootIds] = useState<Set<string>>(new Set());
+  const [hideSelectionMode, setHideSelectionMode] = useState(false);
+  const [selectedHiddenIds, setSelectedHiddenIds] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  const [savingVisibility, setSavingVisibility] = useState(false);
   const isClient = role === 'client';
+  const isAdmin = role === 'admin' || role === 'superadmin';
 
   useEffect(() => {
     fetchPrivateListings();
@@ -270,10 +332,26 @@ const PrivateListingPortal = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addDialogOpen]);
 
+  const hiddenListingCount = useMemo(() => {
+    return listings.filter((listing) => listing.isListingHidden).length;
+  }, [listings]);
+
+  const hasHiddenListings = hiddenListingCount > 0;
+
+  useEffect(() => {
+    if (showHidden && !hasHiddenListings) {
+      setShowHidden(false);
+    }
+  }, [hasHiddenListings, showHidden]);
+
   const filteredListings = useMemo(() => {
-    if (searchQuery.trim() === '') return listings;
+    const visibleListings = isAdmin && !showHidden
+      ? listings.filter((listing) => !listing.isListingHidden)
+      : listings;
+
+    if (searchQuery.trim() === '') return visibleListings;
     const query = searchQuery.toLowerCase().replace(/[$,]/g, '');
-    return listings.filter((listing) => {
+    return visibleListings.filter((listing) => {
       const addressMatch = listing.fullAddress.toLowerCase().includes(query);
       const cityMatch = listing.city.toLowerCase().includes(query);
       const stateMatch = listing.state.toLowerCase().includes(query);
@@ -282,7 +360,7 @@ const PrivateListingPortal = () => {
       const priceMatch = listing.price ? String(listing.price).includes(query) : false;
       return addressMatch || cityMatch || stateMatch || zipMatch || clientMatch || priceMatch;
     });
-  }, [searchQuery, listings]);
+  }, [isAdmin, searchQuery, showHidden, listings]);
 
   const sortedListings = useMemo(() => {
     return [...filteredListings].sort((a, b) => {
@@ -305,6 +383,9 @@ const PrivateListingPortal = () => {
 
       if (isClient) {
         params.set('listing_scope', listingScope);
+      }
+      if (isAdmin) {
+        params.set('include_hidden', '1');
       }
 
       const response = await fetch(
@@ -353,6 +434,7 @@ const PrivateListingPortal = () => {
           },
           tourLinks: shoot.tourLinks || shoot.tour_links || {},
           isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
+          isListingHidden: Boolean(shoot.is_listing_hidden ?? shoot.isListingHidden ?? false),
           listing_type: shoot.listing_type || shoot.listingType || undefined,
           bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
           bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms || undefined,
@@ -412,6 +494,99 @@ const PrivateListingPortal = () => {
       else next.add(id);
       return next;
     });
+  };
+
+  const toggleListingSelectedForHide = (listing: PrivateListing) => {
+    if (listing.isListingHidden) return;
+    setSelectedHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(listing.id)) next.delete(listing.id);
+      else next.add(listing.id);
+      return next;
+    });
+  };
+
+  const patchListingVisibility = async (id: string, hidden: boolean) => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ is_listing_hidden: hidden }),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      const msg = errJson?.message || `Server ${res.status}`;
+      throw new Error(msg);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['shoot', id] });
+  };
+
+  const saveHiddenSelections = async () => {
+    const ids = Array.from(selectedHiddenIds);
+    if (!ids.length) {
+      toast({
+        title: 'Select listings',
+        description: 'Pick at least one property to hide.',
+      });
+      return;
+    }
+
+    try {
+      setSavingVisibility(true);
+      const results = await Promise.allSettled(ids.map((id) => patchListingVisibility(id, true)));
+      const failed = results.filter((result) => result.status === 'rejected') as PromiseRejectedResult[];
+
+      if (failed.length) {
+        toast({
+          title: 'Some listings failed',
+          description: failed[0]?.reason?.message || 'One or more listings could not be hidden.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Listings hidden',
+          description: `${ids.length} ${ids.length === 1 ? 'property is' : 'properties are'} now hidden from Exclusive Listings.`,
+        });
+      }
+
+      setHideSelectionMode(false);
+      setSelectedHiddenIds(new Set());
+      fetchPrivateListings();
+    } catch (e: any) {
+      toast({
+        title: 'Error',
+        description: e?.message || 'Failed to hide listings',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
+
+  const unhideListing = async (listing: PrivateListing) => {
+    try {
+      setSavingVisibility(true);
+      await patchListingVisibility(listing.id, false);
+      toast({
+        title: 'Listing unhidden',
+        description: `${listing.address || 'This property'} is visible in Exclusive Listings again.`,
+      });
+      fetchPrivateListings();
+    } catch (e: any) {
+      toast({
+        title: 'Error',
+        description: e?.message || 'Failed to unhide listing',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingVisibility(false);
+    }
   };
 
   const addSelectedToExclusive = async () => {
@@ -494,19 +669,50 @@ const PrivateListingPortal = () => {
 
   // ─── Grid Card ─────────────────────────────────────────────
   const renderGridCard = (listing: PrivateListing) => {
-    return <ExclusiveListingGridCard key={listing.id} listing={listing} onOpen={handleCardClick} />;
+    return (
+      <ExclusiveListingGridCard
+        key={listing.id}
+        listing={listing}
+        onOpen={handleCardClick}
+        selectionMode={hideSelectionMode}
+        selected={selectedHiddenIds.has(listing.id)}
+        canManageVisibility={isAdmin}
+        savingVisibility={savingVisibility}
+        onToggleSelect={toggleListingSelectedForHide}
+        onUnhide={unhideListing}
+      />
+    );
   };
 
   // ─── List Row ──────────────────────────────────────────────
   const renderListRow = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
     const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
+    const selected = selectedHiddenIds.has(listing.id);
+    const isHidden = listing.isListingHidden;
+    const handleRowClick = () => {
+      if (hideSelectionMode) {
+        if (!isHidden) toggleListingSelectedForHide(listing);
+        return;
+      }
+      handleCardClick(listing);
+    };
     return (
       <div
         key={listing.id}
-        className="group flex items-center gap-4 p-3 sm:p-4 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/30"
-        onClick={() => handleCardClick(listing)}
+        className={`group flex items-center gap-4 p-3 sm:p-4 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/30 ${isHidden ? 'opacity-70' : ''}`}
+        onClick={handleRowClick}
       >
+        {hideSelectionMode && !isHidden && (
+          <div
+            className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'
+            }`}
+          >
+            ✓
+          </div>
+        )}
+
         {/* Thumbnail */}
         <div className="relative h-16 w-24 sm:h-20 sm:w-32 flex-shrink-0 rounded-md overflow-hidden bg-muted">
           <img
@@ -515,22 +721,43 @@ const PrivateListingPortal = () => {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
-            <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
-          </div>
+          {!hideSelectionMode && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+              <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+            </div>
+          )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm truncate">{listing.address}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm truncate">{listing.address}</h3>
+                {isHidden && (
+                  <Badge variant="outline" className="border-amber-200 bg-amber-100 text-amber-900">
+                    Hidden
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
               </div>
             </div>
-            {listing.price && (
+            {isHidden && isAdmin ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={savingVisibility}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  unhideListing(listing);
+                }}
+              >
+                Unhide
+              </Button>
+            ) : listing.price && (
               <span className="text-sm font-semibold text-foreground whitespace-nowrap">
                 {formatPrice(listing.price)}
               </span>
@@ -581,15 +808,69 @@ const PrivateListingPortal = () => {
             title="Exclusive Listings"
             description="Private, pre-market properties — invitation only"
           />
-          <div className="flex items-center gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setAddDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Listing</span>
-            </Button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {isAdmin && hideSelectionMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHideSelectionMode(false);
+                    setSelectedHiddenIds(new Set());
+                  }}
+                  disabled={savingVisibility}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={saveHiddenSelections}
+                  disabled={savingVisibility || selectedHiddenIds.size === 0}
+                >
+                  Save {selectedHiddenIds.size > 0 ? `(${selectedHiddenIds.size})` : ''}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setAddDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Listing</span>
+                </Button>
+                {isAdmin && (
+                  <>
+                    {hasHiddenListings ? (
+                      <Button
+                        variant={showHidden ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => setShowHidden((value) => !value)}
+                        disabled={savingVisibility}
+                      >
+                        {showHidden ? <EyeOff className="h-4 w-4 sm:mr-2" /> : <Eye className="h-4 w-4 sm:mr-2" />}
+                        <span className="hidden sm:inline">{showHidden ? 'Hide Hidden' : 'Show Hidden'}</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedHiddenIds(new Set());
+                          setHideSelectionMode(true);
+                        }}
+                        disabled={savingVisibility}
+                      >
+                        <EyeOff className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Hide</span>
+                      </Button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -117,8 +117,9 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
               )}
             >
               {isCenter ? (
-                <span className="-mt-4 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-                  <Plus className="h-5 w-5" aria-hidden="true" />
+                <span className="relative -mt-4 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)] text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-primary/20 backdrop-blur">
+                  <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]" />
+                  <Plus className="relative z-10 h-5 w-5" aria-hidden="true" />
                 </span>
               ) : (
                 renderIcon(item.icon, item.isActive)

@@ -11,7 +11,16 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { AlertCircle, LogOut } from 'lucide-react';
 
-const DashboardLayoutContext = React.createContext(false);
+// Stash the context on globalThis so Vite HMR doesn't create duplicate context
+// instances during development (which would defeat the nested-layout guard and
+// cause the entire sidebar+navbar to render twice on a route like /shoot-history).
+const DASHBOARD_LAYOUT_CONTEXT_KEY = '__REPRO_DASHBOARD_LAYOUT_CONTEXT__';
+const globalScope = globalThis as unknown as Record<string, React.Context<boolean> | undefined>;
+const DashboardLayoutContext: React.Context<boolean> =
+  globalScope[DASHBOARD_LAYOUT_CONTEXT_KEY] ?? React.createContext(false);
+if (!globalScope[DASHBOARD_LAYOUT_CONTEXT_KEY]) {
+  globalScope[DASHBOARD_LAYOUT_CONTEXT_KEY] = DashboardLayoutContext;
+}
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;

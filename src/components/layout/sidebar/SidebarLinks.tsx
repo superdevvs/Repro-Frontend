@@ -12,7 +12,6 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { motion } from 'framer-motion';
 import {
   HomeIcon,
-  ClipboardIcon,
   HistoryIcon,
   BuildingIcon,
   CalendarIcon,
@@ -23,8 +22,8 @@ import {
   Mail,
   MessageSquare,
   Link2,
-  Upload,
   Crown,
+  PlusCircle,
   Sparkles,
 } from 'lucide-react';
 
@@ -93,6 +92,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewRobbie = permission.can('robbie', 'view');
 
   const isChatActive = pathname === '/chat-with-reproai';
+  const isBookShootActive = pathname === '/book-shoot';
 
   const measureActiveIndicator = React.useCallback(() => {
     const container = navListRef.current;
@@ -178,6 +178,25 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           }}
         />
       )}
+      {canBookShoot && (
+        <Link
+          to="/book-shoot"
+          className={cn(
+            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border px-3 py-2.5 text-sm font-semibold text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20 ring-1 ring-sidebar-primary/25 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-sidebar-primary/25',
+            isBookShootActive
+              ? 'bg-[linear-gradient(135deg,#1d4ed8_0%,#1e40af_50%,rgba(255,255,255,0.22)_100%)] ring-blue-800/45 shadow-blue-900/25 hover:bg-[linear-gradient(135deg,#1e40af_0%,#1e3a8a_50%,rgba(255,255,255,0.26)_100%)] hover:shadow-blue-900/30'
+              : 'bg-[linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.78)_45%,hsl(var(--sidebar-accent)/0.9)_100%)]',
+            isCollapsed && 'aspect-square px-2 py-2'
+          )}
+        >
+          <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--sidebar-primary-foreground)/0.22),hsl(var(--sidebar-primary-foreground)/0)_58%)]" />
+          <span className={cn('relative z-10 flex items-center gap-2', isCollapsed && 'justify-center')}>
+            <PlusCircle className="h-4 w-4 flex-shrink-0" />
+            {!isCollapsed && <span>Book Shoot</span>}
+          </span>
+        </Link>
+      )}
+
       {/* Dashboard link - everyone with dashboard view permission can see this */}
       {dashboardPermission.canView() && (
         <NavLink
@@ -189,19 +208,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           onActivePreview={previewActiveIndicator}
         />
       )}
-      
-      {/* Book Shoot link - only those who can book shoots (not editing_manager) */}
-      {canBookShoot && (
-        <NavLink
-          to="/book-shoot"
-          icon={<ClipboardIcon className="h-5 w-5" />}
-          label="Book Shoot"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/book-shoot'}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
-      
+
       {/* Shoot History - main shoots management page */}
       {shootsPermission.canView() && (
         <NavLink
@@ -213,53 +220,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           onActivePreview={previewActiveIndicator}
         />
       )}
-      {canViewShared && (
-        <NavLink
-          to="/shared"
-          icon={<Link2 className="h-5 w-5" />}
-          label="Shared"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/shared'}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
-      
-      {/* Accounts link */}
-      {accountsPermission.canView() && (
-        <NavLink
-          to="/accounts"
-          icon={<BuildingIcon className="h-5 w-5" />}
-          label="Accounts"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/accounts'}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
-      {canViewScheduling && !isEditingManager && (
-        <NavLink
-          to="/scheduling-settings"
-          icon={<Settings2Icon className="h-5 w-5" />}
-          label="Scheduling"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/scheduling-settings'}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
 
-      {/* Exclusive Listings */}
-      {canViewPortal && (
-        <NavLink
-          to="/portal"
-          icon={<Crown className="h-5 w-5" />}
-          label="Exclusive Listings"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/portal' || pathname.startsWith('/exclusive-listings')}
-          onActivePreview={previewActiveIndicator}
-          activeIconClassName="[&_svg]:text-yellow-600 dark:[&_svg]:text-amber-300"
-          animateIconOnActive
-        />
-      )}
-      
       {/* Accounting - hidden for editor */}
       {canViewAccounting && (() => {
         const accountingMode = getAccountingMode(role);
@@ -275,7 +236,89 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           />
         );
       })()}
-      
+
+      {/* Accounts link */}
+      {accountsPermission.canView() && (
+        <NavLink
+          to="/accounts"
+          icon={<BuildingIcon className="h-5 w-5" />}
+          label="Accounts"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/accounts'}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
+      {/* Availability */}
+      {availabilityPermission.canView() && !isEditingManager && role !== 'client' && (
+        <NavLink
+          to="/availability"
+          icon={<CalendarIcon className="h-5 w-5" />}
+          label="Availability"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/availability'}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
+      {/* AI Editing link - admins only */}
+      {canViewAiEditing && (
+        <NavLink
+          to="/ai-editing"
+          icon={<Sparkles className="h-5 w-5" />}
+          label="AI Editing"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/ai-editing' || pathname.startsWith('/ai-editing')}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
+      {/* Chat with Robbie - Special styled link - Above separator */}
+      {/* Only visible to client, admin, superadmin */}
+      {canViewRobbie && (
+        <Link
+          to="/chat-with-reproai"
+          data-sidebar-active={isChatActive ? 'true' : undefined}
+          onPointerDown={(event) => previewActiveIndicator(event.currentTarget)}
+          className={cn(
+            'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors',
+            isChatActive
+              ? 'font-medium text-sidebar-accent-foreground dark:text-sidebar-primary-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+            isCollapsed && 'justify-center p-2'
+          )}
+        >
+          <ReproAiIcon
+            useSolid={isChatActive}
+            className={cn(
+              'relative z-20 h-5 w-5 flex-shrink-0',
+              isChatActive && 'text-sidebar-primary-foreground'
+            )}
+          />
+          {!isCollapsed && (
+            <span className="relative z-20 leading-tight">
+              Chat with
+              <br />
+              Robbie
+            </span>
+          )}
+        </Link>
+      )}
+
+      {/* Exclusive Listings */}
+      {canViewPortal && (
+        <NavLink
+          to="/portal"
+          icon={<Crown className="h-5 w-5" />}
+          label="Exclusive Listings"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/portal' || pathname.startsWith('/exclusive-listings')}
+          onActivePreview={previewActiveIndicator}
+          activeIconClassName="[&_svg]:text-yellow-600 dark:[&_svg]:text-amber-300"
+          animateIconOnActive
+        />
+      )}
+
       {/* Messaging - Simple link for clients, expandable for admins */}
       {canViewEmailInbox && !canViewMessagingOverview && !canViewSms && (
         <NavLink
@@ -301,19 +344,29 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           ]}
         />
       )}
-      
-      {/* Availability */}
-      {availabilityPermission.canView() && !isEditingManager && role !== 'client' && (
+
+      {canViewScheduling && !isEditingManager && (
         <NavLink
-          to="/availability"
-          icon={<CalendarIcon className="h-5 w-5" />}
-          label="Availability"
+          to="/scheduling-settings"
+          icon={<Settings2Icon className="h-5 w-5" />}
+          label="Scheduling"
           isCollapsed={isCollapsed}
-          isActive={pathname === '/availability'}
+          isActive={pathname === '/scheduling-settings'}
           onActivePreview={previewActiveIndicator}
         />
       )}
-      
+
+      {canViewShared && (
+        <NavLink
+          to="/shared"
+          icon={<Link2 className="h-5 w-5" />}
+          label="Shared"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/shared'}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
       {/* Development/Testing Links - Remove in production */}
       {import.meta.env.VITE_ENV === 'development' && (
         <>
@@ -339,57 +392,13 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           />
           <NavLink
             to="/test-client-form"
-            icon={<ClipboardIcon className="h-5 w-5" />}
+            icon={<HomeIcon className="h-5 w-5" />}
             label="Test Client Form"
             isCollapsed={isCollapsed}
             isActive={pathname === '/test-client-form'}
             onActivePreview={previewActiveIndicator}
           />
         </>
-      )}
-
-      {/* AI Editing link - admins only */}
-      {canViewAiEditing && (
-        <NavLink
-          to="/ai-editing"
-          icon={<Sparkles className="h-5 w-5" />}
-          label="AI Editing"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/ai-editing' || pathname.startsWith('/ai-editing')}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
-
-      {/* Chat with Robbie - Special styled link - Above separator */}
-      {/* Only visible to client, admin, superadmin */}
-      {canViewRobbie && (
-        <Link
-          to="/chat-with-reproai"
-          data-sidebar-active={isChatActive ? 'true' : undefined}
-          onPointerDown={(event) => previewActiveIndicator(event.currentTarget)}
-          className={cn(
-            'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors',
-            isChatActive 
-              ? 'font-medium text-sidebar-accent-foreground dark:text-sidebar-primary-foreground' 
-              : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
-            isCollapsed && 'justify-center p-2'
-          )}
-        >
-          <ReproAiIcon
-            useSolid={isChatActive}
-            className={cn(
-              'relative z-20 h-5 w-5 flex-shrink-0',
-              isChatActive && 'text-sidebar-primary-foreground'
-            )}
-          />
-          {!isCollapsed && (
-            <span className="relative z-20 leading-tight">
-              Chat with
-              <br />
-              Robbie
-            </span>
-          )}
-        </Link>
       )}
     </div>
   );

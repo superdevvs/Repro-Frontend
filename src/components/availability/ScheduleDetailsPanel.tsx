@@ -1,14 +1,17 @@
+import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import {
+  Ban,
   CalendarIcon,
   ChevronRight,
   Clock,
   Edit,
   MoreVertical,
+  Pencil,
   Plus,
+  Trash2,
   User,
   Users,
-  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +51,7 @@ interface ScheduleDetailsPanelProps {
   handleEditAvailability: () => void;
   saveWeeklySchedule: () => Promise<void>;
   handleDeleteAvailability: (slotId: string, specificDate?: string) => Promise<void>;
+  handleMarkUnavailable: (slotId: string, specificDate?: string) => Promise<void>;
   notifyDemoAvailabilityRestriction: () => void;
   backendSlots: BackendSlot[];
   allBackendSlots: BackendSlot[];
@@ -83,6 +87,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
     handleEditAvailability,
     saveWeeklySchedule,
     handleDeleteAvailability,
+    handleMarkUnavailable,
     notifyDemoAvailabilityRestriction,
     backendSlots,
     allBackendSlots,
@@ -99,6 +104,30 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
   } = props;
 
   const isMobile = variant === "mobile";
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // When viewing the month and the selected day changes (e.g. clicking a cell
+  // in the calendar body), scroll that day's section into view in the right
+  // panel so the user can immediately see its schedule.
+  useEffect(() => {
+    if (viewMode !== "month") return;
+    if (!date) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const dateKey = format(date, "yyyy-MM-dd");
+    // Small timeout lets the grouped slot list render before we search.
+    const handle = window.setTimeout(() => {
+      const target = container.querySelector<HTMLElement>(
+        `[data-date-key="${dateKey}"]`
+      );
+      if (!target) return;
+      const containerTop = container.getBoundingClientRect().top;
+      const targetTop = target.getBoundingClientRect().top;
+      const offset = targetTop - containerTop + container.scrollTop - 4;
+      container.scrollTo({ top: Math.max(0, offset), behavior: "smooth" });
+    }, 0);
+    return () => window.clearTimeout(handle);
+  }, [date, viewMode, selectedPhotographer]);
 
   // Mobile variant with simplified editing
   if (isMobile) {
@@ -123,7 +152,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                       </Button>
                     )}
                   </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto">
+                  <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
                     {(() => {
                       let slots: Availability[] = [];
                       if (viewMode === "day") slots = getSelectedDateAvailabilities();
@@ -145,6 +174,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                             <div
                               key={slot.id}
                               data-slot-id={slot.id}
+                              data-date-key={slot.date || undefined}
                               ref={selectedSlotId === slot.id ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) : undefined}
                               onClick={() => {
                                 setSelectedSlotId(slot.id);
@@ -168,11 +198,13 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                   {slot.shootTitle && <div className="text-xs text-muted-foreground mt-1">{slot.shootTitle}</div>}
                                 </div>
                                 {canEditAvailability && (
-                                  <div className="flex gap-1">
+                                  <div className="flex items-center gap-1">
                                     <Button
-                                      variant="ghost"
+                                      variant="outline"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      aria-label="Edit schedule"
+                                      title="Edit"
+                                      className="h-8 w-8 rounded-md"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (slot.isRandom) {
@@ -183,18 +215,35 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                         setIsEditDialogOpen(true);
                                       }}
                                     >
-                                      <Edit className="h-3.5 w-3.5" />
+                                      <Pencil className="h-3.5 w-3.5" />
                                     </Button>
+                                    {slot.status !== 'unavailable' && (
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        aria-label="Mark unavailable"
+                                        title="Mark unavailable"
+                                        className="h-8 w-8 rounded-md border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMarkUnavailable(slot.id, slot.date);
+                                        }}
+                                      >
+                                        <Ban className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
                                     <Button
-                                      variant="ghost"
+                                      variant="outline"
                                       size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                      aria-label="Delete schedule"
+                                      title="Delete"
+                                      className="h-8 w-8 rounded-md border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteAvailability(slot.id, slot.date);
                                       }}
                                     >
-                                      <X className="h-3.5 w-3.5" />
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
                                 )}
@@ -263,7 +312,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                 )}
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto">
+              <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
                 {(() => {
                   let slots: Availability[] = [];
                   if (viewMode === "day") slots = getSelectedDateAvailabilities();
@@ -296,7 +345,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                   return (
                     <div className="space-y-4">
                       {Object.entries(groupedSlots).map(([dateKey, dateSlots]) => (
-                        <div key={dateKey}>
+                        <div key={dateKey} data-date-key={dateKey === 'weekly' ? undefined : dateKey}>
                           {viewMode !== "day" && (
                             <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
                               {dateKey === 'weekly' ? 'Recurring' : format(new Date(dateKey), 'EEEE, MMMM d')}
@@ -419,11 +468,13 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                     )}
                                   </div>
                                   {canEditAvailability && slot.status !== 'booked' && (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
                                       <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7"
+                                        variant="outline"
+                                        size="sm"
+                                        aria-label="Edit schedule"
+                                        title="Edit"
+                                        className="h-8 px-2.5 gap-1.5"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           const slotToEdit = backendSlots.find(s => String(s.id) === slot.id) ||
@@ -446,18 +497,37 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                           }
                                         }}
                                       >
-                                        <Edit className="h-3.5 w-3.5" />
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        <span className="text-xs font-medium">Edit</span>
                                       </Button>
+                                      {slot.status !== 'unavailable' && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          aria-label="Mark unavailable"
+                                          title="Mark unavailable"
+                                          className="h-8 px-2.5 gap-1.5 border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMarkUnavailable(slot.id, slot.date);
+                                          }}
+                                        >
+                                          <Ban className="h-3.5 w-3.5" />
+                                          <span className="text-xs font-medium">Unavailable</span>
+                                        </Button>
+                                      )}
                                       <Button
-                                        variant="ghost"
+                                        variant="outline"
                                         size="icon"
-                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                        aria-label="Delete schedule"
+                                        title="Delete"
+                                        className="h-8 w-8 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleDeleteAvailability(slot.id, slot.date);
                                         }}
                                       >
-                                        <X className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-3.5 w-3.5" />
                                       </Button>
                                     </div>
                                   )}

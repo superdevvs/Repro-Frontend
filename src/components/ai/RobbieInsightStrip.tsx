@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -98,6 +98,9 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const [isPaused, setIsPaused] = useState(false);
   const [displayedText, setDisplayedText] = useState("");
   const [thinkingDots, setThinkingDots] = useState("");
+  const [isInputMode, setIsInputMode] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Fetch insights from API
   const fetchInsights = useCallback(async (signal?: AbortSignal) => {
@@ -265,6 +268,19 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       role: roleKey,
     };
 
+    if (currentRoute === "/chat-with-reproai") {
+      window.dispatchEvent(
+        new CustomEvent("robbie-insight-send", {
+          detail: {
+            message: activeInsight.prompt,
+            context,
+            source: "robbie_insight_strip",
+          },
+        }),
+      );
+      return;
+    }
+
     navigate("/chat-with-reproai", {
       state: {
         initialMessage: activeInsight.prompt,
@@ -274,27 +290,71 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     });
   };
 
+  const enterInputMode = () => {
+    setIsInputMode(true);
+    setIsPaused(true);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const exitInputMode = () => {
+    setIsInputMode(false);
+    setInputValue("");
+    setIsPaused(false);
+  };
+
+  const submitInputMessage = () => {
+    const message = inputValue.trim();
+    if (!message) {
+      exitInputMode();
+      return;
+    }
+    const context: AiChatRequest["context"] = {
+      mode: "general",
+      source: "robbie_insight_strip",
+      page: currentPage,
+      route: currentRoute,
+      role: roleKey,
+    };
+    navigate("/chat-with-reproai", {
+      state: {
+        initialMessage: message,
+        context,
+        source: "robbie_insight_strip",
+      },
+    });
+    exitInputMode();
+  };
+
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Robbie insight: ${displayInsight.message}`}
-      onClick={handleOpenChat}
-      onKeyDown={(event) => {
-        if (!isInteractive && !error) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
+      onClick={() => {
+        if (isInputMode) return;
+        if (currentRoute === "/chat-with-reproai" && activeInsight?.prompt) {
           handleOpenChat();
+          return;
         }
+        enterInputMode();
       }}
       onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      onMouseLeave={() => {
+        if (!isInputMode) setIsPaused(false);
+      }}
       className={cn(
-        "group relative flex max-w-3xl cursor-pointer items-center gap-3 overflow-hidden rounded-2xl bg-transparent px-4 py-2 transition",
+        "group relative flex w-full cursor-text items-center gap-3 overflow-hidden rounded-2xl bg-transparent px-4 py-2 transition",
         className,
       )}
     >
-      <div className="flex items-center gap-2.5">
+      <div
+        className="flex items-center gap-2.5"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (isInputMode) {
+            exitInputMode();
+          }
+        }}
+      >
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
           <ReproAiIcon className="h-4 w-4" />
         </div>
@@ -306,38 +366,84 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       </div>
 
       <div className="min-w-0 flex-1 flex items-center gap-2">
-        <span
-          className={cn(
-            "shrink-0 inline-block h-2 w-2 rounded-full",
-            meta.dotClass,
-            isLoading && "animate-pulse"
-          )}
-          title={meta.label}
-          aria-label={meta.label}
-        />
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={displayInsight.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.35 }}
-            className={cn(
-              "min-w-0 text-sm font-medium text-foreground/90 truncate",
-              isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]",
-              isLoading && "animate-pulse"
-            )}
-            title={displayInsight.message}
-          >
-            {displayText}
-          </motion.div>
-        </AnimatePresence>
+        {isInputMode ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                submitInputMessage();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                exitInputMode();
+              }
+            }}
+            onBlur={() => {
+              if (!inputValue.trim()) {
+                exitInputMode();
+              }
+            }}
+            placeholder="Ask Robbie anything…"
+            aria-label="Ask Robbie anything"
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground placeholder:text-muted-foreground/70 outline-none"
+          />
+        ) : (
+          <>
+            <span
+              className={cn(
+                "shrink-0 inline-block h-2 w-2 rounded-full",
+                meta.dotClass,
+                isLoading && "animate-pulse"
+              )}
+              title={meta.label}
+              aria-label={meta.label}
+            />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={displayInsight.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+                className={cn(
+                  "min-w-0 text-sm font-medium text-foreground/90 truncate",
+                  isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]",
+                  isLoading && "animate-pulse"
+                )}
+                title={displayInsight.message}
+              >
+                {displayText}
+              </motion.div>
+            </AnimatePresence>
+          </>
+        )}
       </div>
 
-      <div className="hidden items-center gap-1 text-xs font-semibold text-muted-foreground opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 sm:flex">
-        <span>View details</span>
-        <ArrowRight className="h-3 w-3" />
-      </div>
+      {!isInputMode && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            handleOpenChat();
+          }}
+          onKeyDown={(event) => {
+            if (!isInteractive && !error) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleOpenChat();
+            }
+          }}
+          aria-label={`Robbie insight: ${displayInsight.message}`}
+          className="hidden items-center gap-1 text-xs font-semibold text-muted-foreground opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 sm:flex"
+        >
+          <span>View details</span>
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 };

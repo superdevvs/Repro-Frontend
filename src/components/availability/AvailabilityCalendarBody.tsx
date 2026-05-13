@@ -25,6 +25,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Ban, CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -145,6 +150,7 @@ interface AvailabilityCalendarBodyProps {
   currentMonth: Date;
   setCurrentMonth: (value: Date) => void;
   selectedPhotographer: string;
+  setSelectedPhotographer?: (id: string) => void;
   photographers: Photographer[];
   backendSlots: BackendSlot[];
   allBackendSlots: BackendSlot[];
@@ -190,6 +196,7 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
     currentMonth,
     setCurrentMonth,
     selectedPhotographer,
+    setSelectedPhotographer,
     photographers,
     backendSlots,
     allBackendSlots,
@@ -298,6 +305,43 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                 return 'Available';
               };
 
+              // In "all photographers" mode show avatars of people working
+              // that day (like the week view) instead of per-slot info chips.
+              const allMode = selectedPhotographer === 'all';
+              const photographerEntries = (() => {
+                if (!allMode || !hasSlots) return [] as Array<{
+                  photographerId: string;
+                  photographer?: Photographer;
+                  status: AvailabilityStatus;
+                  slots: Availability[];
+                }>;
+                const map = new Map<string, { photographerId: string; photographer?: Photographer; status: AvailabilityStatus; slots: Availability[] }>();
+                cellSlotsSorted.forEach((slot) => {
+                  const pid = String(slot.photographerId ?? '');
+                  if (!pid) return;
+                  const existing = map.get(pid);
+                  if (existing) {
+                    existing.slots.push(slot);
+                    // Promote status: booked > unavailable > available
+                    const rank = (s: AvailabilityStatus) =>
+                      s === 'booked' ? 3 : s === 'unavailable' ? 2 : 1;
+                    if (rank(slot.status) > rank(existing.status)) existing.status = slot.status;
+                  } else {
+                    map.set(pid, {
+                      photographerId: pid,
+                      photographer: photographers.find(p => String(p.id) === pid),
+                      status: slot.status,
+                      slots: [slot],
+                    });
+                  }
+                });
+                return Array.from(map.values());
+              })();
+
+              const MAX_AVATARS = isMobile ? 2 : 4;
+              const visibleAvatars = photographerEntries.slice(0, MAX_AVATARS);
+              const hiddenAvatarCount = Math.max(0, photographerEntries.length - visibleAvatars.length);
+
               const buttonEl = (
                 <button
                   onClick={() => {
@@ -327,7 +371,72 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                     {format(day, 'd')}
                   </span>
 
-                  {hasSlots && (
+                  {allMode && hasSlots && (
+                    <div className="flex items-center flex-wrap gap-0.5 w-full overflow-hidden">
+                      {visibleAvatars.map(({ photographerId, photographer, status }) => {
+                        const initials = photographer ? getInitials(photographer.name) : "??";
+                        const selectPhotographer = () => {
+                          setDate(day);
+                          const dayMonth = startOfMonth(day);
+                          if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) {
+                            setCurrentMonth(dayMonth);
+                          }
+                          if (setSelectedPhotographer) setSelectedPhotographer(photographerId);
+                          setSelectedSlotId(null);
+                          if (isMobile && setMobileTab) setMobileTab("details");
+                        };
+                        return (
+                          <div
+                            key={photographerId}
+                            role="button"
+                            tabIndex={0}
+                            title={photographer?.name}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectPhotographer();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                selectPhotographer();
+                              }
+                            }}
+                            className={cn(
+                              "relative rounded-full border-2 bg-background flex-shrink-0 cursor-pointer transition-transform hover:scale-110 hover:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                              isMobile ? "h-5 w-5" : "h-6 w-6",
+                              status === 'available' && "border-green-500",
+                              status === 'booked' && "border-blue-500",
+                              status === 'unavailable' && "border-red-500",
+                            )}
+                          >
+                            <Avatar className="h-full w-full">
+                              <AvatarImage
+                                src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)}
+                                alt={photographer?.name}
+                                className="object-cover"
+                              />
+                              <AvatarFallback className={cn(isMobile ? "text-[8px]" : "text-[9px]", "bg-muted")}>
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                        );
+                      })}
+                      {hiddenAvatarCount > 0 && (
+                        <div
+                          className={cn(
+                            "rounded-full bg-muted text-muted-foreground font-semibold flex items-center justify-center flex-shrink-0",
+                            isMobile ? "h-5 w-5 text-[8px]" : "h-6 w-6 text-[9px]",
+                          )}
+                        >
+                          +{hiddenAvatarCount}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!allMode && hasSlots && (
                     <div className="flex flex-col gap-0.5 w-full overflow-hidden">
                       {visibleSlots.map((slot) => (
                         <div
@@ -356,50 +465,63 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                 <ContextMenu key={`${weekIdx}-${dayIdx}`}>
                   <ContextMenuTrigger className="block h-full w-full">
                     {!isMobile && selectedPhotographer === 'all' && hasSlots ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            {buttonEl}
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <div className="text-xs font-semibold mb-1">{format(day, 'MMM d, yyyy')}</div>
-                            <div className="space-y-1">
-                              {(() => {
-                                const photographerMap = new Map<string, Array<typeof allSlots[0]>>();
-                                allSlots.forEach(slot => {
-                                  const photographerId = String(slot.photographer_id);
-                                  if (!photographerMap.has(photographerId)) {
-                                    photographerMap.set(photographerId, []);
-                                  }
-                                  photographerMap.get(photographerId)?.push(slot);
-                                });
+                      <HoverCard openDelay={120} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          {buttonEl}
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-auto min-w-[220px] max-w-xs p-3">
+                          <div className="text-xs font-semibold mb-2">{format(day, 'MMM d, yyyy')}</div>
+                          <div className="space-y-0.5">
+                            {(() => {
+                              const photographerMap = new Map<string, Array<typeof allSlots[0]>>();
+                              allSlots.forEach(slot => {
+                                const photographerId = String(slot.photographer_id);
+                                if (!photographerMap.has(photographerId)) {
+                                  photographerMap.set(photographerId, []);
+                                }
+                                photographerMap.get(photographerId)?.push(slot);
+                              });
 
-                                return Array.from(photographerMap.entries()).map(([photographerId, slots]) => {
-                                  const photographer = photographers.find(p => String(p.id) === photographerId);
-                                  const firstSlot = slots[0];
-                                  const status = firstSlot.status ?? 'available';
-                                  const timeRange = `${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)}`;
+                              return Array.from(photographerMap.entries()).map(([photographerId, slots]) => {
+                                const photographer = photographers.find(p => String(p.id) === photographerId);
+                                const firstSlot = slots[0];
+                                const status = firstSlot.status ?? 'available';
+                                const timeRange = `${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)}`;
 
-                                  return (
-                                    <div key={photographerId} className="flex items-center gap-1.5">
-                                      <div
-                                        className={cn(
-                                          "w-2 h-2 rounded-full",
-                                          status === 'available' && "bg-green-500",
-                                          status === 'booked' && "bg-blue-500",
-                                          status === 'unavailable' && "bg-red-500"
-                                        )}
-                                      />
-                                      <span className="text-[10px]">{photographer?.name || 'Unknown'}</span>
-                                      <span className="text-[9px] text-muted-foreground">({timeRange})</span>
-                                    </div>
-                                  );
-                                });
-                              })()}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                                return (
+                                  <button
+                                    key={photographerId}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDate(day);
+                                      const dayMonth = startOfMonth(day);
+                                      if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) {
+                                        setCurrentMonth(dayMonth);
+                                      }
+                                      if (setSelectedPhotographer) setSelectedPhotographer(photographerId);
+                                      setSelectedSlotId(null);
+                                      if (isMobile && setMobileTab) setMobileTab("details");
+                                    }}
+                                    className="flex items-center gap-1.5 w-full text-left rounded-sm px-1.5 py-1 transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                  >
+                                    <div
+                                      className={cn(
+                                        "w-2 h-2 rounded-full flex-shrink-0",
+                                        status === 'available' && "bg-green-500",
+                                        status === 'booked' && "bg-blue-500",
+                                        status === 'unavailable' && "bg-red-500"
+                                      )}
+                                    />
+                                    <span className="text-xs font-medium truncate">{photographer?.name || 'Unknown'}</span>
+                                    <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">({timeRange})</span>
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                     ) : (
                       buttonEl
                     )}

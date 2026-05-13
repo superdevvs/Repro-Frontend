@@ -291,6 +291,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const SHOOTS_PER_PAGE = 5;
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  // Dynamic height so the list reveals ~5.5 cards at a time, peeking the 6th
+  const [shootCardHeight, setShootCardHeight] = useState<number>(0);
 
   useEffect(() => {
     if (!isEditingManagerMode) return;
@@ -647,10 +650,60 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
     const nearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
-    if (nearBottom && hasMore) {
+    if (nearBottom && (hasMore || editingManagerHasMore)) {
       setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
     }
-  }, [hasMore]);
+  }, [hasMore, editingManagerHasMore]);
+
+  const loadMoreShoots = useCallback(() => {
+    setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
+  }, []);
+
+  // Auto-load more when the sentinel scrolls into the viewport. Handles the
+  // case where the inner scroll container does not overflow (items fit within
+  // its height) and onScroll never fires.
+  useEffect(() => {
+    const anyMore = hasMore || editingManagerHasMore;
+    if (!anyMore) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
+        }
+      },
+      { root: scrollContainerRef.current ?? null, rootMargin: '200px 0px', threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, editingManagerHasMore, activeTab]);
+
+  // Measure a representative shoot card so the container height shows ~5.5 cards
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const firstCard = container.querySelector<HTMLElement>('[data-shoot-card="true"]');
+    if (!firstCard) return;
+    const update = () => {
+      const height = firstCard.offsetHeight;
+      if (height > 0) setShootCardHeight(height);
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(firstCard);
+    return () => observer.disconnect();
+  }, [paginatedGroups, editingManagerPaginatedGroups, activeTab]);
+
+  // ~5.5 cards tall: 5 full + half of 6th, plus gaps (space-y-3 between cards
+  // in a group) and a small allowance for the first group label.
+  const listMaxHeight = useMemo(() => {
+    if (shootCardHeight <= 0) return undefined;
+    const inGroupGap = 12; // space-y-3
+    const labelAllowance = 40; // first group label + top spacing
+    return `${Math.ceil(shootCardHeight * 5.5 + inGroupGap * 5 + labelAllowance)}px`;
+  }, [shootCardHeight]);
 
   useEffect(() => {
     let isMounted = true;
@@ -786,6 +839,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     return (
       <div
         key={shoot.id}
+        data-shoot-card="true"
         onClick={() => onSelect(shoot, weather)}
         className={cn(
           "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
@@ -1524,6 +1578,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               ref={scrollContainerRef}
               onScroll={handleScroll}
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              style={{ maxHeight: listMaxHeight }}
             >
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
@@ -1537,8 +1592,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 </div>
               ))}
               {editingManagerHasMore && (
-                <div className="flex justify-center py-2 text-xs text-muted-foreground">
-                  Scroll for more
+                <div
+                  ref={loadMoreSentinelRef}
+                  className="flex justify-center py-2"
+                >
+                  <button
+                    type="button"
+                    onClick={loadMoreShoots}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Load more
+                  </button>
                 </div>
               )}
             </div>
@@ -2005,6 +2069,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               ref={scrollContainerRef}
               onScroll={handleScroll}
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              style={{ maxHeight: listMaxHeight }}
             >
               {paginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
@@ -2018,8 +2083,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 </div>
               ))}
               {hasMore && (
-                <div className="flex justify-center py-2 text-xs text-muted-foreground">
-                  Scroll for more
+                <div
+                  ref={loadMoreSentinelRef}
+                  className="flex justify-center py-2"
+                >
+                  <button
+                    type="button"
+                    onClick={loadMoreShoots}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Load more
+                  </button>
                 </div>
               )}
             </div>

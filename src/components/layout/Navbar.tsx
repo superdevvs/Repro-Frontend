@@ -471,11 +471,12 @@ export function Navbar() {
               <Button 
                 variant="default" 
                 size="sm" 
-                className="mr-2 shrink-0 flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="relative mr-2 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)] p-0 text-primary-foreground shadow-lg shadow-primary/20 ring-1 ring-primary/20 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25 md:hidden"
                 onClick={() => navigate('/book-shoot')}
               >
-                <PlusCircleIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">New Shoot</span>
+                <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]" />
+                <PlusCircleIcon className="relative z-10 h-4 w-4" />
+                <span className="sr-only">New Shoot</span>
               </Button>
             )}
           
@@ -497,17 +498,19 @@ export function Navbar() {
 
         {/* Hide Robbie strip for photographer and editor roles */}
         {showRobbieStrip && (
-          <div className="hidden lg:flex flex-[1.6] min-w-0 px-3 items-center">
-            <div className="h-8 w-px bg-border/60" />
+          <div className="hidden lg:flex flex-[1.6] min-w-0 pl-3 items-center">
+            <div className="h-8 w-px shrink-0 bg-border/60" />
             <RobbieInsightStrip
               role={role}
-              className="w-full border-0 shadow-none px-4 py-1.5 rounded-xl"
+              className="min-w-0 flex-1 border-0 shadow-none px-4 py-1.5 rounded-xl"
             />
-            <div className="h-8 w-px bg-border/60" />
           </div>
         )}
       
         <div className="flex items-center gap-4">
+        {showRobbieStrip && (
+          <div className="hidden lg:block h-8 w-px shrink-0 bg-border/60" />
+        )}
         {/* Weather Info */}
         {weather && (
           <button

@@ -1,7 +1,13 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+
+const LazyShootDetailsModal = lazy(() =>
+  import('@/components/shoots/ShootDetailsModal').then((module) => ({
+    default: module.ShootDetailsModal,
+  })),
+);
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -88,6 +94,7 @@ const ChatWithReproAi = () => {
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [currentSuggestions, setCurrentSuggestions] = useState<string[]>([]);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const [overviewShootId, setOverviewShootId] = useState<string | null>(null);
   
   const userName = user?.name || user?.email?.split('@')[0] || 'there';
 
@@ -164,12 +171,14 @@ const ChatWithReproAi = () => {
     return () => clearInterval(interval);
   }, [viewMode]);
 
-  // Load sessions when history tab is active
+  // Load sessions when history tab is active or when showing the home panel
+  // (home now renders a compact "Recent chats" preview in its bottom area).
   useEffect(() => {
-    if (tabMode === 'history') {
+    if (tabMode === 'history' || (tabMode === 'chat' && viewMode === 'home')) {
       void loadSessions();
     }
-  }, [tabMode, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabMode, viewMode, searchTerm]);
 
   const resizeMessageInput = useCallback(() => {
     const el = messageInputRef.current;
@@ -234,11 +243,13 @@ const ChatWithReproAi = () => {
               const createdAt = session?.createdAt ?? session?.created_at;
               const updatedAt = session?.updatedAt ?? session?.updated_at ?? createdAt;
 
+              const previewRaw = session?.preview ?? session?.last_message ?? session?.lastMessage ?? null;
               return {
                 id: String(session?.id ?? ''),
                 title: (session?.title ?? '').toString(),
                 topic: (session?.topic ?? 'general') as AiChatSession['topic'],
                 messageCount: Number(session?.messageCount ?? session?.messages_count ?? 0),
+                preview: typeof previewRaw === 'string' ? previewRaw : null,
                 createdAt: typeof createdAt === 'string' ? createdAt : new Date().toISOString(),
                 updatedAt: typeof updatedAt === 'string' ? updatedAt : new Date().toISOString(),
               };
@@ -405,6 +416,33 @@ const ChatWithReproAi = () => {
     void handleSendMessage(state.initialMessage, state.context);
     navigate(location.pathname, { replace: true, state: null });
   }, [handleSendMessage, location.pathname, location.state, navigate]);
+
+  // Listen for insight strip clicks while already on the chat screen.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string; context?: AiChatRequest['context'] }>).detail;
+      const text = detail?.message?.trim();
+      if (!text) return;
+      void handleSendMessage(text, detail?.context);
+    };
+    window.addEventListener('robbie-insight-send', handler as EventListener);
+    return () => {
+      window.removeEventListener('robbie-insight-send', handler as EventListener);
+    };
+  }, [handleSendMessage]);
+
+  // Listen for "Open #N" actions inside chat replies to show the shoot overview modal.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ shootId?: string | number }>).detail;
+      if (!detail?.shootId) return;
+      setOverviewShootId(String(detail.shootId));
+    };
+    window.addEventListener('ai-open-shoot', handler as EventListener);
+    return () => {
+      window.removeEventListener('ai-open-shoot', handler as EventListener);
+    };
+  }, []);
 
   const handleCardClick = useCallback((cardType: 'booking' | 'listing' | 'insight') => {
     if (isSendingRef.current || isLoading) return;
@@ -579,17 +617,46 @@ const ChatWithReproAi = () => {
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '';
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    const diff = Math.max(0, now.getTime() - date.getTime());
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (hours < 1) return 'Just now';
+    if (seconds < 30) return 'Just now';
+    if (minutes < 1) return '<1m ago';
+    if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
   };
+
+  // Build a short, friendly label for a session row.
+  // Prefer a real title; otherwise fall back to the latest message preview
+  // trimmed to ~5 words so the list reads like a human summary.
+  const getSessionDisplayLabel = useCallback((session: AiChatSession): string => {
+    const PLACEHOLDER_TITLES = new Set(['new conversation', 'new chat', '']);
+    const rawTitle = (session.title ?? '').trim();
+    const isPlaceholderTitle = PLACEHOLDER_TITLES.has(rawTitle.toLowerCase());
+
+    if (rawTitle && !isPlaceholderTitle) {
+      return rawTitle;
+    }
+
+    const preview = (session.preview ?? '').trim();
+    if (!preview) {
+      return 'New conversation';
+    }
+
+    const words = preview.split(/\s+/).filter(Boolean);
+    if (words.length <= 5) {
+      return preview.length > 60 ? `${preview.slice(0, 57)}…` : preview;
+    }
+    return `${words.slice(0, 5).join(' ')}…`;
+  }, []);
 
   const suggestedCards = [
     {
@@ -700,11 +767,17 @@ const ChatWithReproAi = () => {
 
   const suggestionFallbacks = pagePrompts ?? defaultPrompts;
 
+  // On the Robbie home view we hide the entire sticky tab header (tabs +
+  // bottom divider line) for a cleaner, focused landing screen. The History
+  // tab is still reachable from the "View all" button in Recent chats.
+  const isRobbieHome = tabMode === 'chat' && viewMode === 'home';
+
   return (
     <DashboardLayout hideNavbar={false} hideFooter className="!p-0 !pb-0 !min-h-0">
       {/* Let content grow naturally so <main> scrolls */}
       <div className="flex flex-col flex-1">
-        {/* ── TOP AREA: sticky page header + controls ── */}
+        {/* ── TOP AREA: sticky page header + controls (hidden on Robbie home) ── */}
+        {!isRobbieHome && (
         <div className="sticky top-0 z-50 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <div className="mx-auto w-full max-w-5xl px-2 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
             <div
@@ -820,6 +893,7 @@ const ChatWithReproAi = () => {
             </div>
           </div>
         </div>
+        )}
 
         <div
           ref={contentScrollRef}
@@ -844,24 +918,24 @@ const ChatWithReproAi = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.24, ease: 'easeOut' }}
-                    className="mt-4 md:mt-0 flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 py-10 min-h-[calc(100vh-64px-200px)]"
+                    className="flex flex-col items-center justify-center space-y-3 md:space-y-4 px-4 py-6 md:py-10 min-h-[calc(100vh-180px)] md:min-h-[calc(100vh-200px)]"
                   >
-                    {/* Welcome Section - Centered */}
+                    {/* Welcome Section - Top-aligned */}
                     <motion.div
                       initial={{ opacity: 0, y: 14, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ delay: 0.08, duration: 0.3, ease: 'easeOut' }}
-                      className="flex flex-col items-center justify-center space-y-2 md:space-y-4 text-center max-w-2xl px-2 mx-auto"
+                      className="flex flex-col items-center space-y-2 md:space-y-3 text-center max-w-2xl px-2 mx-auto"
                     >
                       <ReproAiIcon
-                        className={`w-16 h-16 md:w-24 md:h-24 mx-auto ${isMobile ? 'text-blue-600' : ''}`}
+                        className={`w-14 h-14 md:w-20 md:h-20 mx-auto ${isMobile ? 'text-blue-600' : ''}`}
                         useSolid={isMobile}
                       />
                       <div className="w-full">
                         <h2 className="text-xl md:text-3xl font-semibold mb-1 md:mb-2 text-center">
                           Welcome, {userName}
                         </h2>
-                        <p className="text-muted-foreground text-sm md:text-lg px-2 text-center">
+                        <p className="text-muted-foreground text-sm md:text-base px-2 text-center">
                           Use Robbie to book shoots, improve your listings, and understand your properties in one place.
                         </p>
                       </div>
@@ -950,6 +1024,81 @@ const ChatWithReproAi = () => {
                         })}
                       </div>
                     </div>
+
+                    {/* Recent chats — bottom area preview, mirrors AI Editing's "Recent activity" */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.32, duration: 0.3, ease: 'easeOut' }}
+                      className="w-full max-w-4xl px-2 pt-2 md:pt-4"
+                    >
+                      <div className="rounded-xl border bg-card/60 backdrop-blur-sm p-3 md:p-5 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="text-sm md:text-base font-semibold">Recent chats</h3>
+                            <p className="text-[11px] md:text-xs text-muted-foreground">
+                              Pick up where you left off with Robbie.
+                            </p>
+                          </div>
+                          {sessions.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => setTabMode('history')}
+                            >
+                              View all
+                            </Button>
+                          )}
+                        </div>
+
+                        {isLoadingSessions && sessions.length === 0 ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : sessions.length === 0 ? (
+                          <div className="rounded-lg border border-dashed p-6 text-center">
+                            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                              <MessageSquare className="h-5 w-5 text-primary" />
+                            </div>
+                            <p className="text-sm font-medium">No conversations yet</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Start a chat above to see it here.
+                            </p>
+                          </div>
+                        ) : (
+                          <div
+                            className="max-h-[200px] md:max-h-[210px] space-y-1 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60"
+                          >
+                            {sessions.slice(0, 20).map((session) => (
+                              <button
+                                key={session.id}
+                                onClick={() => handleSessionClick(session)}
+                                className="group w-full text-left"
+                              >
+                                <div className="flex items-center gap-3 rounded-lg border border-transparent p-2.5 md:p-3 transition-colors hover:border-border hover:bg-secondary/50">
+                                  <div className="flex h-8 w-8 md:h-9 md:w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
+                                    <MessageSquare className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+                                    <h4 className="truncate text-sm font-medium transition-colors group-hover:text-primary">
+                                      {getSessionDisplayLabel(session)}
+                                    </h4>
+                                    <span className="hidden md:inline text-xs text-muted-foreground whitespace-nowrap">
+                                      {session.messageCount || 0} {session.messageCount === 1 ? 'message' : 'messages'}
+                                    </span>
+                                    <div className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-[11px] md:text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      <span>{formatTimestamp(session.updatedAt)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -1169,7 +1318,7 @@ const ChatWithReproAi = () => {
                           </div>
                           <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
                               <h4 className="font-medium text-sm md:text-base truncate group-hover:text-primary transition-colors">
-                                {(session.title ?? '').trim() || 'New conversation'}
+                                {getSessionDisplayLabel(session)}
                               </h4>
                               <div className="ml-auto flex items-center gap-1.5 text-[11px] md:text-xs text-muted-foreground whitespace-nowrap">
                                 <Clock className="h-3 w-3" />
@@ -1226,7 +1375,10 @@ const ChatWithReproAi = () => {
 
         {/* ── BOTTOM AREA: fixed chat bar ── */}
         {tabMode === 'chat' && (
-          <div className="border-t border-border/10 bg-background fixed bottom-16 md:sticky md:bottom-0 left-0 right-0 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] md:pb-2 z-[80]">
+          <div className={cn(
+            "border-t border-border/10 bg-background fixed bottom-16 md:sticky md:bottom-0 left-0 right-0 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] md:pb-2",
+            overviewShootId ? "z-[60]" : "z-[80]"
+          )}>
             <div className={cn(
               "max-w-5xl mx-auto px-4 pb-0",
               viewMode === 'chat' ? "pt-4 md:pt-6" : "pt-3"
@@ -1318,6 +1470,16 @@ const ChatWithReproAi = () => {
           </div>
         )}
       </div>
+      {overviewShootId && (
+        <Suspense fallback={null}>
+          <LazyShootDetailsModal
+            shootId={overviewShootId}
+            isOpen={Boolean(overviewShootId)}
+            onClose={() => setOverviewShootId(null)}
+            initialTab="overview"
+          />
+        </Suspense>
+      )}
     </DashboardLayout>
   );
 };

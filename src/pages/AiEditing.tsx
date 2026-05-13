@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
@@ -7,16 +8,26 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Cloud,
   ExternalLink,
   Image as ImageIcon,
   Info,
+  ListChecks,
   Loader2,
   Maximize2,
+  MessageCircle,
+  Plus,
+  RectangleVertical,
   RefreshCw,
   RotateCw,
   Search,
+  Send,
   Settings2,
+  SlidersHorizontal,
   Sparkles,
+  Sun,
+  Wand2,
+  Wrench,
   X,
   XCircle,
 } from 'lucide-react';
@@ -47,6 +58,17 @@ import { AiEditingModePicker } from '@/components/ai-editing/AiEditingModePicker
 import { AiEditingJobCard } from '@/components/ai-editing/AiEditingJobCard';
 import { AiEditingComparisonLightbox } from '@/components/ai-editing/AiEditingComparisonLightbox';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
+import { sendAiMessage } from '@/services/aiService';
+import type { AiMessage } from '@/types/ai';
 
 interface ShootWithEditing {
   id: number;
@@ -78,7 +100,7 @@ interface MediaFile {
   isAiEdited?: boolean;
 }
 
-type ViewMode = 'activity' | 'select-shoot' | 'select-files' | 'configure';
+type ViewMode = 'activity' | 'chat' | 'select-shoot' | 'select-files' | 'configure';
 type JobStatus = EditingJob['status'];
 type StatusFilter = 'all' | JobStatus;
 type EnhancementModeId = 'enhance' | 'sky_replace' | 'vertical_correction' | 'window_pull';
@@ -122,10 +144,29 @@ const AiEditing = () => {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [mutatingJobId, setMutatingJobId] = useState<number | null>(null);
+  const [quickSendRippleKey, setQuickSendRippleKey] = useState(0);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [jobStatusFilter, setJobStatusFilter] = useState<StatusFilter>('all');
   const [jobShootFilter, setJobShootFilter] = useState('');
+
+  // Recent-activity pagination
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsPageSize, setJobsPageSize] = useState<number>(30);
+
+  const [quickStartMode, setQuickStartMode] = useState<EnhancementModeId>('enhance');
+
+  // Conversational tools chat state
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<AiMessage[]>([]);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatSuggestions, setChatSuggestions] = useState<string[]>([]);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Inline image attachments selected via the + button on the prompt card.
+  type AttachedImage = { id: string; file: File; previewUrl: string };
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [enhanceType, setEnhanceType] = useState<'neutral'>('neutral');
   const [lensCorrection, setLensCorrection] = useState(true);
@@ -377,6 +418,11 @@ const AiEditing = () => {
     );
   }, [searchTerm, shoots]);
 
+  // Reset to the first page whenever the filtered result set can change.
+  useEffect(() => {
+    setJobsPage(1);
+  }, [jobStatusFilter, jobShootFilter, jobsPageSize]);
+
   const filteredJobs = useMemo(() => {
     const term = jobShootFilter.trim().toLowerCase();
     return jobs.filter((job) => {
@@ -448,10 +494,336 @@ const AiEditing = () => {
     setViewMode('select-shoot');
   };
 
+  const startQuickEdit = (modeId: EnhancementModeId) => {
+    if (!canUseAutoenhance) return;
+    setSelectedEnhancementIds(new Set([modeId]));
+    setQuickStartMode(modeId);
+    startNewEdit();
+  };
+
+  const firstName = (user?.name || '').split(' ')[0] || 'there';
+
   const goToActivity = useCallback(() => {
     setViewMode('activity');
     lastShiftAnchorRef.current = null;
   }, []);
+
+  // -----------------------------------------------------------------------
+  // Conversational tools (chat with Robbie scoped to AI editing)
+  // -----------------------------------------------------------------------
+  const submitChatMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || chatSending) return;
+
+      setViewMode('chat');
+      setChatSending(true);
+      setChatSuggestions([]);
+
+      const optimisticUser: AiMessage = {
+        id: `tmp-${Date.now()}`,
+        sender: 'user',
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+      };
+      setChatMessages((prev) => [...prev, optimisticUser]);
+
+      try {
+        const response = await sendAiMessage({
+          sessionId: chatSessionId,
+          message: trimmed,
+          context: {
+            page: 'ai_editing',
+            intent: chatSessionId ? undefined : 'edit_photos',
+          } as any,
+        });
+
+        setChatSessionId(response.sessionId);
+        if (Array.isArray(response.messages)) {
+          setChatMessages(response.messages);
+        }
+        setChatSuggestions(response.meta?.suggestions ?? []);
+      } catch (error: any) {
+        const detail =
+          error?.response?.data?.error || error?.message || 'Failed to reach Robbie. Try again in a moment.';
+        toast({ title: 'Chat error', description: detail, variant: 'destructive' });
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            sender: 'assistant',
+            content: detail,
+            createdAt: new Date().toISOString(),
+            metadata: { type: 'error', tool_status: 'error' },
+          },
+        ]);
+      } finally {
+        setChatSending(false);
+      }
+    },
+    [chatSending, chatSessionId, toast]
+  );
+
+  const openChatWithPrefill = useCallback(
+    (prefill: string, options?: { send?: boolean }) => {
+      if (options?.send) {
+        void submitChatMessage(prefill);
+        return;
+      }
+      setViewMode('chat');
+      setJobShootFilter(prefill);
+      setTimeout(() => {
+        const input = document.querySelector<HTMLInputElement>('input[data-ai-editing-prompt]');
+        input?.focus();
+        if (input && typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }, 30);
+    },
+    [submitChatMessage]
+  );
+
+  const resetChat = useCallback(() => {
+    // Returning to activity — drop the session so the next visit starts clean.
+    setChatMessages([]);
+    setChatSessionId(null);
+    setChatSuggestions([]);
+    setJobShootFilter('');
+    setAttachedImages((current) => {
+      current.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      return [];
+    });
+    setViewMode('activity');
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Image attachments (inline file picker on the prompt card)
+  // -----------------------------------------------------------------------
+  const triggerImagePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImagesSelected = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const accepted: AttachedImage[] = [];
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      accepted.push({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      });
+    });
+    if (accepted.length === 0) {
+      toast({
+        title: 'No images selected',
+        description: 'Please pick image files (JPG, PNG, HEIC, WebP, TIFF, etc).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setAttachedImages((current) => [...current, ...accepted]);
+  }, [toast]);
+
+  const removeAttachedImage = useCallback((id: string) => {
+    setAttachedImages((current) => {
+      const target = current.find((img) => img.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((img) => img.id !== id);
+    });
+  }, []);
+
+  const clearAttachedImages = useCallback(() => {
+    setAttachedImages((current) => {
+      current.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      return [];
+    });
+  }, []);
+
+  // Revoke any object URLs left over when the page unmounts.
+  useEffect(() => {
+    return () => {
+      attachedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    };
+    // We intentionally don't depend on attachedImages here — revoking happens in
+    // removeAttachedImage / clearAttachedImages / resetChat for live updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Send the current draft + attachments. Attached images are STAGED on the server
+   * (not yet submitted to Autoenhance), then a chat message with their staged_ids
+   * is sent so Robbie can ask follow-up questions about mode + params and only
+   * commit the jobs after confirmation.
+   */
+  const submitDraftWithAttachments = useCallback(async () => {
+    const draft = jobShootFilter.trim();
+    const images = attachedImages;
+
+    if (!draft && images.length === 0) return;
+
+    // Snapshot then clear input + attachments immediately for snappy UX.
+    setJobShootFilter('');
+    setAttachedImages([]);
+
+    if (images.length === 0) {
+      // Text-only path — nothing new here, just hand off to normal chat.
+      if (draft) await submitChatMessage(draft);
+      return;
+    }
+
+    // Move into chat view so the upload progress + Robbie's questions show up.
+    setViewMode('chat');
+
+    const uploadStart = new Date().toISOString();
+    const summary = images.length === 1
+      ? `Uploading 1 image for AI editing…`
+      : `Uploading ${images.length} images for AI editing…`;
+    const fileList = images.map((img) => `• ${img.file.name}`).join('\n');
+    const optimisticUserMsg: AiMessage = {
+      id: `tmp-upload-${Date.now()}`,
+      sender: 'user',
+      content: `${summary}\n${fileList}${draft ? `\n\n${draft}` : ''}`,
+      createdAt: uploadStart,
+    };
+    setChatMessages((prev) => [...prev, optimisticUserMsg]);
+    setChatSending(true);
+
+    try {
+      // Phase 1 — stage on server (fast, no Autoenhance call yet).
+      const stageResp = await autoenhanceService.stageImages(images.map((img) => img.file));
+      const staged = stageResp.staged ?? [];
+      const skipped = stageResp.skipped ?? [];
+
+      if (staged.length === 0) {
+        const reason = skipped[0]?.reason ?? 'unknown error';
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `stage-err-${Date.now()}`,
+            sender: 'assistant',
+            content: `I couldn't stage those uploads: ${reason}`,
+            createdAt: new Date().toISOString(),
+            metadata: { type: 'stage_error', tool_status: 'error' },
+          },
+        ]);
+        toast({ title: 'Upload failed', description: reason, variant: 'destructive' });
+        return;
+      }
+
+      const stagedIds = staged.map((s) => s.id);
+
+      // Phase 2 — hand off to Robbie's chat. The flow's `start` step sees
+      // `staged_ids` in the context and asks the user which pipeline + params.
+      // Manually post to the chat API so we can include `staged_ids` in context.
+      const message = draft
+        ? draft
+        : `I uploaded ${staged.length} image${staged.length === 1 ? '' : 's'} — please edit them.`;
+
+      const response = await sendAiMessage({
+        sessionId: chatSessionId,
+        message,
+        context: {
+          page: 'ai_editing',
+          intent: chatSessionId ? undefined : 'edit_photos',
+          staged_ids: stagedIds,
+        } as any,
+      });
+
+      setChatSessionId(response.sessionId);
+      if (Array.isArray(response.messages)) {
+        setChatMessages(response.messages);
+      }
+      setChatSuggestions(response.meta?.suggestions ?? []);
+
+      if (skipped.length > 0) {
+        toast({
+          title: `${skipped.length} file${skipped.length === 1 ? '' : 's'} skipped`,
+          description: skipped[0]?.reason ?? 'See chat for details.',
+        });
+      }
+
+      // Activity refresh isn't useful here yet (no jobs created until Robbie
+      // commits) — call it after the user confirms in chat.
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to upload images.';
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `stage-err-${Date.now()}`,
+          sender: 'assistant',
+          content: `I couldn't upload those images: ${detail}`,
+          createdAt: new Date().toISOString(),
+          metadata: { type: 'stage_error', tool_status: 'error' },
+        },
+      ]);
+      toast({ title: 'Upload failed', description: detail, variant: 'destructive' });
+    } finally {
+      setChatSending(false);
+      images.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    }
+  }, [attachedImages, chatSessionId, jobShootFilter, submitChatMessage, toast]);
+
+  // Auto-scroll chat to bottom whenever messages arrive
+  useEffect(() => {
+    if (viewMode !== 'chat') return;
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [chatMessages, viewMode]);
+
+  // Refresh Activity whenever Robbie tells us new jobs were created so the user
+  // sees them immediately when they click Back from chat.
+  const lastJobsRefreshKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (chatMessages.length === 0) return;
+    const last = chatMessages[chatMessages.length - 1];
+    if (last.sender !== 'assistant') return;
+    const meta: any = last.metadata || {};
+    const hasJobsAction = Array.isArray(meta.actions)
+      && meta.actions.some((a: any) => a?.type === 'view_editing_jobs');
+    const isSuccess = meta.tool_status === 'success';
+    if (!hasJobsAction && !isSuccess) return;
+    const key = `${last.id}-${last.createdAt}`;
+    if (lastJobsRefreshKeyRef.current === key) return;
+    lastJobsRefreshKeyRef.current = key;
+    void loadJobs(false);
+  }, [chatMessages, loadJobs]);
+
+  // Drive Autoenhance jobs to completion on local dev (no webhooks reach localhost).
+  // While any job is in `processing`, ask the backend to poll the provider every
+  // ~8 seconds. When updates land, refresh the Activity list so cards flip state.
+  const hasProcessingJobs = useMemo(
+    () => jobs.some((j) => j.status === 'processing'),
+    [jobs]
+  );
+  useEffect(() => {
+    if (!hasProcessingJobs) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const result = await autoenhanceService.pollProcessingJobs();
+        if (!cancelled && (result.updated?.length ?? 0) > 0) {
+          await loadJobs(false);
+        }
+      } catch (error) {
+        // Polling errors are non-fatal — quiet warning only.
+        // eslint-disable-next-line no-console
+        console.warn('Autoenhance poll failed', error);
+      }
+    };
+    // Kick once immediately, then every 8 seconds.
+    void tick();
+    const handle = window.setInterval(tick, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [hasProcessingJobs, loadJobs]);
 
   const selectShoot = (shoot: ShootWithEditing) => {
     setSelectedShoot(shoot);
@@ -676,7 +1048,38 @@ const AiEditing = () => {
   );
 
   const renderHeroStats = () => (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-[1.7fr_repeat(4,minmax(0,1fr))]">
+      {/* Prominent "Edit a shoot" action card — matches Navbar "Book Shoot" gradient */}
+      <button
+        type="button"
+        onClick={startNewEdit}
+        disabled={!canUseAutoenhance || !isAutoenhanceConfigured}
+        className={cn(
+          'group relative col-span-2 overflow-hidden rounded-xl border border-primary/20 p-3 text-left text-primary-foreground shadow-lg shadow-primary/20 ring-1 ring-primary/20 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25 sm:p-4 lg:col-span-1',
+          'bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)]',
+          (!canUseAutoenhance || !isAutoenhanceConfigured) && 'opacity-50 cursor-not-allowed hover:translate-y-0',
+        )}
+        aria-label="Edit a shoot — start the 3-step wizard"
+      >
+        {/* Radial highlight (matches Book Shoot button) */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]"
+        />
+        <div className="relative z-10 flex h-full items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary-foreground/25 bg-primary-foreground/15 shadow-sm backdrop-blur sm:h-12 sm:w-12">
+            <ListChecks className="h-5 w-5 text-primary-foreground sm:h-6 sm:w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-tight sm:text-base">Edit a shoot</p>
+            <p className="mt-0.5 truncate text-[11px] text-primary-foreground/85 sm:text-xs">
+              Pick a property → choose photos → enhance
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-primary-foreground transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </button>
+
       {renderStatTile(
         'Active',
         stats.active,
@@ -727,6 +1130,406 @@ const AiEditing = () => {
       )}
     </div>
   );
+
+  const renderHero = () => {
+    const quickStartChips: { id: EnhancementModeId; label: string; Icon: React.ElementType }[] = [
+      { id: 'enhance', label: 'Enhance photos', Icon: Wand2 },
+      { id: 'sky_replace', label: 'Sky replacement', Icon: Cloud },
+      { id: 'vertical_correction', label: 'Vertical correction', Icon: RectangleVertical },
+      { id: 'window_pull', label: 'Window pull', Icon: Sun },
+    ];
+
+    return (
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, ease: 'easeOut' }}
+        className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-primary/5 via-background to-violet-500/5 px-4 py-8 sm:px-8 sm:py-12"
+      >
+        <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 14, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.08, duration: 0.3, ease: 'easeOut' }}
+            className="space-y-1"
+          >
+            <p className="text-sm text-muted-foreground">Hi {firstName}</p>
+            <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold leading-tight sm:text-4xl">
+              <span>Enhance property photos with AI</span>
+              <Button
+                size="icon"
+                onClick={startNewEdit}
+                disabled={!canUseAutoenhance || !isAutoenhanceConfigured}
+                className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                aria-label="Start a new edit"
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </h1>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.3, ease: 'easeOut' }}
+            className="rounded-2xl border border-border/60 bg-card/70 p-3 shadow-sm backdrop-blur sm:p-4"
+          >
+            <Input
+              data-ai-editing-prompt
+              value={jobShootFilter}
+              onChange={(event) => setJobShootFilter(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === 'Enter' &&
+                  !event.shiftKey &&
+                  (jobShootFilter.trim() || attachedImages.length > 0)
+                ) {
+                  event.preventDefault();
+                  void submitDraftWithAttachments();
+                }
+              }}
+              placeholder={
+                attachedImages.length > 0
+                  ? `Add a note or hit send to process ${attachedImages.length} image${attachedImages.length === 1 ? '' : 's'}…`
+                  : 'Ask Robbie to edit photos, check status, or pick a quick action...'
+              }
+              className="h-10 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                  onClick={triggerImagePicker}
+                  disabled={!canUseAutoenhance || chatSending}
+                  aria-label="Attach images"
+                  title="Attach images"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    handleImagesSelected(event.target.files);
+                    // Reset the input value so the same file can be re-selected if needed.
+                    event.target.value = '';
+                  }}
+                />
+                {attachedImages.length > 0 && (
+                  <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {attachedImages.map((img) => (
+                      <div
+                        key={img.id}
+                        className="group relative h-7 w-7 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted shadow-sm"
+                        title={img.file.name}
+                      >
+                        <img
+                          src={img.previewUrl}
+                          alt={img.file.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${img.file.name}`}
+                          onClick={() => removeAttachedImage(img.id)}
+                          className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {attachedImages.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={clearAttachedImages}
+                        className="ml-1 shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Select value={quickStartMode} onValueChange={(value) => setQuickStartMode(value as EnhancementModeId)}>
+                  <SelectTrigger className="h-8 gap-1 rounded-full border-0 bg-transparent px-3 text-xs hover:bg-muted focus:ring-0 focus:ring-offset-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="enhance">Enhance</SelectItem>
+                    <SelectItem value="sky_replace">Sky replace</SelectItem>
+                    <SelectItem value="vertical_correction">Vertical</SelectItem>
+                    <SelectItem value="window_pull">Window pull</SelectItem>
+                  </SelectContent>
+                </Select>
+                <motion.button
+                  type="button"
+                  onClick={() => {
+                    setQuickSendRippleKey((key) => key + 1);
+                    if (jobShootFilter.trim() || attachedImages.length > 0) {
+                      void submitDraftWithAttachments();
+                    } else {
+                      startQuickEdit(quickStartMode);
+                    }
+                  }}
+                  disabled={!canUseAutoenhance || submitting || chatSending}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+                  aria-label="Start quick edit"
+                  style={{ aspectRatio: '1 / 1' }}
+                  className="group relative inline-flex aspect-square h-10 w-10 shrink-0 grow-0 basis-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-gradient-to-br from-blue-500 via-blue-500 to-indigo-500 p-0 text-white shadow-[0_6px_20px_-6px_rgba(59,130,246,0.55)] ring-1 ring-white/20 transition-[box-shadow,filter] duration-200 hover:shadow-[0_10px_28px_-8px_rgba(59,130,246,0.7)] hover:brightness-[1.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:brightness-100"
+                >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(120%_80%_at_30%_20%,rgba(255,255,255,0.45),rgba(255,255,255,0)_55%)]"
+                  />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-[1px] rounded-full ring-1 ring-inset ring-white/15"
+                  />
+                  <AnimatePresence>
+                    <motion.span
+                      key={quickSendRippleKey}
+                      aria-hidden
+                      initial={{ scale: 0, opacity: 0.45 }}
+                      animate={{ scale: 1.6, opacity: 0 }}
+                      transition={{ duration: 0.45, ease: 'easeOut' }}
+                      className="pointer-events-none absolute inset-0 rounded-full bg-white/40"
+                    />
+                  </AnimatePresence>
+                  {submitting || chatSending ? (
+                    <Loader2 className="relative h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="relative h-4 w-4 -translate-y-[1px] transition-transform duration-200 motion-safe:group-hover:-rotate-12 motion-safe:group-hover:translate-x-[1px]" />
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="-mx-2 overflow-x-auto px-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:overflow-visible sm:p-0">
+            <div className="mx-auto grid w-max grid-flow-col grid-rows-3 place-items-center gap-x-1 gap-y-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-center sm:gap-2">
+              {quickStartChips.map(({ id, label, Icon }, index) => (
+                <motion.button
+                  key={id}
+                  type="button"
+                  onClick={() => startQuickEdit(id)}
+                  disabled={!canUseAutoenhance}
+                  initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.24 + index * 0.06, duration: 0.28, ease: 'easeOut' }}
+                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                  className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full border border-border/60 bg-card/60 px-2 py-1 text-center text-[11px] font-medium leading-none text-foreground transition-colors hover:border-primary/40 hover:bg-card disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+                >
+                  <Icon className="h-3 w-3 text-primary sm:h-3.5 sm:w-3.5" />
+                  {label}
+                </motion.button>
+              ))}
+              {stats.failed > 0 && (
+                <motion.button
+                  type="button"
+                  onClick={() => setJobStatusFilter('failed')}
+                  initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.24 + quickStartChips.length * 0.06, duration: 0.28, ease: 'easeOut' }}
+                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                  className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full border border-red-300/60 bg-red-500/10 px-2 py-1 text-center text-[11px] font-medium leading-none text-red-700 transition-colors hover:bg-red-500/15 dark:border-red-900/50 dark:text-red-200 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+                >
+                  <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  {stats.failed} failed
+                </motion.button>
+              )}
+              <motion.button
+                type="button"
+                onClick={() => loadJobs()}
+                disabled={loadingJobs}
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.24 + (quickStartChips.length + 1) * 0.06, duration: 0.28, ease: 'easeOut' }}
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full border border-border/60 bg-card/60 px-2 py-1 text-center text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-card disabled:cursor-not-allowed sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+              >
+                <RefreshCw className={cn('h-3 w-3 sm:h-3.5 sm:w-3.5', loadingJobs && 'animate-spin')} />
+                Refresh
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+    );
+  };
+
+  const renderChat = () => {
+    const showThinking = chatSending && (chatMessages.length === 0 || chatMessages[chatMessages.length - 1]?.sender === 'user');
+
+    return (
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="relative flex h-[calc(100vh-9rem)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-primary/5 via-background to-violet-500/5"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-background/60 px-4 py-3 backdrop-blur">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="sm" onClick={resetChat} className="h-8 gap-1.5 px-2 text-xs">
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <div className="hidden h-6 w-px bg-border/60 sm:block" />
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold">AI Editing tools</h2>
+              <p className="truncate text-[11px] text-muted-foreground">
+                Ask Robbie to edit photos, check status, or run a quick action.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setChatMessages([]);
+              setChatSessionId(null);
+              setChatSuggestions([]);
+            }}
+            className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+            disabled={chatMessages.length === 0 || chatSending}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            New chat
+          </Button>
+        </div>
+
+        <div
+          ref={chatScrollRef}
+          className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6"
+        >
+          <div className="mx-auto flex max-w-3xl flex-col gap-4">
+            {chatMessages.length === 0 && !chatSending && (
+              <div className="rounded-2xl border border-border/40 bg-card/60 p-4 text-sm text-muted-foreground sm:p-6">
+                <p className="font-medium text-foreground">Hi {firstName}! Tell me what you'd like to do.</p>
+                <p className="mt-1 text-xs">Try: <span className="italic">"Edit photos for 24 Ocean Avenue"</span> or pick one of the suggestions below.</p>
+              </div>
+            )}
+            {chatMessages.map((message) => (
+              <AiMessageBubble key={message.id} message={message} />
+            ))}
+            {showThinking && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Robbie is thinking…
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-border/40 bg-background/80 px-3 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto max-w-3xl space-y-2">
+            {chatSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {chatSuggestions.slice(0, 5).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    disabled={chatSending}
+                    onClick={() => void submitChatMessage(suggestion)}
+                    className="inline-flex items-center rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-col gap-2 rounded-2xl border border-border/60 bg-card/70 p-2 shadow-sm">
+              {attachedImages.length > 0 && (
+                <div className="flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {attachedImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className="group relative h-8 w-8 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted shadow-sm"
+                      title={img.file.name}
+                    >
+                      <img src={img.previewUrl} alt={img.file.name} className="h-full w-full object-cover" loading="lazy" />
+                      <button
+                        type="button"
+                        aria-label={`Remove ${img.file.name}`}
+                        onClick={() => removeAttachedImage(img.id)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {attachedImages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={clearAttachedImages}
+                      className="ml-1 shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={triggerImagePicker}
+                  disabled={chatSending}
+                  className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+                  aria-label="Attach images"
+                  title="Attach images"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Input
+                  data-ai-editing-prompt
+                  value={jobShootFilter}
+                  onChange={(event) => setJobShootFilter(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === 'Enter' &&
+                      !event.shiftKey &&
+                      (jobShootFilter.trim() || attachedImages.length > 0)
+                    ) {
+                      event.preventDefault();
+                      void submitDraftWithAttachments();
+                    }
+                  }}
+                  placeholder={
+                    attachedImages.length > 0
+                      ? `Add a note or hit send to process ${attachedImages.length} image${attachedImages.length === 1 ? '' : 's'}…`
+                      : 'Type a message…'
+                  }
+                  disabled={chatSending}
+                  className="h-10 flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button
+                  size="icon"
+                  onClick={() => {
+                    if (!jobShootFilter.trim() && attachedImages.length === 0) return;
+                    void submitDraftWithAttachments();
+                  }}
+                  disabled={chatSending || (!jobShootFilter.trim() && attachedImages.length === 0)}
+                  className="h-9 w-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  aria-label="Send message"
+                >
+                  {chatSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+    );
+  };
 
   const renderActivity = () => (
     <Card className="overflow-hidden">
@@ -801,23 +1604,86 @@ const AiEditing = () => {
               </Button>
             )}
           </div>
-        ) : (
-          <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
-            {filteredJobs.map((job) => (
-              <AiEditingJobCard
-                key={job.id}
-                job={job}
-                editingTypeLabels={editingTypeLabels}
-                resolveImageUrl={resolveImageUrl}
-                onCompare={handleOpenComparison}
-                onCancel={handleCancelJob}
-                onRetry={handleRetryJob}
-                onOpenSource={handleOpenShoot}
-                isMutating={mutatingJobId === job.id}
-              />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const total = filteredJobs.length;
+          const totalPages = Math.max(1, Math.ceil(total / jobsPageSize));
+          const safePage = Math.min(jobsPage, totalPages);
+          const startIdx = (safePage - 1) * jobsPageSize;
+          const endIdx = Math.min(startIdx + jobsPageSize, total);
+          const pageJobs = filteredJobs.slice(startIdx, endIdx);
+
+          return (
+            <div className="space-y-3">
+              <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
+                {pageJobs.map((job) => (
+                  <AiEditingJobCard
+                    key={job.id}
+                    job={job}
+                    editingTypeLabels={editingTypeLabels}
+                    resolveImageUrl={resolveImageUrl}
+                    onCompare={handleOpenComparison}
+                    onCancel={handleCancelJob}
+                    onRetry={handleRetryJob}
+                    onOpenSource={handleOpenShoot}
+                    isMutating={mutatingJobId === job.id}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination footer — counts + page size + prev/next */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-xs sm:text-sm">
+                <div className="text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{startIdx + 1}</span>–
+                  <span className="font-medium text-foreground">{endIdx}</span> of{' '}
+                  <span className="font-medium text-foreground">{total}</span>
+                  {total !== jobs.length && (
+                    <span className="ml-1 text-muted-foreground/80">(filtered from {jobs.length})</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-muted-foreground">Per page</label>
+                  <Select value={String(jobsPageSize)} onValueChange={(v) => setJobsPageSize(Number(v))}>
+                    <SelectTrigger className="h-8 w-[72px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="30">30</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage <= 1}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="px-1 text-muted-foreground">
+                      Page <span className="font-medium text-foreground">{safePage}</span> / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => setJobsPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage >= totalPages}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
@@ -1349,7 +2215,7 @@ const AiEditing = () => {
   );
 
   const renderEditFlowFooter = () => {
-    if (viewMode === 'activity') return null;
+    if (viewMode === 'activity' || viewMode === 'chat') return null;
     return (
       <div
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur sm:px-6"
@@ -1401,23 +2267,25 @@ const AiEditing = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-32 sm:space-y-6 sm:p-6 sm:pb-6">
-        <PageHeader
-          title="AI Editing"
-          description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
-          action={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => loadJobs()} disabled={loadingJobs}>
-                <RefreshCw className={cn('mr-1.5 h-4 w-4', loadingJobs && 'animate-spin')} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-              <Button size="sm" onClick={startNewEdit} disabled={!canUseAutoenhance}>
-                <Sparkles className="mr-1.5 h-4 w-4" />
-                <span className="hidden sm:inline">New edit</span>
-                <span className="sm:hidden">New</span>
-              </Button>
-            </div>
-          }
-        />
+        {viewMode !== 'activity' && viewMode !== 'chat' && (
+          <PageHeader
+            title="AI Editing"
+            description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
+            action={
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => loadJobs()} disabled={loadingJobs}>
+                  <RefreshCw className={cn('mr-1.5 h-4 w-4', loadingJobs && 'animate-spin')} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button size="sm" onClick={startNewEdit} disabled={!canUseAutoenhance}>
+                  <Sparkles className="mr-1.5 h-4 w-4" />
+                  <span className="hidden sm:inline">New edit</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
+              </div>
+            }
+          />
+        )}
 
         {!canUseAutoenhance ? (
           <Card>
@@ -1435,8 +2303,11 @@ const AiEditing = () => {
           <>
             {renderConnectionAlert()}
 
-            {viewMode === 'activity' ? (
+            {viewMode === 'chat' ? (
+              renderChat()
+            ) : viewMode === 'activity' ? (
               <>
+                {renderHero()}
                 {renderHeroStats()}
                 {stats.failed > 0 && (
                   <Card className="border-red-300/60 bg-red-50/70 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">

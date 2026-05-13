@@ -103,7 +103,7 @@ export default function Availability() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("week");
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mobileTab, setMobileTab] = useState<"calendar" | "details">("calendar");
   const [isPhotographerSheetOpen, setIsPhotographerSheetOpen] = useState(false);
@@ -266,7 +266,7 @@ export default function Availability() {
     });
   };
 
-  const handleDeleteAvailability = async (slotId: string, specificDate?: string) => {
+  const handleDeleteAvailability = async (slotId: string, _specificDate?: string) => {
     try {
       const slotToDelete = backendSlots.find(s => String(s.id) === slotId) ||
         allBackendSlots.find(s => String(s.id) === slotId);
@@ -274,50 +274,99 @@ export default function Availability() {
         notifyDemoAvailabilityRestriction();
         return;
       }
-      if (slotToDelete && slotToDelete.id) {
-        const isRecurringSlot = !slotToDelete.date && slotToDelete.day_of_week;
-        if (isRecurringSlot && (specificDate || date)) {
-          const overrideDate = specificDate || (date ? format(date, 'yyyy-MM-dd') : null);
-          if (overrideDate) {
-            const res = await fetch(API_ROUTES.photographerAvailability.create, {
-              method: 'POST',
-              headers: authHeaders(),
-              body: JSON.stringify({
-                photographer_id: slotToDelete.photographer_id,
-                date: overrideDate,
-                day_of_week: slotToDelete.day_of_week,
-                start_time: slotToDelete.start_time,
-                end_time: slotToDelete.end_time,
-                status: 'unavailable',
-              }),
-            });
-            if (res.ok) {
-              await refreshPhotographerSlots();
-              toast({
-                title: "Unavailable for this date",
-                description: `Marked as unavailable for ${overrideDate}. Recurring schedule remains for other weeks.`,
-              });
-              if (selectedSlotId === slotId) setSelectedSlotId(null);
-            } else {
-              const errorData = await res.json().catch(() => ({}));
-              toast({ title: "Error", description: errorData.message || "Failed to create unavailability override.", variant: "destructive" });
-            }
-            return;
-          }
-        }
+      if (!slotToDelete || !slotToDelete.id) return;
 
-        const res = await fetch(API_ROUTES.photographerAvailability.delete(slotToDelete.id), {
-          method: 'DELETE',
-          headers: authHeaders(),
+      const res = await fetch(API_ROUTES.photographerAvailability.delete(slotToDelete.id), {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        await refreshPhotographerSlots();
+        const isRecurringSlot = !slotToDelete.date && slotToDelete.day_of_week;
+        toast({
+          title: "Schedule deleted",
+          description: isRecurringSlot
+            ? "The recurring schedule has been removed."
+            : "The schedule has been removed.",
         });
-        if (res.ok) {
-          await refreshPhotographerSlots();
-          toast({ title: "Schedule deleted", description: "The schedule has been removed." });
-          if (selectedSlotId === slotId) setSelectedSlotId(null);
-        }
+        if (selectedSlotId === slotId) setSelectedSlotId(null);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        toast({ title: "Error", description: errorData.message || "Failed to delete schedule.", variant: "destructive" });
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete schedule.", variant: "destructive" });
+    }
+  };
+
+  const handleMarkUnavailable = async (slotId: string, specificDate?: string) => {
+    try {
+      const slot = backendSlots.find(s => String(s.id) === slotId) ||
+        allBackendSlots.find(s => String(s.id) === slotId);
+      if (slot?.isRandom) {
+        notifyDemoAvailabilityRestriction();
+        return;
+      }
+      if (!slot || !slot.id) return;
+
+      const isRecurringSlot = !slot.date && slot.day_of_week;
+      if (isRecurringSlot) {
+        // For recurring slots, create a per-date unavailability override so
+        // the recurring rule remains intact for other weeks.
+        const overrideDate = specificDate || (date ? format(date, 'yyyy-MM-dd') : null);
+        if (!overrideDate) {
+          toast({ title: "Select a date", description: "Choose a date to mark unavailable for the recurring schedule.", variant: "destructive" });
+          return;
+        }
+        const res = await fetch(API_ROUTES.photographerAvailability.create, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            photographer_id: slot.photographer_id,
+            date: overrideDate,
+            day_of_week: slot.day_of_week,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            status: 'unavailable',
+          }),
+        });
+        if (res.ok) {
+          await refreshPhotographerSlots();
+          toast({
+            title: "Unavailable for this date",
+            description: `Marked as unavailable for ${overrideDate}. Recurring schedule remains for other weeks.`,
+          });
+          if (selectedSlotId === slotId) setSelectedSlotId(null);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          toast({ title: "Error", description: errorData.message || "Failed to mark unavailable.", variant: "destructive" });
+        }
+        return;
+      }
+
+      // For a specific-date slot, update it to unavailable in place.
+      const res = await fetch(API_ROUTES.photographerAvailability.update(slot.id), {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          photographer_id: slot.photographer_id,
+          date: slot.date,
+          day_of_week: slot.day_of_week,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          status: 'unavailable',
+        }),
+      });
+      if (res.ok) {
+        await refreshPhotographerSlots();
+        toast({ title: "Marked unavailable", description: "This schedule is now unavailable." });
+        if (selectedSlotId === slotId) setSelectedSlotId(null);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        toast({ title: "Error", description: errorData.message || "Failed to mark unavailable.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to mark unavailable.", variant: "destructive" });
     }
   };
 
@@ -480,7 +529,7 @@ export default function Availability() {
 
   const calendarBodyProps = {
     viewMode, isMobile, date, setDate, currentMonth, setCurrentMonth,
-    selectedPhotographer, photographers, backendSlots, allBackendSlots,
+    selectedPhotographer, setSelectedPhotographer, photographers, backendSlots, allBackendSlots,
     selectedSlotId, setSelectedSlotId, expandedBookingDetails, setExpandedBookingDetails,
     setMobileTab, getSelectedDateAvailabilities, to12HourDisplay,
     dayViewScrollRef, dayViewTimeScrollRef, dayViewScrollChanging,
@@ -496,6 +545,7 @@ export default function Availability() {
     getCurrentWeeklySchedule, updateCurrentWeeklySchedule,
     weeklyScheduleNote, setWeeklyScheduleNote,
     handleEditAvailability, saveWeeklySchedule, handleDeleteAvailability,
+    handleMarkUnavailable,
     notifyDemoAvailabilityRestriction, backendSlots, allBackendSlots,
     selectedSlotId, setSelectedSlotId, expandedBookingDetails, setExpandedBookingDetails,
     setEditedAvailability, setIsEditDialogOpen, setIsWeeklyScheduleDialogOpen,
@@ -613,20 +663,62 @@ export default function Availability() {
                   const rows = selectedPhotographer === 'all' ? allBackendSlots : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
                   const specific = rows.filter(s => s.date === dayStr);
                   const weekly = rows.filter(s => !s.date && s.day_of_week?.toLowerCase() === dow);
-                  const relevantSlots = specific.length > 0 ? specific : weekly;
+                  // Apply the "specific overrides weekly" rule PER photographer, so that
+                  // one person's specific-date override doesn't swallow everyone else's
+                  // weekly/recurring slots on the same day.
+                  const specificPhotographerIds = new Set(specific.map((s) => String(s.photographer_id ?? '')));
+                  const weeklyWithoutOverrides = weekly.filter(
+                    (s) => !specificPhotographerIds.has(String(s.photographer_id ?? ''))
+                  );
+                  const relevantSlots = [...specific, ...weeklyWithoutOverrides];
                   const availabilityInfo = relevantSlots.length > 0
                     ? relevantSlots.map(s => `${toHhMm(s.start_time)} - ${toHhMm(s.end_time)} (${s.status || 'available'})`).join(', ')
                     : 'No availability';
 
-                  const hasBooked = relevantSlots.some(s => s.status === 'booked');
-                  const hasAvailable = relevantSlots.some(s => (s.status ?? 'available') !== 'unavailable' && s.status !== 'booked');
-                  const hasUnavailable = relevantSlots.some(s => s.status === 'unavailable');
                   const hasSlots = relevantSlots.length > 0;
 
+                  // Per-photographer roll-up: a photographer is "available" if they have any
+                  // available slot that day; otherwise "booked" if they have any booked
+                  // slot; otherwise "unavailable". Green wins whenever any photographer is
+                  // available. When no one is available, majority between booked and
+                  // unavailable wins (ties fall back to booked so fully-booked days appear
+                  // blue rather than red).
+                  const statusByPhotographer = new Map<string, 'available' | 'booked' | 'unavailable'>();
+                  relevantSlots.forEach((s) => {
+                    const pid = String(s.photographer_id ?? '');
+                    if (!pid) return;
+                    const status: 'available' | 'booked' | 'unavailable' =
+                      s.status === 'booked'
+                        ? 'booked'
+                        : s.status === 'unavailable'
+                          ? 'unavailable'
+                          : 'available';
+                    const current = statusByPhotographer.get(pid);
+                    const rank = (v: 'available' | 'booked' | 'unavailable') =>
+                      v === 'available' ? 3 : v === 'booked' ? 2 : 1;
+                    if (!current || rank(status) > rank(current)) {
+                      statusByPhotographer.set(pid, status);
+                    }
+                  });
+                  let availableCount = 0;
+                  let bookedCount = 0;
+                  let unavailableCount = 0;
+                  statusByPhotographer.forEach((status) => {
+                    if (status === 'available') availableCount += 1;
+                    else if (status === 'booked') bookedCount += 1;
+                    else unavailableCount += 1;
+                  });
+
                   let availabilityColor = '';
-                  if (hasUnavailable && hasSlots) availabilityColor = 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
-                  else if (hasBooked && hasSlots) availabilityColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700';
-                  else if (hasAvailable && hasSlots) availabilityColor = 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700';
+                  if (hasSlots) {
+                    if (availableCount > 0) {
+                      availabilityColor = 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700';
+                    } else if (bookedCount >= unavailableCount) {
+                      availabilityColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700';
+                    } else {
+                      availabilityColor = 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
+                    }
+                  }
 
                   return (
                     <div key={idx} style={{ display: 'contents' }}>

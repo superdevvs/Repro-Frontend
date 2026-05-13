@@ -30,8 +30,8 @@ export interface EditingJobOutputFile {
 
 export interface EditingJob {
   id: number;
-  shoot_id: number;
-  shoot_file_id?: number;
+  shoot_id: number | null;
+  shoot_file_id?: number | null;
   provider?: string;
   provider_job_id?: string;
   provider_order_id?: string;
@@ -84,6 +84,68 @@ export const autoenhanceService = {
     return response.data.data || response.data || [];
   },
 
+  /**
+   * Stage uploaded images for chat-driven Autoenhance flows. The files are
+   * persisted on the server but NOT submitted to Autoenhance yet — Robbie
+   * will commit them after collecting mode + params via chat.
+   */
+  async stageImages(files: File[]): Promise<{
+    staged: Array<{
+      id: string;
+      name: string;
+      content_type: string;
+      size: number;
+      preview_url?: string;
+    }>;
+    skipped: any[];
+  }> {
+    if (!files || files.length === 0) {
+      return { staged: [], skipped: [] };
+    }
+    const form = new FormData();
+    files.forEach((file) => form.append('images[]', file, file.name));
+
+    const response = await apiClient.post('/autoenhance/quick-edit/stage', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return {
+      staged: response.data?.staged ?? [],
+      skipped: response.data?.skipped ?? [],
+    };
+  },
+
+  /**
+   * Submit ad-hoc image files (not tied to an existing shoot) directly to Autoenhance.
+   * The backend uploads each image individually as its own job, so each file gets
+   * its own EditingJob and progresses independently in the Activity list.
+   */
+  async quickEdit(
+    files: File[],
+    options?: { editingType?: string; params?: Record<string, any> }
+  ): Promise<{ data: EditingJob[]; skipped: any[] }> {
+    if (!files || files.length === 0) {
+      return { data: [], skipped: [] };
+    }
+    const form = new FormData();
+    files.forEach((file) => form.append('images[]', file, file.name));
+    if (options?.editingType) {
+      form.append('editing_type', options.editingType);
+    }
+    if (options?.params) {
+      form.append('params', JSON.stringify(options.params));
+    }
+
+    const response = await apiClient.post('/autoenhance/quick-edit', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return {
+      data: response.data?.data ?? [],
+      skipped: response.data?.skipped ?? [],
+    };
+  },
+
   async getJobStatus(jobId: number): Promise<EditingJob> {
     const response = await apiClient.get(`/autoenhance/jobs/${jobId}`);
     return response.data.data || response.data;
@@ -112,6 +174,19 @@ export const autoenhanceService = {
   async retryJob(jobId: number): Promise<EditingJob> {
     const response = await apiClient.post(`/autoenhance/jobs/${jobId}/retry`);
     return response.data.data || response.data;
+  },
+
+  /**
+   * Synchronously ask the backend to poll Autoenhance for the status of every
+   * job that is still `processing`. This is the local-dev driver that
+   * progresses jobs to `completed` / `failed` since webhooks aren't reachable.
+   */
+  async pollProcessingJobs(): Promise<{ polled: number; updated: number[] }> {
+    const response = await apiClient.post('/autoenhance/jobs/poll');
+    return {
+      polled: response.data?.polled ?? 0,
+      updated: response.data?.updated ?? [],
+    };
   },
 
   async getConnectionStatus(): Promise<ConnectionStatus> {

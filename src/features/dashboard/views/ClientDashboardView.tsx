@@ -51,6 +51,7 @@ interface ClientDashboardViewProps {
   clientRequestsLoading: boolean;
   clientCompletedRecords: ClientShootRecord[];
   clientDesktopLeftColumnRef: React.RefObject<HTMLDivElement | null>;
+  clientDesktopShootsContainerRef: React.RefObject<HTMLDivElement | null>;
   clientDesktopShootsHeight: number | null;
   clientEmailActionPending: boolean;
   clientOnHoldRecords: ClientShootRecord[];
@@ -77,6 +78,7 @@ export const ClientDashboardView = ({
   clientRequestsLoading,
   clientCompletedRecords,
   clientDesktopLeftColumnRef,
+  clientDesktopShootsContainerRef,
   clientDesktopShootsHeight,
   clientEmailActionPending,
   clientOnHoldRecords,
@@ -352,9 +354,12 @@ export const ClientDashboardView = ({
         {clientMetricsContent}
         {clientInvoicesContent}
       </div>
-      <div className="md:col-span-9 md:min-h-0">
+      <div
+        ref={clientDesktopShootsContainerRef}
+        className="md:col-span-9 md:min-h-0 md:sticky md:top-6"
+      >
         <div
-          className="min-h-0"
+          className="flex min-h-0 flex-col"
           style={
             clientDesktopShootsHeight
               ? {

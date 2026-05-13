@@ -44,6 +44,7 @@ import {
   Map as MapIcon,
   PlusCircle,
   AlertCircle,
+  ArrowRight,
   Check,
   Info,
   Tag,
@@ -1791,12 +1792,18 @@ export const ClientPropertyForm = ({
               type="button"
               variant="outline"
               onClick={onClearSavedData}
-              className="w-full sm:w-auto"
+              className="w-full sm:hidden"
             >
               Clear saved data
             </Button>
           )}
-          <Button type="submit" className="w-full sm:w-auto">Continue</Button>
+          <Button
+            type="submit"
+            className="w-full sm:h-14 sm:w-auto sm:min-w-[200px] sm:bg-blue-600 sm:text-xl sm:font-bold sm:text-white sm:hover:bg-blue-700"
+          >
+            Continue
+            <ArrowRight className="ml-2 hidden h-5 w-5 sm:inline" />
+          </Button>
         </div>
       </form>
 

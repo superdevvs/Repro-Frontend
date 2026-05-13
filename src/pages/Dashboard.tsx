@@ -192,8 +192,11 @@ const Dashboard = () => {
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
   const [mobileEditingManagerTab, setMobileEditingManagerTab] = useState<MobileEditingManagerTab>("shoots");
-  const { clientDesktopLeftColumnRef, clientDesktopShootsHeight } =
-    useClientDashboardLayoutMeasure(role, isMobile);
+  const {
+    clientDesktopLeftColumnRef,
+    clientDesktopShootsContainerRef,
+    clientDesktopShootsHeight,
+  } = useClientDashboardLayoutMeasure(role, isMobile);
   const {
     clientEmailActionPending,
     handleManageClientEmail,
@@ -584,6 +587,7 @@ const Dashboard = () => {
             clientRequestsLoading={clientRequestsLoading}
             clientCompletedRecords={clientCompletedRecords}
             clientDesktopLeftColumnRef={clientDesktopLeftColumnRef}
+            clientDesktopShootsContainerRef={clientDesktopShootsContainerRef}
             clientDesktopShootsHeight={clientDesktopShootsHeight}
             clientEmailActionPending={clientEmailActionPending}
             clientOnHoldRecords={clientOnHoldRecords}

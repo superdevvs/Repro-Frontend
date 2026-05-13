@@ -16,6 +16,37 @@ interface AiMessageBubbleProps {
   className?: string;
 }
 
+/**
+ * Lightweight inline markdown rendering for chat messages.
+ * Supports:
+ *   **bold**
+ *   `inline code`
+ * Returns an array of React nodes safe for use inside a <p> element.
+ */
+function renderInlineMarkdown(content: string): React.ReactNode {
+  if (!content) return null;
+  // Split on **...** and `...`, keeping delimiters as captured groups.
+  const tokens = content.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return tokens.map((token, i) => {
+    if (!token) return null;
+    if (token.startsWith('**') && token.endsWith('**') && token.length >= 4) {
+      return (
+        <strong key={i} className="font-semibold">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (token.startsWith('`') && token.endsWith('`') && token.length >= 2) {
+      return (
+        <code key={i} className="rounded bg-black/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10">
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+    return <React.Fragment key={i}>{token}</React.Fragment>;
+  });
+}
+
 export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
   const isUser = message.sender === 'user';
   const isAssistant = message.sender === 'assistant';
@@ -62,7 +93,11 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
       switch (action.type) {
         case 'open_shoot':
           if (action.shootId) {
-            window.location.href = `/shoots/${action.shootId}`;
+            window.dispatchEvent(
+              new CustomEvent('ai-open-shoot', {
+                detail: { shootId: action.shootId },
+              }),
+            );
           }
           break;
         case 'approve_cancellation':
@@ -174,7 +209,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
             )}
           >
             <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-w-full leading-relaxed">
-              {message.content}
+              {renderInlineMarkdown(message.content)}
             </p>
           </div>
 
@@ -211,7 +246,13 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => window.location.href = `/shoots/${metadata.shoot_id}`}
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('ai-open-shoot', {
+                      detail: { shootId: metadata.shoot_id },
+                    }),
+                  )
+                }
                 className="h-8 text-xs"
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
