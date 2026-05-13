@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
@@ -77,7 +78,9 @@ const DEFAULT_WEEKLY_SCHEDULE: WeeklyScheduleItem[] = [
 
 export default function Availability() {
   const isMobile = useIsMobile();
-  const isDesktop = !isMobile;
+  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1279px)');
+  const isCompactLayout = isMobile || isTablet;
+  const isDesktop = !isCompactLayout;
   const { toast } = useToast();
   const { user, role, isImpersonating, originalUser } = useAuth();
   const { formatTime: formatTimePreference } = useUserPreferences();
@@ -186,7 +189,7 @@ export default function Availability() {
   const { months, monthDates, monthNavScrollRef, dateNavScrollRef } = useAvailabilityNavStrips(date, currentMonth);
 
   // Desktop calendar row height
-  const { ref: desktopCalendarRowRef, height: desktopCalendarRowHeight } = useDesktopCalendarRowHeight(isMobile, [
+  const { ref: desktopCalendarRowRef, height: desktopCalendarRowHeight } = useDesktopCalendarRowHeight(isCompactLayout, [
     loadingPhotographers, viewMode, selectedPhotographer,
   ]);
 
@@ -528,7 +531,7 @@ export default function Availability() {
   };
 
   const calendarBodyProps = {
-    viewMode, isMobile, date, setDate, currentMonth, setCurrentMonth,
+    viewMode, isMobile: isCompactLayout, date, setDate, currentMonth, setCurrentMonth,
     selectedPhotographer, setSelectedPhotographer, photographers, backendSlots, allBackendSlots,
     selectedSlotId, setSelectedSlotId, expandedBookingDetails, setExpandedBookingDetails,
     setMobileTab, getSelectedDateAvailabilities, to12HourDisplay,
@@ -554,11 +557,11 @@ export default function Availability() {
 
   return (
     <>
-      <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "p-3 sm:p-4 pb-6" : "h-full p-6 overflow-hidden")}>
-          {isMobile ? (
+      <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "p-3 sm:p-4 pb-6" : "h-full p-6 overflow-hidden")}>
+          {isCompactLayout ? (
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-bold truncate">Availability</h1>
+              <h1 className="text-lg sm:text-xl font-bold truncate">Photographer Availability</h1>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={goToToday}>Today</Button>
                 {canEditAvailability && (
@@ -609,7 +612,7 @@ export default function Availability() {
             <div className="relative">
               <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={monthNavScrollRef} className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 sm:px-6">
+              <div ref={monthNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 xl:px-6">
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
                   const monthYear = format(month, 'yyyy');
@@ -631,7 +634,7 @@ export default function Availability() {
                           if (!date || format(date, 'yyyy-MM') !== monthKey) setDate(startOfMonth(month));
                         }}
                         className={cn(
-                          "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-xs sm:text-sm flex-shrink-0",
+                          "px-2.5 xl:px-3 py-1 xl:py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-xs xl:text-sm flex-shrink-0",
                           isCurrentMonth
                             ? "border-2 border-primary font-semibold text-foreground"
                             : isSelectedMonth
@@ -650,7 +653,7 @@ export default function Availability() {
             <div className="relative">
               <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={dateNavScrollRef} className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 sm:px-6">
+              <div ref={dateNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 xl:px-6">
                 {monthDates.map((day, idx) => {
                   const prevDay = idx > 0 ? monthDates[idx - 1] : null;
                   const currentMonthStr = format(day, 'yyyy-MM');
@@ -739,7 +742,7 @@ export default function Availability() {
                                 if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) setCurrentMonth(dayMonth);
                               }}
                               className={cn(
-                                "flex h-14 w-14 sm:h-16 sm:w-16 flex-col items-center justify-center rounded-full p-0 transition-all flex-shrink-0 border",
+                                "flex h-14 w-14 xl:h-16 xl:w-16 flex-col items-center justify-center rounded-full p-0 transition-all flex-shrink-0 border",
                                 isTodayDate
                                   ? "border-2 border-primary font-semibold bg-primary/10"
                                   : isSelected
@@ -766,7 +769,7 @@ export default function Availability() {
             </div>
           </div>
 
-          {isMobile ? (
+          {isCompactLayout ? (
             <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as "calendar" | "details")} className="flex min-h-0 flex-col gap-2">
               <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-1 flex-shrink-0">
                 <TabsTrigger value="calendar" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">Calendar</TabsTrigger>
@@ -805,7 +808,7 @@ export default function Availability() {
                   </div>
                 </div>
 
-                <Card className="p-2 flex min-h-0 flex-col border shadow-sm rounded-md">
+                <Card className="p-2 sm:p-3 flex min-h-[360px] sm:min-h-[520px] flex-col border shadow-sm rounded-md">
                   <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-xs sm:text-sm font-semibold mb-0.5 truncate">
@@ -834,7 +837,7 @@ export default function Availability() {
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-1 min-h-0 flex-col">
                     <AvailabilityCalendarBody {...calendarBodyProps} />
                   </div>
                 </Card>
@@ -848,7 +851,7 @@ export default function Availability() {
             <div
               ref={desktopCalendarRowRef}
               className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 grid-rows-1 gap-4 overflow-hidden"
-              style={!isMobile && desktopCalendarRowHeight ? { height: `${desktopCalendarRowHeight}px`, maxHeight: `${desktopCalendarRowHeight}px` } : undefined}
+              style={!isCompactLayout && desktopCalendarRowHeight ? { height: `${desktopCalendarRowHeight}px`, maxHeight: `${desktopCalendarRowHeight}px` } : undefined}
             >
               {canManagePhotographerSelection && (
                 <PhotographerListPanel
