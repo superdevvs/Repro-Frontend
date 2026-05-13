@@ -1595,11 +1595,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             >
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      {getRelativeGroupLabel(group)}
-                    </p>
+                  <div
+                    className={cn(
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                    )}
+                  >
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
+                      <span className="h-2 w-2 rounded-full bg-primary" />
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {getRelativeGroupLabel(group)}
+                      </p>
+                    </div>
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
                 </div>
@@ -2104,11 +2110,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             >
               {paginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      {getRelativeGroupLabel(group)}
-                    </p>
+                  <div
+                    className={cn(
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                    )}
+                  >
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
+                      <span className="h-2 w-2 rounded-full bg-primary" />
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {getRelativeGroupLabel(group)}
+                      </p>
+                    </div>
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
                 </div>
@@ -2140,11 +2152,17 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             >
               {requestedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">
-                    <span className="h-2 w-2 rounded-full bg-blue-500" />
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      {getRelativeGroupLabel(group)}
-                    </p>
+                  <div
+                    className={cn(
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                    )}
+                  >
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {getRelativeGroupLabel(group)}
+                      </p>
+                    </div>
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, true))}
                 </div>
