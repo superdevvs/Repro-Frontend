@@ -1597,7 +1597,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
@@ -2112,7 +2112,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
@@ -2154,7 +2154,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-1 bg-card/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">
