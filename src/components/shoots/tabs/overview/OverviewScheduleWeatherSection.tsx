@@ -34,7 +34,7 @@ export function OverviewScheduleWeatherSection({
   const currentTimeValue = String(editedShoot.time ?? shoot.time ?? '');
 
   return (
-    <div className={isEditMode ? 'grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]' : 'grid grid-cols-[1fr_0.78fr_1fr] gap-1.5 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]'}>
+    <div className={isEditMode ? 'grid grid-cols-2 gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]' : 'grid grid-cols-[1fr_0.78fr_1fr] gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]'}>
       <div className="min-w-0 p-2 border rounded-lg bg-card sm:p-2.5">
         {isEditMode ? (
           <div className="flex items-center min-w-0">

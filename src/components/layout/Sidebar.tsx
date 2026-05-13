@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -10,7 +10,7 @@ import { SidebarHeader } from './sidebar/SidebarHeader';
 import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
 
-const SMALL_DESKTOP_BREAKPOINT = 1280;
+const SMALL_DESKTOP_BREAKPOINT = 1520;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'repro.sidebar.collapsed';
 
 interface SidebarProps {
@@ -19,50 +19,44 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
-  const isSmallDesktop = typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT;
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    const storedPreference = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-
-    if (storedPreference !== null) {
-      return storedPreference === 'true';
-    }
-
-    return window.innerWidth < SMALL_DESKTOP_BREAKPOINT;
+  const [isNarrowDesktop, setIsNarrowDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT,
+  );
+  const [manualCollapsedPref, setManualCollapsedPref] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    return stored === null ? null : stored === 'true';
   });
-  const manualOverride = useRef(typeof window !== 'undefined' && window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) !== null);
   const { user, role, logout } = useAuth();
 
-  // Auto-collapse/expand when crossing the breakpoint, unless user manually toggled
+  // Track whether the viewport is below the small-desktop breakpoint.
   useEffect(() => {
-    const mql = window.matchMedia(`(min-width: ${SMALL_DESKTOP_BREAKPOINT}px)`);
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (!manualOverride.current) {
-        setIsCollapsed(!e.matches);
-      }
+    const mql = window.matchMedia(`(max-width: ${SMALL_DESKTOP_BREAKPOINT - 1}px)`);
+    const handler = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsNarrowDesktop(event.matches);
     };
-    // Set initial state
     handler(mql);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, []);
-  
+
+  // Force collapse below the breakpoint; otherwise honor the stored manual preference.
+  const isCollapsed = isNarrowDesktop ? true : (manualCollapsedPref ?? false);
+
   // For mobile devices, use the MobileMenu component
   if (isMobile) {
     return <MobileMenu />;
   }
-  
-  // Toggle sidebar collapse/expand manually
+
+  // Toggle sidebar collapse/expand manually (only meaningful at wide viewports).
   const toggleCollapse = () => {
-    manualOverride.current = true;
-    setIsCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
-      return next;
-    });
+    if (isNarrowDesktop) {
+      // Below the breakpoint we always stay collapsed; no-op.
+      return;
+    }
+    const next = !isCollapsed;
+    setManualCollapsedPref(next);
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
   };
   
   // Desktop sidebar

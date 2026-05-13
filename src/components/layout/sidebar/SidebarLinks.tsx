@@ -182,17 +182,24 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         <Link
           to="/book-shoot"
           className={cn(
-            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border px-3 py-2.5 text-sm font-semibold text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20 ring-1 ring-sidebar-primary/25 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-sidebar-primary/25',
+            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border py-2.5 text-sm font-semibold text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20 ring-1 ring-sidebar-primary/25 backdrop-blur transition-[padding] duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-sidebar-primary/25',
             isBookShootActive
               ? 'bg-[linear-gradient(135deg,#1d4ed8_0%,#1e40af_50%,rgba(255,255,255,0.22)_100%)] ring-blue-800/45 shadow-blue-900/25 hover:bg-[linear-gradient(135deg,#1e40af_0%,#1e3a8a_50%,rgba(255,255,255,0.26)_100%)] hover:shadow-blue-900/30'
               : 'bg-[linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.78)_45%,hsl(var(--sidebar-accent)/0.9)_100%)]',
-            isCollapsed && 'aspect-square px-2 py-2'
+            isCollapsed ? 'px-2' : 'px-3'
           )}
         >
           <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--sidebar-primary-foreground)/0.22),hsl(var(--sidebar-primary-foreground)/0)_58%)]" />
-          <span className={cn('relative z-10 flex items-center gap-2', isCollapsed && 'justify-center')}>
+          <span className="relative z-10 flex items-center overflow-hidden">
             <PlusCircle className="h-4 w-4 flex-shrink-0" />
-            {!isCollapsed && <span>Book Shoot</span>}
+            <span
+              className={cn(
+                'whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin-left] duration-200 ease-in-out',
+                isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[160px] opacity-100 ml-2'
+              )}
+            >
+              Book Shoot
+            </span>
           </span>
         </Link>
       )}

@@ -1233,19 +1233,32 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               onClick={() => setShowPastDays((prev) => !prev)}
               disabled={!editingManagerHasPastDays}
             >
-              {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+              <span className="max-[1550px]:hidden">
+                {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+              </span>
+              <span className="hidden max-[1550px]:inline">
+                {editingManagerHasPastDays && showPastDays ? 'Hide' : 'Previous'}
+              </span>
             </Button>
             <Button
               variant="secondary"
               size="sm"
-              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
               onClick={() => {
                 setDraftFilters(filters);
                 setIsFilterOpen(true);
               }}
+              aria-label="Filters"
             >
-              <Filter size={14} className="mr-1.5" />
-              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
+              <span className="max-[1550px]:hidden">
+                Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              </span>
+              {activeFilterCount > 0 && (
+                <span className="hidden max-[1550px]:inline ml-1 text-[10px] font-semibold">
+                  ({activeFilterCount})
+                </span>
+              )}
             </Button>
           </div>
         </div>
@@ -1679,7 +1692,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               onClick={() => setShowPastDays((prev) => !prev)}
               disabled={!hasPastDays}
             >
-              {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+              <span className="max-[1550px]:hidden">
+                {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+              </span>
+              <span className="hidden max-[1550px]:inline">
+                {hasPastDays && showPastDays ? 'Hide' : 'Previous'}
+              </span>
             </Button>
           )}
           {activeTab === 'requested' && (
@@ -1690,20 +1708,33 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               onClick={() => setShowPastRequests((prev) => !prev)}
               disabled={!hasPastRequests}
             >
-              {hasPastRequests
-                ? (showPastRequests ? 'Hide past' : `Previous requests (${pastRequests.length})`)
-                : 'Previous requests'}
+              <span className="max-[1550px]:hidden">
+                {hasPastRequests
+                  ? (showPastRequests ? 'Hide past' : `Previous requests (${pastRequests.length})`)
+                  : 'Previous requests'}
+              </span>
+              <span className="hidden max-[1550px]:inline">
+                {hasPastRequests && showPastRequests ? 'Hide' : 'Previous'}
+              </span>
             </Button>
           )}
           {activeTab !== 'requested' && (
             <Button
               variant="secondary"
               size="sm"
-              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
               onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}
+              aria-label="Filters"
             >
-              <Filter size={14} className="mr-1.5" />
-              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
+              <span className="max-[1550px]:hidden">
+                Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              </span>
+              {activeFilterCount > 0 && (
+                <span className="hidden max-[1550px]:inline ml-1 text-[10px] font-semibold">
+                  ({activeFilterCount})
+                </span>
+              )}
             </Button>
           )}
         </div>

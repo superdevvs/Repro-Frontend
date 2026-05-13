@@ -421,7 +421,7 @@ export function Navbar() {
         <div
           className={cn(
             "flex min-w-0 items-center gap-2 sm:gap-4 pl-0 sm:pl-4",
-            showRobbieStrip ? "flex-1 lg:flex-none lg:w-[280px]" : "flex-1"
+            showRobbieStrip ? "flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]" : "flex-1"
           )}
         >
         {/* Logo for simplified layout (photographer/editor) */}
@@ -498,7 +498,7 @@ export function Navbar() {
 
         {/* Hide Robbie strip for photographer and editor roles */}
         {showRobbieStrip && (
-          <div className="hidden lg:flex flex-[1.6] min-w-0 pl-3 items-center">
+          <div className="hidden sm:flex flex-[1.6] min-w-0 pl-3 items-center">
             <div className="h-8 w-px shrink-0 bg-border/60" />
             <RobbieInsightStrip
               role={role}
@@ -509,7 +509,7 @@ export function Navbar() {
       
         <div className="flex items-center gap-4">
         {showRobbieStrip && (
-          <div className="hidden lg:block h-8 w-px shrink-0 bg-border/60" />
+          <div className="hidden sm:block h-8 w-px shrink-0 bg-border/60" />
         )}
         {/* Weather Info */}
         {weather && (

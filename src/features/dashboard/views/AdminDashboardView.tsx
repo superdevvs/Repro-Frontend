@@ -81,8 +81,8 @@ export const AdminDashboardView = ({
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
-        <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
+      <div className="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-[320px_minmax(0,1fr)_320px] gap-4 sm:gap-6 items-start">
+        <div className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
           <div className="order-1 md:order-none">
             <RoleMetricTilesCard tiles={adminMetricTiles} />
           </div>
@@ -91,14 +91,14 @@ export const AdminDashboardView = ({
           </div>
         </div>
 
-        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none">
+        <div className="md:col-span-6 xl:col-span-1 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0">
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
           {renderShootsTabsCard()}
         </div>
 
         <div className="lg:hidden order-3">{renderAssignPhotographersCard()}</div>
 
-        <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none">
+        <div className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none">
           {renderPendingReviewsCard()}
           {renderCompletedShootsCard({ stretch: true })}
         </div>
@@ -116,7 +116,7 @@ export const AdminDashboardView = ({
         onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
         className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
       >
-        <div className="sticky top-[-0.75rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4" style={{ marginLeft: "-15px" }}>
+        <div className="sticky top-[-0.75rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4">
           <div className="overflow-x-auto hidden-scrollbar">
             <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-background/80 pl-1.5 pr-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/70">
               {mobileTabs.map((tab) => (

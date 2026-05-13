@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useShoots } from "@/context/ShootsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useDashboardOverview } from "@/hooks/useDashboardOverview";
 import {
   filterEditingManagerUpcomingShoots,
@@ -158,6 +159,7 @@ const Dashboard = () => {
   const { can, isLoading: permissionsLoading } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
+  const isCompactDashboardViewport = useMediaQuery("(max-width: 1319px)");
   const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");
@@ -455,7 +457,7 @@ const Dashboard = () => {
     cancellationRequestCount,
     clientRequests,
     editingRequests,
-    isMobile,
+    isMobile: isCompactDashboardViewport,
     navigate,
     scrollToDashboardSection,
     setCancellationDialogOpen,
@@ -755,7 +757,7 @@ const Dashboard = () => {
             data={data}
             error={error}
             greetingTitle={greetingTitle}
-            isMobile={isMobile}
+            isMobile={isCompactDashboardViewport}
             mobileDashboardTab={mobileDashboardTab}
             refresh={refresh}
             renderAssignPhotographersCard={renderAssignPhotographersCard}

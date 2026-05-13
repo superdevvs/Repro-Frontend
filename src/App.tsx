@@ -15,6 +15,7 @@ import { PhotographerAssignmentProvider, usePhotographerAssignment } from './con
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageTransition } from '@/components/layout/PageTransition';
+import { ResponsiveResizeIndicator } from '@/components/layout/ResponsiveResizeIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
@@ -732,6 +733,7 @@ function App() {
                         <UploadProvider>
                           <SystemTelemetryProvider>
                             <RealtimeBridge />
+                            <ResponsiveResizeIndicator />
                             <ErrorBoundary>
                               <AppRoutes />
                             </ErrorBoundary>

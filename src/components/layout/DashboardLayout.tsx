@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { PageTransition } from './PageTransition';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import MobileMenu from './MobileMenu';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -32,10 +33,13 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false, hideFooter = false }) => {
   const isInsideDashboardLayout = React.useContext(DashboardLayoutContext);
   const isMobile = useIsMobile();
+  const isCompactDashboardShell = useMediaQuery('(max-width: 1319px)');
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
-  const contentPadding = isMobile ? 'p-3 pb-20' : 'p-3';
+  const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
+  const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
+  const contentPadding = useCompactShell ? 'p-3 pb-20' : 'p-3';
   const shouldHideFooter = hideFooter || location.pathname.startsWith('/chat-with-reproai');
   
   // Photographers and editors get a simplified layout without sidebar
@@ -53,7 +57,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   return (
     <DashboardLayoutContext.Provider value={true}>
       <div className="h-screen flex overflow-hidden">
-        {!isMobile && !isSimplifiedLayout && <Sidebar />}
+        {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
@@ -99,7 +103,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               )}
             </main>
           </ErrorBoundary>
-          {isMobile && <MobileMenu />}
+          {useCompactShell && <MobileMenu />}
         </div>
       </div>
     </DashboardLayoutContext.Provider>
