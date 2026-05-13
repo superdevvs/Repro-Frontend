@@ -320,7 +320,6 @@ export function RevenueCharts({
         const bDate = getValidDate(b.date)?.valueOf() ?? 0;
         return bDate - aDate;
       })
-      .slice(0, 4)
       .map((item) => ({
         id: item.id,
         vendor: item.vendor,
@@ -873,7 +872,7 @@ export function RevenueCharts({
       {/* Expense Center — shown only in full variant */}
       {variant === 'full' && (
         <div className="space-y-4">
-          <Card className="overflow-hidden border bg-transparent">
+          <Card className="flex min-h-[28rem] flex-col overflow-hidden border bg-transparent lg:min-h-[max(28rem,calc(100vh-38rem))]">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -885,10 +884,10 @@ export function RevenueCharts({
               </div>
             </CardHeader>
 
-            <CardContent className="pt-2 pb-4">
+            <CardContent className="flex flex-1 flex-col pt-2 pb-4 min-h-0">
               {!hasExpenses ? (
-                <div className="rounded-xl border border-dashed border-border/60 dark:border-white/10 bg-card/50 p-6 text-sm text-slate-500 dark:text-slate-400">
-                  <div className="flex flex-col gap-4">
+                <div className="flex flex-1 rounded-xl border border-dashed border-border/60 dark:border-white/10 bg-card/50 p-6 text-sm text-slate-500 dark:text-slate-400">
+                  <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 text-center">
                     <p>No expenses recorded for {timeFilterLabel.toLowerCase()}. Upload a receipt or add a new expense to get started.</p>
                     <div className="flex flex-wrap gap-3">
                       <Button variant="outline" onClick={handleUploadClick}>
@@ -899,7 +898,7 @@ export function RevenueCharts({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex flex-1 flex-col lg:flex-row gap-6 min-h-0">
                   {/* Left: Donut + legend */}
                   <div className="w-full lg:w-1/2">
                     <div className="flex flex-col items-center lg:items-start gap-6">
@@ -940,9 +939,9 @@ export function RevenueCharts({
                   </div>
 
                   {/* Right: totals, counters, transactions list */}
-                  <div className="w-full lg:w-1/2 flex flex-col gap-4">
-                    <div className="rounded-lg border border-border/60 dark:border-slate-700/40 p-0 overflow-hidden">
-                      <div className="max-h-64 overflow-y-auto pr-3">
+                  <div className="w-full lg:w-1/2 flex min-h-0 flex-col gap-4">
+                    <div className="min-h-0 flex-1 rounded-lg border border-border/60 dark:border-slate-700/40 p-0 overflow-hidden">
+                      <div className="h-full overflow-y-auto">
                         {transactions.map(tx => (
                           <div
                             key={tx.id}
