@@ -1,10 +1,12 @@
 import React from "react";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Camera, CheckCircle2, KanbanSquare, MessageCircle, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleMetricTilesCard, type DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTilesCard";
+import { cn } from "@/lib/utils";
 import type { DashboardOverview } from "@/types/dashboard";
 
 import { DASHBOARD_DESCRIPTION } from "../constants";
@@ -18,9 +20,10 @@ interface AdminDashboardViewProps {
   greetingTitle: React.ReactNode;
   isMobile: boolean;
   mobileDashboardTab: MobileDashboardTab;
+  requestIndicatorCount: number;
   refresh: () => void | Promise<void>;
   renderAssignPhotographersCard: () => React.ReactNode;
-  renderCompletedShootsCard: (options?: { stretch?: boolean }) => React.ReactNode;
+  renderCompletedShootsCard: (options?: { stretch?: boolean; titleLeading?: React.ReactNode }) => React.ReactNode;
   renderPendingReviewsCard: () => React.ReactNode;
   renderPipelineSection: () => React.ReactNode;
   renderShootsTabsCard: () => React.ReactNode;
@@ -36,6 +39,7 @@ export const AdminDashboardView = ({
   greetingTitle,
   isMobile,
   mobileDashboardTab,
+  requestIndicatorCount,
   refresh,
   renderAssignPhotographersCard,
   renderCompletedShootsCard,
@@ -45,6 +49,10 @@ export const AdminDashboardView = ({
   setCancellationDialogOpen,
   setMobileDashboardTab,
 }: AdminDashboardViewProps) => {
+  const [leftColumnHidden, setLeftColumnHidden] = React.useState(false);
+  const [rightColumnHidden, setRightColumnHidden] = React.useState(false);
+  const hasRequestIndicator = requestIndicatorCount > 0;
+
   const mobileTabs = [
     {
       id: "shoots",
@@ -81,28 +89,125 @@ export const AdminDashboardView = ({
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      <div className="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-[320px_minmax(0,1fr)_320px] gap-4 sm:gap-6 items-start">
-        <div className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
+      <LayoutGroup>
+        <motion.div
+          layout
+          transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
+          className={cn(
+            "relative grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start",
+            leftColumnHidden && rightColumnHidden
+              ? "xl:grid-cols-1"
+              : leftColumnHidden
+                ? "xl:grid-cols-[minmax(0,1fr)_320px]"
+                : rightColumnHidden
+                  ? "xl:grid-cols-[320px_minmax(0,1fr)]"
+                  : "xl:grid-cols-[320px_minmax(0,1fr)_320px]"
+          )}
+        >
+        <AnimatePresence initial={false}>
+          {!leftColumnHidden && (
+        <motion.div
+          key="admin-left-column"
+          layout
+          initial={{ opacity: 0, x: -24, scale: 0.98, filter: "blur(6px)" }}
+          animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, x: -14, transition: { duration: 0.18, ease: "easeOut" } }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
+          className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none"
+        >
           <div className="order-1 md:order-none">
             <RoleMetricTilesCard tiles={adminMetricTiles} />
           </div>
           <div id="assign-card" className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
             {renderAssignPhotographersCard()}
           </div>
-        </div>
+        </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="md:col-span-6 xl:col-span-1 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0">
+        <motion.div
+          layout
+          transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
+          className={cn(
+            "flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0",
+            leftColumnHidden && rightColumnHidden
+              ? "md:col-span-12 xl:col-span-1"
+              : leftColumnHidden || rightColumnHidden
+                ? "md:col-span-9 xl:col-span-1"
+                : "md:col-span-6 xl:col-span-1"
+          )}
+        >
+          <div
+            className={cn(
+              "group/left-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
+              leftColumnHidden ? "-left-7" : "left-[calc(25%-0.75rem)] xl:left-[320px]"
+            )}
+          >
+            <button
+              type="button"
+              aria-label={leftColumnHidden ? "Show left dashboard column" : "Hide left dashboard column"}
+              onClick={() => setLeftColumnHidden((hidden) => !hidden)}
+              className="pointer-events-auto flex h-16 w-6 translate-y-0 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/left-handle:opacity-100"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "h-0 w-0 border-y-[7px] border-y-transparent",
+                  leftColumnHidden ? "border-l-[9px] border-l-current" : "border-r-[9px] border-r-current"
+                )}
+              />
+            </button>
+          </div>
+          <div
+            className={cn(
+              "group/right-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
+              rightColumnHidden ? "-right-7" : "right-[calc(25%-0.75rem)] xl:right-[320px]"
+            )}
+          >
+            {hasRequestIndicator && (
+              <span className="pointer-events-none absolute left-1/2 top-5 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-lg shadow-primary/30 opacity-0 transition-opacity duration-150 group-hover/right-handle:opacity-100">
+                {requestIndicatorCount > 9 ? '9+' : requestIndicatorCount}
+              </span>
+            )}
+            <button
+              type="button"
+              aria-label={rightColumnHidden ? "Show right dashboard column" : "Hide right dashboard column"}
+              onClick={() => setRightColumnHidden((hidden) => !hidden)}
+              className="pointer-events-auto mt-9 flex h-16 w-6 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/right-handle:opacity-100"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "h-0 w-0 border-y-[7px] border-y-transparent",
+                  rightColumnHidden ? "border-r-[9px] border-r-current" : "border-l-[9px] border-l-current"
+                )}
+              />
+            </button>
+          </div>
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
           {renderShootsTabsCard()}
-        </div>
+        </motion.div>
 
         <div className="lg:hidden order-3">{renderAssignPhotographersCard()}</div>
 
-        <div className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none">
+        <AnimatePresence initial={false}>
+          {!rightColumnHidden && (
+        <motion.div
+          key="admin-right-column"
+          layout
+          initial={{ opacity: 0, x: 24, scale: 0.98, filter: "blur(6px)" }}
+          animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, x: 14, transition: { duration: 0.18, ease: "easeOut" } }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
+          className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none"
+        >
           {renderPendingReviewsCard()}
           {renderCompletedShootsCard({ stretch: true })}
-        </div>
-      </div>
+        </motion.div>
+          )}
+        </AnimatePresence>
+        </motion.div>
+      </LayoutGroup>
 
       {renderPipelineSection()}
     </>
@@ -144,7 +249,7 @@ export const AdminDashboardView = ({
   );
 
   return (
-    <div className="px-2 pt-1.5 pb-3 sm:p-6 flex flex-col min-h-full gap-2.5 sm:gap-6">
+    <div className="px-2 pt-1.5 pb-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col min-h-full gap-2.5 sm:gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div className="flex-1">
           <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />

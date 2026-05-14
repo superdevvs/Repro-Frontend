@@ -30,7 +30,7 @@ const SchedulingSettings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
         <PageHeader
           badge="Scheduling"
           title="Scheduling Catalog"

@@ -3,10 +3,39 @@ import { withApiBase } from '@/config/env';
 type Coordinate = { latitude: number; longitude: number };
 
 const RESULT_TTL = 10 * 60 * 1000;
-const REQUEST_TIMEOUT = 20000;
+const REQUEST_TIMEOUT = 8000;
+// Cap concurrent /api/weather requests so weather never saturates the
+// browser's HTTP/1.1 connection pool (6 per origin) and starve high-priority
+// dashboard calls (events, insights, notifications, shoots).
+const MAX_CONCURRENT_WEATHER_REQUESTS = 2;
 
 const resultCache = new Map<string, { expiresAt: number; result: WeatherInfo | null }>();
 const pendingRequests = new Map<string, Promise<WeatherInfo | null>>();
+
+let inFlightCount = 0;
+const waitQueue: Array<() => void> = [];
+
+const acquireSlot = (): Promise<void> => {
+  if (inFlightCount < MAX_CONCURRENT_WEATHER_REQUESTS) {
+    inFlightCount += 1;
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    waitQueue.push(() => {
+      inFlightCount += 1;
+      resolve();
+    });
+  });
+};
+
+const releaseSlot = () => {
+  inFlightCount = Math.max(0, inFlightCount - 1);
+  const next = waitQueue.shift();
+  if (next) {
+    next();
+  }
+};
 
 const sanitizeSegment = (value: string) => value.replace(/\s+/g, ' ').trim();
 const normalizeLocationKey = (value: string) => sanitizeSegment(value).toLowerCase();
@@ -136,18 +165,24 @@ async function requestWeather(
   }
 
   const url = `${withApiBase('/api/weather')}?${query.toString()}`;
-  const response = await fetchWithTimeout(url);
 
-  if (response.status === 404) {
-    return null;
+  await acquireSlot();
+  try {
+    const response = await fetchWithTimeout(url);
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Weather request failed with status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return normalizeWeatherInfo(payload?.data);
+  } finally {
+    releaseSlot();
   }
-
-  if (!response.ok) {
-    throw new Error(`Weather request failed with status ${response.status}`);
-  }
-
-  const payload = await response.json();
-  return normalizeWeatherInfo(payload?.data);
 }
 
 async function fetchWeather(

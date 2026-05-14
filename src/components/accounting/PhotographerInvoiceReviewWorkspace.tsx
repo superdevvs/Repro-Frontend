@@ -60,6 +60,7 @@ import {
   type WeeklyInvoiceTimelineEvent,
 } from '@/services/invoiceService';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
+import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
 
 type ReviewWorkspaceTab = 'review-queue' | 'payout-report';
 type ReviewStatusFilter = 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
@@ -223,12 +224,14 @@ const DetailShell = ({
   detailLoading,
   onApprove,
   onReturn,
+  onOpenInvoice,
   role,
 }: {
   invoice: WeeklyInvoice | null;
   detailLoading: boolean;
   onApprove: () => void;
   onReturn: () => void;
+  onOpenInvoice?: () => void;
   role: ReviewWorkspaceRole;
 }) => {
   if (detailLoading) {
@@ -289,6 +292,16 @@ const DetailShell = ({
             <div className="text-3xl font-semibold">{formatCurrency(invoice.total_amount)}</div>
             {canReview ? (
               <div className="flex flex-wrap gap-2">
+                {onOpenInvoice && role === 'photographer' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                    onClick={onOpenInvoice}
+                  >
+                    Open Invoice
+                  </Button>
+                ) : null}
                 <Button size="sm" variant="outline" onClick={onReturn}>
                   Return for Changes
                 </Button>
@@ -582,6 +595,7 @@ export function PhotographerInvoiceReviewWorkspace({
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [warningOverrideReason, setWarningOverrideReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -784,11 +798,11 @@ export function PhotographerInvoiceReviewWorkspace({
     exportRowsAsPdf(fileName, `${resolvedTitle} Export`, columns, rows);
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (overrideReasonOverride?: string) => {
     if (!selectedInvoice) return;
 
     const warnings = getInvoiceWarnings(selectedInvoice);
-    const overrideReason = warningOverrideReason.trim();
+    const overrideReason = (overrideReasonOverride ?? warningOverrideReason).trim();
     if (warnings.length > 0 && !overrideReason) {
       toast({
         title: 'Override reason required',
@@ -820,13 +834,15 @@ export function PhotographerInvoiceReviewWorkspace({
     }
   };
 
-  const handleReturnForChanges = async () => {
-    if (!selectedInvoice || !returnReason.trim()) return;
+  const handleReturnForChanges = async (reasonOverride?: string) => {
+    if (!selectedInvoice) return;
+    const reason = (reasonOverride ?? returnReason).trim();
+    if (!reason) return;
 
     setActionLoading(true);
 
     try {
-      await adminRejectWeeklyInvoice(selectedInvoice.id, returnReason.trim());
+      await adminRejectWeeklyInvoice(selectedInvoice.id, reason);
       toast({
         title: 'Invoice returned',
         description: `The ${resolvedShortLabel.toLowerCase()} has been asked to make changes before payout.`,
@@ -1097,6 +1113,7 @@ export function PhotographerInvoiceReviewWorkspace({
                       detailLoading={detailLoading}
                       onApprove={() => setApproveDialogOpen(true)}
                       onReturn={() => setReturnDialogOpen(true)}
+                      onOpenInvoice={() => setInvoiceModalOpen(true)}
                       role={role}
                     />
                   </div>
@@ -1123,6 +1140,7 @@ export function PhotographerInvoiceReviewWorkspace({
               detailLoading={detailLoading}
               onApprove={() => setApproveDialogOpen(true)}
               onReturn={() => setReturnDialogOpen(true)}
+              onOpenInvoice={() => setInvoiceModalOpen(true)}
               role={role}
             />
           )}
@@ -1194,7 +1212,7 @@ export function PhotographerInvoiceReviewWorkspace({
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleApprove} disabled={actionLoading}>
+            <Button onClick={() => handleApprove()} disabled={actionLoading}>
               {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Approve Amount
             </Button>
@@ -1228,7 +1246,7 @@ export function PhotographerInvoiceReviewWorkspace({
             </Button>
             <Button
               variant="outline"
-              onClick={handleReturnForChanges}
+              onClick={() => handleReturnForChanges()}
               disabled={actionLoading || !returnReason.trim()}
             >
               {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -1237,6 +1255,23 @@ export function PhotographerInvoiceReviewWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {role === 'photographer' && selectedInvoice ? (
+        <InvoiceApprovalDialog
+          isOpen={invoiceModalOpen}
+          onClose={() => setInvoiceModalOpen(false)}
+          invoice={selectedInvoice}
+          mode="admin"
+          onAdminApprove={async (overrideReason) => {
+            await handleApprove(overrideReason);
+            setInvoiceModalOpen(false);
+          }}
+          onAdminReject={async (reason) => {
+            await handleReturnForChanges(reason);
+            setInvoiceModalOpen(false);
+          }}
+        />
+      ) : null}
     </Tabs>
   );
 }

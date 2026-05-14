@@ -33,9 +33,9 @@ import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint'
 import { PRIVACY_EFFECTIVE_DATE as PRIVACY_POLICY_EFFECTIVE_DATE, privacySections } from '@/content/privacyPolicy';
 import { analyzeEmailInput, normalizeEmailHealth } from '@/utils/emailHealth';
 
-const TERMS_EFFECTIVE_DATE = 'April 16, 2026';
+export const TERMS_EFFECTIVE_DATE = 'April 16, 2026';
 
-const termsSections = [
+export const termsSections = [
   {
     title: 'R/E Pro Photos – Client Terms & Conditions (With SMS Consent)',
     effectiveDate: TERMS_EFFECTIVE_DATE,

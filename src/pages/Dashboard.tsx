@@ -759,6 +759,11 @@ const Dashboard = () => {
             greetingTitle={greetingTitle}
             isMobile={isCompactDashboardViewport}
             mobileDashboardTab={mobileDashboardTab}
+            requestIndicatorCount={
+              clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
+              editingRequests.filter((request) => request.status !== 'completed').length +
+              cancellationShoots.length
+            }
             refresh={refresh}
             renderAssignPhotographersCard={renderAssignPhotographersCard}
             renderCompletedShootsCard={renderCompletedShootsCard}

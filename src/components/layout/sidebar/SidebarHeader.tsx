@@ -10,7 +10,7 @@ interface SidebarHeaderProps {
 
 export function SidebarHeader({ isCollapsed }: SidebarHeaderProps) {
   return (
-    <div className="flex items-end border-b px-0 relative pb-[19px]">
+    <div className="flex items-end px-0 relative pb-[19px]">
       <Link
         to="/"
         className={cn(

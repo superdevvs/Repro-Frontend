@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { NavLink } from './NavLink';
 import { HelpCircle, SettingsIcon, LogOutIcon, PanelLeftClose, PanelLeft } from 'lucide-react';
@@ -55,7 +54,6 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
           </Button>
         </div>
       )}
-      <Separator className="my-2" />
       <NavLink
         to="/settings"
         icon={<SettingsIcon className="h-5 w-5" />}

@@ -68,7 +68,7 @@ export function Sidebar({ className }: SidebarProps) {
       }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
       className={cn(
-        'group border-r bg-background p-3 py-4 relative hidden md:block',
+        'group bg-background p-3 py-4 relative hidden md:block',
         isCollapsed && 'items-center',
         className
       )}

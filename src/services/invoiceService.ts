@@ -552,6 +552,82 @@ export const removeWeeklyInvoiceExpense = async (
 };
 
 /**
+ * Add a charge (service line) to a weekly invoice. Currently photographer-only.
+ */
+export const addWeeklyInvoiceCharge = async (
+  invoiceId: number,
+  role: 'photographer' | 'salesRep',
+  data: { description: string; amount: number; quantity?: number; shoot_id?: number },
+): Promise<{ message: string; item: WeeklyInvoiceItem; invoice: WeeklyInvoice }> => {
+  if (role !== 'photographer') {
+    throw new Error('Adding service lines is only supported for photographers.');
+  }
+  const response = await fetch(`${API_BASE_URL}/api/photographer/invoices/${invoiceId}/charges`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to add service');
+  }
+
+  return response.json();
+};
+
+/**
+ * Remove a charge (service line) from a weekly invoice. Photographer-only.
+ */
+export const removeWeeklyInvoiceCharge = async (
+  invoiceId: number,
+  itemId: number,
+  role: 'photographer' | 'salesRep',
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  if (role !== 'photographer') {
+    throw new Error('Removing service lines is only supported for photographers.');
+  }
+  const response = await fetch(`${API_BASE_URL}/api/photographer/invoices/${invoiceId}/charges/${itemId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to remove service');
+  }
+
+  return response.json();
+};
+
+/**
+ * Update a single line item on a weekly invoice (description / amount / quantity).
+ * Photographer-only.
+ */
+export const updateWeeklyInvoiceItem = async (
+  invoiceId: number,
+  itemId: number,
+  role: 'photographer' | 'salesRep',
+  data: { description?: string; amount?: number; quantity?: number },
+): Promise<{ message: string; item: WeeklyInvoiceItem; invoice: WeeklyInvoice }> => {
+  if (role !== 'photographer') {
+    throw new Error('Editing line items is only supported for photographers.');
+  }
+  const response = await fetch(`${API_BASE_URL}/api/photographer/invoices/${invoiceId}/items/${itemId}`, {
+    method: 'PATCH',
+    headers: buildHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to update line item');
+  }
+
+  return response.json();
+};
+
+/**
  * Reject a weekly invoice
  */
 export const rejectWeeklyInvoice = async (

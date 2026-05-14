@@ -442,7 +442,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     historyFilters.groupBy !== 'shoot'
 
   return (
-    <div ref={gridContainerRef} className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+    <div ref={gridContainerRef} className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Shoot History</h1>

@@ -480,7 +480,7 @@ const Settings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
+      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
         <PageHeader
           title="Settings"
           description="Manage your account settings and preferences"

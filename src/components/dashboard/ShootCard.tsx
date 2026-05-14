@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -65,7 +65,35 @@ export function ShootCard(props: ShootCardProps) {
   const { formatTemperature } = useUserPreferences();
   // Check if using the new props structure
   const isNewProps = 'shoot' in props;
-  
+
+  // Viewport-gate weather lookups: only fetch weather once the card actually
+  // becomes visible. Prevents 8+ off-screen cards from racing weather requests
+  // on dashboard mount and saturating the browser connection pool.
+  const cardRootRef = useRef<HTMLDivElement | null>(null);
+  const [isInView, setIsInView] = useState(false);
+  useEffect(() => {
+    if (isInView) return;
+    const node = cardRootRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+            observer.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isInView]);
+
   // Setup all needed variables whether using new or legacy props
   const status = isNewProps ? props.shoot.status : props.status;
   const showMedia = isNewProps ? props.showMedia :false;
@@ -124,6 +152,7 @@ export function ShootCard(props: ShootCardProps) {
     date: weatherDate,
     time: weatherTime,
     address: weatherAddress,
+    enabled: isInView,
   });
   const parsedWeatherTemperature =
     weatherTemperature !== undefined && !Number.isNaN(Number(weatherTemperature))
@@ -162,6 +191,7 @@ export function ShootCard(props: ShootCardProps) {
     
     return (
       <div 
+        ref={cardRootRef}
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={onClick}
       >
@@ -326,6 +356,7 @@ export function ShootCard(props: ShootCardProps) {
   
   return (
     <div 
+      ref={cardRootRef}
       className="cursor-pointer hover:bg-muted/50 transition-colors"
       onClick={onClick}
     >

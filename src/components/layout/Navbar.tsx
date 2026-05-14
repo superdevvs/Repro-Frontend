@@ -291,7 +291,6 @@ export function Navbar() {
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    setWeather(null);
 
     const loadWeather = async () => {
       try {
@@ -309,11 +308,35 @@ export function Navbar() {
       }
     };
 
-    loadWeather();
+    // Defer weather fetch until the browser is idle so it never competes with
+    // high-priority dashboard requests (user, shoots, notifications, permissions).
+    const win = window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    let idleHandle: number | null = null;
+    let timeoutHandle: number | null = null;
+
+    if (typeof win.requestIdleCallback === 'function') {
+      idleHandle = win.requestIdleCallback(() => {
+        if (!cancelled) loadWeather();
+      }, { timeout: 5000 });
+    } else {
+      timeoutHandle = window.setTimeout(() => {
+        if (!cancelled) loadWeather();
+      }, 2000);
+    }
 
     return () => {
       cancelled = true;
       controller.abort();
+      if (idleHandle !== null && typeof win.cancelIdleCallback === 'function') {
+        win.cancelIdleCallback(idleHandle);
+      }
+      if (timeoutHandle !== null) {
+        window.clearTimeout(timeoutHandle);
+      }
     };
   }, [providerVersion, weatherCoords.lat, weatherCoords.lon]);
 
@@ -416,7 +439,7 @@ export function Navbar() {
   ];
 
   return (
-    <div className="w-full border-b border-border bg-card dark:bg-background">
+    <div className="w-full bg-background">
       <div className="h-16 flex items-center justify-between px-4">
         <div
           className={cn(

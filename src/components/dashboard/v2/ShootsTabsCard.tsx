@@ -843,39 +843,39 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         onClick={() => onSelect(shoot, weather)}
         className={cn(
           "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
-          isCompactMobile && "px-3 py-2.5 rounded-2xl sm:rounded-3xl sm:px-5 sm:py-5",
+          isCompactMobile && "px-3 py-2.5 rounded-2xl sm:rounded-2xl sm:px-4 sm:py-3",
           isRequested 
             ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
             : "border-border hover:border-primary/40"
         )}
       >
-        {/* ── Mobile layout ── */}
+        {/* ── Compact layout (mobile compact toggle + desktop/tablet compact toggle) ── */}
         {isCompactMobile && (
-          <div className="sm:hidden grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px]">
+          <div className="grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px] sm:grid-cols-[56px,1fr,auto] sm:gap-4 sm:min-h-[68px]">
             <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2 py-2 text-center shadow-sm">
-              <p className="text-[9px] font-semibold text-muted-foreground leading-none">{dateParts.month}</p>
-              <p className="mt-0.5 text-lg font-bold leading-none text-foreground">{dateParts.day}</p>
-              <p className="mt-1 text-[9px] font-semibold leading-none text-muted-foreground">{dateParts.weekday}</p>
+              <p className="text-[9px] font-semibold text-muted-foreground leading-none sm:text-[10px]">{dateParts.month}</p>
+              <p className="mt-0.5 text-lg font-bold leading-none text-foreground sm:text-xl">{dateParts.day}</p>
+              <p className="mt-1 text-[9px] font-semibold leading-none text-muted-foreground sm:text-[10px]">{dateParts.weekday}</p>
             </div>
 
             <div className="min-w-0 border-l border-border/60 pl-3">
-              <h3 className="truncate text-sm font-semibold text-foreground">{shoot.addressLine}</h3>
-              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">{shoot.addressLine}</h3>
+              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground sm:text-xs">
                 <MapPin size={10} className="shrink-0" />
                 <span className="truncate">{shoot.cityStateZip}</span>
               </p>
-              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground sm:text-xs">
                 <span className="shrink-0">Client</span>
                 <span className="font-semibold text-foreground truncate">• {shoot.clientName || 'Client TBD'}</span>
                 <span className="shrink-0">• #{shoot.id}</span>
               </p>
             </div>
 
-            <div className="flex h-full min-w-[76px] flex-col items-end justify-center gap-2">
-              <span className="text-xs font-semibold text-primary">{dateParts.time}</span>
+            <div className="flex h-full min-w-[76px] flex-col items-end justify-center gap-2 sm:min-w-[96px]">
+              <span className="text-xs font-semibold text-primary sm:text-sm">{dateParts.time}</span>
               <span
                 className={cn(
-                  'inline-flex max-w-[76px] items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap',
+                  'inline-flex max-w-[76px] items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap sm:max-w-[96px] sm:text-[11px]',
                   statusClass,
                 )}
               >
@@ -993,8 +993,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
           </div>
         </div>
 
-        {/* ── Desktop layout (unchanged) ── */}
-        <div className="hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4">
+        {/* ── Desktop layout (hidden when compact toggle is on) ── */}
+        <div className={cn(
+          "hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4",
+          isCompactMobile && "sm:hidden"
+        )}>
           <div className="flex flex-col items-center gap-2">
             {isRequested && (
               <span
@@ -2108,10 +2111,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
               style={{ maxHeight: listMaxHeight }}
             >
-              {paginatedGroups.map((group) => (
+              {paginatedGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
+                      'flex items-center justify-between gap-2',
                       group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
@@ -2121,6 +2125,24 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
+                    {groupIndex === 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsCompactMobile((prev) => !prev)}
+                        className={cn(
+                          'hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
+                          isCompactMobile
+                            ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                        )}
+                        aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+                        title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+                      >
+                        <List size={14} className="mr-1" />
+                        {isCompactMobile ? 'Full view' : 'Compact'}
+                      </Button>
+                    )}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
                 </div>
@@ -2150,10 +2172,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <div 
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
             >
-              {requestedGroups.map((group) => (
+              {requestedGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
+                      'flex items-center justify-between gap-2',
                       group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
@@ -2163,6 +2186,24 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
+                    {groupIndex === 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsCompactMobile((prev) => !prev)}
+                        className={cn(
+                          'hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
+                          isCompactMobile
+                            ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                        )}
+                        aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+                        title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+                      >
+                        <List size={14} className="mr-1" />
+                        {isCompactMobile ? 'Full view' : 'Compact'}
+                      </Button>
+                    )}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, true))}
                 </div>

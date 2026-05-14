@@ -800,7 +800,7 @@ const PrivateListingPortal = () => {
   // ─── Main Render ───────────────────────────────────────────
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <PageHeader

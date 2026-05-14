@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,7 +20,7 @@ import { useShootHistoryData } from '@/hooks/useShootHistoryData'
 import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
-import { Calendar as CalendarIcon, CheckCircle2, PauseCircle, Trash2 } from 'lucide-react'
+import { Calendar as CalendarIcon, CheckCircle2, Loader2, PauseCircle, Trash2 } from 'lucide-react'
 import {
   DEFAULT_OPERATIONAL_FILTERS,
   HISTORY_ALLOWED_ROLES,
@@ -47,6 +48,24 @@ const DELIVERED_STATUS_KEYS = [
   'finalised',
   'finalized',
 ]
+
+const ShootHistoryLoadingPanel = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.28, ease: 'easeOut' }}
+    className="flex min-h-[320px] items-center justify-center rounded-2xl border border-border/60 bg-card/80 p-8 shadow-sm"
+  >
+    <div className="flex flex-col items-center gap-4 text-center">
+      <div className="rounded-[999px] bg-blue-100 px-4 py-2 text-slate-900 shadow-sm dark:bg-blue-500/20 dark:text-blue-100">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-medium">Loading shoot history...</span>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+)
 
 const normalizeShootServices = (services: unknown): string[] => {
   if (!Array.isArray(services)) {
@@ -507,13 +526,7 @@ const ShootHistory: React.FC = () => {
   // Scheduled shoots content
   const scheduledContent = useMemo(() => {
     if (loading && activeTab === 'scheduled') {
-      return (
-        <div className="space-y-4">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-32 w-full rounded-xl" />
-          ))}
-        </div>
-      )
+      return <ShootHistoryLoadingPanel />
     }
 
     if (!filteredOperationalData.length) {
@@ -621,18 +634,7 @@ const ShootHistory: React.FC = () => {
           : 'completed'
     
     if (loading && (activeTab === 'completed' || activeTab === 'delivered' || activeTab === 'editing' || activeTab === 'edited')) {
-      return (
-        <>
-          <MobileOperationalSkeleton />
-          <div className="hidden md:block">
-            <div className="masonry-grid">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <Skeleton key={item} className="h-72 w-full rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </>
-      )
+      return <ShootHistoryLoadingPanel />
     }
 
     if (!filteredOperationalData.length) {
@@ -739,18 +741,7 @@ const ShootHistory: React.FC = () => {
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
     if (loading && activeTab === 'hold') {
-      return (
-        <>
-          <MobileOperationalSkeleton />
-          <div className="hidden md:block">
-            <div className="masonry-grid">
-              {[1, 2, 3].map((item) => (
-                <Skeleton key={item} className="h-40 w-full rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </>
-      )
+      return <ShootHistoryLoadingPanel />
     }
 
     if (!filteredOperationalData.length) {
@@ -852,13 +843,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (loading && activeTab === 'history') {
-      return (
-        <div className="space-y-4">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-48 w-full rounded-xl" />
-          ))}
-        </div>
-      )
+      return <ShootHistoryLoadingPanel />
     }
 
     if (historyFilters.groupBy === 'services') {

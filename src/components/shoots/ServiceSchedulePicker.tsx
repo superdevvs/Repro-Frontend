@@ -96,7 +96,7 @@ const parseInputDate = (value?: string): Date | undefined => {
 
 const formatScheduleDateLabel = (value?: string) => {
   const date = parseInputDate(value);
-  return date ? format(date, 'dd-MM-yyyy') : 'Select date';
+  return date ? format(date, 'dd MMM yyyy') : 'Select date';
 };
 
 export function ServiceDatePicker({

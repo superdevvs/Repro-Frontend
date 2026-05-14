@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
+import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
 import { usePermission } from './hooks/usePermission';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
@@ -733,6 +734,7 @@ function App() {
                         <UploadProvider>
                           <SystemTelemetryProvider>
                             <RealtimeBridge />
+                            <FirstLoginLegalAgreementPrompt />
                             <ResponsiveResizeIndicator />
                             <ErrorBoundary>
                               <AppRoutes />

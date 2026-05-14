@@ -558,7 +558,7 @@ export default function Availability() {
   return (
     <>
       <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "p-3 sm:p-4 pb-6" : "h-full p-6 overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "p-3 sm:p-4 pb-6" : "h-full px-6 pb-6 pt-0 overflow-hidden")}>
           {isCompactLayout ? (
             <div className="flex items-center justify-between gap-2">
               <h1 className="text-lg sm:text-xl font-bold truncate">Photographer Availability</h1>
