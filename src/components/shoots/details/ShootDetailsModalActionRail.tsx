@@ -70,6 +70,7 @@ interface ShootDetailsModalActionRailProps {
   canResumeFromHold: boolean;
   canCancelShoot: boolean;
   canSendToEditing: boolean;
+  canApproveEditingReview?: boolean;
   canFinalise: boolean;
   canStartMmmPunchout: boolean;
   showMmmPunchoutButtons: boolean;
@@ -85,6 +86,7 @@ interface ShootDetailsModalActionRailProps {
   isGeneratingShareLink: boolean;
   isStartingMmmPunchout: boolean;
   isSendingToEditing?: boolean;
+  isApprovingEditingReview?: boolean;
   isFinalising?: boolean;
   rawFileCount: number;
   editedMediaCount: number;
@@ -104,6 +106,7 @@ interface ShootDetailsModalActionRailProps {
   handleResumeFromHold: () => void;
   handleCancelShootClick: () => void;
   handleSendToEditing: () => void;
+  handleApproveEditingReview?: () => void;
   handleFinalise: () => void;
   handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large') => void;
   handleSendToBrightMls: () => void;
@@ -130,6 +133,7 @@ export function ShootDetailsModalActionRail({
   canResumeFromHold,
   canCancelShoot,
   canSendToEditing,
+  canApproveEditingReview = false,
   canFinalise,
   canStartMmmPunchout,
   showMmmPunchoutButtons,
@@ -145,6 +149,7 @@ export function ShootDetailsModalActionRail({
   isGeneratingShareLink,
   isStartingMmmPunchout,
   isSendingToEditing = false,
+  isApprovingEditingReview = false,
   isFinalising = false,
   rawFileCount,
   editedMediaCount,
@@ -164,6 +169,7 @@ export function ShootDetailsModalActionRail({
   handleResumeFromHold,
   handleCancelShootClick,
   handleSendToEditing,
+  handleApproveEditingReview,
   handleFinalise,
   handleDownloadMedia,
   handleSendToBrightMls,
@@ -455,6 +461,25 @@ export function ShootDetailsModalActionRail({
                   )}
                 </div>
                 {isSendingToEditing ? 'Sending to Editing...' : 'Send to Editing'}
+              </button>
+            )}
+            {canApproveEditingReview && !isEditMode && handleApproveEditingReview && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleApproveEditingReview();
+                }}
+                disabled={isApprovingEditingReview}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/40">
+                  {isApprovingEditingReview ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  )}
+                </div>
+                {isApprovingEditingReview ? 'Approving...' : 'Approve edits (mark Ready)'}
               </button>
             )}
             {canFinalise && !isEditMode && (

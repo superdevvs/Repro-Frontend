@@ -231,6 +231,8 @@ export function ShootDetailsModalDialogs({
           totalPaid={shoot.payment?.totalPaid}
           onPaymentSuccess={handlePaymentSuccess}
           onManualPaymentConfirm={!isClient ? handleMarkPaidConfirm : undefined}
+          clientCanSubmitOfflineIntent={isClient}
+          onOfflineIntentSubmitted={handlePaymentSuccess}
         />
       )}
 

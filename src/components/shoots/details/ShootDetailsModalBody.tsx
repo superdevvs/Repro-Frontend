@@ -70,10 +70,12 @@ interface ShootDetailsModalBodyProps {
   showTourAnalytics: boolean;
   canResumeFromHold: boolean;
   canSendToEditing: boolean;
+  canApproveEditingReview?: boolean;
   canFinalise: boolean;
   canShowInvoiceButton: boolean;
   isLoadingInvoice: boolean;
   isSendingToEditing?: boolean;
+  isApprovingEditingReview?: boolean;
   isFinalising?: boolean;
   canOpenDeliveredDownloadDialog?: boolean;
   canPrivilegedProgressDownload?: boolean;
@@ -100,6 +102,7 @@ interface ShootDetailsModalBodyProps {
   handleSendToBrightMls: () => void;
   handleResumeFromHold: () => void;
   handleSendToEditing: () => void;
+  handleApproveEditingReview?: () => void;
   handleFinalise: () => void;
   handleSaveRequest: (updates: Partial<ShootData>) => void;
   handleCancelEdit: () => void;
@@ -133,10 +136,12 @@ export function ShootDetailsModalBody({
   showTourAnalytics,
   canResumeFromHold,
   canSendToEditing,
+  canApproveEditingReview = false,
   canFinalise,
   canShowInvoiceButton,
   isLoadingInvoice,
   isSendingToEditing = false,
+  isApprovingEditingReview = false,
   isFinalising = false,
   canOpenDeliveredDownloadDialog = false,
   canPrivilegedProgressDownload = false,
@@ -163,6 +168,7 @@ export function ShootDetailsModalBody({
   handleSendToBrightMls,
   handleResumeFromHold,
   handleSendToEditing,
+  handleApproveEditingReview,
   handleFinalise,
   handleSaveRequest,
   handleCancelEdit,
@@ -382,7 +388,7 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canFinalise || showDesktopSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
                 {canOpenDeliveredDownloadDialog && (
@@ -504,6 +510,22 @@ export function ShootDetailsModalBody({
                       <Send className="h-3.5 w-3.5 mr-1.5" />
                     )}
                     <span>{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
+                  </Button>
+                )}
+                {canApproveEditingReview && handleApproveEditingReview && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
+                    onClick={handleApproveEditingReview}
+                    disabled={isApprovingEditingReview}
+                  >
+                    {isApprovingEditingReview ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isApprovingEditingReview ? 'Approving...' : 'Approve Edits'}</span>
                   </Button>
                 )}
                 {canFinalise && (

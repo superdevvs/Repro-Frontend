@@ -167,7 +167,7 @@ const ExclusiveListingGridCard = ({
         boxShadow: '0 26px 56px -36px rgba(6, 10, 14, 0.38)',
       }}
     >
-      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-[#060a0e]">
+      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-white dark:bg-[#060a0e]">
         <img
           src={heroUrl}
           alt={listing.address}
@@ -175,8 +175,8 @@ const ExclusiveListingGridCard = ({
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,10,14,0.1)_0%,rgba(6,10,14,0.02)_22%,rgba(6,10,14,0.18)_50%,rgba(6,10,14,0.36)_66%,rgba(6,10,14,0.8)_84%,rgba(6,10,14,0.96)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(6,10,14,0)_0%,rgba(6,10,14,0.32)_20%,rgba(6,10,14,0.68)_52%,rgba(6,10,14,0.94)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.02)_22%,rgba(255,255,255,0.18)_50%,rgba(255,255,255,0.42)_66%,rgba(255,255,255,0.86)_84%,rgba(255,255,255,0.98)_100%)] dark:bg-[linear-gradient(180deg,rgba(6,10,14,0.1)_0%,rgba(6,10,14,0.02)_22%,rgba(6,10,14,0.18)_50%,rgba(6,10,14,0.36)_66%,rgba(6,10,14,0.8)_84%,rgba(6,10,14,0.96)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.4)_20%,rgba(255,255,255,0.78)_52%,rgba(255,255,255,0.98)_100%)] dark:bg-[linear-gradient(180deg,rgba(6,10,14,0)_0%,rgba(6,10,14,0.32)_20%,rgba(6,10,14,0.68)_52%,rgba(6,10,14,0.94)_100%)]" />
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
@@ -195,7 +195,7 @@ const ExclusiveListingGridCard = ({
                 className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] shadow-sm ${
                   isHidden
                     ? 'border-amber-200 bg-amber-100 text-amber-900'
-                    : 'border-white/80 bg-white text-slate-900'
+                    : 'border-slate-900/15 bg-white/85 text-slate-900 backdrop-blur-sm dark:border-white/40 dark:bg-white/15 dark:text-white'
                 }`}
               >
                 <Lock className="mr-1.5 h-3 w-3" />
@@ -230,24 +230,21 @@ const ExclusiveListingGridCard = ({
           <div className="mt-auto space-y-4">
             {listing.price && (
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/60">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-slate-700/70 dark:text-white/60">
                   List Price
                 </p>
-                <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.05em] text-white">
+                <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.05em] text-slate-900 dark:text-white">
                   {formatPrice(listing.price)}
                 </p>
               </div>
             )}
 
-            <div
-              className="space-y-1.5"
-              style={{ textShadow: '0 2px 14px rgba(0,0,0,0.38), 0 1px 3px rgba(0,0,0,0.7)' }}
-            >
-              <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-[1.6rem]">
+            <div className="space-y-1.5 [text-shadow:none] dark:[text-shadow:0_2px_14px_rgba(0,0,0,0.38),0_1px_3px_rgba(0,0,0,0.7)]">
+              <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-slate-900 dark:text-white sm:text-[1.6rem]">
                 {listing.address}
               </h3>
               {locationLine && (
-                <p className="max-w-[24ch] text-sm leading-relaxed text-white/88">
+                <p className="max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white/88">
                   {locationLine}
                 </p>
               )}
@@ -255,22 +252,20 @@ const ExclusiveListingGridCard = ({
 
             {metrics.length > 0 && (
               <div
-                className="grid gap-3 border-t pt-4"
+                className="grid gap-3 border-t border-slate-900/10 pt-4 dark:border-white/14"
                 style={{
-                  borderColor: 'rgba(255,255,255,0.14)',
                   gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
                 }}
               >
                 {metrics.map((metric, index) => (
                   <div
                     key={metric.label}
-                    className={`min-w-0 ${index > 0 ? 'border-l pl-3' : ''}`}
-                    style={index > 0 ? { borderColor: 'rgba(255,255,255,0.14)' } : undefined}
+                    className={`min-w-0 ${index > 0 ? 'border-l border-slate-900/10 pl-3 dark:border-white/14' : ''}`}
                   >
-                    <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-white">
+                    <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                       {metric.value}
                     </p>
-                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-white/58">
+                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-slate-600/80 dark:text-white/58">
                       {metric.label}
                     </p>
                   </div>
@@ -278,15 +273,12 @@ const ExclusiveListingGridCard = ({
               </div>
             )}
 
-            <div
-              className="flex items-center justify-between gap-3 border-t pt-3 text-sm text-white/72"
-              style={{ borderColor: 'rgba(255,255,255,0.14)' }}
-            >
+            <div className="flex items-center justify-between gap-3 border-t border-slate-900/10 pt-3 text-sm text-slate-700 dark:border-white/14 dark:text-white/72">
               <p className="min-w-0 truncate">
-                By <span className="font-medium text-white">{listing.client.name}</span>
+                By <span className="font-medium text-slate-900 dark:text-white">{listing.client.name}</span>
               </p>
               {listingTypeLabel && (
-                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-white/54">
+                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-slate-600/80 dark:text-white/54">
                   {listingTypeLabel}
                 </span>
               )}

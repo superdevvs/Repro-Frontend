@@ -77,6 +77,11 @@ export const getShootDetailsCapabilities = ({
     !isDelivered &&
     !hasEditedWithoutRaw &&
     normalizedStatus === 'uploaded';
+  const canApproveEditingReview =
+    (isAdmin || isEditingManager) &&
+    !isDelivered &&
+    normalizedStatus === 'review' &&
+    editedMediaCount > 0;
   const mmmRedirectUrl =
     shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
   const canStartMmmPunchout =
@@ -194,6 +199,7 @@ export const getShootDetailsCapabilities = ({
     canShowInvoiceButton,
     canFinalise,
     canSendToEditing,
+    canApproveEditingReview,
     mmmRedirectUrl,
     canStartMmmPunchout,
     showMmmPunchoutButtons,

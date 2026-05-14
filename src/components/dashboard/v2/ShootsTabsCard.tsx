@@ -292,7 +292,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
-  // Dynamic height so the list reveals ~5.5 cards at a time, peeking the 6th
+  // Dynamic height so the list reveals ~7.5 cards at a time, peeking the 8th
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
 
   useEffect(() => {
@@ -679,7 +679,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     return () => observer.disconnect();
   }, [hasMore, editingManagerHasMore, activeTab]);
 
-  // Measure a representative shoot card so the container height shows ~5.5 cards
+  // Measure a representative shoot card so the container height shows ~7.5 cards
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -696,13 +696,13 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     return () => observer.disconnect();
   }, [paginatedGroups, editingManagerPaginatedGroups, activeTab]);
 
-  // ~5.5 cards tall: 5 full + half of 6th, plus gaps (space-y-3 between cards
+  // ~7.5 cards tall: 7 full + half of 8th, plus gaps (space-y-3 between cards
   // in a group) and a small allowance for the first group label.
   const listMaxHeight = useMemo(() => {
     if (shootCardHeight <= 0) return undefined;
     const inGroupGap = 12; // space-y-3
     const labelAllowance = 40; // first group label + top spacing
-    return `${Math.ceil(shootCardHeight * 5.5 + inGroupGap * 5 + labelAllowance)}px`;
+    return `${Math.ceil(shootCardHeight * 7.5 + inGroupGap * 7 + labelAllowance)}px`;
   }, [shootCardHeight]);
 
   useEffect(() => {
@@ -1196,6 +1196,25 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       setHasUnreadRequests(false);
     }
   }, [activeTab, hasUnreadRequests]);
+
+  const renderStickyCompactToggle = () => (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setIsCompactMobile((prev) => !prev)}
+      className={cn(
+        'pointer-events-auto hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
+        isCompactMobile
+          ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      )}
+      aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+      title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+    >
+      <List size={14} className="mr-1" />
+      {isCompactMobile ? 'Full view' : 'Compact'}
+    </Button>
+  );
 
   if (isEditingManagerMode) {
     return (
@@ -2111,12 +2130,15 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
               style={{ maxHeight: listMaxHeight }}
             >
+              <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
+                {renderStickyCompactToggle()}
+              </div>
               {paginatedGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
+                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
@@ -2125,24 +2147,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
-                    {groupIndex === 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsCompactMobile((prev) => !prev)}
-                        className={cn(
-                          'hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
-                          isCompactMobile
-                            ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
-                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                        )}
-                        aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-                        title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-                      >
-                        <List size={14} className="mr-1" />
-                        {isCompactMobile ? 'Full view' : 'Compact'}
-                      </Button>
-                    )}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
                 </div>
@@ -2172,12 +2176,15 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <div 
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
             >
+              <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
+                {renderStickyCompactToggle()}
+              </div>
               {requestedGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
+                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">
@@ -2186,24 +2193,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
-                    {groupIndex === 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsCompactMobile((prev) => !prev)}
-                        className={cn(
-                          'hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
-                          isCompactMobile
-                            ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
-                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                        )}
-                        aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-                        title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-                      >
-                        <List size={14} className="mr-1" />
-                        {isCompactMobile ? 'Full view' : 'Compact'}
-                      </Button>
-                    )}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, true))}
                 </div>

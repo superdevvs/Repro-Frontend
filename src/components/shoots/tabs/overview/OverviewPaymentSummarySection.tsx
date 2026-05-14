@@ -3,6 +3,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { PendingPaymentIntentsCard } from '@/components/payments/PendingPaymentIntentsCard';
 
 type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
@@ -18,6 +19,10 @@ type OverviewPaymentSummarySectionProps = {
   updateField: (field: string, value: unknown) => void;
   onPayNow?: () => void;
   isPaying?: boolean;
+  /** Triggered after admin confirms/declines a pending intent */
+  onPendingIntentsChanged?: () => void;
+  /** Whether the viewer can confirm/decline pending intents */
+  canModeratePendingIntents?: boolean;
 };
 
 export function OverviewPaymentSummarySection({
@@ -33,7 +38,10 @@ export function OverviewPaymentSummarySection({
   updateField,
   onPayNow,
   isPaying = false,
+  onPendingIntentsChanged,
+  canModeratePendingIntents = false,
 }: OverviewPaymentSummarySectionProps) {
+  const pendingPayments = shoot.payment?.pendingPayments ?? [];
   const formattedPaymentBalance = `$${paymentBalance.toFixed(2)}`;
   const payNowLabel = `Pay ${formattedPaymentBalance}`;
   const isCancellationFeeOnly = Boolean(shoot.payment?.isCancellationFeeOnly);
@@ -187,6 +195,17 @@ export function OverviewPaymentSummarySection({
           ) : (
             <div className="text-muted-foreground">Not available</div>
           )}
+        </div>
+      )}
+
+      {pendingPayments.length > 0 && (
+        <div className="mt-2.5">
+          <PendingPaymentIntentsCard
+            shootId={shoot.id}
+            pendingPayments={pendingPayments}
+            canModerate={canModeratePendingIntents}
+            onChanged={onPendingIntentsChanged}
+          />
         </div>
       )}
     </div>

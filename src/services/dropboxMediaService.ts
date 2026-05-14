@@ -129,6 +129,27 @@ export const finalizeEditedUploadQueue = async (
   return response.data;
 };
 
+export interface ApproveEditingReviewResponse {
+  message?: string;
+  workflow_status_changed?: boolean;
+  shoot_status?: string;
+  edited_photo_count?: number;
+  error_type?: string;
+}
+
+export const approveEditingReview = async (
+  shootId: string | number,
+  headers?: Record<string, string>,
+): Promise<ApproveEditingReviewResponse> => {
+  const response = await axios.post<ApproveEditingReviewResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/approve-editing-review`,
+    {},
+    headers ? { headers } : undefined,
+  );
+
+  return response.data;
+};
+
 interface UploadFilesIndividuallyConfig {
   endpoint: string;
   files: File[];

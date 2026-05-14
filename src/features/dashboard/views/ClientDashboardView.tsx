@@ -510,6 +510,12 @@ export const ClientDashboardView = ({
               description: "Your payment has been processed successfully.",
             });
           }}
+          clientCanSubmitOfflineIntent
+          onOfflineIntentSubmitted={() => {
+            setStripePaymentOpen(false);
+            setShootToPay(null);
+            refresh();
+          }}
         />
       )}
 

@@ -211,6 +211,7 @@ export function ShootDetailsModal({
       canShowInvoiceButton,
       canFinalise,
       canSendToEditing,
+      canApproveEditingReview,
       mmmRedirectUrl,
       canStartMmmPunchout,
       showMmmPunchoutButtons,
@@ -539,6 +540,8 @@ export function ShootDetailsModal({
     handleSubmitEdits,
     closeSubmitConfirm,
     confirmSubmit,
+    isApprovingEditingReview,
+    handleApproveEditingReview,
   } = useShootDetailsModalWorkflow({
     shoot,
     isClient,
@@ -713,7 +716,7 @@ export function ShootDetailsModal({
             <div className="text-sm text-muted-foreground">Loading shoot details...</div>
           </div>
 
-        {!isEditMode && !isRequestedStatus && (canUserPutOnHold || canResumeFromHold || canSendToEditing || canFinalise) && (
+        {!isEditMode && !isRequestedStatus && (canUserPutOnHold || canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise) && (
           <div className="hidden sm:flex sticky bottom-0 w-full border-t bg-background/95 backdrop-blur z-40 px-4 py-3">
             <div className="flex flex-wrap items-center justify-end gap-2 w-full">
               {canUserPutOnHold && (
@@ -752,6 +755,22 @@ export function ShootDetailsModal({
                     <Send className="h-3.5 w-3.5 mr-1.5" />
                   )}
                   <span>{isSendingToEditing ? 'Sending...' : 'Send to Editing'}</span>
+                </Button>
+              )}
+              {canApproveEditingReview && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
+                  onClick={handleApproveEditingReview}
+                  disabled={isApprovingEditingReview}
+                >
+                  {isApprovingEditingReview ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  <span>{isApprovingEditingReview ? 'Approving...' : 'Approve Edits'}</span>
                 </Button>
               )}
               {canFinalise && (
@@ -823,6 +842,7 @@ export function ShootDetailsModal({
           canResumeFromHold={canResumeFromHold}
           canCancelShoot={canCancelShoot}
           canSendToEditing={canSendToEditing}
+          canApproveEditingReview={canApproveEditingReview}
           canFinalise={canFinalise}
           canStartMmmPunchout={canStartMmmPunchout}
           showMmmPunchoutButtons={showMmmPunchoutButtons}
@@ -838,6 +858,7 @@ export function ShootDetailsModal({
           isGeneratingShareLink={isGeneratingShareLink}
           isStartingMmmPunchout={isStartingMmmPunchout}
           isSendingToEditing={isSendingToEditing}
+          isApprovingEditingReview={isApprovingEditingReview}
           isFinalising={isFinalising}
           rawFileCount={rawFileCount}
           editedMediaCount={editedMediaCount}
@@ -857,6 +878,7 @@ export function ShootDetailsModal({
           handleResumeFromHold={handleResumeFromHold}
           handleCancelShootClick={handleCancelShootClick}
           handleSendToEditing={handleSendToEditing}
+          handleApproveEditingReview={handleApproveEditingReview}
           handleFinalise={handleFinalise}
           handleDownloadMedia={handleDownloadMedia}
           handleSendToBrightMls={handleSendToBrightMls}
@@ -918,10 +940,12 @@ export function ShootDetailsModal({
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
           canSendToEditing={canSendToEditing}
+          canApproveEditingReview={canApproveEditingReview}
           canFinalise={canFinalise}
           canShowInvoiceButton={canShowInvoiceButton}
           isLoadingInvoice={isLoadingInvoice}
           isSendingToEditing={isSendingToEditing}
+          isApprovingEditingReview={isApprovingEditingReview}
           isFinalising={isFinalising}
           setShowTourAnalytics={setShowTourAnalytics}
           setIsMediaExpanded={setIsMediaExpanded}
@@ -937,6 +961,7 @@ export function ShootDetailsModal({
           handleSendToBrightMls={handleSendToBrightMls}
           handleResumeFromHold={handleResumeFromHold}
           handleSendToEditing={handleSendToEditing}
+          handleApproveEditingReview={handleApproveEditingReview}
           handleFinalise={handleFinalise}
           handleSaveRequest={handleSaveRequest}
           handleCancelEdit={handleCancelEdit}

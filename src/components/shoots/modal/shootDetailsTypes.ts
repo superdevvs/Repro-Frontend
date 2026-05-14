@@ -33,6 +33,7 @@ export interface ShootDetailsCapabilities {
   canShowInvoiceButton: boolean;
   canFinalise: boolean;
   canSendToEditing: boolean;
+  canApproveEditingReview: boolean;
   mmmRedirectUrl?: string;
   canStartMmmPunchout: boolean;
   showMmmPunchoutButtons: boolean;

@@ -259,6 +259,20 @@ export type ShootTourLinkValue =
   | Record<string, unknown>
   | unknown[];
 
+export interface PendingPaymentIntent {
+  id: number;
+  amount: number;
+  currency: string;
+  paymentMethod: 'cash' | 'check' | string;
+  status: string;
+  createdAt?: string | null;
+  submittedByName?: string | null;
+  submittedByRole?: string | null;
+  checkNumber?: string | null;
+  paymentDate?: string | null;
+  notes?: string | null;
+}
+
 export interface ShootData {
   id: string;
   scheduledDate: string;
@@ -331,6 +345,8 @@ export interface ShootData {
     originalServiceSubtotal?: number;
     cancellationFee?: number;
     isCancellationFeeOnly?: boolean;
+    pendingPayments?: PendingPaymentIntent[];
+    pendingTotal?: number;
   };
   isPrivateListing?: boolean;
   isFeatured?: boolean;
@@ -383,8 +399,10 @@ export interface ShootData {
   missingFinal?: boolean;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
+  canApproveEditingReview?: boolean;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
+  can_approve_editing_review?: boolean;
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;
   heroImage?: string;

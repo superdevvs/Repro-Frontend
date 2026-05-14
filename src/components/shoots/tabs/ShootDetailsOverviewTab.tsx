@@ -1014,6 +1014,8 @@ export function ShootDetailsOverviewTab({
           setTaxAmountDirty={setTaxAmountDirty}
           updateField={updateField}
           onPayNow={isClient ? handleOpenPaymentDialog : undefined}
+          canModeratePendingIntents={isAdmin || role === 'salesRep' || role === 'rep' || role === 'representative'}
+          onPendingIntentsChanged={onShootUpdate}
         />
       )}
 
@@ -1032,6 +1034,8 @@ export function ShootDetailsOverviewTab({
         totalQuote={shoot.payment?.totalQuote}
         totalPaid={shoot.payment?.totalPaid}
         onPaymentSuccess={handlePaymentSuccess}
+        clientCanSubmitOfflineIntent={isClient}
+        onOfflineIntentSubmitted={handlePaymentSuccess}
       />
 
       {/* Notes section - visible in overview for photographer and editing manager */}

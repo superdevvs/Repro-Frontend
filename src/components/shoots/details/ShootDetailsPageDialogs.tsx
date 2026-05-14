@@ -131,6 +131,8 @@ export function ShootDetailsPageDialogs({
         } : undefined}
         onPaymentSuccess={onPaymentSuccess}
         onManualPaymentConfirm={!isClient ? onMarkPaidConfirm : undefined}
+        clientCanSubmitOfflineIntent={isClient}
+        onOfflineIntentSubmitted={() => onPaymentSuccess({ status: 'success', amount: 0 })}
       />
 
       <MarkAsPaidDialog

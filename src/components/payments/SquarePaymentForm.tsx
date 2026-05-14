@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,6 +64,14 @@ export interface SquarePaymentSuccessPayload {
   returnTo?: string | null;
 }
 
+export interface SquarePaymentFormHandle {
+  /**
+   * Programmatically open Stripe checkout for whatever amount is currently
+   * configured. Used by SquarePaymentDialog to chain Cash → Stripe.
+   */
+  chargeOutstandingViaStripe: () => void;
+}
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError(error)) {
     const responseData = error.response?.data;
@@ -113,7 +121,7 @@ interface SquarePaymentFormProps {
   onCheckoutMounted?: () => void;
 }
 
-export function SquarePaymentForm({
+export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePaymentFormProps>(function SquarePaymentForm({
   amount,
   paymentAmount: paymentAmountOverride,
   currency = 'USD',
@@ -139,7 +147,7 @@ export function SquarePaymentForm({
   isPartialOpen = false,
   onCheckoutActiveChange,
   onCheckoutMounted,
-}: SquarePaymentFormProps) {
+}: SquarePaymentFormProps, ref) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -224,6 +232,16 @@ export function SquarePaymentForm({
   }, []);
 
   const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
+
+  useImperativeHandle(ref, () => ({
+    chargeOutstandingViaStripe: () => {
+      if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
+        return;
+      }
+      blurActiveElement();
+      setShowConfirmationDialog(true);
+    },
+  }), [effectivePaymentAmount, outstandingAmount]);
 
   const triggerPostPaymentRefreshes = useCallback(() => {
     triggerDashboardOverviewRefresh();
@@ -979,4 +997,4 @@ export function SquarePaymentForm({
       </Dialog>
     </div>
   );
-}
+});

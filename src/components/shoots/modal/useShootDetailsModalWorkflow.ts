@@ -3,6 +3,7 @@ import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import {
+  approveEditingReview,
   finalizeEditedUploadQueue,
   finalizeRawUploadQueue,
 } from '@/services/dropboxMediaService';
@@ -56,6 +57,7 @@ export function useShootDetailsModalWorkflow({
   const [isFinalising, setIsFinalising] = useState(false);
   const [isSubmittingRaw, setIsSubmittingRaw] = useState(false);
   const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
+  const [isApprovingEditingReview, setIsApprovingEditingReview] = useState(false);
   const [submitConfirm, setSubmitConfirm] = useState<{ kind: 'raw' | 'edited' } | null>(null);
   const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
   const currentStatus = String(shoot?.workflowStatus || shoot?.status || '').toLowerCase();
@@ -569,6 +571,33 @@ export function useShootDetailsModalWorkflow({
     void runSubmitFinalize(submitConfirm.kind);
   };
 
+  const handleApproveEditingReview = async () => {
+    if (!shoot || isApprovingEditingReview) return;
+    setIsApprovingEditingReview(true);
+    try {
+      const res = await approveEditingReview(shoot.id, getApiHeaders());
+      const changed = Boolean((res as any)?.workflow_status_changed);
+      toast({
+        title: changed ? 'Edits approved' : 'Already approved',
+        description: (res as any)?.message
+          || (changed ? 'Shoot is now Ready for finalization.' : 'These edits were already approved.'),
+      });
+      await refreshShoot();
+      onShootUpdate?.();
+    } catch (error: any) {
+      const payload = error?.response?.data;
+      const description = payload?.message
+        || (error instanceof Error ? error.message : 'Failed to approve edits.');
+      toast({
+        title: 'Approve edits failed',
+        description,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApprovingEditingReview(false);
+    }
+  };
+
   return {
     isOnHoldDialogOpen,
     setIsOnHoldDialogOpen,
@@ -604,5 +633,7 @@ export function useShootDetailsModalWorkflow({
     handleSubmitEdits: openSubmitEditedConfirm,
     closeSubmitConfirm,
     confirmSubmit,
+    isApprovingEditingReview,
+    handleApproveEditingReview,
   };
 }

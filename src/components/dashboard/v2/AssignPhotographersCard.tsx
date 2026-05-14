@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { format, startOfMonth, startOfWeek } from 'date-fns';
 import { ChevronRight, Phone, Mail, MessageSquare, MapPin } from 'lucide-react';
 import { DashboardPhotographerSummary } from '@/types/dashboard';
@@ -175,6 +175,17 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
     return { available, booked: busy, offline };
   }, [photographers, availabilitySet, hasAvailabilityData]);
 
+  // Dynamic max-height so the list reveals ~8 photographer rows at a time, then scrolls.
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState<number>(0);
+
+  const listMaxHeight = useMemo(() => {
+    if (rowHeight <= 0) return undefined;
+    const rowGap = 8; // space-y-2 between rows
+    const verticalPadding = 24; // py-3 sm:py-4 approx
+    return `${Math.ceil(rowHeight * 8 + rowGap * 7 + verticalPadding)}px`;
+  }, [rowHeight]);
+
   const filteredPhotographers = useMemo(() => {
     if (!Array.isArray(photographers) || photographers.length === 0) return [];
     
@@ -207,6 +218,23 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
       return aTime.localeCompare(bTime);
     });
   }, [photographers, tab, sortBy, hasAvailabilityData, availabilitySet]);
+
+  // Measure the first photographer row height so we can cap the scroll list at ~8 rows.
+  useEffect(() => {
+    const container = listScrollRef.current;
+    if (!container) return;
+    const firstRow = container.querySelector<HTMLElement>('[data-photographer-row="true"]');
+    if (!firstRow) return;
+    const update = () => {
+      const h = firstRow.offsetHeight;
+      if (h > 0) setRowHeight(h);
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(firstRow);
+    return () => observer.disconnect();
+  }, [filteredPhotographers, showContactActions]);
 
   return (
     <>
@@ -277,9 +305,11 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
       </div>
 
       <div
+        ref={listScrollRef}
+        style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         className={cn(
           listGutter,
-          "flex-1 overflow-y-auto py-3 sm:py-4 custom-scrollbar min-h-0",
+          "flex-1 overflow-y-auto py-3 sm:py-4 hidden-scrollbar min-h-0",
           filteredPhotographers.length === 0 ? "flex items-center justify-center" : "space-y-2",
         )}
       >
@@ -293,6 +323,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
               key={photographer.id}
               role="button"
               tabIndex={0}
+              data-photographer-row="true"
               onClick={() => handlePhotographerClick(photographer)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
