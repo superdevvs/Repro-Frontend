@@ -324,7 +324,7 @@ export const CompletedShootListRow = ({
       </div>
       <div className="hidden items-stretch gap-3 p-3 sm:flex sm:gap-4 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className="relative w-32 aspect-[16/10] overflow-hidden rounded-lg flex-shrink-0 self-start bg-muted shadow-sm sm:w-48 min-[1180px]:w-56">
+        <div className="relative w-32 min-h-[80px] overflow-hidden rounded-lg flex-shrink-0 self-stretch bg-muted shadow-sm sm:w-48 min-[1180px]:w-56">
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
@@ -380,11 +380,6 @@ export const CompletedShootListRow = ({
                   {paymentBadgeLabel}
                 </Badge>
               )}
-              {isSuperAdmin && !isPaid && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
-                </div>
-              )}
             </div>
             </div>
 
@@ -420,8 +415,8 @@ export const CompletedShootListRow = ({
               );
             })()}
 
-            {/* Footer metadata + actions */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-border/50 min-[1180px]:flex-row min-[1180px]:items-end min-[1180px]:justify-between">
+            {/* Footer metadata */}
+            <div className="flex flex-row items-center gap-3 pt-2 border-t border-border/50">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                   {!shouldHideClientDetails && (
@@ -450,12 +445,15 @@ export const CompletedShootListRow = ({
                   <p className="mt-1 text-xs text-muted-foreground truncate">{shoot.client.email}</p>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5 min-[1180px]:justify-end">
+              <div className="flex flex-shrink-0 items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                {isSuperAdmin && !isPaid && (
+                  <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
+                )}
                 {canSendToEditing && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
+                    className="h-7 gap-1 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
                     onClick={(e) => {
                       e.stopPropagation()
                       onSendToEditing?.(shoot)
@@ -470,7 +468,7 @@ export const CompletedShootListRow = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    className="h-7 gap-1 text-xs"
                     onClick={(e) => {
                       e.stopPropagation()
                       onViewInvoice(shoot)
@@ -484,7 +482,7 @@ export const CompletedShootListRow = ({
                 {hasPendingPayment && onPayNow && (
                   <Button
                     size="sm"
-                    className="h-7 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    className="h-7 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={(e) => {
                       e.stopPropagation()
                       onPayNow(shoot)
@@ -499,7 +497,7 @@ export const CompletedShootListRow = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    className="h-7 gap-1 text-xs"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDownload(shoot, 'full')
@@ -514,7 +512,7 @@ export const CompletedShootListRow = ({
                   <Button
                     size="sm"
                     variant="destructive"
-                    className="h-7 w-7 sm:w-auto sm:px-2 p-0 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    className="h-7 w-7 sm:w-auto sm:px-2 p-0 bg-red-500 hover:bg-red-600"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDelete(shoot)

@@ -46,7 +46,7 @@ export async function createOfflinePaymentIntent(
   shootId: number | string,
   payload: OfflinePaymentIntentPayload,
 ): Promise<OfflinePaymentIntentRecord> {
-  const response = await apiClient.post(`/api/shoots/${shootId}/payment-intents`, buildPayload(payload));
+  const response = await apiClient.post(`/shoots/${shootId}/payment-intents`, buildPayload(payload));
   return (response.data?.data ?? response.data) as OfflinePaymentIntentRecord;
 }
 
@@ -58,7 +58,7 @@ export async function confirmOfflinePaymentIntent(
   const body: Record<string, unknown> = {};
   if (paymentDate) body.payment_date = paymentDate;
   const response = await apiClient.post(
-    `/api/shoots/${shootId}/payment-intents/${paymentId}/confirm`,
+    `/shoots/${shootId}/payment-intents/${paymentId}/confirm`,
     body,
   );
   return (response.data?.data ?? response.data) as {
@@ -76,7 +76,7 @@ export async function declineOfflinePaymentIntent(
   const body: Record<string, unknown> = {};
   if (reason && reason.trim() !== '') body.reason = reason.trim();
   const response = await apiClient.post(
-    `/api/shoots/${shootId}/payment-intents/${paymentId}/decline`,
+    `/shoots/${shootId}/payment-intents/${paymentId}/decline`,
     body,
   );
   return (response.data?.data ?? response.data) as OfflinePaymentIntentRecord;

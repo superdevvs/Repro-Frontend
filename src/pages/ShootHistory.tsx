@@ -357,7 +357,22 @@ const ShootHistory: React.FC = () => {
       if (inProgressSubTab === 'editing') {
         return operationalData.filter(s => {
           const status = (s.workflowStatus || s.status || '').toLowerCase()
+          if (status === 'review' || status === 'pending_review' || status === 'ready_for_review' || status === 'qc' || status === 'editing_complete') {
+            return false
+          }
           return status.includes('editing') || status === 'start_editing'
+        })
+      }
+      if (inProgressSubTab === 'in_review') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return (
+            status === 'review' ||
+            status === 'pending_review' ||
+            status === 'ready_for_review' ||
+            status === 'qc' ||
+            status === 'editing_complete'
+          )
         })
       }
       return operationalData

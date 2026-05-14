@@ -1014,7 +1014,7 @@ export function ShootDetailsOverviewTab({
           setTaxAmountDirty={setTaxAmountDirty}
           updateField={updateField}
           onPayNow={isClient ? handleOpenPaymentDialog : undefined}
-          canModeratePendingIntents={isAdmin || role === 'salesRep' || role === 'rep' || role === 'representative'}
+          canModeratePendingIntents={isAdmin || isRep}
           onPendingIntentsChanged={onShootUpdate}
         />
       )}

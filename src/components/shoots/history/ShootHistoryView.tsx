@@ -111,8 +111,8 @@ export type ShootHistoryViewProps = {
   fetchOperationalData: () => void
   scheduledSubTab: 'all' | 'requested' | 'scheduled'
   setScheduledSubTab: React.Dispatch<React.SetStateAction<'all' | 'requested' | 'scheduled'>>
-  inProgressSubTab: 'all' | 'uploaded' | 'editing'
-  setInProgressSubTab: React.Dispatch<React.SetStateAction<'all' | 'uploaded' | 'editing'>>
+  inProgressSubTab: 'all' | 'uploaded' | 'editing' | 'in_review'
+  setInProgressSubTab: React.Dispatch<React.SetStateAction<'all' | 'uploaded' | 'editing' | 'in_review'>>
   deliveredSubTab: 'all' | 'delivered' | 'ready'
   setDeliveredSubTab: React.Dispatch<React.SetStateAction<'all' | 'delivered' | 'ready'>>
   hideDeliveredSubTabs: boolean
@@ -151,7 +151,7 @@ function SubTabButton({
   active: boolean
   label: string
   onClick: () => void
-  tone?: 'default' | 'requested' | 'scheduled' | 'ready' | 'delivered'
+  tone?: 'default' | 'requested' | 'scheduled' | 'ready' | 'delivered' | 'in_review'
 }) {
   const activeClass =
     tone === 'requested'
@@ -162,6 +162,8 @@ function SubTabButton({
       ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-500'
       : tone === 'delivered'
         ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+        : tone === 'in_review'
+        ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-600'
         : 'bg-primary text-primary-foreground shadow-sm'
 
   return (
@@ -564,6 +566,14 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               <SubTabButton active={inProgressSubTab === 'all'} label="All" onClick={() => setInProgressSubTab('all')} />
               <SubTabButton active={inProgressSubTab === 'uploaded'} label="Uploaded" onClick={() => setInProgressSubTab('uploaded')} />
               <SubTabButton active={inProgressSubTab === 'editing'} label="Editing" onClick={() => setInProgressSubTab('editing')} />
+              {(isSuperAdmin || isAdmin || isEditingManager) && (
+                <SubTabButton
+                  active={inProgressSubTab === 'in_review'}
+                  label="In Review"
+                  onClick={() => setInProgressSubTab('in_review')}
+                  tone="in_review"
+                />
+              )}
             </div>
           ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
             <div className="flex items-center gap-2">

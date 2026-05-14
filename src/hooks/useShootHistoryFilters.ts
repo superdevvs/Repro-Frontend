@@ -36,7 +36,7 @@ export const useShootHistoryFilters = ({
     return urlTab && tabList.includes(urlTab) ? urlTab : tabList[0]
   })
 
-  const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing'>('all')
+  const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing' | 'in_review'>('all')
   const hideDeliveredSubTabs = ['client', 'editor', 'photographer'].includes(role || '')
   const [deliveredSubTab, setDeliveredSubTab] = useState<'all' | 'delivered' | 'ready'>('all')
   const [holdSubTab, setHoldSubTab] = useState<'all' | 'on_hold' | 'cancelled'>('all')
