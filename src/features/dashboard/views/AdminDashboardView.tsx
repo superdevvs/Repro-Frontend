@@ -1,5 +1,5 @@
 import React from "react";
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Camera, CheckCircle2, KanbanSquare, MessageCircle, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -31,6 +31,9 @@ interface AdminDashboardViewProps {
   setMobileDashboardTab: (tab: MobileDashboardTab) => void;
 }
 
+const AUTO_HIDE_LEFT_MIN_WIDTH = 1025;
+const AUTO_HIDE_LEFT_MAX_WIDTH = 1420;
+
 export const AdminDashboardView = ({
   adminMetricTiles,
   cancellationRequestCount,
@@ -51,7 +54,101 @@ export const AdminDashboardView = ({
 }: AdminDashboardViewProps) => {
   const [leftColumnHidden, setLeftColumnHidden] = React.useState(false);
   const [rightColumnHidden, setRightColumnHidden] = React.useState(false);
+  const [autoRangeVisibleColumn, setAutoRangeVisibleColumn] = React.useState<"left" | "right" | null>("right");
+  const [leftHandleSettling, setLeftHandleSettling] = React.useState(false);
+  const [rightHandleSettling, setRightHandleSettling] = React.useState(false);
+  const [viewportWidth, setViewportWidth] = React.useState(() => (
+    typeof window === "undefined" ? 0 : window.innerWidth
+  ));
+  const leftHandleSettleTimerRef = React.useRef<number | null>(null);
+  const rightHandleSettleTimerRef = React.useRef<number | null>(null);
+  const shouldAutoHideLeftColumn = viewportWidth >= AUTO_HIDE_LEFT_MIN_WIDTH && viewportWidth <= AUTO_HIDE_LEFT_MAX_WIDTH;
+  const autoRangeLeftColumnHidden = shouldAutoHideLeftColumn && autoRangeVisibleColumn !== "left";
+  const autoRangeRightColumnHidden = shouldAutoHideLeftColumn && autoRangeVisibleColumn !== "right";
+  const effectiveLeftColumnHidden = leftColumnHidden || autoRangeLeftColumnHidden;
+  const effectiveRightColumnHidden = rightColumnHidden || autoRangeRightColumnHidden;
+  const isDesktopGrid = viewportWidth >= AUTO_HIDE_LEFT_MIN_WIDTH;
+  const desktopGridTemplateColumns = effectiveLeftColumnHidden && effectiveRightColumnHidden
+    ? "0px 0px minmax(0, 1fr) 0px 0px"
+    : effectiveLeftColumnHidden
+      ? "0px 0px minmax(0, 1fr) 24px 320px"
+      : effectiveRightColumnHidden
+        ? "320px 24px minmax(0, 1fr) 0px 0px"
+        : "320px 24px minmax(0, 1fr) 24px 320px";
+  const leftHandlePositionClass = shouldAutoHideLeftColumn
+    ? (effectiveLeftColumnHidden ? "-left-6" : "left-[320px]")
+    : (effectiveLeftColumnHidden ? "-left-7" : "left-[calc(25%-0.75rem)] min-[1025px]:left-[320px]");
+  const rightHandlePositionClass = shouldAutoHideLeftColumn
+    ? (effectiveRightColumnHidden ? "-right-6" : "right-[320px]")
+    : (effectiveRightColumnHidden ? "-right-7" : "right-[calc(25%-0.75rem)] min-[1025px]:right-[320px]");
   const hasRequestIndicator = requestIndicatorCount > 0;
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (leftHandleSettleTimerRef.current !== null) {
+        window.clearTimeout(leftHandleSettleTimerRef.current);
+      }
+      if (rightHandleSettleTimerRef.current !== null) {
+        window.clearTimeout(rightHandleSettleTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggleLeftColumn = React.useCallback(() => {
+    setLeftHandleSettling(true);
+    if (leftHandleSettleTimerRef.current !== null) {
+      window.clearTimeout(leftHandleSettleTimerRef.current);
+    }
+    leftHandleSettleTimerRef.current = window.setTimeout(() => {
+      setLeftHandleSettling(false);
+      leftHandleSettleTimerRef.current = null;
+    }, 420);
+    if (shouldAutoHideLeftColumn) {
+      if (effectiveLeftColumnHidden) {
+        setAutoRangeVisibleColumn("left");
+        setLeftColumnHidden(false);
+        setRightColumnHidden(false);
+      } else {
+        setAutoRangeVisibleColumn(null);
+        setLeftColumnHidden(false);
+        setRightColumnHidden(false);
+      }
+      return;
+    }
+    setLeftColumnHidden((hidden) => !hidden);
+  }, [effectiveLeftColumnHidden, shouldAutoHideLeftColumn]);
+
+  const handleToggleRightColumn = React.useCallback(() => {
+    setRightHandleSettling(true);
+    if (rightHandleSettleTimerRef.current !== null) {
+      window.clearTimeout(rightHandleSettleTimerRef.current);
+    }
+    rightHandleSettleTimerRef.current = window.setTimeout(() => {
+      setRightHandleSettling(false);
+      rightHandleSettleTimerRef.current = null;
+    }, 420);
+    if (shouldAutoHideLeftColumn) {
+      if (effectiveRightColumnHidden) {
+        setAutoRangeVisibleColumn("right");
+        setLeftColumnHidden(false);
+        setRightColumnHidden(false);
+      } else {
+        setAutoRangeVisibleColumn(null);
+        setLeftColumnHidden(false);
+        setRightColumnHidden(false);
+      }
+      return;
+    }
+    setRightColumnHidden((hidden) => !hidden);
+  }, [effectiveRightColumnHidden, shouldAutoHideLeftColumn]);
 
   const mobileTabs = [
     {
@@ -89,31 +186,23 @@ export const AdminDashboardView = ({
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      <LayoutGroup>
-        <motion.div
-          layout
-          transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
-          className={cn(
-            "relative grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start",
-            leftColumnHidden && rightColumnHidden
-              ? "xl:grid-cols-1"
-              : leftColumnHidden
-                ? "xl:grid-cols-[minmax(0,1fr)_320px]"
-                : rightColumnHidden
-                  ? "xl:grid-cols-[320px_minmax(0,1fr)]"
-                  : "xl:grid-cols-[320px_minmax(0,1fr)_320px]"
-          )}
-        >
-        <AnimatePresence initial={false}>
-          {!leftColumnHidden && (
+      <motion.div
+        style={isDesktopGrid ? { gridTemplateColumns: desktopGridTemplateColumns, columnGap: 0 } : undefined}
+        className={cn(
+          "relative grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-4 sm:gap-y-6 sm:gap-x-6 items-start transition-[grid-template-columns] duration-300 ease-out"
+        )}
+      >
         <motion.div
           key="admin-left-column"
-          layout
-          initial={{ opacity: 0, x: -24, scale: 0.98, filter: "blur(6px)" }}
-          animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, x: -14, transition: { duration: 0.18, ease: "easeOut" } }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
-          className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none"
+          style={isDesktopGrid ? { gridColumn: "1 / 2" } : undefined}
+          initial={false}
+          animate={{ opacity: effectiveLeftColumnHidden ? 0 : 1 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          aria-hidden={effectiveLeftColumnHidden}
+          className={cn(
+            "md:col-span-3 min-[1025px]:col-start-1 min-[1025px]:col-end-2 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none min-w-0 overflow-hidden",
+            effectiveLeftColumnHidden && "pointer-events-none"
+          )}
         >
           <div className="order-1 md:order-none">
             <RoleMetricTilesCard tiles={adminMetricTiles} />
@@ -122,46 +211,50 @@ export const AdminDashboardView = ({
             {renderAssignPhotographersCard()}
           </div>
         </motion.div>
-          )}
-        </AnimatePresence>
 
         <motion.div
-          layout
-          transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
+          style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
           className={cn(
-            "flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0",
-            leftColumnHidden && rightColumnHidden
-              ? "md:col-span-12 xl:col-span-1"
-              : leftColumnHidden || rightColumnHidden
-                ? "md:col-span-9 xl:col-span-1"
-                : "md:col-span-6 xl:col-span-1"
+            "flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+            effectiveLeftColumnHidden && effectiveRightColumnHidden
+              ? "md:col-span-12 min-[1025px]:col-span-1"
+              : effectiveLeftColumnHidden || effectiveRightColumnHidden
+                ? "md:col-span-9 min-[1025px]:col-span-1"
+                : "md:col-span-6 min-[1025px]:col-span-1"
           )}
         >
           <div
+            style={{ visibility: leftHandleSettling ? "hidden" : "visible" }}
             className={cn(
               "group/left-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
-              leftColumnHidden ? "-left-7" : "left-[calc(25%-0.75rem)] xl:left-[320px]"
+              leftHandlePositionClass,
+              leftHandleSettling && "pointer-events-none !opacity-0"
             )}
           >
             <button
               type="button"
-              aria-label={leftColumnHidden ? "Show left dashboard column" : "Hide left dashboard column"}
-              onClick={() => setLeftColumnHidden((hidden) => !hidden)}
-              className="pointer-events-auto flex h-16 w-6 translate-y-0 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/left-handle:opacity-100"
+              aria-label={effectiveLeftColumnHidden ? "Show left dashboard column" : "Hide left dashboard column"}
+              onClick={handleToggleLeftColumn}
+              className={cn(
+                "pointer-events-auto flex h-16 w-6 translate-y-0 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/left-handle:opacity-100",
+                leftHandleSettling && "opacity-0 group-hover/left-handle:opacity-0"
+              )}
             >
               <span
                 aria-hidden
                 className={cn(
                   "h-0 w-0 border-y-[7px] border-y-transparent",
-                  leftColumnHidden ? "border-l-[9px] border-l-current" : "border-r-[9px] border-r-current"
+                  effectiveLeftColumnHidden ? "border-l-[9px] border-l-current" : "border-r-[9px] border-r-current"
                 )}
               />
             </button>
           </div>
           <div
+            style={{ visibility: rightHandleSettling ? "hidden" : "visible" }}
             className={cn(
               "group/right-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
-              rightColumnHidden ? "-right-7" : "right-[calc(25%-0.75rem)] xl:right-[320px]"
+              rightHandlePositionClass,
+              rightHandleSettling && "pointer-events-none !opacity-0"
             )}
           >
             {hasRequestIndicator && (
@@ -171,15 +264,18 @@ export const AdminDashboardView = ({
             )}
             <button
               type="button"
-              aria-label={rightColumnHidden ? "Show right dashboard column" : "Hide right dashboard column"}
-              onClick={() => setRightColumnHidden((hidden) => !hidden)}
-              className="pointer-events-auto mt-9 flex h-16 w-6 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/right-handle:opacity-100"
+              aria-label={effectiveRightColumnHidden ? "Show right dashboard column" : "Hide right dashboard column"}
+              onClick={handleToggleRightColumn}
+              className={cn(
+                "pointer-events-auto mt-9 flex h-16 w-6 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/right-handle:opacity-100",
+                rightHandleSettling && "opacity-0 group-hover/right-handle:opacity-0"
+              )}
             >
               <span
                 aria-hidden
                 className={cn(
                   "h-0 w-0 border-y-[7px] border-y-transparent",
-                  rightColumnHidden ? "border-r-[9px] border-r-current" : "border-l-[9px] border-l-current"
+                  effectiveRightColumnHidden ? "border-r-[9px] border-r-current" : "border-l-[9px] border-l-current"
                 )}
               />
             </button>
@@ -190,24 +286,22 @@ export const AdminDashboardView = ({
 
         <div className="lg:hidden order-3">{renderAssignPhotographersCard()}</div>
 
-        <AnimatePresence initial={false}>
-          {!rightColumnHidden && (
         <motion.div
           key="admin-right-column"
-          layout
-          initial={{ opacity: 0, x: 24, scale: 0.98, filter: "blur(6px)" }}
-          animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, x: 14, transition: { duration: 0.18, ease: "easeOut" } }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1], layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
-          className="md:col-span-3 xl:col-span-1 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none"
+          style={isDesktopGrid ? { gridColumn: "5 / 6" } : undefined}
+          initial={false}
+          animate={{ opacity: effectiveRightColumnHidden ? 0 : 1 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          aria-hidden={effectiveRightColumnHidden}
+          className={cn(
+            "md:col-span-3 min-[1025px]:col-start-5 min-[1025px]:col-end-6 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none min-w-0 overflow-hidden",
+            effectiveRightColumnHidden && "pointer-events-none"
+          )}
         >
           {renderPendingReviewsCard()}
           {renderCompletedShootsCard({ stretch: true })}
         </motion.div>
-          )}
-        </AnimatePresence>
-        </motion.div>
-      </LayoutGroup>
+      </motion.div>
 
       {renderPipelineSection()}
     </>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon } from 'lucide-react';
+import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -494,11 +494,10 @@ export function Navbar() {
               <Button 
                 variant="default" 
                 size="sm" 
-                className="relative mr-2 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)] p-0 text-primary-foreground shadow-lg shadow-primary/20 ring-1 ring-primary/20 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/25 md:hidden"
+                className="relative mr-2 flex h-10 w-10 shrink-0 items-center justify-center bg-transparent p-0 shadow-none hover:bg-transparent hover:shadow-none md:hidden"
                 onClick={() => navigate('/book-shoot')}
               >
-                <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]" />
-                <PlusCircleIcon className="relative z-10 h-4 w-4" />
+                <img src="/REPRO-HQ-icon.png" alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
                 <span className="sr-only">New Shoot</span>
               </Button>
             )}

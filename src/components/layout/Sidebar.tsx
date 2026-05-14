@@ -10,7 +10,7 @@ import { SidebarHeader } from './sidebar/SidebarHeader';
 import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
 
-const SMALL_DESKTOP_BREAKPOINT = 1520;
+const SMALL_DESKTOP_BREAKPOINT = 1220;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'repro.sidebar.collapsed';
 
 interface SidebarProps {

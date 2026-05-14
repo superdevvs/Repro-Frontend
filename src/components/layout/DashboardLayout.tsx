@@ -33,7 +33,7 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false, hideFooter = false }) => {
   const isInsideDashboardLayout = React.useContext(DashboardLayoutContext);
   const isMobile = useIsMobile();
-  const isCompactDashboardShell = useMediaQuery('(max-width: 1319px)');
+  const isCompactDashboardShell = useMediaQuery('(max-width: 1024px)');
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();

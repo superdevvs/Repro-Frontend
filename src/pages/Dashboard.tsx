@@ -159,7 +159,7 @@ const Dashboard = () => {
   const { can, isLoading: permissionsLoading } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
-  const isCompactDashboardViewport = useMediaQuery("(max-width: 1319px)");
+  const isCompactDashboardViewport = useMediaQuery("(max-width: 1024px)");
   const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");

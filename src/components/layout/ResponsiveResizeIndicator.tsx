@@ -14,15 +14,27 @@ const getViewportState = (): ViewportState => ({
 });
 
 const getBreakpointLabel = (width: number) => {
-  if (width < 768) {
-    return 'Mobile';
+  if (width <= 480) {
+    return 'Mobile Portrait';
   }
 
-  if (width < 1280) {
-    return 'Tablet';
+  if (width <= 768) {
+    return 'Mobile Landscape';
   }
 
-  return 'Desktop';
+  if (width <= 1120) {
+    return 'Tablet Portrait';
+  }
+
+  if (width <= 1440) {
+    return 'Desktop / Laptop';
+  }
+
+  if (width <= 1920) {
+    return 'Large Screen';
+  }
+
+  return 'Ultra Wide';
 };
 
 export const ResponsiveResizeIndicator: React.FC = () => {

@@ -36,7 +36,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   onMobileTabChange,
   mobileTabs = [],
 }) => {
-  const isCompactDashboardLayout = useMediaQuery("(max-width: 1319px)");
+  const isCompactDashboardLayout = useMediaQuery("(max-width: 1024px)");
 
   const hasMetricTiles = Boolean(metricTiles && metricTiles.length > 0);
   const hasLeftColumnCard = Boolean(leftColumnCard);
