@@ -37,8 +37,8 @@ export default function CallsLayout() {
 
   return (
     <DashboardLayout>
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-3 pb-24 shadow-sm sm:p-4 sm:pb-6">
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="min-w-0 space-y-3 pb-24 sm:pb-6">
+        <div className="bg-white">
           <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export default function CallsLayout() {
             <Route path="settings" element={<CallsSettings />} />
           </Routes>
 
-          <nav className="flex gap-6 overflow-x-auto border-t border-slate-100 px-4">
+          <nav className="flex gap-6 overflow-x-auto border-t border-slate-100 px-4 bg-white">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = pathname === tab.to || pathname.startsWith(`${tab.to}/`);
