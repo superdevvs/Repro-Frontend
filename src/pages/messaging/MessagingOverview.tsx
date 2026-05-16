@@ -28,10 +28,10 @@ export default function MessagingOverview() {
   });
 
   const stats = [
-    { title: 'Sent Today', value: overview?.total_sent_today || 0, icon: Send, color: 'text-emerald-500', bgColor: 'bg-emerald-100/70' },
-    { title: 'Scheduled', value: overview?.total_scheduled || 0, icon: Clock, color: 'text-sky-500', bgColor: 'bg-sky-100/70' },
-    { title: 'Failed', value: overview?.total_failed_today || 0, icon: AlertCircle, color: 'text-rose-500', bgColor: 'bg-rose-100/70' },
-    { title: 'Unread SMS', value: overview?.unread_sms_count || 0, icon: MessageSquare, color: 'text-purple-500', bgColor: 'bg-purple-100/70' },
+    { title: 'Sent Today', value: overview?.total_sent_today || 0, icon: Send, color: 'text-emerald-500 dark:text-emerald-300', bgColor: 'bg-emerald-100/70 dark:bg-emerald-500/15' },
+    { title: 'Scheduled', value: overview?.total_scheduled || 0, icon: Clock, color: 'text-sky-500 dark:text-sky-300', bgColor: 'bg-sky-100/70 dark:bg-sky-500/15' },
+    { title: 'Failed', value: overview?.total_failed_today || 0, icon: AlertCircle, color: 'text-rose-500 dark:text-rose-300', bgColor: 'bg-rose-100/70 dark:bg-rose-500/15' },
+    { title: 'Unread SMS', value: overview?.unread_sms_count || 0, icon: MessageSquare, color: 'text-purple-500 dark:text-purple-300', bgColor: 'bg-purple-100/70 dark:bg-purple-500/15' },
   ];
 
   const quickLinks = [
