@@ -30,7 +30,7 @@ export default function CallsOverview() {
                     {card.suffix && <span className="ml-1 text-sm text-muted-foreground">{card.suffix}</span>}
                   </div>
                 </div>
-                <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+                <div className="rounded-lg bg-blue-50 p-2 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
                   <PhoneCall className="h-5 w-5" />
                 </div>
               </div>
