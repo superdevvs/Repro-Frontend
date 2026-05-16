@@ -91,6 +91,7 @@ const AutomationWorkflowEditor = lazy(() => import('./pages/messaging/Automation
 const EmailRecovery = lazy(() => import('./pages/messaging/EmailRecovery'));
 const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
+const CallsLayout = lazy(() => import('./pages/voice/CallsLayout'));
 
 // Lazy-load modals
 const RequestManagerModal = lazy(() => import('./components/requests/RequestManagerModal').then(module => ({ default: module.RequestManagerModal })));
@@ -677,6 +678,11 @@ const AppRoutes = () => {
       <Route path="/messaging/sms" element={
         <PermissionRoute resource="messaging-sms">
           <SmsCenter />
+        </PermissionRoute>
+      } />
+      <Route path="/calls/*" element={
+        <PermissionRoute resource="voice-calls">
+          <CallsLayout />
         </PermissionRoute>
       } />
       <Route path="/messaging/settings" element={

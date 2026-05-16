@@ -181,7 +181,7 @@ export interface AutomationRun {
 export interface MessageChannelConfig {
   id: number;
   type: 'EMAIL' | 'SMS';
-  provider: EmailProviderType | 'TWILIO';
+  provider: EmailProviderType | 'TELNYX';
   display_name: string;
   label?: string;
   from_email?: string;
@@ -310,6 +310,8 @@ export interface SmsContact {
   }>;
   comment?: string;
   tags?: string[];
+  smsOptOut?: boolean | null;
+  smsAiEnabled?: boolean | null;
 }
 
 export interface SmsThreadSummary {
@@ -326,6 +328,11 @@ export interface SmsThreadSummary {
     id: string;
     name: string;
   } | null;
+  aiPausedUntil?: string | null;
+  aiSessionId?: number | null;
+  aiRateLimitedAt?: string | null;
+  contactAiEnabled?: boolean | null;
+  contactOptedOut?: boolean | null;
 }
 
 export interface SmsMessageDetail {
@@ -338,6 +345,8 @@ export interface SmsMessageDetail {
   status?: MessageStatus;
   sentAt?: string;
   providerMessageId?: string;
+  aiGenerated?: boolean;
+  complianceKeyword?: 'stop' | 'start' | 'help' | null;
 }
 
 export interface SmsThreadDetail {
@@ -348,11 +357,29 @@ export interface SmsThreadDetail {
 
 export interface SmsNumberConfig {
   id?: number;
-  provider?: 'TWILIO';
+  provider?: 'TELNYX';
   phone_number: string;
   label?: string;
-  twilio_phone_number_sid?: string | null;
+  telnyx_phone_number_id?: string | null;
+  messaging_profile_id?: string | null;
   is_default?: boolean;
+  sms_ai_enabled?: boolean | null;
+}
+
+export interface SmsAiSettings {
+  enabled: boolean;
+  takeover_pause_minutes: number;
+  idle_ttl_minutes: number;
+  pending_action_ttl_minutes: number;
+  max_segments: number;
+  max_replies_per_hour: number;
+  verification_ttl_minutes: number;
+  static_replies: {
+    stop: string;
+    start: string;
+    help: string;
+  };
+  allowed_tools: string[];
 }
 
 export interface AutomationRule {

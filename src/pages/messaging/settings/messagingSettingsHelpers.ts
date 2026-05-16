@@ -25,10 +25,13 @@ export const emptyChannelState: ChannelFormState = {
 };
 
 export const emptyNumberState: SmsNumberConfig = {
+  provider: 'TELNYX',
   phone_number: '',
   label: '',
-  twilio_phone_number_sid: '',
+  telnyx_phone_number_id: '',
+  messaging_profile_id: '',
   is_default: false,
+  sms_ai_enabled: true,
 };
 
 export const getMessagingSettingsErrorMessage = (error: unknown, fallback: string) => {
@@ -103,7 +106,7 @@ export const mapChannelToFormState = (channel: MessageChannelConfig): ChannelFor
   const tagsValue = getConfigStringList(config.cakemail_tags).join(', ') || getConfigString(config.cakemail_tags);
 
   return {
-    provider: channel.provider === 'TWILIO' ? 'CAKEMAIL' : channel.provider,
+    provider: channel.provider === 'TELNYX' ? 'CAKEMAIL' : channel.provider,
     display_name: channel.display_name ?? '',
     from_email: channel.from_email ?? '',
     reply_to_email: channel.reply_to_email ?? '',

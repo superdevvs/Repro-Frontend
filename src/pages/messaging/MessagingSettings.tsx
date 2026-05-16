@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/sonner-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -24,7 +24,7 @@ import {
   mapChannelToFormState,
   type ChannelFormState,
 } from './settings/messagingSettingsHelpers';
-import type { MessageChannelConfig, SmsNumberConfig } from '@/types/messaging';
+import type { MessageChannelConfig, SmsAiSettings, SmsNumberConfig } from '@/types/messaging';
 
 export default function MessagingSettings() {
   const queryClient = useQueryClient();
@@ -35,9 +35,10 @@ export default function MessagingSettings() {
   const [newNumber, setNewNumber] = useState<SmsNumberConfig>({ ...emptyNumberState });
   const [showTestSend, setShowTestSend] = useState(false);
   const [testPhone, setTestPhone] = useState('');
-  const [testMessage, setTestMessage] = useState('Hello! This is a test message from Twilio.');
+  const [testMessage, setTestMessage] = useState('Hello! This is a test message from Telnyx.');
   const [testingConnection, setTestingConnection] = useState(false);
   const [testingSend, setTestingSend] = useState(false);
+  const [aiDraft, setAiDraft] = useState<SmsAiSettings | undefined>();
 
   const { data: emailSettings, isLoading: emailLoading } = useQuery({ queryKey: ['email-settings'], queryFn: getEmailSettings });
   const { data: smsSettings, isLoading: smsLoading } = useQuery({ queryKey: ['sms-settings'], queryFn: getSmsSettings });
@@ -84,8 +85,8 @@ export default function MessagingSettings() {
   const saveSmsMutation = useMutation({
     mutationFn: saveSmsSettings,
     onSuccess: (response) => {
-      toast.success('Twilio sender saved successfully');
-      queryClient.setQueryData(['sms-settings'], { numbers: response.numbers });
+      toast.success('Telnyx sender saved successfully');
+      queryClient.setQueryData(['sms-settings'], { numbers: response.numbers, ai: response.ai ?? smsSettings?.ai });
       setShowAddNumber(false);
       setNewNumber({ ...emptyNumberState });
     },
@@ -95,6 +96,12 @@ export default function MessagingSettings() {
   const channels = emailSettings?.channels ?? [];
   const numbers = smsSettings?.numbers ?? [];
   const isEditing = editingChannelId !== null;
+
+  useEffect(() => {
+    if (smsSettings?.ai) {
+      setAiDraft(smsSettings.ai);
+    }
+  }, [smsSettings?.ai]);
 
   const handleSaveChannel = () => {
     if (!newChannel.display_name || !newChannel.from_email) {
@@ -165,16 +172,18 @@ export default function MessagingSettings() {
       numbers: [
         {
           ...newNumber,
-          provider: 'TWILIO',
+          provider: 'TELNYX',
           is_default: true,
+          sms_ai_enabled: newNumber.sms_ai_enabled !== false,
         },
       ],
+      ai: aiDraft,
     });
   };
 
   const handleDeleteNumber = (index: number) => {
     if (confirm('Delete this SMS number?')) {
-      saveSmsMutation.mutate({ numbers: numbers.filter((_, i) => i !== index) });
+      saveSmsMutation.mutate({ numbers: numbers.filter((_, i) => i !== index), ai: aiDraft });
     }
   };
 
@@ -183,15 +192,25 @@ export default function MessagingSettings() {
     if (updatedLabel !== null) {
       const updatedNumbers = [...numbers];
       updatedNumbers[index] = { ...updatedNumbers[index], label: updatedLabel };
-      saveSmsMutation.mutate({ numbers: updatedNumbers });
+      saveSmsMutation.mutate({ numbers: updatedNumbers, ai: aiDraft });
     }
+  };
+
+  const handleToggleNumberAi = (index: number, enabled: boolean) => {
+    const updatedNumbers = [...numbers];
+    updatedNumbers[index] = { ...updatedNumbers[index], sms_ai_enabled: enabled };
+    saveSmsMutation.mutate({ numbers: updatedNumbers, ai: aiDraft });
+  };
+
+  const handleSaveAiSettings = () => {
+    saveSmsMutation.mutate({ numbers, ai: aiDraft });
   };
 
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
       const result = await testSmsConnection(numbers[0]?.id);
-      if (result.success) toast.success('Twilio connection successful!');
+      if (result.success) toast.success('Telnyx connection successful!');
       else toast.error(result.error || 'Connection test failed');
     } catch (error) {
       toast.error(getMessagingSettingsErrorMessage(error, 'Connection test failed'));
@@ -234,7 +253,7 @@ export default function MessagingSettings() {
         <Tabs defaultValue="email">
           <TabsList className="mb-6">
             <TabsTrigger value="email">Email Providers</TabsTrigger>
-            <TabsTrigger value="sms">SMS (Twilio)</TabsTrigger>
+            <TabsTrigger value="sms">SMS (Telnyx)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="email">
@@ -259,6 +278,8 @@ export default function MessagingSettings() {
           <TabsContent value="sms">
             <SmsSettingsPanel
               numbers={numbers}
+              aiSettings={smsSettings?.ai}
+              aiDraft={aiDraft}
               smsLoading={smsLoading}
               showTestSend={showTestSend}
               showAddNumber={showAddNumber}
@@ -277,6 +298,9 @@ export default function MessagingSettings() {
               onTestSend={handleTestSend}
               onAddNumber={handleAddNumber}
               onEditNumber={handleEditNumber}
+              onToggleNumberAi={handleToggleNumberAi}
+              onAiDraftChange={setAiDraft}
+              onSaveAiSettings={handleSaveAiSettings}
               onDeleteNumber={handleDeleteNumber}
             />
           </TabsContent>

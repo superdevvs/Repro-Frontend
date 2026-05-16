@@ -88,6 +88,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewEmailInbox = permission.can('messaging-email', 'view');
   const canViewMessagingOverview = permission.can('messaging-overview', 'view');
   const canViewSms = permission.can('messaging-sms', 'view');
+  const canViewCalls = permission.can('voice-calls', 'view');
   const canViewAiEditing = permission.can('ai-editing', 'view');
   const canViewRobbie = permission.can('robbie', 'view');
 
@@ -137,7 +138,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
     window.addEventListener('resize', measureActiveIndicator);
 
     return () => window.removeEventListener('resize', measureActiveIndicator);
-  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
+  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
 
   React.useLayoutEffect(() => {
     setActiveIndicator(null);
@@ -338,16 +339,17 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {/* Messaging - Expandable with Emails and SMS for admins */}
-      {(canViewMessagingOverview || canViewSms) && (
+      {(canViewMessagingOverview || canViewSms || canViewCalls) && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"
           isCollapsed={isCollapsed}
-          defaultTo={canViewMessagingOverview ? "/messaging/overview" : "/messaging/sms"}
+          defaultTo={canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : "/calls"}
           onActivePreview={previewActiveIndicator}
           subItems={[
             ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
             ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
+            ...(canViewCalls ? [{ to: '/calls', label: 'Calls' }] : []),
           ]}
         />
       )}

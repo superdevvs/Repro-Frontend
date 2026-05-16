@@ -113,17 +113,19 @@ export const useMobileMenu = () => {
       visible:
         permission.can('messaging-email', 'view') &&
         !permission.can('messaging-overview', 'view') &&
-        !permission.can('messaging-sms', 'view'),
+        !permission.can('messaging-sms', 'view') &&
+        !permission.can('voice-calls', 'view'),
     },
     {
       to: "/messaging/overview",
       icon: "MessageSquare",
       label: "Messaging",
-      isActive: pathname.startsWith('/messaging'),
-      visible: permission.can('messaging-overview', 'view') || permission.can('messaging-sms', 'view'),
+      isActive: pathname.startsWith('/messaging') || pathname.startsWith('/calls'),
+      visible: permission.can('messaging-overview', 'view') || permission.can('messaging-sms', 'view') || permission.can('voice-calls', 'view'),
       subItems: [
         ...(permission.can('messaging-email', 'view') ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
         ...(permission.can('messaging-sms', 'view') ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
+        ...(permission.can('voice-calls', 'view') ? [{ to: '/calls', label: 'Calls' }] : []),
       ]
     },
     {

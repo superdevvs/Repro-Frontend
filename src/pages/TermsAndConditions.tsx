@@ -62,7 +62,7 @@ const termsSections = [
         ],
       },
       {
-        heading: '6. SMS Consent & Communications (Twilio-Compliant)',
+        heading: '6. SMS Consent & Communications (Telnyx-Compliant)',
         paragraphs: [
           'By providing your phone number through the Platform, including booking forms, account registration, or direct input, you expressly consent to receive SMS or text messages from R/E Pro Photos.',
         ],

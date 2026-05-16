@@ -8,6 +8,7 @@ import {
   getSmsThreads,
   getSmsThread,
   markSmsThreadRead,
+  resumeSmsThreadAi,
   sendSmsMessageToThread,
   updateSmsContact,
   updateSmsContactComment,
@@ -123,6 +124,16 @@ export default function SmsCenter() {
     onError: () => toast.error('Unable to send message'),
   });
 
+  const resumeAiMutation = useMutation({
+    mutationFn: (threadId: string) => resumeSmsThreadAi(threadId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
+      queryClient.invalidateQueries({ queryKey: threadsKey });
+      toast.success('AI replies resumed');
+    },
+    onError: () => toast.error('Unable to resume AI replies'),
+  });
+
   const updateContactMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateSmsContact>[1]) => {
       if (!threadDetail?.contact) return Promise.reject();
@@ -144,6 +155,29 @@ export default function SmsCenter() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
     },
+  });
+
+  const toggleContactAiMutation = useMutation({
+    mutationFn: (enabled: boolean) => {
+      if (!threadDetail?.contact) return Promise.reject();
+      return updateSmsContact(threadDetail.contact.id, { sms_ai_enabled: enabled });
+    },
+    onSuccess: (contact) => {
+      queryClient.setQueryData(['sms-thread', activeThreadId], (prev: SmsThreadDetail | null | undefined) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          contact,
+          thread: {
+            ...prev.thread,
+            contactAiEnabled: contact.smsAiEnabled ?? null,
+          },
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: threadsKey });
+      toast.success(contact.smsAiEnabled ? 'AI replies enabled' : 'AI replies disabled');
+    },
+    onError: () => toast.error('Unable to update AI reply setting'),
   });
 
   useSmsRealtime({
@@ -241,6 +275,14 @@ export default function SmsCenter() {
                 }}
                 templates={smsTemplates}
                 onSelectTemplate={(text) => setComposerText((prev) => (prev ? `${prev}\n${text}` : text))}
+                onResumeAi={() => {
+                  if (activeThreadId) {
+                    resumeAiMutation.mutate(activeThreadId);
+                  }
+                }}
+                resumingAi={resumeAiMutation.isPending}
+                onToggleContactAi={(enabled) => toggleContactAiMutation.mutate(enabled)}
+                togglingContactAi={toggleContactAiMutation.isPending}
               />
             )}
           </div>

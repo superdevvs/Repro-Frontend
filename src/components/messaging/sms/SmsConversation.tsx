@@ -1,11 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Phone, UserRound } from 'lucide-react';
+import { ArrowLeft, Pause, Phone, UserRound } from 'lucide-react';
 import type { SmsContact, SmsMessageDetail, SmsThreadSummary } from '@/types/messaging';
 import { SmsComposer } from './SmsComposer';
 import { SmsMessageBubble } from './SmsMessageBubble';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useEffect, useRef } from 'react';
 
 interface SmsConversationProps {
@@ -21,6 +20,10 @@ interface SmsConversationProps {
   onOpenContact?: () => void;
   templates?: Array<{ id: string | number; name: string; body_text?: string }>;
   onSelectTemplate?: (template: string) => void;
+  onResumeAi?: () => void;
+  resumingAi?: boolean;
+  onToggleContactAi?: (enabled: boolean) => void;
+  togglingContactAi?: boolean;
 }
 
 export const SmsConversation = ({
@@ -36,6 +39,10 @@ export const SmsConversation = ({
   onOpenContact,
   templates,
   onSelectTemplate,
+  onResumeAi,
+  resumingAi,
+  onToggleContactAi,
+  togglingContactAi,
 }: SmsConversationProps) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -91,6 +98,17 @@ export const SmsConversation = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {onToggleContactAi && (
+            <label className="hidden items-center gap-2 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground sm:flex">
+              <input
+                type="checkbox"
+                checked={contact?.smsAiEnabled === true || thread.contactAiEnabled === true}
+                disabled={togglingContactAi || contact?.smsOptOut === true || thread.contactOptedOut === true}
+                onChange={(event) => onToggleContactAi(event.target.checked)}
+              />
+              AI replies enabled
+            </label>
+          )}
           {contact?.primaryNumber && (
             <Button variant="outline" size="sm" asChild>
               <a href={`tel:${contact.primaryNumber}`}>
@@ -104,6 +122,24 @@ export const SmsConversation = ({
           </Button>
         </div>
       </div>
+
+      {thread.aiPausedUntil && new Date(thread.aiPausedUntil) > new Date() && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <Pause className="h-3.5 w-3.5" />
+            <span>
+              {thread.aiRateLimitedAt ? 'AI rate-limited.' : 'AI replies paused.'}
+              {' Resumes '}
+              {formatDistanceToNow(new Date(thread.aiPausedUntil), { addSuffix: true })}.
+            </span>
+          </div>
+          {onResumeAi && (
+            <Button variant="outline" size="sm" onClick={onResumeAi} disabled={resumingAi}>
+              {resumingAi ? 'Resuming…' : 'Resume AI'}
+            </Button>
+          )}
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto bg-muted/20 p-4">
         {grouped.length === 0 ? (

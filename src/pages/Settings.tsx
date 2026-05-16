@@ -1070,20 +1070,20 @@ const Settings = () => {
                     }}
                   />
 
-                  {/* SMS / Twilio Settings Card */}
+                  {/* SMS / Telnyx Settings Card */}
                   <Card className="border-primary/20">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <MessageSquare className="h-5 w-5 text-primary" />
-                          SMS Settings (Twilio)
+                          SMS Settings (Telnyx)
                         </CardTitle>
                         <CardDescription>
-                          Configure your Twilio sender and messaging settings
+                          Configure your Telnyx sender and messaging settings
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground mb-4">
-                          Manage your Twilio SMS integration including sender configuration and messaging settings.
+                          Manage your Telnyx SMS integration including sender configuration and messaging settings.
                         </p>
                       <Button onClick={() => navigate('/messaging/settings')}>
                         <MessageSquare className="mr-2 h-4 w-4" />

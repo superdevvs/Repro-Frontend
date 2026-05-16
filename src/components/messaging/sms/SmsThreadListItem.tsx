@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { SmsThreadSummary } from '@/types/messaging';
 import { format, isToday, isYesterday } from 'date-fns';
+import { Pause, Sparkles } from 'lucide-react';
 
 interface SmsThreadListItemProps {
   thread: SmsThreadSummary;
@@ -14,6 +15,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
   const initials = thread.contact?.initials ?? thread.contact?.name?.slice(0, 2) ?? '??';
   const phone = thread.contact?.primaryNumber;
   const name = thread.contact?.name || phone || 'Unknown contact';
+  const aiPaused = thread.aiPausedUntil ? new Date(thread.aiPausedUntil) > new Date() : false;
 
   const formattedTime = thread.lastMessageAt
     ? isToday(new Date(thread.lastMessageAt))
@@ -47,6 +49,23 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
             {thread.contact?.type && (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                 {thread.contact.type}
+              </Badge>
+            )}
+            {thread.aiSessionId && !aiPaused && !thread.contactOptedOut && (
+              <Badge variant="secondary" className="gap-1 text-[10px] uppercase tracking-wide">
+                <Sparkles className="h-3 w-3" />
+                Robbie
+              </Badge>
+            )}
+            {aiPaused && (
+              <Badge variant="outline" className="gap-1 border-amber-300 text-[10px] uppercase tracking-wide text-amber-700">
+                <Pause className="h-3 w-3" />
+                AI paused
+              </Badge>
+            )}
+            {thread.contactOptedOut && (
+              <Badge variant="outline" className="border-red-300 text-[10px] uppercase tracking-wide text-red-700">
+                Opted out
               </Badge>
             )}
             {thread.tags?.slice(0, 2).map((tag) => (

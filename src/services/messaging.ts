@@ -17,6 +17,7 @@ import type {
   SmsThreadDetail,
   SmsMessageDetail,
   SmsContact,
+  SmsAiSettings,
   SmsNumberConfig,
   EmailRecipient,
   EmailComposeRecipient,
@@ -343,6 +344,11 @@ export const markSmsThreadRead = async (id: string | number): Promise<void> => {
   await apiClient.post(`/messaging/sms/threads/${id}/mark-read`);
 };
 
+export const resumeSmsThreadAi = async (id: string | number): Promise<{ thread: SmsThreadSummary }> => {
+  const response = await apiClient.post(`/messaging/sms/threads/${id}/resume-ai`);
+  return response.data;
+};
+
 export const updateSmsContact = async (
   contactId: string | number,
   data: {
@@ -351,6 +357,7 @@ export const updateSmsContact = async (
     type?: string;
     numbers?: SmsContact['numbers'];
     tags?: string[];
+    sms_ai_enabled?: boolean;
   },
 ): Promise<SmsContact> => {
   const response = await apiClient.put(`/messaging/contacts/${contactId}`, data);
@@ -393,12 +400,15 @@ export const testEmailChannel = async (id: number, test_email: string): Promise<
   await apiClient.post(`/messaging/settings/email/channels/${id}/test`, { test_email });
 };
 
-export const getSmsSettings = async (): Promise<{ numbers: SmsNumberConfig[] }> => {
+export const getSmsSettings = async (): Promise<{ numbers: SmsNumberConfig[]; ai?: SmsAiSettings }> => {
   const response = await apiClient.get('/messaging/settings/sms');
   return response.data;
 };
 
-export const saveSmsSettings = async (data: { numbers: SmsNumberConfig[] }): Promise<{ status: string; numbers: SmsNumberConfig[] }> => {
+export const saveSmsSettings = async (data: {
+  numbers: SmsNumberConfig[];
+  ai?: Partial<SmsAiSettings>;
+}): Promise<{ status: string; numbers: SmsNumberConfig[]; ai?: SmsAiSettings }> => {
   const response = await apiClient.post('/messaging/settings/sms', data);
   return response.data;
 };
