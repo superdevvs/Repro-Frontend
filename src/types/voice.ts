@@ -85,7 +85,36 @@ export interface VoiceSettings {
   callback_retry_delay_minutes?: number;
   callback_max_attempts?: number;
   automation_toggles?: Record<string, boolean>;
+  tool_allowlist?: string[];
+  confirmation_gated_tools?: string[];
   debug_capture?: boolean;
+}
+
+export interface VoiceHealth {
+  enabled: boolean;
+  webhook_url_configured: boolean;
+  webhook_url?: string | null;
+  latest_webhook_event?: {
+    event_type?: string | null;
+    received_at?: string | null;
+    processed_at?: string | null;
+    processing_error?: string | null;
+  } | null;
+  latest_failed_webhook?: {
+    event_type?: string | null;
+    received_at?: string | null;
+    processing_error?: string | null;
+  } | null;
+  latest_command_status?: Record<string, unknown> | null;
+  latest_failed_tool?: {
+    tool?: string | null;
+    status?: string | null;
+    error_code?: string | null;
+    updated_at?: string | null;
+  } | null;
+  scheduler?: {
+    due_scheduled_calls?: number;
+  };
 }
 
 export interface VoiceCallListResponse {

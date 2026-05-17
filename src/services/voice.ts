@@ -4,6 +4,7 @@ import type {
   ScheduledVoiceCallListResponse,
   VoiceCall,
   VoiceCallListResponse,
+  VoiceHealth,
   VoiceNumberConfig,
   VoiceSettings,
   VoiceStats,
@@ -57,6 +58,11 @@ export const getRecentVoiceHandoffs = async (): Promise<VoiceCall[]> => {
 
 export const getVoiceSettings = async (): Promise<VoiceSettings> => {
   const response = await apiClient.get('/voice/settings');
+  return response.data;
+};
+
+export const getVoiceHealth = async (): Promise<VoiceHealth> => {
+  const response = await apiClient.get('/voice/health');
   return response.data;
 };
 

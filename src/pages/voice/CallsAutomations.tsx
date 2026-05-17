@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, CalendarClock, PhoneForwarded, RefreshCw, Workflow, XCircle } from 'lucide-react';
+import { Bell, CalendarClock, PhoneForwarded, Plus, RefreshCw, Workflow, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cancelScheduledVoiceCall, getScheduledVoiceCalls, getVoiceSettings, retryScheduledVoiceCall } from '@/services/voice';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { cancelScheduledVoiceCall, getScheduledVoiceCalls, getVoiceSettings, retryScheduledVoiceCall, updateVoiceSettings } from '@/services/voice';
+import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 
 const automationLabels: Record<string, string> = {
   missed_call_callback: 'Missed call callback',
@@ -15,6 +18,7 @@ const automationLabels: Record<string, string> = {
 
 export default function CallsAutomations() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const scheduled = useQuery({
     queryKey: ['scheduled-voice-calls'],
@@ -22,11 +26,49 @@ export default function CallsAutomations() {
   });
   const retry = useMutation({
     mutationFn: retryScheduledVoiceCall,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
+      toast({ title: 'Callback retry queued', description: 'The scheduled call will run again now.' });
+    },
+    onError: (error) =>
+      toast({
+        title: 'Retry failed',
+        description: error instanceof Error ? error.message : 'Unable to retry this scheduled call.',
+        variant: 'destructive',
+      }),
   });
   const cancel = useMutation({
     mutationFn: cancelScheduledVoiceCall,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
+      toast({ title: 'Callback cancelled', description: 'The scheduled call was removed from the active queue.' });
+    },
+    onError: (error) =>
+      toast({
+        title: 'Cancel failed',
+        description: error instanceof Error ? error.message : 'Unable to cancel this scheduled call.',
+        variant: 'destructive',
+      }),
+  });
+  const updateAutomation = useMutation({
+    mutationFn: ({ key, checked }: { key: string; checked: boolean }) =>
+      updateVoiceSettings({
+        automation_toggles: {
+          ...(settings.data?.automation_toggles ?? {}),
+          [key]: checked,
+        },
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['voice-settings'], data);
+      queryClient.invalidateQueries({ queryKey: ['voice-health'] });
+      toast({ title: 'Automation updated', description: 'Voice automation settings were saved.' });
+    },
+    onError: (error) =>
+      toast({
+        title: 'Automation update failed',
+        description: error instanceof Error ? error.message : 'Unable to save this automation setting.',
+        variant: 'destructive',
+      }),
   });
 
   const toggles = settings.data?.automation_toggles ?? {};
@@ -48,7 +90,14 @@ export default function CallsAutomations() {
                 <Bell className="h-4 w-4 text-blue-600" />
                 {label}
               </div>
-              <Badge variant={toggles[key] ? 'default' : 'secondary'}>{toggles[key] ? 'On' : 'Off'}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={toggles[key] ? 'default' : 'secondary'}>{toggles[key] ? 'On' : 'Off'}</Badge>
+                <Switch
+                  checked={toggles[key] ?? false}
+                  onCheckedChange={(checked) => updateAutomation.mutate({ key, checked })}
+                  disabled={updateAutomation.isPending}
+                />
+              </div>
             </div>
           ))}
         </CardContent>
@@ -60,6 +109,13 @@ export default function CallsAutomations() {
             <CalendarClock className="h-4 w-4 text-blue-600" /> Callback Queue
           </CardTitle>
           <p className="text-sm text-muted-foreground">Missed calls, failed transfers, and proactive call attempts.</p>
+          <ScheduleVoiceCallDialog
+            trigger={
+              <Button size="sm" variant="outline" className="mt-2 w-fit">
+                <Plus className="mr-2 h-4 w-4" /> Schedule Callback
+              </Button>
+            }
+          />
         </CardHeader>
         <CardContent className="space-y-3">
           {rows.map((item) => (

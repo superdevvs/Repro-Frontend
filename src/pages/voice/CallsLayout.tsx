@@ -1,15 +1,13 @@
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Bot,
-  BriefcaseBusiness,
-  ChevronDown,
-  ClipboardCheck,
   ClipboardList,
+  CalendarClock,
   Hash,
   PhoneCall,
   RefreshCw,
   Settings,
-  UserPlus,
   Workflow,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,6 +20,8 @@ import CallsAssistant from './CallsAssistant';
 import CallsNumbers from './CallsNumbers';
 import CallsAutomations from './CallsAutomations';
 import CallsSettings from './CallsSettings';
+import MakeTestCallDialog from './MakeTestCallDialog';
+import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 
 const tabs = [
   { to: '/calls/overview', label: 'Overview', icon: PhoneCall },
@@ -34,6 +34,16 @@ const tabs = [
 
 export default function CallsLayout() {
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
+
+  const refreshVoiceData = () => {
+    queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
+    queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['voice-settings'] });
+    queryClient.invalidateQueries({ queryKey: ['voice-health'] });
+    queryClient.invalidateQueries({ queryKey: ['voice-numbers'] });
+    queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
+  };
 
   return (
     <DashboardLayout>
@@ -56,29 +66,26 @@ export default function CallsLayout() {
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Voice Service: Connected
             </Badge>
-            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
+            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs" onClick={refreshVoiceData}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
-            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              Process
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Assign
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
-              <BriefcaseBusiness className="mr-2 h-4 w-4" />
-              Convert To
-              <ChevronDown className="ml-2 h-3.5 w-3.5" />
-            </Button>
-            <Button asChild size="sm" className="h-8 rounded-md px-4 text-xs shadow-sm">
-              <Link to="/calls/log">
-                <PhoneCall className="mr-2 h-4 w-4" />
-                Make Test Call
-              </Link>
-            </Button>
+            <ScheduleVoiceCallDialog
+              trigger={
+                <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
+                  <CalendarClock className="mr-2 h-4 w-4" />
+                  Schedule Callback
+                </Button>
+              }
+            />
+            <MakeTestCallDialog
+              trigger={
+                <Button size="sm" className="h-8 rounded-md px-4 text-xs shadow-sm">
+                  <PhoneCall className="mr-2 h-4 w-4" />
+                  Make Test Call
+                </Button>
+              }
+            />
           </div>
         </div>
 

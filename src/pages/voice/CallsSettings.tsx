@@ -9,6 +9,20 @@ import { Switch } from '@/components/ui/switch';
 import { getVoiceSettings, updateVoiceSettings } from '@/services/voice';
 import type { VoiceSettings } from '@/types/voice';
 
+const voiceTools = [
+  'verify_caller',
+  'get_shoot_details',
+  'list_shoots',
+  'get_payment_status',
+  'get_availability',
+  'book_shoot',
+  'reschedule_shoot',
+  'cancel_shoot',
+  'create_payment_link',
+  'handoff_to_staff',
+  'transfer_to_staff',
+];
+
 export default function CallsSettings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
@@ -173,6 +187,52 @@ export default function CallsSettings() {
             />
           ))}
         </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium">Enabled AI tools</h3>
+              <p className="text-xs text-muted-foreground">Controls which voice tool bridge actions Robbie can use.</p>
+            </div>
+            {voiceTools.map((tool) => (
+              <ToggleRow
+                key={tool}
+                title={tool}
+                description="Allow this tool in voice conversations."
+                checked={(draft.tool_allowlist ?? voiceTools).includes(tool)}
+                onChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    tool_allowlist: toggleList(current.tool_allowlist ?? voiceTools, tool, checked),
+                  }))
+                }
+              />
+            ))}
+          </div>
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium">Confirmation-gated tools</h3>
+              <p className="text-xs text-muted-foreground">Require explicit confirmation before risky actions execute.</p>
+            </div>
+            {voiceTools.map((tool) => (
+              <ToggleRow
+                key={tool}
+                title={tool}
+                description="Require confirmation before this tool runs."
+                checked={(draft.confirmation_gated_tools ?? ['book_shoot', 'reschedule_shoot', 'cancel_shoot', 'create_payment_link']).includes(tool)}
+                onChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    confirmation_gated_tools: toggleList(
+                      current.confirmation_gated_tools ?? ['book_shoot', 'reschedule_shoot', 'cancel_shoot', 'create_payment_link'],
+                      tool,
+                      checked
+                    ),
+                  }))
+                }
+              />
+            ))}
+          </div>
+        </div>
         <div className="space-y-1">
           <label className="text-sm font-medium">Disclosure text</label>
           <Textarea
@@ -192,6 +252,14 @@ export default function CallsSettings() {
       </CardContent>
     </Card>
   );
+}
+
+function toggleList(items: string[], value: string, checked: boolean): string[] {
+  if (checked) {
+    return items.includes(value) ? items : [...items, value];
+  }
+
+  return items.filter((item) => item !== value);
 }
 
 function ToggleRow({
