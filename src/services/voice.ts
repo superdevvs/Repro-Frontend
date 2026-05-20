@@ -41,6 +41,11 @@ export const pageVoiceCallStaff = async (id: number, reason?: string): Promise<V
   return response.data;
 };
 
+export const hangupVoiceCall = async (id: number): Promise<VoiceCall> => {
+  const response = await apiClient.post(`/voice/calls/${id}/hangup`);
+  return response.data;
+};
+
 export const getVoiceNumbers = async (): Promise<VoiceNumberConfig[]> => {
   const response = await apiClient.get('/voice/numbers');
   return response.data.numbers ?? [];

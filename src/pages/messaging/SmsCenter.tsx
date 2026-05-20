@@ -4,11 +4,13 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SmsThreadList } from '@/components/messaging/sms/SmsThreadList';
 import { SmsConversation } from '@/components/messaging/sms/SmsConversation';
 import { SmsContactPanel } from '@/components/messaging/sms/SmsContactPanel';
+import { SmsComposeDialog } from '@/components/messaging/sms/SmsComposeDialog';
 import {
   getSmsThreads,
   getSmsThread,
   markSmsThreadRead,
   resumeSmsThreadAi,
+  sendSms,
   sendSmsMessageToThread,
   updateSmsContact,
   updateSmsContactComment,
@@ -29,6 +31,7 @@ export default function SmsCenter() {
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [composerText, setComposerText] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 1024px)');
@@ -119,6 +122,22 @@ export default function SmsCenter() {
       setComposerText('');
       queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
       queryClient.invalidateQueries({ queryKey: threadsKey });
+      toast.success('Message sent');
+    },
+    onError: () => toast.error('Unable to send message'),
+  });
+
+  const composeMutation = useMutation({
+    mutationFn: (payload: { to: string; bodyText: string }) =>
+      sendSms({
+        to: payload.to,
+        body_text: payload.bodyText,
+      }),
+    onSuccess: ({ thread }) => {
+      setComposeOpen(false);
+      setActiveThreadId(thread.id);
+      queryClient.invalidateQueries({ queryKey: threadsKey });
+      queryClient.invalidateQueries({ queryKey: ['sms-thread', thread.id] });
       toast.success('Message sent');
     },
     onError: () => toast.error('Unable to send message'),
@@ -242,6 +261,7 @@ export default function SmsCenter() {
                 }
               }}
               onRefresh={() => threadsQuery.refetch()}
+              onCompose={() => setComposeOpen(true)}
               isRefreshing={threadsQuery.isFetching}
             />
           </div>
@@ -314,6 +334,14 @@ export default function SmsCenter() {
           </DrawerContent>
         </Drawer>
       )}
+
+      <SmsComposeDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        onSend={(payload) => composeMutation.mutate(payload)}
+        sending={composeMutation.isPending}
+        templates={smsTemplates}
+      />
     </DashboardLayout>
   );
 }

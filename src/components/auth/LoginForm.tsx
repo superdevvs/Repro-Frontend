@@ -10,7 +10,7 @@
   } as const;
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/components/auth';
@@ -356,30 +356,52 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                     )}
                   </Button>
 
-                  {/* Forgot Password Link */}
-                  <p className={`text-center text-sm mt-3 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
-                    <span
-                      onClick={() => {
-                        setForgotPasswordOpen(true);
-                        setForgotPasswordSent(false);
-                        setForgotPasswordEmail('');
-                      }}
-                      className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
-                    >
-                      Forgot Password? Reset
-                    </span>
-                  </p>
+                  <div
+                    className="space-y-3 text-center"
+                    style={{ marginTop: isMobile ? '1rem' : '1.125rem' }}
+                  >
+                    {/* Forgot Password Link */}
+                    <p className={`text-sm ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
+                      <span
+                        onClick={() => {
+                          setForgotPasswordOpen(true);
+                          setForgotPasswordSent(false);
+                          setForgotPasswordEmail('');
+                        }}
+                        className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
+                      >
+                        Forgot Password? Reset
+                      </span>
+                    </p>
 
-                  {/* Register Redirect Text */}
-                  <p className={`text-center text-sm mt-2 mb-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
-                    No account yet?{' '}
-                    <span
-                      onClick={() => setActiveTab('register')}
-                      className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
-                    >
-                      Register now
-                    </span>
-                  </p>
+                    <div className="space-y-2">
+                      {/* Register Redirect Text */}
+                      <p className={`text-sm ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
+                        No account yet?{' '}
+                        <span
+                          onClick={() => setActiveTab('register')}
+                          className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
+                        >
+                          Register now
+                        </span>
+                      </p>
+                      <div className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs ${isMobile ? 'text-slate-500' : 'text-muted-foreground/80 dark:text-slate-500'}`}>
+                        <Link
+                          to="/terms-and-conditions"
+                          className={`font-medium hover:underline ${isMobile ? 'text-cyan-300/90' : 'text-primary dark:text-cyan-400'}`}
+                        >
+                          T&C
+                        </Link>
+                        <span aria-hidden="true">|</span>
+                        <Link
+                          to="/privacy-policy"
+                          className={`font-medium hover:underline ${isMobile ? 'text-cyan-300/90' : 'text-primary dark:text-cyan-400'}`}
+                        >
+                          Privacy Policy
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </form>
               </Form>
             </TabsContent>

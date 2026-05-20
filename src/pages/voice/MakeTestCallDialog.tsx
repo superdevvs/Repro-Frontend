@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PhoneOutgoing, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,15 +19,26 @@ import { placeVoiceCall } from '@/services/voice';
 
 interface MakeTestCallDialogProps {
   trigger?: ReactNode;
+  initialTo?: string;
+  initialFrom?: string;
+  initialContext?: string;
 }
 
-export default function MakeTestCallDialog({ trigger }: MakeTestCallDialogProps) {
+export default function MakeTestCallDialog({ trigger, initialTo = '', initialFrom = '', initialContext = 'Dashboard test call' }: MakeTestCallDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [to, setTo] = useState('');
-  const [from, setFrom] = useState('');
-  const [reason, setReason] = useState('Dashboard test call');
+  const [to, setTo] = useState(initialTo);
+  const [from, setFrom] = useState(initialFrom);
+  const [reason, setReason] = useState(initialContext);
+
+  useEffect(() => {
+    if (open) {
+      setTo(initialTo);
+      setFrom(initialFrom);
+      setReason(initialContext);
+    }
+  }, [initialContext, initialFrom, initialTo, open]);
 
   const call = useMutation({
     mutationFn: () =>
@@ -43,9 +54,9 @@ export default function MakeTestCallDialog({ trigger }: MakeTestCallDialogProps)
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
       toast({ title: 'Test call started', description: 'The outbound call was sent to Telnyx.' });
-      setTo('');
-      setFrom('');
-      setReason('Dashboard test call');
+      setTo(initialTo);
+      setFrom(initialFrom);
+      setReason(initialContext);
       setOpen(false);
     },
     onError: (error) => {

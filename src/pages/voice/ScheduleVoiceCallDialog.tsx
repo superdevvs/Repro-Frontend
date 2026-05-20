@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,10 @@ import { createScheduledVoiceCall } from '@/services/voice';
 
 interface ScheduleVoiceCallDialogProps {
   trigger?: ReactNode;
+  initialTargetPhone?: string;
+  initialFromPhone?: string;
+  initialReason?: string;
+  initialScheduledAt?: string;
 }
 
 const localDateTime = (date: Date) => {
@@ -26,16 +30,32 @@ const localDateTime = (date: Date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-export default function ScheduleVoiceCallDialog({ trigger }: ScheduleVoiceCallDialogProps) {
+export default function ScheduleVoiceCallDialog({
+  trigger,
+  initialTargetPhone = '',
+  initialFromPhone = '',
+  initialReason = 'manual_callback',
+  initialScheduledAt,
+}: ScheduleVoiceCallDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const defaultTime = useMemo(() => localDateTime(new Date(Date.now() + 60 * 60 * 1000)), []);
   const [open, setOpen] = useState(false);
-  const [targetPhone, setTargetPhone] = useState('');
-  const [fromPhone, setFromPhone] = useState('');
-  const [reason, setReason] = useState('manual_callback');
-  const [scheduledAt, setScheduledAt] = useState(defaultTime);
+  const [targetPhone, setTargetPhone] = useState(initialTargetPhone);
+  const [fromPhone, setFromPhone] = useState(initialFromPhone);
+  const [reason, setReason] = useState(initialReason);
+  const [scheduledAt, setScheduledAt] = useState(initialScheduledAt ?? defaultTime);
   const [maxAttempts, setMaxAttempts] = useState(3);
+
+  useEffect(() => {
+    if (open) {
+      setTargetPhone(initialTargetPhone);
+      setFromPhone(initialFromPhone);
+      setReason(initialReason);
+      setScheduledAt(initialScheduledAt ?? defaultTime);
+      setMaxAttempts(3);
+    }
+  }, [defaultTime, initialFromPhone, initialReason, initialScheduledAt, initialTargetPhone, open]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -51,10 +71,10 @@ export default function ScheduleVoiceCallDialog({ trigger }: ScheduleVoiceCallDi
       queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       toast({ title: 'Callback scheduled', description: 'The call was added to the callback queue.' });
-      setTargetPhone('');
-      setFromPhone('');
-      setReason('manual_callback');
-      setScheduledAt(defaultTime);
+      setTargetPhone(initialTargetPhone);
+      setFromPhone(initialFromPhone);
+      setReason(initialReason);
+      setScheduledAt(initialScheduledAt ?? defaultTime);
       setMaxAttempts(3);
       setOpen(false);
     },

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import OngoingCallPopup from '@/components/voice/OngoingCallPopup';
 import CallsOverview from './CallsOverview';
 import CallsLog from './CallsLog';
 import CallsAssistant from './CallsAssistant';
@@ -55,7 +56,7 @@ export default function CallsLayout() {
               <h1 className="text-xl font-semibold tracking-tight text-foreground">Calls</h1>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Manage all voice calls, Robbie conversations, transcripts, recordings, and follow-ups.
+              Manage inbound calls, Robbie AI conversations, transcripts, recordings, callbacks, and staff handoffs.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -64,15 +65,24 @@ export default function CallsLayout() {
               className="h-8 gap-2 border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
             >
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Voice Service: Connected
+              Voice Service Connected
             </Badge>
-            <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs" onClick={refreshVoiceData}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-md px-3 text-xs"
+              onClick={refreshVoiceData}
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
             <ScheduleVoiceCallDialog
               trigger={
-                <Button size="sm" variant="outline" className="h-8 rounded-md px-3 text-xs">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-md px-3 text-xs"
+                >
                   <CalendarClock className="mr-2 h-4 w-4" />
                   Schedule Callback
                 </Button>
@@ -123,6 +133,7 @@ export default function CallsLayout() {
           </Routes>
         </div>
       </div>
+      <OngoingCallPopup />
     </DashboardLayout>
   );
 }

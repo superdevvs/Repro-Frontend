@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { RefreshCcw, Search, MoreHorizontal } from 'lucide-react';
+import { MessageSquarePlus, RefreshCcw, Search, MoreHorizontal } from 'lucide-react';
 import { SmsThreadListItem } from './SmsThreadListItem';
 import type { SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
 import { SmsThreadFilterTabs } from './SmsThreadListTabs';
@@ -15,6 +15,7 @@ interface SmsThreadListProps {
   onSearchChange: (value: string) => void;
   onSelectThread: (threadId: string) => void;
   onRefresh: () => void;
+  onCompose: () => void;
   isRefreshing?: boolean;
 }
 
@@ -27,6 +28,7 @@ export const SmsThreadList = ({
   onSearchChange,
   onSelectThread,
   onRefresh,
+  onCompose,
   isRefreshing,
 }: SmsThreadListProps) => {
   return (
@@ -38,6 +40,10 @@ export const SmsThreadList = ({
             <p className="text-xs text-muted-foreground">Auto updated</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={onCompose} title="Compose SMS">
+              <MessageSquarePlus className="h-4 w-4" />
+              <span className="sr-only">Compose SMS</span>
+            </Button>
             <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing} title="Refresh conversations">
               <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
