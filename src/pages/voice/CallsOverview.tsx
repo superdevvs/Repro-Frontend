@@ -632,7 +632,9 @@ function SmartDialerPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
-      toast({ title: 'Call started', description: `Calling ${number}.` });
+      // Intentionally no toast: the OngoingCallPopup overlay already
+      // surfaces the active dialing/ringing state. Showing a toast here
+      // duplicates that overlay.
     },
     onError: (error: unknown) => {
       const axiosErr = error as { response?: { data?: { error?: string; message?: string } }; message?: string };
