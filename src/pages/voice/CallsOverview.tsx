@@ -406,6 +406,47 @@ function MetricCard({ card }: { card: VoiceStatsCard & { icon: typeof PhoneCall;
   );
 }
 
+function CallInsightChips({ call }: { call: VoiceCall }) {
+  const metadata = (call.metadata ?? {}) as Record<string, any>;
+  const intel = (metadata.intel_final ?? metadata.intel_live) as Record<string, any> | undefined;
+  if (!intel) return null;
+
+  return (
+    <>
+      {intel.quality_score && (
+        <Badge className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300">
+          {intel.quality_score}
+        </Badge>
+      )}
+      {intel.customer_mood && (
+        <Badge className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          {intel.customer_mood}
+        </Badge>
+      )}
+      {intel.robbie_quality && (
+        <Badge className="border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300">
+          Robbie: {intel.robbie_quality}
+        </Badge>
+      )}
+      {intel.human_takeover_recommended && (
+        <Badge className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          Human needed
+        </Badge>
+      )}
+      {intel.risk && (
+        <Badge className="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">
+          Risk: {intel.risk.type}
+        </Badge>
+      )}
+      {intel.follow_up_at && (
+        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+          Follow-up {new Date(intel.follow_up_at).toLocaleDateString()}
+        </Badge>
+      )}
+    </>
+  );
+}
+
 function RecentCallsPanel({
   calls,
   selectedCallId,
@@ -461,6 +502,7 @@ function RecentCallsPanel({
                     <span>{formatRelative(call.started_at || call.created_at)}</span>
                     {call.callback_status && <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">{call.callback_status}</Badge>}
                     {call.intent && <Badge className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">{call.intent.replace(/_/g, ' ')}</Badge>}
+                    <CallInsightChips call={call} />
                   </div>
                 </div>
                 <MoreVertical className="h-4 w-4 text-muted-foreground" />

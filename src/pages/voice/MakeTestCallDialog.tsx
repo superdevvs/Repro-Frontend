@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PhoneOutgoing, Send } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, PhoneOutgoing, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { placeVoiceCall } from '@/services/voice';
+import { getScheduleState, placeVoiceCall } from '@/services/voice';
 
 interface MakeTestCallDialogProps {
   trigger?: ReactNode;
@@ -31,6 +31,15 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
   const [to, setTo] = useState(initialTo);
   const [from, setFrom] = useState(initialFrom);
   const [reason, setReason] = useState(initialContext);
+
+  const schedule = useQuery({
+    queryKey: ['voice-schedule-state'],
+    queryFn: () => getScheduleState(),
+    enabled: open,
+  });
+  const scheduleState = schedule.data?.state?.state;
+  const inQuietOrClosed =
+    scheduleState === 'quiet_hours' || scheduleState === 'holiday_closed' || scheduleState === 'override_closed';
 
   useEffect(() => {
     if (open) {
@@ -107,6 +116,16 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
               onChange={(event) => setReason(event.target.value)}
             />
           </div>
+          {inQuietOrClosed && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Heads up: the schedule is currently <strong>{scheduleState?.replace(/_/g, ' ')}</strong>
+                {schedule.data?.state?.label ? ` (${schedule.data.state.label})` : ''}. You may be dialing into
+                quiet hours.
+              </span>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>

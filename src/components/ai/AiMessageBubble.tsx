@@ -6,8 +6,9 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { Check, Copy, ExternalLink } from 'lucide-react';
-import type { AiMessage } from '@/types/ai';
+import type { AiActionPayload, AiMessage } from '@/types/ai';
 import { apiClient } from '@/services/api';
+import { executeShootOperatorAction } from '@/services/aiService';
 import { toast } from '@/components/ui/use-toast';
 import { openCheckoutLink } from '@/utils/checkoutLaunch';
 
@@ -52,7 +53,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
   const isAssistant = message.sender === 'assistant';
   const metadata = message.metadata || {};
   const toolStatus = metadata.tool_status as string | undefined;
-  const actions = Array.isArray(metadata.actions) ? metadata.actions : [];
+  const actions = Array.isArray(metadata.actions) ? (metadata.actions as AiActionPayload[]) : [];
   const showToolStatus = isAssistant && Boolean(toolStatus);
   const toolStatusOk = showToolStatus ? toolStatus === 'success' : false;
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -85,7 +86,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
     setActionLoading((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleAction = async (action: Record<string, any>) => {
+  const handleAction = async (action: AiActionPayload) => {
     const actionKey = `${action.type}-${action.shootId ?? action.id ?? ''}`;
     setLoadingFor(actionKey, true);
 
@@ -100,6 +101,42 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
             );
           }
           break;
+        case 'open_shoot_tab':
+          if (action.shootId) {
+            window.dispatchEvent(
+              new CustomEvent('ai-open-shoot', {
+                detail: { shootId: action.shootId, tab: action.tab || 'overview' },
+              }),
+            );
+          }
+          break;
+        case 'start_robbie_upload':
+          window.dispatchEvent(
+            new CustomEvent('robbie-start-upload', {
+              detail: action,
+            }),
+          );
+          break;
+        case 'finalize_raw_upload':
+        case 'sync_iguide':
+        case 'sync_cubicasa':
+        case 'save_cubicasa_identifiers':
+        case 'apply_shoot_update': {
+          const result = await executeShootOperatorAction(action);
+          toast({
+            title: result?.success === false ? 'Robbie action needs attention' : 'Robbie action complete',
+            description: result?.message || action.label || 'Done.',
+            variant: result?.success === false ? 'destructive' : 'default',
+          });
+          if (action.shootId) {
+            window.dispatchEvent(
+              new CustomEvent('robbie-operator-action-complete', {
+                detail: { action, result },
+              }),
+            );
+          }
+          break;
+        }
         case 'approve_cancellation':
           if (action.shootId) {
             await apiClient.post(`/shoots/${action.shootId}/approve-cancellation`);
@@ -216,7 +253,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
         {/* Action buttons for assistant messages with specific actions */}
         {isAssistant && (metadata.action || actions.length > 0) && (
           <div className="flex items-center gap-2 mt-2">
-            {actions.map((action: Record<string, any>, index: number) => {
+            {actions.map((action: AiActionPayload, index: number) => {
               const actionKey = `${action.type}-${action.shootId ?? action.id ?? index}`;
               return (
                 <Button
@@ -249,7 +286,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
                 onClick={() =>
                   window.dispatchEvent(
                     new CustomEvent('ai-open-shoot', {
-                      detail: { shootId: metadata.shoot_id },
+                      detail: { shootId: metadata.shoot_id, tab: metadata.tab || 'overview' },
                     }),
                   )
                 }

@@ -20,7 +20,40 @@ export interface AiChatRequest {
     insightSummary?: string;
     insightAction?: string;
     role?: string;
+    targetShootId?: string | number;
+    targetShootAddress?: string;
+    address?: string;
+    pendingUpload?: {
+      uploadId: string;
+      fileCount: number;
+      fileNames?: string[];
+      classification?: 'auto' | 'raw' | 'floorplan' | 'extra' | 'virtual_staging' | 'green_grass' | 'twilight' | 'drone';
+    };
+    uploadResult?: {
+      shootId: string | number;
+      successCount: number;
+      errorCount: number;
+      floorplanCount?: number;
+      videoCount?: number;
+      uploadType?: 'raw' | 'edited';
+      errors?: string[];
+    };
   };
+}
+
+export interface AiActionPayload {
+  type: string;
+  label?: string;
+  shootId?: string | number;
+  id?: string | number;
+  tab?: string;
+  [key: string]: unknown;
+}
+
+export interface ShootOperatorActionResult {
+  success?: boolean;
+  message?: string;
+  [key: string]: unknown;
 }
 
 export interface AiMessage {

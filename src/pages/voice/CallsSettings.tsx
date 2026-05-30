@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { getVoiceSettings, updateVoiceSettings } from '@/services/voice';
+import { getVoiceSettings, getVoiceLlmUsage, updateVoiceSettings } from '@/services/voice';
 import type { VoiceSettings } from '@/types/voice';
 
 const voiceTools = [
@@ -26,6 +26,7 @@ const voiceTools = [
 export default function CallsSettings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
+  const usage = useQuery({ queryKey: ['voice-llm-usage'], queryFn: getVoiceLlmUsage });
   const [draft, setDraft] = useState<Partial<VoiceSettings>>({});
   const save = useMutation({
     mutationFn: updateVoiceSettings,
@@ -231,6 +232,49 @@ export default function CallsSettings() {
                 }
               />
             ))}
+          </div>
+        </div>
+        <div className="space-y-3 rounded-md border border-border p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Robbie Intelligence</h3>
+              <p className="text-xs text-muted-foreground">Event-triggered enrichment with a monthly LLM budget.</p>
+            </div>
+            {usage.data && (
+              <span className="text-xs text-muted-foreground">
+                ${usage.data.spend_usd.toFixed(2)} / ${usage.data.budget_usd.toFixed(0)}
+              </span>
+            )}
+          </div>
+          {usage.data?.exceeded && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Robbie intelligence paused — monthly budget reached. Realtime signals still active.
+            </div>
+          )}
+          <ToggleRow
+            title="Intelligence enabled"
+            description="Master switch for Robbie's mid-call enrichment."
+            checked={draft.intelligence?.enabled ?? true}
+            onChange={(checked) =>
+              setDraft((current) => ({
+                ...current,
+                intelligence: { ...(current.intelligence ?? {}), enabled: checked },
+              }))
+            }
+          />
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Monthly LLM budget (USD, 0 = unlimited)</label>
+            <Input
+              type="number"
+              min={0}
+              value={draft.intelligence?.monthly_llm_budget_usd ?? 50}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  intelligence: { ...(current.intelligence ?? {}), monthly_llm_budget_usd: Number(event.target.value) },
+                }))
+              }
+            />
           </div>
         </div>
         <div className="space-y-1">

@@ -22,11 +22,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useUpload } from '@/context/UploadContext';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { cn } from '@/lib/utils';
 import { sendAiMessage, fetchAiSessions, fetchAiSessionMessages, deleteAiSession, archiveAiSession } from '@/services/aiService';
-import type { AiChatRequest, AiMessage, AiChatSession } from '@/types/ai';
+import type { AiActionPayload, AiChatRequest, AiMessage, AiChatSession } from '@/types/ai';
 import { 
   ImageIcon, 
   FileText, 
@@ -47,9 +48,12 @@ import {
   X
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
 
 type ViewMode = 'home' | 'chat';
 type TabMode = 'chat' | 'history';
+type ShootModalTab = 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media';
 
 type InsightNavigationState = {
   initialMessage?: string;
@@ -65,11 +69,33 @@ type PageContext = {
   entityType?: string;
 };
 
+const MAX_ROBBIE_UPLOAD_FILES = 1000;
+const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
+const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+
+const createUploadBatchId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const isVideoUpload = (file: File): boolean =>
+  Boolean(file.type && file.type.toLowerCase().startsWith('video/')) ||
+  /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i.test(file.name);
+
+const isFloorplanUpload = (file: File): boolean => {
+  const lower = file.name.toLowerCase();
+  return FLOORPLAN_PATTERNS.some((pattern) => lower.includes(pattern));
+};
+
 const ChatWithReproAi = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
+  const { trackUpload } = useUpload();
   const hasConsumedNavigation = useRef(false);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const mainScrollRef = useRef<HTMLElement | null>(null);
@@ -77,6 +103,8 @@ const ChatWithReproAi = () => {
   const isSendingRef = useRef(false);
   const shouldAutoScrollRef = useRef(false);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingUploadFilesRef = useRef<File[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -95,6 +123,9 @@ const ChatWithReproAi = () => {
   const [currentSuggestions, setCurrentSuggestions] = useState<string[]>([]);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [overviewShootId, setOverviewShootId] = useState<string | null>(null);
+  const [overviewShootTab, setOverviewShootTab] = useState<ShootModalTab>('overview');
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
+  const [pendingUploadId, setPendingUploadId] = useState<string | null>(null);
   
   const userName = user?.name || user?.email?.split('@')[0] || 'there';
 
@@ -299,7 +330,7 @@ const ChatWithReproAi = () => {
     return undefined;
   }, []);
 
-  const handleSendMessage = useCallback(async (msg?: string, context?: { mode?: 'booking' | 'listing' | 'insight' | 'general'; propertyId?: string; listingId?: string; intent?: string }) => {
+  const handleSendMessage = useCallback(async (msg?: string, context?: AiChatRequest['context']) => {
     const messageToSend = msg || message.trim();
     if (!messageToSend || isSendingRef.current) return;
 
@@ -408,6 +439,159 @@ const ChatWithReproAi = () => {
     }
   }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion]);
 
+  const startConfirmedRobbieUpload = useCallback((action: AiActionPayload) => {
+    const shootId = typeof action?.shootId === 'string' || typeof action?.shootId === 'number'
+      ? action.shootId
+      : null;
+    const files = pendingUploadFilesRef.current;
+    if (!shootId || files.length === 0) {
+      toast({
+        title: 'No files ready',
+        description: 'Select files in Robbie first, then confirm the upload target.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const apiHeaders = getApiHeaders();
+    const authHeader = apiHeaders.Authorization;
+    const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
+    const uploadBatchId = createUploadBatchId();
+    const failedFiles: File[] = [];
+    const uploadResult = {
+      shootId,
+      successCount: 0,
+      errorCount: 0,
+      floorplanCount: 0,
+      videoCount: 0,
+      errors: [] as string[],
+      uploadType: 'raw' as const,
+    };
+
+    trackUpload({
+      shootId: String(shootId),
+      shootAddress: `Shoot #${shootId}`,
+      fileCount: files.length,
+      fileNames: files.map((file) => file.name),
+      uploadType: 'raw',
+      uploadFn: async (onProgress) => {
+        for (let index = 0; index < files.length; index += 1) {
+          const file = files[index];
+          const isVideo = isVideoUpload(file);
+          const shouldMarkFloorplan = action.classification === 'floorplan' || (!isVideo && isFloorplanUpload(file));
+
+          await new Promise<void>((resolve) => {
+            const formData = new FormData();
+            formData.append('files[]', file);
+            formData.append('upload_type', 'raw');
+            formData.append('upload_batch_id', uploadBatchId);
+            formData.append('upload_batch_total', String(files.length));
+            formData.append('upload_batch_index', String(index));
+            if (isVideo) {
+              formData.append('service_category', 'video');
+            }
+            if (shouldMarkFloorplan) {
+              formData.append('media_type', 'floorplan');
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.addEventListener('load', () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                uploadResult.successCount += 1;
+                if (shouldMarkFloorplan) uploadResult.floorplanCount += 1;
+                if (isVideo) uploadResult.videoCount += 1;
+                resolve();
+                return;
+              }
+
+              let message = 'Upload failed';
+              try {
+                const payload = JSON.parse(xhr.responseText || '{}');
+                message = payload?.message || payload?.error || message;
+              } catch {
+                // Keep the generic message when the server response is not JSON.
+              }
+              uploadResult.errorCount += 1;
+              uploadResult.errors.push(`${file.name}: ${message}`);
+              failedFiles.push(file);
+              resolve();
+            });
+            xhr.addEventListener('error', () => {
+              uploadResult.errorCount += 1;
+              uploadResult.errors.push(`${file.name}: Network error`);
+              failedFiles.push(file);
+              resolve();
+            });
+            xhr.open('POST', `${API_BASE_URL}/api/shoots/${shootId}/upload`);
+            if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
+            if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
+            xhr.send(formData);
+          });
+
+          onProgress(Math.round(((index + 1) / files.length) * 100));
+        }
+
+        if (uploadResult.successCount === 0) {
+          throw new Error(uploadResult.errors[0] || 'All files failed to upload');
+        }
+      },
+      onComplete: () => {
+        pendingUploadFilesRef.current = failedFiles;
+        setPendingUploadFiles(failedFiles);
+        setPendingUploadId(failedFiles.length > 0 ? createUploadBatchId() : null);
+        void handleSendMessage(`Upload finished for shoot #${shootId}.`, {
+          uploadResult,
+          targetShootId: shootId,
+        });
+      },
+      onError: (error) => {
+        void handleSendMessage(`Upload failed for shoot #${shootId}: ${error}`, {
+          uploadResult: {
+            ...uploadResult,
+            errorCount: uploadResult.errorCount || files.length,
+          },
+          targetShootId: shootId,
+        });
+      },
+    });
+
+    toast({
+      title: 'Robbie upload started',
+      description: `${files.length} file${files.length === 1 ? '' : 's'} uploading to shoot #${shootId}.`,
+    });
+  }, [handleSendMessage, trackUpload]);
+
+  const handleUploadFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (selected.length === 0) return;
+
+    const accepted = selected.slice(0, MAX_ROBBIE_UPLOAD_FILES);
+    if (selected.length > MAX_ROBBIE_UPLOAD_FILES) {
+      toast({
+        title: 'Only 1000 files added',
+        description: `${selected.length - MAX_ROBBIE_UPLOAD_FILES} file(s) were skipped.`,
+        variant: 'destructive',
+      });
+    }
+
+    const uploadId = createUploadBatchId();
+    pendingUploadFilesRef.current = accepted;
+    setPendingUploadFiles(accepted);
+    setPendingUploadId(uploadId);
+
+    void handleSendMessage(`Upload ${accepted.length} file${accepted.length === 1 ? '' : 's'} to a shoot.`, {
+      pendingUpload: {
+        uploadId,
+        fileCount: accepted.length,
+        fileNames: accepted.slice(0, 12).map((file) => file.name),
+        classification: 'auto',
+      },
+      targetShootId: pageContext.entityType === 'shoot' ? pageContext.entityId : undefined,
+      source: 'robbie_attachment_tray',
+    });
+  }, [handleSendMessage, pageContext.entityId, pageContext.entityType]);
+
   useEffect(() => {
     const state = location.state as InsightNavigationState | null;
     if (!state?.initialMessage || hasConsumedNavigation.current) return;
@@ -434,8 +618,9 @@ const ChatWithReproAi = () => {
   // Listen for "Open #N" actions inside chat replies to show the shoot overview modal.
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ shootId?: string | number }>).detail;
+      const detail = (event as CustomEvent<{ shootId?: string | number; tab?: ShootModalTab }>).detail;
       if (!detail?.shootId) return;
+      setOverviewShootTab(detail.tab || 'overview');
       setOverviewShootId(String(detail.shootId));
     };
     window.addEventListener('ai-open-shoot', handler as EventListener);
@@ -443,6 +628,19 @@ const ChatWithReproAi = () => {
       window.removeEventListener('ai-open-shoot', handler as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<AiActionPayload>).detail;
+      if (detail?.type) {
+        startConfirmedRobbieUpload(detail);
+      }
+    };
+    window.addEventListener('robbie-start-upload', handler as EventListener);
+    return () => {
+      window.removeEventListener('robbie-start-upload', handler as EventListener);
+    };
+  }, [startConfirmedRobbieUpload]);
 
   const handleCardClick = useCallback((cardType: 'booking' | 'listing' | 'insight') => {
     if (isSendingRef.current || isLoading) return;
@@ -1435,10 +1633,25 @@ const ChatWithReproAi = () => {
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <LinkIcon className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => uploadInputRef.current?.click()}
+                        disabled={isLoading}
+                      >
                         <FileIcon className="h-4 w-4" />
                       </Button>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 md:hidden"
+                      onClick={() => uploadInputRef.current?.click()}
+                      disabled={isLoading}
+                    >
+                      <FileIcon className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                       <Mic className="h-4 w-4 md:h-5 md:w-5" />
                     </Button>
@@ -1462,6 +1675,40 @@ const ChatWithReproAi = () => {
                 </div>
               </div>
 
+              <input
+                ref={uploadInputRef}
+                type="file"
+                className="hidden"
+                accept={FULL_UPLOAD_ACCEPT}
+                multiple
+                onChange={handleUploadFileSelect}
+              />
+
+              {pendingUploadFiles.length > 0 && (
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <span className="font-medium">{pendingUploadFiles.length} file{pendingUploadFiles.length === 1 ? '' : 's'} ready for Robbie</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {pendingUploadFiles.slice(0, 2).map((file) => file.name).join(', ')}
+                      {pendingUploadFiles.length > 2 ? `, +${pendingUploadFiles.length - 2} more` : ''}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => {
+                      pendingUploadFilesRef.current = [];
+                      setPendingUploadFiles([]);
+                      setPendingUploadId(null);
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+
               {/* Disclaimer */}
               <p className="mt-2 text-[10px] md:text-xs text-center text-muted-foreground hidden md:block">
                 Robbie may make errors. Check important information.
@@ -1476,7 +1723,7 @@ const ChatWithReproAi = () => {
             shootId={overviewShootId}
             isOpen={Boolean(overviewShootId)}
             onClose={() => setOverviewShootId(null)}
-            initialTab="overview"
+            initialTab={overviewShootTab}
           />
         </Suspense>
       )}

@@ -76,11 +76,32 @@ export interface VoiceSettings {
   allow_unverified_transfer: boolean;
   disclosure_text?: string | null;
   gather_prompt?: string | null;
+  greeting_text?: string | null;
+  out_of_hours_message?: string | null;
+  holiday_message?: string | null;
   quiet_hours?: {
     enabled?: boolean;
     start?: string;
     end?: string;
     timezone?: string;
+  };
+  business_hours?: {
+    timezone?: string;
+    weekly?: Record<string, Array<[string, string]>>;
+  };
+  holidays?: Array<{ date: string; label?: string | null }>;
+  schedule_overrides?: Array<{ starts_at: string; ends_at: string; mode: 'open' | 'closed'; label?: string | null }>;
+  intelligence?: {
+    enabled?: boolean;
+    monthly_llm_budget_usd?: number;
+    auto_schedule_follow_ups?: boolean;
+    triggers?: Record<string, boolean>;
+    thresholds?: {
+      low_confidence_pct?: number;
+      silence_seconds?: number;
+      sentiment_drop?: number;
+      keywords?: string[];
+    };
   };
   callback_retry_delay_minutes?: number;
   callback_max_attempts?: number;
@@ -88,6 +109,86 @@ export interface VoiceSettings {
   tool_allowlist?: string[];
   confirmation_gated_tools?: string[];
   debug_capture?: boolean;
+}
+
+export type ScheduleStateName =
+  | 'team_open'
+  | 'ai_only'
+  | 'holiday_closed'
+  | 'quiet_hours'
+  | 'override_open'
+  | 'override_closed';
+
+export interface ScheduleState {
+  state: ScheduleStateName;
+  label?: string | null;
+  since?: string | null;
+  until?: string | null;
+  next_open_at?: string | null;
+  office_timezone: string;
+  caller_timezone?: string | null;
+  office_now?: string;
+  caller_now?: string | null;
+}
+
+export interface ScheduleStateResponse {
+  state: ScheduleState;
+  guidance: {
+    state: ScheduleStateName;
+    allow_live_transfer: boolean;
+    message: string;
+    label?: string | null;
+    next_open_at?: string | null;
+  };
+}
+
+export interface VoiceScheduleOverride {
+  id: number;
+  starts_at: string;
+  ends_at: string;
+  mode: 'open' | 'closed';
+  label?: string | null;
+  created_by?: number | null;
+  created_at?: string;
+}
+
+export interface SuggestedReply {
+  label: string;
+  spoken: string;
+  why: string;
+}
+
+export interface VoiceInsights {
+  customer_mood?: string;
+  robbie_quality?: string;
+  intent?: string;
+  intent_confidence?: number;
+  suggested_replies?: SuggestedReply[];
+  next_best_action?: string;
+  risk?: { type: string; score: number; why: string } | null;
+  sales_opportunity?: unknown | null;
+  human_takeover_recommended?: boolean;
+  summary_text?: string;
+  quality_score?: string;
+  issue_resolved?: string;
+  follow_up_at?: string | null;
+  triggers?: string[];
+}
+
+export interface VoiceLiveSnapshotEvents {
+  transcript: { seq: number; chunks: Array<{ seq: number; text: string; speaker: string; ts: string; telnyx_confidence?: number | null; sentiment?: string | null }> };
+  realtime: { confidence?: number | null; sentiment?: string | null; interruption_rate?: number; silence_sec?: number; speaking_pace_wpm?: number; last_keyword_hit?: string | null };
+  insights?: VoiceInsights | null;
+  memory?: { tier1?: Record<string, unknown> | null; tier2?: Record<string, unknown> | null; tier3?: Record<string, unknown> | null };
+  final_summary?: VoiceInsights | null;
+}
+
+export interface VoiceLlmUsageSummary {
+  spend_usd: number;
+  budget_usd: number;
+  exceeded: boolean;
+  remaining_usd: number;
+  recent: Array<{ id: number; voice_call_id?: number | null; purpose: string; model?: string | null; input_tokens: number; output_tokens: number; cost_usd: number; created_at?: string }>;
 }
 
 export interface VoiceHealth {

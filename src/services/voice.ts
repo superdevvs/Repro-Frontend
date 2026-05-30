@@ -2,10 +2,14 @@ import { apiClient } from './api';
 import type {
   ScheduledVoiceCall,
   ScheduledVoiceCallListResponse,
+  ScheduleStateResponse,
   VoiceCall,
   VoiceCallListResponse,
   VoiceHealth,
+  VoiceInsights,
+  VoiceLlmUsageSummary,
   VoiceNumberConfig,
+  VoiceScheduleOverride,
   VoiceSettings,
   VoiceStats,
 } from '@/types/voice';
@@ -98,5 +102,60 @@ export const cancelScheduledVoiceCall = async (id: number): Promise<ScheduledVoi
 
 export const retryScheduledVoiceCall = async (id: number): Promise<ScheduledVoiceCall> => {
   const response = await apiClient.post(`/voice/scheduled-calls/${id}/retry`);
+  return response.data;
+};
+
+// ---- v3: schedule, memory, intelligence, usage --------------------------
+
+export const getScheduleState = async (callerTz?: string): Promise<ScheduleStateResponse> => {
+  const response = await apiClient.get('/voice/schedule/state', {
+    params: callerTz ? { caller_tz: callerTz } : undefined,
+  });
+  return response.data;
+};
+
+export const getScheduleOverrides = async (): Promise<VoiceScheduleOverride[]> => {
+  const response = await apiClient.get('/voice/schedule/overrides');
+  return response.data.overrides ?? [];
+};
+
+export const createScheduleOverride = async (data: {
+  starts_at: string;
+  ends_at: string;
+  mode: 'open' | 'closed';
+  label?: string | null;
+}): Promise<VoiceScheduleOverride> => {
+  const response = await apiClient.post('/voice/schedule/overrides', data);
+  return response.data;
+};
+
+export const deleteScheduleOverride = async (id: number): Promise<void> => {
+  await apiClient.delete(`/voice/schedule/overrides/${id}`);
+};
+
+export const getVoiceCallMemory = async (
+  id: number,
+  tier: 1 | 2 | 3,
+): Promise<{ tier: number; memory: Record<string, unknown> | null; importance_score?: number }> => {
+  const response = await apiClient.get(`/voice/calls/${id}/memory`, { params: { tier } });
+  return response.data;
+};
+
+export const loadVoiceCallFullContext = async (
+  id: number,
+): Promise<{ tier: number; memory: Record<string, unknown> | null; all: Record<string, unknown> }> => {
+  const response = await apiClient.post(`/voice/calls/${id}/memory/load-full`);
+  return response.data;
+};
+
+export const markCockpitOpened = async (
+  id: number,
+): Promise<{ insights: VoiceInsights | null; budget_paused: boolean }> => {
+  const response = await apiClient.post(`/voice/calls/${id}/cockpit-opened`);
+  return response.data;
+};
+
+export const getVoiceLlmUsage = async (): Promise<VoiceLlmUsageSummary> => {
+  const response = await apiClient.get('/voice/llm-usage');
   return response.data;
 };

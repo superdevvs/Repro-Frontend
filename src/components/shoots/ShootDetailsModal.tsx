@@ -141,7 +141,7 @@ interface ShootDetailsModalProps {
   initialWeather?: WeatherInfo | null; // Pre-fetched weather from dashboard to avoid re-fetching
   onModify?: () => void; // Callback to modify/edit the shoot request
   photographers?: Array<{ id: string | number; name: string; avatar?: string }>; // For approval modal
-  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity';
+  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media';
   openDownloadDialog?: boolean;
   shouldHideClientDetails?: boolean;
 }

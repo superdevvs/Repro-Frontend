@@ -4,6 +4,8 @@ import type {
   AiChatResponse,
   AiSessionsResponse,
   AiSessionMessagesResponse,
+  AiActionPayload,
+  ShootOperatorActionResult,
 } from '@/types/ai';
 
 /**
@@ -72,4 +74,9 @@ export const deleteAiSession = async (sessionId: string): Promise<void> => {
 export const archiveAiSession = async (sessionId: string): Promise<AiSessionsResponse['data'][0]> => {
   const response = await apiClient.post(`/ai/sessions/${sessionId}/archive`);
   return response.data.session;
+};
+
+export const executeShootOperatorAction = async (payload: AiActionPayload): Promise<ShootOperatorActionResult> => {
+  const response = await apiClient.post<ShootOperatorActionResult>('/ai/shoot-operator/action', payload);
+  return response.data;
 };

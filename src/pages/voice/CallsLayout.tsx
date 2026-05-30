@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import ScheduleBadge from '@/components/voice/ScheduleBadge';
 import OngoingCallPopup from '@/components/voice/OngoingCallPopup';
 import CallsOverview from './CallsOverview';
 import CallsLog from './CallsLog';
@@ -21,6 +21,8 @@ import CallsAssistant from './CallsAssistant';
 import CallsNumbers from './CallsNumbers';
 import CallsAutomations from './CallsAutomations';
 import CallsSettings from './CallsSettings';
+import CallsSchedule from './CallsSchedule';
+import CallLiveCockpit from './CallLiveCockpit';
 import MakeTestCallDialog from './MakeTestCallDialog';
 import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 
@@ -30,12 +32,14 @@ const tabs = [
   { to: '/calls/assistant', label: 'AI Assistant', icon: Bot },
   { to: '/calls/numbers', label: 'Numbers', icon: Hash },
   { to: '/calls/automations', label: 'Automations', icon: Workflow },
+  { to: '/calls/schedule', label: 'Schedule', icon: CalendarClock },
   { to: '/calls/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function CallsLayout() {
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
+  const isCockpit = pathname.startsWith('/calls/live/');
 
   const refreshVoiceData = () => {
     queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
@@ -45,6 +49,17 @@ export default function CallsLayout() {
     queryClient.invalidateQueries({ queryKey: ['voice-numbers'] });
     queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
   };
+
+  if (isCockpit) {
+    return (
+      <DashboardLayout>
+        <Routes>
+          <Route path="live/:id" element={<CallLiveCockpit />} />
+        </Routes>
+        <OngoingCallPopup />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -60,13 +75,7 @@ export default function CallsLayout() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className="h-8 gap-2 border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Voice Service Connected
-            </Badge>
+            <ScheduleBadge />
             <Button
               size="sm"
               variant="outline"
@@ -129,6 +138,7 @@ export default function CallsLayout() {
             <Route path="assistant" element={<CallsAssistant />} />
             <Route path="numbers" element={<CallsNumbers />} />
             <Route path="automations" element={<CallsAutomations />} />
+            <Route path="schedule" element={<CallsSchedule />} />
             <Route path="settings" element={<CallsSettings />} />
           </Routes>
         </div>

@@ -10,6 +10,7 @@ import {
   Clock,
   Cloud,
   ExternalLink,
+  Film,
   Image as ImageIcon,
   Info,
   ListChecks,
@@ -58,6 +59,7 @@ import { AiEditingModePicker } from '@/components/ai-editing/AiEditingModePicker
 import { AiEditingJobCard } from '@/components/ai-editing/AiEditingJobCard';
 import { AiEditingComparisonLightbox } from '@/components/ai-editing/AiEditingComparisonLightbox';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
+import { ListingVideoGenerator } from '@/components/listing-video/ListingVideoGenerator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,6 +103,7 @@ interface MediaFile {
 }
 
 type ViewMode = 'activity' | 'chat' | 'select-shoot' | 'select-files' | 'configure';
+type WorkspaceMode = 'photo' | 'video' | 'chat';
 type JobStatus = EditingJob['status'];
 type StatusFilter = 'all' | JobStatus;
 type EnhancementModeId = 'enhance' | 'sky_replace' | 'vertical_correction' | 'window_pull';
@@ -129,6 +132,7 @@ const AiEditing = () => {
   const { toast } = useToast();
 
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('photo');
 
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
   const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
@@ -482,6 +486,42 @@ const AiEditing = () => {
   const submitEditingType = selectedModeList.length === 1 ? selectedModeList[0] : 'enhance_custom';
   const isAutoenhanceConfigured = connection?.success !== false;
 
+  const renderWorkspaceModeSwitcher = () => {
+    const modes: Array<{ id: WorkspaceMode; label: string; Icon: React.ElementType }> = [
+      { id: 'photo', label: 'Photo Editing', Icon: ImageIcon },
+      { id: 'video', label: 'Video Editing', Icon: Film },
+      { id: 'chat', label: 'Chat', Icon: MessageCircle },
+    ];
+
+    return (
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/40 p-1">
+        {modes.map(({ id, label, Icon }) => {
+          const active = workspaceMode === id;
+          return (
+            <Button
+              key={id}
+              type="button"
+              variant={active ? 'default' : 'ghost'}
+              size="sm"
+              className={cn('h-8 gap-1.5 px-3 text-xs sm:text-sm', !active && 'text-muted-foreground')}
+              onClick={() => {
+                setWorkspaceMode(id);
+                if (id === 'chat') {
+                  setViewMode('chat');
+                } else if (viewMode === 'chat') {
+                  setViewMode('activity');
+                }
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </Button>
+          );
+        })}
+      </div>
+    );
+  };
+
   const buildSubmitParams = () => {
     const params: Record<string, any> = {
       notes: notes.trim() || undefined,
@@ -506,6 +546,7 @@ const AiEditing = () => {
 
   const startNewEdit = () => {
     if (!canUseAutoenhance) return;
+    setWorkspaceMode('photo');
     setSelectedShoot(null);
     setSelectedFiles(new Set());
     setSearchTerm('');
@@ -523,6 +564,7 @@ const AiEditing = () => {
   const firstName = (user?.name || '').split(' ')[0] || 'there';
 
   const goToActivity = useCallback(() => {
+    setWorkspaceMode('photo');
     setViewMode('activity');
     lastShiftAnchorRef.current = null;
   }, []);
@@ -535,6 +577,7 @@ const AiEditing = () => {
       const trimmed = text.trim();
       if (!trimmed || chatSending) return;
 
+      setWorkspaceMode('chat');
       setViewMode('chat');
       setChatSending(true);
       setChatSuggestions([]);
@@ -589,6 +632,7 @@ const AiEditing = () => {
         void submitChatMessage(prefill);
         return;
       }
+      setWorkspaceMode('chat');
       setViewMode('chat');
       setJobShootFilter(prefill);
       setTimeout(() => {
@@ -612,6 +656,7 @@ const AiEditing = () => {
       current.forEach((img) => URL.revokeObjectURL(img.previewUrl));
       return [];
     });
+    setWorkspaceMode('photo');
     setViewMode('activity');
   }, []);
 
@@ -692,6 +737,7 @@ const AiEditing = () => {
     }
 
     // Move into chat view so the upload progress + Robbie's questions show up.
+    setWorkspaceMode('chat');
     setViewMode('chat');
 
     const uploadStart = new Date().toISOString();
@@ -2353,7 +2399,7 @@ const AiEditing = () => {
   );
 
   const renderEditFlowFooter = () => {
-    if (viewMode === 'activity' || viewMode === 'chat') return null;
+    if (workspaceMode !== 'photo' || viewMode === 'activity' || viewMode === 'chat') return null;
     return (
       <div
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur sm:px-6"
@@ -2405,7 +2451,7 @@ const AiEditing = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-32 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
-        {viewMode !== 'activity' && viewMode !== 'chat' && (
+        {workspaceMode === 'photo' && viewMode !== 'activity' && viewMode !== 'chat' && (
           <PageHeader
             title="AI Editing"
             description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
@@ -2439,9 +2485,13 @@ const AiEditing = () => {
           </Card>
         ) : (
           <>
-            {renderConnectionAlert()}
+            {renderWorkspaceModeSwitcher()}
 
-            {viewMode === 'chat' ? (
+            {workspaceMode === 'photo' && renderConnectionAlert()}
+
+            {workspaceMode === 'video' ? (
+              <ListingVideoGenerator />
+            ) : workspaceMode === 'chat' || viewMode === 'chat' ? (
               renderChat()
             ) : viewMode === 'activity' ? (
               <>
