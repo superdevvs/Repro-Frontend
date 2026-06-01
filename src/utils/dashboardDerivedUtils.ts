@@ -314,6 +314,9 @@ export const getDashboardPaymentStatus = (
   if (payment?.paymentStatus === 'paid') {
     return 'paid';
   }
+  if (totalQuote <= 0.01) {
+    return 'paid';
+  }
   if (totalPaid <= 0) {
     return 'unpaid';
   }

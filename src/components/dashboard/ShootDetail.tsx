@@ -110,12 +110,19 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
     }
   };
 
+  const amountDue = Math.max(
+    0,
+    (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0)
+  );
+
   const getPaymentStatus = () => {
-    if (!shoot.payment.totalPaid) return <Badge variant="outline">Unpaid</Badge>;
-    if (shoot.payment.totalPaid < shoot.payment.totalQuote) {
+    if ((shoot.payment?.totalQuote ?? 0) <= 0.01 || amountDue <= 0.01) {
+      return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Paid</Badge>;
+    }
+    if ((shoot.payment?.totalPaid ?? 0) > 0.01) {
       return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Partial</Badge>;
     }
-    return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Paid</Badge>;
+    return <Badge variant="outline">Unpaid</Badge>;
   };
 
   const handleOpenEditDialog = () => {
@@ -289,7 +296,7 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
             )}
 
             {/* Pay Now for unpaid/partial (admin or client) */}
-            {(isAdmin || isClient) && (!shoot.payment.totalPaid || shoot.payment.totalPaid < shoot.payment.totalQuote) && (
+            {(isAdmin || isClient) && amountDue > 0.01 && (
               <Button variant="accent" onClick={handlePayNow}>
                 <DollarSignIcon className="h-4 w-4 mr-2" />
                 Pay Now

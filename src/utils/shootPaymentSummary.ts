@@ -208,11 +208,13 @@ export const normalizeShootPaymentSummary = (
   const paymentStatus =
     explicitPaymentStatus === 'paid'
       ? 'paid'
-      : totalPaid <= 0
-        ? 'unpaid'
-        : totalPaid >= totalQuote
-          ? 'paid'
-          : 'partial';
+      : totalQuote <= 0.01
+        ? 'paid'
+        : totalPaid <= 0
+          ? 'unpaid'
+          : totalPaid >= totalQuote
+            ? 'paid'
+            : 'partial';
 
   return {
     baseQuote,

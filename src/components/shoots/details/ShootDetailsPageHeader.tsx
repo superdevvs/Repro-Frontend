@@ -67,6 +67,7 @@ interface ShootDetailsPageHeaderProps {
   onSendToEditing: () => void;
   onFinalise: () => void;
   onProcessPayment: () => void;
+  canProcessPayment: boolean;
   canShowDownloadButton: boolean;
   onDownload: () => void;
   isDownloadDisabled: boolean;
@@ -114,6 +115,7 @@ export function ShootDetailsPageHeader({
   onSendToEditing,
   onFinalise,
   onProcessPayment,
+  canProcessPayment,
   canShowDownloadButton,
   onDownload,
   isDownloadDisabled,
@@ -298,7 +300,7 @@ export function ShootDetailsPageHeader({
                 <span className="sm:hidden">{isFinalising ? 'Finalizing...' : 'Finalize'}</span>
               </Button>
             )}
-            {isAdminOrSuperAdmin && !isEditor && !isEditingManager && (
+            {canProcessPayment && isAdminOrSuperAdmin && !isEditor && !isEditingManager && (
               <Button
                 variant="default"
                 size="sm"

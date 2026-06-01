@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { BookingSummary } from '@/components/booking/BookingSummary';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { BookingContentArea } from '@/components/booking/BookingContentArea';
+import type { InternalShootType } from '@/components/booking/ClientPropertyForm';
 import { ShootData } from '@/types/shoots';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BookingHeader } from '@/components/booking/BookingHeader';
@@ -62,6 +63,12 @@ type ServicePackage = {
 };
 
 type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+const INTERNAL_NO_PRODUCT_SHOOT_TYPES: InternalShootType[] = [
+  'complimentary',
+  'sample_upload',
+  'internal_test',
+  'pricing_pending',
+];
 
 const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
   let price = Number(service.price ?? 0);
@@ -251,6 +258,7 @@ const BookShoot = () => {
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
   const { user, isImpersonating } = useAuth();
   const canAdjustBookingAmount = !isImpersonating && (user?.role === 'admin' || user?.role === 'superadmin');
+  const canCreateNoProductShoot = !isImpersonating && ['admin', 'superadmin', 'editing_manager', 'salesRep', 'salesrep', 'sales_rep'].includes(String(user?.role ?? ''));
   const [isEditMode, setIsEditMode] = useState(false);
   const [editShootLoading, setEditShootLoading] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -277,6 +285,7 @@ const BookShoot = () => {
   const [servicePhotographers, setServicePhotographers] = useState<Record<string, string>>({});
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
   const [selectedServices, setSelectedServices] = useState<ServicePackage[]>([]);
+  const [shootType, setShootType] = useState<InternalShootType>('standard');
   const [propertyDetails, setPropertyDetails] = useState<any>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
 
@@ -303,6 +312,13 @@ const BookShoot = () => {
       }
       return next;
     });
+  };
+  const handleShootTypeChange = (nextType: InternalShootType) => {
+    setShootType(nextType);
+    if (nextType !== 'standard') {
+      setBypassPayment(true);
+      setAdjustedTotalInput('0.00');
+    }
   };
   const [notes, setNotes] = useState('');
   const [companyNotes, setCompanyNotes] = useState('');
@@ -357,10 +373,11 @@ const BookShoot = () => {
     const hasZip = !!zip?.trim();
     const hasDate = !!date;
     const hasTime = !!time?.trim();
-    const hasServices = selectedServices.length > 0;
+    const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+    const hasServices = !requiresServices || selectedServices.length > 0;
     
     return hasClient && hasAddress && hasCity && hasState && hasZip && hasDate && hasTime && hasServices;
-  }, [isClientAccount, client, address, city, state, zip, date, time, selectedServices]);
+  }, [isClientAccount, client, address, city, state, zip, date, time, selectedServices, shootType, canCreateNoProductShoot]);
 
   const sameDayAddressShoot = React.useMemo(() => {
     const selectedDateKey = getDateKey(date);
@@ -1314,10 +1331,13 @@ const BookShoot = () => {
         return false;
       }
 
-      if (!address || !city || !state || !zip || selectedServices.length === 0) {
+      const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+      if (!address || !city || !state || !zip || (requiresServices && selectedServices.length === 0)) {
         toast({
           title: "Missing information",
-          description: "Please fill in all property details and select a package before proceeding.",
+          description: requiresServices
+            ? "Please fill in all property details and select a package before proceeding."
+            : "Please fill in all property details before proceeding.",
           variant: "destructive",
         });
         return false;
@@ -1488,10 +1508,13 @@ const BookShoot = () => {
       setIsSubmitting(true);
       // For client accounts, they don't need to select a client (they ARE the client)
       const clientValid = isClientAccount || !!client;
-      if (!clientValid || !address || !city || !state || !zip || !date || !time || selectedServices.length === 0) {
+      const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+      if (!clientValid || !address || !city || !state || !zip || !date || !time || (requiresServices && selectedServices.length === 0)) {
         toast({
           title: "Missing information",
-          description: "Please fill in all required fields before confirming the booking.",
+          description: requiresServices
+            ? "Please fill in all required fields and select a service before confirming the booking."
+            : "Please fill in all required fields before confirming the booking.",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -1608,6 +1631,17 @@ const BookShoot = () => {
       }));
 
       const primaryServiceId = servicesPayload[0]?.id ?? null;
+      const effectiveShootType =
+        canCreateNoProductShoot && INTERNAL_NO_PRODUCT_SHOOT_TYPES.includes(shootType)
+          ? shootType
+          : 'standard';
+      const productStatus =
+        servicesPayload.length === 0
+          ? 'no_product'
+          : totalQuote <= 0.01
+            ? 'zero_dollar_product'
+            : 'has_product';
+      const isNoChargeShoot = totalQuote <= 0.01 || effectiveShootType !== 'standard';
       
       // Construct scheduled_at as full datetime string (YYYY-MM-DD HH:MM:SS)
       const scheduledAt = date && time24Hour 
@@ -1640,11 +1674,13 @@ const BookShoot = () => {
         services: servicesPayload,
         service_items: serviceItemsPayload,
         service_category: selectedServices[0]?.category?.name || undefined,
+        shoot_type: effectiveShootType,
+        product_status: productStatus,
         shoot_notes: notes || undefined,
         company_notes: companyNotes || undefined,
         photographer_notes: photographerNotes || undefined,
         editor_notes: editorNotes || undefined,
-        bypass_paywall: bypassPayment,
+        bypass_paywall: bypassPayment || isNoChargeShoot,
         send_notification: sendNotification,
         // Integration fields
         property_details: propertyDetails || undefined,
@@ -1657,7 +1693,7 @@ const BookShoot = () => {
         tax_amount: taxAmount,
         total_quote: totalQuote,
         admin_adjusted_total_quote: adjustedTotalQuote ?? undefined,
-        payment_status: bypassPayment ? 'pending' : 'paid', // or whatever statuses your API expects
+        payment_status: isNoChargeShoot ? 'paid' : (bypassPayment ? 'pending' : 'paid'), // or whatever statuses your API expects
         // Don't send status - let backend determine based on user role (client = requested, admin = scheduled)
         created_by: user?.name || user?.email || 'System', // Use available user info
         // Flag to indicate this is a client-initiated request (needs approval)
@@ -2115,6 +2151,9 @@ type CompletedBookingSnapshot = {
                   setTime={setTime}
                   selectedServices={selectedServices}
                   onSelectedServicesChange={handleSelectedServicesChange}
+                  shootType={shootType}
+                  onShootTypeChange={handleShootTypeChange}
+                  canCreateNoProductShoot={canCreateNoProductShoot}
                   notes={notes}
                   setNotes={setNotes}
                   packages={packages}

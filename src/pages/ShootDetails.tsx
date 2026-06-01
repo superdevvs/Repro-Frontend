@@ -795,6 +795,7 @@ const ShootDetails: React.FC = () => {
           onSendToEditing={handleSendToEditing}
           onFinalise={handleFinalise}
           onProcessPayment={handleProcessPayment}
+          canProcessPayment={amountDue > 0.01}
           canShowDownloadButton={canShowDownloadButton}
           onDownload={handlePageDownload}
           isDownloadDisabled={isDownloadDisabled}

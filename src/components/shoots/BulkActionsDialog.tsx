@@ -57,7 +57,8 @@ const normalizeStatus = (shoot: ShootData) =>
   (shoot.workflowStatus || shoot.status || '').toLowerCase();
 
 const isUnpaid = (shoot: ShootData) =>
-  (shoot.payment?.totalPaid ?? 0) < (shoot.payment?.totalQuote ?? 0);
+  (shoot.payment?.totalQuote ?? 0) > 0.01 &&
+  (shoot.payment?.totalPaid ?? 0) + 0.01 < (shoot.payment?.totalQuote ?? 0);
 
 const isUploaded = (shoot: ShootData) => {
   const statusKey = normalizeStatus(shoot);

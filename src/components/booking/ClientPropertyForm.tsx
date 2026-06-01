@@ -91,6 +91,12 @@ interface PackageOption extends ServiceSelectionOption {
 }
 
 type PresenceOption = 'self' | 'other' | 'lockbox';
+export type InternalShootType =
+  | 'standard'
+  | 'complimentary'
+  | 'sample_upload'
+  | 'internal_test'
+  | 'pricing_pending';
 
 const extractAptSuite = (rawAddress: string) => {
   if (!rawAddress) {
@@ -198,7 +204,7 @@ const clientAccountPropertyFormSchema = z.object({
   shootNotes: z.string().optional(),
   photographerNotes: z.string().optional(),
   editorNotes: z.string().optional(),
-  selectedPackage: z.string().min(1, "Please select a package"),
+  selectedPackage: z.string().optional(),
   // Property access fields
   lockboxCode: z.string().optional(),
   lockboxLocation: z.string().optional(),
@@ -226,7 +232,7 @@ const adminPropertyFormSchema = z.object({
   shootNotes: z.string().optional(),
   photographerNotes: z.string().optional(),
   editorNotes: z.string().optional(),
-  selectedPackage: z.string().min(1, "Please select a package"),
+  selectedPackage: z.string().optional(),
   // Property access fields
   lockboxCode: z.string().optional(),
   lockboxLocation: z.string().optional(),
@@ -283,6 +289,9 @@ type ClientPropertyFormProps = {
   onPropertyDraftChange?: (data: any) => void;
   selectedServices: PackageOption[];
   onSelectedServicesChange: (services: PackageOption[]) => void;
+  shootType?: InternalShootType;
+  onShootTypeChange?: (type: InternalShootType) => void;
+  canCreateNoProductShoot?: boolean;
   packagesLoading?: boolean;
   showClearSavedData?: boolean;
   onClearSavedData?: () => void;
@@ -300,6 +309,9 @@ export const ClientPropertyForm = ({
   onPropertyDraftChange,
   selectedServices,
   onSelectedServicesChange,
+  shootType = 'standard',
+  onShootTypeChange,
+  canCreateNoProductShoot = false,
   packagesLoading = false,
   showClearSavedData = false,
   onClearSavedData,
@@ -720,6 +732,19 @@ export const ClientPropertyForm = ({
 
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
+
+    const requiresService = isClientAccount || shootType === 'standard';
+    if (requiresService && selectedServices.length === 0) {
+      const noticeText = 'Please select at least one service before continuing.';
+      setSubmitAttemptNotice(noticeText);
+      form.setError('selectedPackage' as any, { type: 'manual', message: noticeText });
+      toast({
+        title: 'Missing required fields',
+        description: noticeText,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const baseData = buildPropertyDraftData(data);
 
@@ -1485,7 +1510,9 @@ export const ClientPropertyForm = ({
             <div>
               <h3 className="text-lg font-medium">Service Selection</h3>
               <p className="text-sm text-muted-foreground">
-                Add the deliverables this booking includes, then review totals below.
+                {canCreateNoProductShoot && shootType !== 'standard'
+                  ? 'Services are optional for this internal no-charge shoot.'
+                  : 'Add the deliverables this booking includes, then review totals below.'}
               </p>
             </div>
             <TooltipProvider>
@@ -1499,6 +1526,32 @@ export const ClientPropertyForm = ({
               </Tooltip>
             </TooltipProvider>
           </div>
+
+          {canCreateNoProductShoot && (
+            <div className="mb-4 rounded-xl border border-muted/50 bg-card/40 p-4 space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="shoot-type">Shoot type</Label>
+                <p className="text-xs text-muted-foreground">
+                  Internal no-charge types can be scheduled without services.
+                </p>
+              </div>
+              <Select
+                value={shootType}
+                onValueChange={(value) => onShootTypeChange?.(value as InternalShootType)}
+              >
+                <SelectTrigger id="shoot-type">
+                  <SelectValue placeholder="Select shoot type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard paid shoot</SelectItem>
+                  <SelectItem value="complimentary">Complimentary shoot</SelectItem>
+                  <SelectItem value="sample_upload">Sample upload</SelectItem>
+                  <SelectItem value="internal_test">Internal/test shoot</SelectItem>
+                  <SelectItem value="pricing_pending">Pricing pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div
             className={cn(

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ClientPropertyForm } from './ClientPropertyForm';
+import { ClientPropertyForm, type InternalShootType } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
 import type { PricingBreakdown } from '@/utils/pricing';
@@ -29,6 +29,9 @@ interface BookingContentAreaProps {
   setTime: React.Dispatch<React.SetStateAction<string>>;
   selectedServices: SelectedService[];
   onSelectedServicesChange: (services: SelectedService[]) => void;
+  shootType: InternalShootType;
+  onShootTypeChange: (type: InternalShootType) => void;
+  canCreateNoProductShoot: boolean;
   notes: string;
   setNotes: React.Dispatch<React.SetStateAction<string>>;
   packages: any[];
@@ -82,6 +85,9 @@ export function BookingContentArea({
   setTime,
   selectedServices,
   onSelectedServicesChange,
+  shootType,
+  onShootTypeChange,
+  canCreateNoProductShoot,
   notes,
   setNotes,
   packages,
@@ -136,6 +142,9 @@ export function BookingContentArea({
           onPropertyDraftChange={onPropertyDraftChange}
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
+          shootType={shootType}
+          onShootTypeChange={onShootTypeChange}
+          canCreateNoProductShoot={canCreateNoProductShoot}
           packagesLoading={packagesLoading}
           showClearSavedData={showClearSavedData}
           onClearSavedData={onClearSavedData}
