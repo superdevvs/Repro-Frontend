@@ -27,7 +27,7 @@ import { useSearchParams } from 'react-router-dom';
 export default function SmsCenter() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filter, setFilter] = useState<SmsThreadFilter>('unanswered');
+  const [filter, setFilter] = useState<SmsThreadFilter>('all');
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [composerText, setComposerText] = useState('');
@@ -209,6 +209,14 @@ export default function SmsCenter() {
       });
     },
     onThreadUpdated: (updated) => {
+      if (!updated.lastMessageAt && !updated.contact) {
+        queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+        if (updated.id) {
+          queryClient.invalidateQueries({ queryKey: ['sms-thread', updated.id] });
+        }
+        return;
+      }
+
       queryClient.setQueryData(threadsKey, (prev: { data: SmsThreadSummary[]; meta: PaginatedResponseMeta } | undefined) => {
         if (!prev) return prev;
         const existingIndex = prev.data.findIndex((thread) => thread.id === updated.id);
@@ -219,6 +227,7 @@ export default function SmsCenter() {
         clone[existingIndex] = { ...clone[existingIndex], ...updated };
         return { ...prev, data: clone };
       });
+      queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
     },
   });
 

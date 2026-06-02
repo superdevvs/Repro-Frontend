@@ -2127,14 +2127,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
               style={{ maxHeight: listMaxHeight }}
             >
               <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
                 {renderStickyCompactToggle()}
               </div>
               {paginatedGroups.map((group, groupIndex) => (
-                <div key={group.label} className="space-y-3">
+                <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
@@ -2154,7 +2154,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               {hasMore && (
                 <div
                   ref={loadMoreSentinelRef}
-                  className="flex justify-center py-2"
+                  className="flex justify-center py-2 mt-6"
                 >
                   <button
                     type="button"
@@ -2174,13 +2174,13 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </div>
           ) : (
             <div 
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
             >
               <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
                 {renderStickyCompactToggle()}
               </div>
               {requestedGroups.map((group, groupIndex) => (
-                <div key={group.label} className="space-y-3">
+                <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
