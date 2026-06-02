@@ -253,7 +253,7 @@ export default function SmsCenter() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100dvh-8.5rem)] min-h-0 gap-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20 shadow-sm sm:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-5rem)] lg:rounded-3xl">
+      <div className="flex h-[calc(100dvh-9.75rem)] min-h-0 gap-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20 shadow-sm sm:h-[calc(100dvh-9rem)] md:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-5rem)] lg:rounded-3xl">
         {listVisible && (
           <div className="min-h-0 w-full lg:max-w-md">
             <SmsThreadList

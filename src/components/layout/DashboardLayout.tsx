@@ -40,7 +40,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const contentPadding = useCompactShell ? 'p-3 pb-20' : 'p-3';
-  const shouldHideFooter = hideFooter || location.pathname.startsWith('/chat-with-reproai');
+  const shouldHideFooter =
+    hideFooter ||
+    location.pathname.startsWith('/chat-with-reproai') ||
+    location.pathname === '/messaging/sms';
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';

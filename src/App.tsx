@@ -138,6 +138,10 @@ const getDashboardLayoutClassName = (pathname: string, isMobile: boolean) => {
     return '!p-0';
   }
 
+  if (pathname === '/messaging/sms') {
+    return '!overflow-hidden';
+  }
+
   return undefined;
 };
 
