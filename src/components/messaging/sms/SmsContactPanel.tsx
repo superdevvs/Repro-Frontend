@@ -105,8 +105,8 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
   }
 
   return (
-    <Card className="flex h-full flex-col border-l border-border/70">
-      <CardHeader className="flex items-center justify-between gap-4">
+    <Card className="flex h-full min-h-0 flex-col border-l border-border/70">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
         <CardTitle>Contact</CardTitle>
         {onClose && (
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -144,18 +144,20 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
           </div>
           <div className="space-y-2">
             {numbers.map((number, index) => (
-              <div key={number.id ?? index} className="flex items-center gap-2">
+              <div key={number.id ?? index} className="flex flex-wrap items-center gap-2">
                 <Input
                   value={number.label ?? ''}
                   placeholder="Label"
                   onChange={(e) => handleNumberChange(index, 'label', e.target.value)}
+                  className="min-w-[7rem] flex-1"
                 />
                 <Input
                   value={number.number}
                   placeholder="+1 555 000 0000"
                   onChange={(e) => handleNumberChange(index, 'number', e.target.value)}
+                  className="min-w-[12rem] flex-[2_1_12rem]"
                 />
-                <Button variant="ghost" size="icon" onClick={() => handleRemoveNumber(index)}>
+                <Button variant="ghost" size="icon" onClick={() => handleRemoveNumber(index)} className="shrink-0">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -188,4 +190,3 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
     </Card>
   );
 };
-

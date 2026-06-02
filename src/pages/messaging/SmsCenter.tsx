@@ -253,9 +253,9 @@ export default function SmsCenter() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100vh-5rem)] gap-0 overflow-hidden rounded-3xl border border-border/60 bg-muted/20 shadow-sm">
+      <div className="flex h-[calc(100dvh-8.5rem)] min-h-0 gap-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20 shadow-sm sm:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-5rem)] lg:rounded-3xl">
         {listVisible && (
-          <div className="w-full max-w-md">
+          <div className="min-h-0 w-full lg:max-w-md">
             <SmsThreadList
               threads={threads}
               activeThreadId={activeThreadId ?? undefined}
@@ -277,7 +277,7 @@ export default function SmsCenter() {
         )}
 
         {conversationVisible ? (
-          <div className="flex flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             {threadDetailQuery.isLoading && (
               <div className="space-y-4 p-6">
                 <Skeleton className="h-10 w-1/3" />

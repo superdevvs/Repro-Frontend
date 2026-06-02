@@ -77,17 +77,17 @@ export const SmsConversation = ({
   }, []);
 
   return (
-    <div className="flex h-full flex-1 flex-col bg-background">
-      <div className="flex items-center justify-between border-b border-border/70 p-4">
-        <div className="flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-background">
+      <div className="flex flex-col gap-3 border-b border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex min-w-0 items-start gap-2 sm:items-center sm:gap-3">
           {isMobile && (
-            <Button variant="ghost" size="icon" onClick={onBack}>
+            <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <div>
-            <p className="text-base font-semibold">{name}</p>
-            <p className="text-xs text-muted-foreground">{contact?.email || contact?.primaryNumber}</p>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">{contact?.email || contact?.primaryNumber}</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {contact?.tags?.map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-[10px] capitalize">
@@ -97,7 +97,7 @@ export const SmsConversation = ({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {onToggleContactAi && (
             <label className="hidden items-center gap-2 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground sm:flex">
               <input
@@ -110,22 +110,22 @@ export const SmsConversation = ({
             </label>
           )}
           {contact?.primaryNumber && (
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild className="shrink-0">
               <a href={`tel:${contact.primaryNumber}`}>
                 <Phone className="mr-2 h-4 w-4" />
                 Call
               </a>
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onOpenContact}>
+          <Button variant="ghost" size="sm" onClick={onOpenContact} className="shrink-0">
             Details
           </Button>
         </div>
       </div>
 
       {thread.aiPausedUntil && new Date(thread.aiPausedUntil) > new Date() && (
-        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+          <div className="flex min-w-0 items-start gap-2 sm:items-center">
             <Pause className="h-3.5 w-3.5" />
             <span>
               {thread.aiRateLimitedAt ? 'AI rate-limited.' : 'AI replies paused.'}
@@ -141,7 +141,7 @@ export const SmsConversation = ({
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto bg-muted/20 p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/20 p-3 sm:p-4">
         {grouped.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             No messages yet. Start the conversation below.
@@ -174,4 +174,3 @@ export const SmsConversation = ({
     </div>
   );
 };
-

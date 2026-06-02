@@ -36,7 +36,7 @@ export const SmsComposer = ({
   }, [characterCount]);
 
   return (
-    <div className="space-y-3 border-t border-border/70 bg-background/80 p-4">
+    <div className="space-y-3 border-t border-border/70 bg-background/80 p-3 sm:p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Button variant="ghost" size="icon" className="text-muted-foreground" type="button">
           <Paperclip className="h-4 w-4" />
@@ -67,13 +67,13 @@ export const SmsComposer = ({
           {characterCount} chars • {segments} segments
         </span>
       </div>
-      <div className="flex items-end gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
         <Textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
           rows={2}
           placeholder={placeholder}
-          className="flex-1 resize-none"
+          className="min-h-[76px] flex-1 resize-none"
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
@@ -83,7 +83,7 @@ export const SmsComposer = ({
             }
           }}
         />
-        <Button size="lg" onClick={onSend} disabled={disabled}>
+        <Button size="lg" onClick={onSend} disabled={disabled} className="w-full sm:w-auto">
           <Send className="mr-2 h-4 w-4" />
           Send
         </Button>
@@ -91,4 +91,3 @@ export const SmsComposer = ({
     </div>
   );
 };
-

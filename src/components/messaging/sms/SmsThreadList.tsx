@@ -32,14 +32,14 @@ export const SmsThreadList = ({
   isRefreshing,
 }: SmsThreadListProps) => {
   return (
-    <div className="flex h-full flex-col border-r border-border/70 bg-background">
-      <div className="border-b border-border/70 p-4">
+    <div className="flex h-full min-h-0 flex-col border-r border-border/70 bg-background">
+      <div className="border-b border-border/70 p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">Conversations</p>
             <p className="text-xs text-muted-foreground">Auto updated</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="icon" onClick={onCompose} title="Compose SMS">
               <MessageSquarePlus className="h-4 w-4" />
               <span className="sr-only">Compose SMS</span>
