@@ -1051,6 +1051,16 @@ export function EditedUploadSection({
           mergeSelectedFiles(Array.from(event.target.files || []));
           event.target.value = '';
         }}
+        onFilesPicked={mergeSelectedFiles}
+        sourceImport={{
+          shootId: shoot.id,
+          uploadType: 'edited',
+          getPayload: () => ({
+            editor_notes: notes.trim() || undefined,
+          }),
+          onImported: onUploadComplete,
+          disabled: isUploading || isSubmittingAfterUpload,
+        }}
       />
 
       <UploadResultsPanel
@@ -1640,6 +1650,17 @@ export function RawUploadSection({
         onFileSelect={(event) => {
           mergeSelectedFiles(Array.from(event.target.files || []));
           event.target.value = '';
+        }}
+        onFilesPicked={mergeSelectedFiles}
+        sourceImport={{
+          shootId: shoot.id,
+          uploadType: 'raw',
+          getPayload: () => ({
+            bracket_mode: bracketMultiplier,
+            photographer_notes: notes.trim() || undefined,
+          }),
+          onImported: onUploadComplete,
+          disabled: isUploading,
         }}
       />
 

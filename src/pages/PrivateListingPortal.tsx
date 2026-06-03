@@ -26,6 +26,7 @@ import {
   Plus,
   LayoutGrid,
   List,
+  Map as MapIcon,
   BedDouble,
   Bath,
   Ruler,
@@ -38,6 +39,7 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
+import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
 
 interface PrivateListing {
   id: string;
@@ -71,7 +73,75 @@ interface PrivateListing {
   sqft?: number;
   price?: number;
   mls_number?: string;
+  latitude?: number;
+  longitude?: number;
+  coordsSource?: 'api' | 'cache' | 'geocode';
 }
+
+const EXCLUSIVE_LISTING_GEO_CACHE_KEY = 'exclusive-listing-geo-cache-v1';
+
+const readGeoCache = (): Record<string, { lat: number; lng: number }> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(EXCLUSIVE_LISTING_GEO_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.entries(parsed).reduce<Record<string, { lat: number; lng: number }>>((acc, [key, value]) => {
+      const coords = value as { lat?: unknown; lng?: unknown };
+      const lat = Number(coords?.lat);
+      const lng = Number(coords?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        acc[key] = { lat, lng };
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+};
+
+const writeGeoCache = (cache: Record<string, { lat: number; lng: number }>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(EXCLUSIVE_LISTING_GEO_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore localStorage quota/private-mode failures.
+  }
+};
+
+const toFiniteNumber = (value: unknown): number | undefined => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const resolveApiCoordinates = (shoot: any): Pick<PrivateListing, 'latitude' | 'longitude' | 'coordsSource'> => {
+  const latitude = toFiniteNumber(
+    shoot.location?.latitude ??
+      shoot.latitude ??
+      shoot.property_details?.latitude ??
+      shoot.property_details?.lat,
+  );
+  const longitude = toFiniteNumber(
+    shoot.location?.longitude ??
+      shoot.longitude ??
+      shoot.property_details?.longitude ??
+      shoot.property_details?.lng,
+  );
+
+  if (latitude === undefined || longitude === undefined) {
+    return {};
+  }
+
+  return {
+    latitude,
+    longitude,
+    coordsSource: 'api',
+  };
+};
+
+const hasListingCoords = (listing: Pick<PrivateListing, 'latitude' | 'longitude'>) =>
+  Number.isFinite(listing.latitude) && Number.isFinite(listing.longitude);
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -298,8 +368,9 @@ const PrivateListingPortal = () => {
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
   const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
+  const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>(readGeoCache);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
@@ -362,6 +433,71 @@ const PrivateListingPortal = () => {
     });
   }, [filteredListings]);
 
+  const showcaseListings = useMemo<PrivateListing[]>(() => {
+    return sortedListings.map((listing) => {
+      if (hasListingCoords(listing)) return listing;
+      const cached = geoCache[listing.fullAddress];
+      if (!cached) return listing;
+      return {
+        ...listing,
+        latitude: cached.lat,
+        longitude: cached.lng,
+        coordsSource: 'cache',
+      };
+    });
+  }, [geoCache, sortedListings]);
+
+  const showcaseGeocodeAddresses = useMemo(() => {
+    if (viewMode !== 'showcase') return [];
+    return sortedListings
+      .filter((listing) => !hasListingCoords(listing) && listing.fullAddress && !geoCache[listing.fullAddress])
+      .map((listing) => listing.fullAddress);
+  }, [geoCache, sortedListings, viewMode]);
+
+  useEffect(() => {
+    writeGeoCache(geoCache);
+  }, [geoCache]);
+
+  useEffect(() => {
+    if (!showcaseGeocodeAddresses.length) return;
+    const unknownAddresses = showcaseGeocodeAddresses.slice(0, 6);
+    let cancelled = false;
+
+    const geocodeListings = async () => {
+      const updates: Record<string, { lat: number; lng: number }> = {};
+
+      for (const address of unknownAddresses) {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
+            { headers: { Accept: 'application/json' } },
+          );
+          if (!response.ok) continue;
+          const data = await response.json();
+          const match = data?.[0];
+          const lat = toFiniteNumber(match?.lat);
+          const lng = toFiniteNumber(match?.lon);
+          if (lat !== undefined && lng !== undefined && !cancelled) {
+            updates[address] = { lat, lng };
+          }
+        } catch {
+          // Listings without geocodes still remain visible in the rail.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 450));
+      }
+
+      if (!cancelled && Object.keys(updates).length) {
+        setGeoCache((current) => ({ ...current, ...updates }));
+      }
+    };
+
+    geocodeListings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showcaseGeocodeAddresses]);
+
   const fetchPrivateListings = async () => {
     try {
       setLoading(true);
@@ -397,43 +533,47 @@ const PrivateListingPortal = () => {
 
       const formattedListings: PrivateListing[] = shoots
         .filter((shoot: any) => shoot.is_private_listing || shoot.isPrivateListing)
-        .map((shoot: any) => ({
-          id: String(shoot.id),
-          address: shoot.address || shoot.location?.address || '',
-          city: shoot.city || shoot.location?.city || '',
-          state: shoot.state || shoot.location?.state || '',
-          zip: shoot.zip || shoot.location?.zip || '',
-          fullAddress: shoot.location?.fullAddress || shoot.fullAddress ||
-            `${shoot.address || ''}, ${shoot.city || ''}, ${shoot.state || ''} ${shoot.zip || ''}`.trim(),
-          heroImage: shoot.heroImage || shoot.hero_image || undefined,
-          scheduledDate: shoot.scheduledDate || shoot.scheduled_date,
-          completedDate: shoot.completedDate || shoot.completed_date,
-          client: {
-            name: shoot.client?.name || 'Unknown',
-            email: shoot.client?.email,
-          },
-          photographer: shoot.photographer ? {
-            name: shoot.photographer.name || 'Unassigned',
-          } : undefined,
-          services: Array.isArray(shoot.services) ? shoot.services : [],
-          status: shoot.status || shoot.workflow_status || 'unknown',
-          payment: shoot.payment ? {
-            totalPaid: shoot.payment.totalPaid ?? shoot.payment.total_paid,
-            totalQuote: shoot.payment.totalQuote ?? shoot.payment.total_quote,
-          } : {
-            totalPaid: shoot.total_paid,
-            totalQuote: shoot.total_quote,
-          },
-          tourLinks: shoot.tourLinks || shoot.tour_links || {},
-          isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
-          isListingHidden: Boolean(shoot.is_listing_hidden ?? shoot.isListingHidden ?? false),
-          listing_type: shoot.listing_type || shoot.listingType || undefined,
-          bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
-          bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms || undefined,
-          sqft: shoot.sqft || shoot.property_details?.sqft || undefined,
-          price: shoot.price || shoot.property_details?.price || undefined,
-          mls_number: shoot.mls_number || shoot.mls_id || undefined,
-        }));
+        .map((shoot: any) => {
+          const coordinates = resolveApiCoordinates(shoot);
+          return {
+            id: String(shoot.id),
+            address: shoot.address || shoot.location?.address || '',
+            city: shoot.city || shoot.location?.city || '',
+            state: shoot.state || shoot.location?.state || '',
+            zip: shoot.zip || shoot.location?.zip || '',
+            fullAddress: shoot.location?.fullAddress || shoot.fullAddress ||
+              `${shoot.address || ''}, ${shoot.city || ''}, ${shoot.state || ''} ${shoot.zip || ''}`.trim(),
+            heroImage: shoot.heroImage || shoot.hero_image || undefined,
+            scheduledDate: shoot.scheduledDate || shoot.scheduled_date,
+            completedDate: shoot.completedDate || shoot.completed_date,
+            client: {
+              name: shoot.client?.name || 'Unknown',
+              email: shoot.client?.email,
+            },
+            photographer: shoot.photographer ? {
+              name: shoot.photographer.name || 'Unassigned',
+            } : undefined,
+            services: Array.isArray(shoot.services) ? shoot.services : [],
+            status: shoot.status || shoot.workflow_status || 'unknown',
+            payment: shoot.payment ? {
+              totalPaid: shoot.payment.totalPaid ?? shoot.payment.total_paid,
+              totalQuote: shoot.payment.totalQuote ?? shoot.payment.total_quote,
+            } : {
+              totalPaid: shoot.total_paid,
+              totalQuote: shoot.total_quote,
+            },
+            tourLinks: shoot.tourLinks || shoot.tour_links || {},
+            isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
+            isListingHidden: Boolean(shoot.is_listing_hidden ?? shoot.isListingHidden ?? false),
+            listing_type: shoot.listing_type || shoot.listingType || undefined,
+            bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
+            bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms || undefined,
+            sqft: shoot.sqft || shoot.property_details?.sqft || undefined,
+            price: shoot.price || shoot.property_details?.price || undefined,
+            mls_number: shoot.mls_number || shoot.mls_id || undefined,
+            ...coordinates,
+          };
+        });
 
       setListings(formattedListings);
     } catch (error: any) {
@@ -654,7 +794,7 @@ const PrivateListingPortal = () => {
     }
   };
 
-  const handleCardClick = (listing: PrivateListing) => {
+  const handleCardClick = (listing: Pick<PrivateListing, 'id'>) => {
     const url = getBrandedTourUrl(listing.id);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -918,9 +1058,19 @@ const PrivateListingPortal = () => {
           <div className="flex items-center border rounded-md overflow-hidden bg-card/50">
             <button
               type="button"
+              onClick={() => setViewMode('showcase')}
+              className={`p-2 transition-colors ${viewMode === 'showcase' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
+              title="Showcase view"
+              aria-label="Showcase view"
+            >
+              <MapIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               onClick={() => setViewMode('grid')}
               className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
               title="Grid view"
+              aria-label="Grid view"
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -929,6 +1079,7 @@ const PrivateListingPortal = () => {
               onClick={() => setViewMode('list')}
               className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
               title="List view"
+              aria-label="List view"
             >
               <List className="h-4 w-4" />
             </button>
@@ -1054,6 +1205,13 @@ const PrivateListingPortal = () => {
               )}
             </CardContent>
           </Card>
+        ) : viewMode === 'showcase' ? (
+          <ExclusiveListingsShowcase
+            listings={showcaseListings}
+            resolveImageUrl={resolvePreviewUrl}
+            formatPrice={formatPrice}
+            onOpenListing={handleCardClick}
+          />
         ) : viewMode === 'grid' ? (
           /* ─── Grid View ─── */
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

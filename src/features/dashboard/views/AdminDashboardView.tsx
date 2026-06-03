@@ -75,12 +75,12 @@ export const AdminDashboardView = ({
       : effectiveRightColumnHidden
         ? "320px 24px minmax(0, 1fr) 0px 0px"
         : "320px 24px minmax(0, 1fr) 24px 320px";
-  const leftHandlePositionClass = shouldAutoHideLeftColumn
-    ? (effectiveLeftColumnHidden ? "-left-6" : "left-[320px]")
-    : (effectiveLeftColumnHidden ? "-left-7" : "left-[calc(25%-0.75rem)] min-[1025px]:left-[320px]");
-  const rightHandlePositionClass = shouldAutoHideLeftColumn
-    ? (effectiveRightColumnHidden ? "-right-6" : "right-[320px]")
-    : (effectiveRightColumnHidden ? "-right-7" : "right-[calc(25%-0.75rem)] min-[1025px]:right-[320px]");
+  // Anchor the toggle handles to the middle column's own edges so they always
+  // sit centered in the column gap, independent of viewport width. This avoids
+  // the fluid percentage drift and the breakpoint jump that previously caused
+  // the buttons to shift left/right when resizing the window.
+  const leftHandlePositionClass = "-left-6";
+  const rightHandlePositionClass = "-right-6";
   const hasRequestIndicator = requestIndicatorCount > 0;
 
   React.useEffect(() => {
@@ -215,7 +215,7 @@ export const AdminDashboardView = ({
         <motion.div
           style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
           className={cn(
-            "flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+            "relative flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
             effectiveLeftColumnHidden && effectiveRightColumnHidden
               ? "md:col-span-12 min-[1025px]:col-span-1"
               : effectiveLeftColumnHidden || effectiveRightColumnHidden
