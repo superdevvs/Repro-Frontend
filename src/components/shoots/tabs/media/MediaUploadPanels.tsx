@@ -140,6 +140,12 @@ const SOURCE_PROVIDER_LABELS: Record<UploadSourceProvider, string> = {
   onedrive: 'OneDrive',
 };
 
+// External upload sources (cloud providers + "From link") depend on the
+// `api/upload-sources` backend route, which is not yet available in production.
+// Until that ships, only the client-side sources (device, camera) are shown.
+// Flip this back to `true` to restore the full source list.
+const EXTERNAL_UPLOAD_SOURCES_ENABLED = false;
+
 const formatSourceFileSize = (bytes?: number | null) => {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -269,6 +275,7 @@ function UploadSourceActions({
   const [importing, setImporting] = React.useState(false);
 
   const refreshStatuses = React.useCallback(async () => {
+    if (!EXTERNAL_UPLOAD_SOURCES_ENABLED) return;
     setLoadingStatuses(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/upload-sources`, { headers: getApiHeaders() });
@@ -340,7 +347,7 @@ function UploadSourceActions({
     { id: 'google_drive', label: 'Google Drive', icon: HardDrive, onClick: () => setBrowserProvider('google_drive') },
     { id: 'google_photos', label: 'Google Photos', icon: Images, onClick: () => setBrowserProvider('google_photos') },
     { id: 'onedrive', label: 'OneDrive', icon: Cloud, onClick: () => setBrowserProvider('onedrive') },
-  ] as const;
+  ].filter((source) => EXTERNAL_UPLOAD_SOURCES_ENABLED || source.id === 'device' || source.id === 'camera');
 
   return (
     <div className={cn(
