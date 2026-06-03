@@ -209,15 +209,6 @@ export function UploadDropzone({
           </Button>
         </label>
       </div>
-      {sourceImport && (
-        <UploadSourceActions
-          accept={accept}
-          inputId={inputId}
-          onBrowse={onBrowse}
-          onFilesPicked={onFilesPicked}
-          sourceImport={sourceImport}
-        />
-      )}
     </div>
   ) : (
     <div className="flex flex-col gap-2">
@@ -239,16 +230,6 @@ export function UploadDropzone({
           <div className="text-xs text-muted-foreground">{browseLabel}</div>
         </label>
       </div>
-      {sourceImport && (
-        <UploadSourceActions
-          compact
-          accept={accept}
-          inputId={inputId}
-          onBrowse={onBrowse}
-          onFilesPicked={onFilesPicked}
-          sourceImport={sourceImport}
-        />
-      )}
     </div>
   );
 }
@@ -347,7 +328,7 @@ function UploadSourceActions({
     { id: 'google_drive', label: 'Google Drive', icon: HardDrive, onClick: () => setBrowserProvider('google_drive') },
     { id: 'google_photos', label: 'Google Photos', icon: Images, onClick: () => setBrowserProvider('google_photos') },
     { id: 'onedrive', label: 'OneDrive', icon: Cloud, onClick: () => setBrowserProvider('onedrive') },
-  ].filter((source) => EXTERNAL_UPLOAD_SOURCES_ENABLED || source.id === 'device' || source.id === 'camera');
+  ].filter((source) => EXTERNAL_UPLOAD_SOURCES_ENABLED || source.id === 'device');
 
   return (
     <div className={cn(
