@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Crosshair, Maximize2, Square, Tag } from 'lucide-react'
+import { Crosshair, Layers3, Maximize2, Square } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -85,7 +85,7 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
       {
         key: 'toggle-labels',
         label: 'Toggle property labels',
-        icon: Tag,
+        icon: Layers3,
         onClick: onToggleLabels,
         active: showLabels,
       },

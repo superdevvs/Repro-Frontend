@@ -150,6 +150,50 @@ export function applyStyleRefinements(
   }
 }
 
+/**
+ * Apply the style refinements to an ALREADY-LOADED map IN PLACE, by mutating
+ * individual layers' paint properties via `setPaintProperty`. This is the safe,
+ * maplibre-recommended way to tweak a live style: it never re-sets the style,
+ * never touches `sources`, and never reloads tiles, so the basemap cannot blank
+ * out. Each layer's update is independently guarded, so one bad layer can never
+ * abort the rest (and never affects tile rendering).
+ */
+function applyRefinementsInPlace(m: MapLibreMap): void {
+  let style: StyleSpecification | undefined
+  try {
+    style = m.getStyle()
+  } catch {
+    return
+  }
+  const layers = (style as { layers?: unknown } | undefined)?.layers
+  if (!Array.isArray(layers)) return
+
+  const t = REFINEMENT_TARGETS[inferTheme(style as StyleSpecification)]
+
+  for (const layer of layers as Array<{ id?: unknown; type?: unknown }>) {
+    const id = layer?.id
+    if (typeof id !== "string") continue
+    const type = layer?.type
+
+    try {
+      if (type === "background") {
+        m.setPaintProperty(id, "background-color", t.background)
+      } else if (type === "fill" && matchesId(id, WATER_RE)) {
+        m.setPaintProperty(id, "fill-color", t.water)
+      } else if (type === "line" && matchesId(id, WATER_RE)) {
+        m.setPaintProperty(id, "line-color", t.water)
+      } else if (type === "fill" && matchesId(id, LAND_RE)) {
+        m.setPaintProperty(id, "fill-color", t.landFill)
+        m.setPaintProperty(id, "fill-opacity", t.landFillOpacity)
+      } else if (type === "line" && matchesId(id, ROAD_RE)) {
+        m.setPaintProperty(id, "line-width", t.roadWidth)
+      }
+    } catch {
+      // A single layer's refinement failure must never affect tile rendering.
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Map component
 // ---------------------------------------------------------------------------
@@ -222,17 +266,14 @@ const Map = React.forwardRef<MapHandle, MapProps>(
     const [mapLoaded, setMapLoaded] = React.useState(false)
     const observerRef = React.useRef<MutationObserver | null>(null)
 
-    // Apply refinements to whatever style is currently loaded, in place, using a
-    // diff update (no network re-fetch). Used after the initial style loads.
+    // Apply refinements to whatever style is currently loaded, IN PLACE, via
+    // per-layer setPaintProperty. This never re-sets the style or reloads tiles,
+    // so the basemap cannot blank out. Used after the initial style loads.
     const refineCurrentStyle = React.useCallback(() => {
       if (!map.current) return
       try {
         if (!map.current.isStyleLoaded()) return
-        const current = map.current.getStyle()
-        const refined = applyStyleRefinements(current)
-        if (refined !== current) {
-          map.current.setStyle(refined, { diff: true })
-        }
+        applyRefinementsInPlace(map.current)
       } catch (error) {
         // Unexpected style shape -> keep the original style, map still renders.
         console.warn("Style refinement skipped:", error)

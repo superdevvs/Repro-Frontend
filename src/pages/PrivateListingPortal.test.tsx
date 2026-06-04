@@ -321,7 +321,7 @@ afterEach(() => {
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
-  it('R5.1 + R6.1: renders the summary cards and toolbar above the Map Tab', async () => {
+  it('R5.1 + R6.1: renders the summary cards and toolbar over the Map Tab canvas', async () => {
     renderPortal()
     await waitForLoaded()
 
@@ -359,17 +359,13 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(screen.getByRole('radio', { name: 'Grid view' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'List view' })).toBeInTheDocument()
 
-    // Above the Map Tab: the summary cards and the toolbar's Filters control
-    // both precede the (mocked) map region in document order.
+    // The redesigned Map Tab keeps the summary cards and toolbar inside the
+    // same full-canvas map workspace as floating overlays.
     const map = screen.getByTestId('map')
-    expect(
-      summaryCards.compareDocumentPosition(map) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(
-      filtersButton.compareDocumentPosition(map) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const canvas = screen.getByTestId('showcase-map-canvas')
+    expect(canvas).toContainElement(map)
+    expect(canvas).toContainElement(summaryCards)
+    expect(canvas).toContainElement(filtersButton)
   })
 
   it('R4.3 + R5.3: applying a filter updates the summary and listings without a network call', async () => {

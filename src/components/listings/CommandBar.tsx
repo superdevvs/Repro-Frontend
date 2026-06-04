@@ -59,6 +59,7 @@ export interface CommandBarProps {
   /** City names offered as city filters in `FilterMenu`. */
   cityOptions?: string[]
   className?: string
+  variant?: 'default' | 'overlay'
 }
 
 /**
@@ -112,6 +113,7 @@ export function CommandBar({
   onDeleteView,
   cityOptions = [],
   className,
+  variant = 'default',
 }: CommandBarProps) {
   // `open` tracks whether the input has focus; the dropdown only shows while
   // focused AND there is something worth showing (a query or suggestions).
@@ -143,8 +145,20 @@ export function CommandBar({
           shouldFilter={false}
           className="relative overflow-visible rounded-none bg-transparent"
         >
-          <div className="flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div
+            className={cn(
+              'flex h-9 items-center gap-2 rounded-lg border px-3',
+              variant === 'overlay'
+                ? 'border-white/15 bg-slate-950/55 text-white'
+                : 'border-border bg-background',
+            )}
+          >
+            <Search
+              className={cn(
+                'h-4 w-4 shrink-0',
+                variant === 'overlay' ? 'text-slate-300' : 'text-muted-foreground',
+              )}
+            />
             <CommandPrimitive.Input
               value={searchQuery}
               onValueChange={onSearchChange}
@@ -155,7 +169,12 @@ export function CommandBar({
               }}
               placeholder="Search address, city, client..."
               aria-label="Search listings"
-              className="flex h-9 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              className={cn(
+                'flex h-9 w-full bg-transparent text-sm outline-none',
+                variant === 'overlay'
+                  ? 'text-white placeholder:text-slate-400'
+                  : 'text-foreground placeholder:text-muted-foreground',
+              )}
             />
           </div>
 

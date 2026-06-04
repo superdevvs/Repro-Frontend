@@ -15,6 +15,7 @@ export type ViewMode = 'showcase' | 'grid' | 'list'
 export interface ViewSwitcherProps {
   viewMode: ViewMode
   onChange: (mode: ViewMode) => void
+  variant?: 'default' | 'overlay'
 }
 
 interface ViewOption {
@@ -38,7 +39,11 @@ const VIEW_OPTIONS: ViewOption[] = [
  * with the corresponding value (R6.3), and each item exposes a hover tooltip
  * naming the view (R6.4).
  */
-export function ViewSwitcher({ viewMode, onChange }: ViewSwitcherProps) {
+export function ViewSwitcher({
+  viewMode,
+  onChange,
+  variant = 'default',
+}: ViewSwitcherProps) {
   return (
     <TooltipProvider delayDuration={200}>
       <ToggleGroup
@@ -53,7 +58,12 @@ export function ViewSwitcher({ viewMode, onChange }: ViewSwitcherProps) {
         }}
         variant="outline"
         size="sm"
-        className="gap-0 rounded-xl border border-border bg-background p-1 shadow-sm dark:bg-background"
+        className={cn(
+          'gap-0 rounded-lg border p-1 shadow-sm',
+          variant === 'overlay'
+            ? 'border-white/15 bg-slate-950/55'
+            : 'border-border bg-background dark:bg-background',
+        )}
         aria-label="View mode"
       >
         {VIEW_OPTIONS.map(({ value, label, tooltip, Icon }) => (
@@ -67,6 +77,8 @@ export function ViewSwitcher({ viewMode, onChange }: ViewSwitcherProps) {
                   'hover:bg-muted hover:text-foreground',
                   'data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:shadow-sm',
                   'dark:data-[state=on]:bg-blue-500 dark:data-[state=on]:text-white',
+                  variant === 'overlay' &&
+                    'text-slate-300 hover:bg-slate-800 hover:text-white',
                 )}
               >
                 <Icon className="h-4 w-4" />

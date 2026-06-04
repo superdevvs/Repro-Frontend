@@ -7,19 +7,32 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type ReactNode,
 } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/useTheme'
+import { toast } from '@/lib/sonner-toast'
 import { buildMarkers, getMapCenter } from '@/lib/listing-presentation/markers'
-import { ListingCard } from '@/components/listings/ListingCard'
+import { CompactListingRow } from '@/components/listings/CompactListingRow'
+import { SelectedPropertyCard } from '@/components/listings/SelectedPropertyCard'
 import { SidebarEmptyState } from '@/components/listings/SidebarEmptyState'
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 // Type-only import: erased at build time, so it does NOT pull maplibre-gl into
 // the main bundle (the lazy map chunk below remains the only maplibre entry).
 import type { MapHandle } from '@/components/ui/map'
+
+const LISTING_BOOKMARKS_KEY = 'exclusive-listing-bookmarks-v1'
+
+const readBookmarkedIds = (): Set<string> => {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LISTING_BOOKMARKS_KEY) ?? '[]')
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : [])
+  } catch {
+    return new Set()
+  }
+}
 
 export interface ShowcaseListing {
   id: string
@@ -69,6 +82,7 @@ interface ExclusiveListingsShowcaseProps {
   selectedListingId?: string | null
   onSelectListing?: (id: string) => void
   showMarkerLabels?: boolean
+  controlsOverlay?: ReactNode
 }
 
 export const hasCoords = (l: ShowcaseListing): boolean =>
@@ -160,13 +174,12 @@ const LazyListingMapCanvas = lazy(() =>
             zoom={zoom}
             theme={theme}
             showMarkerLabels={showMarkerLabels}
-            className="h-full min-h-[420px] w-full lg:min-h-[600px]"
+            className="h-full min-h-0 w-full rounded-none"
           >
-            {/* Floating control card with zoom (R1.6). */}
             <MapControls
               position="bottom-left"
               showZoom
-              className="rounded-xl border border-border bg-background/80 p-1 shadow-md backdrop-blur-sm"
+              className="!bottom-[45%] !left-3 rounded-xl border border-white/15 bg-slate-950/72 p-1 text-white shadow-xl backdrop-blur-xl lg:!bottom-4 lg:!left-4 [&_button]:border-white/10 [&_button]:bg-slate-950/55 [&_button:hover]:bg-blue-600"
             />
             {/* Custom pins + hover/selected previews; shared selection (R10). */}
             <CustomPinMarkers
@@ -182,7 +195,7 @@ const LazyListingMapCanvas = lazy(() =>
 
           {/* Floating map actions: recenter / draw / labels / fullscreen (R8). */}
           <FloatingMapActions
-            position="top-right"
+            position="bottom-left"
             onRecenter={handleRecenter}
             onToggleDrawArea={handleToggleDrawArea}
             onToggleLabels={onToggleLabels}
@@ -190,6 +203,7 @@ const LazyListingMapCanvas = lazy(() =>
             showLabels={showMarkerLabels}
             drawAreaActive={drawAreaActive}
             isFullscreen={isFullscreen}
+            className="!bottom-[6.75rem] !left-4 hidden border-white/15 bg-slate-950/72 text-white shadow-xl backdrop-blur-xl lg:flex [&_button]:text-slate-200 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white"
           />
 
           {markers.length === 0 && (
@@ -208,8 +222,8 @@ const LazyListingMapCanvas = lazy(() =>
 )
 
 const MapLoadingFallback = () => (
-  <div className="flex h-full min-h-[420px] w-full items-center justify-center lg:min-h-[600px]">
-    <div className="text-center text-muted-foreground">
+  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-slate-950">
+    <div className="text-center text-slate-300">
       <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
       <p className="text-sm">Loading map...</p>
     </div>
@@ -224,9 +238,8 @@ export function ExclusiveListingsShowcase({
   selectedListingId: selectedListingIdProp,
   onSelectListing: onSelectListingProp,
   showMarkerLabels: showMarkerLabelsProp,
+  controlsOverlay,
 }: ExclusiveListingsShowcaseProps) {
-  const { theme } = useTheme()
-
   // Controlled-or-uncontrolled selection: use the props when both are provided,
   // otherwise fall back to internal state so existing callers keep working.
   const isSelectionControlled =
@@ -258,6 +271,11 @@ export function ExclusiveListingsShowcase({
     [isSelectionControlled, onSelectListingProp],
   )
 
+  useEffect(() => {
+    if (selectedListingId || listings.length === 0) return
+    handleSelectListing(listings[0].id)
+  }, [handleSelectListing, listings, selectedListingId])
+
   // Marker-label visibility seeded from the (optional) prop; the floating action
   // toggles a local copy so it works in both controlled and uncontrolled modes.
   const [showMarkerLabels, setShowMarkerLabels] = useState<boolean>(
@@ -278,55 +296,155 @@ export function ExclusiveListingsShowcase({
   )
   const hasListings = listings.length > 0
   const hasMappedListings = mappedListingCount > 0
+  const selectedListing = useMemo(
+    () => listings.find((listing) => listing.id === selectedListingId) ?? listings[0] ?? null,
+    [listings, selectedListingId],
+  )
+  const otherListings = useMemo(
+    () => listings.filter((listing) => listing.id !== selectedListing?.id),
+    [listings, selectedListing?.id],
+  )
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(readBookmarkedIds)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(LISTING_BOOKMARKS_KEY, JSON.stringify(Array.from(bookmarkedIds)))
+    } catch {
+      // Bookmarking remains available for the current session.
+    }
+  }, [bookmarkedIds])
+
+  const handleToggleBookmark = useCallback((listing: ShowcaseListing) => {
+    setBookmarkedIds((current) => {
+      const next = new Set(current)
+      if (next.has(listing.id)) {
+        next.delete(listing.id)
+      } else {
+        next.add(listing.id)
+      }
+      return next
+    })
+  }, [])
+
+  const handleShareListing = useCallback(async (listing: ShowcaseListing) => {
+    const url = `${window.location.origin}/tour/branded?shootId=${encodeURIComponent(listing.id)}`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: listing.address || 'Private listing',
+          text: listing.fullAddress || listing.address,
+          url,
+        })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      toast.success('Listing link copied')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      toast.error('Unable to share listing')
+    }
+  }, [])
+
+  const handleFocusOnMap = useCallback(
+    (listing: ShowcaseListing) => {
+      handleSelectListing(listing.id)
+    },
+    [handleSelectListing],
+  )
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-      {/* Map_Region: 70-75% width, sticky, >=600px, single radius/border + shadow. */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 shadow-lg lg:sticky lg:top-4 lg:self-start">
-        <Suspense fallback={<MapLoadingFallback />}>
-          <LazyListingMapCanvas
-            listings={listings}
-            selectedListingId={selectedListingId}
-            onSelectListing={handleSelectListing}
-            showMarkerLabels={showMarkerLabels}
-            onToggleLabels={handleToggleLabels}
-            resolveImageUrl={resolveImageUrl}
-            formatPrice={formatPrice}
-            onOpenListing={onOpenListing}
-            theme={theme === 'dark' ? 'dark' : 'light'}
-          />
-        </Suspense>
-      </div>
+    <section
+      data-testid="showcase-map-canvas"
+      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl"
+    >
+      <Suspense fallback={<MapLoadingFallback />}>
+        <LazyListingMapCanvas
+          listings={listings}
+          selectedListingId={selectedListingId}
+          onSelectListing={handleSelectListing}
+          showMarkerLabels={showMarkerLabels}
+          onToggleLabels={handleToggleLabels}
+          resolveImageUrl={resolveImageUrl}
+          formatPrice={formatPrice}
+          onOpenListing={onOpenListing}
+          theme="dark"
+        />
+      </Suspense>
 
-      {/* Sidebar_Region: 25-30% width, equal height, top-aligned, internal scroll. */}
-      <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Showcase</p>
-            <p className="text-xs text-muted-foreground">
-              {mappedListingCount} mapped / {listings.length} total
-            </p>
-          </div>
+      {controlsOverlay ? (
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:right-[372px] lg:top-4">
+          <div className="pointer-events-auto">{controlsOverlay}</div>
         </div>
+      ) : null}
 
-        <ScrollArea className="lg:h-[600px]">
-          <div className="space-y-3 lg:pr-3">
+      <aside className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-white/15 bg-slate-950/78 text-white shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[340px]">
+        <ScrollArea className="h-full">
+          <div className="space-y-4 p-3">
             {!hasListings ? (
-              <SidebarEmptyState kind="no-listings" />
+              <SidebarEmptyState
+                kind="no-listings"
+                className="border-white/10 bg-slate-950/35 text-white shadow-none [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-300"
+              />
             ) : (
               <>
-                {!hasMappedListings && <SidebarEmptyState kind="no-mapped" />}
-                {listings.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    resolveImageUrl={resolveImageUrl}
-                    formatPrice={formatPrice}
-                    onOpenListing={onOpenListing}
-                    selected={selectedListingId === listing.id}
-                    onSelect={handleSelectListing}
+                {selectedListing ? (
+                  <section className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <div>
+                        <h2 className="text-sm font-semibold text-white">Featured Listing</h2>
+                        <p className="text-[11px] text-slate-300">
+                          {mappedListingCount} mapped / {listings.length} total
+                        </p>
+                      </div>
+                      <span className="rounded-md border border-blue-400/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-200">
+                        Selected
+                      </span>
+                    </div>
+                    <SelectedPropertyCard
+                      listing={selectedListing}
+                      resolveImageUrl={resolveImageUrl}
+                      formatPrice={formatPrice}
+                      bookmarked={bookmarkedIds.has(selectedListing.id)}
+                      onOpenListing={onOpenListing}
+                      onShareListing={handleShareListing}
+                      onFocusOnMap={handleFocusOnMap}
+                      onToggleBookmark={handleToggleBookmark}
+                    />
+                  </section>
+                ) : null}
+
+                {!hasMappedListings ? (
+                  <SidebarEmptyState
+                    kind="no-mapped"
+                    className="hidden border-white/10 bg-slate-950/35 text-white shadow-none [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-300 lg:block"
                   />
-                ))}
+                ) : null}
+
+                <section className="hidden space-y-2.5 lg:block">
+                  <h2 className="px-1 text-xs font-semibold text-slate-200">
+                    All Private Listings ({otherListings.length})
+                  </h2>
+                  {otherListings.length > 0 ? (
+                    <div className="space-y-2">
+                      {otherListings.map((listing) => (
+                        <CompactListingRow
+                          key={listing.id}
+                          listing={listing}
+                          resolveImageUrl={resolveImageUrl}
+                          selected={selectedListingId === listing.id}
+                          bookmarked={bookmarkedIds.has(listing.id)}
+                          onSelect={handleSelectListing}
+                          onToggleBookmark={handleToggleBookmark}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/15 px-4 py-5 text-center text-xs text-slate-400">
+                      No other private listings in this view.
+                    </div>
+                  )}
+                </section>
               </>
             )}
           </div>

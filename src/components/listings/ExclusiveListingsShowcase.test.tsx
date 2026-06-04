@@ -63,9 +63,12 @@ beforeAll(() => {
 // context hooks return harmless defaults. The lazy canvas destructures
 // `{ Map, MapControls }` from this module, so both must be exported.
 vi.mock('@/components/ui/map', () => {
-  const Map = ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="map">{children}</div>
+  const Map = React.forwardRef<HTMLDivElement, { children?: React.ReactNode }>(
+    ({ children }, ref) => (
+      <div ref={ref} data-testid="map">{children}</div>
+    ),
   )
+  Map.displayName = 'MockMap'
   const MapControls = () => null
   return {
     __esModule: true,
@@ -206,40 +209,43 @@ describe('ExclusiveListingsShowcase', () => {
     // Wait for the lazy (Suspense) map canvas to resolve and render the pins.
     const pinA = await screen.findByTestId('pin-A')
 
-    // Pre-condition: nothing is selected in either region.
-    expect(pinA).toHaveAttribute('data-selected', 'false')
-    expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'false')
-    expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'false')
-
-    // (1) Marker → card (R10.9): clicking pin A selects listing A. The matching
-    // card highlights (blue border, R10.7) and the matching marker is flagged.
-    fireEvent.click(pinA)
-
+    // Pre-condition: the first visible property is selected by default so the
+    // Selected Property inspector is populated immediately.
     await waitFor(() => {
       expect(screen.getByTestId('pin-A')).toHaveAttribute('data-selected', 'true')
     })
-    const cardA = getCard(container, 'A')
-    expect(cardA).toHaveAttribute('data-selected', 'true')
-    expect(cardA.className).toContain('border-blue-500')
-    // The other region's listing stays unselected (single shared selection).
-    expect(screen.getByTestId('pin-B')).toHaveAttribute('data-selected', 'false')
+    expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'true')
     expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'false')
-    expect(getCard(container, 'B').className).not.toContain('border-blue-500')
 
-    // (2) Card → marker, vice-versa (R10.9): selecting card B moves the shared
-    // selection to B; pin B reflects it and the previously-selected A is dropped
-    // in BOTH regions (selection is single + shared).
-    fireEvent.click(getCard(container, 'B'))
+    // (1) Marker → card (R10.9): clicking pin B moves the selected-property
+    // inspector to B and the matching marker is flagged.
+    fireEvent.click(screen.getByTestId('pin-B'))
 
     await waitFor(() => {
       expect(screen.getByTestId('pin-B')).toHaveAttribute('data-selected', 'true')
     })
-    expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'true')
-    expect(getCard(container, 'B').className).toContain('border-blue-500')
-
+    const cardB = getCard(container, 'B')
+    expect(cardB).toHaveAttribute('data-selected', 'true')
+    expect(cardB.className).toContain('border-blue-500')
+    // The other region's listing stays unselected (single shared selection).
     expect(screen.getByTestId('pin-A')).toHaveAttribute('data-selected', 'false')
     expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'false')
     expect(getCard(container, 'A').className).not.toContain('border-blue-500')
+
+    // (2) Card → marker, vice-versa (R10.9): selecting compact row A moves the
+    // shared selection to A; pin A reflects it and the previously-selected B is dropped
+    // in BOTH regions (selection is single + shared).
+    fireEvent.click(getCard(container, 'A'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pin-A')).toHaveAttribute('data-selected', 'true')
+    })
+    expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'true')
+    expect(getCard(container, 'A').className).toContain('border-blue-500')
+
+    expect(screen.getByTestId('pin-B')).toHaveAttribute('data-selected', 'false')
+    expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'false')
+    expect(getCard(container, 'B').className).not.toContain('border-blue-500')
   })
 
   it('R7.1: renders the no-mapped empty state when listings exist but none are mapped', async () => {

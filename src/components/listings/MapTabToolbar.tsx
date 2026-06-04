@@ -54,6 +54,7 @@ export interface MapTabToolbarProps {
   viewMode: MapTabViewMode
   onViewModeChange: (mode: MapTabViewMode) => void
   className?: string
+  variant?: 'default' | 'overlay'
 }
 
 /**
@@ -78,13 +79,17 @@ export function MapTabToolbar({
   viewMode,
   onViewModeChange,
   className,
+  variant = 'default',
 }: MapTabToolbarProps) {
+  const overlay = variant === 'overlay'
+
   return (
     <div
       className={cn(
-        // Single cohesive surface: consistent radius (R9.3) + single border
-        // style (R9.4) using theme tokens.
-        'flex flex-col gap-3 rounded-xl border border-border bg-card p-3',
+        'flex flex-col rounded-xl border',
+        overlay
+          ? 'gap-2 border-white/15 bg-slate-950/72 p-2.5 text-white shadow-xl backdrop-blur-xl [&_button]:border-white/15 [&_button]:bg-slate-950/55 [&_button]:text-slate-200 [&_button:hover]:bg-slate-800/80'
+          : 'gap-3 border-border bg-card p-3',
         className,
       )}
     >
@@ -94,6 +99,7 @@ export function MapTabToolbar({
       <div className="flex flex-wrap items-center gap-3">
         <CommandBar
           className="min-w-0 flex-1"
+          variant={variant}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
           suggestions={suggestions}
@@ -109,7 +115,11 @@ export function MapTabToolbar({
           cityOptions={cityOptions}
         />
         <div className="ml-auto shrink-0">
-          <ViewSwitcher viewMode={viewMode} onChange={onViewModeChange} />
+          <ViewSwitcher
+            viewMode={viewMode}
+            onChange={onViewModeChange}
+            variant={variant}
+          />
         </div>
       </div>
 

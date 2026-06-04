@@ -27,6 +27,7 @@ export interface SummaryCardsProps {
    */
   summary: Summary
   className?: string
+  variant?: 'default' | 'overlay'
 }
 
 interface SummaryCardConfig {
@@ -50,11 +51,19 @@ const SUMMARY_CARDS: SummaryCardConfig[] = [
  * Renders the Total / Mapped / Unmapped / Private / Hidden summary cards in a
  * responsive grid. All cards share the same radius and border style (R9.3, R9.4).
  */
-export function SummaryCards({ summary, className }: SummaryCardsProps) {
+export function SummaryCards({
+  summary,
+  className,
+  variant = 'default',
+}: SummaryCardsProps) {
+  const overlay = variant === 'overlay'
+
   return (
     <div
       className={cn(
-        'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5',
+        overlay
+          ? 'flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          : 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5',
         className,
       )}
       data-testid="summary-cards"
@@ -62,20 +71,39 @@ export function SummaryCards({ summary, className }: SummaryCardsProps) {
       {SUMMARY_CARDS.map(({ key, label, icon: Icon }) => (
         <Card
           key={key}
-          // Shared radius (R9.3) + single border style (R9.4) + theme tokens.
-          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground"
+          className={cn(
+            'flex items-center rounded-xl border',
+            overlay
+              ? 'min-w-[136px] flex-1 gap-2 border-white/15 bg-slate-950/72 px-3 py-2.5 text-white shadow-xl backdrop-blur-xl'
+              : 'gap-3 border-border bg-card p-4 text-card-foreground',
+          )}
           data-testid={`summary-card-${key}`}
         >
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-lg',
+              overlay
+                ? 'h-8 w-8 bg-blue-500/10 text-blue-300 ring-1 ring-inset ring-blue-400/15'
+                : 'h-9 w-9 bg-muted text-muted-foreground',
+            )}
             aria-hidden="true"
           >
             <Icon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <p
-              className="text-2xl font-semibold leading-tight tracking-tight"
+              className={cn(
+                'truncate text-xs font-medium',
+                overlay ? 'text-slate-300' : 'text-muted-foreground',
+              )}
+            >
+              {label}
+            </p>
+            <p
+              className={cn(
+                'font-semibold leading-tight tracking-tight',
+                overlay ? 'text-lg text-white' : 'text-2xl',
+              )}
               data-testid={`summary-value-${key}`}
             >
               {summary[key]}
