@@ -321,6 +321,27 @@ afterEach(() => {
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
+  it('keeps secondary grid-card text readable in dark mode', async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem('theme', 'dark')
+    renderPortal()
+    await waitForLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'Grid view' }))
+
+    const location = await screen.findByText('Austin, TX 78701')
+    expect(location).toHaveClass('dark:text-white')
+
+    const sqftLabel = screen.getAllByText('Sq Ft')[0]
+    expect(sqftLabel).toHaveClass('dark:text-white/80')
+
+    const clientName = screen.getByText('Jane Client')
+    expect(clientName.parentElement?.parentElement).toHaveClass('dark:text-white')
+
+    const listingType = screen.getAllByText('For Sale')[0]
+    expect(listingType).toHaveClass('dark:text-white/80')
+  })
+
   it('R5.1 + R6.1: renders the summary cards and toolbar over the Map Tab canvas', async () => {
     renderPortal()
     await waitForLoaded()

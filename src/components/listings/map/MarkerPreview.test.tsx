@@ -120,4 +120,28 @@ describe('MarkerPreview', () => {
     // CTA still renders (it is safe to click even without an onOpenListing handler).
     expect(screen.getByRole('button', { name: /view details/i })).toBeInTheDocument()
   })
+
+  it('cycles between multiple shoots available at the same location', async () => {
+    const user = userEvent.setup()
+    const first = makeListing({ id: 'shoot-1' })
+    const second = makeListing({ id: 'shoot-2', heroImage: 'https://images.example.com/house-2.jpg' })
+    const onSelectListing = vi.fn()
+
+    render(
+      <MarkerPreview
+        listing={first}
+        relatedListings={[first, second]}
+        resolveImageUrl={resolveImageUrl}
+        formatPrice={formatPrice}
+        onSelectListing={onSelectListing}
+      />,
+    )
+
+    expect(screen.getByText('1 of 2 shoots')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next shoot at this location' }))
+    expect(onSelectListing).toHaveBeenCalledWith('shoot-2')
+
+    await user.click(screen.getByRole('button', { name: 'Previous shoot at this location' }))
+    expect(onSelectListing).toHaveBeenLastCalledWith('shoot-2')
+  })
 })

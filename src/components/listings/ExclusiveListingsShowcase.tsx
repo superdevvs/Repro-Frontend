@@ -9,12 +9,17 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from '@/lib/sonner-toast'
 import { useTheme } from '@/hooks/useTheme'
-import { buildMarkers, getMapCenter } from '@/lib/listing-presentation/markers'
+import {
+  buildMarkers,
+  getMapCenter,
+  listingLocationKey,
+} from '@/lib/listing-presentation/markers'
 import { CompactListingRow } from '@/components/listings/CompactListingRow'
 import { SelectedPropertyCard } from '@/components/listings/SelectedPropertyCard'
 import { SidebarEmptyState } from '@/components/listings/SidebarEmptyState'
@@ -141,6 +146,30 @@ const LazyListingMapCanvas = lazy(() =>
         const coords = markers.map((marker) => marker.coords)
         if (coords.length === 0) return
         mapRef.current?.recenter(coords)
+      }, [markers])
+
+      // Fit all currently displayed locations after the map has initialized and
+      // whenever background geocoding, search, or filters change the pin set.
+      useEffect(() => {
+        const coords = markers.map((marker) => marker.coords)
+        if (coords.length < 2) return
+
+        let attempts = 0
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        const fitWhenReady = () => {
+          const mapHandle = mapRef.current
+          if (mapHandle?.getMap()) {
+            mapHandle.recenter(coords)
+            return
+          }
+          attempts += 1
+          if (attempts < 12) timeoutId = setTimeout(fitWhenReady, 100)
+        }
+
+        fitWhenReady()
+        return () => {
+          if (timeoutId) clearTimeout(timeoutId)
+        }
       }, [markers])
 
       // Draw-area mode is a local stub toggle for now (R8.1).
@@ -307,6 +336,24 @@ export function ExclusiveListingsShowcase({
     () => listings.filter((listing) => listing.id !== selectedListing?.id),
     [listings, selectedListing?.id],
   )
+  const selectedLocationListings = useMemo(() => {
+    if (!selectedListing) return []
+    const locationKey = listingLocationKey(selectedListing)
+    return listings.filter((listing) => listingLocationKey(listing) === locationKey)
+  }, [listings, selectedListing])
+  const selectedLocationIndex = selectedListing
+    ? selectedLocationListings.findIndex((listing) => listing.id === selectedListing.id)
+    : -1
+  const selectLocationOffset = useCallback(
+    (offset: number) => {
+      if (selectedLocationListings.length < 2 || selectedLocationIndex < 0) return
+      const nextIndex =
+        (selectedLocationIndex + offset + selectedLocationListings.length) %
+        selectedLocationListings.length
+      handleSelectListing(selectedLocationListings[nextIndex].id)
+    },
+    [handleSelectListing, selectedLocationIndex, selectedLocationListings],
+  )
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(readBookmarkedIds)
 
   useEffect(() => {
@@ -400,9 +447,37 @@ export function ExclusiveListingsShowcase({
                           {mappedListingCount} mapped / {listings.length} total
                         </p>
                       </div>
-                      <span className="rounded-md border border-blue-400/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-200">
-                        Selected
-                      </span>
+                      {selectedLocationListings.length > 1 ? (
+                        <div className="flex items-center gap-1 rounded-lg border border-blue-500/20 bg-blue-500/10 p-1 text-blue-700 dark:text-blue-200">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Previous shoot at this location"
+                            className="h-7 w-7 hover:bg-blue-500/15"
+                            onClick={() => selectLocationOffset(-1)}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <span className="min-w-[54px] text-center text-[10px] font-semibold">
+                            {selectedLocationIndex + 1} / {selectedLocationListings.length}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Next shoot at this location"
+                            className="h-7 w-7 hover:bg-blue-500/15"
+                            onClick={() => selectLocationOffset(1)}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="rounded-md border border-blue-400/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-700 dark:text-blue-200">
+                          Selected
+                        </span>
+                      )}
                     </div>
                     <SelectedPropertyCard
                       listing={selectedListing}

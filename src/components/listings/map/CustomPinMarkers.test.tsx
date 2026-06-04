@@ -133,6 +133,8 @@ const selectedListing = makeListing({
 })
 const unselectedListing = makeListing({
   id: 'listing-2',
+  address: '2 Other St',
+  fullAddress: '2 Other St, Austin, TX 78701',
   price: 850_000,
   latitude: 31.0,
   longitude: -98.0,
@@ -143,6 +145,12 @@ const unmappedListing = makeListing({
   price: 500_000,
   latitude: undefined,
   longitude: undefined,
+})
+const sameLocationListing = makeListing({
+  id: 'listing-4',
+  price: 925_000,
+  latitude: 30.27,
+  longitude: -97.74,
 })
 
 function svgOf(element: HTMLElement | undefined): SVGSVGElement {
@@ -239,5 +247,27 @@ describe('CustomPinMarkers', () => {
 
     expect(onSelectListing).toHaveBeenCalledTimes(1)
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+  })
+
+  it('renders one counted pin for multiple shoots at the same property', async () => {
+    render(
+      <CustomPinMarkers
+        listings={[selectedListing, sameLocationListing, unselectedListing]}
+        selectedListingId={selectedListing.id}
+        onSelectListing={vi.fn()}
+        showLabels
+        resolveImageUrl={resolveImageUrl}
+        formatPrice={formatPrice}
+      />,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(h.markerInstances).toHaveLength(2)
+    })
+
+    expect(h.markerInstances[0].element).toHaveTextContent('2')
   })
 })

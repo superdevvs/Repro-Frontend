@@ -94,6 +94,66 @@ export function buildMarkers(listings: ShowcaseListing[]): MarkerModel[] {
   return markers
 }
 
+export interface MarkerLocationGroup {
+  key: string
+  coords: { lat: number; lng: number }
+  listings: ShowcaseListing[]
+}
+
+/**
+ * Normalize a listing's property identity so multiple shoots for the same
+ * address share one map pin. Coordinates remain the fallback for listings
+ * without a usable address.
+ */
+export function listingLocationKey(listing: ShowcaseListing): string {
+  const address = (
+    listing.fullAddress ||
+    [listing.address, listing.city, listing.state, listing.zip].filter(Boolean).join(' ')
+  )
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+  if (address) return `address:${address}`
+
+  if (hasCoords(listing)) {
+    return `coords:${(listing.latitude as number).toFixed(5)},${(listing.longitude as number).toFixed(5)}`
+  }
+
+  return `listing:${listing.id}`
+}
+
+/**
+ * Build one location group per mapped property. Every mapped listing remains
+ * available inside its property's group, while the map renders only one pin at
+ * that location.
+ */
+export function buildMarkerLocationGroups(
+  listings: ShowcaseListing[],
+): MarkerLocationGroup[] {
+  const groups = new Map<string, MarkerLocationGroup>()
+
+  for (const listing of listings) {
+    if (!hasCoords(listing)) continue
+    const key = listingLocationKey(listing)
+    const existing = groups.get(key)
+    if (existing) {
+      existing.listings.push(listing)
+      continue
+    }
+    groups.set(key, {
+      key,
+      coords: {
+        lat: listing.latitude as number,
+        lng: listing.longitude as number,
+      },
+      listings: [listing],
+    })
+  }
+
+  return Array.from(groups.values())
+}
+
 /**
  * Compute the axis-aligned bounding box of a set of coordinates.
  *

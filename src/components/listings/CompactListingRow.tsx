@@ -40,9 +40,9 @@ export function CompactListingRow({
       tabIndex={0}
       aria-pressed={selected}
       className={cn(
-        'group flex cursor-pointer items-center gap-2.5 rounded-xl border-slate-200/90 bg-white/62 p-2 text-left text-slate-950 shadow-none transition duration-200 hover:border-blue-400/60 hover:bg-white/90 dark:border-white/10 dark:bg-slate-950/38 dark:text-white dark:hover:border-blue-400/60 dark:hover:bg-slate-900/72',
+        'group flex cursor-pointer items-center gap-2.5 rounded-xl border-slate-200/90 bg-white/60 p-2 text-left text-slate-950 shadow-none transition duration-200 hover:border-blue-400/60 hover:bg-white/90 dark:border-white/10 dark:bg-slate-950/40 dark:text-white dark:hover:border-blue-400/60 dark:hover:bg-slate-800/90 dark:hover:text-white',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
-        selected && 'border-blue-500/70 bg-blue-500/10 ring-1 ring-blue-500/25 dark:border-blue-400/70 dark:ring-blue-400/30',
+        selected && 'border-blue-500/70 bg-blue-500/10 ring-1 ring-blue-500/25 hover:bg-blue-500/15 dark:border-blue-400/70 dark:bg-blue-500/15 dark:ring-blue-400/30 dark:hover:bg-blue-500/25',
         listing.isListingHidden && 'opacity-70',
       )}
       onClick={() => onSelect(listing.id)}

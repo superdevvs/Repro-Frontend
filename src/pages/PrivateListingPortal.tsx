@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
+import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
 import { useListingPresentation } from '@/hooks/useListingPresentation';
 import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
@@ -323,7 +324,7 @@ const ExclusiveListingGridCard = ({
                 {listing.address}
               </h3>
               {locationLine && (
-                <p className="max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white/88">
+                <p className="max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white">
                   {locationLine}
                 </p>
               )}
@@ -331,7 +332,7 @@ const ExclusiveListingGridCard = ({
 
             {metrics.length > 0 && (
               <div
-                className="grid gap-3 border-t border-slate-900/10 pt-4 dark:border-white/14"
+                className="grid gap-3 border-t border-slate-900/10 pt-4 dark:border-white/20"
                 style={{
                   gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
                 }}
@@ -339,12 +340,12 @@ const ExclusiveListingGridCard = ({
                 {metrics.map((metric, index) => (
                   <div
                     key={metric.label}
-                    className={`min-w-0 ${index > 0 ? 'border-l border-slate-900/10 pl-3 dark:border-white/14' : ''}`}
+                    className={`min-w-0 ${index > 0 ? 'border-l border-slate-900/10 pl-3 dark:border-white/20' : ''}`}
                   >
                     <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                       {metric.value}
                     </p>
-                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-slate-600/80 dark:text-white/58">
+                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-slate-600/80 dark:text-white/80">
                       {metric.label}
                     </p>
                   </div>
@@ -352,12 +353,12 @@ const ExclusiveListingGridCard = ({
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-900/10 pt-3 text-sm text-slate-700 dark:border-white/14 dark:text-white/72">
+            <div className="flex items-center justify-between gap-3 border-t border-slate-900/10 pt-3 text-sm text-slate-700 dark:border-white/20 dark:text-white">
               <p className="min-w-0 truncate">
                 By <span className="font-medium text-slate-900 dark:text-white">{listing.client.name}</span>
               </p>
               {listingTypeLabel && (
-                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-slate-600/80 dark:text-white/54">
+                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-slate-600/80 dark:text-white/80">
                   {listingTypeLabel}
                 </span>
               )}
@@ -478,11 +479,14 @@ const PrivateListingPortal = () => {
     });
   }, [geoCache, adminVisibleListings]);
 
-  const showcaseGeocodeAddresses = useMemo(() => {
+  const showcaseGeocodeListings = useMemo(() => {
     if (viewMode !== 'showcase') return [];
-    return adminVisibleListings
-      .filter((listing) => !hasListingCoords(listing) && listing.fullAddress && !geoCache[listing.fullAddress])
-      .map((listing) => listing.fullAddress);
+    const unique = new Map<string, PrivateListing>();
+    for (const listing of adminVisibleListings) {
+      if (hasListingCoords(listing) || !listing.fullAddress || geoCache[listing.fullAddress]) continue;
+      if (!unique.has(listing.fullAddress)) unique.set(listing.fullAddress, listing);
+    }
+    return Array.from(unique.values());
   }, [geoCache, adminVisibleListings, viewMode]);
 
   // Map Tab presentation coordinator: owns active filters, sort, saved views,
@@ -522,26 +526,23 @@ const PrivateListingPortal = () => {
   }, [savedViews]);
 
   useEffect(() => {
-    if (!showcaseGeocodeAddresses.length) return;
-    const unknownAddresses = showcaseGeocodeAddresses.slice(0, 6);
+    if (!showcaseGeocodeListings.length) return;
+    const unknownListings = showcaseGeocodeListings.slice(0, 6);
     let cancelled = false;
 
     const geocodeListings = async () => {
       const updates: Record<string, { lat: number; lng: number }> = {};
 
-      for (const address of unknownAddresses) {
+      for (const listing of unknownListings) {
         try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
-            { headers: { Accept: 'application/json' } },
+          const coords = await getCoordinatesFromAddress(
+            listing.address || listing.fullAddress,
+            listing.city,
+            listing.state,
+            listing.zip,
           );
-          if (!response.ok) continue;
-          const data = await response.json();
-          const match = data?.[0];
-          const lat = toFiniteNumber(match?.lat);
-          const lng = toFiniteNumber(match?.lon);
-          if (lat !== undefined && lng !== undefined && !cancelled) {
-            updates[address] = { lat, lng };
+          if (coords && !cancelled) {
+            updates[listing.fullAddress] = { lat: coords.lat, lng: coords.lon };
           }
         } catch {
           // Listings without geocodes still remain visible in the rail.
@@ -559,7 +560,7 @@ const PrivateListingPortal = () => {
     return () => {
       cancelled = true;
     };
-  }, [showcaseGeocodeAddresses]);
+  }, [showcaseGeocodeListings]);
 
   const fetchPrivateListings = async () => {
     try {

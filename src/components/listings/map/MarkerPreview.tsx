@@ -12,7 +12,7 @@
 // Validates: Requirements 10.3, 10.8
 
 import * as React from 'react'
-import { ExternalLink, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, MapPin } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,8 @@ export interface MarkerPreviewProps {
   formatPrice: (price: number | undefined | null) => string
   /** Optional call-to-action invoked when "View Details" is activated. */
   onOpenListing?: (listing: ShowcaseListing) => void
+  relatedListings?: ShowcaseListing[]
+  onSelectListing?: (id: string) => void
   /** Optional extra classes for the outer card. */
   className?: string
 }
@@ -49,12 +51,26 @@ export function MarkerPreview({
   resolveImageUrl,
   formatPrice,
   onOpenListing,
+  relatedListings = [],
+  onSelectListing,
   className,
 }: MarkerPreviewProps) {
   const imageUrl = resolveCardImage(listing.heroImage, resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE)
   const price = priceDisplay(listing.price, formatPrice)
   const locationLine = formatLocationLine(listing)
   const address = listing.address?.trim() || listing.fullAddress?.trim() || 'Private Listing'
+  const locationListings = relatedListings.length > 0 ? relatedListings : [listing]
+  const currentIndex = Math.max(
+    0,
+    locationListings.findIndex((candidate) => candidate.id === listing.id),
+  )
+  const hasMultipleShoots = locationListings.length > 1
+  const selectOffset = (offset: number) => {
+    if (!hasMultipleShoots) return
+    const nextIndex =
+      (currentIndex + offset + locationListings.length) % locationListings.length
+    onSelectListing?.(locationListings[nextIndex].id)
+  }
 
   return (
     <Card
@@ -81,6 +97,33 @@ export function MarkerPreview({
         >
           Private
         </Badge>
+        {hasMultipleShoots ? (
+          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between rounded-lg border border-white/20 bg-slate-950/75 px-1 py-1 text-white backdrop-blur-md">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Previous shoot at this location"
+              className="h-7 w-7 text-white hover:bg-white/15 hover:text-white"
+              onClick={() => selectOffset(-1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-[11px] font-semibold">
+              {currentIndex + 1} of {locationListings.length} shoots
+            </span>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Next shoot at this location"
+              className="h-7 w-7 text-white hover:bg-white/15 hover:text-white"
+              onClick={() => selectOffset(1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-2 p-3">

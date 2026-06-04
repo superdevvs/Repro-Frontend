@@ -31,6 +31,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
+const mapSpies = vi.hoisted(() => ({
+  recenter: vi.fn(),
+  getMap: vi.fn(() => ({})),
+}))
+
 // --- jsdom polyfills ---------------------------------------------------------
 // The sidebar uses a Radix `ScrollArea` (needs `ResizeObserver`) and the
 // showcase reads the theme via `ThemeProvider` (which calls `matchMedia`).
@@ -63,10 +68,14 @@ beforeAll(() => {
 // context hooks return harmless defaults. The lazy canvas destructures
 // `{ Map, MapControls }` from this module, so both must be exported.
 vi.mock('@/components/ui/map', () => {
-  const Map = React.forwardRef<HTMLDivElement, { children?: React.ReactNode }>(
-    ({ children }, ref) => (
-      <div ref={ref} data-testid="map">{children}</div>
-    ),
+  const Map = React.forwardRef<
+    { recenter: typeof mapSpies.recenter; getMap: typeof mapSpies.getMap },
+    { children?: React.ReactNode }
+  >(
+    ({ children }, ref) => {
+      React.useImperativeHandle(ref, () => mapSpies)
+      return <div data-testid="map">{children}</div>
+    },
   )
   Map.displayName = 'MockMap'
   const MapControls = () => null
@@ -127,6 +136,8 @@ import { ThemeProvider } from '@/hooks/useTheme'
 
 afterEach(() => {
   cleanup()
+  mapSpies.recenter.mockClear()
+  mapSpies.getMap.mockClear()
 })
 
 const resolveImageUrl = (v: string | null | undefined): string | null => v ?? null
@@ -203,6 +214,17 @@ function getCard(container: HTMLElement, id: string): HTMLElement {
 }
 
 describe('ExclusiveListingsShowcase', () => {
+  it('fits the map to every displayed mapped location', async () => {
+    render(<ControlledShowcase listings={[listingA, listingB]} />)
+
+    await waitFor(() => {
+      expect(mapSpies.recenter).toHaveBeenCalledWith([
+        { lat: listingA.latitude, lng: listingA.longitude },
+        { lat: listingB.latitude, lng: listingB.longitude },
+      ])
+    })
+  })
+
   it('R10.9 + R10.7 + R2.2: selection is a single shared identity synced marker↔card both ways', async () => {
     const { container } = render(<ControlledShowcase listings={[listingA, listingB]} />)
 

@@ -22,7 +22,10 @@ import { Marker as MapLibreMarker, Popup as MapLibrePopup } from 'maplibre-gl'
 
 import { cn } from '@/lib/utils'
 import { useMap, useShowMarkerLabels } from '@/components/ui/map'
-import { buildMarkers } from '@/lib/listing-presentation/markers'
+import {
+  buildMarkerLocationGroups,
+  markerLabel,
+} from '@/lib/listing-presentation/markers'
 import { MarkerPreview } from '@/components/listings/map/MarkerPreview'
 import { type ShowcaseListing } from '@/components/listings/ExclusiveListingsShowcase'
 
@@ -62,6 +65,7 @@ interface CustomPinProps {
   showLabel: boolean
   selected: boolean
   color: string
+  count: number
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
@@ -69,7 +73,7 @@ interface CustomPinProps {
  * Presentational custom pin: a teardrop/location-pin SVG with an optional label
  * chip above it. Rendered imperatively into each MapLibre marker element.
  */
-function CustomPin({ label, showLabel, selected, color, onClick }: CustomPinProps) {
+function CustomPin({ label, showLabel, selected, color, count, onClick }: CustomPinProps) {
   const size = selected ? PIN_SIZE_SELECTED : PIN_SIZE_UNSELECTED
 
   return (
@@ -112,6 +116,11 @@ function CustomPin({ label, showLabel, selected, color, onClick }: CustomPinProp
           {/* Inner dot */}
           <circle cx="12" cy="9" r="3" fill="#ffffff" />
         </svg>
+        {count > 1 ? (
+          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-blue-600 px-1 text-[10px] font-bold leading-none text-white shadow-md">
+            {count}
+          </span>
+        ) : null}
       </button>
     </div>
   )
@@ -164,8 +173,12 @@ export function CustomPinMarkers({
   // The explicit prop is the source of truth; fall back to the Map context.
   const showLabelsResolved = showLabels ?? labelsFromContext
 
-  // One marker per mapped listing (R10.1); recomputed when listings change.
-  const markers = React.useMemo(() => buildMarkers(listings), [listings])
+  // One pin per property location; every shoot at that location remains
+  // available through the marker preview carousel.
+  const locationGroups = React.useMemo(
+    () => buildMarkerLocationGroups(listings),
+    [listings],
+  )
   const listingsById = React.useMemo(
     () => new Map(listings.map((listing) => [listing.id, listing])),
     [listings],
@@ -195,7 +208,11 @@ export function CustomPinMarkers({
   const selectedPopupRef = React.useRef<PopupHandle | null>(null)
 
   const openHoverPopup = React.useCallback(
-    (listing: ShowcaseListing, lngLat: [number, number]) => {
+    (
+      listing: ShowcaseListing,
+      relatedListings: ShowcaseListing[],
+      lngLat: [number, number],
+    ) => {
       const handle = hoverPopupRef.current
       if (!handle || !map) return
       const { resolveImageUrl: resolve, formatPrice: format, onOpenListing: open } =
@@ -206,6 +223,8 @@ export function CustomPinMarkers({
           resolveImageUrl={resolve}
           formatPrice={format}
           onOpenListing={open}
+          relatedListings={relatedListings}
+          onSelectListing={latestRef.current.onSelectListing}
         />,
       )
       handle.popup.setLngLat(lngLat).addTo(map)
@@ -272,10 +291,14 @@ export function CustomPinMarkers({
 
     clearEntries()
 
-    markers.forEach((marker) => {
-      const selected = marker.id === selectedListingId
+    locationGroups.forEach((group) => {
+      const selectedListing =
+        group.listings.find((listing) => listing.id === selectedListingId) ??
+        group.listings[0]
+      const selected = group.listings.some((listing) => listing.id === selectedListingId)
       const color = selected ? SELECTED_COLOR : unselectedColor
-      const lngLat: [number, number] = [marker.coords.lng, marker.coords.lat]
+      const lngLat: [number, number] = [group.coords.lng, group.coords.lat]
+      const label = markerLabel(selectedListing)
 
       const element = document.createElement('div')
       // Elevate the selected pin above the others (R10.6).
@@ -284,13 +307,14 @@ export function CustomPinMarkers({
       const root = createRoot(element)
       root.render(
         <CustomPin
-          label={marker.label}
+          label={label}
           showLabel={showLabelsResolved}
           selected={selected}
           color={color}
+          count={group.listings.length}
           onClick={(event) => {
             event.stopPropagation()
-            latestRef.current.onSelectListing(marker.id)
+            latestRef.current.onSelectListing(selectedListing.id)
           }}
         />,
       )
@@ -298,9 +322,9 @@ export function CustomPinMarkers({
       const handleEnter = () => {
         // The selected listing already has its own (persistent) popup.
         if (selected) return
-        const listing = latestRef.current.listingsById.get(marker.id)
+        const listing = latestRef.current.listingsById.get(selectedListing.id)
         if (!listing) return
-        openHoverPopup(listing, lngLat)
+        openHoverPopup(listing, group.listings, lngLat)
       }
       const handleLeave = () => closeHoverPopup()
 
@@ -321,7 +345,7 @@ export function CustomPinMarkers({
     })
 
     return clearEntries
-  }, [map, markers, selectedListingId, showLabelsResolved, openHoverPopup, closeHoverPopup])
+  }, [map, locationGroups, selectedListingId, showLabelsResolved, openHoverPopup, closeHoverPopup])
 
   // Open / update the selected-listing preview popup (R10.8); close it when no
   // listing is selected or the selection is no longer mapped.
@@ -337,9 +361,11 @@ export function CustomPinMarkers({
       return
     }
 
-    const marker = markers.find((m) => m.id === selectedListingId)
+    const group = locationGroups.find((candidate) =>
+      candidate.listings.some((listing) => listing.id === selectedListingId),
+    )
     const listing = listingsById.get(selectedListingId)
-    if (!marker || !listing) {
+    if (!group || !listing) {
       handle.popup.remove()
       return
     }
@@ -350,10 +376,12 @@ export function CustomPinMarkers({
         resolveImageUrl={resolve}
         formatPrice={format}
         onOpenListing={open}
+        relatedListings={group.listings}
+        onSelectListing={latestRef.current.onSelectListing}
       />,
     )
-    handle.popup.setLngLat([marker.coords.lng, marker.coords.lat]).addTo(map)
-  }, [map, selectedListingId, markers, listingsById])
+    handle.popup.setLngLat([group.coords.lng, group.coords.lat]).addTo(map)
+  }, [map, selectedListingId, locationGroups, listingsById])
 
   return null
 }
