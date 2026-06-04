@@ -106,6 +106,13 @@ export interface MarkerLocationGroup {
  * without a usable address.
  */
 export function listingLocationKey(listing: ShowcaseListing): string {
+  // Browser-resolved coordinates may intentionally fall back to a locality
+  // when a street is unknown. Group those listings by the resolved map point
+  // so one locality pin can cycle through every available shoot there.
+  if (listing.coordsSource === 'cache' && hasCoords(listing)) {
+    return `coords:${(listing.latitude as number).toFixed(5)},${(listing.longitude as number).toFixed(5)}`
+  }
+
   const address = (
     listing.fullAddress ||
     [listing.address, listing.city, listing.state, listing.zip].filter(Boolean).join(' ')

@@ -38,4 +38,25 @@ describe('marker location groups', () => {
     expect(groups[0].listings.map((listing) => listing.id)).toEqual(['1', '2'])
     expect(groups[1].listings.map((listing) => listing.id)).toEqual(['3'])
   })
+
+  it('groups different shoots that resolve to the same fallback locality coordinates', () => {
+    const first = {
+      ...makeListing('1', '777 QA Desktop Journey, Rockville, MD 20850', 39.084, -77.1528),
+      coordsSource: 'cache' as const,
+    }
+    const second = {
+      ...makeListing('2', '888 Client UI Request, Rockville, MD 20850', 39.084, -77.1528),
+      coordsSource: 'cache' as const,
+    }
+    const distinct = {
+      ...makeListing('3', '6275 Kerrydale Drive, Springfield, VA 22152', 38.76, -77.18),
+      coordsSource: 'api' as const,
+    }
+
+    const groups = buildMarkerLocationGroups([first, second, distinct])
+
+    expect(groups).toHaveLength(2)
+    expect(groups[0].listings.map((listing) => listing.id)).toEqual(['1', '2'])
+    expect(groups[1].listings.map((listing) => listing.id)).toEqual(['3'])
+  })
 })

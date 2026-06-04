@@ -2,6 +2,8 @@
  * Calculate distance between two coordinates using Haversine formula
  * Returns distance in miles
  */
+import { API_BASE_URL } from '@/config/env';
+
 type Coordinates = { lat: number; lon: number };
 
 type GeocodeCacheEntry = {
@@ -42,8 +44,7 @@ function toRad(degrees: number): number {
 }
 
 /**
- * Get coordinates from address using geocoding
- * This is a placeholder - in production, use a geocoding service
+ * Resolve an address through the backend geocoder and its shared cache.
  */
 export async function getCoordinatesFromAddress(
   address: string,
@@ -65,44 +66,41 @@ export async function getCoordinatesFromAddress(
     return existingRequest;
   }
 
-  const isLocalDev = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  const endpoint = isLocalDev
-    ? `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=1`
-    : `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-
   const request = (async (): Promise<Coordinates | null> => {
-  try {
-    const response = await fetch(endpoint, {
-      headers: isLocalDev
-        ? { Accept: 'application/json' }
-        : {
-            Accept: 'application/json',
-            'User-Agent': 'REPRO Dashboard App',
-          },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/address/geocode`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ address, city, state, zip }),
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        geocodeCache.set(query, { value: null, expiresAt: now + GEOCODE_FAILURE_TTL_MS });
+        return null;
+      }
+
+      const data = await response.json();
+      const latitude = Number(data?.data?.latitude);
+      const longitude = Number(data?.data?.longitude);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        const coordinates = {
+          lat: latitude,
+          lon: longitude,
+        };
+        geocodeCache.set(query, { value: coordinates, expiresAt: now + GEOCODE_SUCCESS_TTL_MS });
+        return coordinates;
+      }
+
+      geocodeCache.set(query, { value: null, expiresAt: now + GEOCODE_FAILURE_TTL_MS });
+      return null;
+    } catch (error) {
+      console.error('Error geocoding address:', error);
       geocodeCache.set(query, { value: null, expiresAt: now + GEOCODE_FAILURE_TTL_MS });
       return null;
     }
-
-    const data = await response.json();
-    if (data && data.length > 0) {
-      const coordinates = {
-        lat: parseFloat(data[0].lat),
-        lon: parseFloat(data[0].lon)
-      };
-      geocodeCache.set(query, { value: coordinates, expiresAt: now + GEOCODE_SUCCESS_TTL_MS });
-      return coordinates;
-    }
-
-    geocodeCache.set(query, { value: null, expiresAt: now + GEOCODE_FAILURE_TTL_MS });
-    return null;
-  } catch (error) {
-    console.error('Error geocoding address:', error);
-    geocodeCache.set(query, { value: null, expiresAt: now + GEOCODE_FAILURE_TTL_MS });
-    return null;
-  }
   })();
 
   geocodeInflight.set(query, request);
