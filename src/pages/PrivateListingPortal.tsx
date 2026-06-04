@@ -40,6 +40,15 @@ import {
 import { API_BASE_URL } from '@/config/env';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
+import { useListingPresentation } from '@/hooks/useListingPresentation';
+import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
+import { SummaryCards } from '@/components/listings/SummaryCards';
+import {
+  SAVED_VIEWS_KEY,
+  parseSavedViews,
+  serializeSavedViews,
+} from '@/lib/listing-presentation/saved-views';
+import type { SavedView } from '@/lib/listing-presentation/types';
 
 interface PrivateListing {
   id: string;
@@ -371,6 +380,14 @@ const PrivateListingPortal = () => {
   const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
   const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
   const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>(readGeoCache);
+  // Saved Views (R4.7/4.8/4.9): load persisted views on mount, tolerant of
+  // missing/malformed storage (parseSavedViews never throws). Persistence on
+  // change is handled by an effect below, mirroring the geo-cache write pattern.
+  const [savedViews, setSavedViews] = useState<SavedView[]>(() =>
+    parseSavedViews(
+      typeof window !== 'undefined' ? window.localStorage.getItem(SAVED_VIEWS_KEY) : null,
+    ),
+  );
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
@@ -407,14 +424,19 @@ const PrivateListingPortal = () => {
     }
   }, [hasHiddenListings, showHidden]);
 
-  const filteredListings = useMemo(() => {
-    const visibleListings = isAdmin && !showHidden
+  // Admin hidden-visibility filter only (no text search). This is the base set
+  // for both the legacy grid/list pipeline and the Map Tab presentation hook.
+  const adminVisibleListings = useMemo(() => {
+    return isAdmin && !showHidden
       ? listings.filter((listing) => !listing.isListingHidden)
       : listings;
+  }, [isAdmin, showHidden, listings]);
 
-    if (searchQuery.trim() === '') return visibleListings;
+  // Grid/List keep their existing behavior: portal-owned text search + date sort.
+  const filteredListings = useMemo(() => {
+    if (searchQuery.trim() === '') return adminVisibleListings;
     const query = searchQuery.toLowerCase().replace(/[$,]/g, '');
-    return visibleListings.filter((listing) => {
+    return adminVisibleListings.filter((listing) => {
       const addressMatch = listing.fullAddress.toLowerCase().includes(query);
       const cityMatch = listing.city.toLowerCase().includes(query);
       const stateMatch = listing.state.toLowerCase().includes(query);
@@ -423,7 +445,7 @@ const PrivateListingPortal = () => {
       const priceMatch = listing.price ? String(listing.price).includes(query) : false;
       return addressMatch || cityMatch || stateMatch || zipMatch || clientMatch || priceMatch;
     });
-  }, [isAdmin, searchQuery, showHidden, listings]);
+  }, [adminVisibleListings, searchQuery]);
 
   const sortedListings = useMemo(() => {
     return [...filteredListings].sort((a, b) => {
@@ -433,8 +455,17 @@ const PrivateListingPortal = () => {
     });
   }, [filteredListings]);
 
+  // Integration decision (Map Tab / showcase): we feed the presentation hook the
+  // geo-augmented, admin-visibility-filtered set WITHOUT the portal's own text
+  // search, and let `useListingPresentation` own search + filter + sort. This
+  // avoids double-filtering: the portal keeps the admin hidden-listing filter
+  // and the geo-cache coordinate augmentation (each ShowcaseListing carries
+  // `isPrivateListing`, already present on PrivateListing), while the hook drives
+  // searching/filtering/sorting and exposes `displayedListings`. Grid/List views
+  // continue to use the portal-owned `sortedListings` above so their behavior is
+  // unchanged.
   const showcaseListings = useMemo<PrivateListing[]>(() => {
-    return sortedListings.map((listing) => {
+    return adminVisibleListings.map((listing) => {
       if (hasListingCoords(listing)) return listing;
       const cached = geoCache[listing.fullAddress];
       if (!cached) return listing;
@@ -445,18 +476,50 @@ const PrivateListingPortal = () => {
         coordsSource: 'cache',
       };
     });
-  }, [geoCache, sortedListings]);
+  }, [geoCache, adminVisibleListings]);
 
   const showcaseGeocodeAddresses = useMemo(() => {
     if (viewMode !== 'showcase') return [];
-    return sortedListings
+    return adminVisibleListings
       .filter((listing) => !hasListingCoords(listing) && listing.fullAddress && !geoCache[listing.fullAddress])
       .map((listing) => listing.fullAddress);
-  }, [geoCache, sortedListings, viewMode]);
+  }, [geoCache, adminVisibleListings, viewMode]);
+
+  // Map Tab presentation coordinator: owns active filters, sort, saved views,
+  // and the shared selected-listing id; derives displayedListings/summary/
+  // suggestions/filterChips client-side (no network calls). Saved views are
+  // seeded from localStorage-loaded `savedViews` and written back via setSavedViews.
+  const presentation = useListingPresentation({
+    listings: showcaseListings,
+    searchQuery,
+    initialSavedViews: savedViews,
+    onSavedViewsChange: setSavedViews,
+  });
+
+  // Unique city names offered as city filters in the toolbar's FilterMenu.
+  const cityOptions = useMemo(() => {
+    const cities = new Set<string>();
+    for (const listing of showcaseListings) {
+      const city = listing.city?.trim();
+      if (city) cities.add(city);
+    }
+    return Array.from(cities).sort((a, b) => a.localeCompare(b));
+  }, [showcaseListings]);
 
   useEffect(() => {
     writeGeoCache(geoCache);
   }, [geoCache]);
+
+  // Persist Saved Views on change, mirroring the geo-cache write pattern
+  // (R4.7/4.8). Wrapped so localStorage quota/private-mode failures are ignored.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(SAVED_VIEWS_KEY, serializeSavedViews(savedViews));
+    } catch {
+      // Ignore localStorage quota/private-mode failures.
+    }
+  }, [savedViews]);
 
   useEffect(() => {
     if (!showcaseGeocodeAddresses.length) return;
@@ -933,14 +996,17 @@ const PrivateListingPortal = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <PageHeader
-            badge="Exclusive"
-            title="Exclusive Listings"
-            description="Private, pre-market properties — invitation only"
-          />
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+        {/* Header — emphasized title section with the Add Listing / Hide
+            controls aligned in a single horizontal group (R9.1, R9.2). */}
+        <div className="flex items-start justify-between gap-4 flex-wrap border-b border-border/60 pb-4">
+          <div className="[&_h1]:text-4xl [&_h1]:font-bold [&_h1]:tracking-tight">
+            <PageHeader
+              badge="Exclusive"
+              title="Exclusive Listings"
+              description="Private, pre-market properties — invitation only"
+            />
+          </div>
+          <div className="flex flex-row items-center gap-2 self-start justify-end">
             {isAdmin && hideSelectionMode ? (
               <>
                 <Button
@@ -1035,56 +1101,83 @@ const PrivateListingPortal = () => {
           </div>
         )}
 
-        {/* Search + View Toggle */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by address, city, state, zip, price, or client..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-10"
+        {/* Controls: the Map Tab (showcase) gets the new SummaryCards +
+            MapTabToolbar rendered above it (R5.1, R5.3, R6.3); Grid/List keep
+            the existing search + view-toggle controls so their behavior is
+            unchanged. The toolbar's ViewSwitcher and the legacy toggle both
+            drive `viewMode`, so users can move between all three views. */}
+        {viewMode === 'showcase' ? (
+          <div className="space-y-4">
+            <SummaryCards summary={presentation.summary} />
+            <MapTabToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              suggestions={presentation.suggestions}
+              filters={presentation.filters}
+              onAddFilter={presentation.addFilter}
+              onRemoveFilter={presentation.removeFilter}
+              cityOptions={cityOptions}
+              sort={presentation.sort}
+              onSortChange={presentation.setSort}
+              savedViews={presentation.savedViews}
+              onApplyView={presentation.applyView}
+              onSaveView={presentation.saveView}
+              onDeleteView={presentation.deleteView}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
-            {searchQuery && (
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by address, city, state, zip, price, or client..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9 h-10"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center border rounded-md overflow-hidden bg-card/50">
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setViewMode('showcase')}
+                className="p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                title="Showcase view"
+                aria-label="Showcase view"
               >
-                <X className="h-4 w-4" />
+                <MapIcon className="h-4 w-4" />
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
+                title="Grid view"
+                aria-label="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
+                title="List view"
+                aria-label="List view"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center border rounded-md overflow-hidden bg-card/50">
-            <button
-              type="button"
-              onClick={() => setViewMode('showcase')}
-              className={`p-2 transition-colors ${viewMode === 'showcase' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
-              title="Showcase view"
-              aria-label="Showcase view"
-            >
-              <MapIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
-              title="Grid view"
-              aria-label="Grid view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
-              title="List view"
-              aria-label="List view"
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Count */}
         {sortedListings.length > 0 && (
@@ -1207,10 +1300,13 @@ const PrivateListingPortal = () => {
           </Card>
         ) : viewMode === 'showcase' ? (
           <ExclusiveListingsShowcase
-            listings={showcaseListings}
+            listings={presentation.displayedListings}
             resolveImageUrl={resolvePreviewUrl}
             formatPrice={formatPrice}
             onOpenListing={handleCardClick}
+            selectedListingId={presentation.selectedListingId}
+            onSelectListing={presentation.selectListing}
+            showMarkerLabels={false}
           />
         ) : viewMode === 'grid' ? (
           /* ─── Grid View ─── */

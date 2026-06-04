@@ -1,13 +1,25 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
-import { createRoot, Root } from 'react-dom/client'
-import { Bath, BedDouble, ExternalLink, Loader2, MapPin, Ruler } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from 'react'
+import { Loader2 } from 'lucide-react'
+
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/useTheme'
-import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay'
-
-const DEFAULT_LISTING_CENTER = { lat: 39.8283, lng: -98.5795 }
+import { buildMarkers, getMapCenter } from '@/lib/listing-presentation/markers'
+import { ListingCard } from '@/components/listings/ListingCard'
+import { SidebarEmptyState } from '@/components/listings/SidebarEmptyState'
+import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
+// Type-only import: erased at build time, so it does NOT pull maplibre-gl into
+// the main bundle (the lazy map chunk below remains the only maplibre entry).
+import type { MapHandle } from '@/components/ui/map'
 
 export interface ShowcaseListing {
   id: string
@@ -22,6 +34,7 @@ export interface ShowcaseListing {
     email?: string
   }
   isListingHidden: boolean
+  isPrivateListing: boolean
   listing_type?: 'for_sale' | 'for_rent'
   bedrooms?: number
   bathrooms?: number
@@ -32,161 +45,156 @@ export interface ShowcaseListing {
   coordsSource?: 'api' | 'cache' | 'geocode'
 }
 
+/**
+ * Props for the Map Tab showcase.
+ *
+ * `selectedListingId`, `onSelectListing`, and `showMarkerLabels` are OPTIONAL to
+ * support a controlled-or-uncontrolled pattern:
+ *
+ * - Controlled: when `selectedListingId` AND `onSelectListing` are both provided
+ *   (e.g. by `PrivateListingPortal` via `useListingPresentation` in task 19),
+ *   the component reads/writes the shared selection through them.
+ * - Uncontrolled: when they are omitted (the current call site), the component
+ *   falls back to internal selection state so existing callers keep working.
+ *
+ * `showMarkerLabels` seeds the marker-label visibility; the floating "toggle
+ * property labels" action flips a local copy so the action stays functional in
+ * both modes.
+ */
 interface ExclusiveListingsShowcaseProps {
   listings: ShowcaseListing[]
   resolveImageUrl: (value: string | null | undefined) => string | null
   formatPrice: (price: number | undefined | null) => string
   onOpenListing: (listing: ShowcaseListing) => void
+  selectedListingId?: string | null
+  onSelectListing?: (id: string) => void
+  showMarkerLabels?: boolean
 }
 
-interface ListingMarker {
-  id: string
-  label: string
-  coords: { lat: number; lng: number }
-}
+export const hasCoords = (l: ShowcaseListing): boolean =>
+  Number.isFinite(l.latitude) && Number.isFinite(l.longitude)
 
 interface ListingMapCanvasProps {
-  markers: ListingMarker[]
-  selectedMarkerId: string | null
-  onSelectMarker: (listingId: string) => void
+  listings: ShowcaseListing[]
+  selectedListingId: string | null
+  onSelectListing: (id: string) => void
+  showMarkerLabels: boolean
+  onToggleLabels: () => void
+  resolveImageUrl: (value: string | null | undefined) => string | null
+  formatPrice: (price: number | undefined | null) => string
+  onOpenListing: (listing: ShowcaseListing) => void
   theme: 'light' | 'dark'
 }
 
-const formatShortPrice = (price?: number | null) => {
-  if (!price) return 'Listing'
-  if (price >= 1_000_000) {
-    const compact = price / 1_000_000
-    return `$${compact % 1 === 0 ? compact.toFixed(0) : compact.toFixed(1)}M`
-  }
-  return `$${Math.round(price / 1000)}K`
-}
+// The maplibre-powered map canvas is code-split so maplibre-gl stays out of the
+// main bundle (preserving the original lazy-map pattern). `CustomPinMarkers` and
+// the `Map` component both statically import maplibre-gl, so importing them here
+// (dynamically) keeps the heavy dependency in this lazy chunk.
+const LazyListingMapCanvas = lazy(() =>
+  Promise.all([
+    import('@/components/ui/map'),
+    import('@/components/listings/map/CustomPinMarkers'),
+  ]).then(([mapModule, pinModule]) => {
+    const { Map, MapControls } = mapModule
+    const { CustomPinMarkers } = pinModule
 
-const getMapCenter = (markers: ListingMarker[], selectedMarkerId: string | null) => {
-  const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId)
-  if (selectedMarker) return selectedMarker.coords
-  if (markers.length === 0) return DEFAULT_LISTING_CENTER
-  if (markers.length === 1) return markers[0].coords
-
-  const totals = markers.reduce(
-    (acc, marker) => ({
-      lat: acc.lat + marker.coords.lat,
-      lng: acc.lng + marker.coords.lng,
-    }),
-    { lat: 0, lng: 0 },
-  )
-
-  return {
-    lat: totals.lat / markers.length,
-    lng: totals.lng / markers.length,
-  }
-}
-
-const hasCoords = (listing: ShowcaseListing) =>
-  Number.isFinite(listing.latitude) && Number.isFinite(listing.longitude)
-
-const LazyListingMap = lazy(() =>
-  import('@/components/ui/map').then((module) => {
-    const { Map, MapControls, useMap } = module
-
-    const ListingPillMarkers = ({
-      markers,
-      selectedMarkerId,
-      onSelectMarker,
-    }: {
-      markers: ListingMarker[]
-      selectedMarkerId: string | null
-      onSelectMarker: (listingId: string) => void
-    }) => {
-      const map = useMap()
-      const markerRefs = useRef<Array<{ marker: { remove: () => void }; root: Root }>>([])
-
-      useEffect(() => {
-        let cancelled = false
-
-        const clearMarkers = () => {
-          markerRefs.current.forEach(({ marker, root }) => {
-            root.unmount()
-            marker.remove()
-          })
-          markerRefs.current = []
-        }
-
-        const renderMarkers = async () => {
-          clearMarkers()
-          const { Marker } = await import('maplibre-gl')
-          if (cancelled) return
-
-          markers.forEach((marker) => {
-            const element = document.createElement('div')
-            const root = createRoot(element)
-            root.render(
-              <button
-                type="button"
-                aria-label={`Select ${marker.label}`}
-                className={cn(
-                  'inline-flex h-10 min-w-[72px] items-center justify-center rounded-full px-4 text-sm font-semibold shadow-[0_14px_32px_rgba(15,23,42,0.28)] transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600',
-                  selectedMarkerId === marker.id
-                    ? 'bg-[#d74432] text-white'
-                    : 'bg-[#1f5aa6] text-white hover:bg-[#174982]',
-                )}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSelectMarker(marker.id)
-                }}
-              >
-                {marker.label}
-              </button>,
-            )
-
-            const mapMarker = new Marker({
-              element,
-              anchor: 'center',
-            })
-              .setLngLat([marker.coords.lng, marker.coords.lat])
-              .addTo(map)
-
-            markerRefs.current.push({ marker: mapMarker, root })
-          })
-        }
-
-        renderMarkers()
-
-        return () => {
-          cancelled = true
-          clearMarkers()
-        }
-      }, [map, markers, onSelectMarker, selectedMarkerId])
-
-      return null
-    }
-
-    const ListingMapCanvas = ({
-      markers,
-      selectedMarkerId,
-      onSelectMarker,
+    const ListingMapCanvas: ComponentType<ListingMapCanvasProps> = ({
+      listings,
+      selectedListingId,
+      onSelectListing,
+      showMarkerLabels,
+      onToggleLabels,
+      resolveImageUrl,
+      formatPrice,
+      onOpenListing,
       theme,
-    }: ListingMapCanvasProps) => {
-      const center = getMapCenter(markers, selectedMarkerId)
+    }) => {
+      const mapRef = useRef<MapHandle>(null)
+      const canvasRef = useRef<HTMLDivElement>(null)
+      const [drawAreaActive, setDrawAreaActive] = useState(false)
+      const [isFullscreen, setIsFullscreen] = useState(false)
+
+      const markers = useMemo(() => buildMarkers(listings), [listings])
+      const center = useMemo(
+        () => getMapCenter(markers, selectedListingId),
+        [markers, selectedListingId],
+      )
       const zoom = markers.length > 1 ? 10 : 13
 
+      // Recenter on the loaded mapped listings (R8.2).
+      const handleRecenter = useCallback(() => {
+        const coords = markers.map((marker) => marker.coords)
+        if (coords.length === 0) return
+        mapRef.current?.recenter(coords)
+      }, [markers])
+
+      // Draw-area mode is a local stub toggle for now (R8.1).
+      const handleToggleDrawArea = useCallback(() => {
+        setDrawAreaActive((prev) => !prev)
+      }, [])
+
+      // Fullscreen the map container; restore on exit (R8.4).
+      const handleToggleFullscreen = useCallback(() => {
+        const container = canvasRef.current
+        if (!container) return
+        if (typeof document === 'undefined') return
+        if (document.fullscreenElement) {
+          void document.exitFullscreen?.()
+        } else {
+          void container.requestFullscreen?.()
+        }
+      }, [])
+
+      useEffect(() => {
+        if (typeof document === 'undefined') return
+        const handleChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
+        document.addEventListener('fullscreenchange', handleChange)
+        return () => document.removeEventListener('fullscreenchange', handleChange)
+      }, [])
+
       return (
-        <div className="relative min-h-[360px] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-800 dark:bg-slate-950 lg:min-h-[620px]">
+        <div ref={canvasRef} className="relative h-full w-full bg-background">
           <Map
+            ref={mapRef}
             center={[center.lng, center.lat]}
             zoom={zoom}
             theme={theme}
-            className="h-full min-h-[360px] w-full lg:min-h-[620px]"
+            showMarkerLabels={showMarkerLabels}
+            className="h-full min-h-[420px] w-full lg:min-h-[600px]"
           >
-            <MapControls position="top-right" showZoom />
-            <ListingPillMarkers
-              markers={markers}
-              selectedMarkerId={selectedMarkerId}
-              onSelectMarker={onSelectMarker}
+            {/* Floating control card with zoom (R1.6). */}
+            <MapControls
+              position="bottom-left"
+              showZoom
+              className="rounded-xl border border-border bg-background/80 p-1 shadow-md backdrop-blur-sm"
+            />
+            {/* Custom pins + hover/selected previews; shared selection (R10). */}
+            <CustomPinMarkers
+              listings={listings}
+              selectedListingId={selectedListingId}
+              onSelectListing={onSelectListing}
+              showLabels={showMarkerLabels}
+              resolveImageUrl={resolveImageUrl}
+              formatPrice={formatPrice}
+              onOpenListing={onOpenListing}
             />
           </Map>
+
+          {/* Floating map actions: recenter / draw / labels / fullscreen (R8). */}
+          <FloatingMapActions
+            position="top-right"
+            onRecenter={handleRecenter}
+            onToggleDrawArea={handleToggleDrawArea}
+            onToggleLabels={onToggleLabels}
+            onToggleFullscreen={handleToggleFullscreen}
+            showLabels={showMarkerLabels}
+            drawAreaActive={drawAreaActive}
+            isFullscreen={isFullscreen}
+          />
+
           {markers.length === 0 && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-              <div className="rounded-lg border border-white/70 bg-white/90 px-4 py-3 text-center text-sm text-slate-600 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-300">
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-6">
+              <div className="rounded-full border border-border bg-background/90 px-4 py-2 text-center text-sm text-muted-foreground shadow-sm backdrop-blur">
                 No mapped listings yet.
               </div>
             </div>
@@ -199,58 +207,99 @@ const LazyListingMap = lazy(() =>
   }),
 )
 
+const MapLoadingFallback = () => (
+  <div className="flex h-full min-h-[420px] w-full items-center justify-center lg:min-h-[600px]">
+    <div className="text-center text-muted-foreground">
+      <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
+      <p className="text-sm">Loading map...</p>
+    </div>
+  </div>
+)
+
 export function ExclusiveListingsShowcase({
   listings,
   resolveImageUrl,
   formatPrice,
   onOpenListing,
+  selectedListingId: selectedListingIdProp,
+  onSelectListing: onSelectListingProp,
+  showMarkerLabels: showMarkerLabelsProp,
 }: ExclusiveListingsShowcaseProps) {
   const { theme } = useTheme()
-  const [selectedListingId, setSelectedListingId] = React.useState<string | null>(() => listings[0]?.id ?? null)
 
-  useEffect(() => {
-    if (selectedListingId && listings.some((listing) => listing.id === selectedListingId)) return
-    setSelectedListingId(listings[0]?.id ?? null)
-  }, [listings, selectedListingId])
-
-  const markers = useMemo<ListingMarker[]>(
-    () =>
-      listings
-        .filter(hasCoords)
-        .map((listing) => ({
-          id: listing.id,
-          label: formatShortPrice(listing.price),
-          coords: {
-            lat: listing.latitude as number,
-            lng: listing.longitude as number,
-          },
-        })),
-    [listings],
+  // Controlled-or-uncontrolled selection: use the props when both are provided,
+  // otherwise fall back to internal state so existing callers keep working.
+  const isSelectionControlled =
+    selectedListingIdProp !== undefined && typeof onSelectListingProp === 'function'
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
+    () => listings[0]?.id ?? null,
   )
 
-  const mappedListingCount = markers.length
+  useEffect(() => {
+    if (isSelectionControlled) return
+    if (internalSelectedId && listings.some((listing) => listing.id === internalSelectedId)) {
+      return
+    }
+    setInternalSelectedId(listings[0]?.id ?? null)
+  }, [listings, internalSelectedId, isSelectionControlled])
+
+  const selectedListingId = isSelectionControlled
+    ? selectedListingIdProp ?? null
+    : internalSelectedId
+
+  const handleSelectListing = useCallback(
+    (id: string) => {
+      if (isSelectionControlled) {
+        onSelectListingProp?.(id)
+      } else {
+        setInternalSelectedId(id)
+      }
+    },
+    [isSelectionControlled, onSelectListingProp],
+  )
+
+  // Marker-label visibility seeded from the (optional) prop; the floating action
+  // toggles a local copy so it works in both controlled and uncontrolled modes.
+  const [showMarkerLabels, setShowMarkerLabels] = useState<boolean>(
+    showMarkerLabelsProp ?? false,
+  )
+  useEffect(() => {
+    if (typeof showMarkerLabelsProp === 'boolean') {
+      setShowMarkerLabels(showMarkerLabelsProp)
+    }
+  }, [showMarkerLabelsProp])
+  const handleToggleLabels = useCallback(() => {
+    setShowMarkerLabels((prev) => !prev)
+  }, [])
+
+  const mappedListingCount = useMemo(
+    () => listings.filter(hasCoords).length,
+    [listings],
+  )
+  const hasListings = listings.length > 0
+  const hasMappedListings = mappedListingCount > 0
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <Suspense
-        fallback={
-          <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-border bg-muted/30 lg:min-h-[620px]">
-            <div className="text-center text-muted-foreground">
-              <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
-              <p className="text-sm">Loading map...</p>
-            </div>
-          </div>
-        }
-      >
-        <LazyListingMap
-          markers={markers}
-          selectedMarkerId={selectedListingId}
-          onSelectMarker={setSelectedListingId}
-          theme={theme === 'dark' ? 'dark' : 'light'}
-        />
-      </Suspense>
+    <section className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+      {/* Map_Region: 70-75% width, sticky, >=600px, single radius/border + shadow. */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 shadow-lg lg:sticky lg:top-4 lg:self-start">
+        <Suspense fallback={<MapLoadingFallback />}>
+          <LazyListingMapCanvas
+            listings={listings}
+            selectedListingId={selectedListingId}
+            onSelectListing={handleSelectListing}
+            showMarkerLabels={showMarkerLabels}
+            onToggleLabels={handleToggleLabels}
+            resolveImageUrl={resolveImageUrl}
+            formatPrice={formatPrice}
+            onOpenListing={onOpenListing}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+          />
+        </Suspense>
+      </div>
 
-      <aside className="min-w-0">
+      {/* Sidebar_Region: 25-30% width, equal height, top-aligned, internal scroll. */}
+      <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Showcase</p>
@@ -260,106 +309,28 @@ export function ExclusiveListingsShowcase({
           </div>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto pb-2 lg:block lg:max-h-[620px] lg:space-y-3 lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
-          {listings.map((listing) => {
-            const heroUrl = resolveImageUrl(listing.heroImage) || '/placeholder.svg'
-            const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms)
-            const selected = selectedListingId === listing.id
-            const locationLine = [listing.city, listing.state, listing.zip].filter(Boolean).join(' ')
-            const listingTypeLabel =
-              listing.listing_type === 'for_rent'
-                ? 'For Rent'
-                : listing.listing_type === 'for_sale'
-                  ? 'For Sale'
-                  : 'Active'
-
-            return (
-              <button
-                key={listing.id}
-                type="button"
-                className={cn(
-                  'group w-[300px] flex-shrink-0 overflow-hidden rounded-lg border bg-background text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md lg:w-full',
-                  selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-border/70',
-                  listing.isListingHidden && 'opacity-70',
-                )}
-                onMouseEnter={() => setSelectedListingId(listing.id)}
-                onFocus={() => setSelectedListingId(listing.id)}
-                onClick={() => onOpenListing(listing)}
-              >
-                <div className="flex gap-3 p-3">
-                  <div className="relative h-24 w-28 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-                    <img
-                      src={heroUrl}
-                      alt={listing.address}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
-                      {formatShortPrice(listing.price)}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold leading-tight text-foreground">
-                          {formatPrice(listing.price) || 'Private Listing'}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-foreground">
-                          {listing.address}
-                        </p>
-                      </div>
-                      <ExternalLink className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{locationLine || listing.fullAddress}</span>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {listing.bedrooms && (
-                        <span className="inline-flex items-center gap-1">
-                          <BedDouble className="h-3.5 w-3.5" />
-                          {listing.bedrooms} bd
-                        </span>
-                      )}
-                      {bathroomDisplay && (
-                        <span className="inline-flex items-center gap-1">
-                          <Bath className="h-3.5 w-3.5" />
-                          {bathroomDisplay.value} ba
-                        </span>
-                      )}
-                      {listing.sqft && (
-                        <span className="inline-flex items-center gap-1">
-                          <Ruler className="h-3.5 w-3.5" />
-                          {listing.sqft.toLocaleString()} sf
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[11px]">
-                        {listingTypeLabel}
-                      </Badge>
-                      {!hasCoords(listing) && (
-                        <span className="text-[11px] font-medium text-amber-600 dark:text-amber-300">
-                          No map pin
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {listings.length === 0 && (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No listings match this area.
+        <ScrollArea className="lg:h-[600px]">
+          <div className="space-y-3 lg:pr-3">
+            {!hasListings ? (
+              <SidebarEmptyState kind="no-listings" />
+            ) : (
+              <>
+                {!hasMappedListings && <SidebarEmptyState kind="no-mapped" />}
+                {listings.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    resolveImageUrl={resolveImageUrl}
+                    formatPrice={formatPrice}
+                    onOpenListing={onOpenListing}
+                    selected={selectedListingId === listing.id}
+                    onSelect={handleSelectListing}
+                  />
+                ))}
+              </>
+            )}
           </div>
-        )}
+        </ScrollArea>
       </aside>
     </section>
   )
