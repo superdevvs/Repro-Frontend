@@ -992,7 +992,7 @@ const PrivateListingPortal = () => {
     <div
       className={
         viewMode === 'showcase'
-          ? 'inline-flex w-full items-center rounded-xl border border-white/15 bg-slate-950/72 p-1 text-white shadow-xl backdrop-blur-xl sm:w-auto'
+          ? 'inline-flex w-full items-center rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-950 shadow-xl backdrop-blur-xl sm:w-auto dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
           : 'inline-flex w-full items-center rounded-xl border border-border/70 bg-muted/20 p-1 sm:w-auto'
       }
     >
@@ -1003,7 +1003,7 @@ const PrivateListingPortal = () => {
           listingScope === 'all'
             ? 'bg-blue-600 text-white shadow-sm'
             : viewMode === 'showcase'
-              ? 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+              ? 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
         }`}
       >
@@ -1017,7 +1017,7 @@ const PrivateListingPortal = () => {
           listingScope === 'mine'
             ? 'bg-blue-600 text-white shadow-sm'
             : viewMode === 'showcase'
-              ? 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+              ? 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
         }`}
       >

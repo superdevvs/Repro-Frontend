@@ -88,7 +88,7 @@ export function MapTabToolbar({
       className={cn(
         'flex flex-col rounded-xl border',
         overlay
-          ? 'gap-2 border-white/15 bg-slate-950/72 p-2.5 text-white shadow-xl backdrop-blur-xl [&_button]:border-white/15 [&_button]:bg-slate-950/55 [&_button]:text-slate-200 [&_button:hover]:bg-slate-800/80'
+          ? 'gap-2 border-slate-300/80 bg-white/82 p-2.5 text-slate-950 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
           : 'gap-3 border-border bg-card p-3',
         className,
       )}

@@ -61,7 +61,7 @@ export function ViewSwitcher({
         className={cn(
           'gap-0 rounded-lg border p-1 shadow-sm',
           variant === 'overlay'
-            ? 'border-white/15 bg-slate-950/55'
+            ? 'border-slate-300/80 bg-white/76 dark:border-white/15 dark:bg-slate-950/55'
             : 'border-border bg-background dark:bg-background',
         )}
         aria-label="View mode"
@@ -78,7 +78,7 @@ export function ViewSwitcher({
                   'data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:shadow-sm',
                   'dark:data-[state=on]:bg-blue-500 dark:data-[state=on]:text-white',
                   variant === 'overlay' &&
-                    'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    'text-slate-600 hover:bg-slate-200 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
                 )}
               >
                 <Icon className="h-4 w-4" />

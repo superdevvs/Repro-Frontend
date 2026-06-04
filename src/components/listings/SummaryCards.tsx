@@ -74,7 +74,7 @@ export function SummaryCards({
           className={cn(
             'flex items-center rounded-xl border',
             overlay
-              ? 'min-w-[136px] flex-1 gap-2 border-white/15 bg-slate-950/72 px-3 py-2.5 text-white shadow-xl backdrop-blur-xl'
+              ? 'min-w-[136px] flex-1 gap-2 border-slate-300/80 bg-white/82 px-3 py-2.5 text-slate-950 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
               : 'gap-3 border-border bg-card p-4 text-card-foreground',
           )}
           data-testid={`summary-card-${key}`}
@@ -83,7 +83,7 @@ export function SummaryCards({
             className={cn(
               'flex shrink-0 items-center justify-center rounded-lg',
               overlay
-                ? 'h-8 w-8 bg-blue-500/10 text-blue-300 ring-1 ring-inset ring-blue-400/15'
+                ? 'h-8 w-8 bg-blue-500/10 text-blue-600 ring-1 ring-inset ring-blue-500/20 dark:text-blue-300 dark:ring-blue-400/15'
                 : 'h-9 w-9 bg-muted text-muted-foreground',
             )}
             aria-hidden="true"
@@ -94,7 +94,9 @@ export function SummaryCards({
             <p
               className={cn(
                 'truncate text-xs font-medium',
-                overlay ? 'text-slate-300' : 'text-muted-foreground',
+                overlay
+                  ? 'text-slate-600 dark:text-slate-300'
+                  : 'text-muted-foreground',
               )}
             >
               {label}
@@ -102,7 +104,7 @@ export function SummaryCards({
             <p
               className={cn(
                 'font-semibold leading-tight tracking-tight',
-                overlay ? 'text-lg text-white' : 'text-2xl',
+                overlay ? 'text-lg text-slate-950 dark:text-white' : 'text-2xl',
               )}
               data-testid={`summary-value-${key}`}
             >

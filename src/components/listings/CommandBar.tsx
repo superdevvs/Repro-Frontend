@@ -149,14 +149,16 @@ export function CommandBar({
             className={cn(
               'flex h-9 items-center gap-2 rounded-lg border px-3',
               variant === 'overlay'
-                ? 'border-white/15 bg-slate-950/55 text-white'
+                ? 'border-slate-300/80 bg-white/76 text-slate-950 shadow-sm dark:border-white/15 dark:bg-slate-950/55 dark:text-white'
                 : 'border-border bg-background',
             )}
           >
             <Search
               className={cn(
                 'h-4 w-4 shrink-0',
-                variant === 'overlay' ? 'text-slate-300' : 'text-muted-foreground',
+                variant === 'overlay'
+                  ? 'text-slate-500 dark:text-slate-300'
+                  : 'text-muted-foreground',
               )}
             />
             <CommandPrimitive.Input
@@ -172,7 +174,7 @@ export function CommandBar({
               className={cn(
                 'flex h-9 w-full bg-transparent text-sm outline-none',
                 variant === 'overlay'
-                  ? 'text-white placeholder:text-slate-400'
+                  ? 'text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400'
                   : 'text-foreground placeholder:text-muted-foreground',
               )}
             />

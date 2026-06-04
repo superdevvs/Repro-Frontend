@@ -40,9 +40,9 @@ export function CompactListingRow({
       tabIndex={0}
       aria-pressed={selected}
       className={cn(
-        'group flex cursor-pointer items-center gap-2.5 rounded-xl border-white/10 bg-slate-950/38 p-2 text-left text-white shadow-none transition duration-200 hover:border-blue-400/60 hover:bg-slate-900/72',
+        'group flex cursor-pointer items-center gap-2.5 rounded-xl border-slate-200/90 bg-white/62 p-2 text-left text-slate-950 shadow-none transition duration-200 hover:border-blue-400/60 hover:bg-white/90 dark:border-white/10 dark:bg-slate-950/38 dark:text-white dark:hover:border-blue-400/60 dark:hover:bg-slate-900/72',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
-        selected && 'border-blue-400/70 bg-blue-500/10 ring-1 ring-blue-400/30',
+        selected && 'border-blue-500/70 bg-blue-500/10 ring-1 ring-blue-500/25 dark:border-blue-400/70 dark:ring-blue-400/30',
         listing.isListingHidden && 'opacity-70',
       )}
       onClick={() => onSelect(listing.id)}
@@ -63,14 +63,14 @@ export function CompactListingRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-white">
+        <p className="truncate text-xs font-semibold text-slate-950 dark:text-white">
           {listing.address || 'Private listing'}
         </p>
         {locationLine && (
-          <p className="mt-0.5 truncate text-[11px] text-slate-300">{locationLine}</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-600 dark:text-slate-300">{locationLine}</p>
         )}
         {metricLine && (
-          <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-400">
+          <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
             {metricLine}
           </p>
         )}
@@ -82,7 +82,7 @@ export function CompactListingRow({
         variant="ghost"
         title={bookmarked ? 'Remove bookmark' : 'Bookmark listing'}
         aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark listing'}
-        className="h-8 w-8 flex-shrink-0 rounded-lg border border-white/10 bg-slate-950/50 text-slate-300 hover:bg-slate-800 hover:text-white"
+        className="h-8 w-8 flex-shrink-0 rounded-lg border border-slate-300/80 bg-white/70 text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
         onClick={(event) => {
           event.stopPropagation()
           onToggleBookmark(listing)

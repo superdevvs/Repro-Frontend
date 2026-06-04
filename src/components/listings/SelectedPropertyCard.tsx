@@ -68,7 +68,7 @@ export function SelectedPropertyCard({
     <Card
       data-listing-id={listing.id}
       data-selected="true"
-      className="overflow-hidden rounded-xl border-blue-500 bg-slate-950/35 text-white shadow-none ring-1 ring-blue-400/25"
+      className="overflow-hidden rounded-xl border-blue-500 bg-white/68 text-slate-950 shadow-none ring-1 ring-blue-500/20 dark:bg-slate-950/35 dark:text-white dark:ring-blue-400/25"
     >
       <div className="relative aspect-[16/5] overflow-hidden bg-slate-900">
         <img
@@ -102,21 +102,21 @@ export function SelectedPropertyCard({
 
       <div className="space-y-2.5 p-3">
         <div>
-          <h3 className="truncate text-sm font-semibold leading-tight text-white">
+          <h3 className="truncate text-sm font-semibold leading-tight text-slate-950 dark:text-white">
             {listing.address || 'Private listing'}
           </h3>
           {locationLine && (
-            <p className="mt-0.5 truncate text-xs text-slate-300">{locationLine}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-300">{locationLine}</p>
           )}
         </div>
 
-        <p className="text-base font-semibold tracking-tight text-white">{price}</p>
+        <p className="text-base font-semibold tracking-tight text-slate-950 dark:text-white">{price}</p>
 
         {metrics.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-300">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
             {metrics.map((metric, index) => (
               <span key={metric.kind} className="inline-flex items-center gap-1.5">
-                {index > 0 && <span className="text-white/25">•</span>}
+                {index > 0 && <span className="text-slate-300 dark:text-white/25">•</span>}
                 {metric.text}
               </span>
             ))}
@@ -136,7 +136,7 @@ export function SelectedPropertyCard({
             type="button"
             size="icon"
             variant="outline"
-            className="h-9 w-9 rounded-lg border-white/15 bg-slate-950/55 text-slate-200 hover:bg-slate-800 hover:text-white"
+            className="h-9 w-9 rounded-lg border-slate-300/80 bg-white/70 text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-white/15 dark:bg-slate-950/55 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
             title="Share listing"
             aria-label="Share listing"
             onClick={() => onShareListing(listing)}
@@ -147,7 +147,7 @@ export function SelectedPropertyCard({
             type="button"
             size="icon"
             variant="outline"
-            className="h-9 w-9 rounded-lg border-white/15 bg-slate-950/55 text-slate-200 hover:bg-slate-800 hover:text-white"
+            className="h-9 w-9 rounded-lg border-slate-300/80 bg-white/70 text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-white/15 dark:bg-slate-950/55 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
             title="Focus on map"
             aria-label="Focus on map"
             disabled={!mapped}
@@ -159,7 +159,7 @@ export function SelectedPropertyCard({
             type="button"
             size="icon"
             variant="outline"
-            className="h-9 w-9 rounded-lg border-white/15 bg-slate-950/55 text-slate-200 hover:bg-slate-800 hover:text-white"
+            className="h-9 w-9 rounded-lg border-slate-300/80 bg-white/70 text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-white/15 dark:bg-slate-950/55 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
             title={bookmarked ? 'Remove bookmark' : 'Bookmark listing'}
             aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark listing'}
             onClick={() => onToggleBookmark(listing)}

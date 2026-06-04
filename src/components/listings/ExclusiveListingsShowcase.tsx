@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from '@/lib/sonner-toast'
+import { useTheme } from '@/hooks/useTheme'
 import { buildMarkers, getMapCenter } from '@/lib/listing-presentation/markers'
 import { CompactListingRow } from '@/components/listings/CompactListingRow'
 import { SelectedPropertyCard } from '@/components/listings/SelectedPropertyCard'
@@ -179,7 +180,7 @@ const LazyListingMapCanvas = lazy(() =>
             <MapControls
               position="bottom-left"
               showZoom
-              className="!bottom-[45%] !left-3 rounded-xl border border-white/15 bg-slate-950/72 p-1 text-white shadow-xl backdrop-blur-xl lg:!bottom-4 lg:!left-4 [&_button]:border-white/10 [&_button]:bg-slate-950/55 [&_button:hover]:bg-blue-600"
+              className="!bottom-[45%] !left-3 rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:!bottom-4 lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:border-slate-300/80 [&_button]:bg-white/76 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:border-white/10 dark:[&_button]:bg-slate-950/55"
             />
             {/* Custom pins + hover/selected previews; shared selection (R10). */}
             <CustomPinMarkers
@@ -203,7 +204,7 @@ const LazyListingMapCanvas = lazy(() =>
             showLabels={showMarkerLabels}
             drawAreaActive={drawAreaActive}
             isFullscreen={isFullscreen}
-            className="!bottom-[6.75rem] !left-4 hidden border-white/15 bg-slate-950/72 text-white shadow-xl backdrop-blur-xl lg:flex [&_button]:text-slate-200 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white"
+            className="!bottom-[6.75rem] !left-4 hidden border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:flex dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:text-slate-700 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:text-slate-200"
           />
 
           {markers.length === 0 && (
@@ -222,8 +223,8 @@ const LazyListingMapCanvas = lazy(() =>
 )
 
 const MapLoadingFallback = () => (
-  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-slate-950">
-    <div className="text-center text-slate-300">
+  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-slate-100 dark:bg-slate-950">
+    <div className="text-center text-slate-600 dark:text-slate-300">
       <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
       <p className="text-sm">Loading map...</p>
     </div>
@@ -240,6 +241,8 @@ export function ExclusiveListingsShowcase({
   showMarkerLabels: showMarkerLabelsProp,
   controlsOverlay,
 }: ExclusiveListingsShowcaseProps) {
+  const { theme } = useTheme()
+
   // Controlled-or-uncontrolled selection: use the props when both are provided,
   // otherwise fall back to internal state so existing callers keep working.
   const isSelectionControlled =
@@ -356,7 +359,7 @@ export function ExclusiveListingsShowcase({
   return (
     <section
       data-testid="showcase-map-canvas"
-      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl"
+      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-slate-100 shadow-2xl dark:border-white/10 dark:bg-slate-950"
     >
       <Suspense fallback={<MapLoadingFallback />}>
         <LazyListingMapCanvas
@@ -368,7 +371,7 @@ export function ExclusiveListingsShowcase({
           resolveImageUrl={resolveImageUrl}
           formatPrice={formatPrice}
           onOpenListing={onOpenListing}
-          theme="dark"
+          theme={theme === 'dark' ? 'dark' : 'light'}
         />
       </Suspense>
 
@@ -378,13 +381,13 @@ export function ExclusiveListingsShowcase({
         </div>
       ) : null}
 
-      <aside className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-white/15 bg-slate-950/78 text-white shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[340px]">
+      <aside className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white">
         <ScrollArea className="h-full">
           <div className="space-y-4 p-3">
             {!hasListings ? (
               <SidebarEmptyState
                 kind="no-listings"
-                className="border-white/10 bg-slate-950/35 text-white shadow-none [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-300"
+                className="border-slate-200/80 bg-white/45 text-slate-950 shadow-none dark:border-white/10 dark:bg-slate-950/35 dark:text-white [&_.text-foreground]:text-slate-950 dark:[&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-600 dark:[&_.text-muted-foreground]:text-slate-300"
               />
             ) : (
               <>
@@ -392,8 +395,8 @@ export function ExclusiveListingsShowcase({
                   <section className="space-y-2.5">
                     <div className="flex items-center justify-between gap-3 px-1">
                       <div>
-                        <h2 className="text-sm font-semibold text-white">Featured Listing</h2>
-                        <p className="text-[11px] text-slate-300">
+                        <h2 className="text-sm font-semibold text-slate-950 dark:text-white">Featured Listing</h2>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300">
                           {mappedListingCount} mapped / {listings.length} total
                         </p>
                       </div>
@@ -417,12 +420,12 @@ export function ExclusiveListingsShowcase({
                 {!hasMappedListings ? (
                   <SidebarEmptyState
                     kind="no-mapped"
-                    className="hidden border-white/10 bg-slate-950/35 text-white shadow-none [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-300 lg:block"
+                    className="hidden border-slate-200/80 bg-white/45 text-slate-950 shadow-none dark:border-white/10 dark:bg-slate-950/35 dark:text-white [&_.text-foreground]:text-slate-950 dark:[&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-600 dark:[&_.text-muted-foreground]:text-slate-300 lg:block"
                   />
                 ) : null}
 
                 <section className="hidden space-y-2.5 lg:block">
-                  <h2 className="px-1 text-xs font-semibold text-slate-200">
+                  <h2 className="px-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
                     All Private Listings ({otherListings.length})
                   </h2>
                   {otherListings.length > 0 ? (
@@ -440,7 +443,7 @@ export function ExclusiveListingsShowcase({
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-white/15 px-4 py-5 text-center text-xs text-slate-400">
+                    <div className="rounded-xl border border-dashed border-slate-300/80 px-4 py-5 text-center text-xs text-slate-500 dark:border-white/15 dark:text-slate-400">
                       No other private listings in this view.
                     </div>
                   )}
