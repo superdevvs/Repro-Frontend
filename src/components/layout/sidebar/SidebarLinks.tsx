@@ -255,18 +255,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
-      {/* Service Area Assignment - admin tooling for photographer region/state/area assignments */}
-      {accountsPermission.canView() && (
-        <NavLink
-          to="/admin/service-areas"
-          icon={<MapPinIcon className="h-5 w-5" />}
-          label="Service Areas"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/admin/service-areas'}
-          onActivePreview={previewActiveIndicator}
-        />
-      )}
-
       {/* Availability */}
       {availabilityPermission.canView() && !isEditingManager && role !== 'client' && (
         <NavLink

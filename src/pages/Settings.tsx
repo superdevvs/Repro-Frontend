@@ -21,7 +21,7 @@ import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
 import { ToursSection } from '@/components/integrations/sections/ToursSection';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink, Camera } from 'lucide-react';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink, Camera, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -29,6 +29,8 @@ import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
+import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAreaAssignmentTool';
+import { TestShootPanel } from '@/components/photographers/TestShootPanel';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -39,6 +41,7 @@ type TabValue =
   | 'integrations'
   | 'watermark'
   | 'robbie'
+  | 'service-areas'
   | 'overview';
 
 const formatRoleLabel = (value?: string | null) => {
@@ -64,6 +67,7 @@ const Settings = () => {
   const canCreateCoupons = couponsPermission.canCreate();
   const canViewWatermark = permission.can('watermark-settings', 'view');
   const canViewRobbieSettings = permission.can('robbie-settings', 'view');
+  const canViewServiceAreas = permission.forResource('accounts').canView();
   const [systemOverviewUnlocked, setSystemOverviewUnlocked] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -119,11 +123,14 @@ const Settings = () => {
     if (canViewRobbieSettings) {
       tabs.push('robbie');
     }
+    if (canViewServiceAreas) {
+      tabs.push('service-areas');
+    }
     if (showSystemOverviewTab) {
       tabs.push('overview');
     }
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewWatermark, role, showSystemOverviewTab]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role, showSystemOverviewTab]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
@@ -427,7 +434,7 @@ const Settings = () => {
 
   // Auto-expanding tabs configuration
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>, { icon: typeof User; label: string }> = {
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>, { icon: typeof User; label: string }> = {
       profile: { icon: User, label: 'Profile' },
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
@@ -436,11 +443,11 @@ const Settings = () => {
     };
 
     const mappedTabs: AutoExpandingTab[] = availableTabs
-      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'overview')
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'service-areas' && tab !== 'overview')
       .map((tab) => ({
         value: tab,
-        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].icon,
-        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].label,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>].label,
       }));
 
     if (availableTabs.includes('integrations')) {
@@ -464,6 +471,14 @@ const Settings = () => {
         value: 'robbie',
         icon: Bot,
         label: 'Robbie AI',
+      });
+    }
+
+    if (availableTabs.includes('service-areas')) {
+      mappedTabs.push({
+        value: 'service-areas',
+        icon: MapPin,
+        label: 'Service Areas',
       });
     }
 
@@ -1115,6 +1130,19 @@ const Settings = () => {
             {canViewRobbieSettings && (
               <TabsContent value="robbie" className="space-y-6">
                 <RobbieSettings />
+              </TabsContent>
+            )}
+
+            {canViewServiceAreas && (
+              <TabsContent value="service-areas" className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Service Area Assignment</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Assign region, state, or area service-area values to photographers. Preview matches before committing.
+                  </p>
+                </div>
+                <ServiceAreaAssignmentTool />
+                <TestShootPanel />
               </TabsContent>
             )}
 
