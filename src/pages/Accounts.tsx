@@ -8,6 +8,8 @@ import { AccountForm } from "@/components/accounts/AccountForm";
 import { UserProfileDialog } from '@/components/accounts/UserProfileDialog';
 import { ResetPasswordDialog } from '@/components/accounts/ResetPasswordDialog';
 import { RoleChangeDialog } from '@/components/accounts/RoleChangeDialog';
+import { AccountStatusControls, type AccountStatus } from '@/components/accounts/AccountStatusControls';
+import { AccountTypeConverter, roleLabel } from '@/components/accounts/AccountTypeConverter';
 import { NotificationSettingsDialog } from '@/components/accounts/NotificationSettingsDialog';
 import { LinkClientBrandingDialog } from '@/components/accounts/LinkClientBrandingDialog';
 import { PermissionsManager } from '@/components/accounts/PermissionsManager';
@@ -177,6 +179,8 @@ export default function Accounts() {
 
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
+  const [accountStatusDialogOpen, setAccountStatusDialogOpen] = useState(false);
+  const [accountTypeConverterOpen, setAccountTypeConverterOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [notificationSettingsDialogOpen, setNotificationSettingsDialogOpen] = useState(false);
   const [linkClientBrandingDialogOpen, setLinkClientBrandingDialogOpen] = useState(false);
@@ -897,6 +901,39 @@ export default function Accounts() {
     setRoleChangeDialogOpen(true);
   };
 
+  const handleManageAccountStatus = (user) => {
+    setSelectedUser(user);
+    setAccountStatusDialogOpen(true);
+  };
+
+  const handleAccountStatusChanged = (userId: string, status: AccountStatus) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? { ...u, account_status: status, isActive: status === 'active' }
+          : u
+      )
+    );
+    setSelectedUser((current) =>
+      current?.id === userId
+        ? { ...current, account_status: status, isActive: status === 'active' }
+        : current
+    );
+  };
+
+  const handleConvertType = (user) => {
+    setSelectedUser(user);
+    setAccountTypeConverterOpen(true);
+  };
+
+  const handleAccountTypeConverted = (userId: string, newType: Role) => {
+    setUsers(users.map(u => (u.id === userId ? { ...u, role: newType } : u)));
+    toast({
+      title: 'Account type converted',
+      description: `User account type changed to ${roleLabel(newType)}.`,
+    });
+  };
+
   const handleResetPassword = (user) => {
     setSelectedUser(user);
     setResetPasswordDialogOpen(true);
@@ -1166,6 +1203,7 @@ export default function Accounts() {
         setEditUserDialogOpen(false);
         setUserProfileDialogOpen(false);
         setRoleChangeDialogOpen(false);
+        setAccountTypeConverterOpen(false);
         setResetPasswordDialogOpen(false);
         setNotificationSettingsDialogOpen(false);
         setLinkClientBrandingDialogOpen(false);
@@ -1377,6 +1415,7 @@ export default function Accounts() {
                     onEdit={handleEditUser}
                     onAssignRep={handleAssignRep}
                     onChangeRole={handleChangeRole}
+                    onConvertType={handleConvertType}
                     onResetPassword={handleResetPassword}
                     onImpersonate={handleImpersonate}
                     onManageNotifications={handleManageNotifications}
@@ -1410,6 +1449,8 @@ export default function Accounts() {
                 onEdit={handleEditUser}
                 onAssignRep={handleAssignRep}
                 onChangeRole={handleChangeRole}
+                onConvertType={handleConvertType}
+                onManageStatus={handleManageAccountStatus}
                 onResetPassword={handleResetPassword}
                 onImpersonate={handleImpersonate}
                 onManageNotifications={handleManageNotifications}
@@ -1548,6 +1589,22 @@ export default function Accounts() {
             onOpenChange={setRoleChangeDialogOpen}
             user={selectedUser}
             onSubmit={handleUpdateRoles}
+          />
+
+          <AccountStatusControls
+            open={accountStatusDialogOpen}
+            onOpenChange={setAccountStatusDialogOpen}
+            user={selectedUser}
+            onStatusChanged={handleAccountStatusChanged}
+            onSessionExpired={handleSessionExpired}
+          />
+
+          <AccountTypeConverter
+            open={accountTypeConverterOpen}
+            onOpenChange={setAccountTypeConverterOpen}
+            user={selectedUser}
+            onConverted={handleAccountTypeConverted}
+            onSessionExpired={handleSessionExpired}
           />
 
           <NotificationSettingsDialog

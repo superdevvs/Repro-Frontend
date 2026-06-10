@@ -69,7 +69,30 @@ export interface MediaFile {
     comment: string;
     timestamp?: string | null;
   } | null;
+  // Virus-scan state machine (Req 14/15). The backend exposes the canonical
+  // `scan_status` string on every shoot-file payload so the admin Dashboard
+  // can render a scan-status badge (Req 15.5) and gate the retry control
+  // (Req 15.8). The frontend maps `quarantined` → "scanning" for display.
+  scan_status?: ScanStatus | null;
+  scanStatus?: ScanStatus | null;
 }
+
+export type ScanStatus = 'quarantined' | 'clean' | 'infected' | 'failed';
+
+const SCAN_STATUSES: ReadonlySet<ScanStatus> = new Set([
+  'quarantined',
+  'clean',
+  'infected',
+  'failed',
+]);
+
+const normalizeScanStatus = (value: unknown): ScanStatus | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const lower = value.toLowerCase();
+  return SCAN_STATUSES.has(lower as ScanStatus) ? (lower as ScanStatus) : null;
+};
 
 const fetchShootFiles = async (
   shootId: string | number,
@@ -150,6 +173,8 @@ const fetchShootFiles = async (
         comments: Array.isArray(f.comments) ? f.comments : [],
         comment_count: Number(f.comment_count ?? 0),
         latest_comment: f.latest_comment ?? null,
+        scan_status: normalizeScanStatus(f.scan_status ?? f.scanStatus),
+        scanStatus: normalizeScanStatus(f.scan_status ?? f.scanStatus),
       }));
 
     return [...mapFiles(rawJson), ...mapFiles(editedJson)];
@@ -207,6 +232,8 @@ const fetchShootFiles = async (
       comments: Array.isArray(f.comments) ? f.comments : [],
       comment_count: Number(f.comment_count ?? 0),
       latest_comment: f.latest_comment ?? null,
+      scan_status: normalizeScanStatus(f.scan_status ?? f.scanStatus),
+      scanStatus: normalizeScanStatus(f.scan_status ?? f.scanStatus),
     }));
   }
 };

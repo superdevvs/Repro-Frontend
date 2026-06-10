@@ -29,6 +29,7 @@ import {
   Search,
   ArrowUpDown,
   MapPin,
+  Send,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,7 @@ import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
+import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -91,6 +93,9 @@ export function ShootDetailsSidebar({
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
   
+  // Manual notification dialog state (Req 12.5-12.8)
+  const [isManualNotificationOpen, setIsManualNotificationOpen] = useState(false);
+
   const client = shoot.client;
   const photographer = shoot.photographer;
   const payment = shoot.payment || {
@@ -578,6 +583,45 @@ export function ShootDetailsSidebar({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Manual notification action (Req 12.5-12.8) — admins can send a manual
+          email/SMS notification to the client or photographer for this shoot. */}
+      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
+        <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Send className="h-4 w-4 text-blue-600" />
+              </div>
+              Notifications
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Send a manual email or SMS for this shoot.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setIsManualNotificationOpen(true)}
+            >
+              <Send className="h-3 w-3 mr-1.5" />
+              Send notification
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
+        <ManualNotificationDialog
+          shootId={Number(shoot.id)}
+          shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
+          open={isManualNotificationOpen}
+          onClose={() => setIsManualNotificationOpen(false)}
+        />
       )}
       
       {isInvoiceDialogOpen && selectedInvoice && (

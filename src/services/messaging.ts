@@ -108,6 +108,74 @@ export const previewTemplate = async (
   return response.data;
 };
 
+// Manual shoot notifications (Req 12.1, 12.5, 12.6, 12.7, 12.8)
+//
+// Backend endpoints (see MessageTemplateController::manualSend / manualPreview):
+//   POST /api/messaging/notifications/manual-send
+//     body: { shoot_id, type, recipient_type, channel }
+//   POST /api/messaging/notifications/manual-preview
+//     body: { shoot_id, type, recipient_type } (channel optional)
+//     returns: { subject, body_html, body_text, missing_variables }
+
+export const MANUAL_NOTIFICATION_TYPES = [
+  'shoot_scheduled',
+  'shoot_on_hold',
+  'shoot_cancelled',
+  'shoot_ready',
+  'payment_due',
+  'payment_receipt',
+] as const;
+
+export type ManualNotificationType = (typeof MANUAL_NOTIFICATION_TYPES)[number];
+
+export type ManualNotificationRecipient = 'client' | 'photographer';
+
+export type ManualNotificationChannel = 'email' | 'sms';
+
+export interface ManualNotificationPreviewPayload {
+  shoot_id: number;
+  type: ManualNotificationType;
+  recipient_type: ManualNotificationRecipient;
+}
+
+export interface ManualNotificationSendPayload extends ManualNotificationPreviewPayload {
+  channel: ManualNotificationChannel;
+}
+
+export interface ManualNotificationPreviewResult {
+  subject: string | null;
+  body_html: string | null;
+  body_text: string | null;
+  missing_variables: string[];
+}
+
+export interface ManualNotificationSendResult {
+  status: string;
+  message_id: number | null;
+  channel: ManualNotificationChannel;
+  recipient_type: ManualNotificationRecipient;
+}
+
+export const previewManualNotification = async (
+  payload: ManualNotificationPreviewPayload,
+): Promise<ManualNotificationPreviewResult> => {
+  const response = await apiClient.post(
+    '/messaging/notifications/manual-preview',
+    payload,
+  );
+  return response.data;
+};
+
+export const sendManualNotification = async (
+  payload: ManualNotificationSendPayload,
+): Promise<ManualNotificationSendResult> => {
+  const response = await apiClient.post(
+    '/messaging/notifications/manual-send',
+    payload,
+  );
+  return response.data;
+};
+
 // Automations
 export const getAutomations = async (params?: {
   trigger_type?: string;

@@ -66,6 +66,15 @@ interface MediaGridProps {
   onDownloadSingle?: (fileId: string) => void;
   enableRawStacks?: boolean;
   rawStackSize?: number | null;
+  /**
+   * Optional renderer for the scan-status badge (Req 15.5/15.8). When
+   * provided, the grid renders the returned node alongside each file's
+   * filename in both grid and row views — this is how the admin Dashboard
+   * surfaces virus-scan state. Returning `null` for a given file (or
+   * leaving the prop unset) hides the badge entirely. The parent decides
+   * which roles see the badge and wires the rescan retry control.
+   */
+  renderScanStatus?: (file: MediaFile) => React.ReactNode | null;
 }
 
 interface MediaStack {
@@ -110,6 +119,7 @@ export function MediaGrid({
   onDownloadSingle,
   enableRawStacks = false,
   rawStackSize = null,
+  renderScanStatus,
 }: MediaGridProps) {
   const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -1046,6 +1056,10 @@ export function MediaGrid({
           <p className="text-[11px] font-medium truncate" title={displayFilename}>
             {displayFilename}
           </p>
+          {renderScanStatus && (() => {
+            const node = renderScanStatus(file);
+            return node ? <div className="mt-1">{node}</div> : null;
+          })()}
           {latestCommentText && (
             <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
               {latestCommentText}
@@ -1194,6 +1208,10 @@ export function MediaGrid({
               <p className="text-[11px] font-medium truncate" title={displayFilename}>
                 {displayFilename}
               </p>
+              {renderScanStatus && (() => {
+                const node = renderScanStatus(file);
+                return node ? <div className="mt-1">{node}</div> : null;
+              })()}
               {latestCommentText && (
                 <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
                   {latestCommentText}
@@ -1322,6 +1340,10 @@ export function MediaGrid({
           <p className="text-xs font-medium truncate" title={displayFilename}>
             {displayFilename}
           </p>
+          {renderScanStatus && (() => {
+            const node = renderScanStatus(file);
+            return node ? <div className="mt-1">{node}</div> : null;
+          })()}
           {latestCommentText && (
             <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
               {latestCommentText}
@@ -1487,6 +1509,10 @@ export function MediaGrid({
               <p className="text-xs font-medium truncate" title={displayFilename}>
                 {displayFilename}
               </p>
+              {renderScanStatus && (() => {
+                const node = renderScanStatus(file);
+                return node ? <div className="mt-1">{node}</div> : null;
+              })()}
               {latestCommentText && (
                 <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
                   {latestCommentText}

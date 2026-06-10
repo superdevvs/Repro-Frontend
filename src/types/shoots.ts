@@ -359,6 +359,11 @@ export interface ShootData {
   propertyStatus?: 'available' | 'coming_soon' | 'pending' | 'sold' | 'rented';
   property_status?: 'available' | 'coming_soon' | 'pending' | 'sold' | 'rented';
   status: string;
+  /**
+   * Internal shoot classification (e.g. 'standard', 'internal_test'). Surfaced so the
+   * Schedule_View can mark a Test_Shoot apart from real bookings (Req 10.10).
+   */
+  shootType?: string;
   workflowStatus?: string;
   deliveryStatus?: string;
   notes?: string | {

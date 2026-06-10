@@ -66,6 +66,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { MediaViewer } from './MediaViewer';
+import { ScanStatusBadge } from './ScanStatusBadge';
+import { useRescanFile } from '@/hooks/useRescanFile';
 import {
   getMediaImageUrl as getImageUrl,
   getMediaSrcSet as getSrcSet,
@@ -853,6 +855,71 @@ export function useShootDetailsMediaTab({
     (isSalesRep && viewerSourceTab === 'edited');
   const canViewFullSizeMedia =
     isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked);
+
+  // Virus-scan badge + retry-scan control (Req 15.5/15.8). Only admin-tier
+  // roles see the badge and may retry a failed scan; backend authorizes the
+  // rescan endpoint identically (`role:admin,superadmin,editing_manager`).
+  // The renderer is memoized so MediaGrid identity is stable and does not
+  // re-render every keystroke.
+  const canViewScanStatus =
+    isAdmin || ['superadmin', 'editing_manager'].includes(normalizedRole);
+  const rescanFile = useRescanFile();
+  const handleRescan = useCallback(
+    (fileId: string) => {
+      if (!shoot.id) return;
+      rescanFile.mutate(
+        { shootId: shoot.id, fileId },
+        {
+          onSuccess: (data) => {
+            toast({
+              title: 'Scan re-enqueued',
+              description: 'The file is being re-scanned.',
+            });
+            // The mutation already invalidates per-type and combined query
+            // keys; nothing else to do — the badge will flip to "Scanning"
+            // (quarantined) on the next refresh.
+            void data;
+          },
+          onError: (error) => {
+            const status = error?.response?.status;
+            const description = status === 409
+              ? 'Only files whose scan failed can be re-scanned.'
+              : (error?.response?.data?.message
+                ?? 'Could not retry the scan. Please try again.');
+            toast({
+              title: 'Could not retry scan',
+              description,
+              variant: 'destructive',
+            });
+          },
+        },
+      );
+    },
+    [rescanFile, shoot.id, toast],
+  );
+  const rescanningFileId = (rescanFile.isPending && rescanFile.variables)
+    ? String(rescanFile.variables.fileId)
+    : null;
+  const renderScanStatus = useMemo(() => {
+    if (!canViewScanStatus) {
+      return undefined;
+    }
+    return (file: MediaFile) => {
+      const status = file.scan_status ?? file.scanStatus ?? null;
+      if (!status) {
+        return null;
+      }
+      return (
+        <ScanStatusBadge
+          status={status}
+          onRetry={() => handleRescan(file.id)}
+          isRetrying={rescanningFileId === String(file.id)}
+          size="sm"
+        />
+      );
+    };
+  }, [canViewScanStatus, handleRescan, rescanningFileId]);
+
   const editedSlideshowFiles = useMemo(() => {
     const eligibleFiles = clientVisibleEditedFiles.filter((file) => {
       if (!isPreviewableImage(file) || isVideoFile(file)) {
@@ -1106,6 +1173,7 @@ export function useShootDetailsMediaTab({
             onDownloadSingle={canDownloadSingleMediaInActiveTab ? handleDownloadSingleFile : undefined}
             enableRawStacks={displayTab === 'uploaded'}
             rawStackSize={Number.isFinite(rawStackSize) && rawStackSize > 1 ? rawStackSize : null}
+            renderScanStatus={renderScanStatus}
           />
         </div>
         {canUploadInDisplayTab && (

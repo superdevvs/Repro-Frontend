@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { TimeRangeFilter } from '@/components/dashboard/TimeRangeFilter';
 import { TimeRange, filterShootsByDateRange } from '@/utils/dateUtils';
+import { calendarDay } from '@/lib/date';
 import { useShoots } from '@/context/ShootsContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
@@ -31,7 +32,6 @@ import {
   addMonths, 
   subMonths, 
   isSameDay, 
-  parseISO, 
   startOfWeek, 
   endOfWeek, 
   eachDayOfInterval, 
@@ -49,6 +49,8 @@ import {
   setYear
 } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { FlaskConical } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
@@ -84,7 +86,9 @@ const ShootCalendar = () => {
   };
   
   const getShootDays = () => {
-    return shoots.map(shoot => parseISO(shoot.scheduledDate));
+    // scheduled_date is the shoot's local calendar day — parse as local midnight
+    // so the day never shifts based on the viewer's machine timezone (Req 9.1, 9.4).
+    return shoots.map(shoot => calendarDay(shoot.scheduledDate));
   };
   
   const shootDays = getShootDays();
@@ -122,7 +126,9 @@ const ShootCalendar = () => {
 
   const getShootsForDate = (date: Date) => {
     return shoots.filter(shoot => {
-      const shootDate = parseISO(shoot.scheduledDate);
+      // Match against the shoot's local calendar day so the bucket equals the
+      // scheduled day regardless of the viewer's timezone (Req 9.1, 9.4).
+      const shootDate = calendarDay(shoot.scheduledDate);
       return isSameDay(shootDate, date);
     });
   };
@@ -292,6 +298,12 @@ const ShootCalendar = () => {
                                           </AvatarFallback>
                                         </Avatar>
                                         <span className="truncate">{shoot.client.name}</span>
+                                        {shoot.shootType === 'internal_test' && (
+                                          <FlaskConical
+                                            className="h-3 w-3 shrink-0 text-amber-500"
+                                            aria-label="Internal test shoot"
+                                          />
+                                        )}
                                       </div>
                                     </Button>
                                   ))}
@@ -340,7 +352,15 @@ const ShootCalendar = () => {
                                     key={`shoot-${shootIndex}`}
                                     className="p-2 bg-primary/5 rounded-md border border-primary/10 cursor-pointer hover:bg-primary/10 transition-colors"
                                   >
-                                    <div className="text-sm font-medium">{shoot.client.name}</div>
+                                    <div className="flex items-center justify-between gap-1">
+                                      <div className="text-sm font-medium truncate">{shoot.client.name}</div>
+                                      {shoot.shootType === 'internal_test' && (
+                                        <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px]">
+                                          <FlaskConical className="mr-0.5 h-2.5 w-2.5" />
+                                          Test
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-muted-foreground">{shoot.location.city}</div>
                                   </div>
                                 ))

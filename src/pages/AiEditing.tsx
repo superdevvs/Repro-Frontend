@@ -10,13 +10,11 @@ import {
   Clock,
   Cloud,
   ExternalLink,
-  Film,
   Image as ImageIcon,
   Info,
   ListChecks,
   Loader2,
   Maximize2,
-  MessageCircle,
   Plus,
   RectangleVertical,
   RefreshCw,
@@ -58,8 +56,13 @@ import { AiEditingStepper } from '@/components/ai-editing/AiEditingStepper';
 import { AiEditingModePicker } from '@/components/ai-editing/AiEditingModePicker';
 import { AiEditingJobCard } from '@/components/ai-editing/AiEditingJobCard';
 import { AiEditingComparisonLightbox } from '@/components/ai-editing/AiEditingComparisonLightbox';
+import { BatchJobsPanel } from '@/components/ai-editing/BatchJobsPanel';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { ListingVideoGenerator } from '@/components/listing-video/ListingVideoGenerator';
+import { ReelGenerator } from '@/components/reel/ReelGenerator';
+import { StudioLanding } from '@/components/studio/StudioLanding';
+import { StudioSubtabNav } from '@/components/studio/StudioSubtabNav';
+import type { StudioShootRef } from '@/components/studio/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,6 +111,23 @@ type JobStatus = EditingJob['status'];
 type StatusFilter = 'all' | JobStatus;
 type EnhancementModeId = 'enhance' | 'sky_replace' | 'vertical_correction' | 'window_pull';
 
+// Studio shell navigation model (ai-editing-default-page).
+// `activeSubtab` is the new top-level selector for the Studio shell; the
+// existing `workspaceMode` continues to drive the in-Subtab photo/video content.
+type StudioSubtab = 'studio' | 'photo' | 'video';
+// Which capability is active within a Subtab when arriving from a card/template.
+type PhotoCapability = 'workspace' | 'batch'; // batch = Batch_Jobs_Feature
+type VideoCapability = 'listing' | 'cleanup' | 'reel'; // reel = Reel_Generator_Feature
+
+// Centralized routing target for card/template/recent-project navigation.
+interface RouteTarget {
+  subtab: StudioSubtab;
+  photoMode?: EnhancementModeId; // preselect enhancement (enhance | sky_replace | ...)
+  photoCapability?: PhotoCapability; // 'batch' opens Batch_Jobs_Feature
+  videoCapability?: VideoCapability; // 'reel' | 'cleanup' | 'listing'
+  shoot?: StudioShootRef; // used by Recent Projects deep-link
+}
+
 const editingTypeLabels: Record<string, string> = {
   enhance: 'Enhance',
   enhance_custom: 'Custom Autoenhance',
@@ -133,6 +153,13 @@ const AiEditing = () => {
 
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('photo');
+
+  // Studio shell Subtab navigation. Defaults to 'studio' so the Studio Landing
+  // is the default view and Photo/Video are never auto-opened on first load
+  // (Req 1.1, 1.4). Visual nav wiring lands in task 5.2.
+  const [activeSubtab, setActiveSubtab] = useState<StudioSubtab>('studio');
+  const [photoCapability, setPhotoCapability] = useState<PhotoCapability>('workspace');
+  const [videoCapability, setVideoCapability] = useState<VideoCapability>('listing');
 
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
   const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
@@ -486,42 +513,6 @@ const AiEditing = () => {
   const submitEditingType = selectedModeList.length === 1 ? selectedModeList[0] : 'enhance_custom';
   const isAutoenhanceConfigured = connection?.success !== false;
 
-  const renderWorkspaceModeSwitcher = () => {
-    const modes: Array<{ id: WorkspaceMode; label: string; Icon: React.ElementType }> = [
-      { id: 'photo', label: 'Photo Editing', Icon: ImageIcon },
-      { id: 'video', label: 'Video Editing', Icon: Film },
-      { id: 'chat', label: 'Chat', Icon: MessageCircle },
-    ];
-
-    return (
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/40 p-1">
-        {modes.map(({ id, label, Icon }) => {
-          const active = workspaceMode === id;
-          return (
-            <Button
-              key={id}
-              type="button"
-              variant={active ? 'default' : 'ghost'}
-              size="sm"
-              className={cn('h-8 gap-1.5 px-3 text-xs sm:text-sm', !active && 'text-muted-foreground')}
-              onClick={() => {
-                setWorkspaceMode(id);
-                if (id === 'chat') {
-                  setViewMode('chat');
-                } else if (viewMode === 'chat') {
-                  setViewMode('activity');
-                }
-              }}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </Button>
-          );
-        })}
-      </div>
-    );
-  };
-
   const buildSubmitParams = () => {
     const params: Record<string, any> = {
       notes: notes.trim() || undefined,
@@ -560,6 +551,95 @@ const AiEditing = () => {
     setQuickStartMode(modeId);
     startNewEdit();
   };
+
+  /**
+   * Centralized navigation for Studio feature cards, templates, and recent-project
+   * deep-links. Switches the active Subtab and primes the target capability in
+   * place — it never changes the route (Req 2.2, 2.3, 10.1, 11.1). The existing
+   * `workspaceMode` remains the in-Subtab driver so the photo/video components
+   * need no changes.
+   */
+  const routeToCapability = useCallback((target: RouteTarget) => {
+    setActiveSubtab(target.subtab);
+
+    // Recent-project deep-links arrive with a loose shoot ref; resolve it to the
+    // full loaded shoot when available so the photo/video components get the
+    // shape they expect, falling back to a minimal record otherwise.
+    const resolveShoot = (ref?: StudioShootRef): ShootWithEditing | null => {
+      if (!ref) return null;
+      const full = shoots.find((s) => s.id === ref.id);
+      if (full) return full;
+      return {
+        id: ref.id,
+        address: ref.address,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+    };
+
+    if (target.subtab === 'photo') {
+      setWorkspaceMode('photo');
+      setPhotoCapability(target.photoCapability ?? 'workspace');
+      if (target.photoMode) {
+        setSelectedEnhancementIds(new Set([target.photoMode]));
+        setQuickStartMode(target.photoMode);
+      }
+      const shoot = resolveShoot(target.shoot);
+      if (shoot) {
+        // Recent-project deep-link arrives with a preselected shoot.
+        setSelectedShoot(shoot);
+        setViewMode('select-files');
+      } else {
+        setSelectedShoot(null);
+        setViewMode('select-shoot');
+      }
+      lastShiftAnchorRef.current = null;
+      return;
+    }
+
+    if (target.subtab === 'video') {
+      setWorkspaceMode('video');
+      setVideoCapability(target.videoCapability ?? 'listing');
+      const shoot = resolveShoot(target.shoot);
+      if (shoot) {
+        setSelectedShoot(shoot);
+      }
+      // Leave the chat view if it was active so the Video Subtab renders.
+      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
+      return;
+    }
+
+    // 'studio' — landing overview; do not auto-open the Photo/Video Subtabs.
+  }, [shoots]);
+
+  /**
+   * Subtab navigation handler for StudioSubtabNav. Switches the active Subtab and
+   * maps it onto the existing in-Subtab driver: Studio → landing overview,
+   * Photo → `workspaceMode='photo'`, Video → `workspaceMode='video'` (Req 2.1,
+   * 2.5, 2.6). Unlike `routeToCapability`, it preserves the current photo/video
+   * working state (selected shoot, stepper position) so simply switching tabs
+   * never discards in-progress work. It only leaves the chat view so the chosen
+   * Subtab can render.
+   */
+  const handleSubtabSelect = useCallback((subtab: StudioSubtab) => {
+    setActiveSubtab(subtab);
+    if (subtab === 'photo') {
+      setWorkspaceMode('photo');
+      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
+    } else if (subtab === 'video') {
+      setWorkspaceMode('video');
+      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
+    }
+    // 'studio' leaves the in-Subtab photo/video state untouched; the Studio
+    // Landing renders purely off `activeSubtab`.
+  }, []);
+
+  const handleUpgrade = useCallback(() => {
+    toast({
+      title: 'Upgrade to Pro',
+      description: 'Pro unlocks advanced studio capabilities. Contact your admin to upgrade your plan.',
+    });
+  }, [toast]);
 
   const firstName = (user?.name || '').split(' ')[0] || 'there';
 
@@ -2399,7 +2479,7 @@ const AiEditing = () => {
   );
 
   const renderEditFlowFooter = () => {
-    if (workspaceMode !== 'photo' || viewMode === 'activity' || viewMode === 'chat') return null;
+    if (activeSubtab !== 'photo' || workspaceMode !== 'photo' || viewMode === 'activity' || viewMode === 'chat') return null;
     return (
       <div
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur sm:px-6"
@@ -2451,7 +2531,7 @@ const AiEditing = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-32 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
-        {workspaceMode === 'photo' && viewMode !== 'activity' && viewMode !== 'chat' && (
+        {activeSubtab === 'photo' && photoCapability !== 'batch' && workspaceMode === 'photo' && viewMode !== 'activity' && viewMode !== 'chat' && (
           <PageHeader
             title="AI Editing"
             description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
@@ -2485,42 +2565,61 @@ const AiEditing = () => {
           </Card>
         ) : (
           <>
-            {renderWorkspaceModeSwitcher()}
+            <StudioSubtabNav activeSubtab={activeSubtab} onSelect={handleSubtabSelect} />
 
-            {workspaceMode === 'photo' && renderConnectionAlert()}
-
-            {workspaceMode === 'video' ? (
-              <ListingVideoGenerator />
-            ) : workspaceMode === 'chat' || viewMode === 'chat' ? (
-              renderChat()
-            ) : viewMode === 'activity' ? (
-              <>
-                {renderHero()}
-                {renderHeroStats()}
-                {stats.failed > 0 && (
-                  <Card className="border-red-300/60 bg-red-50/70 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">
-                    <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                        <p className="text-sm">
-                          {stats.failed} job{stats.failed === 1 ? '' : 's'} failed recently. Review and retry to recover.
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="self-start sm:self-auto"
-                        onClick={() => setJobStatusFilter('failed')}
-                      >
-                        Show failed jobs
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-                {renderActivity()}
-              </>
+            {activeSubtab === 'studio' ? (
+              <StudioLanding
+                routeToCapability={routeToCapability}
+                canUseAutoenhance={canUseAutoenhance}
+                onUpgrade={handleUpgrade}
+              />
+            ) : activeSubtab === 'video' ? (
+              videoCapability === 'reel' ? <ReelGenerator /> : <ListingVideoGenerator />
             ) : (
-              renderEditFlow()
+              <>
+                {renderConnectionAlert()}
+
+                {photoCapability === 'batch' ? (
+                  <BatchJobsPanel
+                    initialMode={quickStartMode}
+                    initialShoot={selectedShoot ?? undefined}
+                    onSubmitted={() => {
+                      setJobStatusFilter('all');
+                      void loadJobs(false);
+                    }}
+                  />
+                ) : workspaceMode === 'chat' || viewMode === 'chat' ? (
+                  renderChat()
+                ) : viewMode === 'activity' ? (
+                  <>
+                    {renderHero()}
+                    {renderHeroStats()}
+                    {stats.failed > 0 && (
+                      <Card className="border-red-300/60 bg-red-50/70 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">
+                        <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                            <p className="text-sm">
+                              {stats.failed} job{stats.failed === 1 ? '' : 's'} failed recently. Review and retry to recover.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="self-start sm:self-auto"
+                            onClick={() => setJobStatusFilter('failed')}
+                          >
+                            Show failed jobs
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {renderActivity()}
+                  </>
+                ) : (
+                  renderEditFlow()
+                )}
+              </>
             )}
           </>
         )}

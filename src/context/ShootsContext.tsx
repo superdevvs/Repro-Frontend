@@ -912,6 +912,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       lastPaymentType: paymentSummary.lastPaymentType,
     },
     status: shoot.status || 'booked',
+    shootType: ((shoot as any).shoot_type || (shoot as any).shootType || undefined) as
+      | string
+      | undefined,
     workflowStatus: shoot.workflow_status || shoot.workflowStatus || undefined,
     notes,
     adminIssueNotes: shoot.admin_issue_notes ?? undefined,

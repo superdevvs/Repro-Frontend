@@ -43,6 +43,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const SchedulingSettings = lazy(() => import('./pages/SchedulingSettings'));
 const TourBranding = lazy(() => import('./pages/TourBranding'));
 const Accounts = lazy(() => import('./pages/Accounts'));
+const ServiceAreaAssignment = lazy(() => import('./pages/ServiceAreaAssignment'));
 const Availability = lazy(() => import('./pages/Availability'));
 const Reports = lazy(() => import('./pages/Reports'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -527,6 +528,11 @@ const AppRoutes = () => {
           <ShootRoutesWrapper>
             <Accounts />
           </ShootRoutesWrapper>
+        </PermissionRoute>
+      } />
+      <Route path="/admin/service-areas" element={
+        <PermissionRoute resource="accounts">
+          <ServiceAreaAssignment />
         </PermissionRoute>
       } />
       <Route path="/availability" element={

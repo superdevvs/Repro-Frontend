@@ -16,6 +16,7 @@ import {
   MoreVertical,
   Pencil,
   UserCog,
+  ArrowLeftRight,
   KeyRound,
   Bell,
   Link,
@@ -36,6 +37,7 @@ interface AccountCardProps {
   onEdit: (user: User) => void;
   onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
+  onConvertType?: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
   onManageNotifications: (user: User) => void;
@@ -55,6 +57,7 @@ export function AccountCard({
   onEdit,
   onAssignRep,
   onChangeRole,
+  onConvertType,
   onResetPassword,
   onImpersonate,
   onManageNotifications,
@@ -159,6 +162,15 @@ export function AccountCard({
                   onChangeRole(user);
                 }}>
                   <UserCog className="mr-2 h-4 w-4" /> Change Role
+                </DropdownMenuItem>
+              )}
+              {/* Convert account type (Req 18) — admins/super admins */}
+              {canManageAccounts && onConvertType && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onConvertType(user);
+                }}>
+                  <ArrowLeftRight className="mr-2 h-4 w-4" /> Convert Account Type
                 </DropdownMenuItem>
               )}
               {canManageAccounts && (

@@ -29,3 +29,9 @@ dist-ssr
 # Storage files (do not track images)
 public/shoots/**
 !public/shoots/**/.gitkeep
+
+# Playwright e2e artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

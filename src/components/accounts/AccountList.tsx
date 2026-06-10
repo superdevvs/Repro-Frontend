@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
-import { Camera, ExternalLink, Trash2, LogIn, UserPlus } from "lucide-react";
+import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
@@ -23,6 +23,8 @@ interface AccountListProps {
   onEdit: (user: User) => void;
   onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
+  onConvertType?: (user: User) => void;
+  onManageStatus?: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
   onManageNotifications: (user: User) => void;
@@ -41,6 +43,8 @@ export function AccountList({
   onEdit,
   onAssignRep,
   onChangeRole,
+  onConvertType,
+  onManageStatus,
   onResetPassword,
   onImpersonate,
   onManageNotifications,
@@ -182,6 +186,12 @@ export function AccountList({
                         Change Role
                       </DropdownMenuItem>
                     )}
+                    {/* Convert account type (Req 18) — admins/super admins */}
+                    {canManageAccounts && onConvertType && (
+                      <DropdownMenuItem onClick={() => onConvertType(user)}>
+                        <ArrowLeftRight className="mr-2 h-4 w-4" /> Convert Account Type
+                      </DropdownMenuItem>
+                    )}
                     {canManageAccounts && (
                       <>
                         <DropdownMenuSeparator />
@@ -198,6 +208,11 @@ export function AccountList({
                         <DropdownMenuItem onClick={() => onLinkClientBranding(user)}>
                           Link Client/Branding
                         </DropdownMenuItem>
+                        {onManageStatus && (
+                          <DropdownMenuItem onClick={() => onManageStatus(user)}>
+                            <ShieldCheck className="mr-2 h-4 w-4" /> Account Status
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"

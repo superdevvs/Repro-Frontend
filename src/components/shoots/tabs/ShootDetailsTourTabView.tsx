@@ -92,6 +92,7 @@ export function ShootDetailsTourTabView(props: any) {
     isSavingCubicasaIdentifiers,
     syncCubicasaNow,
     isSyncingCubicasa,
+    createCubicasaOrderButton,
     qrCodeDialog,
     onQrDialogOpenChange,
     onQrImageError,
@@ -990,19 +991,22 @@ export function ShootDetailsTourTabView(props: any) {
             {/* CubiCasa Section — floor-plan ingestion only (no tour links). */}
             {(cubicasaSync || isAdmin) && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h4 className="font-semibold text-sm">CubiCasa Floor Plans</h4>
-                  {syncCubicasaNow && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={syncCubicasaNow}
-                      disabled={isSyncingCubicasa}
-                      title="Re-fetch CubiCasa floor plans from app.cubi.casa"
-                    >
-                      {isSyncingCubicasa ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync CubiCasa now</>)}
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {createCubicasaOrderButton}
+                    {syncCubicasaNow && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={syncCubicasaNow}
+                        disabled={isSyncingCubicasa}
+                        title="Re-fetch CubiCasa floor plans from app.cubi.casa"
+                      >
+                        {isSyncingCubicasa ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync CubiCasa now</>)}
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {(() => {
                   const c = cubicasaSync || {};

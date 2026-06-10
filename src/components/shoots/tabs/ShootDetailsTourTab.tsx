@@ -15,6 +15,7 @@ import { ShootTourPropertySection } from '@/components/shoots/tabs/ShootTourProp
 import { ShootTourRealtorPicker, type TourRealtorOption } from '@/components/shoots/tabs/ShootTourRealtorPicker';
 import { ShootDetailsTourTabView } from '@/components/shoots/tabs/ShootDetailsTourTabView';
 import { useShootTourPropertyEditor } from '@/components/shoots/tabs/useShootTourPropertyEditor';
+import { CreateCubicasaOrderButton } from '@/components/shoots/tabs/CreateCubicasaOrderButton';
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
   isAdmin: boolean;
@@ -1429,6 +1430,17 @@ export function ShootDetailsTourTab({
       isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
       syncCubicasaNow={syncCubicasaNow}
       isSyncingCubicasa={isSyncingCubicasa}
+      createCubicasaOrderButton={
+        isAdmin ? (
+          <CreateCubicasaOrderButton
+            shootId={shoot.id}
+            currentStatus={cubicasaSync.status}
+            alreadyLinked={Boolean(cubicasaSync.orderId || cubicasaSync.externalId)}
+            onCreated={onShootUpdate}
+            disabled={isSyncingCubicasa || isSavingCubicasaIdentifiers}
+          />
+        ) : null
+      }
       qrCodeDialog={qrCodeDialog}
       onQrDialogOpenChange={(open: boolean) => setQrCodeDialog({ ...qrCodeDialog, open })}
       onQrImageError={() => {

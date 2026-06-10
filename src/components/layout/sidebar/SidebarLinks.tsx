@@ -25,9 +25,7 @@ import {
   Crown,
   PlusCircle,
   Sparkles,
-} from 'lucide-react';
-
-interface SidebarLinksProps {
+} from 'lucide-react';interface SidebarLinksProps {
   isCollapsed: boolean;
   role: string;
 }
@@ -253,6 +251,18 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Accounts"
           isCollapsed={isCollapsed}
           isActive={pathname === '/accounts'}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
+      {/* Service Area Assignment - admin tooling for photographer region/state/area assignments */}
+      {accountsPermission.canView() && (
+        <NavLink
+          to="/admin/service-areas"
+          icon={<MapPinIcon className="h-5 w-5" />}
+          label="Service Areas"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/admin/service-areas'}
           onActivePreview={previewActiveIndicator}
         />
       )}
