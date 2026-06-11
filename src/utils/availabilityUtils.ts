@@ -66,6 +66,27 @@ export function to12Hour(time24: string): string {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
+/** Placeholder shown when there is no time to display. */
+export const NO_TIME_PLACEHOLDER = '—';
+
+/**
+ * Format a canonical time value for display in 12-hour form.
+ * Accepts HH:mm, HH:mm:ss, or an already-formatted 12-hour string.
+ * Returns NO_TIME_PLACEHOLDER for null/empty/undefined/whitespace-only.
+ *
+ * Presentation-only: canonical (unformatted) values remain the only stored
+ * form. This helper is string-based and timezone-safe — it never constructs a
+ * Date, so the wall-clock hour/minute is preserved regardless of host timezone.
+ */
+export function formatTimeForDisplay(value?: string | null): string {
+  if (value == null) return NO_TIME_PLACEHOLDER;
+  const trimmed = String(value).trim();
+  if (trimmed === '') return NO_TIME_PLACEHOLDER;
+  // to12Hour already passes through AM/PM strings and truncates seconds.
+  const formatted = to12Hour(trimmed);
+  return formatted === '' ? NO_TIME_PLACEHOLDER : formatted;
+}
+
 /**
  * Convert 12-hour time to 24-hour format
  */

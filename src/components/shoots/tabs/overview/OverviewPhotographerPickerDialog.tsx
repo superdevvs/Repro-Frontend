@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { to12Hour, to24Hour } from '@/utils/availabilityUtils';
+import { to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { getStateFullName } from '@/utils/stateUtils';
 import type { PhotographerPickerOption } from './useShootOverviewEditor';
@@ -341,7 +341,7 @@ export function OverviewPhotographerPickerDialog({
                                   {Array.from({ length: availabilityScaleTickCount }).map((_, index) => (
                                     <span
                                       key={`${photographerItem.id}-scale-${index}`}
-                                      title={to12Hour(minutesToTime(availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1))))}
+                                      title={formatTimeForDisplay(minutesToTime(availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1))))}
                                       className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80"
                                     />
                                   ))}

@@ -38,6 +38,7 @@ import {
   formatDateForWallClockInput,
   formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 interface Photographer {
   id: string | number;
@@ -307,22 +308,20 @@ export function ShootApprovalModal({
           if (h === 19 && minuteValue !== 0) continue;
           const m = minuteValue.toString().padStart(2, '0');
           const hour = h.toString().padStart(2, '0');
-          const period = h >= 12 ? 'PM' : 'AM';
-          const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+          const value = `${hour}:${m}`;
           options.push({
-            value: `${hour}:${m}`,
-            label: `${displayHour}:${m} ${period}`,
+            value,
+            // Display label comes from the shared Time_Formatter.
+            label: formatTimeForDisplay(value),
           });
         }
       }
       if (ensure && !options.find((o) => o.value === ensure)) {
         const [h, m] = ensure.split(':').map((v) => parseInt(v, 10));
         if (!Number.isNaN(h) && !Number.isNaN(m)) {
-          const period = h >= 12 ? 'PM' : 'AM';
-          const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
           options.push({
             value: ensure,
-            label: `${displayHour}:${m.toString().padStart(2, '0')} ${period}`,
+            label: formatTimeForDisplay(ensure),
           });
           options.sort((a, b) => a.value.localeCompare(b.value));
         }

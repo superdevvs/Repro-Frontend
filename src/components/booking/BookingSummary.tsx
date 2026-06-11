@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { getServiceScheduleLabel } from '@/utils/serviceScheduleLabel';
 import type { PricingBreakdown } from '@/utils/pricing';
 
 interface BookingSummaryProps {
@@ -66,21 +67,8 @@ export function BookingSummary({
   const hasWeather = weather && (weather.temperature !== undefined || weather.condition);
   const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
   const amountPlaceholder = (originalTotalQuote ?? summaryInfo.pricing?.totalQuote ?? summaryInfo.packagePrice).toFixed(2);
-  const normalizeTimeLabel = (value?: string) => {
-    if (!value) return '';
-    const match = value.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) return value;
-    const hours = parseInt(match[1], 10);
-    const minutes = match[2];
-    const meridiem = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
-    return `${displayHours}:${minutes} ${meridiem}`;
-  };
-  const getServiceScheduleLabel = (serviceId: string) => {
-    const serviceSchedule = serviceSchedules[serviceId];
-    if (!serviceSchedule?.date && !serviceSchedule?.time) return '';
-    return [serviceSchedule.date, normalizeTimeLabel(serviceSchedule.time)].filter(Boolean).join(' at ');
-  };
+  const serviceScheduleLabelFor = (serviceId: string) =>
+    getServiceScheduleLabel(serviceId, serviceSchedules, summaryInfo.date, summaryInfo.time);
   
   // Clients submit requests, admin/rep book directly
   const isClientRole = user?.role === 'client';
@@ -182,8 +170,8 @@ export function BookingSummary({
                 >
                   <div>
                     <p className="text-sm font-medium text-slate-900 dark:text-white">{service.name}</p>
-                    {getServiceScheduleLabel(service.id) && (
-                      <p className="text-xs text-blue-600 dark:text-blue-300 mt-0.5">{getServiceScheduleLabel(service.id)}</p>
+                    {serviceScheduleLabelFor(service.id) && (
+                      <p className="text-xs text-blue-600 dark:text-blue-300 mt-0.5">{serviceScheduleLabelFor(service.id)}</p>
                     )}
                     {service.description && (
                       <p className="text-xs text-muted-foreground mt-0.5">{service.description}</p>

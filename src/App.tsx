@@ -489,6 +489,9 @@ const AppRoutes = () => {
           </ShootRoutesWrapper>
         </PermissionRoute>
       } />
+      {/* Safe redirect for stray navigations to the non-existent bare /shoots route.
+          Placed alongside /shoots/:id; distinct path so it does not shadow the detail route. */}
+      <Route path="/shoots" element={<Navigate to="/shoot-history" replace />} />
       <Route path="/book-shoot" element={
         <PermissionRoute resource="book-shoot" action="create">
           <ShootRoutesWrapper>

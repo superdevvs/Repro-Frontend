@@ -3,6 +3,7 @@ import { Search, CheckCircle, Loader2, MapPin, AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { usePropertyLookup, PropertyData, AddressSuggestion } from '@/hooks/usePropertyLookup';
+import { parseStreetLine, formatParsedStreetLine } from '@/components/AddressLookupField';
 
 export interface PropertyAddressDetails {
   formatted_address: string;
@@ -93,8 +94,11 @@ const PropertyAddressLookup: React.FC<PropertyAddressLookupProps> = ({
 
   // Handle suggestion selection
   const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
-    // Update input value immediately
-    onChange(suggestion.streetAddress || suggestion.fullAddress);
+    // Update input value immediately, keeping the provider street tokens distinct
+    // (street name and suffix are never merged, e.g. never `LakeBoulevard`).
+    const rawStreet = suggestion.streetAddress || suggestion.fullAddress;
+    const cleanedStreet = formatParsedStreetLine(parseStreetLine(rawStreet)) || rawStreet;
+    onChange(cleanedStreet);
     setShowSuggestions(false);
 
     // Fetch full property details
@@ -106,10 +110,14 @@ const PropertyAddressLookup: React.FC<PropertyAddressLookupProps> = ({
     if (isVerified && propertyData.address && !localVerified) {
       setLocalVerified(true);
       
-      // Convert PropertyData to PropertyAddressDetails format
+      // Convert PropertyData to PropertyAddressDetails format. The formatted
+      // line is preserved verbatim from the provider; the structured `address`
+      // field is normalized so adjacent street tokens are never merged.
+      const parsedStreet = parseStreetLine(propertyData.address);
+      const structuredStreet = formatParsedStreetLine(parsedStreet) || propertyData.address;
       const addressDetails: PropertyAddressDetails = {
         formatted_address: propertyData.address,
-        address: propertyData.address,
+        address: structuredStreet,
         city: propertyData.city,
         state: propertyData.state,
         zip: propertyData.zipCode,

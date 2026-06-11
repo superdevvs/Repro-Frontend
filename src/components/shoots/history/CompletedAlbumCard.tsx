@@ -14,6 +14,7 @@ import { API_BASE_URL } from '@/config/env'
 import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
+import { formatTimeForDisplay } from '@/utils/availabilityUtils'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
@@ -175,7 +176,10 @@ export const CompletedAlbumCard = ({
   onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
-  const { formatTime, formatDate: formatDatePref } = useUserPreferences()
+  const { formatDate: formatDatePref } = useUserPreferences()
+  // Route shoot-time display through the shared Time_Formatter so canonical
+  // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
+  const formatTime = formatTimeForDisplay
   const { theme } = useTheme()
   const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null) => {

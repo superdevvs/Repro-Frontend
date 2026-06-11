@@ -35,6 +35,12 @@ import { Button } from '@/components/ui/button';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
+import {
+  BOOKING_FORM_CACHE_KEY,
+  BOOK_ANOTHER_SHOOT_NAV_TARGET,
+  createInitialBookingDraftState,
+  clearBookingFormCache,
+} from '@/utils/bookingDraftReset';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 
 type SqftRange = {
@@ -620,36 +626,37 @@ const BookShoot = () => {
   
   // Check if user should have form data cached (admin, rep, or photographer)
   const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
-  const CACHE_KEY = 'bookShoot_form_cache';
+  const CACHE_KEY = BOOKING_FORM_CACHE_KEY;
   const hasRestoredRef = useRef(false);
   const isInitialMountRef = useRef(true);
   const [hasCachedData, setHasCachedData] = useState(false);
 
   const clearBookingDraftState = React.useCallback(() => {
+    const initial = createInitialBookingDraftState<ServicePackage, ServiceScheduleMap>();
     if (!isClientAccount) {
-      setClient('');
+      setClient(initial.client);
     }
-    setAddress('');
-    setCity('');
-    setState('');
-    setZip('');
-    setDate(undefined);
-    setTime('');
-    setPhotographer('');
-    setServicePhotographers({});
-    setServiceSchedules({});
-    setSelectedServices([]);
-    setNotes('');
-    setCompanyNotes('');
-    setPhotographerNotes('');
-    setEditorNotes('');
-    setBypassPayment(false);
-    setSendNotification(true);
-    setAdjustedTotalInput('');
-    setStep(1);
-    setPropertyDetails(null);
-    setPropertySqft(null);
-    setFormErrors({});
+    setAddress(initial.address);
+    setCity(initial.city);
+    setState(initial.state);
+    setZip(initial.zip);
+    setDate(initial.date);
+    setTime(initial.time);
+    setPhotographer(initial.photographer);
+    setServicePhotographers(initial.servicePhotographers);
+    setServiceSchedules(initial.serviceSchedules);
+    setSelectedServices(initial.selectedServices);
+    setNotes(initial.notes);
+    setCompanyNotes(initial.companyNotes);
+    setPhotographerNotes(initial.photographerNotes);
+    setEditorNotes(initial.editorNotes);
+    setBypassPayment(initial.bypassPayment);
+    setSendNotification(initial.sendNotification);
+    setAdjustedTotalInput(initial.adjustedTotalInput);
+    setStep(initial.step);
+    setPropertyDetails(initial.propertyDetails);
+    setPropertySqft(initial.propertySqft);
+    setFormErrors(initial.formErrors);
     setHasCachedData(false);
     setClientPropertyFormKey((prev) => prev + 1);
   }, [isClientAccount]);
@@ -1811,11 +1818,11 @@ const BookShoot = () => {
     
     // Clear form cache when resetting
     if (shouldCacheForm) {
-      localStorage.removeItem(CACHE_KEY);
+      clearBookingFormCache(typeof window !== 'undefined' ? window.localStorage : null, CACHE_KEY);
       setHasCachedData(false);
     }
     
-    navigate('/shoots');
+    navigate(BOOK_ANOTHER_SHOOT_NAV_TARGET);
   };
 
   const handleAddressFieldsChange = React.useCallback(

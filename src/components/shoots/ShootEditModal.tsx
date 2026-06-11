@@ -49,6 +49,11 @@ import API_ROUTES from '@/lib/api';
 import AddressLookupField, { type AddressDetails } from '@/components/AddressLookupField';
 import { ServiceSelectionDialog, type ServiceSelectionOption } from '@/components/booking/ServiceSelectionDialog';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { getDayAvailability, type DayAvailability } from '@/utils/availabilityProvider';
+import {
+  isTimeOutsideDayAvailability,
+  extractStartTimeScheduleError,
+} from '@/utils/editPickerBounds';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
@@ -57,6 +62,7 @@ import {
   formatDateForWallClockInput,
   formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -479,6 +485,12 @@ export function ShootEditModal({
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
+  // Edit_Picker bounds: the effective working window for the selected photographer + day,
+  // sourced from the Availability_Provider (the same bounds the backend validator enforces).
+  const [editDayAvailability, setEditDayAvailability] = useState<DayAvailability | null>(null);
+  // Inline schedule error surfaced from a backend 422 (errors.start_time) without
+  // discarding the user's other unsaved edits.
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   
   // Notes fields (role-based visibility)
   const [shootNotes, setShootNotes] = useState(''); // All: client, admin, rep
@@ -971,6 +983,45 @@ export function ShootEditModal({
     return () => abortController.abort();
   }, [isOpen, photographers.length, scheduledDate, scheduledTime, address, city, state, zip, shootDetails]);
 
+  // Edit_Picker bounds (Req 2.1): fetch the effective working window for the selected
+  // photographer + day from the Availability_Provider. This is the same bounds source the
+  // backend Availability_Validator enforces, so out-of-window selections can be disabled.
+  useEffect(() => {
+    if (!isOpen || !photographerId || photographerId === 'unassigned' || !scheduledDate) {
+      setEditDayAvailability(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const result = await getDayAvailability(photographerId, scheduledDate, controller.signal);
+        setEditDayAvailability(result.day);
+      } catch (error) {
+        // Aborts are benign; on any other failure we simply have no bounds to enforce on the
+        // client (the backend validator remains authoritative).
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setEditDayAvailability(null);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [isOpen, photographerId, scheduledDate]);
+
+  // Clear a stale inline schedule error once the user adjusts the schedule inputs.
+  useEffect(() => {
+    setScheduleError(null);
+  }, [scheduledTime, scheduledDate, photographerId]);
+
+  // Disable any time selection that falls outside the photographer's effective working window
+  // (or within a blocked interval) supplied by the Availability_Provider. When no bounds are
+  // available we do not disable anything client-side — the backend validator stays authoritative
+  // and never authorizes from a frontend value.
+  const isEditTimeDisabled = React.useCallback(
+    (value: string): boolean => isTimeOutsideDayAvailability(editDayAvailability, value),
+    [editDayAvailability],
+  );
+
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
     const singleCategory = selectedServiceCategoryGroups[0];
     const initialId = context?.categoryKey
@@ -1213,6 +1264,7 @@ export function ShootEditModal({
     const payload = buildApprovalPayload();
     if (!payload) return;
 
+    setScheduleError(null);
     setIsSubmitting(true);
 
     try {
@@ -1234,8 +1286,23 @@ export function ShootEditModal({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to approve shoot');
+        let errorBody: { message?: string; errors?: Record<string, string[] | string> } | null = null;
+        try {
+          errorBody = await response.json();
+        } catch {
+          errorBody = null;
+        }
+
+        // Out-of-availability-bounds rejection (HTTP 422): surface the structured
+        // `errors.start_time` message inline on the schedule field and keep the modal open so
+        // the user's other unsaved edits are preserved (Req 2.4).
+        const scheduleBoundError = extractStartTimeScheduleError(response.status, errorBody);
+        if (scheduleBoundError) {
+          setScheduleError(scheduleBoundError);
+          return;
+        }
+
+        throw new Error(errorBody?.message || 'Failed to approve shoot');
       }
 
       toast({
@@ -1310,22 +1377,20 @@ export function ShootEditModal({
           if (h === 19 && minuteValue !== 0) continue;
           const m = minuteValue.toString().padStart(2, '0');
           const hour = h.toString().padStart(2, '0');
-          const period = h >= 12 ? 'PM' : 'AM';
-          const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+          const value = `${hour}:${m}`;
           options.push({
-            value: `${hour}:${m}`,
-            label: `${displayHour}:${m} ${period}`,
+            value,
+            // Display label comes from the shared Time_Formatter.
+            label: formatTimeForDisplay(value),
           });
         }
       }
       if (ensure && !options.find((o) => o.value === ensure)) {
         const [h, m] = ensure.split(':').map((v) => parseInt(v, 10));
         if (!Number.isNaN(h) && !Number.isNaN(m)) {
-          const period = h >= 12 ? 'PM' : 'AM';
-          const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
           options.push({
             value: ensure,
-            label: `${displayHour}:${m.toString().padStart(2, '0')} ${period}`,
+            label: formatTimeForDisplay(ensure),
           });
           options.sort((a, b) => a.value.localeCompare(b.value));
         }
@@ -1416,7 +1481,9 @@ export function ShootEditModal({
 
   const getServiceScheduleTimeLabel = (timeValue?: string) => {
     if (!timeValue) return '';
-    return timeOptions.find((option) => option.value === timeValue)?.label || timeValue;
+    // Route the displayed time through the shared Time_Formatter so canonical
+    // values (HH:mm and HH:mm:ss) render in 12-hour form instead of raw text.
+    return formatTimeForDisplay(timeValue);
   };
 
   const getServiceScheduleSummary = (schedule: ServiceScheduleFields) => {
@@ -1712,6 +1779,7 @@ export function ShootEditModal({
                         value={schedule.time || scheduledTime}
                         options={timeOptions}
                         onChange={(value) => updateServiceSchedule(id, 'time', value)}
+                        isTimeDisabled={isEditTimeDisabled}
                         triggerClassName="h-8 rounded-lg px-2"
                       />
                     </div>
@@ -1842,10 +1910,20 @@ export function ShootEditModal({
               value={scheduledTime}
               options={timeOptions}
               onChange={setScheduledTime}
+              isTimeDisabled={isEditTimeDisabled}
               triggerClassName="h-8 rounded-lg px-2"
             />
           </div>
         </div>
+
+        {scheduleError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-[11px] font-medium text-destructive"
+          >
+            {scheduleError}
+          </div>
+        )}
 
         {renderServiceSchedulesSection()}
       </div>

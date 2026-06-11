@@ -31,7 +31,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
-import { to12Hour, to24Hour } from '@/utils/availabilityUtils';
+import { to12Hour, to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { getDayAvailability, type DayAvailability } from '@/utils/availabilityProvider';
+import {
+  buildTimeOptionsForRange as buildTimeOptionsForRangePure,
+  isDisabledByWindowOrBlocked,
+} from '@/utils/suggestedTimeSlots';
+import { derivePanelState, type AvailabilityPanelState } from '@/utils/availabilityPanelState';
+import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
 import { CheckCircle2, Check, Clock } from "lucide-react";
 import { getAvatarUrl } from '@/utils/defaultAvatars';
@@ -155,6 +162,18 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     nextAvailableTimes: string[];
   }>>(new Map());
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  // Backend-computed effective working window for the selected photographer + day,
+  // sourced from the Availability_Provider. This is the authoritative source for
+  // slot-range derivation; the frontend never synthesizes hours. (Req 3.2, 12.1)
+  const [dayAvailability, setDayAvailability] = useState<DayAvailability | null>(null);
+  // Explicit availability panel state (loading | success | empty | not-configured
+  // | error) replacing a bare loading boolean, so the panel can distinguish a
+  // genuine error from an empty day or a not-configured photographer. `null`
+  // means idle (no photographer/day selected yet). (Req 5, 6)
+  const [availabilityPanel, setAvailabilityPanel] = useState<AvailabilityPanelState | null>(null);
+  // Monotonic request counter so only the newest availability request renders
+  // ("latest request wins"); stale responses are dropped. (Req 6.2)
+  const latestRequestRef = React.useRef(0);
   const suggestedTimesRailRef = React.useRef<HTMLDivElement | null>(null);
   const [canScrollSuggestedTimesLeft, setCanScrollSuggestedTimesLeft] = useState(false);
   const [canScrollSuggestedTimesRight, setCanScrollSuggestedTimesRight] = useState(false);
@@ -254,7 +273,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const formatScheduleLine = (serviceId: string) => {
     const schedule = getServiceSchedule(serviceId);
     const dateText = schedule.date || 'No date';
-    const timeText = schedule.time ? to12Hour(schedule.time) : 'No time';
+    const timeText = schedule.time ? formatTimeForDisplay(schedule.time) : 'No time';
     return `${dateText} at ${timeText}`;
   };
 
@@ -333,8 +352,12 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const buildAvailabilitySegments = (
     slots: Array<{ start_time: string; end_time: string }> = [],
   ) => {
-    const startHour = 8;
-    const endHour = 20;
+    // Derive the segment range from the backend-computed working window rather
+    // than a hard-coded 8/20 window (Req 3.1, 3.2). No window => no segments.
+    const window = workingWindowMinutes;
+    if (!window) return [];
+    const startHour = Math.floor(window.start / 60);
+    const endHour = Math.ceil(window.end / 60);
     const segments: boolean[] = [];
     for (let hour = startHour; hour < endHour; hour += 1) {
       const segmentStart = hour * 60;
@@ -760,12 +783,58 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     return Array.from(byId.values());
   }, [photographers, photographersWithDistance]);
 
-  const buildTimeOptionsForRange = (intervalMinutes = 5, startHour = 8, endHour = 20) => {
-    const options: string[] = [];
-    for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += intervalMinutes) {
-      options.push(to12Hour(minutesToTime(minutes)));
+  // Source the backend-computed effective working window for the selected
+  // photographer + day via the Availability_Provider. This window is the
+  // authoritative basis for slot-range derivation; the frontend never
+  // synthesizes hours. Aborts are treated as benign. (Req 3.2, 12.1)
+  useEffect(() => {
+    if (!photographer || !date) {
+      setDayAvailability(null);
+      setAvailabilityPanel(null); // idle: no selection yet
+      return;
     }
-    return options;
+
+    const controller = new AbortController();
+    // Claim a monotonic request id; only this id may render its result. (Req 6.2)
+    const requestId = ++latestRequestRef.current;
+    setAvailabilityPanel(derivePanelState({ loading: true, aborted: false, error: null, result: null }));
+
+    (async () => {
+      try {
+        const result = await getDayAvailability(photographer, date, controller.signal);
+        if (requestId !== latestRequestRef.current) return; // stale → drop (Req 6.2)
+        setDayAvailability(result.day);
+        setAvailabilityPanel(
+          derivePanelState({ loading: false, aborted: false, error: null, result }),
+        );
+      } catch (err) {
+        // Benign cancellation: never log, never surface an error state. (Req 6.1)
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (requestId !== latestRequestRef.current) return; // stale → drop (Req 6.2)
+        setDayAvailability(null);
+        // Genuine non-abort failure surfaces the explicit error state. (Req 6.3)
+        setAvailabilityPanel(
+          derivePanelState({ loading: false, aborted: false, error: err as Error, result: null }),
+        );
+      }
+    })();
+
+    // Abort the in-flight request on cleanup (selection change / unmount). (Req 6.1)
+    return () => {
+      controller.abort();
+    };
+  }, [photographer, date]);
+
+  const buildTimeOptionsForRange = (
+    intervalMinutes = 5,
+    startMinutes = workingWindowMinutes?.start,
+    endMinutes = workingWindowMinutes?.end,
+  ) => {
+    // Range is derived from the backend-computed working window (Req 3.1, 3.2).
+    // Without an authoritative window there are no bookable options — we never
+    // synthesize a range from a frontend value (Req 3.4). Delegates to the pure
+    // `suggestedTimeSlots` helper so the wired logic is property-tested directly.
+    return buildTimeOptionsForRangePure(intervalMinutes, startMinutes, endMinutes);
   };
 
   const isTimeWithinSlots = (value: string, slots: Array<{ start_time?: string; end_time?: string }> = []) => {
@@ -797,9 +866,85 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     return photographerOptions.find((item) => String(item.id) === String(photographerId)) as any;
   };
 
+  // Single source of truth for the day's working window, in minutes since
+  // midnight. Sourced — in priority order — from:
+  //   1. The backend-computed window for the selected photographer + day
+  //      (Availability_Provider / DayAvailability.workingHours).
+  //   2. The bounds of backend-supplied per-photographer slots already fetched
+  //      (net/available slots from the forBooking/bulkIndex endpoints).
+  // Both are backend-derived; the frontend NEVER synthesizes a window from a
+  // hard-coded value to authorize or generate slots (Req 3.1, 3.2, 3.4).
+  const workingWindowMinutes = useMemo<{ start: number; end: number } | null>(() => {
+    const workingHours = dayAvailability?.workingHours;
+    if (workingHours) {
+      const start = timeToMinutes(workingHours.start);
+      const end = timeToMinutes(workingHours.end);
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+        return { start, end };
+      }
+    }
+
+    const collectSlots = (): Array<{ start_time?: string; end_time?: string }> => {
+      if (photographer) {
+        const selected = getPhotographerScheduleData(photographer);
+        const net = Array.isArray(selected?.netAvailableSlots) ? selected.netAvailableSlots : [];
+        if (net.length > 0) return net;
+        return Array.isArray(selected?.availabilitySlots) ? selected.availabilitySlots : [];
+      }
+      const all: Array<{ start_time?: string; end_time?: string }> = [];
+      for (const item of photographerOptions as any[]) {
+        const net = Array.isArray(item?.netAvailableSlots) ? item.netAvailableSlots : [];
+        const avail = Array.isArray(item?.availabilitySlots) ? item.availabilitySlots : [];
+        all.push(...(net.length > 0 ? net : avail));
+      }
+      return all;
+    };
+
+    let minStart = Number.POSITIVE_INFINITY;
+    let maxEnd = Number.NEGATIVE_INFINITY;
+    for (const slot of collectSlots()) {
+      if (!slot.start_time || !slot.end_time) continue;
+      const start = timeToMinutes(slot.start_time);
+      const end = timeToMinutes(slot.end_time);
+      if (Number.isFinite(start)) minStart = Math.min(minStart, start);
+      if (Number.isFinite(end)) maxEnd = Math.max(maxEnd, end);
+    }
+    if (minStart < maxEnd) return { start: minStart, end: maxEnd };
+    return null;
+  }, [dayAvailability, photographer, photographerOptions]);
+
+  // Display-only scale window for the Availability_Card timeline (Req 4.1–4.4).
+  // The backend-computed working window is authoritative for what the card
+  // shows; when it is unavailable we render the display-only frontend fallback
+  // (FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY) purely for visual resilience. The
+  // `displayFallbackOnly` flag marks the window as NON-AUTHORITATIVE — it is
+  // used only to position/label the timeline and is NEVER used to authorize or
+  // generate bookable slots (that always derives from workingWindowMinutes).
+  const availabilityCardWindow = useMemo(() => {
+    if (workingWindowMinutes) {
+      return {
+        startMinutes: workingWindowMinutes.start,
+        endMinutes: workingWindowMinutes.end,
+        displayFallbackOnly: false,
+      };
+    }
+    return {
+      startMinutes: timeToMinutes(FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY.start),
+      endMinutes: timeToMinutes(FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY.end),
+      displayFallbackOnly: true,
+    };
+  }, [workingWindowMinutes]);
+
   const isPhotographerTimeDisabled = (photographerId: string | number | undefined, value: string) => {
-    const minutes = timeToMinutes(value);
-    if (minutes < 8 * 60 || minutes > 20 * 60) return true;
+    // Bound by the backend-computed working window and exclude backend-reported
+    // blocked/unavailable/break intervals supplied by the Availability_Provider
+    // (Req 3.1, 3.2, 3.5). Delegates to the pure `suggestedTimeSlots` helper so
+    // the wired logic is property-tested directly. No hard-coded 08:00/20:00
+    // frontend window is ever applied.
+    const dayBlocked = Array.isArray(dayAvailability?.blocked) ? dayAvailability!.blocked : [];
+    if (isDisabledByWindowOrBlocked(value, workingWindowMinutes, dayBlocked)) {
+      return true;
+    }
 
     const photographerItem = getPhotographerScheduleData(photographerId);
     if (!photographerItem) return false;
@@ -816,16 +961,17 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   const availableTimesForSelectedPhotographer = useMemo(
     () => buildTimeOptionsForRange(5).filter((option) => !isPhotographerTimeDisabled(photographer, option)),
-    [photographer, photographerOptions]
+    [photographer, photographerOptions, workingWindowMinutes, dayAvailability]
   );
 
   const suggestedTimes = useMemo(() => {
     if (!date) return [];
-    return buildTimeOptionsForRange(15).filter((option) => {
-      const minutes = timeToMinutes(option);
-      return minutes >= 8 * 60 && minutes <= 20 * 60 && !isPhotographerTimeDisabled(photographer, option);
-    });
-  }, [date, photographer, photographerOptions]);
+    // Derive suggested slots from the backend-computed working window only; the
+    // hard-coded 08:00–20:00 window is removed (Req 3.1, 3.2, 3.4).
+    if (!workingWindowMinutes) return [];
+    return buildTimeOptionsForRange(15, workingWindowMinutes.start, workingWindowMinutes.end)
+      .filter((option) => !isPhotographerTimeDisabled(photographer, option));
+  }, [date, photographer, photographerOptions, workingWindowMinutes, dayAvailability]);
 
   const updateSuggestedTimesScrollState = React.useCallback(() => {
     const element = suggestedTimesRailRef.current;
@@ -1601,8 +1747,11 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
           const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
             ? photographerItem.netAvailableSlots
             : photographerItem.availabilitySlots || [];
-          const availabilityScaleStartMinutes = 8 * 60;
-          const availabilityScaleEndMinutes = 20 * 60;
+          // Timeline scale derives from the backend-computed working window
+          // (authoritative for display); when unavailable, the display-only
+          // frontend fallback positions the scale (non-authoritative). (Req 4.1–4.4)
+          const availabilityScaleStartMinutes = availabilityCardWindow.startMinutes;
+          const availabilityScaleEndMinutes = availabilityCardWindow.endMinutes;
           const availabilityScaleTotalMinutes = Math.max(1, availabilityScaleEndMinutes - availabilityScaleStartMinutes);
           const availabilityScaleTickCount = 11;
           const clampTimelineSlot = (slot: any) => {
@@ -1784,7 +1933,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     </div>
                     {availabilitySlots.length > 0 ? (
                       <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        <span className="shrink-0">8 AM</span>
+                        <span className="shrink-0">{formatTimeForDisplay(minutesToTime(availabilityScaleStartMinutes))}</span>
                         <div className="flex flex-1 items-center justify-between px-1">
                           {Array.from({ length: availabilityScaleTickCount }).map((_, index) => {
                             const tickMinutes = availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1));
@@ -1800,7 +1949,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                             );
                           })}
                         </div>
-                        <span className="shrink-0">8 PM</span>
+                        <span className="shrink-0">{formatTimeForDisplay(minutesToTime(availabilityScaleEndMinutes))}</span>
                       </div>
                     ) : null}
                   </TooltipProvider>
@@ -1951,7 +2100,30 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Suggested times
             </p>
-            {suggestedTimes.length > 0 ? (
+            {availabilityPanel?.kind === 'loading' ? (
+              // Distinct loading state while a request is in flight (Req 5.3).
+              <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking availability...
+              </div>
+            ) : availabilityPanel?.kind === 'error' ? (
+              // Explicit error state for genuine non-abort failures — NOT the
+              // "no availability" panel (Req 6.3).
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive dark:text-red-300">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+                <span>{availabilityPanel.message}</span>
+              </div>
+            ) : availabilityPanel?.kind === 'not-configured' ? (
+              // Neither configured hours nor a fallback window apply (Req 5.2).
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
+                Availability not configured for this photographer on the selected day. Choose another photographer or date.
+              </div>
+            ) : availabilityPanel?.kind === 'empty' ? (
+              // Fetched successfully but zero bookable slots that day (Req 5.4).
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
+                No bookable times available for the selected day. Choose another photographer or date.
+              </div>
+            ) : suggestedTimes.length > 0 ? (
               <div className="relative overflow-hidden bg-white dark:bg-card/40">
                 <div
                   ref={suggestedTimesRailRef}

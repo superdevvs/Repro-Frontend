@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BedDouble, Bath, CheckCircle, AlertCircle, Loader, MapPin, Ruler } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { API_BASE_URL } from '@/config/env';
+import { validateLivingAreaSqft } from '@/utils/squareFootage';
+import { DEFAULT_LIVING_AREA_SQFT_CONFIG } from '@/config/squareFootageDefaults';
 
 interface AddressSuggestion {
   place_id: string;
@@ -103,6 +105,114 @@ const parseSecondaryText = (text?: string) => {
   return { city, state, zip, country };
 };
 
+/**
+ * Known U.S. street suffixes mapped to their canonical expanded form.
+ * Keys are the lower-cased token (trailing periods stripped); used for
+ * token-aware trailing-suffix detection so a suffix is never concatenated
+ * with the preceding street-name word (e.g. never `LakeBoulevard`).
+ */
+const STREET_SUFFIXES: Record<string, string> = {
+  ave: 'Avenue', av: 'Avenue', avenue: 'Avenue',
+  blvd: 'Boulevard', boul: 'Boulevard', boulevard: 'Boulevard',
+  st: 'Street', str: 'Street', street: 'Street',
+  rd: 'Road', road: 'Road',
+  dr: 'Drive', drive: 'Drive',
+  ln: 'Lane', lane: 'Lane',
+  ct: 'Court', court: 'Court',
+  pl: 'Place', place: 'Place',
+  ter: 'Terrace', terr: 'Terrace', terrace: 'Terrace',
+  cir: 'Circle', circle: 'Circle',
+  pkwy: 'Parkway', pky: 'Parkway', parkway: 'Parkway',
+  hwy: 'Highway', highway: 'Highway',
+  way: 'Way',
+  trl: 'Trail', trail: 'Trail',
+  sq: 'Square', square: 'Square',
+  loop: 'Loop',
+  row: 'Row',
+  run: 'Run',
+  pike: 'Pike',
+  path: 'Path',
+  pt: 'Point', point: 'Point',
+  cres: 'Crescent', crescent: 'Crescent',
+  expy: 'Expressway', expressway: 'Expressway',
+  aly: 'Alley', alley: 'Alley',
+};
+
+export interface ParsedStreetLine {
+  number?: string;
+  name: string;
+  suffix?: string;
+  unit?: string;
+}
+
+/**
+ * Pure helper that parses a single street line into its structured parts
+ * without ever merging adjacent tokens.
+ *
+ * It operates on the street segment only (anything after the first comma is
+ * ignored), tokenizes on whitespace, peels a leading street number, detects a
+ * trailing suffix from {@link STREET_SUFFIXES}, and optionally extracts a unit
+ * designator (Apt/Unit/Suite/#...). Remaining tokens are joined with single
+ * spaces so the street name stays intact.
+ *
+ * Example: `3300 Lake Austin Blvd` →
+ *   { number: '3300', name: 'Lake Austin', suffix: 'Boulevard' }
+ * (never `LakeBoulevard`).
+ */
+export const parseStreetLine = (line?: string | null): ParsedStreetLine => {
+  const rawFull = typeof line === 'string' ? line.trim() : '';
+  if (!rawFull) {
+    return { name: '' };
+  }
+
+  // Only the first comma-delimited segment is the street line.
+  let working = rawFull.split(',')[0].trim();
+  if (!working) {
+    return { name: '' };
+  }
+
+  // Peel a trailing unit/apt designator if present (e.g. "Apt 4B", "Unit 3", "#12").
+  let unit: string | undefined;
+  const unitMatch = working.match(
+    /\s+(?:#|apt\.?|unit|ste\.?|suite|fl\.?|floor|rm\.?|room|bldg\.?|building)\s*#?\s*([\w-]+)\s*$/i,
+  );
+  if (unitMatch && typeof unitMatch.index === 'number') {
+    unit = unitMatch[1];
+    working = working.slice(0, unitMatch.index).trim();
+  }
+
+  const tokens = working.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return { name: '', unit };
+  }
+
+  // Leading street number (e.g. 3300, 12A, 100-102).
+  let number: string | undefined;
+  if (/^\d+[A-Za-z]?(?:-\d+[A-Za-z]?)?$/.test(tokens[0])) {
+    number = tokens.shift();
+  }
+
+  // Trailing suffix from the known suffix set (kept distinct, never merged).
+  // Require at least one remaining name token so a lone suffix stays the name.
+  let suffix: string | undefined;
+  if (tokens.length > 1) {
+    const key = tokens[tokens.length - 1].replace(/\.+$/, '').toLowerCase();
+    if (STREET_SUFFIXES[key]) {
+      suffix = STREET_SUFFIXES[key];
+      tokens.pop();
+    }
+  }
+
+  return { number, name: tokens.join(' '), suffix, unit };
+};
+
+/**
+ * Recompose a parsed street line into a single, single-spaced string.
+ * Guarantees the suffix remains a distinct, space-separated token.
+ */
+export const formatParsedStreetLine = (parsed: ParsedStreetLine): string =>
+  [parsed.number, parsed.name, parsed.suffix].filter(Boolean).join(' ').trim();
+
 const buildDetailsFromSuggestion = (
   suggestion: AddressSuggestion,
   overrides: Partial<
@@ -111,6 +221,20 @@ const buildDetailsFromSuggestion = (
 ): AddressDetails => {
   const parsedSecondary = parseSecondaryText(overrides.formatted_address ? undefined : suggestion.secondary_text);
   const propertyDetails = overrides.property_details || overrides.propertyDetails || undefined;
+
+  // Build a token-aware street line from the provider's street value. The
+  // formatted line itself is preserved verbatim below; this only normalizes the
+  // structured `address` field so adjacent tokens (street name + suffix) are
+  // never merged (e.g. `3300 Lake Austin Blvd`, never `LakeBoulevard`).
+  const rawStreetLine = normalizeString(
+    overrides.address ?? suggestion.address ?? suggestion.main_text,
+  );
+  const parsedStreet = parseStreetLine(rawStreetLine);
+  const recomposedStreet = formatParsedStreetLine(parsedStreet);
+  const addressValue =
+    (recomposedStreet || undefined) ??
+    rawStreetLine ??
+    suggestion.description;
 
   const bedrooms =
     overrides.bedrooms ??
@@ -122,13 +246,23 @@ const buildDetailsFromSuggestion = (
     propertyDetails?.baths ??
     propertyDetails?.bathrooms ??
     propertyDetails?.bath;
-  const sqft =
+  // Only LIVING-AREA sources may feed `sqft`. Lot/parcel sources
+  // (`lot_size`, `lotSize`, `lotSizeSqft`, …) are intentionally excluded here
+  // and are never substituted for living area (Req 8.2). The resolved candidate
+  // is then run through the Square_Footage_Validator so an implausible value is
+  // left blank for manual entry rather than applied to pricing (Req 8.4–8.6).
+  const livingAreaSqftCandidate =
     overrides.sqft ??
     propertyDetails?.sqft ??
     propertyDetails?.livingArea ??
     propertyDetails?.living_area ??
     propertyDetails?.squareFeet ??
     propertyDetails?.square_feet;
+  const sqftValidation = validateLivingAreaSqft(
+    { areaType: 'Living Building Area', unit: 'sqft', value: normalizeNumber(livingAreaSqftCandidate) ?? null },
+    DEFAULT_LIVING_AREA_SQFT_CONFIG,
+  );
+  const sqft = 'sqft' in sqftValidation ? sqftValidation.sqft : undefined;
   const price =
     overrides.price ??
     propertyDetails?.price ??
@@ -155,7 +289,8 @@ const buildDetailsFromSuggestion = (
 
   return {
     formatted_address: overrides.formatted_address ?? suggestion.description,
-    address: overrides.address ?? suggestion.address ?? suggestion.main_text ?? suggestion.description,
+    address: addressValue,
+    apt_suite: overrides.apt_suite ?? parsedStreet.unit,
     city: overrides.city ?? suggestion.city ?? parsedSecondary.city,
     state: overrides.state ?? suggestion.state ?? parsedSecondary.state,
     zip: overrides.zip ?? suggestion.zip ?? parsedSecondary.zip,
@@ -304,8 +439,13 @@ const getPreferredFinishedSqft = (areas: any[]): number | undefined => {
   let primarySqft: number | undefined;
   let primaryType: string | undefined;
 
+  // Defensive: never let a lot/parcel area feed living-area sqft (Req 8.2).
+  // The priority lists below are already living/finished-area only, but we
+  // additionally strip any lot-area entry so it can never be substituted.
+  const livingAreas = areas.filter((area) => !/lot|parcel|acre/i.test(String(area?.type ?? '')));
+
   for (const type of areaTypePriority) {
-    const candidates = areas
+    const candidates = livingAreas
       .filter((area) => area?.type === type)
       .map(getAreaSquareFeet)
       .filter((value): value is number => value !== undefined);
@@ -325,7 +465,7 @@ const getPreferredFinishedSqft = (areas: any[]): number | undefined => {
     return primarySqft;
   }
 
-  const supplementalSqft = areas
+  const supplementalSqft = livingAreas
     .filter((area) => supplementalFinishedAreaTypes.includes(area?.type))
     .map(getAreaSquareFeet)
     .filter((value): value is number => value !== undefined)
@@ -335,7 +475,7 @@ const getPreferredFinishedSqft = (areas: any[]): number | undefined => {
     return primarySqft + supplementalSqft;
   }
 
-  const hasFinishedAreaMarker = areas.some((area) => {
+  const hasFinishedAreaMarker = livingAreas.some((area) => {
     const type = String(area?.type ?? '');
     return type.endsWith(' Finished') || type.startsWith('Finished ');
   });
@@ -344,7 +484,7 @@ const getPreferredFinishedSqft = (areas: any[]): number | undefined => {
     return primarySqft;
   }
 
-  const basementFallback = areas
+  const basementFallback = livingAreas
     .filter((area) => area?.type === 'Basement')
     .map(getAreaSquareFeet)
     .filter((value): value is number => value !== undefined);
