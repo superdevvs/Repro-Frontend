@@ -351,6 +351,30 @@ export interface ShootData {
   isPrivateListing?: boolean;
   isFeatured?: boolean;
   is_featured?: boolean;
+  featured_homepage_title?: string | null;
+  featuredHomepageTitle?: string | null;
+  featured_homepage_location?: string | null;
+  featuredHomepageLocation?: string | null;
+  featured_homepage_subtitle?: string | null;
+  featuredHomepageSubtitle?: string | null;
+  featured_homepage_cta_label?: string | null;
+  featuredHomepageCtaLabel?: string | null;
+  featured_homepage_cta_href?: string | null;
+  featuredHomepageCtaHref?: string | null;
+  featured_homepage_images?: Array<{
+    id?: number;
+    shoot_file_id?: number | string;
+    sort?: number;
+    alt?: string | null;
+    focal?: string | null;
+  }>;
+  featuredHomepageImages?: Array<{
+    id?: number;
+    shootFileId?: number | string;
+    sort?: number;
+    alt?: string | null;
+    focal?: string | null;
+  }>;
   timezone?: string | null;
   mlsImageWidth?: number | null;
   mls_image_width?: number | null;

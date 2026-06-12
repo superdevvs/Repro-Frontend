@@ -16,7 +16,7 @@ import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -49,6 +49,44 @@ type MmmSettings = {
   returnRedirectUrl: string;
   timeout: number;
 };
+
+type ReproApiSettings = {
+  enabled: boolean;
+  dashboardBaseUrl: string;
+  publicSiteUrl: string;
+  featuredShootApiKey: string;
+  featuredShootEndpoint: string;
+  externalBookingApiKey: string;
+  externalBookingEndpoint: string;
+};
+
+const DEFAULT_REPRO_API_SETTINGS: ReproApiSettings = {
+  enabled: true,
+  dashboardBaseUrl: API_BASE_URL,
+  publicSiteUrl: 'https://reprophotos.com',
+  featuredShootApiKey: '',
+  featuredShootEndpoint: '/api/v1/featured-shoot',
+  externalBookingApiKey: '',
+  externalBookingEndpoint: '/api/external/book-shoot',
+};
+
+const normalizeReproApiSettings = (value?: Partial<ReproApiSettings> | null): ReproApiSettings => ({
+  enabled: value?.enabled ?? DEFAULT_REPRO_API_SETTINGS.enabled,
+  dashboardBaseUrl: typeof value?.dashboardBaseUrl === 'string' && value.dashboardBaseUrl.trim()
+    ? value.dashboardBaseUrl.trim()
+    : DEFAULT_REPRO_API_SETTINGS.dashboardBaseUrl,
+  publicSiteUrl: typeof value?.publicSiteUrl === 'string' && value.publicSiteUrl.trim()
+    ? value.publicSiteUrl.trim()
+    : DEFAULT_REPRO_API_SETTINGS.publicSiteUrl,
+  featuredShootApiKey: typeof value?.featuredShootApiKey === 'string' ? value.featuredShootApiKey.trim() : '',
+  featuredShootEndpoint: typeof value?.featuredShootEndpoint === 'string' && value.featuredShootEndpoint.trim()
+    ? value.featuredShootEndpoint.trim()
+    : DEFAULT_REPRO_API_SETTINGS.featuredShootEndpoint,
+  externalBookingApiKey: typeof value?.externalBookingApiKey === 'string' ? value.externalBookingApiKey.trim() : '',
+  externalBookingEndpoint: typeof value?.externalBookingEndpoint === 'string' && value.externalBookingEndpoint.trim()
+    ? value.externalBookingEndpoint.trim()
+    : DEFAULT_REPRO_API_SETTINGS.externalBookingEndpoint,
+});
 
 const DEFAULT_MMM_SETTINGS: MmmSettings = {
   enabled: true,
@@ -242,6 +280,9 @@ export const IntegrationsSettingsContent = () => {
   const [testingMmm, setTestingMmm] = useState(false);
   const [mmmTestResult, setMmmTestResult] = useState<any>(null);
 
+  // Repro API Settings
+  const [reproApiSettings, setReproApiSettings] = useState<ReproApiSettings>(normalizeReproApiSettings());
+
   const [saving, setSaving] = useState(false);
 
   // Load settings on mount
@@ -253,13 +294,14 @@ export const IntegrationsSettingsContent = () => {
     try {
       // Try to load from database settings first
       try {
-        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes] = await Promise.all([
+        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes, reproApiRes] = await Promise.all([
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow.address_overrides')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.bright_mls')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.iguide')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.dropbox')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.mmm')).catch(() => null),
+          apiClient.get(API_ROUTES.admin.settings.get('integrations.repro_api')).catch(() => null),
         ]);
 
         if (zillowRes?.data?.success && zillowRes.data.data?.value) {
@@ -284,6 +326,10 @@ export const IntegrationsSettingsContent = () => {
 
         if (mmmRes?.data?.success && mmmRes.data.data?.value) {
           setMmmSettings(normalizeMmmSettings(mmmRes.data.data.value));
+        }
+
+        if (reproApiRes?.data?.success && reproApiRes.data.data?.value) {
+          setReproApiSettings(normalizeReproApiSettings(reproApiRes.data.data.value));
         }
 
       } catch (err) {
@@ -323,6 +369,10 @@ export const IntegrationsSettingsContent = () => {
 
       if (!mmmSettings.duns && !mmmSettings.sharedSecret && !mmmSettings.punchoutUrl) {
         setMmmSettings(normalizeMmmSettings());
+      }
+
+      if (!reproApiSettings.dashboardBaseUrl) {
+        setReproApiSettings(normalizeReproApiSettings());
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -417,6 +467,13 @@ export const IntegrationsSettingsContent = () => {
         'integrations.mmm',
         normalizedMmmSettings,
         'MyMarketingMatters (MMM) punchout integration',
+      );
+
+      // Save Repro API settings
+      await storeAdminSetting(
+        'integrations.repro_api',
+        normalizeReproApiSettings(reproApiSettings),
+        'Repro public and external API settings',
       );
 
       toast({
@@ -538,8 +595,8 @@ export const IntegrationsSettingsContent = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="zillow" className="w-full">
-            <TabsList className="grid w-full max-w-5xl grid-cols-5">
+        <Tabs defaultValue="zillow" className="w-full">
+            <TabsList className="grid w-full max-w-6xl grid-cols-6">
               <TabsTrigger value="dropbox">
                 <Upload className="mr-2 h-4 w-4" />
                 Dropbox
@@ -559,6 +616,10 @@ export const IntegrationsSettingsContent = () => {
               <TabsTrigger value="mmm">
                 <Building2 className="mr-2 h-4 w-4" />
                 MMM
+              </TabsTrigger>
+              <TabsTrigger value="repro_api">
+                <KeyRound className="mr-2 h-4 w-4" />
+                Repro API
               </TabsTrigger>
             </TabsList>
 
@@ -1461,6 +1522,133 @@ export const IntegrationsSettingsContent = () => {
                       </p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Repro API Settings */}
+            <TabsContent value="repro_api" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Repro API</CardTitle>
+                      <CardDescription>
+                        Configure the public featured shoot feed and external Book Shoot API credentials.
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="repro-api-enabled">Enabled</Label>
+                      <Switch
+                        id="repro-api-enabled"
+                        checked={reproApiSettings.enabled}
+                        onCheckedChange={(checked) =>
+                          setReproApiSettings({ ...reproApiSettings, enabled: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-dashboard-base-url">Dashboard Base URL</Label>
+                      <Input
+                        id="repro-dashboard-base-url"
+                        type="url"
+                        value={reproApiSettings.dashboardBaseUrl}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, dashboardBaseUrl: e.target.value })
+                        }
+                        placeholder="https://dashboard.reprophotos.com"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-public-site-url">Public Site URL</Label>
+                      <Input
+                        id="repro-public-site-url"
+                        type="url"
+                        value={reproApiSettings.publicSiteUrl}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, publicSiteUrl: e.target.value })
+                        }
+                        placeholder="https://reprophotos.com"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-featured-endpoint">Featured Shoot Endpoint</Label>
+                      <Input
+                        id="repro-featured-endpoint"
+                        type="text"
+                        value={reproApiSettings.featuredShootEndpoint}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, featuredShootEndpoint: e.target.value })
+                        }
+                        placeholder="/api/v1/featured-shoot"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-featured-api-key">Featured Shoot API Key</Label>
+                      <Input
+                        id="repro-featured-api-key"
+                        type="password"
+                        value={reproApiSettings.featuredShootApiKey}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, featuredShootApiKey: e.target.value })
+                        }
+                        placeholder="Bearer token for the public site"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-book-shoot-endpoint">Book Shoot Endpoint</Label>
+                      <Input
+                        id="repro-book-shoot-endpoint"
+                        type="text"
+                        value={reproApiSettings.externalBookingEndpoint}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, externalBookingEndpoint: e.target.value })
+                        }
+                        placeholder="/api/external/book-shoot"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="repro-book-shoot-api-key">Book Shoot API Key</Label>
+                      <Input
+                        id="repro-book-shoot-api-key"
+                        type="password"
+                        value={reproApiSettings.externalBookingApiKey}
+                        onChange={(e) =>
+                          setReproApiSettings({ ...reproApiSettings, externalBookingApiKey: e.target.value })
+                        }
+                        placeholder="X-API-Key for external booking"
+                        disabled={!reproApiSettings.enabled}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">Featured Shoot</p>
+                        <p className="break-all">
+                          <code>{reproApiSettings.dashboardBaseUrl}{reproApiSettings.featuredShootEndpoint}</code>
+                        </p>
+                        <p><code>Authorization: Bearer [Featured Shoot API Key]</code></p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">Book Shoot</p>
+                        <p className="break-all">
+                          <code>{reproApiSettings.dashboardBaseUrl}{reproApiSettings.externalBookingEndpoint}</code>
+                        </p>
+                        <p><code>X-API-Key: [Book Shoot API Key]</code></p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

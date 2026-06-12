@@ -1087,15 +1087,33 @@ export const ClientPropertyForm = ({
                         const normalizedState = normalizeState(address.state) || address.state || '';
                         const zip = address.zip || '';
 
+                        // Prefer the provider's structured street value (`address.address`),
+                        // which is already free of city/state/zip (e.g. "3300 Lake Austin
+                        // Boulevard"). Use it verbatim — never strip from it — so a city
+                        // token that legitimately appears inside the street name (e.g. the
+                        // "Austin" in "Lake Austin Blvd" when the city is also "Austin") is
+                        // not deleted, which previously produced "LakeBoulevard".
+                        const hasStructuredStreet = Boolean((address.address || '').trim());
                         let streetAddress = address.address || address.formatted_address || '';
-                        if (streetAddress && (city || normalizedState || zip)) {
+                        if (!hasStructuredStreet && streetAddress && (city || normalizedState || zip)) {
+                          // Only the formatted line (which contains ", City, ST ZIP, USA")
+                          // needs trimming. Strip city/state/zip ANCHORED AT THE END so
+                          // tokens inside the street name are never removed.
                           const escRx = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                          if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(city)}\\b\\s*,?`, 'gi'), '');
-                          if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(normalizedState)}\\b\\s*,?`, 'gi'), '');
+                          const stripTrailing = (token: string) => {
+                            if (!token) return;
+                            streetAddress = streetAddress
+                              .replace(new RegExp(`\\s*,?\\s*\\b${escRx(token)}\\b\\s*,?\\s*$`, 'i'), '')
+                              .trim();
+                          };
+                          // Drop a trailing country first, then zip, state, city.
+                          streetAddress = streetAddress.replace(/\s*,?\s*USA\s*,?\s*$/i, '').trim();
+                          if (zip) stripTrailing(zip);
+                          if (normalizedState) stripTrailing(normalizedState);
                           if (address.state && address.state !== normalizedState) {
-                            streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(address.state)}\\b\\s*,?`, 'gi'), '');
+                            stripTrailing(address.state);
                           }
-                          if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(zip)}\\b\\s*`, 'gi'), '');
+                          if (city) stripTrailing(city);
                           streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
                         }
 

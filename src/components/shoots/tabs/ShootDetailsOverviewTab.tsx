@@ -465,7 +465,7 @@ export function ShootDetailsOverviewTab({
       onShootUpdate();
       toast({
         title: persisted ? 'Featured Shoot enabled' : 'Featured Shoot removed',
-        description: 'Internal marketing flag updated.',
+        description: 'Featured hero source updated.',
       });
     } catch (error) {
       console.error('Failed to update Featured Shoot', error);
@@ -947,7 +947,7 @@ export function ShootDetailsOverviewTab({
                 <div className="text-sm font-medium">Featured Shoot</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {featuredAvailable
-                    ? 'Mark this shoot for internal marketing and featured collections.'
+                    ? 'Use this shoot as the public featured hero source.'
                     : 'Available once the shoot reaches Ready or Delivered status.'}
                 </div>
               </div>
