@@ -907,6 +907,15 @@ export default function Accounts() {
   };
 
   const handleAccountStatusChanged = (userId: string, status: AccountStatus) => {
+    // A deleted account is soft-deleted server-side and excluded from the directory,
+    // so drop it from the list immediately rather than leaving a stale "deleted" row
+    // lingering in the UI cache (QA #15a).
+    if (status === 'deleted') {
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setSelectedUser((current) => (current?.id === userId ? null : current));
+      return;
+    }
+
     setUsers((prev) =>
       prev.map((u) =>
         u.id === userId
@@ -1416,6 +1425,7 @@ export default function Accounts() {
                     onAssignRep={handleAssignRep}
                     onChangeRole={handleChangeRole}
                     onConvertType={handleConvertType}
+                    onManageStatus={handleManageAccountStatus}
                     onResetPassword={handleResetPassword}
                     onImpersonate={handleImpersonate}
                     onManageNotifications={handleManageNotifications}

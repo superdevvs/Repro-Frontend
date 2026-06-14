@@ -25,7 +25,8 @@ import {
   ExternalLink,
   Trash2,
   LogIn,
-  UserPlus
+  UserPlus,
+  ShieldCheck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
@@ -38,6 +39,7 @@ interface AccountCardProps {
   onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
   onConvertType?: (user: User) => void;
+  onManageStatus?: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
   onManageNotifications: (user: User) => void;
@@ -58,6 +60,7 @@ export function AccountCard({
   onAssignRep,
   onChangeRole,
   onConvertType,
+  onManageStatus,
   onResetPassword,
   onImpersonate,
   onManageNotifications,
@@ -171,6 +174,16 @@ export function AccountCard({
                   onConvertType(user);
                 }}>
                   <ArrowLeftRight className="mr-2 h-4 w-4" /> Convert Account Type
+                </DropdownMenuItem>
+              )}
+              {/* Account status: lock / unlock / delete (Req 16) — admins/super admins.
+                  Mirrors the list view so the control is reachable from the grid too. */}
+              {canManageAccounts && onManageStatus && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onManageStatus(user);
+                }}>
+                  <ShieldCheck className="mr-2 h-4 w-4" /> Account Status
                 </DropdownMenuItem>
               )}
               {canManageAccounts && (

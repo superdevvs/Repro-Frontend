@@ -30,6 +30,21 @@ Vitest unit/property tests under `src/**` (`*.{test,spec}.tsx`).
   > — NOT distinct `video_editor` / `photo_editor` account types. The spec verifies the two lanes
   > as editor accounts whose `editing_capabilities` include photo and video respectively.
 
+- `qa-acceptance.e2e.ts` — cross-flow QA acceptance checks for current production-risk items:
+  1. **Preview public booking** — opens `/book`, captures `qa-public-booking-before-submit.png`,
+     and verifies the page does not force login/account creation before submit. If Lovable preview
+     auth blocks the page, the test skips with instructions to provide `E2E_PREVIEW_STORAGE_STATE`.
+  2. **External account-backed booking** — when `E2E_EXTERNAL_BOOKING_API_KEY` is set, submits a
+     QA-labeled booking with `create_account: true` and asserts the response includes a client
+     account setup flow (`client_id`, `account_created`, `account_setup_required`).
+  3. **External guest opt-out booking** — submits a QA-labeled booking with `create_account: false`
+     and asserts the response stays in guest mode (`account_created: false`,
+     `account_setup_required: false`, `is_guest_booking: true`).
+  4. **Editor dashboards** — logs into the photo-lane and video-lane editor accounts and captures
+     dashboard screenshots for both.
+  5. **Test-Shoot simulator** — creates region/state/area internal test shoots through the admin
+     API and verifies each eligible-photographer preview responds for the requested scope.
+
 ## Prerequisites
 
 This suite exercises the real application, so it needs the **full stack running with seeded
@@ -80,7 +95,11 @@ npm run test:e2e:ui
 | Variable             | Default                  | Purpose                                                        |
 | -------------------- | ------------------------ | -------------------------------------------------------------- |
 | `E2E_BASE_URL`       | `http://localhost:5173`  | Base URL of the Dashboard. When set, the managed server is off.|
+| `E2E_API_BASE_URL`   | `E2E_BASE_URL` / local   | API base URL when browser host and Dashboard API host differ.  |
 | `E2E_NO_SERVER`      | _(unset)_                | `1` disables the managed dev server entirely.                  |
+| `E2E_PREVIEW_STORAGE_STATE` | _(unset)_          | Path to a Playwright storage-state JSON file for Lovable preview auth. |
+| `E2E_EXTERNAL_BOOKING_API_KEY` | _(unset)_       | Enables the data-creating external guest booking acceptance check. |
+| `E2E_QA_RUN_ID`      | timestamp                | Suffix used in QA-created names/emails/addresses.              |
 | `E2E_ADMIN_EMAIL`    | `admin@example.com`      | Admin login email.                                             |
 | `E2E_ADMIN_PASSWORD` | `password`               | Admin login password.                                          |
 | `E2E_FILTER_KIND`    | `state`                  | Service-area kind to filter by (`region` / `state` / `area`).  |
@@ -91,6 +110,9 @@ npm run test:e2e:ui
 | `E2E_VIDEO_EDITOR_PASSWORD` | `password`                 | Video-lane editor login password (Req 7).               |
 | `E2E_ASSIGNED_SHOOT_ID`     | _(unset)_                  | Pin the assigned shoot used by the 7.4 action check.    |
 | `E2E_EDITOR_RESTRICTED_ROUTE` | `/admin/service-areas`   | Restricted route used by the 7.5 block check.           |
+| `E2E_TEST_SHOOT_REGION_VALUE` | `Northeast`              | Region value used by the Test-Shoot simulator check.    |
+| `E2E_TEST_SHOOT_STATE_VALUE`  | `MD`                     | State value used by the Test-Shoot simulator check.     |
+| `E2E_TEST_SHOOT_AREA_VALUE`   | `DC Metro`               | Area value used by the Test-Shoot simulator check.      |
 
 > **`editor-lanes.e2e.ts` needs extra seed data:** two editor accounts (photo lane + video
 > lane, distinguished by `users.metadata.editing_capabilities`), each with **at least one

@@ -21,6 +21,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const useManagedServer = process.env.E2E_NO_SERVER !== '1' && !process.env.E2E_BASE_URL;
+const storageState = process.env.E2E_PREVIEW_STORAGE_STATE || undefined;
 
 export default defineConfig({
   testDir: './e2e',
@@ -36,6 +37,7 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
+    storageState,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

@@ -59,7 +59,24 @@ type TemplateFormState = {
   body_html: string;
   body_text: string;
   channel: 'EMAIL' | 'SMS';
+  email_type: string;
+  override_enabled: boolean;
 };
+
+// Protected automated emails are normally rendered from code. Designating a
+// template's email_type and enabling the override makes the system send this
+// DB template instead.
+const PROTECTED_EMAIL_TYPES: { value: string; label: string }[] = [
+  { value: '', label: 'Not an override' },
+  { value: 'ACCOUNT_CREATED', label: 'New Account Created' },
+  { value: 'PASSWORD_RESET', label: 'Password Reset' },
+  { value: 'SHOOT_SCHEDULED', label: 'Shoot Scheduled' },
+  { value: 'SHOOT_UPDATED', label: 'Shoot Updated' },
+  { value: 'SHOOT_REMINDER', label: 'Shoot Reminder' },
+  { value: 'SHOOT_DELIVERED', label: 'Shoot Delivered' },
+  { value: 'PAYMENT_CONFIRMATION', label: 'Payment Confirmation' },
+  { value: 'INVOICE_GENERATED', label: 'Invoice Generated' },
+];
 
 const PREVIEW_EMAIL_STYLES = `
 .preview-shell {
@@ -454,6 +471,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     body_html: '',
     body_text: '',
     channel: 'EMAIL',
+    email_type: '',
+    override_enabled: false,
   });
   const [activeTab, setActiveTab] = useState<'html' | 'text' | 'preview'>('html');
   const [mobileSection, setMobileSection] = useState<'editor' | 'settings' | 'shortcodes'>('editor');
@@ -472,6 +491,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         body_html: template.body_html || '',
         body_text: template.body_text || '',
         channel: template.channel || 'EMAIL',
+        email_type: template.email_type || '',
+        override_enabled: template.override_enabled ?? false,
       });
     } else {
       // Reset form for new template
@@ -484,6 +505,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         body_html: '',
         body_text: '',
         channel: 'EMAIL',
+        email_type: '',
+        override_enabled: false,
       });
     }
 
@@ -708,9 +731,50 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         />
       </div>
 
+      {formData.channel === 'EMAIL' && (
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <Label htmlFor="email_type">Automated email override</Label>
+          <p className="text-xs text-muted-foreground">
+            Protected automated emails normally render from code. Select the email type and enable the override to make
+            the system send this template instead.
+          </p>
+          <Select
+            value={formData.email_type || 'none'}
+            onValueChange={(value) =>
+              setFormData({
+                ...formData,
+                email_type: value === 'none' ? '' : value,
+                override_enabled: value === 'none' ? false : formData.override_enabled,
+              })
+            }
+          >
+            <SelectTrigger id="email_type">
+              <SelectValue placeholder="Not an override" />
+            </SelectTrigger>
+            <SelectContent>
+              {PROTECTED_EMAIL_TYPES.map((option) => (
+                <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={formData.override_enabled}
+              disabled={!formData.email_type}
+              onChange={(e) => setFormData({ ...formData, override_enabled: e.target.checked })}
+            />
+            Use this template for the selected automated email
+          </label>
+        </div>
+      )}
+
       {template?.is_system && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
-          <strong>System Template:</strong> Some fields cannot be edited.
+          <strong>System Template:</strong> Name, Category, and Scope are locked, but you can still edit the subject, body, and description.
         </div>
       )}
 

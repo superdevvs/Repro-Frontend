@@ -59,7 +59,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
 
   return (
     <DashboardLayoutContext.Provider value={true}>
-      <div className="h-screen flex overflow-hidden">
+      {/* h-dvh (dynamic viewport height) so the shell tracks the *visible* viewport on
+          mobile — especially landscape, where 100vh over-reports and locks page scroll
+          (QA #18). Fallback to h-screen for engines without dvh support. */}
+      <div className="h-screen h-dvh flex overflow-hidden">
         {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
@@ -82,7 +85,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
-            <main className={`flex-1 min-h-0 overflow-y-auto bg-background text-foreground ${contentPadding} ${className || ''}`}>
+            <main className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className="flex flex-col min-h-full">
                 {children || <Outlet />}
               </PageTransition>

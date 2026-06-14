@@ -210,6 +210,8 @@ export interface MessageTemplate {
   owner_id?: number;
   is_system: boolean;
   is_active: boolean;
+  email_type?: string | null;
+  override_enabled?: boolean;
   created_by?: number;
   updated_by?: number;
   creator?: {
