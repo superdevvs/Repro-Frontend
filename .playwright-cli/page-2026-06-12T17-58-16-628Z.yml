@@ -1,0 +1,112 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications (F8)":
+      - list [ref=e44]:
+        - status [ref=e2187]:
+          - generic [ref=e2188]:
+            - generic [ref=e2189]: Shoot Booked!
+            - generic [ref=e2190]: The shoot has been successfully created.
+          - button [ref=e2191] [cursor=pointer]:
+            - img [ref=e2192]
+    - generic:
+      - generic:
+        - text: Tablet Portrait/
+        - generic: 1036 × 905
+    - generic [ref=e54]:
+      - generic [ref=e56]:
+        - link "REPRO Photos" [ref=e58] [cursor=pointer]:
+          - /url: /
+          - img "REPRO Photos" [ref=e60]
+        - generic [ref=e234]:
+          - link "Book Shoot" [ref=e235] [cursor=pointer]:
+            - /url: /book-shoot
+            - generic [ref=e236]:
+              - img [ref=e237]
+              - generic: Book Shoot
+          - link [ref=e239] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e241]
+          - link [ref=e244] [cursor=pointer]:
+            - /url: /shoot-history
+            - img [ref=e246]
+          - link [ref=e250] [cursor=pointer]:
+            - /url: /accounting
+            - img [ref=e252]
+          - link [ref=e254] [cursor=pointer]:
+            - /url: /accounts
+            - img [ref=e256]
+          - link [ref=e259] [cursor=pointer]:
+            - /url: /availability
+            - img [ref=e261]
+          - link [ref=e263] [cursor=pointer]:
+            - /url: /ai-editing
+            - img [ref=e265]
+          - link [ref=e267] [cursor=pointer]:
+            - /url: /chat-with-reproai
+            - img [ref=e268]
+          - link [ref=e270] [cursor=pointer]:
+            - /url: /portal
+            - img [ref=e273]
+          - link [ref=e276] [cursor=pointer]:
+            - /url: /messaging/overview
+            - img [ref=e278]
+          - link [ref=e280] [cursor=pointer]:
+            - /url: /scheduling-settings
+            - img [ref=e282]
+        - generic [ref=e85]:
+          - link [ref=e86] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e88]
+          - button [ref=e92] [cursor=pointer]:
+            - img
+          - button "Expand sidebar" [ref=e94] [cursor=pointer]:
+            - img
+      - generic [ref=e95]:
+        - generic [ref=e97]:
+          - generic [ref=e99]:
+            - img [ref=e100]
+            - searchbox "Search..." [ref=e103]
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - img [ref=e109]
+              - generic [ref=e112]: Robbie
+            - generic:
+              - generic "Needs attention" [ref=e2196]
+              - generic "7 completed shoots are waiting for RAW uploads."
+            - 'button "Robbie insight: 7 completed shoots are waiting for RAW uploads." [ref=e2197] [cursor=pointer]':
+              - generic [ref=e117]: View details
+              - img [ref=e118]
+          - generic [ref=e120]:
+            - button "Ranchi, JH · 78°F · Mostly cloudy" [ref=e287] [cursor=pointer]:
+              - generic [ref=e288]: Ranchi, JH
+              - generic [ref=e289]: ·
+              - img [ref=e290]
+              - generic [ref=e292]:
+                - generic [ref=e293]: 78°F
+                - generic [ref=e294]: ·
+                - generic [ref=e295]: Mostly cloudy
+            - button "Switch to dark mode" [ref=e122] [cursor=pointer]:
+              - img
+            - button "50" [ref=e296] [cursor=pointer]:
+              - img
+              - generic [ref=e297]: "50"
+            - button "Super Admin" [ref=e298] [cursor=pointer]:
+              - img "Super Admin" [ref=e299]
+        - main [ref=e127]:
+          - generic [ref=e2198]:
+            - img [ref=e2200]
+            - heading "Booking Complete!" [level=2] [ref=e2203]
+            - paragraph [ref=e2204]: The shoot has been successfully scheduled for June 20, 2026 at 09:00 AM.
+            - generic [ref=e2205]:
+              - button "Book Another Shoot" [ref=e2206] [cursor=pointer]
+              - button "View All Shoots" [ref=e2207] [cursor=pointer]
+          - generic [ref=e230]:
+            - text: © 2026 R/E Pro Photos ·
+            - link "Terms and Conditions" [ref=e231] [cursor=pointer]:
+              - /url: /terms-and-conditions
+            - text: ·
+            - link "Privacy Policy" [ref=e232] [cursor=pointer]:
+              - /url: /privacy-policy
+  - status [ref=e2208]: Notification Shoot Booked!The shoot has been successfully created.

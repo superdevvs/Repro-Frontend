@@ -1,0 +1,229 @@
+- generic [ref=e4]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications (F8)":
+    - list
+  - generic:
+    - generic:
+      - text: Tablet Portrait/
+      - generic: 1036 × 905
+  - generic [ref=e54]:
+    - generic [ref=e56]:
+      - link "REPRO Photos" [ref=e58] [cursor=pointer]:
+        - /url: /
+        - img "REPRO Photos" [ref=e60]
+      - generic [ref=e234]:
+        - link "Book Shoot" [ref=e235] [cursor=pointer]:
+          - /url: /book-shoot
+          - generic [ref=e236]:
+            - img [ref=e237]
+            - generic: Book Shoot
+        - link [ref=e239] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e241]
+        - link [ref=e244] [cursor=pointer]:
+          - /url: /shoot-history
+          - img [ref=e246]
+        - link [ref=e250] [cursor=pointer]:
+          - /url: /accounting
+          - img [ref=e252]
+        - link [ref=e254] [cursor=pointer]:
+          - /url: /accounts
+          - img [ref=e256]
+        - link [ref=e259] [cursor=pointer]:
+          - /url: /availability
+          - img [ref=e261]
+        - link [ref=e263] [cursor=pointer]:
+          - /url: /ai-editing
+          - img [ref=e265]
+        - link [ref=e267] [cursor=pointer]:
+          - /url: /chat-with-reproai
+          - img [ref=e268]
+        - link [ref=e270] [cursor=pointer]:
+          - /url: /portal
+          - img [ref=e273]
+        - link [ref=e276] [cursor=pointer]:
+          - /url: /messaging/overview
+          - img [ref=e278]
+        - link [ref=e280] [cursor=pointer]:
+          - /url: /scheduling-settings
+          - img [ref=e282]
+      - generic [ref=e85]:
+        - link [ref=e86] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e88]
+        - button [ref=e92] [cursor=pointer]:
+          - img
+        - button "Expand sidebar" [ref=e94] [cursor=pointer]:
+          - img
+    - generic [ref=e95]:
+      - generic [ref=e97]:
+        - generic [ref=e99]:
+          - img [ref=e100]
+          - searchbox "Search..." [ref=e103]
+        - generic [ref=e106]:
+          - generic [ref=e107]:
+            - img [ref=e109]
+            - generic [ref=e112]: Robbie
+          - generic:
+            - generic "Blocking" [ref=e1471]
+            - generic "1 shoot has been flagged and needs your attention.": 1 shoot has been flagged and ne
+          - 'button "Robbie insight: 1 shoot has been flagged and needs your attention." [ref=e1810] [cursor=pointer]':
+            - generic [ref=e117]: View details
+            - img [ref=e118]
+        - generic [ref=e120]:
+          - button "Ranchi, JH · 78°F · Mostly cloudy" [ref=e287] [cursor=pointer]:
+            - generic [ref=e288]: Ranchi, JH
+            - generic [ref=e289]: ·
+            - img [ref=e290]
+            - generic [ref=e292]:
+              - generic [ref=e293]: 78°F
+              - generic [ref=e294]: ·
+              - generic [ref=e295]: Mostly cloudy
+          - button "Switch to dark mode" [ref=e122] [cursor=pointer]:
+            - img
+          - button "50" [ref=e296] [cursor=pointer]:
+            - img
+            - generic [ref=e297]: "50"
+          - button "Super Admin" [ref=e298] [cursor=pointer]:
+            - img "Super Admin" [ref=e299]
+      - main [ref=e127]:
+        - generic [ref=e454]:
+          - generic [ref=e455]:
+            - generic [ref=e457]:
+              - heading "Review & Confirm" [level=1] [ref=e1749]
+              - paragraph [ref=e459]: Verify all the details before confirming the booking
+            - generic [ref=e462]:
+              - generic [ref=e464]:
+                - generic "Property Details completed" [ref=e1228]:
+                  - img [ref=e1229]
+                - generic [ref=e470]: Property Details
+              - generic [ref=e472]:
+                - generic "Schedule completed" [ref=e1750]:
+                  - img [ref=e1751]
+                - generic [ref=e477]: Schedule
+              - generic [ref=e479]:
+                - generic "Review active" [ref=e1753]:
+                  - img [ref=e482]
+                - generic [ref=e486]: Review
+          - generic [ref=e487]:
+            - generic [ref=e1754]:
+              - generic [ref=e1755]:
+                - heading "Booking Summary" [level=3] [ref=e1756]
+                - generic [ref=e1757]:
+                  - generic [ref=e1758]:
+                    - generic [ref=e1759]: "Client:"
+                    - generic [ref=e1760]: House Account
+                  - generic [ref=e1761]:
+                    - generic [ref=e1762]: "Property:"
+                    - generic [ref=e1763]: 123 Main Street, Arlington, VA 22201
+                  - generic [ref=e1764]:
+                    - generic [ref=e1765]: "Date & Time:"
+                    - generic [ref=e1766]: June 20th, 2026 at 08:00 AM
+                  - generic [ref=e1767]:
+                    - text: "Services:"
+                    - list [ref=e1768]:
+                      - listitem [ref=e1769]:
+                        - generic [ref=e1770]:
+                          - generic [ref=e1771]: 2D Floor plans
+                          - generic [ref=e1772]: 2026-06-20 at 08:00 AM
+                        - generic [ref=e1773]: $125.00
+                  - generic [ref=e1774]:
+                    - generic [ref=e1775]: "Photographer:"
+                    - generic [ref=e1776]: QA Robbie Photographer
+                  - generic [ref=e1777]:
+                    - text: "Notes:"
+                    - paragraph [ref=e1778]: "Live QA booking created by Codex to verify date/time consistency across shoot stages. Requested date: Jun 20, 2026 at 8:00 AM."
+                - generic [ref=e1779]:
+                  - generic [ref=e1781]:
+                    - generic [ref=e1782]:
+                      - text: Booking amount
+                      - paragraph [ref=e1783]: Adjusts the final total before booking.
+                    - generic [ref=e1785]:
+                      - generic: $
+                      - spinbutton "Booking amount" [ref=e1786]
+                  - generic [ref=e1787]:
+                    - generic [ref=e1788]: "Subtotal:"
+                    - generic [ref=e1789]: $125.00
+                  - generic [ref=e1790]:
+                    - generic [ref=e1791]: "Tax:"
+                    - generic [ref=e1792]: $6.63
+                  - generic [ref=e1793]:
+                    - generic [ref=e1794]: "Total:"
+                    - generic [ref=e1795]: $131.63
+              - generic [ref=e1796]:
+                - generic [ref=e1797]:
+                  - generic [ref=e1798]:
+                    - text: Bypass Payment
+                    - generic [ref=e1799]: Client will be invoiced later
+                  - switch "Bypass Payment" [checked] [ref=e1800] [cursor=pointer]
+                - generic [ref=e1801]:
+                  - generic [ref=e1802]:
+                    - text: Send Notification
+                    - generic [ref=e1803]: Notify client and photographer
+                  - switch "Send Notification" [active] [ref=e1804] [cursor=pointer]
+              - button "Back" [ref=e1806] [cursor=pointer]
+            - generic [ref=e625]:
+              - generic [ref=e626]:
+                - heading "Booking Summary" [level=2] [ref=e627]
+                - paragraph [ref=e628]: Complete all steps to schedule your shoot
+                - generic [ref=e629]:
+                  - generic [ref=e630]:
+                    - generic [ref=e631]: Client
+                    - generic [ref=e787]:
+                      - generic [ref=e788]:
+                        - generic [ref=e789]: "Rep:"
+                        - generic [ref=e790]: Super Admin
+                      - generic [ref=e791]:
+                        - img [ref=e792]
+                        - generic [ref=e795]: House Account
+                  - generic [ref=e633]:
+                    - generic [ref=e634]: Property
+                    - generic [ref=e797]:
+                      - img [ref=e798]
+                      - generic [ref=e801]: 123 Main Street, Arlington, VA 22201
+                  - generic [ref=e636]:
+                    - generic [ref=e637]: Date & Time
+                    - generic [ref=e1344]:
+                      - generic [ref=e1345]:
+                        - img [ref=e1346]
+                        - generic [ref=e1348]: 20 June 2026
+                      - generic [ref=e1529]:
+                        - img [ref=e1530]
+                        - generic [ref=e1533]: 08:00 AM
+                      - generic [ref=e1349]:
+                        - img [ref=e1350]
+                        - generic [ref=e1355]: 77°F
+                        - generic [ref=e1356]: Partly cloudy
+                  - generic [ref=e1203]:
+                    - generic [ref=e1204]:
+                      - heading "Selected Services" [level=3] [ref=e1205]
+                      - generic [ref=e1206]:
+                        - img [ref=e1207]
+                        - generic [ref=e1209]: "131.63"
+                    - generic [ref=e1211]:
+                      - generic [ref=e1212]:
+                        - paragraph [ref=e1213]: 2D Floor plans
+                        - paragraph [ref=e1357]: 20 June 2026 at 08:00 AM
+                        - paragraph [ref=e1214]: Measured 2D floor plans sized to the square footage.
+                      - generic [ref=e1215]: $125.00
+                    - generic [ref=e1216]:
+                      - generic [ref=e1217]:
+                        - generic [ref=e1218]: Subtotal
+                        - generic [ref=e1219]: $125.00
+                      - generic [ref=e1220]:
+                        - generic [ref=e1221]: Tax
+                        - generic [ref=e1222]: $6.63
+                      - generic [ref=e1223]:
+                        - generic [ref=e1224]: Total
+                        - generic [ref=e1225]: $131.63
+              - button "Book Shoot" [ref=e1808] [cursor=pointer]:
+                - img
+                - text: Book Shoot
+        - generic [ref=e230]:
+          - text: © 2026 R/E Pro Photos ·
+          - link "Terms and Conditions" [ref=e231] [cursor=pointer]:
+            - /url: /terms-and-conditions
+          - text: ·
+          - link "Privacy Policy" [ref=e232] [cursor=pointer]:
+            - /url: /privacy-policy

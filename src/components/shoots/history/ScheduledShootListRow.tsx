@@ -215,7 +215,7 @@ export const ScheduledShootListRow = ({
       <div className="p-3 sm:p-4 flex flex-col flex-1">
         {/* Row 1: Date/Time | Address | Client/Photographer | Status */}
         {/* Mobile: Stack vertically, Desktop: Horizontal layout */}
-        <div className="space-y-3 md:space-y-0 md:flex md:items-start md:gap-4 mb-2">
+        <div className="grid gap-3 md:grid-cols-[140px_minmax(0,1fr)] lg:grid-cols-[140px_minmax(220px,1fr)_minmax(220px,0.72fr)_auto] lg:items-start lg:gap-4 mb-2">
           {/* Top row on mobile: Date/Time and Status */}
           <div className="flex items-start justify-between gap-3 md:hidden">
             {/* Date and Time - Left Side */}
@@ -260,33 +260,41 @@ export const ScheduledShootListRow = ({
           </div>
 
           {/* Address - Main Content (can wrap) - Highlighted & Larger */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-bold leading-tight break-words text-primary">{shoot.location.address}</h3>
+              <h3
+                className="min-w-0 max-w-full overflow-hidden text-lg font-bold leading-tight text-primary [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                title={shoot.location.address}
+              >
+                {shoot.location.address}
+              </h3>
               <Badge variant="outline" className={cn('hidden md:inline-flex capitalize font-medium', statusBadgeClass)}>
                 <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                 {statusLabel}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground break-words">
+            <p
+              className="mt-1 min-w-0 max-w-full truncate text-sm text-muted-foreground"
+              title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
+            >
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
             </p>
           </div>
 
           {/* Client & Photographer - Compact Inline */}
-          <div className="flex flex-wrap items-center gap-3 md:gap-4 min-w-0 text-sm">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm md:col-start-2 lg:col-start-auto lg:max-w-[360px] xl:max-w-[440px]">
             {!shouldHideClientDetails && (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="font-medium break-words" title={shoot.client.name}>
+                <span className="min-w-0 truncate font-medium" title={shoot.client.name}>
                   {shoot.client.name}
                 </span>
               </div>
             )}
             {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <Camera className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="font-medium break-words" title={shoot.photographer.name}>
+                <span className="min-w-0 truncate font-medium" title={shoot.photographer.name}>
                   {shoot.photographer.name}
                 </span>
               </div>
@@ -294,7 +302,7 @@ export const ScheduledShootListRow = ({
           </div>
 
           {/* Desktop: Status & Actions - Right Side */}
-          <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+          <div className="hidden md:flex md:col-start-2 lg:col-start-auto items-center gap-2 flex-shrink-0 lg:justify-end">
             {paymentStatus && (
               <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
                 {paymentStatus}

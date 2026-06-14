@@ -857,12 +857,12 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                 <h4>Need help with a shoot, invoice, or account question?</h4>
                 <p>
                   Our team is here to keep your workflow moving. Reach us at
-                  {' '}contact@reprophotos.com or call 202-868-1663.
+                  {' '}contact@reprophotos.com or call 202-868-1113.
                 </p>
                 <div className="preview-footer-grid">
                   <div className="preview-footer-card">
                     <span className="preview-footer-label">Support</span>
-                    <span className="preview-footer-value">contact@reprophotos.com<br />202-868-1663</span>
+                    <span className="preview-footer-value">contact@reprophotos.com<br />202-868-1113</span>
                   </div>
                   <div className="preview-footer-card">
                     <span className="preview-footer-label">Portal</span>

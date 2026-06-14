@@ -68,10 +68,27 @@ export const getShootDetailsCapabilities = ({
     normalizedStatus,
   );
   const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
-  const canFinalise =
+  // Fast-forward finalize: an admin can move a still-unstarted shoot (scheduled
+  // or on hold, with no raw/edited media) straight to Delivered. This is the
+  // explicit "Finalize (fast-forward)" path; the backend honours it via the
+  // allow_no_media_delivery flag while the normal finalize flow still requires
+  // edited media.
+  const isScheduledStatus = normalizedStatus === 'scheduled';
+  const isOnHoldStatus = normalizedStatus === 'on_hold';
+  const canFastForwardFinalise =
     isAdmin &&
     !isDelivered &&
-    ['uploaded', 'editing', 'ready'].includes(normalizedStatus);
+    (isScheduledStatus || isOnHoldStatus) &&
+    rawMediaCount === 0 &&
+    editedMediaCount === 0;
+  const canFinalise =
+    (isAdmin &&
+      !isDelivered &&
+      ['uploaded', 'editing', 'ready'].includes(normalizedStatus)) ||
+    canFastForwardFinalise;
+  // Drives the "Finalize (fast-forward)" label and the allow_no_media_delivery
+  // request flag.
+  const isFastForwardFinalise = canFastForwardFinalise;
   const canSendToEditing =
     isAdmin &&
     !isDelivered &&
@@ -198,6 +215,8 @@ export const getShootDetailsCapabilities = ({
     isCancelledOrDeclined,
     canShowInvoiceButton,
     canFinalise,
+    canFastForwardFinalise,
+    isFastForwardFinalise,
     canSendToEditing,
     canApproveEditingReview,
     mmmRedirectUrl,

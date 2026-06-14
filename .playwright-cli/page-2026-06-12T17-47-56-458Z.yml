@@ -1,0 +1,43 @@
+- generic [ref=e4]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications (F8)":
+    - list
+  - generic:
+    - generic:
+      - text: Tablet Portrait/
+      - generic: 1036 × 905
+  - generic [ref=e6]:
+    - generic [ref=e8]:
+      - generic:
+        - paragraph:
+          - text: Elevating your
+          - text: status quo!
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - img "REPRO Photos"
+        - heading "Log in to your dashboard" [level=1] [ref=e17]
+        - paragraph
+      - generic [ref=e18]:
+        - tablist [ref=e19]:
+          - tab "Log In" [selected] [ref=e20] [cursor=pointer]
+          - tab "Register" [ref=e21] [cursor=pointer]
+        - tabpanel "Log In" [ref=e22]:
+          - generic [ref=e23]:
+            - textbox "Email" [ref=e25]
+            - generic [ref=e27]:
+              - textbox "Password" [ref=e28]
+              - button "Show password" [ref=e29] [cursor=pointer]:
+                - img [ref=e30]
+            - button "Log In" [ref=e33] [cursor=pointer]
+            - generic [ref=e34]:
+              - paragraph [ref=e35]: Forgot Password? Reset
+              - generic [ref=e36]:
+                - paragraph [ref=e37]: No account yet? Register now
+                - generic [ref=e38]:
+                  - link "T&C" [ref=e39] [cursor=pointer]:
+                    - /url: /terms-and-conditions
+                  - generic [ref=e40]: "|"
+                  - link "Privacy Policy" [ref=e41] [cursor=pointer]:
+                    - /url: /privacy-policy

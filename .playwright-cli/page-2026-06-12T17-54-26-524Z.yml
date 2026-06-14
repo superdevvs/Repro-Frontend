@@ -1,0 +1,274 @@
+- generic [ref=e4]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications (F8)":
+    - list
+  - generic:
+    - generic:
+      - text: Tablet Portrait/
+      - generic: 1036 × 905
+  - generic [ref=e54]:
+    - generic [ref=e56]:
+      - link "REPRO Photos" [ref=e58] [cursor=pointer]:
+        - /url: /
+        - img "REPRO Photos" [ref=e60]
+      - generic [ref=e234]:
+        - link "Book Shoot" [ref=e235] [cursor=pointer]:
+          - /url: /book-shoot
+          - generic [ref=e236]:
+            - img [ref=e237]
+            - generic: Book Shoot
+        - link [ref=e239] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e241]
+        - link [ref=e244] [cursor=pointer]:
+          - /url: /shoot-history
+          - img [ref=e246]
+        - link [ref=e250] [cursor=pointer]:
+          - /url: /accounting
+          - img [ref=e252]
+        - link [ref=e254] [cursor=pointer]:
+          - /url: /accounts
+          - img [ref=e256]
+        - link [ref=e259] [cursor=pointer]:
+          - /url: /availability
+          - img [ref=e261]
+        - link [ref=e263] [cursor=pointer]:
+          - /url: /ai-editing
+          - img [ref=e265]
+        - link [ref=e267] [cursor=pointer]:
+          - /url: /chat-with-reproai
+          - img [ref=e268]
+        - link [ref=e270] [cursor=pointer]:
+          - /url: /portal
+          - img [ref=e273]
+        - link [ref=e276] [cursor=pointer]:
+          - /url: /messaging/overview
+          - img [ref=e278]
+        - link [ref=e280] [cursor=pointer]:
+          - /url: /scheduling-settings
+          - img [ref=e282]
+      - generic [ref=e85]:
+        - link [ref=e86] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e88]
+        - button [ref=e92] [cursor=pointer]:
+          - img
+        - button "Expand sidebar" [ref=e94] [cursor=pointer]:
+          - img
+    - generic [ref=e95]:
+      - generic [ref=e97]:
+        - generic [ref=e99]:
+          - img [ref=e100]
+          - searchbox "Search..." [ref=e103]
+        - generic [ref=e106]:
+          - generic [ref=e107]:
+            - img [ref=e109]
+            - generic [ref=e112]: Robbie
+          - generic:
+            - generic "Blocking" [ref=e1471]
+            - generic "5 new booking requests from clients awaiting review."
+          - 'button "Robbie insight: 5 new booking requests from clients awaiting review." [ref=e1472] [cursor=pointer]':
+            - generic [ref=e117]: View details
+            - img [ref=e118]
+        - generic [ref=e120]:
+          - button "Ranchi, JH · 78°F · Mostly cloudy" [ref=e287] [cursor=pointer]:
+            - generic [ref=e288]: Ranchi, JH
+            - generic [ref=e289]: ·
+            - img [ref=e290]
+            - generic [ref=e292]:
+              - generic [ref=e293]: 78°F
+              - generic [ref=e294]: ·
+              - generic [ref=e295]: Mostly cloudy
+          - button "Switch to dark mode" [ref=e122] [cursor=pointer]:
+            - img
+          - button "50" [ref=e296] [cursor=pointer]:
+            - img
+            - generic [ref=e297]: "50"
+          - button "Super Admin" [ref=e298] [cursor=pointer]:
+            - img "Super Admin" [ref=e299]
+      - main [ref=e127]:
+        - generic [ref=e454]:
+          - generic [ref=e455]:
+            - generic [ref=e457]:
+              - heading "Schedule" [level=1] [ref=e1227]
+              - paragraph [ref=e459]: Choose a convenient date and time for the shoot
+            - generic [ref=e462]:
+              - generic [ref=e464]:
+                - generic "Property Details completed" [ref=e1228]:
+                  - img [ref=e1229]
+                - generic [ref=e470]: Property Details
+              - generic [ref=e472]:
+                - generic "Schedule active" [ref=e1231]:
+                  - img [ref=e475]
+                - generic [ref=e477]: Schedule
+              - generic [ref=e479]:
+                - generic "Review upcoming" [ref=e480]:
+                  - img [ref=e482]
+                - generic [ref=e486]: Review
+          - generic [ref=e487]:
+            - generic [ref=e1232]:
+              - generic [ref=e1233]:
+                - generic [ref=e1234]:
+                  - generic [ref=e1235]:
+                    - heading "Select Date" [level=2] [ref=e1236]
+                    - generic [ref=e1237]: June 20, 2026
+                  - generic [ref=e1238]:
+                    - generic [ref=e1241]:
+                      - generic [ref=e1242]:
+                        - generic [ref=e1243]: June 2026
+                        - generic [ref=e1244]:
+                          - button "Go to previous month" [disabled] [ref=e1690]:
+                            - img [ref=e1691]
+                          - button "Go to next month" [ref=e1693] [cursor=pointer]:
+                            - img [ref=e1694]
+                      - grid "June 2026" [ref=e1696]:
+                        - rowgroup [ref=e1252]:
+                          - row "Sunday Monday Tuesday Wednesday Thursday Friday Saturday" [ref=e1697]:
+                            - columnheader "Sunday" [ref=e1698]: Su
+                            - columnheader "Monday" [ref=e1699]: Mo
+                            - columnheader "Tuesday" [ref=e1700]: Tu
+                            - columnheader "Wednesday" [ref=e1701]: We
+                            - columnheader "Thursday" [ref=e1702]: Th
+                            - columnheader "Friday" [ref=e1703]: Fr
+                            - columnheader "Saturday" [ref=e1704]: Sa
+                        - rowgroup [ref=e1261]:
+                          - row "31 1 2 3 4 5 6" [ref=e1705]:
+                            - gridcell "31" [disabled] [ref=e1706]
+                            - gridcell "1" [disabled] [ref=e1707]
+                            - gridcell "2" [disabled] [ref=e1708]
+                            - gridcell "3" [disabled] [ref=e1709]
+                            - gridcell "4" [disabled] [ref=e1710]
+                            - gridcell "5" [disabled] [ref=e1711]
+                            - gridcell "6" [disabled] [ref=e1712]
+                          - row "7 8 9 10 11 12 13" [ref=e1713]:
+                            - gridcell "7" [disabled] [ref=e1714]
+                            - gridcell "8" [disabled] [ref=e1715]
+                            - gridcell "9" [disabled] [ref=e1716]
+                            - gridcell "10" [disabled] [ref=e1717]
+                            - gridcell "11" [disabled] [ref=e1718]
+                            - gridcell "12" [ref=e1719] [cursor=pointer]
+                            - gridcell "13" [ref=e1720] [cursor=pointer]
+                          - row "14 15 16 17 18 19 20" [ref=e1721]:
+                            - gridcell "14" [ref=e1722] [cursor=pointer]
+                            - gridcell "15" [ref=e1723] [cursor=pointer]
+                            - gridcell "16" [ref=e1724] [cursor=pointer]
+                            - gridcell "17" [ref=e1725] [cursor=pointer]
+                            - gridcell "18" [ref=e1726] [cursor=pointer]
+                            - gridcell "19" [ref=e1727] [cursor=pointer]
+                            - gridcell "20" [selected] [ref=e1728] [cursor=pointer]
+                          - row "21 22 23 24 25 26 27" [ref=e1729]:
+                            - gridcell "21" [ref=e1730] [cursor=pointer]
+                            - gridcell "22" [ref=e1731] [cursor=pointer]
+                            - gridcell "23" [ref=e1732] [cursor=pointer]
+                            - gridcell "24" [ref=e1733] [cursor=pointer]
+                            - gridcell "25" [ref=e1734] [cursor=pointer]
+                            - gridcell "26" [ref=e1735] [cursor=pointer]
+                            - gridcell "27" [ref=e1736] [cursor=pointer]
+                          - row "28 29 30 1 2 3 4" [ref=e1737]:
+                            - gridcell "28" [ref=e1738] [cursor=pointer]
+                            - gridcell "29" [ref=e1739] [cursor=pointer]
+                            - gridcell "30" [ref=e1740] [cursor=pointer]
+                            - gridcell "1" [ref=e1741] [cursor=pointer]
+                            - gridcell "2" [ref=e1742] [cursor=pointer]
+                            - gridcell "3" [ref=e1743] [cursor=pointer]
+                            - gridcell "4" [ref=e1744] [cursor=pointer]
+                    - generic [ref=e1302]:
+                      - generic [ref=e1303]: Availability
+                      - generic [ref=e1305]: No availability
+                - generic [ref=e1307]:
+                  - generic [ref=e1308]:
+                    - heading "Time" [level=2] [ref=e1309]
+                    - generic [ref=e1310]: 08:00 AM
+                  - generic [ref=e1311]:
+                    - paragraph [ref=e1312]: Suggested times
+                    - generic [ref=e1313]: Availability not configured for this photographer on the selected day. Choose another photographer or date.
+                  - button "Choose manually" [ref=e1342] [cursor=pointer]:
+                    - img
+                    - text: Choose manually
+                - generic [ref=e1314]:
+                  - heading "Photographer" [level=2] [ref=e1315]
+                  - generic [ref=e1316]:
+                    - paragraph [ref=e1317]: Service schedules
+                    - generic [ref=e1318]:
+                      - generic [ref=e1319]:
+                        - paragraph [ref=e1320]: 2D Floor plans
+                        - paragraph [ref=e1321]: 2026-06-20 at 8:00 AM
+                      - button "20 Jun 2026" [ref=e1343] [cursor=pointer]:
+                        - img
+                        - generic [ref=e1323]: 20 Jun 2026
+                      - button "8:00 AM" [ref=e1528] [cursor=pointer]:
+                        - img
+                        - generic [ref=e1325]: 8:00 AM
+                  - generic [ref=e1326] [cursor=pointer]:
+                    - generic [ref=e1327]:
+                      - img "QA Robbie Photographer" [ref=e1746]
+                      - generic [ref=e1747]: QA Robbie Photographer
+                    - img [ref=e1329]
+              - generic [ref=e1331]:
+                - button "Back" [ref=e1332] [cursor=pointer]:
+                  - img
+                  - text: Back
+                - button "CONFIRM" [ref=e1333] [cursor=pointer]:
+                  - text: CONFIRM
+                  - img
+            - generic [ref=e626]:
+              - heading "Booking Summary" [level=2] [ref=e627]
+              - paragraph [ref=e628]: Complete all steps to schedule your shoot
+              - generic [ref=e629]:
+                - generic [ref=e630]:
+                  - generic [ref=e631]: Client
+                  - generic [ref=e787]:
+                    - generic [ref=e788]:
+                      - generic [ref=e789]: "Rep:"
+                      - generic [ref=e790]: Super Admin
+                    - generic [ref=e791]:
+                      - img [ref=e792]
+                      - generic [ref=e795]: House Account
+                - generic [ref=e633]:
+                  - generic [ref=e634]: Property
+                  - generic [ref=e797]:
+                    - img [ref=e798]
+                    - generic [ref=e801]: 123 Main Street, Arlington, VA 22201
+                - generic [ref=e636]:
+                  - generic [ref=e637]: Date & Time
+                  - generic [ref=e1344]:
+                    - generic [ref=e1345]:
+                      - img [ref=e1346]
+                      - generic [ref=e1348]: 20 June 2026
+                    - generic [ref=e1529]:
+                      - img [ref=e1530]
+                      - generic [ref=e1533]: 08:00 AM
+                    - generic [ref=e1349]:
+                      - img [ref=e1350]
+                      - generic [ref=e1355]: 77°F
+                      - generic [ref=e1356]: Partly cloudy
+                - generic [ref=e1203]:
+                  - generic [ref=e1204]:
+                    - heading "Selected Services" [level=3] [ref=e1205]
+                    - generic [ref=e1206]:
+                      - img [ref=e1207]
+                      - generic [ref=e1209]: "131.63"
+                  - generic [ref=e1211]:
+                    - generic [ref=e1212]:
+                      - paragraph [ref=e1213]: 2D Floor plans
+                      - paragraph [ref=e1357]: 20 June 2026 at 08:00 AM
+                      - paragraph [ref=e1214]: Measured 2D floor plans sized to the square footage.
+                    - generic [ref=e1215]: $125.00
+                  - generic [ref=e1216]:
+                    - generic [ref=e1217]:
+                      - generic [ref=e1218]: Subtotal
+                      - generic [ref=e1219]: $125.00
+                    - generic [ref=e1220]:
+                      - generic [ref=e1221]: Tax
+                      - generic [ref=e1222]: $6.63
+                    - generic [ref=e1223]:
+                      - generic [ref=e1224]: Total
+                      - generic [ref=e1225]: $131.63
+        - generic [ref=e230]:
+          - text: © 2026 R/E Pro Photos ·
+          - link "Terms and Conditions" [ref=e231] [cursor=pointer]:
+            - /url: /terms-and-conditions
+          - text: ·
+          - link "Privacy Policy" [ref=e232] [cursor=pointer]:
+            - /url: /privacy-policy

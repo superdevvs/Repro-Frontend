@@ -322,8 +322,16 @@ export function ShootDetailsSidebar({
       const data = await res.json();
       const invoiceData = data.data || data;
       const dueDate = invoiceData.due_date || invoiceData.dueDate || new Date().toISOString();
-      const isPaid = Boolean(invoiceData.is_paid) || String(invoiceData.status || '').toLowerCase() === 'paid';
-      const isOverdue = !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
+      // Central rule: only treat an invoice as unpaid/overdue when it has an outstanding balance > 0.
+      // A $0.00 invoice (or zero remaining balance) is always settled.
+      const invoiceTotal = Number(invoiceData.total ?? invoiceData.total_amount ?? invoiceData.amount ?? 0) || 0;
+      const invoicePaid = Number(invoiceData.amount_paid ?? invoiceData.paid_amount ?? 0) || 0;
+      const invoiceBalance = Number(
+        invoiceData.balance_due ?? invoiceData.balanceDue ?? (invoiceTotal - invoicePaid),
+      );
+      const hasOutstandingBalance = invoiceTotal > 0.01 && invoiceBalance > 0.01;
+      const isPaid = !hasOutstandingBalance || Boolean(invoiceData.is_paid) || String(invoiceData.status || '').toLowerCase() === 'paid';
+      const isOverdue = hasOutstandingBalance && !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
 
       // Convert API response to InvoiceData format
       const invoice: InvoiceData = {

@@ -264,7 +264,7 @@ const BookShoot = () => {
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
   const { user, isImpersonating } = useAuth();
   const canAdjustBookingAmount = !isImpersonating && (user?.role === 'admin' || user?.role === 'superadmin');
-  const canCreateNoProductShoot = !isImpersonating && ['admin', 'superadmin', 'editing_manager', 'salesRep', 'salesrep', 'sales_rep'].includes(String(user?.role ?? ''));
+  const canCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager'].includes(String(user?.role ?? ''));
   const [isEditMode, setIsEditMode] = useState(false);
   const [editShootLoading, setEditShootLoading] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -1340,11 +1340,15 @@ const BookShoot = () => {
 
       const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
       if (!address || !city || !state || !zip || (requiresServices && selectedServices.length === 0)) {
+        const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
+          !!address && !!city && !!state && !!zip;
         toast({
-          title: "Missing information",
-          description: requiresServices
-            ? "Please fill in all property details and select a package before proceeding."
-            : "Please fill in all property details before proceeding.",
+          title: onlyProductMissing ? "Product required" : "Missing information",
+          description: onlyProductMissing
+            ? "Add at least one product to schedule this shoot."
+            : requiresServices
+              ? "Please fill in all property details and select a package before proceeding."
+              : "Please fill in all property details before proceeding.",
           variant: "destructive",
         });
         return false;
@@ -1517,11 +1521,15 @@ const BookShoot = () => {
       const clientValid = isClientAccount || !!client;
       const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
       if (!clientValid || !address || !city || !state || !zip || !date || !time || (requiresServices && selectedServices.length === 0)) {
+        const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
+          clientValid && !!address && !!city && !!state && !!zip && !!date && !!time;
         toast({
-          title: "Missing information",
-          description: requiresServices
-            ? "Please fill in all required fields and select a service before confirming the booking."
-            : "Please fill in all required fields before confirming the booking.",
+          title: onlyProductMissing ? "Product required" : "Missing information",
+          description: onlyProductMissing
+            ? "Add at least one product to schedule this shoot."
+            : requiresServices
+              ? "Please fill in all required fields and select a service before confirming the booking."
+              : "Please fill in all required fields before confirming the booking.",
           variant: "destructive",
         });
         setIsSubmitting(false);

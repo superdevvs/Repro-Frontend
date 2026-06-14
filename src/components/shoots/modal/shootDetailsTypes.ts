@@ -32,6 +32,8 @@ export interface ShootDetailsCapabilities {
   isCancelledOrDeclined: boolean;
   canShowInvoiceButton: boolean;
   canFinalise: boolean;
+  canFastForwardFinalise: boolean;
+  isFastForwardFinalise: boolean;
   canSendToEditing: boolean;
   canApproveEditingReview: boolean;
   mmmRedirectUrl?: string;

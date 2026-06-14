@@ -1,0 +1,340 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - list
+        - list
+        - generic:
+          - generic:
+            - text: Tablet Portrait/
+            - generic: 1036 × 905
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /
+                  - generic:
+                    - img
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - link:
+                        - /url: /book-shoot
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /dashboard
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /shoot-history
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounting
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounts
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /availability
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /ai-editing
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /chat-with-reproai
+                        - img
+                      - link:
+                        - /url: /portal
+                        - generic:
+                          - generic:
+                            - img
+                      - generic:
+                        - link:
+                          - /url: /messaging/overview
+                          - generic:
+                            - img
+                      - link:
+                        - /url: /scheduling-settings
+                        - generic:
+                          - img
+              - generic:
+                - link:
+                  - /url: /settings
+                  - generic:
+                    - img
+                - generic:
+                  - button:
+                    - img
+                - generic:
+                  - button:
+                    - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                    - searchbox
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Robbie
+                    - button:
+                      - generic: View details
+                      - img
+                - generic:
+                  - button:
+                    - generic: Ranchi, JH
+                    - generic: ·
+                    - img
+                    - generic:
+                      - generic: 78°F
+                      - generic: ·
+                      - generic: Mostly cloudy
+                  - button:
+                    - img
+                  - button:
+                    - img
+                    - generic: "50"
+                  - button:
+                    - generic:
+                      - img
+            - main:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=1]: Schedule
+                        - paragraph: Choose a convenient date and time for the shoot
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                              - generic: Property Details
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                              - generic: Schedule
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                              - generic: Review
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - heading [level=2]: Select Date
+                                - generic: June 20, 2026
+                              - generic:
+                                - generic [ref=e1241]:
+                                  - generic [ref=e1242]:
+                                    - generic [ref=e1243]: June 2026
+                                    - generic [ref=e1244]:
+                                      - button [disabled] [ref=e1538]:
+                                        - img [ref=e1539]
+                                      - button [ref=e1541] [cursor=pointer]:
+                                        - img [ref=e1542]
+                                  - grid [ref=e1544]:
+                                    - rowgroup [ref=e1252]:
+                                      - row [ref=e1545]:
+                                        - columnheader [ref=e1546]: Su
+                                        - columnheader [ref=e1547]: Mo
+                                        - columnheader [ref=e1548]: Tu
+                                        - columnheader [ref=e1549]: We
+                                        - columnheader [ref=e1550]: Th
+                                        - columnheader [ref=e1551]: Fr
+                                        - columnheader [ref=e1552]: Sa
+                                    - rowgroup [ref=e1261]:
+                                      - row [ref=e1553]:
+                                        - gridcell [disabled] [ref=e1554]: "31"
+                                        - gridcell [disabled] [ref=e1555]: "1"
+                                        - gridcell [disabled] [ref=e1556]: "2"
+                                        - gridcell [disabled] [ref=e1557]: "3"
+                                        - gridcell [disabled] [ref=e1558]: "4"
+                                        - gridcell [disabled] [ref=e1559]: "5"
+                                        - gridcell [disabled] [ref=e1560]: "6"
+                                      - row [ref=e1561]:
+                                        - gridcell [disabled] [ref=e1562]: "7"
+                                        - gridcell [disabled] [ref=e1563]: "8"
+                                        - gridcell [disabled] [ref=e1564]: "9"
+                                        - gridcell [disabled] [ref=e1565]: "10"
+                                        - gridcell [disabled] [ref=e1566]: "11"
+                                        - gridcell [ref=e1567] [cursor=pointer]: "12"
+                                        - gridcell [ref=e1568] [cursor=pointer]: "13"
+                                      - row [ref=e1569]:
+                                        - gridcell [ref=e1570] [cursor=pointer]: "14"
+                                        - gridcell [ref=e1571] [cursor=pointer]: "15"
+                                        - gridcell [ref=e1572] [cursor=pointer]: "16"
+                                        - gridcell [ref=e1573] [cursor=pointer]: "17"
+                                        - gridcell [ref=e1574] [cursor=pointer]: "18"
+                                        - gridcell [ref=e1575] [cursor=pointer]: "19"
+                                        - gridcell [selected] [ref=e1576] [cursor=pointer]: "20"
+                                      - row [ref=e1577]:
+                                        - gridcell [ref=e1578] [cursor=pointer]: "21"
+                                        - gridcell [ref=e1579] [cursor=pointer]: "22"
+                                        - gridcell [ref=e1580] [cursor=pointer]: "23"
+                                        - gridcell [ref=e1581] [cursor=pointer]: "24"
+                                        - gridcell [ref=e1582] [cursor=pointer]: "25"
+                                        - gridcell [ref=e1583] [cursor=pointer]: "26"
+                                        - gridcell [ref=e1584] [cursor=pointer]: "27"
+                                      - row [ref=e1585]:
+                                        - gridcell [ref=e1586] [cursor=pointer]: "28"
+                                        - gridcell [ref=e1587] [cursor=pointer]: "29"
+                                        - gridcell [ref=e1588] [cursor=pointer]: "30"
+                                        - gridcell [ref=e1589] [cursor=pointer]: "1"
+                                        - gridcell [ref=e1590] [cursor=pointer]: "2"
+                                        - gridcell [ref=e1591] [cursor=pointer]: "3"
+                                        - gridcell [ref=e1592] [cursor=pointer]: "4"
+                                - generic:
+                                  - generic: Availability
+                                  - generic: No availability
+                            - generic:
+                              - generic:
+                                - heading [level=2]: Time
+                                - generic: 08:00 AM
+                              - generic:
+                                - paragraph: Suggested times
+                                - generic: No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.
+                              - button:
+                                - img
+                                - text: Choose manually
+                            - generic:
+                              - heading [level=2]: Photographer
+                              - generic:
+                                - paragraph: Service schedules
+                                - generic:
+                                  - generic:
+                                    - paragraph: 2D Floor plans
+                                    - paragraph: 2026-06-20 at 8:00 AM
+                                  - button:
+                                    - img
+                                    - generic: 20 Jun 2026
+                                  - button:
+                                    - img
+                                    - generic: 8:00 AM
+                              - generic:
+                                - generic:
+                                  - generic: Select a photographer
+                                - img
+                          - generic:
+                            - button:
+                              - img
+                              - text: Back
+                            - button:
+                              - text: CONFIRM
+                              - img
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading [level=2]: Booking Summary
+                          - paragraph: Complete all steps to schedule your shoot
+                          - generic:
+                            - generic:
+                              - generic: Client
+                              - generic:
+                                - generic:
+                                  - generic: "Rep:"
+                                  - generic: Super Admin
+                                - generic:
+                                  - img
+                                  - generic: House Account
+                            - generic:
+                              - generic: Property
+                              - generic:
+                                - img
+                                - generic: 123 Main Street, Arlington, VA 22201
+                            - generic:
+                              - generic: Date & Time
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 20 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 08:00 AM
+                                - generic:
+                                  - img
+                                  - generic: 77°F
+                                  - generic: Partly cloudy
+                            - generic:
+                              - generic:
+                                - heading [level=3]: Selected Services
+                                - generic:
+                                  - img
+                                  - generic: "131.63"
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - paragraph: 2D Floor plans
+                                    - paragraph: 20 June 2026 at 08:00 AM
+                                    - paragraph: Measured 2D floor plans sized to the square footage.
+                                  - generic: $125.00
+                              - generic:
+                                - generic:
+                                  - generic: Subtotal
+                                  - generic: $125.00
+                                - generic:
+                                  - generic: Tax
+                                  - generic: $6.63
+                                - generic:
+                                  - generic: Total
+                                  - generic: $131.63
+              - generic:
+                - text: © 2026 R/E Pro Photos ·
+                - link:
+                  - /url: /terms-and-conditions
+                  - text: Terms and Conditions
+                - text: ·
+                - link:
+                  - /url: /privacy-policy
+                  - text: Privacy Policy
+  - dialog "Select Photographer" [ref=e1594]:
+    - generic [ref=e1596]:
+      - generic [ref=e1597]:
+        - heading "Select Photographer" [level=2] [ref=e1598]
+        - paragraph [ref=e1599]: 0 photographers available
+      - generic [ref=e1601]:
+        - generic [ref=e1602]:
+          - img [ref=e1603]
+          - textbox "Search by name or area..." [active] [ref=e1606]
+        - generic [ref=e1607]:
+          - button "Distance" [ref=e1608] [cursor=pointer]
+          - button "Availability" [ref=e1609] [cursor=pointer]
+          - button "Show All" [ref=e1610] [cursor=pointer]
+      - generic [ref=e1613]:
+        - paragraph [ref=e1614]: No photographers available for the selected date and time.
+        - button "Show all photographers" [ref=e1615] [cursor=pointer]
+      - generic [ref=e1617]:
+        - generic [ref=e1618]:
+          - img [ref=e1621]
+          - generic [ref=e1624]:
+            - paragraph [ref=e1625]: Selected specialist
+            - paragraph [ref=e1626]: None selected
+        - generic [ref=e1627]:
+          - button "Discard" [ref=e1628] [cursor=pointer]
+          - button "Confirm Assignment" [disabled]
+    - button "Close" [ref=e1629] [cursor=pointer]:
+      - img [ref=e1630]
+      - generic [ref=e1633]: Close

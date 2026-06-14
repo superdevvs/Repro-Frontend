@@ -1,0 +1,60 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications (F8)":
+      - list [ref=e44]:
+        - status [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: Success
+            - generic [ref=e48]: You have successfully logged in!
+          - button [ref=e49] [cursor=pointer]:
+            - img [ref=e50]
+    - generic:
+      - generic:
+        - text: Tablet Portrait/
+        - generic: 1036 × 905
+    - generic [ref=e54]:
+      - generic [ref=e56]:
+        - link "REPRO Photos" [ref=e58] [cursor=pointer]:
+          - /url: /
+          - img "REPRO Photos" [ref=e60]
+        - generic [ref=e85]:
+          - link [ref=e86] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e88]
+          - button [ref=e92] [cursor=pointer]:
+            - img
+          - button "Expand sidebar" [ref=e94] [cursor=pointer]:
+            - img
+      - generic [ref=e95]:
+        - generic [ref=e97]:
+          - generic [ref=e99]:
+            - img [ref=e100]
+            - searchbox "Search..." [ref=e103]
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - img [ref=e109]
+              - generic [ref=e112]: Robbie
+            - generic [ref=e113]:
+              - generic "Assist" [ref=e114]
+              - generic "Thinking" [ref=e115]: Thinking.
+            - 'button "Robbie insight: Thinking" [ref=e116] [cursor=pointer]':
+              - generic [ref=e117]: View details
+              - img [ref=e118]
+          - generic [ref=e120]:
+            - button "Switch to dark mode" [ref=e122] [cursor=pointer]:
+              - img
+            - button [ref=e123] [cursor=pointer]:
+              - img
+            - button "S" [ref=e124] [cursor=pointer]:
+              - generic [ref=e126]: S
+        - main [ref=e127]:
+          - generic [ref=e230]:
+            - text: © 2026 R/E Pro Photos ·
+            - link "Terms and Conditions" [ref=e231] [cursor=pointer]:
+              - /url: /terms-and-conditions
+            - text: ·
+            - link "Privacy Policy" [ref=e232] [cursor=pointer]:
+              - /url: /privacy-policy
+  - status [ref=e233]: Notification SuccessYou have successfully logged in!

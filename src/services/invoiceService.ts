@@ -106,8 +106,12 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
   const amountPaid = toNumber(invoice.amount_paid ?? invoice.paid_amount);
   const balance = toNumber(invoice.balance_due, baseAmount - amountPaid);
   const invoiceNumber = String(invoice.invoice_number ?? invoice.invoiceNumber ?? invoice.id ?? fallbackId ?? '');
-  const isPaid = invoice.is_paid || (invoice.status || '').toLowerCase() === 'paid';
-  const overdue = !isPaid && dueDate && new Date(dueDate) < new Date();
+  // Central rule: an invoice is only "unpaid/overdue" when it has an outstanding balance > 0.
+  // A $0.00 product/invoice (or a zero remaining balance) is always settled and must never
+  // surface as Unpaid/Overdue or appear in the unpaid section/report.
+  const hasOutstandingBalance = baseAmount > 0.01 && balance > 0.01;
+  const isPaid = !hasOutstandingBalance || invoice.is_paid || (invoice.status || '').toLowerCase() === 'paid';
+  const overdue = hasOutstandingBalance && !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
   const normalizedStatus = isPaid
     ? 'paid'
     : overdue

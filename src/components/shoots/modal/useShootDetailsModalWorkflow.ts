@@ -8,6 +8,7 @@ import {
   finalizeRawUploadQueue,
 } from '@/services/dropboxMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
+import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 
 type PendingAction = 'hold' | 'cancel' | null;
 
@@ -166,7 +167,7 @@ export function useShootDetailsModalWorkflow({
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ final_status: 'admin_verified' }),
+        body: JSON.stringify(buildFinalizeRequestBody(shoot, 'admin_verified')),
       });
 
       if (!res.ok) {

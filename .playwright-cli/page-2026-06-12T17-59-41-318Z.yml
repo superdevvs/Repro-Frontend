@@ -1,0 +1,755 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - list
+        - list
+        - generic:
+          - generic:
+            - text: Tablet Portrait/
+            - generic: 1036 × 905
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /
+                  - generic:
+                    - img
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - link:
+                        - /url: /book-shoot
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /dashboard
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /shoot-history
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounting
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounts
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /availability
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /ai-editing
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /chat-with-reproai
+                        - img
+                      - link:
+                        - /url: /portal
+                        - generic:
+                          - generic:
+                            - img
+                      - generic:
+                        - link:
+                          - /url: /messaging/overview
+                          - generic:
+                            - img
+                      - link:
+                        - /url: /scheduling-settings
+                        - generic:
+                          - img
+              - generic:
+                - link:
+                  - /url: /settings
+                  - generic:
+                    - img
+                - generic:
+                  - button:
+                    - img
+                - generic:
+                  - button:
+                    - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                    - searchbox
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Robbie
+                    - button:
+                      - generic: View details
+                      - img
+                - generic:
+                  - button:
+                    - generic: Ranchi, JH
+                    - generic: ·
+                    - img
+                    - generic:
+                      - generic: 78°F
+                      - generic: ·
+                      - generic: Mostly cloudy
+                  - button:
+                    - img
+                  - button:
+                    - img
+                    - generic: "51"
+                  - button:
+                    - generic:
+                      - img
+            - main:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=1]: Shoot History
+                      - paragraph: View and manage scheduled, completed, delivered, and on-hold shoots.
+                    - generic:
+                      - button:
+                        - img
+                        - text: Bulk Actions
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - tablist:
+                            - generic:
+                              - tab [selected]:
+                                - img
+                                - generic: Scheduled
+                                - generic: "9"
+                            - generic:
+                              - tab:
+                                - img
+                                - generic: In-Progress
+                            - generic:
+                              - tab:
+                                - img
+                                - generic: Delivery
+                            - generic:
+                              - tab:
+                                - img
+                                - generic: On-Hold
+                            - generic:
+                              - tab:
+                                - img
+                                - generic: History
+                        - button:
+                          - img
+                      - generic:
+                        - group:
+                          - radio:
+                            - img
+                          - radio [checked]:
+                            - img
+                          - radio:
+                            - img
+                        - generic:
+                          - button:
+                            - img
+                        - button:
+                          - img
+                    - generic:
+                      - generic:
+                        - button: All
+                        - button: Requested
+                        - button: Scheduled
+                    - tabpanel:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 20 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 9:00 AM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 123 Main Street
+                                  - generic:
+                                    - img
+                                    - text: Scheduled
+                                - paragraph: Arlington, Virginia 22201
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: House Account
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Photographer
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 2D Floor plans
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 6 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 10:00 AM
+                              - heading [level=3]: 777 QA Desktop Journey 20260604080244 Ave
+                              - generic:
+                                - img
+                                - text: Scheduled
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Client 20260604061521
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Photographer 20260604061415
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 10 Exterior HDR Photos
+                          - generic:
+                            - generic: "Editing notes : QA edited editor instructions 20260604080244"
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 6 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 2:00 PM
+                              - heading [level=3]: 777 QA Desktop Journey 20260604080215 Ave
+                              - generic:
+                                - img
+                                - text: Requested
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Client 20260604061521
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Photographer 20260604061415
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 10 Exterior HDR Photos
+                                  - generic:
+                                    - button:
+                                      - img
+                                      - text: Approve
+                                    - button:
+                                      - img
+                                      - text: Modify
+                                    - button:
+                                      - img
+                                      - text: Decline
+                          - generic:
+                            - generic: "Editing notes : QA desktop journey editor note."
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 1 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 8:00 AM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 999 QA Live Action Test Ave
+                                  - generic:
+                                    - img
+                                    - text: Scheduled
+                                - paragraph: Rockville, Maryland 20850
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: QA Robbie Client
+                              - generic:
+                                - generic: Paid
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 10 Exterior HDR Photos
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 8 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 9:00 AM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 3201 N St NW
+                                  - generic:
+                                    - img
+                                    - text: Requested
+                                - paragraph: Washington, DC 20007
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Emily Rodriguez
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 25 HDR Photos
+                                  - generic:
+                                    - button:
+                                      - img
+                                      - text: Approve
+                                    - button:
+                                      - img
+                                      - text: Modify
+                                    - button:
+                                      - img
+                                      - text: Decline
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 3 June 2026
+                                - generic:
+                                  - img
+                                  - generic: 1:30 PM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 7820 Old Georgetown Rd
+                                  - generic:
+                                    - img
+                                    - text: Requested
+                                - paragraph: Bethesda, Maryland 20814
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Michael Chen
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: HDR Photos, Video & 3D Matterport
+                                  - generic:
+                                    - button:
+                                      - img
+                                      - text: Approve
+                                    - button:
+                                      - img
+                                      - text: Modify
+                                    - button:
+                                      - img
+                                      - text: Decline
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 30 May 2026
+                                - generic:
+                                  - img
+                                  - generic: 10:00 AM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 1450 N Highland St
+                                  - generic:
+                                    - img
+                                    - text: Requested
+                                - paragraph: Arlington, Virginia 22201
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Sarah Johnson
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 35 HDR Photos
+                                  - generic:
+                                    - button:
+                                      - img
+                                      - text: Approve
+                                    - button:
+                                      - img
+                                      - text: Modify
+                                    - button:
+                                      - img
+                                      - text: Decline
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 1 July 2026
+                                - generic:
+                                  - img
+                                  - generic: 10:30 AM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 901 External Ave
+                                  - generic:
+                                    - img
+                                    - text: Requested
+                                - paragraph: Baltimore, Maryland 21201
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Test Lovable
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 35 HDR Photos
+                                    - generic: Twilight Photos - 5 Photos
+                                    - generic: 3D Matterport w/ 2D Floor plans
+                                    - generic: Drone Silver Package
+                                  - generic:
+                                    - button:
+                                      - img
+                                      - text: Approve
+                                    - button:
+                                      - img
+                                      - text: Modify
+                                    - button:
+                                      - img
+                                      - text: Decline
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: 14 May 2026
+                                - generic:
+                                  - img
+                                  - generic: 3:00 PM
+                              - generic:
+                                - generic:
+                                  - heading [level=3]: 12031 Angora Drive
+                                  - generic:
+                                    - img
+                                    - text: Scheduled
+                                - paragraph: King George, Virginia 22485
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Ajay Khetarpal
+                                - generic:
+                                  - img
+                                  - generic: Jay Snap
+                              - generic:
+                                - button:
+                                  - img
+                                - button:
+                                  - img
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Services
+                                - generic:
+                                  - generic:
+                                    - generic: 2D Floor plans
+                      - generic:
+                        - generic: Page 1 of 1 · 9 records
+                        - generic:
+                          - button [disabled]: Previous
+                          - button [disabled]: Next
+              - generic:
+                - text: © 2026 R/E Pro Photos ·
+                - link:
+                  - /url: /terms-and-conditions
+                  - text: Terms and Conditions
+                - text: ·
+                - link:
+                  - /url: /privacy-policy
+                  - text: Privacy Policy
+  - dialog "#46 · 123 Main Street" [active] [ref=e2691]:
+    - generic [ref=e2692]:
+      - heading "#46 · 123 Main Street" [level=2] [ref=e2693]
+      - paragraph [ref=e2694]: View and manage shoot details including media, notes, issues, and settings
+    - generic [ref=e2696]:
+      - button "Save Changes" [ref=e2914] [cursor=pointer]:
+        - img
+        - text: Save Changes
+      - button "Cancel" [ref=e2915] [cursor=pointer]
+    - generic [ref=e2706]:
+      - generic [ref=e2708]:
+        - heading "123 Main Street" [level=2] [ref=e2709]
+        - button "Copy address" [ref=e2710] [cursor=pointer]:
+          - img
+        - generic [ref=e2712]: Scheduled
+        - generic [ref=e2714]: Unpaid
+      - generic [ref=e2716]: "Created by: Super Admin"
+    - generic [ref=e2717]:
+      - generic [ref=e2718]:
+        - tablist [ref=e2721]:
+          - tab "Overview" [selected] [ref=e2722] [cursor=pointer]
+          - tab "Notes" [ref=e2723] [cursor=pointer]
+          - tab "Requests" [ref=e2724] [cursor=pointer]
+          - tab "Tours" [ref=e2725] [cursor=pointer]
+          - tab "Settings" [ref=e2726] [cursor=pointer]
+          - tab "Activity Log" [ref=e2727] [cursor=pointer]
+        - tabpanel [ref=e2730]:
+          - generic [ref=e2731]:
+            - generic [ref=e2732]:
+              - button "20 Jun 2026" [ref=e2916] [cursor=pointer]:
+                - img
+                - generic [ref=e2917]: 20 Jun 2026
+              - button "9:00 AM" [ref=e2918] [cursor=pointer]:
+                - img
+                - generic: 9:00 AM
+              - generic [ref=e2745]:
+                - img [ref=e2746]
+                - generic [ref=e2911]:
+                  - generic [ref=e2912]: 74°F
+                  - generic [ref=e2913]: Partly cloudy
+            - generic [ref=e2749]:
+              - generic [ref=e2750]: Property details
+              - generic [ref=e2751]:
+                - generic [ref=e2919]:
+                  - img [ref=e2921]
+                  - generic [ref=e2924]:
+                    - generic [ref=e2925]: Beds
+                    - textbox "0" [ref=e2926]: "3"
+                - generic [ref=e2927]:
+                  - img [ref=e2929]
+                  - generic [ref=e2933]:
+                    - generic [ref=e2934]: Baths
+                    - textbox "0" [ref=e2935]: "2"
+                - generic [ref=e2936]:
+                  - img [ref=e2938]
+                  - generic [ref=e2944]:
+                    - generic [ref=e2945]: Sqft
+                    - textbox "0" [ref=e2946]: "1500"
+            - generic [ref=e2780]:
+              - generic [ref=e2781]:
+                - img [ref=e2782]
+                - generic [ref=e2785]: Location
+              - generic [ref=e2786]:
+                - generic [ref=e2787]:
+                  - generic [ref=e2947]: "Address:"
+                  - textbox "Start typing an address..." [ref=e2950]: 123 Main Street
+                - generic [ref=e2788]:
+                  - generic [ref=e2951]:
+                    - generic [ref=e2952]: "City:"
+                    - textbox [ref=e2953]: Arlington
+                  - generic [ref=e2954]:
+                    - generic [ref=e2955]: "State:"
+                    - textbox [ref=e2956]: VA
+                - generic [ref=e2957]:
+                  - generic [ref=e2958]: "ZIP:"
+                  - textbox [ref=e2959]: "22201"
+            - generic [ref=e2789]:
+              - generic [ref=e2790]: Services
+              - generic [ref=e2791]:
+                - generic [ref=e2960]:
+                  - generic [ref=e2961]:
+                    - paragraph [ref=e2962]: Selected services
+                    - generic [ref=e2963]: 1 selected
+                  - button "Edit services" [ref=e2964] [cursor=pointer]
+                - generic [ref=e2966]:
+                  - generic [ref=e2967]:
+                    - generic [ref=e2968]:
+                      - generic [ref=e2969]: 2D Floor plans
+                      - generic [ref=e2970]: Variable • 1,500 sqft
+                    - generic [ref=e2971]:
+                      - generic [ref=e2972]: $125.00
+                      - button [ref=e2973] [cursor=pointer]:
+                        - img
+                  - generic [ref=e2974]:
+                    - generic [ref=e2975]:
+                      - text: Schedule date
+                      - button "20 Jun 2026" [ref=e2976] [cursor=pointer]:
+                        - img
+                        - generic [ref=e2977]: 20 Jun 2026
+                    - generic [ref=e2978]:
+                      - text: Schedule time
+                      - button "9:00 AM" [ref=e2979] [cursor=pointer]:
+                        - img
+                        - generic [ref=e2980]: 9:00 AM
+            - generic [ref=e2796]:
+              - generic [ref=e2797]:
+                - img [ref=e2798]
+                - generic [ref=e2801]: Client
+              - combobox [ref=e2981] [cursor=pointer]:
+                - text: House Account
+                - img
+            - generic [ref=e2809]:
+              - generic [ref=e2810]:
+                - img [ref=e2811]
+                - generic [ref=e2814]: Photographer
+              - generic [ref=e2982]:
+                - generic [ref=e2983]:
+                  - generic [ref=e2984]: QA Robbie Photographer
+                  - generic [ref=e2985]: qa.photographer.20260531265989@reprophotos.com
+                - button "Edit photographer" [ref=e2986] [cursor=pointer]
+            - generic [ref=e2818]:
+              - generic [ref=e2819]:
+                - img [ref=e2820]
+                - generic [ref=e2824]: Property Access
+              - generic [ref=e2825]:
+                - radiogroup [ref=e2987]:
+                  - generic [ref=e2988]:
+                    - radio "Self" [checked] [ref=e2989] [cursor=pointer]:
+                      - img [ref=e2991]
+                    - generic [ref=e2993] [cursor=pointer]: Self
+                  - generic [ref=e2994]:
+                    - radio "Other contact" [ref=e2995] [cursor=pointer]
+                    - generic [ref=e2996] [cursor=pointer]: Other contact
+                  - generic [ref=e2997]:
+                    - radio "Lockbox" [ref=e2998] [cursor=pointer]
+                    - generic [ref=e2999] [cursor=pointer]: Lockbox
+                - paragraph [ref=e3000]: Client will be present at the property.
+            - generic [ref=e2826]:
+              - generic [ref=e2827]: Internal Marketing
+              - generic [ref=e2828]:
+                - generic [ref=e2829]:
+                  - generic [ref=e2830]: Featured Shoot
+                  - generic [ref=e2831]: Available once the shoot reaches Ready or Delivered status.
+                - switch [disabled] [ref=e2833]
+            - generic [ref=e2834]:
+              - generic [ref=e2835]:
+                - generic [ref=e2836]:
+                  - text: Shoot Progress
+                  - generic [ref=e2837]:
+                    - img [ref=e2838]
+                    - generic [ref=e2842]: Jun 20, 9:00 AM
+                - generic [ref=e2843]:
+                  - generic [ref=e2844]: 25%
+                  - generic [ref=e2845]: 0/1 delivered
+              - generic [ref=e2847]:
+                - progressbar [ref=e2848]
+                - button "Jun 20, 9:00 AM · 2D Floor plans" [ref=e2850]
+            - generic [ref=e2851]:
+              - generic [ref=e2852]: Payment
+              - generic [ref=e2853]:
+                - generic [ref=e2854]:
+                  - generic [ref=e2855]: "Base Quote:"
+                  - spinbutton [ref=e3001]: "125.00"
+                - generic [ref=e2857]:
+                  - generic [ref=e2858]: "Tax Amount:"
+                  - spinbutton [ref=e3002]: "6.63"
+                - generic [ref=e3003]:
+                  - generic [ref=e3004]: "Total Quote:"
+                  - spinbutton [ref=e3005]: "131.63"
+                - generic [ref=e2863]:
+                  - generic [ref=e2864]: "Paid:"
+                  - generic [ref=e2865]: $0.00
+                - generic [ref=e2866]:
+                  - generic [ref=e2867]: "Balance:"
+                  - generic [ref=e2868]: $131.63
+        - generic [ref=e2870]:
+          - button "Mark as Paid" [ref=e2871] [cursor=pointer]:
+            - img
+            - generic [ref=e2872]: Mark as Paid
+          - button "Process payment" [ref=e2873] [cursor=pointer]:
+            - img
+            - generic [ref=e2874]: Process payment
+      - generic [ref=e2877]:
+        - tablist [ref=e2881]:
+          - tab "Media" [ref=e2882] [cursor=pointer]
+          - tab "Raw Uploads (0)" [selected] [ref=e2883] [cursor=pointer]:
+            - generic [ref=e2884]: Raw Uploads (0)
+          - tab "Edited (0)" [ref=e2885] [cursor=pointer]
+        - generic [ref=e2888]:
+          - button "Photos (0)" [ref=e2892] [cursor=pointer]
+          - generic [ref=e2895]:
+            - img [ref=e2899]
+            - heading "No uploaded files yet" [level=3] [ref=e2903]
+            - paragraph [ref=e2904]: Upload property photos to get started. Our AI will automatically analyze assets for quality and categorization.
+            - button "Upload Files" [ref=e2905] [cursor=pointer]:
+              - img
+              - text: Upload Files
+    - button "Close" [ref=e2906] [cursor=pointer]:
+      - img [ref=e2907]
+      - generic [ref=e2910]: Close

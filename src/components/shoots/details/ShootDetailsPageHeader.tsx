@@ -48,6 +48,7 @@ interface ShootDetailsPageHeaderProps {
   canReviewHoldRequest: boolean;
   canSendToEditing: boolean;
   canFinalise: boolean;
+  isFastForwardFinalise?: boolean;
   isSendingToEditing?: boolean;
   isFinalising?: boolean;
   canShowIssuesTab: boolean;
@@ -96,6 +97,7 @@ export function ShootDetailsPageHeader({
   canReviewHoldRequest,
   canSendToEditing,
   canFinalise,
+  isFastForwardFinalise = false,
   isSendingToEditing = false,
   isFinalising = false,
   canShowIssuesTab,
@@ -296,7 +298,7 @@ export function ShootDetailsPageHeader({
                 ) : (
                   <CheckCircle className="h-3 w-3 mr-1.5" />
                 )}
-                <span className="hidden sm:inline">{isFinalising ? 'Finalizing...' : 'Finalize & Deliver'}</span>
+                <span className="hidden sm:inline">{isFinalising ? 'Finalizing...' : isFastForwardFinalise ? 'Finalize (fast-forward)' : 'Finalize & Deliver'}</span>
                 <span className="sm:hidden">{isFinalising ? 'Finalizing...' : 'Finalize'}</span>
               </Button>
             )}

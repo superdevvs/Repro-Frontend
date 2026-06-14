@@ -54,6 +54,7 @@ import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetails
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -170,6 +171,7 @@ const ShootDetails: React.FC = () => {
       normalizedStatus: workflowStatusKey,
       hasEditedWithoutRaw,
       canFinalise,
+      isFastForwardFinalise,
       canSendToEditing,
       isHoldRequested,
       canDirectHold,
@@ -333,7 +335,7 @@ const ShootDetails: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ final_status: 'admin_verified' }),
+        body: JSON.stringify(buildFinalizeRequestBody(shoot, 'admin_verified')),
       });
 
       if (!res.ok) {
@@ -776,6 +778,7 @@ const ShootDetails: React.FC = () => {
           canReviewHoldRequest={canReviewHoldRequest}
           canSendToEditing={canSendToEditing}
           canFinalise={canFinalise}
+          isFastForwardFinalise={isFastForwardFinalise}
           isSendingToEditing={isSendingToEditing}
           isFinalising={isFinalising}
           canShowIssuesTab={canShowIssuesTab}

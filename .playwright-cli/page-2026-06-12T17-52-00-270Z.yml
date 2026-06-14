@@ -1,0 +1,482 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - list
+        - list
+        - generic:
+          - generic:
+            - text: Tablet Portrait/
+            - generic: 1036 × 905
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /
+                  - generic:
+                    - img
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - link:
+                        - /url: /book-shoot
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /dashboard
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /shoot-history
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounting
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /accounts
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /availability
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /ai-editing
+                        - generic:
+                          - img
+                      - link:
+                        - /url: /chat-with-reproai
+                        - img
+                      - link:
+                        - /url: /portal
+                        - generic:
+                          - generic:
+                            - img
+                      - generic:
+                        - link:
+                          - /url: /messaging/overview
+                          - generic:
+                            - img
+                      - link:
+                        - /url: /scheduling-settings
+                        - generic:
+                          - img
+              - generic:
+                - link:
+                  - /url: /settings
+                  - generic:
+                    - img
+                - generic:
+                  - button:
+                    - img
+                - generic:
+                  - button:
+                    - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                    - searchbox
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - generic: Robbie
+                    - button:
+                      - generic: View details
+                      - img
+                - generic:
+                  - button:
+                    - generic: Ranchi, JH
+                    - generic: ·
+                    - img
+                    - generic:
+                      - generic: 78°F
+                      - generic: ·
+                      - generic: Mostly cloudy
+                  - button:
+                    - img
+                  - button:
+                    - img
+                    - generic: "50"
+                  - button:
+                    - generic:
+                      - img
+            - main:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=1]: Book a new shoot
+                        - paragraph: Select a client and enter the property information
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                              - generic: Property Details
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                              - generic: Schedule
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                              - generic: Review
+                      - button:
+                        - img
+                        - text: Clear saved data
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading [level=3]: Client Information
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - text: Choose client
+                                  - generic:
+                                    - generic:
+                                      - combobox:
+                                        - generic:
+                                          - generic:
+                                            - img
+                                          - generic: House Account
+                                          - generic:
+                                            - img
+                                            - text: Verified
+                                        - img
+                                    - button:
+                                      - img
+                                      - text: New Client
+                          - generic:
+                            - heading [level=3]: Property Details
+                            - generic:
+                              - generic:
+                                - text: Search Address
+                                - generic:
+                                  - generic:
+                                    - textbox:
+                                      - /placeholder: Start typing the property address...
+                                      - text: 123 Main Street Arlington VA 22201
+                                - paragraph: Start typing to see address suggestions. Selecting an address will auto-fill city, state, ZIP code, and available property data.
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - text: Street Address
+                                    - textbox:
+                                      - /placeholder: Street address
+                                      - text: 123 Main Street
+                                    - paragraph: You can manually edit this street address if needed.
+                                  - generic:
+                                    - text: Apt/Suite
+                                    - textbox:
+                                      - /placeholder: "Unit #"
+                                - generic:
+                                  - generic:
+                                    - text: City
+                                    - textbox:
+                                      - /placeholder: City
+                                      - text: Arlington
+                                  - generic:
+                                    - text: State
+                                    - combobox:
+                                      - generic: Virginia
+                                      - img
+                                    - combobox
+                                  - generic:
+                                    - text: ZIP Code
+                                    - textbox:
+                                      - /placeholder: ZIP Code
+                                      - text: "22201"
+                                  - generic:
+                                    - text: Bedrooms
+                                    - spinbutton: "3"
+                                  - generic:
+                                    - text: Bathroom
+                                    - spinbutton: "2"
+                                  - generic:
+                                    - generic: SQFT *
+                                    - spinbutton: "1500"
+                                - generic:
+                                  - generic:
+                                    - text: Property Type
+                                    - radiogroup:
+                                      - generic:
+                                        - radio [checked]:
+                                          - generic:
+                                            - img
+                                        - radio [checked]
+                                        - generic:
+                                          - img
+                                          - text: Residential
+                                      - generic:
+                                        - radio
+                                        - radio
+                                        - generic:
+                                          - img
+                                          - text: Commercial
+                                  - generic:
+                                    - text: Listing Type
+                                    - radiogroup:
+                                      - generic:
+                                        - radio
+                                        - radio
+                                        - generic:
+                                          - img
+                                          - text: For Sale
+                                      - generic:
+                                        - radio
+                                        - radio
+                                        - generic:
+                                          - img
+                                          - text: For Rent
+                          - generic:
+                            - generic:
+                              - generic:
+                                - heading [level=3]: Service Selection
+                                - paragraph: Add the deliverables this booking includes, then review totals below.
+                              - img
+                            - generic:
+                              - generic:
+                                - text: Shoot type
+                                - paragraph: Internal no-charge types can be scheduled without services.
+                              - combobox:
+                                - generic: Standard paid shoot
+                                - img
+                              - combobox
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - paragraph: Selected services
+                                  - paragraph: 1 item
+                                - button: Edit services
+                              - generic:
+                                - generic:
+                                  - text: 2D Floor plans
+                                  - button: ×
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - heading [level=3]: Who will be at the property?
+                                  - radiogroup:
+                                    - generic:
+                                      - radio [checked]:
+                                        - generic:
+                                          - img
+                                      - radio [checked]
+                                      - generic: Self / client
+                                    - generic:
+                                      - radio
+                                      - radio
+                                      - generic: Another contact
+                                    - generic:
+                                      - radio
+                                      - radio
+                                      - generic: Lockbox
+                          - generic:
+                            - generic:
+                              - heading [level=3]: Notes
+                              - paragraph: Keep context for the client and internal teams.
+                            - generic:
+                              - generic:
+                                - text: Shoot Notes
+                                - textbox:
+                                  - /placeholder: Provide any additional information to attach to this shoot that will be visible to the client.
+                                  - text: "Live QA booking created by Codex to verify date/time consistency across shoot stages. Requested date: Jun 20, 2026 at 8:00 AM."
+                              - generic:
+                                - text: Company Notes
+                                - textbox:
+                                  - /placeholder: Provide any additional information to save for the selected client that will only be visible to company admins/photographer..
+                              - generic:
+                                - text: Photographer Notes
+                                - textbox:
+                                  - /placeholder: Notes for the photographer (visible to photographer and admins).
+                                  - text: "QA test booking: please ignore unless this is intentionally assigned."
+                              - generic:
+                                - text: Editor Notes
+                                - textbox:
+                                  - /placeholder: Notes for the editor (visible to editor and admins).
+                          - generic:
+                            - button:
+                              - text: Continue
+                              - img
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading [level=2]: Booking Summary
+                          - paragraph: Complete all steps to schedule your shoot
+                          - generic:
+                            - generic:
+                              - generic: Client
+                              - generic:
+                                - generic:
+                                  - generic: "Rep:"
+                                  - generic: Super Admin
+                                - generic:
+                                  - img
+                                  - generic: House Account
+                            - generic:
+                              - generic: Property
+                              - generic:
+                                - img
+                                - generic: 123 Main Street, Arlington, VA 22201
+                            - generic:
+                              - generic: Date & Time
+                            - generic:
+                              - generic:
+                                - heading [level=3]: Selected Services
+                                - generic:
+                                  - img
+                                  - generic: "131.63"
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - paragraph: 2D Floor plans
+                                    - paragraph: Measured 2D floor plans sized to the square footage.
+                                  - generic: $125.00
+                              - generic:
+                                - generic:
+                                  - generic: Subtotal
+                                  - generic: $125.00
+                                - generic:
+                                  - generic: Tax
+                                  - generic: $6.63
+                                - generic:
+                                  - generic: Total
+                                  - generic: $131.63
+              - generic:
+                - text: © 2026 R/E Pro Photos ·
+                - link:
+                  - /url: /terms-and-conditions
+                  - text: Terms and Conditions
+                - text: ·
+                - link:
+                  - /url: /privacy-policy
+                  - text: Privacy Policy
+  - dialog "Select services" [ref=e884]:
+    - generic [ref=e885]:
+      - heading "Select services" [level=2] [ref=e886]
+      - paragraph [ref=e887]: Pick the services for this shoot, compare prices quickly, then tap Done.
+    - generic [ref=e888]:
+      - complementary [ref=e889]:
+        - generic [ref=e890]:
+          - button "Photos 14 items" [ref=e891] [cursor=pointer]:
+            - img [ref=e893]
+            - generic [ref=e896]:
+              - paragraph [ref=e897]: Photos
+              - paragraph [ref=e898]: 14 items
+          - button "Photos & Floor plans 1 items" [ref=e899] [cursor=pointer]:
+            - img [ref=e901]
+            - generic [ref=e904]:
+              - paragraph [ref=e905]: Photos & Floor plans
+              - paragraph [ref=e906]: 1 items
+          - button "Photos & Video 1 items" [ref=e907] [cursor=pointer]:
+            - img [ref=e909]
+            - generic [ref=e912]:
+              - paragraph [ref=e913]: Photos & Video
+              - paragraph [ref=e914]: 1 items
+          - button "Video 9 items" [ref=e915] [cursor=pointer]:
+            - img [ref=e917]
+            - generic [ref=e920]:
+              - paragraph [ref=e921]: Video
+              - paragraph [ref=e922]: 9 items
+          - button "Drone 6 items" [ref=e923] [cursor=pointer]:
+            - img [ref=e925]
+            - generic [ref=e931]:
+              - paragraph [ref=e932]: Drone
+              - paragraph [ref=e933]: 6 items
+          - button "3D/360 Tours 3 items" [ref=e934] [cursor=pointer]:
+            - img [ref=e936]
+            - generic [ref=e940]:
+              - paragraph [ref=e941]: 3D/360 Tours
+              - paragraph [ref=e942]: 3 items
+          - button "Floor Plans 1 items 1" [ref=e1193] [cursor=pointer]:
+            - img [ref=e945]
+            - generic [ref=e949]:
+              - paragraph [ref=e950]: Floor Plans
+              - paragraph [ref=e951]: 1 items
+            - generic [ref=e1195]: "1"
+          - button "Virtual Staging 1 items" [ref=e952] [cursor=pointer]:
+            - img [ref=e954]
+            - generic [ref=e956]:
+              - paragraph [ref=e957]: Virtual Staging
+              - paragraph [ref=e958]: 1 items
+          - button "Addons 9 items" [ref=e959] [cursor=pointer]:
+            - img [ref=e961]
+            - generic [ref=e964]:
+              - paragraph [ref=e965]: Addons
+              - paragraph [ref=e966]: 9 items
+          - button "Commercial 1 items" [ref=e967] [cursor=pointer]:
+            - img [ref=e969]
+            - generic [ref=e975]:
+              - paragraph [ref=e976]: Commercial
+              - paragraph [ref=e977]: 1 items
+          - button "Digital Enhancements 1 items" [ref=e978] [cursor=pointer]:
+            - img [ref=e980]
+            - generic [ref=e984]:
+              - paragraph [ref=e985]: Digital Enhancements
+              - paragraph [ref=e986]: 1 items
+          - button "Packages 4 items" [ref=e987] [cursor=pointer]:
+            - img [ref=e989]
+            - generic [ref=e992]:
+              - paragraph [ref=e993]: Packages
+              - paragraph [ref=e994]: 4 items
+          - button "Test 2 items" [ref=e995] [cursor=pointer]:
+            - img [ref=e997]
+            - generic [ref=e999]:
+              - paragraph [ref=e1000]: Test
+              - paragraph [ref=e1001]: 2 items
+          - button "Travel 4 items" [ref=e1002] [cursor=pointer]:
+            - img [ref=e1004]
+            - generic [ref=e1010]:
+              - paragraph [ref=e1011]: Travel
+              - paragraph [ref=e1012]: 4 items
+          - button "Unassigned 1 items" [ref=e1013] [cursor=pointer]:
+            - img [ref=e1015]
+            - generic [ref=e1021]:
+              - paragraph [ref=e1022]: Unassigned
+              - paragraph [ref=e1023]: 1 items
+      - generic [ref=e1024]:
+        - generic [ref=e1026]:
+          - img [ref=e1027]
+          - textbox "Search services..." [ref=e1030]
+        - generic [ref=e1181] [cursor=pointer]:
+          - generic [ref=e1182]:
+            - generic [ref=e1183]:
+              - paragraph [ref=e1184]: 2D Floor plans
+              - paragraph [ref=e1185]: Measured 2D floor plans sized to the square footage.
+              - paragraph [ref=e1186]: 1 - 2,000 sqft tier
+            - generic [ref=e1187]:
+              - generic [ref=e1188]: $125.00
+              - checkbox [checked] [active] [ref=e1189]:
+                - generic:
+                  - img
+          - generic [ref=e1191]:
+            - text: Floor Plans
+            - generic [ref=e1192]: SQFT
+    - generic [ref=e1174]:
+      - paragraph [ref=e1175]: 1 selected · $125.00
+      - button "Done" [ref=e1196] [cursor=pointer]
+    - button "Close" [ref=e1176] [cursor=pointer]:
+      - img [ref=e1177]
+      - generic [ref=e1180]: Close
