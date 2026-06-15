@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
+import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
@@ -145,9 +146,11 @@ export const ShootListRow = ({
   // Route shoot-time display through the shared Time_Formatter so canonical
   // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
   const formatTime = formatTimeForDisplay
+  // Source the day from the shoot's intended local calendar date (never the
+  // absolute instant) so it does not drift across browser timezones.
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
-    try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
+    try { return formatDatePref(value) } catch { return value ?? '—' }
   }
   const rawStatusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(rawStatusValue)
@@ -167,7 +170,7 @@ export const ShootListRow = ({
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            {formatDisplayDateLocal(shoot.scheduledDate)}
+            {formatDisplayDateLocal(getShootLocalDate(shoot))}
             {shoot.time ? ` · ${formatTime(shoot.time)}` : ''}
           </p>
           <h3 className="text-lg font-bold leading-tight text-primary">

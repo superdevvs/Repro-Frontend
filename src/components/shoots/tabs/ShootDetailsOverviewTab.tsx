@@ -62,6 +62,7 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { cn } from '@/lib/utils';
 import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
+import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
 import type { ServiceWithPricing } from '@/utils/servicePricing';
@@ -533,9 +534,10 @@ export function ShootDetailsOverviewTab({
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'Not set';
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Not set';
-      return formatDatePreference(date);
+      // Pass the raw string so the shared formatter renders the LOCAL calendar
+      // day (no UTC round-trip) and the date does not drift across timezones.
+      const formatted = formatDatePreference(dateString);
+      return formatted || 'Not set';
     } catch {
       return 'Not set';
     }
@@ -561,11 +563,10 @@ export function ShootDetailsOverviewTab({
     return formatTimePreference(timeString);
   };
 
-  const parsedScheduleDate = useMemo(
-    () => parseFlexibleDate(shoot.scheduledDate || (shoot as any).scheduled_date),
-    [shoot]
-  );
-  const scheduleDateDisplay = parsedScheduleDate ? formatDatePreference(parsedScheduleDate) : 'Not scheduled';
+  const scheduleLocalDate = useMemo(() => getShootLocalDate(shoot), [shoot]);
+  const scheduleDateDisplay = scheduleLocalDate
+    ? formatDatePreference(scheduleLocalDate)
+    : 'Not scheduled';
   const scheduleTimeDisplay = shoot.time ? formatTime(shoot.time) : null;
 
   const weatherSource = weather || shoot.weather || (shoot as any).weather || null;

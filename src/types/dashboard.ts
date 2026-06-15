@@ -197,6 +197,12 @@ export interface DashboardShootSummary {
   id: number;
   dayLabel: string;
   timeLabel: string | null;
+  /**
+   * The shoot's intended LOCAL calendar day (YYYY-MM-DD). Use this for date
+   * display so it never drifts across browser timezones. `startTime` is the
+   * absolute instant and must only be used for chronological sorting.
+   */
+  scheduledLocalDate: string | null;
   startTime: string | null;
   addressLine: string;
   cityStateZip: string;

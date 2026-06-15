@@ -16,6 +16,7 @@ import {
   DashboardWorkflowColumnResponse,
   DashboardWorkflowResponse,
 } from '@/types/dashboard';
+import { extractLocalYmd } from '@/utils/shootLocalDate';
 
 const defaultTag = (label: string): DashboardShootServiceTag => ({
   label,
@@ -26,6 +27,9 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   id: shoot.id,
   dayLabel: shoot.day_label ?? 'Unscheduled',
   timeLabel: shoot.time_label ?? null,
+  // The backend's start_time ISO carries the shoot's local date in its prefix;
+  // extract it as the intended local calendar day so display never drifts.
+  scheduledLocalDate: extractLocalYmd(shoot.start_time) ?? null,
   startTime: shoot.start_time ?? null,
   addressLine: shoot.address_line ?? 'No address on file',
   cityStateZip: shoot.city_state_zip ?? '',

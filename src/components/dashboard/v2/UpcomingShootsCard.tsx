@@ -43,6 +43,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 interface UpcomingShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -175,6 +176,17 @@ const groupShoots = (shoots: DashboardShootSummary[]) =>
 
 const parseShootDate = (shoot: DashboardShootSummary) =>
   shoot.startTime ? new Date(shoot.startTime) : null;
+
+// Local-day Date for DISPLAY (month/day/weekday tiles + day grouping). Sourced
+// from the shoot's intended local calendar day so it never drifts across browser
+// timezones; the absolute `startTime` instant is only a fallback.
+const getSummaryLocalDate = (shoot: DashboardShootSummary): Date | null => {
+  if (shoot.scheduledLocalDate) {
+    const local = parseLocalYmd(shoot.scheduledLocalDate);
+    if (!Number.isNaN(local.getTime())) return local;
+  }
+  return shoot.startTime ? new Date(shoot.startTime) : null;
+};
 
 const isOverdue = (shoot: DashboardShootSummary) => {
   if (!shoot.deliveryDeadline) return false;
@@ -531,9 +543,11 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       const normalizedLabel = (shoot.dayLabel || '').toLowerCase();
       const label =
         shoot.dayLabel ||
-        (shoot.startTime ? formatDate(new Date(shoot.startTime)) : 'Upcoming');
+        (shoot.scheduledLocalDate ? formatDate(shoot.scheduledLocalDate) : 'Upcoming');
 
-      const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+      // Group by the intended LOCAL calendar day so the day bucket matches the
+      // date shown on each card and never drifts across timezones.
+      const shootDate = getSummaryLocalDate(shoot);
       const derivedDate =
         shootDate ||
         (normalizedLabel.includes('today')
@@ -1243,7 +1257,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       <div className="flex items-start gap-2">
                         <div className="rounded-xl border border-border bg-background px-2.5 py-1.5 shadow-sm flex-shrink-0 flex items-center gap-2">
                           {(() => {
-                            const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                            const shootDate = getSummaryLocalDate(shoot);
                             const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--';
                             const dayStr = shootDate ? String(shootDate.getDate()) : '';
                             const rawTime =
@@ -1390,7 +1404,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         )}
                         <div className="w-20 rounded-2xl border border-border bg-background text-center pt-3 pb-2 shadow-sm flex-shrink-0">
                           {(() => {
-                            const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                            const shootDate = getSummaryLocalDate(shoot);
                             const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
                             const dayStr = shootDate ? String(shootDate.getDate()) : '';
                             const rawTime =

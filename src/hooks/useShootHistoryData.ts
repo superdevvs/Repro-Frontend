@@ -88,7 +88,7 @@ export interface UseShootHistoryDataArgs {
   isEditingManager: boolean
   isPhotographer: boolean
   isEditor: boolean
-  formatDatePref: (date: Date) => string
+  formatDatePref: (date: Date | string | null | undefined) => string
   formatTime: (value: string) => string
 }
 
@@ -979,7 +979,7 @@ export function useShootHistoryData({
           ? ['Scheduled Date', 'Completed Date', 'Client', 'Address']
           : ['Scheduled Date', 'Completed Date', 'Address']
       const rows = historyRecords.map((record) => {
-        const baseRow = [formatDatePref(new Date(record.scheduledDate)), formatDatePref(new Date(record.completedDate || record.scheduledDate))]
+        const baseRow = [formatDatePref(record.scheduledDate), formatDatePref(record.completedDate || record.scheduledDate)]
         if (includeClientDetails) baseRow.push(record.client?.name ?? '—')
         baseRow.push(record.address?.full ?? '—')
         if (isSuperAdmin) baseRow.push(formatCurrency(record.financials?.totalPaid ?? 0))

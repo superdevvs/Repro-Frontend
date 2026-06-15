@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { extractLocalYmd, parseLocalYmd } from '@/utils/shootLocalDate';
 
 export type TemperatureUnit = 'fahrenheit' | 'celsius';
 export type TimeFormat = '12h' | '24h';
@@ -113,14 +114,16 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     
     let dateObj: Date;
     if (typeof date === 'string') {
-      // Handle various date string formats
-      dateObj = new Date(date);
-      if (isNaN(dateObj.getTime())) {
-        // Try parsing as YYYY-MM-DD
-        const parts = date.split('-');
-        if (parts.length === 3) {
-          dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        } else {
+      // Prefer the shoot's intended LOCAL calendar day: if the string carries a
+      // YYYY-MM-DD (date-only OR a full instant), format that day directly so it
+      // never drifts with the viewer's timezone (Item #9, Suite B7).
+      const localYmd = extractLocalYmd(date);
+      if (localYmd) {
+        dateObj = parseLocalYmd(localYmd);
+      } else {
+        // Last resort: let the engine parse non-Y-m-d strings.
+        dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) {
           return date; // Return original if can't parse
         }
       }

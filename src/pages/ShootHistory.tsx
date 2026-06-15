@@ -139,11 +139,13 @@ const ShootHistory: React.FC = () => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
   const [paymentShoot, setPaymentShoot] = useState<ShootData | null>(null)
   
-  // Local formatDisplayDate that uses user preference
+  // Local formatDisplayDate that uses user preference. Pass the raw string so
+  // the formatter renders the LOCAL calendar day (no UTC round-trip) and the
+  // date does not drift across browser timezones.
   const formatDisplayDatePref = (value?: string | null) => {
     if (!value) return '—'
     try {
-      return formatDatePref(new Date(value))
+      return formatDatePref(value)
     } catch (error) {
       return value
     }

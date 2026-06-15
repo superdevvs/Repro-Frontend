@@ -6,6 +6,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/ShootsContext';
@@ -126,10 +127,12 @@ const PhotographerShootHistory = () => {
     },
   ], [scheduledShoots.length, completedShoots.length, deliveredShoots.length]);
 
-  // Format date for display
+  // Format date for display from the shoot's intended LOCAL calendar day so it
+  // does not drift across browser timezones.
   const formatShootDate = (dateString: string) => {
     try {
-      const date = new Date(dateString);
+      const date = parseLocalYmd(dateString);
+      if (Number.isNaN(date.getTime())) return 'Invalid date';
       return format(date, 'MMM dd, yyyy');
     } catch (e) {
       return 'Invalid date';

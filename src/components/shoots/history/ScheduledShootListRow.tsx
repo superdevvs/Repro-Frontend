@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
+import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
@@ -169,9 +170,11 @@ export const ScheduledShootListRow = ({
   // Route shoot-time display through the shared Time_Formatter so canonical
   // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
   const formatTime = formatTimeForDisplay
+  // Source the day from the shoot's intended local calendar date (never the
+  // absolute instant) so it does not drift across browser timezones.
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
-    try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
+    try { return formatDatePref(value) } catch { return value ?? '—' }
   }
   // Prioritize status over workflowStatus for display, but check both
   const displayStatus = shoot.status ?? shoot.workflowStatus ?? 'scheduled'
@@ -222,7 +225,7 @@ export const ScheduledShootListRow = ({
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1.5 text-sm font-medium">
                 <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span>{formatDisplayDateLocal(shoot.scheduledDate)}</span>
+                <span>{formatDisplayDateLocal(getShootLocalDate(shoot))}</span>
               </div>
               {shoot.time && shoot.time !== 'TBD' && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -249,7 +252,7 @@ export const ScheduledShootListRow = ({
           <div className="hidden md:flex flex-col gap-0.5 min-w-[140px] flex-shrink-0">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span>{formatDisplayDateLocal(shoot.scheduledDate)}</span>
+              <span>{formatDisplayDateLocal(getShootLocalDate(shoot))}</span>
             </div>
             {shoot.time && shoot.time !== 'TBD' && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

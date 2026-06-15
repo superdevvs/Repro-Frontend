@@ -38,6 +38,7 @@ import { useAuth } from '@/components/auth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { ShootData } from '@/types/shoots';
 import { getStateFullName } from '@/utils/stateUtils';
+import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
@@ -752,7 +753,8 @@ const ShootDetails: React.FC = () => {
     );
   }
 
-  const formattedDate = shoot.scheduledDate ? formatDate(new Date(shoot.scheduledDate)) : 'Not scheduled';
+  const shootLocalDate = getShootLocalDate(shoot);
+  const formattedDate = shootLocalDate ? formatDate(shootLocalDate) : 'Not scheduled';
   const formattedTime = shoot.time || 'TBD';
   const addressParts = fullAddress.split(',');
 

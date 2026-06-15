@@ -31,6 +31,8 @@ import { usePermission } from "@/hooks/usePermission";
 import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
+import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
+import { formatTimeForDisplay } from "@/utils/availabilityUtils";
 import {
   CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT,
   emitClientDashboardOnboardingState,
@@ -425,10 +427,18 @@ export const ClientDashboardView = ({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Scheduled</span>
                   <span className="font-medium">
-                    {shootToPay.summary.startTime
-                      ? format(new Date(shootToPay.summary.startTime), "MMM d, yyyy 'at' h:mm a")
-                      : shootToPay.data.scheduledDate || "TBD"
-                    }
+                    {(() => {
+                      // Date from the intended LOCAL calendar day (never the
+                      // absolute instant); time from the fixed shoot time string.
+                      const localDay =
+                        shootToPay.summary.scheduledLocalDate ?? getShootLocalDate(shootToPay.data);
+                      if (!localDay) return "TBD";
+                      const datePart = format(parseLocalYmd(localDay), "MMM d, yyyy");
+                      const timePart = shootToPay.data.time
+                        ? ` at ${formatTimeForDisplay(shootToPay.data.time)}`
+                        : "";
+                      return `${datePart}${timePart}`;
+                    })()}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t">
@@ -585,7 +595,10 @@ export const ClientDashboardView = ({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{record.summary.addressLine}</p>
                     <p className="text-xs text-muted-foreground">
-                      {record.data.scheduledDate ? format(new Date(record.data.scheduledDate), "MMM d, yyyy") : "TBD"}
+                      {(() => {
+                        const localDay = record.summary.scheduledLocalDate ?? getShootLocalDate(record.data);
+                        return localDay ? format(parseLocalYmd(localDay), "MMM d, yyyy") : "TBD";
+                      })()}
                     </p>
                   </div>
                   <span className="font-bold text-green-600">${balance.toFixed(2)}</span>

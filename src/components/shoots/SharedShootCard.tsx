@@ -27,6 +27,7 @@ import type { Role } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getStateFullName } from '@/utils/stateUtils';
+import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { normalizeImageUrl } from '@/utils/imageUrl';
@@ -163,9 +164,11 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
     ? (shoot.payment.totalPaid >= shoot.payment.totalQuote)
     : false; // Hide payment status from Admin, Editor, Photographer
 
-  // Format the date
-  const formattedDate = shoot.scheduledDate 
-    ? formatDate(new Date(shoot.scheduledDate))
+  // Format the date from the shoot's intended local calendar day so it never
+  // drifts across browser timezones.
+  const shootLocalDate = getShootLocalDate(shoot);
+  const formattedDate = shootLocalDate
+    ? formatDate(shootLocalDate)
     : 'Not scheduled';
 
   return (

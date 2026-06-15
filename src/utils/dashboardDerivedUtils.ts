@@ -15,6 +15,7 @@ import {
   formatTimeForWallClockInput,
 } from "@/utils/wallClockDateTime";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
+import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -403,10 +404,17 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
 
   const paymentStatus = getDashboardPaymentStatus(shoot.payment);
 
+  // The intended LOCAL calendar day drives all date display so it never drifts
+  // across browser timezones. `start` (the absolute instant) is kept only for
+  // chronological sorting.
+  const scheduledLocalDate = getShootLocalDate(shoot);
+  const localDay = scheduledLocalDate ? parseLocalYmd(scheduledLocalDate) : null;
+
   const summary: DashboardShootSummary = {
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
-    dayLabel: getDayLabel(start),
-    timeLabel: start ? format(start, "h:mm a") : shoot.time || null,
+    dayLabel: getDayLabel(localDay ?? start),
+    timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
+    scheduledLocalDate,
     startTime: start ? start.toISOString() : null,
     addressLine: location.address || "No address on file",
     cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),

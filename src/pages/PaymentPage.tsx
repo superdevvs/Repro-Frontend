@@ -10,6 +10,7 @@ import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
 
 type ReceiptDetails = {
@@ -104,7 +105,9 @@ function formatScheduledAt(dateValue?: string, timeValue?: string) {
     return null;
   }
 
-  const date = new Date(dateValue);
+  // Render from the intended LOCAL calendar day (no UTC round-trip) so the date
+  // does not drift across browser timezones; the time stays a fixed string.
+  const date = parseLocalYmd(dateValue);
   if (Number.isNaN(date.getTime())) {
     return timeValue ? `${dateValue} at ${timeValue}` : dateValue;
   }

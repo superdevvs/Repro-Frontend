@@ -8,6 +8,7 @@ import { getShootClientReleaseAccess } from "@/components/shoots/details/shootCl
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
+import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 
 import type { ClientShootTileProps } from "../types";
 import { getClientDeliveredMedia } from "../utils";
@@ -35,15 +36,15 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const clientReleaseAccess = getShootClientReleaseAccess(data, true);
   const balanceDue = Math.max(totalQuote - totalPaid, 0);
   const hasPendingPayment = totalQuote > 0 && balanceDue > 0 && paymentStatus !== "paid";
-  const startDate = summary.startTime ? new Date(summary.startTime) : null;
+  // Source the scheduled date from the shoot's intended LOCAL calendar day so
+  // it never drifts across browser timezones (the instant is kept only for sort).
+  const scheduledLocalDate = summary.scheduledLocalDate ?? getShootLocalDate(data);
   const completedDate = data.completedDate ? parseISO(data.completedDate) : null;
   const dateLabel = variant === "completed" && completedDate
     ? formatDate(completedDate)
-    : startDate
-      ? formatDate(startDate)
-      : data.scheduledDate
-        ? formatDate(parseISO(data.scheduledDate))
-        : "Date TBD";
+    : scheduledLocalDate
+      ? formatDate(scheduledLocalDate)
+      : "Date TBD";
   const timeLabel = formatTime(summary.timeLabel || data.time || (variant === "completed" ? "Delivered" : "Time TBD"));
   const services = data.services?.length ? data.services : summary.services.map((service) => service.label);
   const instructions = getSpecialInstructions(data);
@@ -225,7 +226,9 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
         <div className="text-sm text-muted-foreground space-y-2">
           <p className="font-semibold text-foreground">Reason: {data.adminIssueNotes || "Awaiting your action"}</p>
           <p className="text-xs">
-            Scheduled for {summary.startTime ? format(new Date(summary.startTime), "MMM d, h:mm a") : "TBD"}
+            Scheduled for {scheduledLocalDate
+              ? `${format(parseLocalYmd(scheduledLocalDate), "MMM d")}${data.time ? `, ${formatTime(data.time)}` : ""}`
+              : "TBD"}
           </p>
         </div>
       )}

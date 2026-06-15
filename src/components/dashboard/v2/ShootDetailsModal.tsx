@@ -236,7 +236,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     <p className="font-semibold text-foreground">{shoot.timeLabel ? formatTime(shoot.timeLabel) : 'TBD'}</p>
                     {detail?.scheduled_date && (
                       <p className="text-xs text-muted-foreground">
-                        {formatDate(new Date(detail.scheduled_date))}
+                        {formatDate(detail.scheduled_date)}
                       </p>
                     )}
                   </div>
