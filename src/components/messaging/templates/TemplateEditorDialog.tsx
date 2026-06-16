@@ -140,39 +140,6 @@ const PREVIEW_EMAIL_STYLES = `
   font-size: 15px;
   line-height: 1.8;
 }
-.preview-journey {
-  position: relative;
-  z-index: 2;
-  margin-top: 28px;
-}
-.preview-journey-bars {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.preview-journey-bar {
-  height: 7px;
-  border-radius: 999px;
-  background: #dce5f3;
-}
-.preview-journey-bar.complete { background: #3164ea; }
-.preview-journey-bar.next { background: #7e9ff1; }
-.preview-journey-labels {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-top: 12px;
-}
-.preview-journey-label {
-  color: #94a4bc;
-  font-size: 10px;
-  line-height: 1.4;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-.preview-journey-label.complete { color: #3164ea; }
-.preview-journey-label.next { color: #4d5f7c; }
 .preview-body {
   margin-top: 16px;
   background: #ffffff;
@@ -330,11 +297,6 @@ const PREVIEW_EMAIL_STYLES = `
 }
 `;
 
-type PreviewJourneyStep = {
-  label: string;
-  state: 'complete' | 'next' | 'pending';
-};
-
 type PreviewTitleParts = {
   overline?: string;
   primary: string;
@@ -432,32 +394,6 @@ function getPreviewCopy(category: string, description: string): string {
     default:
       return 'The latest update from your R/E Pro Photos workflow is ready below.';
   }
-}
-
-function getPreviewJourney(slug?: string): PreviewJourneyStep[] | null {
-  if (!slug) {
-    return null;
-  }
-
-  const definition =
-    slug === 'payment-thank-you' || slug === 'payment-due-reminder'
-      ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 0 }
-      : slug === 'weekly-invoice-generated'
-        ? { labels: ['Generated', 'Review', 'Approval', 'Payout'], active: 0 }
-      : slug === 'shoot-ready' || slug === 'shoot-summary' || slug === 'shoot-delivered'
-        ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 3 }
-        : ['shoot-scheduled', 'shoot-requested', 'shoot-request-approved', 'shoot-request-modified', 'shoot-reminder', 'shoot-updated'].includes(slug)
-          ? { labels: ['Booking', 'Scheduled', 'Editing', 'Delivery'], active: 1 }
-          : null;
-
-  if (!definition) {
-    return null;
-  }
-
-  return definition.labels.map((label, index) => ({
-    label,
-    state: index <= definition.active ? 'complete' : index === definition.active + 1 ? 'next' : 'pending',
-  }));
 }
 
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
@@ -652,7 +588,6 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
   const previewTitleParts = getPreviewTitleParts(formData.subject || formData.name || 'R/E Pro Photos update');
   const previewCopy = getPreviewCopy(formData.category, formData.description);
-  const previewJourney = getPreviewJourney(template?.slug);
 
   // Settings form fields (shared between mobile and desktop)
   const settingsContent = (
@@ -884,23 +819,6 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                   ) : null}
                 </h1>
                 <p className="preview-copy">{previewCopy}</p>
-
-                {previewJourney ? (
-                  <div className="preview-journey">
-                    <div className="preview-journey-bars">
-                      {previewJourney.map((step) => (
-                        <div key={step.label} className={`preview-journey-bar ${step.state}`} />
-                      ))}
-                    </div>
-                    <div className="preview-journey-labels">
-                      {previewJourney.map((step) => (
-                        <div key={step.label} className={`preview-journey-label ${step.state}`}>
-                          {step.label}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               <div className="preview-body">
