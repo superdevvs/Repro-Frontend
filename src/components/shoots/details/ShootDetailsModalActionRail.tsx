@@ -97,6 +97,8 @@ interface ShootDetailsModalActionRailProps {
   cancelActionLabel: string;
   isMobileActionsOpen: boolean;
   setIsMobileActionsOpen: (open: boolean) => void;
+  canSendManualNotification: boolean;
+  onOpenManualNotification: () => void;
   setIsApprovalModalOpen: (open: boolean) => void;
   setIsDeclineModalOpen: (open: boolean) => void;
   setIsEditMode: (open: boolean) => void;
@@ -160,6 +162,8 @@ export function ShootDetailsModalActionRail({
   cancelActionLabel,
   isMobileActionsOpen,
   setIsMobileActionsOpen,
+  canSendManualNotification,
+  onOpenManualNotification,
   setIsApprovalModalOpen,
   setIsDeclineModalOpen,
   setIsEditMode,
@@ -303,6 +307,20 @@ export function ShootDetailsModalActionRail({
                   <span>Edit</span>
                 </Button>
               )}
+              {canSendManualNotification && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                  onClick={() => {
+                    blurActiveElement();
+                    onOpenManualNotification();
+                  }}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  <span>Send notification</span>
+                </Button>
+              )}
               {!isEditMode && canUserPutOnHold && (
                 <Button
                   variant="outline"
@@ -414,6 +432,20 @@ export function ShootDetailsModalActionRail({
                   <Edit className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 Edit shoot
+              </button>
+            )}
+            {canSendManualNotification && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  onOpenManualNotification();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                  <Send className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                Send notification
               </button>
             )}
             {canUserPutOnHold && !isEditMode && (

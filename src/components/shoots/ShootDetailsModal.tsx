@@ -60,6 +60,7 @@ import { ShootDetailsModalBody } from './details/ShootDetailsModalBody';
 import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
 import { getShootClientReleaseAccess } from './details/shootClientReleaseAccess';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 
 const sanitizeWeatherSegment = (value?: string | null) => value?.replace(/\s+/g, ' ').trim() ?? '';
 
@@ -179,6 +180,7 @@ export function ShootDetailsModal({
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
+  const [isManualNotificationOpen, setIsManualNotificationOpen] = useState(false);
   const { uploads: activeUploads } = useUpload();
 
   const {
@@ -695,6 +697,11 @@ export function ShootDetailsModal({
       })()
     : 'Shoot Details';
 
+  // Admins/superadmins only (backend gates role:superadmin,admin). `isAdmin` here also
+  // includes editing_manager, so exclude it along with the non-admin roles.
+  const canSendManualNotification =
+    isAdmin && !isEditingManager && !isEditor && !isPhotographer && !isClient;
+
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -869,6 +876,8 @@ export function ShootDetailsModal({
           cancelActionLabel={cancelActionLabel}
           isMobileActionsOpen={isMobileActionsOpen}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
+          canSendManualNotification={canSendManualNotification}
+          onOpenManualNotification={() => setIsManualNotificationOpen(true)}
           setIsApprovalModalOpen={setIsApprovalModalOpen}
           setIsDeclineModalOpen={setIsDeclineModalOpen}
           setIsEditMode={setIsEditMode}
@@ -1068,6 +1077,15 @@ export function ShootDetailsModal({
           )}
           onCancel={closeSubmitConfirm}
           onConfirm={confirmSubmit}
+        />
+      )}
+
+      {canSendManualNotification && (
+        <ManualNotificationDialog
+          shootId={Number(shoot.id)}
+          shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
+          open={isManualNotificationOpen}
+          onClose={() => setIsManualNotificationOpen(false)}
         />
       )}
     </>

@@ -264,7 +264,7 @@ const BookShoot = () => {
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
   const { user, isImpersonating } = useAuth();
   const canAdjustBookingAmount = !isImpersonating && (user?.role === 'admin' || user?.role === 'superadmin');
-  const canCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager'].includes(String(user?.role ?? ''));
+  const canCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const [isEditMode, setIsEditMode] = useState(false);
   const [editShootLoading, setEditShootLoading] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
