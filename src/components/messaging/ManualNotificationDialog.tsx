@@ -166,7 +166,7 @@ export function ManualNotificationDialog({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-[640px]">
+      <DialogContent className="flex max-h-[88vh] flex-col sm:max-w-[1040px]">
         <DialogHeader>
           <DialogTitle>Send manual notification</DialogTitle>
           <DialogDescription>
@@ -175,8 +175,9 @@ export function ManualNotificationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="grid gap-4 sm:grid-cols-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 py-2 md:flex-row md:gap-6">
+          {/* Left column: notification controls */}
+          <div className="flex w-full flex-col gap-4 md:w-[320px] md:shrink-0 md:overflow-y-auto">
             <div className="space-y-2">
               <Label htmlFor="manual-notification-type">Type</Label>
               <Select
@@ -240,6 +241,8 @@ export function ManualNotificationDialog({
             </div>
           </div>
 
+          {/* Right column: full-height email preview */}
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
           {hasMissingVariables && !isPreviewLoading && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -264,7 +267,7 @@ export function ManualNotificationDialog({
             </Alert>
           )}
 
-          <div className="space-y-2">
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
             <Label className="text-sm font-semibold">Preview</Label>
             {isPreviewLoading ? (
               <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-6 text-sm text-muted-foreground">
@@ -280,7 +283,7 @@ export function ManualNotificationDialog({
                 </AlertDescription>
               </Alert>
             ) : (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-4">
+              <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-md border bg-muted/30 p-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Subject</p>
                   <p className="mt-1 text-sm font-medium">
@@ -289,19 +292,19 @@ export function ManualNotificationDialog({
                     )}
                   </p>
                 </div>
-                <div>
+                <div className="flex min-h-0 flex-1 flex-col">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     {channel === 'sms' ? 'Message' : 'Body'}
                   </p>
                   {channel === 'sms' || !previewBodyHtml ? (
-                    <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-background p-3 text-sm">
+                    <pre className="mt-1 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded border bg-background p-3 text-sm">
                       {previewBodyText ||
                         previewBodyHtml.replace(/<[^>]+>/g, '') ||
                         '(empty body)'}
                     </pre>
                   ) : (
                     <div
-                      className="prose prose-sm dark:prose-invert mt-1 max-h-64 max-w-none overflow-auto rounded border bg-background p-3 text-sm"
+                      className="prose prose-sm dark:prose-invert mt-1 min-h-0 flex-1 max-w-none overflow-auto rounded border bg-background p-3 text-sm"
                       // The backend renders templates server-side using TemplateRenderer; the
                       // resulting HTML is intended for an email body. It is shown to the admin
                       // here for review before send.
@@ -311,6 +314,7 @@ export function ManualNotificationDialog({
                 </div>
               </div>
             )}
+          </div>
           </div>
         </div>
 
@@ -332,7 +336,7 @@ export function ManualNotificationDialog({
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Send notification
+                Notify
               </>
             )}
           </Button>
