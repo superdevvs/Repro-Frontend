@@ -60,6 +60,8 @@ const SidebarLinksSkeleton = ({ isCollapsed }: { isCollapsed: boolean }) => (
   </div>
 );
 
+const MotionLink = motion(Link);
+
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const { pathname } = useLocation();
   const navListRef = React.useRef<HTMLDivElement | null>(null);
@@ -178,13 +180,15 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {canBookShoot && (
-        <Link
+        <MotionLink
           to="/book-shoot"
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            'group relative mb-1 flex min-h-10 items-center justify-center overflow-hidden rounded-2xl border py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-transparent hover:text-sidebar-primary-foreground hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
+            'group relative mb-1 flex min-h-10 items-center justify-center overflow-hidden rounded-2xl border-2 border-transparent py-2.5 text-sm font-semibold shadow-sm transition-[color,box-shadow,transform,background] duration-200 ease-in-out hover:-translate-y-0.5 hover:text-sidebar-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar dark:hover:text-blue-100',
             isBookShootActive
-              ? 'border-transparent text-sidebar-primary-foreground [background:linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,#0b75d1_52%,#38bdf8_100%)]'
-              : 'border-sidebar-primary/25 bg-sidebar text-sidebar-primary hover:[background:linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,#0b75d1_52%,#38bdf8_100%)] dark:border-white/10 dark:bg-sidebar-accent/35 dark:text-blue-100 dark:hover:text-white',
+              ? 'text-sidebar-primary dark:text-blue-100 shadow-[0_8px_24px_hsl(var(--sidebar-primary)/0.14)] [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,#60a5fa_0%,#38bdf8_45%,#2563eb_100%)_border-box]'
+              : 'text-sidebar-primary [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.55)_45%,hsl(var(--sidebar-accent)/0.9)_100%)_border-box] hover:[background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,#38bdf8_0%,#0ea5e9_45%,#1d4ed8_100%)_border-box] dark:text-blue-100 dark:hover:[background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,#93c5fd_0%,#38bdf8_48%,#2563eb_100%)_border-box]',
             isCollapsed ? 'px-2' : 'px-3'
           )}
         >
@@ -199,7 +203,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
               Book Shoot
             </span>
           </span>
-        </Link>
+        </MotionLink>
       )}
 
       {/* Dashboard link - everyone with dashboard view permission can see this */}
