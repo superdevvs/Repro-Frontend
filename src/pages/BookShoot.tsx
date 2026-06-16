@@ -69,12 +69,6 @@ type ServicePackage = {
 };
 
 type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
-const INTERNAL_NO_PRODUCT_SHOOT_TYPES: InternalShootType[] = [
-  'complimentary',
-  'sample_upload',
-  'internal_test',
-  'pricing_pending',
-];
 
 const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
   let price = Number(service.price ?? 0);
@@ -379,7 +373,7 @@ const BookShoot = () => {
     const hasZip = !!zip?.trim();
     const hasDate = !!date;
     const hasTime = !!time?.trim();
-    const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+    const requiresServices = isClientAccount || !canCreateNoProductShoot;
     const hasServices = !requiresServices || selectedServices.length > 0;
     
     return hasClient && hasAddress && hasCity && hasState && hasZip && hasDate && hasTime && hasServices;
@@ -1338,7 +1332,7 @@ const BookShoot = () => {
         return false;
       }
 
-      const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+      const requiresServices = isClientAccount || !canCreateNoProductShoot;
       if (!address || !city || !state || !zip || (requiresServices && selectedServices.length === 0)) {
         const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
           !!address && !!city && !!state && !!zip;
@@ -1519,7 +1513,7 @@ const BookShoot = () => {
       setIsSubmitting(true);
       // For client accounts, they don't need to select a client (they ARE the client)
       const clientValid = isClientAccount || !!client;
-      const requiresServices = isClientAccount || shootType === 'standard' || !canCreateNoProductShoot;
+      const requiresServices = isClientAccount || !canCreateNoProductShoot;
       if (!clientValid || !address || !city || !state || !zip || !date || !time || (requiresServices && selectedServices.length === 0)) {
         const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
           clientValid && !!address && !!city && !!state && !!zip && !!date && !!time;
@@ -1646,9 +1640,12 @@ const BookShoot = () => {
       }));
 
       const primaryServiceId = servicesPayload[0]?.id ?? null;
+      // No dropdown: an admin/sales-rep booking with no services is automatically
+      // treated as a no-charge internal (complimentary) shoot; anything with a
+      // service stays a standard paid shoot.
       const effectiveShootType =
-        canCreateNoProductShoot && INTERNAL_NO_PRODUCT_SHOOT_TYPES.includes(shootType)
-          ? shootType
+        canCreateNoProductShoot && servicesPayload.length === 0
+          ? 'complimentary'
           : 'standard';
       const productStatus =
         servicesPayload.length === 0

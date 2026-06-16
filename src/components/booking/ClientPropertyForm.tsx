@@ -733,7 +733,7 @@ export const ClientPropertyForm = ({
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
 
-    const requiresService = isClientAccount || shootType === 'standard';
+    const requiresService = isClientAccount || !canCreateNoProductShoot;
     if (requiresService && selectedServices.length === 0) {
       const noticeText = 'Please select at least one service before continuing.';
       setSubmitAttemptNotice(noticeText);
@@ -1528,9 +1528,7 @@ export const ClientPropertyForm = ({
             <div>
               <h3 className="text-lg font-medium">Service Selection</h3>
               <p className="text-sm text-muted-foreground">
-                {canCreateNoProductShoot && shootType !== 'standard'
-                  ? 'Services are optional for this internal no-charge shoot.'
-                  : 'Add the deliverables this booking includes, then review totals below.'}
+                Add the deliverables this booking includes, then review totals below.
               </p>
             </div>
             <TooltipProvider>
@@ -1544,32 +1542,6 @@ export const ClientPropertyForm = ({
               </Tooltip>
             </TooltipProvider>
           </div>
-
-          {canCreateNoProductShoot && (
-            <div className="mb-4 rounded-xl border border-muted/50 bg-card/40 p-4 space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="shoot-type">Shoot type</Label>
-                <p className="text-xs text-muted-foreground">
-                  Internal no-charge types can be scheduled without services.
-                </p>
-              </div>
-              <Select
-                value={shootType}
-                onValueChange={(value) => onShootTypeChange?.(value as InternalShootType)}
-              >
-                <SelectTrigger id="shoot-type">
-                  <SelectValue placeholder="Select shoot type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard paid shoot</SelectItem>
-                  <SelectItem value="complimentary">Complimentary shoot</SelectItem>
-                  <SelectItem value="sample_upload">Sample upload</SelectItem>
-                  <SelectItem value="internal_test">Internal/test shoot</SelectItem>
-                  <SelectItem value="pricing_pending">Pricing pending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div
             className={cn(

@@ -181,14 +181,13 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         <Link
           to="/book-shoot"
           className={cn(
-            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border py-2.5 text-sm font-semibold text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20 ring-1 ring-sidebar-primary/25 backdrop-blur transition-[padding] duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-sidebar-primary/25',
+            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border-2 border-transparent py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-md',
             isBookShootActive
-              ? 'bg-[linear-gradient(135deg,#1d4ed8_0%,#1e40af_50%,rgba(255,255,255,0.22)_100%)] ring-blue-800/45 shadow-blue-900/25 hover:bg-[linear-gradient(135deg,#1e40af_0%,#1e3a8a_50%,rgba(255,255,255,0.26)_100%)] hover:shadow-blue-900/30'
-              : 'bg-[linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.78)_45%,hsl(var(--sidebar-accent)/0.9)_100%)]',
+              ? 'text-blue-700 dark:text-blue-300 [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,#1d4ed8_0%,#1e40af_50%,#60a5fa_100%)_border-box] hover:[background:linear-gradient(hsl(221_83%_53%/0.10),hsl(221_83%_53%/0.10))_padding-box,linear-gradient(135deg,#1e40af_0%,#1d4ed8_50%,#93c5fd_100%)_border-box]'
+              : 'text-sidebar-primary [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.55)_45%,hsl(var(--sidebar-accent)/0.9)_100%)_border-box] hover:[background:linear-gradient(hsl(var(--sidebar-primary)/0.10),hsl(var(--sidebar-primary)/0.10))_padding-box,linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,hsl(var(--sidebar-primary)/0.7)_45%,hsl(var(--sidebar-accent))_100%)_border-box]',
             isCollapsed ? 'px-2' : 'px-3'
           )}
         >
-          <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--sidebar-primary-foreground)/0.22),hsl(var(--sidebar-primary-foreground)/0)_58%)]" />
           <span className="relative z-10 flex items-center overflow-hidden">
             <PlusCircle className="h-4 w-4 flex-shrink-0" />
             <span
