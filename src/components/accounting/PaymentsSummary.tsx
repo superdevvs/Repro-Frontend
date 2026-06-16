@@ -13,6 +13,7 @@ import {
 
 interface PaymentsSummaryProps {
   invoices: InvoiceData[];
+  className?: string;
 }
 
 const getInvoicePaymentInfo = (invoice: InvoiceData) => {
@@ -107,7 +108,7 @@ const getTransactionDetailRows = (invoice: InvoiceData) => {
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 };
 
-export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
+export function PaymentsSummary({ invoices, className }: PaymentsSummaryProps) {
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const totalInvoiced = invoices.reduce((sum, i) => sum + i.amount, 0);
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
@@ -162,7 +163,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
   );
 
   return (
-    <div className="flex flex-col gap-3 h-full">
+    <div className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
   {/* 🧾 Payments Summary */}
   <Card className="overflow-hidden border flex-shrink-0 min-h-fit">
     <CardHeader className="pb-2">
@@ -245,13 +246,13 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
   </Card>
 
   {/* 💳 Latest Transactions */}
-  <Card className="border overflow-hidden flex-1 flex flex-col">
+  <Card className="border overflow-hidden flex-1 min-h-0 flex flex-col">
     <CardHeader className="flex-shrink-0">
       <CardTitle>Latest Transactions</CardTitle>
     </CardHeader>
     <CardContent className="flex-1 flex flex-col min-h-0">
       {latestTransactions.length > 0 ? (
-        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pr-2">
           {latestTransactions.map((invoice) => {
             const { method, details, paidAt } = getInvoicePaymentInfo(invoice);
             const methodLabel = formatPaymentMethod(method, details);

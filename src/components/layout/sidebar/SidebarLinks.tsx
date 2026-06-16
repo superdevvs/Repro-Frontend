@@ -181,10 +181,10 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         <Link
           to="/book-shoot"
           className={cn(
-            'group relative mb-1 flex items-center justify-center overflow-hidden rounded-2xl border-2 border-transparent py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-md',
+            'group relative mb-1 flex min-h-10 items-center justify-center overflow-hidden rounded-2xl border py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-transparent hover:text-sidebar-primary-foreground hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
             isBookShootActive
-              ? 'text-blue-700 dark:text-blue-300 [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,#1d4ed8_0%,#1e40af_50%,#60a5fa_100%)_border-box] hover:[background:linear-gradient(hsl(221_83%_53%/0.10),hsl(221_83%_53%/0.10))_padding-box,linear-gradient(135deg,#1e40af_0%,#1d4ed8_50%,#93c5fd_100%)_border-box]'
-              : 'text-sidebar-primary [background:linear-gradient(hsl(var(--sidebar-background)),hsl(var(--sidebar-background)))_padding-box,linear-gradient(135deg,hsl(var(--sidebar-primary)/0.95)_0%,hsl(var(--sidebar-primary)/0.55)_45%,hsl(var(--sidebar-accent)/0.9)_100%)_border-box] hover:[background:linear-gradient(hsl(var(--sidebar-primary)/0.10),hsl(var(--sidebar-primary)/0.10))_padding-box,linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,hsl(var(--sidebar-primary)/0.7)_45%,hsl(var(--sidebar-accent))_100%)_border-box]',
+              ? 'border-transparent text-sidebar-primary-foreground [background:linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,#0b75d1_52%,#38bdf8_100%)]'
+              : 'border-sidebar-primary/25 bg-sidebar text-sidebar-primary hover:[background:linear-gradient(135deg,hsl(var(--sidebar-primary))_0%,#0b75d1_52%,#38bdf8_100%)] dark:border-white/10 dark:bg-sidebar-accent/35 dark:text-blue-100 dark:hover:text-white',
             isCollapsed ? 'px-2' : 'px-3'
           )}
         >

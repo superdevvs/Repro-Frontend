@@ -35,6 +35,7 @@ import type { DashboardShootSummary } from '@/types/dashboard';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 import { useServices } from '@/hooks/useServices';
 import { useSalesRepSummary } from '@/hooks/useSalesRepSummary';
+import { cn } from '@/lib/utils';
 import {
   extractPhotoCountFromServiceName,
   findMatchingEditorRate,
@@ -811,9 +812,14 @@ const AccountingPage = () => {
                           )}
                         </div>
                         {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer') && (
-                          <div className="flex min-h-0 flex-col gap-3 lg:col-span-1">
+                          <div
+                            className={cn(
+                              "flex min-h-0 flex-col gap-3 lg:col-span-1",
+                              accountingMode === 'admin' && "lg:h-[max(54.875rem,calc(100vh-11.125rem))] lg:max-h-[max(54.875rem,calc(100vh-11.125rem))]"
+                            )}
+                          >
                             {accountingMode === 'admin' ? (
-                              <PaymentsSummary invoices={adminWindowInvoices} />
+                              <PaymentsSummary invoices={adminWindowInvoices} className="min-h-0" />
                             ) : accountingMode === 'client' ? (
                               <ClientBillingSidePanel
                                 items={clientBillingItems}
