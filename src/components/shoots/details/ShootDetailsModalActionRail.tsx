@@ -318,7 +318,7 @@ export function ShootDetailsModalActionRail({
                   }}
                 >
                   <Send className="h-3 w-3 mr-1" />
-                  <span>Send notification</span>
+                  <span>Notify</span>
                 </Button>
               )}
               {!isEditMode && canUserPutOnHold && (
@@ -445,7 +445,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40">
                   <Send className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                Send notification
+                Notify
               </button>
             )}
             {canUserPutOnHold && !isEditMode && (

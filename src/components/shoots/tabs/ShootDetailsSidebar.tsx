@@ -617,7 +617,7 @@ export function ShootDetailsSidebar({
               onClick={() => setIsManualNotificationOpen(true)}
             >
               <Send className="h-3 w-3 mr-1.5" />
-              Send notification
+              Notify
             </Button>
           </CardContent>
         </Card>
