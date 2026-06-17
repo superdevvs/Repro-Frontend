@@ -564,8 +564,11 @@ body {
 
 /* Shoot History tabs must NOT create their own clamped (max-height:100%) nested
    scroll context — that traps tall content and breaks touch scrolling on mobile
-   landscape (QA #18). Let the single <main> scrollbar own all scrolling here. */
-.shoot-history-tabs [data-radix-tabs-content][data-state="active"] {
+   landscape (QA #18). Let the single <main> scrollbar own all scrolling here.
+   NOTE: Radix Tabs renders the panel as [role="tabpanel"] and never emits a
+   `data-radix-tabs-content` attribute, so the old selector matched nothing and
+   this protection was inert. Use the role selector so the rule actually applies. */
+.shoot-history-tabs [role="tabpanel"][data-state="active"] {
   flex: 0 1 auto !important;
   height: auto !important;
   min-height: auto !important;

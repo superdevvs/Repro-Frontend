@@ -396,8 +396,8 @@ export function BulkActionsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 flex-1 overflow-hidden">
-          <div className="flex flex-col gap-4 overflow-visible">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-4 overflow-visible min-h-0">
             <div className="flex flex-wrap items-center gap-3 overflow-visible">
               <div className="relative flex-1 min-w-[240px] z-20 rounded-md focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring">
                 <Input
