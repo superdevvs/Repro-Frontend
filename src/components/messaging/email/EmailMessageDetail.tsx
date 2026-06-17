@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Reply, Forward, Archive, MoreVertical, Download, Printer, Clock, CheckCircle, XCircle, RefreshCw, Send, Maximize2, Bold, Italic, Link2, Paperclip, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,38 @@ const contextLabels = {
   new_shoot: 'New Shoot',
   previous_shoot: 'Previous Shoot',
 } as const;
+
+/**
+ * Renders email HTML inside a sandboxed iframe so the email's own <style>
+ * blocks and color rules stay isolated and cannot leak into the dashboard UI.
+ */
+function EmailHtmlFrame({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [height, setHeight] = useState(120);
+
+  const resize = useCallback(() => {
+    const doc = iframeRef.current?.contentWindow?.document;
+    if (doc?.body) {
+      // scrollHeight gives the full rendered content height
+      const next = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      setHeight(next);
+    }
+  }, []);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title="Email content"
+      // sandbox without allow-scripts: no script execution, styles fully isolated
+      sandbox="allow-same-origin"
+      srcDoc={html}
+      onLoad={resize}
+      className="w-full border-0 bg-white"
+      style={{ height }}
+    />
+  );
+}
+
 
 export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessageDetailProps) {
   const navigate = useNavigate();
@@ -264,7 +296,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
         {/* Body */}
         <div className="prose prose-sm max-w-none">
           {message.body_html ? (
-            <div dangerouslySetInnerHTML={{ __html: message.body_html }} />
+            <EmailHtmlFrame html={message.body_html} />
           ) : (
             <pre className="whitespace-pre-wrap font-sans">{message.body_text}</pre>
           )}
