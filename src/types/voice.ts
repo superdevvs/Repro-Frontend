@@ -7,13 +7,25 @@ export interface VoiceCaller {
 
 export interface VoiceCall {
   id: number;
+  provider?: string | null;
+  vapi_call_id?: string | null;
+  vapi_phone_number_id?: string | null;
   direction: 'INBOUND' | 'OUTBOUND' | string;
   status: string;
+  handled_by?: 'ai' | 'human' | 'mixed' | 'unanswered' | string | null;
   disposition?: string | null;
   intent?: string | null;
   menu_digit?: string | null;
   escalation_reason?: string | null;
   callback_status?: string | null;
+  external_provider_status?: string | null;
+  provider_event_last_seen_at?: string | null;
+  vapi_ended_reason?: string | null;
+  telnyx_failure_code?: string | null;
+  carrier_failure_reason?: string | null;
+  ai_current_state?: string | null;
+  ai_current_speaker?: string | null;
+  live_transcript_preview?: string | null;
   from_phone?: string | null;
   to_phone?: string | null;
   assistant_id?: string | null;
@@ -21,11 +33,17 @@ export interface VoiceCall {
   telnyx_conversation_id?: string | null;
   duration_seconds?: number | null;
   recording_url?: string | null;
+  recording_provider?: string | null;
   recording_consent_given?: boolean;
   transcript?: string | null;
   summary?: string | null;
+  sentiment?: string | null;
+  booking_probability?: string | null;
+  needs_follow_up?: boolean | null;
+  summary_generated_at?: string | null;
   metadata?: Record<string, unknown> | null;
   started_at?: string | null;
+  answered_at?: string | null;
   ended_at?: string | null;
   verified_at?: string | null;
   callback_requested_at?: string | null;
@@ -195,7 +213,26 @@ export interface VoiceHealth {
   enabled: boolean;
   webhook_url_configured: boolean;
   webhook_url?: string | null;
+  telnyx_carrier?: {
+    status?: string | null;
+    latest_event_at?: string | null;
+    latest_event_type?: string | null;
+  };
+  vapi_assistant?: {
+    status?: string | null;
+    assistant_id?: string | null;
+    phone_number_id?: string | null;
+    latest_event_at?: string | null;
+    latest_event_type?: string | null;
+  };
+  backend_webhooks?: {
+    status?: string | null;
+    latest_failed_at?: string | null;
+    latest_failed_error?: string | null;
+  };
+  last_provider_event_at?: string | null;
   latest_webhook_event?: {
+    provider?: string | null;
     event_type?: string | null;
     received_at?: string | null;
     processed_at?: string | null;

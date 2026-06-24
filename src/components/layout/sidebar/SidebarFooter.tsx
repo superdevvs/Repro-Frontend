@@ -6,11 +6,11 @@ import { HelpCircle, SettingsIcon, LogOutIcon, PanelLeftClose, PanelLeft } from 
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  CLIENT_DASHBOARD_ONBOARDING_STATE_EVENT,
-  getClientDashboardOnboardingState,
-  requestClientDashboardOnboardingReplay,
-  type ClientDashboardOnboardingSidebarState,
-} from '@/lib/clientDashboardOnboardingEvents';
+  DASHBOARD_ONBOARDING_STATE_EVENT,
+  getDashboardOnboardingState,
+  requestDashboardOnboardingReplay,
+  type DashboardOnboardingSidebarState,
+} from '@/lib/dashboardOnboardingEvents';
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
@@ -20,23 +20,22 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: SidebarFooterProps) {
   const { pathname } = useLocation();
-  const [showClientDashboardTour, setShowClientDashboardTour] = React.useState(
-    () => getClientDashboardOnboardingState().visible
-  );
+  const [onboardingState, setOnboardingState] =
+    React.useState<DashboardOnboardingSidebarState | null>(() => getDashboardOnboardingState());
 
   React.useEffect(() => {
     const handleOnboardingState = (event: Event) => {
-      const detail = (event as CustomEvent<ClientDashboardOnboardingSidebarState>).detail;
-      setShowClientDashboardTour(Boolean(detail?.visible));
+      const detail = (event as CustomEvent<DashboardOnboardingSidebarState>).detail;
+      setOnboardingState(detail ?? null);
     };
 
-    window.addEventListener(CLIENT_DASHBOARD_ONBOARDING_STATE_EVENT, handleOnboardingState);
-    return () => window.removeEventListener(CLIENT_DASHBOARD_ONBOARDING_STATE_EVENT, handleOnboardingState);
+    window.addEventListener(DASHBOARD_ONBOARDING_STATE_EVENT, handleOnboardingState);
+    return () => window.removeEventListener(DASHBOARD_ONBOARDING_STATE_EVENT, handleOnboardingState);
   }, []);
   
   return (
     <div className="mt-auto">
-      {showClientDashboardTour && (
+      {onboardingState?.visible && (
         <div className={cn('mb-2', isCollapsed && 'flex justify-center')}>
           <Button
             variant="ghost"
@@ -46,11 +45,11 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
               !isCollapsed && 'w-full justify-start',
               isCollapsed && 'h-10 w-10 p-0 justify-center'
             )}
-            onClick={requestClientDashboardOnboardingReplay}
-            title="Take tour"
+            onClick={() => requestDashboardOnboardingReplay(onboardingState.roleKey)}
+            title={onboardingState.label}
           >
             <HelpCircle className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
-            {!isCollapsed && <span>Take tour</span>}
+            {!isCollapsed && <span>{onboardingState.label}</span>}
           </Button>
         </div>
       )}

@@ -33,6 +33,10 @@ export const placeVoiceCall = async (data: {
   to: string;
   from?: string;
   assistant_id?: string;
+  assistant_mode?: string;
+  source?: string;
+  contact_id?: number;
+  vapi_phone_number_id?: string;
   related_shoot_id?: number;
   dynamic_variables?: Record<string, unknown>;
 }): Promise<VoiceCall> => {

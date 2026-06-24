@@ -54,6 +54,8 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
       placeVoiceCall({
         to: to.trim(),
         from: from.trim() || undefined,
+        assistant_mode: 'robbie_ai',
+        source: 'test_call_dialog',
         dynamic_variables: {
           reason: reason.trim() || 'Dashboard test call',
           source: 'calls_dashboard_test_call',
@@ -62,7 +64,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
-      toast({ title: 'Test call started', description: 'The outbound call was sent to Telnyx.' });
+      toast({ title: 'Test call started', description: 'The outbound AI call was sent to Vapi.' });
       setTo(initialTo);
       setFrom(initialFrom);
       setReason(initialContext);
@@ -71,7 +73,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
     onError: (error) => {
       toast({
         title: 'Unable to start test call',
-        description: error instanceof Error ? error.message : 'Please check the number and Telnyx settings.',
+        description: error instanceof Error ? error.message : 'Please check the number, Vapi settings, and Telnyx carrier setup.',
         variant: 'destructive',
       });
     },
@@ -87,7 +89,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
           <DialogTitle className="flex items-center gap-2">
             <PhoneOutgoing className="h-4 w-4 text-blue-600" /> Make Test Call
           </DialogTitle>
-          <DialogDescription>Place an immediate outbound AI voice call through Telnyx.</DialogDescription>
+          <DialogDescription>Place an immediate outbound Robbie AI call through Vapi using the Telnyx-backed number.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="space-y-1.5">
@@ -132,7 +134,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
             Cancel
           </Button>
           <Button type="button" onClick={() => call.mutate()} disabled={!canSubmit}>
-            <Send className="mr-2 h-4 w-4" /> {call.isPending ? 'Calling...' : 'Start call'}
+            <Send className="mr-2 h-4 w-4" /> {call.isPending ? 'Calling...' : 'Start AI call'}
           </Button>
         </DialogFooter>
       </DialogContent>

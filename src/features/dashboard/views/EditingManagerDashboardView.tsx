@@ -1,7 +1,11 @@
 import React from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/components/auth";
 
+import { DashboardOnboarding } from "../components/DashboardOnboarding";
+import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
+import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import type { MobileEditingManagerTab } from "../types";
 
 interface EditingManagerDashboardViewProps {
@@ -23,18 +27,32 @@ export const EditingManagerDashboardView = ({
   renderPipelineSection,
   setMobileEditingManagerTab,
 }: EditingManagerDashboardViewProps) => {
+  const { user } = useAuth();
+  const onboarding = useDashboardOnboarding(user, "editing_manager");
+
   const editingManagerContent = (
     <>
       <div className="grid h-full grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
         <div className="xl:col-span-9 flex h-full flex-1 flex-col gap-4 sm:gap-6 min-h-0 min-w-0">
-          {renderEditingManagerShootsTabsCard()}
+          <div
+            data-onboarding-target="editingmanager-shoots"
+            className="flex h-full flex-1 flex-col min-h-0 min-w-0"
+          >
+            {renderEditingManagerShootsTabsCard()}
+          </div>
         </div>
         <div className="xl:col-span-3 flex flex-col gap-4 sm:gap-6 xl:sticky xl:top-6">
-          {renderPendingReviewsCard()}
-          {renderEditingManagerReadyToDeliverCard()}
+          <div data-onboarding-target="editingmanager-requests">
+            {renderPendingReviewsCard()}
+          </div>
+          <div data-onboarding-target="editingmanager-ready">
+            {renderEditingManagerReadyToDeliverCard()}
+          </div>
         </div>
       </div>
-      {renderPipelineSection()}
+      <div data-onboarding-target="editingmanager-pipeline">
+        {renderPipelineSection()}
+      </div>
     </>
   );
 
@@ -42,22 +60,38 @@ export const EditingManagerDashboardView = ({
     {
       id: "shoots" as const,
       label: "Shoots",
-      content: renderEditingManagerShootsTabsCard(),
+      content: (
+        <div data-onboarding-target="editingmanager-shoots" className="flex flex-1 flex-col min-h-0">
+          {renderEditingManagerShootsTabsCard()}
+        </div>
+      ),
     },
     {
       id: "requests" as const,
       label: "Requests",
-      content: renderPendingReviewsCard(),
+      content: (
+        <div data-onboarding-target="editingmanager-requests">
+          {renderPendingReviewsCard()}
+        </div>
+      ),
     },
     {
       id: "ready" as const,
       label: "Ready",
-      content: renderEditingManagerReadyToDeliverCard(),
+      content: (
+        <div data-onboarding-target="editingmanager-ready">
+          {renderEditingManagerReadyToDeliverCard()}
+        </div>
+      ),
     },
     {
       id: "pipeline" as const,
       label: "Pipeline",
-      content: renderPipelineSection(),
+      content: (
+        <div data-onboarding-target="editingmanager-pipeline">
+          {renderPipelineSection()}
+        </div>
+      ),
     },
   ] as const;
 
@@ -92,5 +126,29 @@ export const EditingManagerDashboardView = ({
     </Tabs>
   );
 
-  return isMobile ? editingManagerMobileContent : editingManagerContent;
+  return (
+    <>
+      {isMobile ? editingManagerMobileContent : editingManagerContent}
+      <DashboardOnboarding
+        roleKey="editing_manager"
+        steps={dashboardOnboardingConfig.editing_manager.steps}
+        copy={dashboardOnboardingConfig.editing_manager.copy}
+        welcomeOpen={onboarding.welcomeOpen}
+        tourOpen={onboarding.tourOpen}
+        isMobile={isMobile}
+        currentMobileTab={mobileEditingManagerTab}
+        lastStep={onboarding.onboardingState.lastStep}
+        onStart={onboarding.startTour}
+        onDismiss={onboarding.dismiss}
+        onComplete={(lastStep) => onboarding.complete({ lastStep })}
+        onProgress={onboarding.saveProgress}
+        onReplay={onboarding.replay}
+        onSetMobileTab={(tab) => setMobileEditingManagerTab(tab as MobileEditingManagerTab)}
+        onStepView={onboarding.recordStepView}
+        onStepBack={onboarding.recordStepBack}
+        onHelpOpened={onboarding.recordHelpOpened}
+        onHelpMessage={onboarding.recordHelpMessage}
+      />
+    </>
+  );
 };

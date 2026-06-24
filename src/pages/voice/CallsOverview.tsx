@@ -58,13 +58,14 @@ import {
   createScheduledVoiceCall,
   getScheduledVoiceCalls,
   getVoiceCalls,
+  getVoiceHealth,
   getVoiceSettings,
   getVoiceStats,
   pageVoiceCallStaff,
   placeVoiceCall,
 } from '@/services/voice';
 import type { SmsContact, SmsThreadSummary } from '@/types/messaging';
-import type { VoiceCall, VoiceStatsCard } from '@/types/voice';
+import type { VoiceCall, VoiceHealth, VoiceStatsCard } from '@/types/voice';
 import MakeTestCallDialog from './MakeTestCallDialog';
 import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 
@@ -160,20 +161,23 @@ const callTone = (call: VoiceCall) => {
 const deriveTimeline = (call?: VoiceCall | null) => {
   if (!call) return [];
   const baseTime = call.started_at || call.created_at;
+  const liveState = call.ai_current_state?.replace(/_/g, ' ');
   const rows = [
     {
       time: baseTime,
-      label: call.direction === 'OUTBOUND' ? 'Outbound call started' : 'AI answered call',
+      label: call.direction === 'OUTBOUND' ? 'Outbound AI call started' : 'Inbound call received',
       status: call.status || 'Connected',
     },
   ];
 
+  if (call.answered_at) rows.push({ time: call.answered_at, label: call.direction === 'OUTBOUND' ? 'Customer answered' : 'Robbie AI answered', status: 'Answered' });
+  if (call.handled_by === 'ai' || call.ai_current_state) rows.push({ time: call.provider_event_last_seen_at || call.updated_at, label: liveState ? `Robbie AI ${liveState}` : 'Robbie AI joined the call', status: call.ai_current_state || 'AI active' });
   if (call.intent) rows.push({ time: baseTime, label: `Captured caller intent: ${call.intent.replace(/_/g, ' ')}`, status: 'Completed' });
-  if (call.menu_digit) rows.push({ time: baseTime, label: `Menu digit ${call.menu_digit} selected`, status: 'Completed' });
-  if (call.escalation_reason || call.disposition?.includes('transfer')) rows.push({ time: call.updated_at, label: 'Transfer or handoff attempted', status: call.disposition || 'Handoff' });
+  if (call.live_transcript_preview) rows.push({ time: call.provider_event_last_seen_at || call.updated_at, label: call.live_transcript_preview, status: 'Transcript' });
+  if (call.escalation_reason || call.disposition?.includes('transfer') || call.status === 'human_handoff') rows.push({ time: call.updated_at, label: 'Human handoff requested', status: call.disposition || 'Handoff' });
   if (call.callback_status || call.scheduled_voice_call_id) rows.push({ time: call.preferred_callback_at || call.updated_at, label: 'Callback scheduled', status: call.callback_status || 'Scheduled' });
-  if (call.last_telnyx_command_status) rows.push({ time: call.updated_at, label: 'Telnyx command recorded', status: String(call.last_telnyx_command_status.ok ?? 'tracked') });
   if (call.summary || call.transcript) rows.push({ time: call.ended_at || call.updated_at, label: 'Conversation summary captured', status: call.summary ? 'Success' : 'Transcript' });
+  if (call.ended_at) rows.push({ time: call.ended_at, label: call.status === 'failed' ? 'Call failed' : 'Call completed', status: call.status });
 
   return rows.slice(0, 6);
 };
@@ -220,6 +224,7 @@ export default function CallsOverview() {
   const calls = useQuery({ queryKey: ['voice-calls', 'overview'], queryFn: () => getVoiceCalls({ per_page: 6 }) });
   const callbacks = useQuery({ queryKey: ['scheduled-voice-calls', 'overview'], queryFn: () => getScheduledVoiceCalls({ per_page: 6 }) });
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
+  const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth, refetchInterval: 30000 });
 
   const recentCalls = calls.data?.data ?? [];
   const selectedCall = recentCalls.find((call) => call.id === selectedCallId) ?? recentCalls[0] ?? null;
@@ -341,6 +346,7 @@ export default function CallsOverview() {
 
         <SmartDialerPanel
           defaultFrom={CANONICAL_FROM_NUMBER}
+          health={health.data}
           onSms={openSms}
           onConfirm={setConfirmAction}
         />
@@ -495,13 +501,15 @@ function RecentCallsPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-foreground">{call.caller_user?.name ?? call.caller_contact?.name ?? displayPhone(getCallPhone(call))}</span>
                     <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/40">{call.direction}</Badge>
+                    <Badge variant="secondary">{call.handled_by === 'human' ? 'Human' : 'Robbie AI'}</Badge>
                     <Badge className={statusClasses(call.status)}>{call.status || 'Tracked'}</Badge>
                   </div>
-                  <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{call.summary || call.transcript || 'No summary yet.'}</p>
+                  <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{call.summary || call.live_transcript_preview || call.transcript || 'No summary yet.'}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span>{formatRelative(call.started_at || call.created_at)}</span>
                     {call.callback_status && <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">{call.callback_status}</Badge>}
                     {call.intent && <Badge className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">{call.intent.replace(/_/g, ' ')}</Badge>}
+                    {call.carrier_failure_reason && <Badge className="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">Carrier failed</Badge>}
                     <CallInsightChips call={call} />
                   </div>
                 </div>
@@ -544,7 +552,7 @@ function TimelinePanel({ call }: { call?: VoiceCall | null }) {
 function AiSummaryPanel({ call, assistantId }: { call?: VoiceCall | null; assistantId?: string | null }) {
   const intent = call?.intent?.replace(/_/g, ' ') || 'Unknown';
   const isPositive = call?.status?.toLowerCase().includes('complete') || Boolean(call?.summary);
-  const bookingProbability = call?.intent?.includes('booking') ? 'High (87%)' : call?.intent ? 'Medium' : 'Unknown';
+  const bookingProbability = call?.booking_probability || (call?.intent?.includes('booking') ? 'High (87%)' : call?.intent ? 'Medium' : 'Unknown');
 
   return (
     <section className={`${panelClass} p-3`}>
@@ -557,7 +565,7 @@ function AiSummaryPanel({ call, assistantId }: { call?: VoiceCall | null; assist
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
             <Sparkles className="h-6 w-6" />
           </div>
-          <SummaryItem label="Voice Sentiment" value={isPositive ? 'Positive' : 'Needs Review'} tone={isPositive ? 'green' : 'orange'} />
+          <SummaryItem label="Voice Sentiment" value={call?.sentiment || (isPositive ? 'Positive' : 'Needs Review')} tone={isPositive ? 'green' : 'orange'} />
           <SummaryItem label="Caller Intent" value={intent} />
           <SummaryItem label="Booking Probability" value={bookingProbability} tone={bookingProbability.startsWith('High') ? 'green' : undefined} />
         </div>
@@ -634,10 +642,12 @@ function FollowUpSuggestions({
 
 function SmartDialerPanel({
   defaultFrom,
+  health,
   onSms,
   onConfirm,
 }: {
   defaultFrom: string;
+  health?: VoiceHealth;
   onSms: (target: string, body?: string) => void;
   onConfirm: (action: ConfirmAction | null) => void;
 }) {
@@ -666,6 +676,8 @@ function SmartDialerPanel({
       placeVoiceCall({
         to: number.trim(),
         from: defaultFrom,
+        assistant_mode: 'robbie_ai',
+        source: 'smart_dialer',
         dynamic_variables: {
           reason: 'Smart Dialer call',
           source: 'calls_overview_smart_dialer',
@@ -684,7 +696,7 @@ function SmartDialerPanel({
         axiosErr?.response?.data?.error
         || axiosErr?.response?.data?.message
         || axiosErr?.message
-        || 'Please check Telnyx settings and try again.';
+        || 'Please check Vapi and Telnyx settings and try again.';
       toast({
         title: 'Unable to start call',
         description,
@@ -819,14 +831,14 @@ function SmartDialerPanel({
         onClick={() =>
           onConfirm({
             title: 'Start outbound call?',
-            description: `Place a live Telnyx call from ${defaultFrom} to ${number}.`,
-            confirmLabel: callMutation.isPending ? 'Calling...' : 'Start call',
+            description: `Start a Robbie AI call from ${defaultFrom} to ${number}.`,
+            confirmLabel: callMutation.isPending ? 'Calling...' : 'Start AI call',
             onConfirm: () => callMutation.mutate(),
           })
         }
         className="mt-3 h-10 w-full bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-500"
       >
-        <Phone className="mr-2 h-5 w-5" /> Start Call
+        <Phone className="mr-2 h-5 w-5" /> Start AI Call
       </Button>
 
       <div className="mt-2.5 grid grid-cols-3 gap-2">
@@ -861,8 +873,10 @@ function SmartDialerPanel({
             <Headphones className="h-6 w-6" />
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Ready to call</div>
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" /> AI receptionist online</div>
+            <HealthRow label="Telnyx carrier" status={health?.telnyx_carrier?.status || 'unknown'} />
+            <HealthRow label="Vapi assistant" status={health?.vapi_assistant?.status || 'unknown'} />
+            <HealthRow label="Backend webhooks" status={health?.backend_webhooks?.status || 'unknown'} />
+            <div className="text-xs">Last event: {formatRelative(health?.last_provider_event_at)}</div>
           </div>
         </div>
         <div className="mt-2 flex h-6 items-center gap-1">
@@ -907,6 +921,16 @@ function SmartDialerPanel({
         </DialogContent>
       </Dialog>
     </aside>
+  );
+}
+
+function HealthRow({ label, status }: { label: string; status: string }) {
+  const healthy = ['connected', 'online', 'healthy'].includes(status);
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`h-2 w-2 rounded-full ${healthy ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      {label}: {status.replace(/_/g, ' ')}
+    </div>
   );
 }
 

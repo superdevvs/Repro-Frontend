@@ -35,6 +35,10 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   mobileTab,
   onMobileTabChange,
   mobileTabs = [],
+  metricsOnboardingTarget,
+  upcomingOnboardingTarget,
+  pendingOnboardingTarget,
+  leftColumnOnboardingTarget,
 }) => {
   const isCompactDashboardLayout = useMediaQuery("(max-width: 1024px)");
 
@@ -76,7 +80,9 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
           {isCompactDashboardLayout && mobileTabs.length > 0 ? (
             <div className="space-y-4 flex-1 flex flex-col">
               {hasMetricTiles ? (
-                <RoleMetricTilesCard tiles={metricTiles} />
+                <div data-onboarding-target={metricsOnboardingTarget}>
+                  <RoleMetricTilesCard tiles={metricTiles} />
+                </div>
               ) : null}
               <Tabs {...mobileTabsProps} className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs">
                 <div
@@ -112,9 +118,12 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
           ) : (
           <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
           {!hideLeftColumn && (hasMetricTiles || hasLeftColumnCard) && (
-          <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
+          <div
+            className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none"
+            data-onboarding-target={leftColumnOnboardingTarget}
+          >
               {hasMetricTiles ? (
-                <div className="order-1 lg:order-none">
+                <div className="order-1 lg:order-none" data-onboarding-target={metricsOnboardingTarget}>
                   <ErrorBoundary
                     fallback={
                       <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -141,7 +150,10 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               ) : null}
             </div>
           )}
-            <div className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
+            <div
+              className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}
+              data-onboarding-target={upcomingOnboardingTarget}
+            >
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -175,15 +187,17 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             </div>
             )}
           <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 lg:order-none">
-            <ErrorBoundary
-              fallback={
-                <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                  Unable to load pending reviews
-                </div>
-              }
-            >
-              {pendingContent}
-            </ErrorBoundary>
+            <div data-onboarding-target={pendingOnboardingTarget}>
+              <ErrorBoundary
+                fallback={
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Unable to load pending reviews
+                  </div>
+                }
+              >
+                {pendingContent}
+              </ErrorBoundary>
+            </div>
             {rightColumnCards
               .filter((card): card is React.ReactNode => Boolean(card))
               .map((card, index) => (

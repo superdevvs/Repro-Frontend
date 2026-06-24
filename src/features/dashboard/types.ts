@@ -50,6 +50,15 @@ export interface RoleDashboardLayoutProps {
     label: string;
     content: React.ReactNode;
   }>;
+  /**
+   * Optional onboarding-target markers. When provided, each is applied as a
+   * `data-onboarding-target` attribute on the wrapping element of the
+   * corresponding dashboard section so a guided tour can anchor a step there.
+   */
+  metricsOnboardingTarget?: string;
+  upcomingOnboardingTarget?: string;
+  pendingOnboardingTarget?: string;
+  leftColumnOnboardingTarget?: string;
 }
 
 export interface ClientMyShootsProps {

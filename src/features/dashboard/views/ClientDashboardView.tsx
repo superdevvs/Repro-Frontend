@@ -33,16 +33,13 @@ import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { formatTimeForDisplay } from "@/utils/availabilityUtils";
-import {
-  CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT,
-  emitClientDashboardOnboardingState,
-} from "@/lib/clientDashboardOnboardingEvents";
 
-import { ClientDashboardOnboarding } from "../components/ClientDashboardOnboarding";
+import { DashboardOnboarding } from "../components/DashboardOnboarding";
+import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
 import { DASHBOARD_DESCRIPTION } from "../constants";
-import { useClientDashboardOnboarding } from "../hooks/useClientDashboardOnboarding";
+import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useClientDashboardMetrics } from "../hooks/useDashboardMetrics";
 import type { MobileClientDashboardTab } from "../types";
 
@@ -123,7 +120,7 @@ export const ClientDashboardView = ({
   const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
   const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
-  const clientOnboarding = useClientDashboardOnboarding(user);
+  const clientOnboarding = useDashboardOnboarding(user, "client");
   const shootToPayServiceItems = shootToPay
     ? getShootServiceItems(shootToPay.data).filter((item) => item.balanceDue > 0.01)
     : [];
@@ -133,25 +130,9 @@ export const ClientDashboardView = ({
     request.status === "open" || request.status === "in-progress" || request.status === "in_progress",
   ).length;
 
-  useEffect(() => {
-    const visible = Boolean(
-      clientOnboarding.onboardingState.eligible &&
-      !clientOnboarding.onboardingState.completedAt,
-    );
-
-    emitClientDashboardOnboardingState({ visible });
-
-    return () => emitClientDashboardOnboardingState({ visible: false });
-  }, [
-    clientOnboarding.onboardingState.completedAt,
-    clientOnboarding.onboardingState.eligible,
-  ]);
-
-  useEffect(() => {
-    const handleReplayRequest = () => clientOnboarding.replay();
-    window.addEventListener(CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT, handleReplayRequest);
-    return () => window.removeEventListener(CLIENT_DASHBOARD_ONBOARDING_REPLAY_EVENT, handleReplayRequest);
-  }, [clientOnboarding]);
+  // Sidebar replay-button visibility and replay-request handling are owned by
+  // the generalized useDashboardOnboarding hook (shared across all roles), so
+  // the client view no longer emits/listens via the legacy client event bus.
 
   useEffect(() => {
     if (mobileClientTab === "requests") {
@@ -241,19 +222,25 @@ export const ClientDashboardView = ({
         resendPending={clientEmailActionPending}
         variant="banner"
       />
-      <ClientDashboardOnboarding
+      <DashboardOnboarding
+        roleKey="client"
+        steps={dashboardOnboardingConfig.client.steps}
+        copy={dashboardOnboardingConfig.client.copy}
         welcomeOpen={clientOnboarding.welcomeOpen}
         tourOpen={clientOnboarding.tourOpen}
         isMobile={isMobile}
         currentMobileTab={mobileClientTab}
         lastStep={clientOnboarding.onboardingState.lastStep}
-        showReplay={false}
         onStart={clientOnboarding.startTour}
         onDismiss={clientOnboarding.dismiss}
         onComplete={(lastStep) => clientOnboarding.complete({ lastStep })}
         onProgress={clientOnboarding.saveProgress}
         onReplay={clientOnboarding.replay}
-        onSetMobileTab={onSetMobileClientTab}
+        onSetMobileTab={(tab) => onSetMobileClientTab(tab as MobileClientDashboardTab)}
+        onStepView={clientOnboarding.recordStepView}
+        onStepBack={clientOnboarding.recordStepBack}
+        onHelpOpened={clientOnboarding.recordHelpOpened}
+        onHelpMessage={clientOnboarding.recordHelpMessage}
       />
     </div>
   );

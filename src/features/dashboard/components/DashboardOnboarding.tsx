@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, HelpCircle, Loader2, PlayCircle, Send, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PlayCircle, Send, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,14 +14,7 @@ import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
 import { cn } from "@/lib/utils";
 import { sendAiMessage } from "@/services/aiService";
 
-import type { MobileClientDashboardTab } from "../types";
-
-type OnboardingStep = {
-  title: string;
-  description: string;
-  target: string;
-  mobileTab?: MobileClientDashboardTab;
-};
+import type { OnboardingCopy, OnboardingStep, RoleKey } from "../config/dashboardOnboardingConfig";
 
 type TargetRect = {
   top: number;
@@ -36,64 +29,60 @@ type MiniRobbieMessage = {
   content: string;
 };
 
-interface ClientDashboardOnboardingProps {
+interface DashboardOnboardingProps {
+  roleKey: RoleKey;
+  steps: OnboardingStep[];
+  copy: OnboardingCopy;
   welcomeOpen: boolean;
   tourOpen: boolean;
   isMobile: boolean;
-  currentMobileTab: MobileClientDashboardTab;
+  currentMobileTab?: string;
   lastStep?: number;
-  showReplay: boolean;
   onStart: () => void;
   onDismiss: () => void;
   onComplete: (lastStep: number) => void;
   onProgress: (lastStep: number) => void;
   onReplay: () => void;
-  onSetMobileTab: (tab: MobileClientDashboardTab) => void;
+  onSetMobileTab?: (tab: string) => void;
+  /** Telemetry: a new step was viewed (forward navigation). */
+  onStepView?: (stepIndex: number, stepTarget?: string) => void;
+  /** Telemetry: the user navigated back to a step. */
+  onStepBack?: (stepIndex: number, stepTarget?: string) => void;
+  /** Telemetry: the Robbie help panel was opened. */
+  onHelpOpened?: () => void;
+  /** Telemetry: the user sent a Robbie help message. */
+  onHelpMessage?: () => void;
 }
 
-const steps: OnboardingStep[] = [
-  {
-    title: "Start with your snapshot",
-    description: "These cards summarize your active shoots, delivered media, items on hold, and payment status at a glance.",
-    target: "client-dashboard-metrics",
-  },
-  {
-    title: "Track every shoot",
-    description: "Use Shoots to view scheduled jobs, open shoot details, download delivered media, rebook, or complete payment when needed.",
-    target: "client-dashboard-shoots",
-    mobileTab: "shoots",
-  },
-  {
-    title: "Follow requests",
-    description: "Use the Requests button in the top-right of My shoots to see the active request count and open Request Manager.",
-    target: "client-dashboard-requests",
-    mobileTab: "shoots",
-  },
-  {
-    title: "Manage invoices",
-    description: "Invoices keeps due-now, upcoming, and paid balances together with quick payment actions.",
-    target: "client-dashboard-invoices",
-    mobileTab: "invoices",
-  },
-  {
-    title: "Open shoot details for more",
-    description: "Select a shoot to find media, requests, tour links, settings like Private Exclusive and timezone, and activity history.",
-    target: "client-dashboard-shoots",
-    mobileTab: "shoots",
-  },
-];
-
-const checklistItems = [
-  "Find scheduled and delivered shoots",
-  "Download media and open shoot details",
-  "Check active requests and revision status",
-  "Review invoices and pay balances",
-];
-
-const getTargetRect = (target: string): TargetRect | null => {
+/**
+ * Resolves the visible element for an onboarding target.
+ *
+ * A target id is frequently rendered in BOTH the desktop and mobile layout
+ * trees, with the inactive layout hidden via `display:none`. A naive
+ * `querySelector` would return the first match (often the hidden one), whose
+ * `getBoundingClientRect()` is all zeros, breaking the spotlight. We therefore
+ * scan every match and return the first one that is actually laid out.
+ */
+export const getVisibleTargetElement = (target: string): Element | null => {
   if (typeof window === "undefined") return null;
 
-  const element = document.querySelector(`[data-onboarding-target=\"${target}\"]`);
+  const elements = Array.from(
+    document.querySelectorAll(`[data-onboarding-target=\"${target}\"]`),
+  );
+  if (elements.length === 0) return null;
+
+  for (const element of elements) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return element;
+    }
+  }
+
+  return null;
+};
+
+export const getTargetRect = (target: string): TargetRect | null => {
+  const element = getVisibleTargetElement(target);
   if (!element) return null;
 
   const rect = element.getBoundingClientRect();
@@ -118,19 +107,25 @@ const getCardPositionClass = (rect: TargetRect | null, isMobile: boolean) => {
   return "left-1/2 -translate-x-1/2 top-8 w-[420px]";
 };
 
-export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps> = ({
+export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
+  roleKey,
+  steps,
+  copy,
   welcomeOpen,
   tourOpen,
   isMobile,
   currentMobileTab,
   lastStep,
-  showReplay,
   onStart,
   onDismiss,
   onComplete,
   onProgress,
   onReplay,
   onSetMobileTab,
+  onStepView,
+  onStepBack,
+  onHelpOpened,
+  onHelpMessage,
 }) => {
   const getSafeStep = (step?: number) => (typeof step === "number" && step >= 0 && step < steps.length ? step : 0);
   const [activeStep, setActiveStep] = useState(() => getSafeStep(lastStep));
@@ -147,8 +142,16 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
   const [helpSessionId, setHelpSessionId] = useState<string | null>(null);
   const [helpSending, setHelpSending] = useState(false);
   const wasTourOpenRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const currentStep = steps[activeStep];
-  const progress = useMemo(() => ((activeStep + 1) / steps.length) * 100, [activeStep]);
+  const progress = useMemo(() => ((activeStep + 1) / steps.length) * 100, [activeStep, steps.length]);
+  const prefersReducedMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
 
   useEffect(() => {
     if (tourOpen && !wasTourOpenRef.current) {
@@ -163,20 +166,60 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
 
     const mobileTab = currentStep.mobileTab;
     if (isMobile && mobileTab && mobileTab !== currentMobileTab) {
-      onSetMobileTab(mobileTab);
+      onSetMobileTab?.(mobileTab);
     }
   }, [currentMobileTab, currentStep.mobileTab, isMobile, onSetMobileTab, tourOpen]);
 
   useEffect(() => {
     if (!tourOpen) return;
 
+    let cancelled = false;
     let frame = 0;
+    let attempt = 0;
+    let settleTimer = 0;
+    // Retry budget (~2.4s) before treating a target as unrenderable. This covers
+    // lazy/Suspense cards and tab switches without stranding the user.
+    const maxAttempts = 24;
+
+    const settle = () => {
+      if (cancelled) return;
+
+      const rect = getTargetRect(currentStep.target);
+      if (rect) {
+        setTargetRect(rect);
+        return;
+      }
+
+      attempt += 1;
+      if (attempt <= maxAttempts) {
+        settleTimer = window.setTimeout(settle, 100);
+        return;
+      }
+
+      // Target never rendered (permission-hidden card, empty state, or a layout
+      // that doesn't include this step). Don't leave a broken spotlight: skip
+      // forward, or finish if this was the last step.
+      setTargetRect(null);
+      if (activeStep < steps.length - 1) {
+        const nextStep = activeStep + 1;
+        setActiveStep(nextStep);
+        onProgress(nextStep);
+        onStepView?.(nextStep, steps[nextStep]?.target);
+      }
+    };
 
     const updateRect = () => {
+      window.clearTimeout(settleTimer);
+      attempt = 0;
       frame = window.requestAnimationFrame(() => {
-        const element = document.querySelector(`[data-onboarding-target=\"${currentStep.target}\"]`);
-        element?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-        setTimeout(() => setTargetRect(getTargetRect(currentStep.target)), 180);
+        if (cancelled) return;
+        const element = getVisibleTargetElement(currentStep.target);
+        element?.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+          behavior: prefersReducedMotion ? "auto" : "smooth",
+        });
+        settleTimer = window.setTimeout(settle, prefersReducedMotion ? 0 : 180);
       });
     };
 
@@ -185,11 +228,13 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
     window.addEventListener("scroll", updateRect, true);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [currentStep.target, tourOpen]);
+  }, [currentStep.target, tourOpen, activeStep, steps.length, steps, onProgress, onStepView, prefersReducedMotion]);
 
   const handleNext = () => {
     if (activeStep >= steps.length - 1) {
@@ -200,17 +245,24 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
     const nextStep = activeStep + 1;
     setActiveStep(nextStep);
     onProgress(nextStep);
+    onStepView?.(nextStep, steps[nextStep]?.target);
   };
 
   const handleBack = () => {
     const nextStep = Math.max(0, activeStep - 1);
     setActiveStep(nextStep);
     onProgress(nextStep);
+    onStepBack?.(nextStep, steps[nextStep]?.target);
   };
 
   const handleReplay = () => {
     setActiveStep(0);
     onReplay();
+  };
+
+  const handleToggleHelp = () => {
+    if (!helpOpen) onHelpOpened?.();
+    setHelpOpen((open) => !open);
   };
 
   const handleStart = () => {
@@ -231,6 +283,7 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
     setHelpMessages((current) => [...current, userMessage]);
     setHelpMessage("");
     setHelpSending(true);
+    onHelpMessage?.();
 
     try {
       const response = await sendAiMessage({
@@ -238,8 +291,8 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
         message: trimmedMessage,
         context: {
           mode: "general",
-          page: "client_dashboard",
-          source: "client_dashboard_onboarding",
+          page: `${roleKey}_dashboard`,
+          source: `${roleKey}_dashboard_onboarding`,
           tab: currentStep.mobileTab ?? "overview",
           intent: "dashboard_onboarding_help",
         },
@@ -270,21 +323,58 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
     }
   };
 
+  // Keyboard navigation for the tour: Escape closes, arrows move between steps.
+  useEffect(() => {
+    if (!tourOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't hijack typing inside the Robbie help input.
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA";
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onComplete(activeStep);
+        return;
+      }
+
+      if (isTyping) return;
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        if (activeStep >= steps.length - 1) {
+          onComplete(activeStep);
+        } else {
+          const nextStep = activeStep + 1;
+          setActiveStep(nextStep);
+          onProgress(nextStep);
+          onStepView?.(nextStep, steps[nextStep]?.target);
+        }
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        const prevStep = Math.max(0, activeStep - 1);
+        setActiveStep(prevStep);
+        onProgress(prevStep);
+        onStepBack?.(prevStep, steps[prevStep]?.target);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [tourOpen, activeStep, steps.length, steps, onComplete, onProgress, onStepView, onStepBack]);
+
+  // Move focus to the step card when the tour opens / advances so keyboard and
+  // screen-reader users land on the active instruction.
+  useEffect(() => {
+    if (!tourOpen) return;
+    const node = cardRef.current;
+    if (!node) return;
+    const frame = window.requestAnimationFrame(() => node.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [tourOpen, activeStep]);
+
   return (
     <>
-      {showReplay && !welcomeOpen && !tourOpen && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-2 rounded-full text-xs sm:text-sm"
-          onClick={handleReplay}
-        >
-          <HelpCircle className="h-3.5 w-3.5" />
-          Take tour
-        </Button>
-      )}
-
       <Dialog open={welcomeOpen} onOpenChange={(open) => { if (!open) onDismiss(); }}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-xl rounded-2xl p-0 overflow-hidden">
           <div className="bg-gradient-to-br from-primary/15 via-background to-background p-5 sm:p-6">
@@ -293,15 +383,15 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
                 <img src="/REPRO-HQ-icon.png" alt="R/E Pro Photos" className="h-9 w-9 object-contain" />
               </div>
               <div>
-                <DialogTitle className="text-xl sm:text-2xl">Welcome to your client dashboard</DialogTitle>
+                <DialogTitle className="text-xl sm:text-2xl">{copy.welcomeTitle}</DialogTitle>
                 <DialogDescription className="mt-2 text-sm sm:text-base">
-                  Learn where to find shoots, requests, invoices, delivered media, and shoot details in under a minute.
+                  {copy.welcomeDescription}
                 </DialogDescription>
               </div>
             </DialogHeader>
 
             <div className="mt-5 grid gap-2">
-              {checklistItems.map((item) => (
+              {copy.checklistItems.map((item) => (
                 <div key={item} className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-sm font-medium">
                   <CheckCircle2 className="h-4 w-4 text-primary" />
                   <span>{item}</span>
@@ -325,7 +415,10 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
           <div className="absolute inset-0 bg-black/65" />
           {targetRect && (
             <div
-              className="absolute rounded-2xl border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.58)] transition-all duration-200"
+              className={cn(
+                "absolute rounded-2xl border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.58)]",
+                !prefersReducedMotion && "transition-all duration-200",
+              )}
               style={{
                 top: Math.max(8, targetRect.top - 8),
                 left: Math.max(8, targetRect.left - 8),
@@ -335,18 +428,26 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
             />
           )}
 
-          <div className={cn("pointer-events-auto fixed rounded-2xl border border-border bg-background p-4 shadow-2xl", getCardPositionClass(targetRect, isMobile))}>
+          <div
+            ref={cardRef}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="onboarding-step-title"
+            aria-describedby="onboarding-step-description"
+            tabIndex={-1}
+            className={cn("pointer-events-auto fixed rounded-2xl border border-border bg-background p-4 shadow-2xl outline-none", getCardPositionClass(targetRect, isMobile))}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Step {activeStep + 1} of {steps.length}</p>
-                <h3 className="mt-1 text-lg font-bold text-foreground">{currentStep.title}</h3>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary" aria-live="polite">Step {activeStep + 1} of {steps.length}</p>
+                <h3 id="onboarding-step-title" className="mt-1 text-lg font-bold text-foreground">{currentStep.title}</h3>
               </div>
               <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onComplete(activeStep)}>
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close tour</span>
               </Button>
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
+            <p id="onboarding-step-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
             <Progress value={progress} className="mt-4 h-2" />
             <div className="mt-4 flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={handleBack} disabled={activeStep === 0}>
@@ -397,27 +498,31 @@ export const ClientDashboardOnboarding: React.FC<ClientDashboardOnboardingProps>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 border-t border-border p-2">
+                <form
+                  className="flex items-center gap-2 border-t border-border p-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleHelpSubmit();
+                  }}
+                >
+                  <label htmlFor="onboarding-help-input" className="sr-only">
+                    Ask Robbie about this tour
+                  </label>
                   <input
+                    id="onboarding-help-input"
                     value={helpMessage}
                     onChange={(event) => setHelpMessage(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void handleHelpSubmit();
-                      }
-                    }}
                     placeholder="Ask Robbie..."
                     className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   />
-                  <Button size="icon" className="h-9 w-9" onClick={() => void handleHelpSubmit()} disabled={helpSending || !helpMessage.trim()}>
+                  <Button type="submit" size="icon" className="h-9 w-9" disabled={helpSending || !helpMessage.trim()}>
                     {helpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     <span className="sr-only">Send message</span>
                   </Button>
-                </div>
+                </form>
               </div>
             )}
-            <Button className="gap-2 rounded-full shadow-2xl" onClick={() => setHelpOpen((open) => !open)}>
+            <Button className="gap-2 rounded-full shadow-2xl" onClick={handleToggleHelp}>
               <ReproAiIcon className="h-4 w-4" />
               Help
             </Button>

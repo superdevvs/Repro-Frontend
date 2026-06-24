@@ -31,10 +31,17 @@ import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAreaAssignmentTool';
 import { TestShootPanel } from '@/components/photographers/TestShootPanel';
+import { getOnboardingConfig, type RoleKey } from '@/features/dashboard/config/dashboardOnboardingConfig';
+import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvents';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
 const SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY = 'settings.systemOverview.unlocked';
+
+// Roles that participate in the dashboard onboarding tour. `role` is treated as
+// a RoleKey only when it is one of these values.
+const ONBOARDED_ROLES: RoleKey[] = ['client', 'photographer', 'salesRep', 'editing_manager', 'editor'];
+
 type TabValue =
   | (typeof BASE_TABS)[number]
   | 'coupons'
@@ -58,8 +65,7 @@ const Settings = () => {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { saveProfile } = useSelfProfileSave();
-  const permission = usePermission();
+  const { saveProfile } = useSelfProfileSave();  const permission = usePermission();
   const integrationsPermission = permission.forResource('integrations');
   const canViewIntegrations = integrationsPermission.canView();
   const couponsPermission = permission.forResource('coupons');
@@ -106,6 +112,36 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
   const showSystemOverviewTab = systemOverviewUnlocked;
+
+  // Compute the onboarding block directly from the authenticated user without
+  // calling useDashboardOnboarding (avoids duplicate sidebar-state emissions).
+  // The Settings_Replay_Entry is shown only when the user's role is an onboarded
+  // role, the onboarding state is eligible, and the replay cap has been reached.
+  const shouldShowSettingsReplay = React.useMemo(() => {
+    const isOnboardedRole = !!role && ONBOARDED_ROLES.includes(role as RoleKey);
+    if (!isOnboardedRole) {
+      return false;
+    }
+
+    const config = getOnboardingConfig(role as RoleKey);
+    const block = user?.metadata?.preferences?.[config.onboardingKey];
+    const eligible = block?.eligible === true;
+
+    // Always offer a replay path here while the user is eligible. This is the
+    // mobile-reachable entry (the sidebar "Take tour" button is desktop-only and
+    // also hides once the replay cap is reached), so Settings must remain
+    // available before and after the cap. REPLAY_CAP enforcement still lives in
+    // the hook, which ignores replays once the cap is hit.
+    return eligible;
+  }, [role, user]);
+
+  const handleReplayDashboardTour = React.useCallback(() => {
+    if (!role) {
+      return;
+    }
+    requestDashboardOnboardingReplay(role as RoleKey);
+    navigate('/dashboard');
+  }, [navigate, role]);
 
   const availableTabs = React.useMemo<TabValue[]>(() => {
     // Hide branding tab for photographer, editor, and editing_manager roles
@@ -600,6 +636,22 @@ const Settings = () => {
                   </CardFooter>
                 </Card>
               </form>
+
+              {shouldShowSettingsReplay && (
+                <Card data-onboarding-target="settings-replay-entry">
+                  <CardHeader>
+                    <CardTitle className="text-base">Replay dashboard tour</CardTitle>
+                    <CardDescription>
+                      Revisit the guided tour of your dashboard.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter className="border-t pt-4 flex justify-end">
+                    <Button type="button" variant="outline" onClick={handleReplayDashboardTour}>
+                      Replay dashboard tour
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="account" className="space-y-4">

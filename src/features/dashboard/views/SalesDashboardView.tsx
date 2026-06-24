@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { AssignPhotographersCardSkeleton } from "@/components/dashboard/v2/AssignPhotographersCardSkeleton";
@@ -15,7 +17,10 @@ import type {
 import type { EditingRequest } from "@/services/editingRequestService";
 import type { WeatherInfo } from "@/services/weatherService";
 
+import { DashboardOnboarding } from "../components/DashboardOnboarding";
 import { RoleDashboardLayout } from "../components/RoleDashboardLayout";
+import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
+import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -89,6 +94,9 @@ export const SalesDashboardView = ({
   onEditingRequestClick,
 }: SalesDashboardViewProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const salesOnboarding = useDashboardOnboarding(user, "salesRep");
   const salesRepRequestsCard = (
     <div id="requests-queue">
       <PendingReviewsCard
@@ -119,6 +127,9 @@ export const SalesDashboardView = ({
         title={greetingTitleFullName}
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
+        metricsOnboardingTarget="salesrep-metrics"
+        upcomingOnboardingTarget="salesrep-upcoming"
+        pendingOnboardingTarget="salesrep-requests"
         leftColumnCard={
           <ErrorBoundary
             fallback={
@@ -127,7 +138,11 @@ export const SalesDashboardView = ({
               </div>
             }
           >
-            <div id="assign-card" className="h-full flex flex-col">
+            <div
+              id="assign-card"
+              data-onboarding-target="salesrep-assign"
+              className="h-full flex flex-col"
+            >
               <Suspense fallback={<AssignPhotographersCardSkeleton />}>
                 <LazyAssignPhotographersCard
                   photographers={photographers}
@@ -144,7 +159,11 @@ export const SalesDashboardView = ({
           </ErrorBoundary>
         }
         rightColumnCards={[
-          <div key="rep-delivered" className="flex flex-1 min-h-0">
+          <div
+            key="rep-delivered"
+            data-onboarding-target="salesrep-delivered"
+            className="flex flex-1 min-h-0"
+          >
             <Suspense fallback={<CompletedShootsCardSkeleton />}>
               <LazyCompletedShootsCard
                 shoots={repDelivered}
@@ -161,6 +180,24 @@ export const SalesDashboardView = ({
         pendingReviews={repPendingReviews}
         pendingCard={salesRepRequestsCard}
         onSelectShoot={onSelectShoot}
+      />
+      <DashboardOnboarding
+        roleKey="salesRep"
+        steps={dashboardOnboardingConfig.salesRep.steps}
+        copy={dashboardOnboardingConfig.salesRep.copy}
+        welcomeOpen={salesOnboarding.welcomeOpen}
+        tourOpen={salesOnboarding.tourOpen}
+        isMobile={isMobile}
+        lastStep={salesOnboarding.onboardingState.lastStep}
+        onStart={salesOnboarding.startTour}
+        onDismiss={salesOnboarding.dismiss}
+        onComplete={(lastStep) => salesOnboarding.complete({ lastStep })}
+        onProgress={salesOnboarding.saveProgress}
+        onReplay={salesOnboarding.replay}
+        onStepView={salesOnboarding.recordStepView}
+        onStepBack={salesOnboarding.recordStepBack}
+        onHelpOpened={salesOnboarding.recordHelpOpened}
+        onHelpMessage={salesOnboarding.recordHelpMessage}
       />
       {shootDetailsModal}
     </>
