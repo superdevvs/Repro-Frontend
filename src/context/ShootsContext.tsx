@@ -968,6 +968,20 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     isGhostVisibleForUser: typeof (shoot as any).is_ghost_visible_for_user === 'boolean'
       ? Boolean((shoot as any).is_ghost_visible_for_user)
       : Boolean((shoot as any).isGhostVisibleForUser),
+    alternate_scheduled_date:
+      (shoot as any).alternate_scheduled_date ?? (shoot as any).alternateScheduledDate ?? null,
+    alternate_time:
+      (shoot as any).alternate_time ?? (shoot as any).alternateTime ?? null,
+    alternate_scheduled_at:
+      (shoot as any).alternate_scheduled_at ?? (shoot as any).alternateScheduledAt ?? null,
+    requested_photographers:
+      (shoot as any).requested_photographers ?? (shoot as any).requestedPhotographers ?? null,
+    external_booking_payload:
+      (shoot as any).external_booking_payload ?? (shoot as any).externalBookingPayload ?? null,
+    external_booking_warnings:
+      (shoot as any).external_booking_warnings ?? (shoot as any).externalBookingWarnings ?? null,
+    external_booking_mapping_status:
+      (shoot as any).external_booking_mapping_status ?? (shoot as any).externalBookingMappingStatus ?? null,
   };
 };
 

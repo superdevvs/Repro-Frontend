@@ -20,6 +20,7 @@ export type CommandBarState = {
 
 export type OpenShootInModalOptions = {
   initialTab?: DashboardShootModalTab;
+  initialFocus?: 'schedule_assignments';
   missingToast?: { title: string; description: string } | null;
   authToast?: { title: string; description: string } | null;
   onMissing?: () => void;

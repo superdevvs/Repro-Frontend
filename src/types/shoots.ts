@@ -510,6 +510,16 @@ export interface ShootData {
   ghostUserIds?: string[];
   isGhostVisibleForUser?: boolean;
   realtorClient?: ShootRealtorClient | null;
+  // External booking sync (mapped from the external site). All nullable for
+  // backward compatibility - only populated for shoots that originated from the
+  // external booking flow.
+  alternate_scheduled_date?: string | null;
+  alternate_time?: string | null;
+  alternate_scheduled_at?: string | null;
+  requested_photographers?: Array<number | string | Record<string, unknown>> | null;
+  external_booking_payload?: Record<string, unknown> | null;
+  external_booking_warnings?: string[] | null;
+  external_booking_mapping_status?: string | null;
 }
 
 export interface ShootHistoryFinancials {

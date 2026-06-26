@@ -32,7 +32,7 @@ import {
 import { ShootData } from '@/types/shoots';
 import { transformShootFromApi } from '@/context/ShootsContext';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { API_BASE_URL } from '@/config/env';
+import { computePhotographerPayForShoot, formatPay } from '@/utils/photographerPay';
 import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/ShootsContext';
@@ -145,9 +145,10 @@ interface ShootDetailsModalProps {
   initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media';
   openDownloadDialog?: boolean;
   shouldHideClientDetails?: boolean;
+  initialFocus?: 'schedule_assignments';
 }
 
-export function ShootDetailsModal({ 
+export function ShootDetailsModal({
   shootId, 
   isOpen, 
   onClose,
@@ -159,6 +160,7 @@ export function ShootDetailsModal({
   initialTab = 'overview',
   openDownloadDialog = false,
   shouldHideClientDetails: shouldHideClientDetailsProp = false,
+  initialFocus,
 }: ShootDetailsModalProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -664,6 +666,15 @@ export function ShootDetailsModal({
     if (!shoot) return null;
     if (isEditor) return null;
 
+    // Photographers should see THEIR pay for the shoot, not the client's payment status
+    // (whether the client has paid is not the photographer's concern). Swap the client
+    // Paid/Unpaid badge for a "Your pay" badge computed from the services assigned to them.
+    if (isPhotographer) {
+      const yourPay = computePhotographerPayForShoot(shoot, user?.id ?? null);
+      if (yourPay == null) return null;
+      return <Badge variant="secondary">Your pay: {formatPay(yourPay)}</Badge>;
+    }
+
     const paymentSummary = normalizeShootPaymentSummary(shoot);
     const hasMeaningfulPaymentState =
       paymentSummary.paymentStatus !== null ||
@@ -678,7 +689,7 @@ export function ShootDetailsModal({
     if (!badge) return null;
 
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
-  }, [shoot, isEditor]);
+  }, [shoot, isEditor, isPhotographer, user?.id]);
   const addressTitle = shoot
     ? (() => {
         const address = shoot.location?.address || (shoot as any).address || '';
@@ -925,6 +936,7 @@ export function ShootDetailsModal({
           visibleTabs={visibleTabs}
           currentUserRole={currentUserRole}
           weather={weather || null}
+          initialFocus={initialFocus}
           isAdmin={isAdmin}
           isRep={isRep}
           isAdminOrRep={isAdminOrRep}

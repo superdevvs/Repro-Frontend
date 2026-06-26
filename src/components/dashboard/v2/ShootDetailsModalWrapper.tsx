@@ -13,6 +13,7 @@ interface ShootDetailsModalWrapperProps {
   initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings';
   openDownloadDialog?: boolean;
   useLegacyOverview?: boolean;
+  initialFocus?: 'schedule_assignments';
 }
 
 /**
@@ -28,9 +29,9 @@ export const ShootDetailsModalWrapper: React.FC<ShootDetailsModalWrapperProps> =
   initialTab,
   openDownloadDialog,
   useLegacyOverview = false,
+  initialFocus,
 }) => {
   if (!shoot) return null;
-
   if (useLegacyOverview) {
     return (
       <DashboardOverviewModal
@@ -53,6 +54,7 @@ export const ShootDetailsModalWrapper: React.FC<ShootDetailsModalWrapperProps> =
       onShootUpdate={onShootUpdate}
       initialTab={initialTab}
       openDownloadDialog={openDownloadDialog}
+      initialFocus={initialFocus}
     />
   );
 };

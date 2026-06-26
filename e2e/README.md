@@ -125,3 +125,146 @@ npm run test:e2e:ui
 - In CI (`process.env.CI`), the suite enables retries and an HTML report and does not reuse an
   existing dev server.
 - Generated artifacts (`test-results/`, `playwright-report/`) are git-ignored.
+
+## Photographer Onboarding QA
+
+A full end-to-end QA suite that verifies the photographer onboarding journey lives under
+`e2e/onboarding/*.e2e.ts`, backed by the shared harness in `e2e/helpers/onboarding-qa/`. It runs
+through the same single **chromium** project as the rest of the suite and is launched with the
+standard command from `frontend/`:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+> **Do not point this suite at live production for destructive/charge flows.** It defaults to
+> read-only and gates every mutating step (see below). Run it against a QA/staging stack or with
+> the confirmation flags left unset.
+
+### Read-only-by-default model
+
+Every step that would mutate data, charge money, or send a message is routed through a single
+**confirmation gate** (`helpers/onboarding-qa/confirmation-gate.ts`). With no confirmation flags
+set, those steps are **declined** and recorded as `skipped` — the run still completes and produces
+a report. The gate always prefers a non-charging path when one exists. Missing data or missing
+selectors are recorded as `blocked` and the run continues without waiting for human input.
+
+### Confirmation env flags (gate the mutating categories)
+
+| Variable                  | Default     | Purpose                                                            |
+| ------------------------- | ----------- | ------------------------------------------------------------------ |
+| `E2E_CONFIRM_DESTRUCTIVE` | _(unset)_   | Allow `destructive` steps (create/delete/reassign) to execute.     |
+| `E2E_CONFIRM_CHARGE`      | _(unset)_   | Allow `charge`-triggering steps (invoice/payment) to execute.      |
+| `E2E_CONFIRM_MESSAGE`     | _(unset)_   | Allow `message`-triggering steps (notification sends) to execute.  |
+| `E2E_CONFIRM_CATEGORIES`  | _(unset)_   | Comma-list of categories to confirm in one switch (e.g. `destructive,message`). |
+
+When a flag is unset, that category's steps are declined (read-only) and reported as `skipped`.
+
+### Notification-sink modes (no live sends)
+
+| Variable                | Default     | Purpose                                                              |
+| ----------------------- | ----------- | -------------------------------------------------------------------- |
+| `E2E_NOTIFICATION_MODE` | `log`       | Global notification sink mode (`log` records; `disabled` suppresses).|
+| `E2E_EMAIL_MODE`        | `log`       | Email channel sink mode (`log` / `disabled`).                        |
+| `E2E_SMS_MODE`          | `log`       | SMS channel sink mode (`log` / `disabled`).                          |
+| `E2E_VOICE_MODE`        | `disabled`  | Voice channel mode — `disabled` so no calls are ever placed.         |
+
+In `log` mode the suite reads back `Notification_Record`s (recipient/template/variables/channel)
+and asserts no real send occurred; in `disabled` mode the channel is suppressed entirely.
+
+### Run-scoped tagging + cleanup
+
+| Variable        | Default     | Purpose                                                                    |
+| --------------- | ----------- | -------------------------------------------------------------------------- |
+| `E2E_QA_RUN_ID` | timestamp   | Suffix appended to every QA-created name/email/address; drives run-scoped cleanup. |
+
+The data factory appends `E2E_QA_RUN_ID` to generated identifiers so the cleanup module
+(`onboarding/cleanup.e2e.ts`, scheduled last) can select and remove **exactly** the entities this
+run created, across all entity types, with each deletion routed through the gate.
+
+### Fixture env vars consumed by the domain modules
+
+These pin the read-mostly probes to known, seeded records. When one is unset, the dependent check
+records a `Blocked_Check` (with the missing dependency noted) and the run continues.
+
+| Variable                            | Used by                          | Purpose                                                  |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------- |
+| `E2E_CUBICASA_SHOOT_ID`             | `cubicasa.e2e.ts`                | Floor-plan shoot used for CubiCasa order/visibility checks. |
+| `E2E_CUBICASA_NON_FLOORPLAN_SHOOT_ID` | `cubicasa.e2e.ts`, `negative-permissions.e2e.ts` | Shoot **without** Floor Plan to assert the create-order control is gated. |
+| `E2E_UPLOAD_SHOOT_ID`               | `shoot-workflow.e2e.ts`          | Assigned shoot used for raw-upload edge-case checks.     |
+| `E2E_LIFECYCLE_SHOOT_ID`            | `booking-lifecycle.e2e.ts`       | Shoot walked through the ordered `Booking_Status` path.  |
+| `E2E_PAID_SHOOT_ID`                 | `invoicing-reporting.e2e.ts`     | Paid shoot for the payment-lock "download permitted" path. |
+| `E2E_ZERO_DOLLAR_SHOOT_ID`          | `invoicing-reporting.e2e.ts`     | Zero-dollar shoot asserting no payment lock is applied.  |
+| `E2E_SETTINGS_PHOTOGRAPHER_ID`      | `settings.e2e.ts`                | Photographer whose settings/effect round-trips are checked. |
+| `E2E_PHOTOGRAPHER_ID`               | multiple modules                 | Default photographer used by profile/radius/equipment checks. |
+| `E2E_SEEDED_ADDRESS_SET`            | `service-radius.e2e.ts`          | Names the seeded inside/boundary/outside address fixture set. |
+| `E2E_EXTERNAL_BOOKING_API_KEY`      | booking flows                    | Enables data-creating external booking checks (gated).   |
+
+> Additional per-module ids may be referenced by individual specs; an unset id always degrades to a
+> recorded `Blocked_Check`, never a hard failure.
+
+### Reports and the report-and-fix loop
+
+Each domain module writes its own evidence-backed fragment to
+`../output/playwright/<module>-report.{md,json}` (one entry per check, with screenshots, trace,
+video-on-failure, console/network logs, API excerpts, created-entity IDs, and cleanup status). To
+produce the **unified** green/yellow/red report, run the aggregator after a run:
+
+```bash
+cd frontend
+npm run test:e2e:report
+# (equivalently: node e2e/helpers/onboarding-qa/aggregate-report.ts [outputDir])
+```
+
+> **Runner note:** the repo has no `tsx`; the aggregator is a Node-native TypeScript entry that
+> runs directly under the project's Node toolchain (`node e2e/helpers/onboarding-qa/aggregate-report.ts`).
+> The `test:e2e:report` npm script wraps exactly that command. The aggregator is also importable
+> (`aggregateReports(dir)`) for use from a test.
+
+`aggregate-report.ts` reads every `*-report.json` fragment, merges their checks and cleanup
+outcomes into a single `qa-report.{md,json}`, and computes the summary:
+
+- **green** — every check passed **with** associated evidence.
+- **yellow** — at least one check is `blocked`/`skipped` and none failed.
+- **red** — any check failed, or a `pass` carries no evidence.
+
+The merge implements two report-and-fix guarantees:
+
+- **Continue-on-failure (Req 22.4):** aggregation never throws on a failing or malformed fragment;
+  problems are recorded and skipped so the unified report is always produced.
+- **Re-run override / latest-wins (Req 22.5/22.6):** when the same check `id` appears in more than
+  one fragment (e.g. a re-run after a fix), the result from the newest fragment (`generatedAt`)
+  wins while evidence from every run is preserved — mirroring `report.ts` override semantics.
+
+The report-and-fix loop is therefore: **run** the suite → each module **produces evidence** → if a
+check fails because of a real defect, **fix the Laravel/React code and re-run only that check** →
+re-run the aggregator, whose latest-wins override marks the check's verified state.
+
+### Stable-selector contract — known reconciliation
+
+The selector contract (`helpers/onboarding-qa/selectors.ts`, `REQUIRED_TESTIDS`) drives onboarding
+checks off stable `data-testid`s. Two contracted selectors were reconciled additively against the
+real UI during the run (no behavior changed, no existing attribute removed):
+
+- `cubicasa-create-order-button` — `CreateCubicasaOrderButton.tsx` already exposed
+  `create-cubicasa-order-button` (different word order) on its wrapper. The contracted
+  `data-testid="cubicasa-create-order-button"` was **added** on the create-order control while the
+  existing wrapper/trigger testids were kept (so `cubicasa-manual-order.e2e.ts` still resolves
+  `create-cubicasa-order-button`).
+- `raw-upload-input` — `MediaUploadSections.tsx` used `raw-upload-input-${shoot.id}` only as an HTML
+  element `id`. A stable `data-testid="raw-upload-input"` was **added** to the raw upload input (via
+  a new optional `inputTestId` prop on `UploadDropzone`), keeping the per-shoot element `id` intact.
+
+#### Follow-up: contracted `data-testid`s still to be added
+
+These selector-driven checks remain `blocked` until the Onboarding_System exposes the contracted
+`data-testid` on the corresponding control. Adding each one turns its blocked check green:
+
+- [ ] `create-photographer-button` — admin "create photographer" control.
+- [ ] `photographer-radius-input` — photographer service-radius input.
+- [ ] `booking-address-input` — booking address input.
+- [ ] `eligible-photographer-row` — eligible-photographer result row.
+- [ ] `shoot-status-badge` — shoot status badge.
+- [ ] `submit-to-editor-button` — submit-to-editor action control.
+- [ ] `finalize-delivery-button` — finalize-delivery action control.

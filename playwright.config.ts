@@ -37,6 +37,8 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
+    // Honor a dark-mode request via env (sets prefers-color-scheme: dark for the browser context).
+    colorScheme: process.env.E2E_COLOR_SCHEME === 'dark' ? 'dark' : undefined,
     storageState,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

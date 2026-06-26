@@ -1635,6 +1635,7 @@ export function RawUploadSection({
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
         inputId={inputId}
+        inputTestId="raw-upload-input"
         title="No uploaded files yet"
         description={`${
           shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'

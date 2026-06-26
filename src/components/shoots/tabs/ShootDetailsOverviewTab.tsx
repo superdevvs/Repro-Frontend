@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShootNotesTab } from '@/components/dashboard/ShootNotesTab';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -76,6 +76,7 @@ import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
+import { OverviewExternalBookingSection } from './overview/OverviewExternalBookingSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
 import { OverviewPhotographerSection } from './overview/OverviewPhotographerSection';
@@ -313,6 +314,12 @@ interface ShootDetailsOverviewTabProps {
   onSave?: (updates: Partial<ShootData>) => void;
   onCancel?: () => void;
   onRegisterEditActions?: (actions: { save: () => void; cancel: () => void }) => void;
+  /**
+   * When the modal is opened from the "Booking Needs Review" notification this
+   * is set to `schedule_assignments` so the overview tab scrolls to / surfaces
+   * the External Booking Mapping panel.
+   */
+  initialFocus?: 'schedule_assignments';
 }
 
 export function ShootDetailsOverviewTab({
@@ -331,6 +338,7 @@ export function ShootDetailsOverviewTab({
   onSave,
   onCancel,
   onRegisterEditActions,
+  initialFocus,
 }: ShootDetailsOverviewTabProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -817,6 +825,56 @@ export function ShootDetailsOverviewTab({
     }
   };
 
+  // External booking mapping panel: only rendered for shoots that originated
+  // from the external booking flow (i.e. the backend persisted a payload or a
+  // mapping status). Snake_case + camelCase are both tolerated for safety.
+  const hasExternalBookingMapping = Boolean(
+    (shoot as any).external_booking_payload ||
+      (shoot as any).externalBookingPayload ||
+      (shoot as any).external_booking_mapping_status ||
+      (shoot as any).externalBookingMappingStatus,
+  );
+
+  // Best-effort photographer id -> name resolver, built from the resolved
+  // per-service photographers already loaded by the modal plus the shoot-level
+  // photographer. Used to turn `requested_photographers` ids into names.
+  const photographerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    photographerAssignments?.assignments?.forEach((assignment) => {
+      const id = assignment.photographer?.id ?? assignment.photographerId;
+      const name = assignment.photographer?.name;
+      if (id != null && name) {
+        map.set(String(id), name);
+      }
+    });
+    const shootPhotographerId = shoot.photographer?.id;
+    if (shootPhotographerId != null && shoot.photographer?.name) {
+      map.set(String(shootPhotographerId), shoot.photographer.name);
+    }
+    return map;
+  }, [photographerAssignments, shoot.photographer]);
+
+  const resolvePhotographerName = useMemo(
+    () => (id: string | number) => photographerNameById.get(String(id)) ?? null,
+    [photographerNameById],
+  );
+
+  const externalBookingSectionRef = useRef<HTMLDivElement | null>(null);
+
+  // When opened from the "Booking Needs Review" notification, surface the
+  // mapping panel by scrolling it into view.
+  useEffect(() => {
+    if (initialFocus !== 'schedule_assignments' || !hasExternalBookingMapping) {
+      return;
+    }
+    const node = externalBookingSectionRef.current;
+    if (!node) return;
+    const timer = window.setTimeout(() => {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [initialFocus, hasExternalBookingMapping]);
+
 
   return (
     <div className="space-y-2">
@@ -833,6 +891,16 @@ export function ShootDetailsOverviewTab({
         formatDateForInput={formatDateForInput}
         updateField={updateField}
       />
+
+      {hasExternalBookingMapping && (
+        <OverviewExternalBookingSection
+          ref={externalBookingSectionRef}
+          shoot={shoot}
+          formatDate={formatDate}
+          formatTime={formatTime}
+          resolvePhotographerName={resolvePhotographerName}
+        />
+      )}
 
       <OverviewPropertyLocationSection
         isEditMode={isEditMode}

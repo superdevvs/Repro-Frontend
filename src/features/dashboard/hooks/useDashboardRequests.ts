@@ -165,6 +165,7 @@ export const useDashboardRequests = ({
       try {
         await openShootInModalById(dashboardNavigationState.openShootId, {
           initialTab: dashboardNavigationState.openShootTab ?? "overview",
+          initialFocus: dashboardNavigationState.openShootFocus,
           missingToast: {
             title: "Shoot unavailable",
             description: "This shoot no longer exists.",
@@ -178,6 +179,7 @@ export const useDashboardRequests = ({
               : {};
           delete remainingState.openShootId;
           delete remainingState.openShootTab;
+          delete remainingState.openShootFocus;
 
           navigate(
             {

@@ -26,6 +26,7 @@ export interface NotificationItem {
   actionLabel?: string;
   shootId?: number;
   action?: string;
+  metadata?: Record<string, unknown>;
 }
 
 const STORAGE_KEY_PREFIX = 'repro_read_notifications_';
@@ -96,6 +97,7 @@ const saveReadIds = (ids: Set<string>, storageKey: string) => {
 const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   account_created: 'New Account Registered',
   email_verification_requested: 'Email Verification Pending',
+  shoot_assignment_review: 'Booking Needs Review',
   email_bounced: 'Email Bounced',
   email_delivery_risky: 'Email Delivery Warning',
   email_corrected_after_bounce: 'Email Updated',
@@ -193,6 +195,7 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
     actionLabel: activity.shootId ? 'View' : activity.actionLabel || undefined,
     shootId: activity.shootId ?? undefined,
     action: activity.action || undefined,
+    metadata: activity.metadata,
   };
 };
 

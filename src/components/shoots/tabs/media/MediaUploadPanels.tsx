@@ -86,6 +86,12 @@ interface UploadDropzoneProps {
   empty: boolean;
   accept: string;
   inputId: string;
+  /**
+   * Optional stable `data-testid` for the underlying file `<input>`. Used by the photographer
+   * onboarding QA harness selector contract (e.g. `raw-upload-input`). Distinct from `inputId`,
+   * which remains the per-shoot HTML element id used by the `<label htmlFor>` association.
+   */
+  inputTestId?: string;
   title: string;
   description: string;
   buttonLabel: string;
@@ -161,6 +167,7 @@ export function UploadDropzone({
   empty,
   accept,
   inputId,
+  inputTestId,
   title,
   description,
   buttonLabel,
@@ -186,6 +193,7 @@ export function UploadDropzone({
           onChange={onFileSelect}
           className="hidden"
           id={inputId}
+          data-testid={inputTestId}
         />
         <label htmlFor={inputId} className="flex w-full cursor-pointer flex-col items-center">
           <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -224,6 +232,7 @@ export function UploadDropzone({
           onChange={onFileSelect}
           className="hidden"
           id={inputId}
+          data-testid={inputTestId}
         />
         <label htmlFor={inputId} className="flex cursor-pointer items-center justify-center gap-2">
           <Upload className="h-4 w-4 text-muted-foreground" />

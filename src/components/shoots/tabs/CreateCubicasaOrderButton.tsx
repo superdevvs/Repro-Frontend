@@ -134,30 +134,32 @@ export function CreateCubicasaOrderButton({
           {statusLabel}
         </Badge>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setConfirmOpen(true)}
-        disabled={disabled || isSubmitting}
-        data-testid="create-cubicasa-order-trigger"
-        title={
-          alreadyLinked
-            ? 'Sync the existing CubiCasa order for this shoot'
-            : 'Manually create a CubiCasa order for this shoot'
-        }
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            {alreadyLinked ? 'Syncing…' : 'Creating…'}
-          </>
-        ) : (
-          <>
-            <FilePlus2 className="mr-1 h-3.5 w-3.5" />
-            {buttonLabel}
-          </>
-        )}
-      </Button>
+      <span className="inline-flex" data-testid="cubicasa-create-order-button">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+          disabled={disabled || isSubmitting}
+          data-testid="create-cubicasa-order-trigger"
+          title={
+            alreadyLinked
+              ? 'Sync the existing CubiCasa order for this shoot'
+              : 'Manually create a CubiCasa order for this shoot'
+          }
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              {alreadyLinked ? 'Syncing…' : 'Creating…'}
+            </>
+          ) : (
+            <>
+              <FilePlus2 className="mr-1 h-3.5 w-3.5" />
+              {buttonLabel}
+            </>
+          )}
+        </Button>
+      </span>
 
       {/* AC 19.7 — explicit confirmation dialog before the create request is sent. */}
       <AlertDialog

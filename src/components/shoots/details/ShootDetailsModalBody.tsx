@@ -50,6 +50,7 @@ interface ShootDetailsModalBodyProps {
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   currentUserRole: string;
   weather: WeatherInfo | null;
+  initialFocus?: 'schedule_assignments';
   isAdmin: boolean;
   isRep: boolean;
   isAdminOrRep: boolean;
@@ -116,6 +117,7 @@ export function ShootDetailsModalBody({
   visibleTabs,
   currentUserRole,
   weather,
+  initialFocus,
   isAdmin,
   isRep,
   isAdminOrRep,
@@ -247,6 +249,7 @@ export function ShootDetailsModalBody({
                   onSave={handleSaveRequest}
                   onCancel={handleCancelEdit}
                   onRegisterEditActions={(actions) => setEditActions(actions)}
+                  initialFocus={initialFocus}
                 />
               </TabsContent>
 

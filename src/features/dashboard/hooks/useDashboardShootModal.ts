@@ -31,11 +31,14 @@ export const useDashboardShootModal = ({
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
   const [shootModalInitialTab, setShootModalInitialTab] =
     useState<DashboardShootModalTab>("overview");
+  const [shootModalInitialFocus, setShootModalInitialFocus] =
+    useState<"schedule_assignments" | undefined>(undefined);
   const [openDownloadOnSelect, setOpenDownloadOnSelect] = useState(false);
 
   const handleSelectShoot = useCallback(
     (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
       setShootModalInitialTab("overview");
+      setShootModalInitialFocus(undefined);
       setSelectedShoot(shoot);
       setSelectedShootWeather(weather || null);
     },
@@ -47,6 +50,7 @@ export const useDashboardShootModal = ({
     setSelectedShootWeather(null);
     setOpenDownloadOnSelect(false);
     setShootModalInitialTab("overview");
+    setShootModalInitialFocus(undefined);
   }, []);
 
   // The context update happens synchronously in the modal, so dashboard cards update immediately.
@@ -69,6 +73,7 @@ export const useDashboardShootModal = ({
       shootId: string | number,
       {
         initialTab = "overview",
+        initialFocus,
         missingToast = {
           title: "Shoot unavailable",
           description: "We could not load this shoot right now.",
@@ -84,6 +89,7 @@ export const useDashboardShootModal = ({
 
       const openSummary = (summary: DashboardShootSummary) => {
         setShootModalInitialTab(initialTab);
+        setShootModalInitialFocus(initialFocus);
         setSelectedShoot(summary);
         setSelectedShootWeather(null);
         return "opened" as const;
@@ -169,6 +175,7 @@ export const useDashboardShootModal = ({
     selectedShoot,
     selectedShootWeather,
     shootModalInitialTab,
+    shootModalInitialFocus,
     openDownloadOnSelect,
     setSelectedShoot,
     setOpenDownloadOnSelect,

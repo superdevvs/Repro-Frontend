@@ -157,6 +157,7 @@ export interface DashboardActivityItem {
   userName?: string | null;
   shootId?: number | null;
   address?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DashboardIssueItem {
@@ -254,6 +255,7 @@ export type DashboardShootModalTab =
 export interface DashboardShootModalNavigationState {
   openShootId: number;
   openShootTab?: DashboardShootModalTab;
+  openShootFocus?: 'schedule_assignments';
 }
 
 export interface DashboardWorkflowColumn {

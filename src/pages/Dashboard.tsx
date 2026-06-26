@@ -293,6 +293,7 @@ const Dashboard = () => {
     selectedShoot,
     selectedShootWeather,
     shootModalInitialTab,
+    shootModalInitialFocus,
     openDownloadOnSelect,
     setSelectedShoot,
     setOpenDownloadOnSelect,
@@ -318,10 +319,10 @@ const Dashboard = () => {
           onShootUpdate={handleShootUpdate}
           onViewInvoice={handleViewInvoice}
           initialTab={shootModalInitialTab}
+          initialFocus={shootModalInitialFocus}
           openDownloadDialog={openDownloadOnSelect}
         />
       </Suspense>
-      {/* Invoice View Dialog */}
       {selectedInvoice && (
         <Suspense fallback={null}>
           <LazyInvoiceViewDialog

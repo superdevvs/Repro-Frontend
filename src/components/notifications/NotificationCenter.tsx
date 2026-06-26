@@ -252,6 +252,39 @@ export function NotificationCenter() {
     // Check if this is a cancellation request notification
     const notificationAction = notification.action?.toLowerCase() || '';
     const notificationTitle = notification.title.toLowerCase();
+
+    // Shoot assignment review: open the shoot details modal focused on the
+    // photographer/schedule assignment section so the reviewer sees the warnings.
+    const metadata = notification.metadata ?? {};
+    const metadataActionType =
+      typeof metadata.action_type === 'string' ? metadata.action_type : undefined;
+    const isShootAssignmentReview =
+      notification.action === 'shoot_assignment_review' ||
+      metadataActionType === 'open_shoot_details_popup';
+
+    if (isShootAssignmentReview) {
+      const actionPayload =
+        metadata.action_payload && typeof metadata.action_payload === 'object'
+          ? (metadata.action_payload as Record<string, unknown>)
+          : undefined;
+      const payloadShootId =
+        actionPayload && typeof actionPayload.shoot_id === 'number'
+          ? actionPayload.shoot_id
+          : undefined;
+      const shootId = notification.shootId ?? payloadShootId;
+
+      if (shootId) {
+        setIsOpen(false);
+        const dashboardState: DashboardShootModalNavigationState = {
+          openShootId: shootId,
+          openShootTab: 'overview',
+          openShootFocus: 'schedule_assignments',
+        };
+        const targetPath = location.pathname === '/dashboard' ? location.pathname : '/dashboard';
+        navigate(targetPath, { state: dashboardState });
+        return;
+      }
+    }
     const isCancellation =
       notificationAction.includes('cancellation') || notificationTitle.includes('cancellation');
     const isHoldRequest =
