@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, X } from 'lucide-react';
+import { Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, ShieldCheck, ShieldAlert, X } from 'lucide-react';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -74,7 +74,7 @@ interface ShootDetails {
   city?: string;
   state?: string;
   zip?: string;
-  client?: { id: number; name: string; email?: string };
+  client?: { id: number; name: string; email?: string; email_verified?: boolean; emailVerified?: boolean };
   services?: Array<{
     id: number;
     service_id?: number;
@@ -834,6 +834,9 @@ export function ShootApprovalModal({
   const fullLocation = [displayCity, displayState, displayZip].filter(Boolean).join(', ');
   const clientName = shootDetails?.client?.name || 'Unknown Client';
   const clientEmail = shootDetails?.client?.email || '';
+  const clientVerified = Boolean(
+    shootDetails?.client?.email_verified ?? shootDetails?.client?.emailVerified,
+  );
   const services = shootDetails?.services || [];
   const servicePriceTotal =
     Array.isArray(services) && services.length
@@ -1068,7 +1071,25 @@ export function ShootApprovalModal({
                   {/* Client & Quote */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Client</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Client</p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'shrink-0 gap-1 px-1.5 py-0 text-[10px] font-medium',
+                            clientVerified
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                          )}
+                        >
+                          {clientVerified ? (
+                            <ShieldCheck className="h-3 w-3" />
+                          ) : (
+                            <ShieldAlert className="h-3 w-3" />
+                          )}
+                          {clientVerified ? 'Verified' : 'Unverified'}
+                        </Badge>
+                      </div>
                       <p className="font-semibold text-foreground mt-0.5 truncate">{clientName}</p>
                       {clientEmail && (
                         <p className="text-xs text-muted-foreground truncate">{clientEmail}</p>

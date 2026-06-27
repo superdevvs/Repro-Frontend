@@ -37,6 +37,8 @@ import {
   Bath,
   BedDouble,
   Ruler,
+  ShieldCheck,
+  ShieldAlert,
   X
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -225,6 +227,8 @@ interface ShootDetails {
     id: number;
     name: string;
     email?: string;
+    email_verified?: boolean;
+    emailVerified?: boolean;
     phonenumber?: string;
     phone?: string;
     client_discount_type?: PricingDiscountType;
@@ -806,6 +810,9 @@ export function ShootEditModal({
   const clientName = shootDetails?.client?.name || 'Unknown Client';
   const clientEmail = shootDetails?.client?.email || '';
   const clientPhone = shootDetails?.client?.phonenumber || shootDetails?.client?.phone || '';
+  const clientVerified = Boolean(
+    shootDetails?.client?.email_verified ?? shootDetails?.client?.emailVerified,
+  );
   const activeDiscountType = (shootDetails?.discount_type ??
     shootDetails?.discountType ??
     shootDetails?.payment?.discount_type ??
@@ -1594,6 +1601,22 @@ export function ShootEditModal({
         <div className="mb-3 flex items-center gap-2">
           <User className="h-4 w-4 text-blue-500" />
           <p className="text-sm font-semibold">Client</p>
+          <Badge
+            variant="outline"
+            className={cn(
+              'ml-auto shrink-0 gap-1 px-1.5 py-0 text-[10px] font-medium',
+              clientVerified
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+            )}
+          >
+            {clientVerified ? (
+              <ShieldCheck className="h-3 w-3" />
+            ) : (
+              <ShieldAlert className="h-3 w-3" />
+            )}
+            {clientVerified ? 'Verified' : 'Unverified'}
+          </Badge>
         </div>
         <p className="font-medium">{clientName}</p>
         {clientEmail && (
