@@ -91,6 +91,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
 
   const can = (resource: string, action: string, conditions?: Record<string, any>): boolean => {
     if (effectiveIsLoading || !isAuthenticated) return false;
+    if (role === 'superadmin') return true;
 
     // Check if user has the required permission
     const hasPermission = userPermissions.some(permission => 

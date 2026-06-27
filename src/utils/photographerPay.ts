@@ -26,9 +26,9 @@ type PayService = {
 };
 
 type PayShoot = {
-  services?: PayService[] | null;
-  service_items?: PayService[] | null;
-  serviceItems?: PayService[] | null;
+  services?: unknown[] | null;
+  service_items?: unknown[] | null;
+  serviceItems?: unknown[] | null;
   totalPhotographerPay?: number | null;
   photographerPay?: number | null;
   photographer?: { id?: string | number | null } | null;
@@ -58,7 +58,12 @@ export function computePhotographerPayForShoot(
   let matchedAnyMine = false;
   let anyPhotographerAssigned = false;
 
-  for (const service of services) {
+  for (const rawService of services) {
+    if (!rawService || typeof rawService !== 'object') {
+      continue;
+    }
+
+    const service = rawService as PayService;
     const assigned = service.resolved_photographer_id ?? service.photographer_id ?? null;
     if (assigned != null) {
       anyPhotographerAssigned = true;
