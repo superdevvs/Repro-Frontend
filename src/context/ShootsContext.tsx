@@ -16,6 +16,7 @@ import { toast } from '@/components/ui/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { shootsData as mockShootsData } from '@/data/shootsData';
 import { getImpersonatedUserId } from '@/services/api';
+import { applyAlternateDate as applyAlternateDateRequest, type ApplyAlternateDateScope } from '@/services/shoots';
 import { registerShootListRefresh } from '@/realtime/realtimeRefreshBus';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 
@@ -23,6 +24,12 @@ interface ShootsContextType {
   shoots: ShootData[];
   addShoot: (shoot: ShootData) => void;
   updateShoot: (shootId: string, updates: Partial<ShootData>, options?: { skipApi?: boolean }) => Promise<void>;
+  /**
+   * Apply a shoot's stored alternate date onto its live schedule via
+   * POST /shoots/{id}/apply-alternate-date, then refresh local state from the
+   * returned resource without a second round-trip. Defaults to `scope=main`.
+   */
+  applyAlternateDate: (shootId: string, scope?: ApplyAlternateDateScope) => Promise<ShootData>;
   deleteShoot: (shootId: string) => void;
   getClientShootsByStatus: (status: string) => ShootData[];
   getUniquePhotographers: () => { name: string; shootCount: number; avatar?: string }[];
@@ -1612,6 +1619,19 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [persistShoots, handleSessionExpired],
   );
 
+  const applyAlternateDate = useCallback(
+    async (shootId: string, scope: ApplyAlternateDateScope = 'main'): Promise<ShootData> => {
+      // POST to the apply endpoint and unwrap the raw shoot resource.
+      const resource = await applyAlternateDateRequest(shootId, scope);
+      // Normalize the returned resource with the same transformer the fetch path uses.
+      const normalized = transformShootFromApi(resource as ApiShoot);
+      // Merge into local state without a second round-trip (skipApi avoids re-POSTing).
+      await updateShoot(shootId, normalized, { skipApi: true });
+      return normalized;
+    },
+    [updateShoot],
+  );
+
   const deleteShoot = useCallback(
     (shootId: string) => {
       setShoots(prevShoots => {
@@ -1765,6 +1785,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     shoots,
     addShoot,
     updateShoot,
+    applyAlternateDate,
     deleteShoot,
     getClientShootsByStatus,
     getUniquePhotographers,

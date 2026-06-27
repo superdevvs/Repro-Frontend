@@ -479,6 +479,11 @@ export function ShootEditModal({
   const [zip, setZip] = useState('');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
+  // Alternate (backup) schedule — submitted through the existing modify payload as
+  // `alternate_scheduled_date` / `alternate_time` and persisted by ShootEditablePayloadService.
+  // The alternate time is optional (null-time rule): an empty string means "no time".
+  const [alternateDate, setAlternateDate] = useState<string>('');
+  const [alternateTime, setAlternateTime] = useState<string>('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
   const [photographerId, setPhotographerId] = useState<string>('');
@@ -527,6 +532,8 @@ export function ShootEditModal({
       setPhotographerId('');
       setExpandedServiceScheduleId(null);
       setServicesEditorOpen(false);
+      setAlternateDate('');
+      setAlternateTime('');
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         
@@ -637,6 +644,12 @@ export function ShootEditModal({
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
           
+          // Initialize the alternate (backup) schedule from the serialized resource.
+          // Tolerate both snake_case (resource default) and camelCase aliases.
+          const rawAlternateDate =
+            shoot.alternate_scheduled_date || shoot.alternateScheduledDate || '';
+          setAlternateDate(rawAlternateDate ? String(rawAlternateDate).split(/[T\s]/)[0] : '');
+          setAlternateTime(normalizeTimeValue(shoot.alternate_time || shoot.alternateTime) || '');
           // Set tax percent
           const rawTaxPercent = shoot.tax_percent ?? shoot.taxPercent ?? shoot.payment?.taxRate ?? 0;
           setTaxPercent(Number(rawTaxPercent) || 0);
@@ -1166,6 +1179,11 @@ export function ShootEditModal({
       state: state.trim(),
       zip: zip.trim(),
       scheduled_at: scheduledAt.toISOString(),
+      // Submit the alternate (backup) schedule so the backend persists it via
+      // ShootEditablePayloadService. Send the date as Y-m-d and the optional time as
+      // HH:mm; an empty alternate date clears the stored alternate (null-time rule).
+      alternate_scheduled_date: alternateDate || null,
+      alternate_time: alternateDate && alternateTime ? alternateTime : null,
       shoot_notes: shootNotes.trim(),
       services: serviceItemsPayload.map((item) => ({
         id: item.service_id,
@@ -1911,6 +1929,43 @@ export function ShootEditModal({
               options={timeOptions}
               onChange={setScheduledTime}
               isTimeDisabled={isEditTimeDisabled}
+              triggerClassName="h-8 rounded-lg px-2"
+            />
+          </div>
+        </div>
+
+        {/* Alternate (backup) date/time — optional. Submitted via the modify payload
+            as alternate_scheduled_date / alternate_time. */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-[10px]">Alternate Date (optional)</Label>
+            {alternateDate && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] text-muted-foreground"
+                onClick={() => {
+                  setAlternateDate('');
+                  setAlternateTime('');
+                }}
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <ServiceDatePicker
+              value={alternateDate}
+              minDate={minSelectableDate}
+              onChange={(value) => setAlternateDate(value)}
+              triggerClassName="h-8 rounded-lg px-2"
+            />
+            <ServiceTimePicker
+              value={alternateTime}
+              options={timeOptions}
+              onChange={setAlternateTime}
               triggerClassName="h-8 rounded-lg px-2"
             />
           </div>

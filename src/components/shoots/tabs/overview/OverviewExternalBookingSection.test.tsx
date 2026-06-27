@@ -12,6 +12,13 @@ import '@testing-library/jest-dom/vitest';
 import { OverviewExternalBookingSection } from './OverviewExternalBookingSection';
 import type { ShootData } from '@/types/shoots';
 
+// The panel reuses the shared AlternateDateField for the apply controls, which
+// reads the central ShootsContext. This panel test is purely presentational, so
+// stub the context method to avoid needing a full ShootsProvider.
+vi.mock('@/context/ShootsContext', () => ({
+  useShoots: () => ({ applyAlternateDate: vi.fn() }),
+}));
+
 afterEach(() => {
   cleanup();
 });

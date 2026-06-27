@@ -2,6 +2,7 @@ import React, { forwardRef, useMemo } from 'react';
 import { AlertTriangle, CalendarClock, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { AlternateDateField } from '@/components/shoots/AlternateDateField';
 import type { ShootData } from '@/types/shoots';
 
 type ExternalBookingMappingStatus =
@@ -21,6 +22,12 @@ type OverviewExternalBookingSectionProps = {
    * label.
    */
   resolvePhotographerName?: (id: string | number) => string | null;
+  /**
+   * Whether to render the reusable "apply alternate date" controls beneath the
+   * read-only Alternate row. Gated to authorized-editor roles by the caller.
+   * Defaults to showing the controls.
+   */
+  showAlternateControls?: boolean;
 };
 
 const TIME_NOT_SPECIFIED = 'time not specified';
@@ -69,7 +76,7 @@ export const OverviewExternalBookingSection = forwardRef<
   HTMLDivElement,
   OverviewExternalBookingSectionProps
 >(function OverviewExternalBookingSection(
-  { shoot, formatDate, formatTime, resolvePhotographerName },
+  { shoot, formatDate, formatTime, resolvePhotographerName, showAlternateControls = true },
   ref,
 ) {
   const warnings = useMemo(() => {
@@ -175,6 +182,17 @@ export const OverviewExternalBookingSection = forwardRef<
           <span className="text-muted-foreground">Alternate:</span>
           {renderSchedule(alternateDate, alternateTime)}
         </div>
+        {/* Reuse the shared apply controls (Req 7.1-7.4) without duplicating the
+            read-only Alternate row above. Renders nothing when no alternate exists. */}
+        {alternateDate && (
+          <AlternateDateField
+            shoot={shoot}
+            formatDate={formatDate}
+            formatTime={formatTime}
+            showControls={showAlternateControls}
+            controlsOnly
+          />
+        )}
       </div>
 
       {mappedServices.length > 0 && (

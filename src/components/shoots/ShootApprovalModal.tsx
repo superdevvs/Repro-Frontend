@@ -210,6 +210,11 @@ export function ShootApprovalModal({
   const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
+  // Alternate (backup) schedule — submitted through the existing approve payload as
+  // `alternate_scheduled_date` / `alternate_time` and persisted by ShootEditablePayloadService.
+  // The alternate time is optional (null-time rule): an empty string means "no time".
+  const [alternateDate, setAlternateDate] = useState<string>('');
+  const [alternateTime, setAlternateTime] = useState<string>('');
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
@@ -338,6 +343,8 @@ export function ShootApprovalModal({
     // Reset state FIRST to clear any stale data
     setScheduledDate(undefined);
     setScheduledTime('10:00');
+    setAlternateDate('');
+    setAlternateTime('');
     setServiceSchedules({});
     setPhotographerId('');
     setPerCategoryPhotographers({});
@@ -417,6 +424,18 @@ export function ShootApprovalModal({
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
 
+          // Initialize the alternate (backup) schedule from the serialized resource.
+          // Tolerate both snake_case (resource default) and camelCase aliases.
+          const rawAlternateDate =
+            shoot.alternate_scheduled_date || shoot.alternateScheduledDate || '';
+          const normalizedAlternateDate = rawAlternateDate
+            ? String(rawAlternateDate).split(/[T\s]/)[0]
+            : '';
+          setAlternateDate(normalizedAlternateDate);
+          const normalizedAlternateTime =
+            normalizeTimeValue(shoot.alternate_time || shoot.alternateTime) || '';
+          setAlternateTime(normalizedAlternateTime);
+
           const serviceItemSchedules = new Map<string, Record<string, unknown>>();
           const rawServiceItems = Array.isArray(shoot.serviceItems)
             ? shoot.serviceItems
@@ -493,6 +512,13 @@ export function ShootApprovalModal({
       const payload: Record<string, unknown> = {
         scheduled_at: scheduledAt.toISOString(),
       };
+
+      // Submit the alternate (backup) schedule so the backend persists it via
+      // ShootEditablePayloadService. Send the date as Y-m-d and the optional time as
+      // HH:mm; an empty alternate date clears the stored alternate (null-time rule:
+      // the backend derives alternate_scheduled_at as null when the time is absent).
+      payload.alternate_scheduled_date = alternateDate || null;
+      payload.alternate_time = alternateDate && alternateTime ? alternateTime : null;
 
       if (photographerId && photographerId !== 'unassigned') {
         payload.photographer_id = photographerId;
@@ -1148,6 +1174,41 @@ export function ShootApprovalModal({
                       value={scheduledTime}
                       options={timeOptions}
                       onChange={setScheduledTime}
+                    />
+                  </div>
+                </div>
+
+                {/* Alternate (backup) date/time — optional. Submitted via the approve
+                    payload as alternate_scheduled_date / alternate_time. */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs">Alternate Date (optional)</Label>
+                    {alternateDate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px] text-muted-foreground"
+                        onClick={() => {
+                          setAlternateDate('');
+                          setAlternateTime('');
+                        }}
+                      >
+                        <X className="mr-1 h-3 w-3" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <ServiceDatePicker
+                      value={alternateDate}
+                      minDate={minSelectableDate}
+                      onChange={(value) => setAlternateDate(value)}
+                    />
+                    <ServiceTimePicker
+                      value={alternateTime}
+                      options={timeOptions}
+                      onChange={setAlternateTime}
                     />
                   </div>
                 </div>
