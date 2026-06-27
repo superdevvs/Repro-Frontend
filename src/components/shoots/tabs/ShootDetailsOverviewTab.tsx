@@ -76,7 +76,6 @@ import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
-import { OverviewExternalBookingSection } from './overview/OverviewExternalBookingSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
 import { OverviewPhotographerSection } from './overview/OverviewPhotographerSection';
@@ -593,6 +592,15 @@ export function ShootDetailsOverviewTab({
   }, [weather, rawTemperature, formatTemperature]);
   const hasWeatherDetails = Boolean(formattedTemperature || weatherDescription);
 
+  // Read-only alternate (backup) schedule line for the overview. Populated only when
+  // the booking carried an alternate date; tolerates snake_case + camelCase aliases.
+  const alternateDateRaw =
+    shoot.alternate_scheduled_date || (shoot as any).alternateScheduledDate || null;
+  const alternateTimeRaw = shoot.alternate_time || (shoot as any).alternateTime || null;
+  const alternateScheduleDisplay = alternateDateRaw
+    ? `${formatDate(alternateDateRaw)}${alternateTimeRaw ? ` · ${formatTime(alternateTimeRaw)}` : ''}`
+    : null;
+
   // Get location address - return only street address, not full address with city/state/zip
   const getLocationAddress = () => {
     const address = shoot.location?.address || (shoot as any).address || '';
@@ -825,56 +833,6 @@ export function ShootDetailsOverviewTab({
     }
   };
 
-  // External booking mapping panel: only rendered for shoots that originated
-  // from the external booking flow (i.e. the backend persisted a payload or a
-  // mapping status). Snake_case + camelCase are both tolerated for safety.
-  const hasExternalBookingMapping = Boolean(
-    (shoot as any).external_booking_payload ||
-      (shoot as any).externalBookingPayload ||
-      (shoot as any).external_booking_mapping_status ||
-      (shoot as any).externalBookingMappingStatus,
-  );
-
-  // Best-effort photographer id -> name resolver, built from the resolved
-  // per-service photographers already loaded by the modal plus the shoot-level
-  // photographer. Used to turn `requested_photographers` ids into names.
-  const photographerNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    photographerAssignments?.assignments?.forEach((assignment) => {
-      const id = assignment.photographer?.id ?? assignment.photographerId;
-      const name = assignment.photographer?.name;
-      if (id != null && name) {
-        map.set(String(id), name);
-      }
-    });
-    const shootPhotographerId = shoot.photographer?.id;
-    if (shootPhotographerId != null && shoot.photographer?.name) {
-      map.set(String(shootPhotographerId), shoot.photographer.name);
-    }
-    return map;
-  }, [photographerAssignments, shoot.photographer]);
-
-  const resolvePhotographerName = useMemo(
-    () => (id: string | number) => photographerNameById.get(String(id)) ?? null,
-    [photographerNameById],
-  );
-
-  const externalBookingSectionRef = useRef<HTMLDivElement | null>(null);
-
-  // When opened from the "Booking Needs Review" notification, surface the
-  // mapping panel by scrolling it into view.
-  useEffect(() => {
-    if (initialFocus !== 'schedule_assignments' || !hasExternalBookingMapping) {
-      return;
-    }
-    const node = externalBookingSectionRef.current;
-    if (!node) return;
-    const timer = window.setTimeout(() => {
-      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-    return () => window.clearTimeout(timer);
-  }, [initialFocus, hasExternalBookingMapping]);
-
 
   return (
     <div className="space-y-2">
@@ -888,19 +846,10 @@ export function ShootDetailsOverviewTab({
         formattedTemperature={formattedTemperature}
         weatherDescription={weatherDescription}
         weatherIcon={renderWeatherIcon(weatherIcon)}
+        alternateScheduleDisplay={alternateScheduleDisplay}
         formatDateForInput={formatDateForInput}
         updateField={updateField}
       />
-
-      {hasExternalBookingMapping && (
-        <OverviewExternalBookingSection
-          ref={externalBookingSectionRef}
-          shoot={shoot}
-          formatDate={formatDate}
-          formatTime={formatTime}
-          resolvePhotographerName={resolvePhotographerName}
-        />
-      )}
 
       <OverviewPropertyLocationSection
         isEditMode={isEditMode}

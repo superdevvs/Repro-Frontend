@@ -13,6 +13,9 @@ type OverviewScheduleWeatherSectionProps = {
   formattedTemperature: string | null;
   weatherDescription: string | null;
   weatherIcon: ReactNode;
+  // Read-only "Alternate: <date> · <time>" line shown beneath the schedule/weather
+  // pills when the booking carries an alternate date. Null hides the line entirely.
+  alternateScheduleDisplay?: string | null;
   formatDateForInput: (dateString?: string | null) => string;
   updateField: (field: string, value: unknown) => void;
 };
@@ -27,6 +30,7 @@ export function OverviewScheduleWeatherSection({
   formattedTemperature,
   weatherDescription,
   weatherIcon,
+  alternateScheduleDisplay,
   formatDateForInput,
   updateField,
 }: OverviewScheduleWeatherSectionProps) {
@@ -34,7 +38,8 @@ export function OverviewScheduleWeatherSection({
   const currentTimeValue = String(editedShoot.time ?? shoot.time ?? '');
 
   return (
-    <div className={isEditMode ? 'grid grid-cols-2 gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]' : 'grid grid-cols-[1fr_0.78fr_1fr] gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]'}>
+    <div className="space-y-1.5">
+      <div className={isEditMode ? 'grid grid-cols-2 gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]' : 'grid grid-cols-[1fr_0.78fr_1fr] gap-1.5 max-[380px]:grid-cols-1 sm:gap-2 sm:grid-cols-[1fr_0.7fr_1.3fr]'}>
       <div className="min-w-0 p-2 border rounded-lg bg-card sm:p-2.5">
         {isEditMode ? (
           <div className="flex items-center min-w-0">
@@ -87,6 +92,15 @@ export function OverviewScheduleWeatherSection({
           )}
         </div>
       </div>
+      </div>
+
+      {alternateScheduleDisplay && (
+        <div className="flex items-center gap-1.5 px-0.5 text-xs text-muted-foreground sm:text-sm">
+          <CalendarIcon className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="font-medium text-foreground">Alternate:</span>
+          <span className="truncate">{alternateScheduleDisplay}</span>
+        </div>
+      )}
     </div>
   );
 }
