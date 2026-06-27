@@ -156,6 +156,31 @@ const formatDateForInput = (dateString?: string | null) => {
   }
 };
 
+// Format a date for an <input type="date"> ONLY when a real value is present.
+// Unlike `formatDateForInput`, this never fabricates today's date for a
+// missing/unparseable value - it returns an empty string so unscheduled
+// services render as UNASSIGNED ("Select date") instead of a fake date.
+const formatDateForInputOrEmpty = (dateString?: string | null) => {
+  if (!dateString) return '';
+  const wallClockDate = formatDateForWallClockInput(dateString);
+  if (wallClockDate) return wallClockDate;
+  try {
+    const parsedDate = parseFlexibleDate(dateString);
+    return parsedDate ? format(parsedDate, 'yyyy-MM-dd') : '';
+  } catch {
+    return '';
+  }
+};
+
+// Build the per-service schedule fields from a raw `scheduled_at`. When there is
+// no value the schedule stays EMPTY (date + time both ''), which the
+// ServiceDatePicker/ServiceTimePicker render as "Select date"/"Select time".
+const buildServiceScheduleFields = (scheduledAt?: string | null): ServiceScheduleFields => {
+  const date = formatDateForInputOrEmpty(scheduledAt);
+  if (!date) return { date: '', time: '' };
+  return { date, time: formatTimeForInput(scheduledAt) || '10:00' };
+};
+
 const formatTimeForInput = (value?: string | null) => {
   if (!value) return '';
   const wallClockTime = formatTimeForWallClockInput(value);
@@ -489,25 +514,15 @@ function useOverviewLookupData(
           const serviceId = item.service_id ?? item.serviceId;
           if (serviceId === null || serviceId === undefined) return;
           const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-          scheduleByServiceId.set(String(serviceId), {
-            date: formatDateForInput(scheduledAt),
-            time: formatTimeForInput(scheduledAt) || '10:00',
-          });
+          scheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(scheduledAt));
         });
-        const orderScheduledAt = (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate;
-        const fallbackSchedule = {
-          date: formatDateForInput(orderScheduledAt),
-          time: formatTimeForInput(orderScheduledAt) || formatTimeForInput(shoot.time) || '10:00',
-        };
         serviceSource.forEach((service: any) => {
           if (!service || typeof service !== 'object') return;
           const serviceId = String(service.service_id || service.serviceId || service.id || '');
           if (!serviceId || !currentServiceIds.includes(serviceId)) return;
           const serviceScheduledAt = service.scheduled_at ?? service.scheduledAt;
-          nextServiceSchedules[serviceId] = scheduleByServiceId.get(serviceId) || {
-            date: formatDateForInput(serviceScheduledAt) || fallbackSchedule.date,
-            time: formatTimeForInput(serviceScheduledAt) || fallbackSchedule.time,
-          };
+          nextServiceSchedules[serviceId] =
+            scheduleByServiceId.get(serviceId) || buildServiceScheduleFields(serviceScheduledAt);
           const serviceRecord = mergedServices.find((serviceOption: ServiceOption) => serviceOption.id === serviceId);
           const basePrice = serviceRecord
             ? resolveServicePrice(serviceRecord, effectiveSqft).basePrice
@@ -1065,16 +1080,13 @@ export function useShootOverviewEditor({
     }
     setPerCategoryPhotographers(nextPerCategoryPhotographers);
     setServiceSchedules((current) => {
-      const defaultSchedule = {
-        date: formatDateForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate),
-        time:
-          formatTimeForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt) ||
-          formatTimeForInput(shoot.time) ||
-          '10:00',
-      };
+      // Do NOT fabricate the shoot/order date for services that have no
+      // schedule of their own. Unscheduled services must stay EMPTY so the
+      // pickers render "Select date"/"Select time" (UNASSIGNED). Any real
+      // per-service schedule is hydrated by `fetchServices`.
       const nextSchedules: Record<string, ServiceScheduleFields> = {};
       selectedServiceIds.forEach((serviceId) => {
-        nextSchedules[serviceId] = current[serviceId] || defaultSchedule;
+        nextSchedules[serviceId] = current[serviceId] || { date: '', time: '' };
       });
       return nextSchedules;
     });
@@ -1119,13 +1131,6 @@ export function useShootOverviewEditor({
     const ids: string[] = [];
     const fallbackServices: ServiceOption[] = [];
     const schedules: Record<string, ServiceScheduleFields> = {};
-    const defaultSchedule = {
-      date: formatDateForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate),
-      time:
-        formatTimeForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt) ||
-        formatTimeForInput(shoot.time) ||
-        '10:00',
-    };
 
     sourceItems.forEach((item) => {
       if (!item || typeof item !== 'object') return;
@@ -1135,10 +1140,8 @@ export function useShootOverviewEditor({
       if (!serviceId || ids.includes(serviceId)) return;
       ids.push(serviceId);
       const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-      schedules[serviceId] = {
-        date: formatDateForInput(scheduledAt) || defaultSchedule.date,
-        time: formatTimeForInput(scheduledAt) || defaultSchedule.time,
-      };
+      // Keep unscheduled services EMPTY instead of fabricating the order date.
+      schedules[serviceId] = buildServiceScheduleFields(scheduledAt);
       const serviceName = item.name ?? item.service_name ?? item.serviceName;
       if (serviceName) {
         fallbackServices.push({
@@ -1287,10 +1290,11 @@ export function useShootOverviewEditor({
         service_id: Number(serviceId),
         price: resolvedPrice,
         quantity: 1,
-        scheduled_at: buildScheduledAtIso(
-          serviceSchedule.date || orderSchedule.date,
-          serviceSchedule.time || orderSchedule.time,
-        ),
+        // Keep unscheduled services unscheduled: an empty date must NOT fall back
+        // to the order date. `buildScheduledAtIso` returns null for an empty date.
+        scheduled_at: serviceSchedule.date
+          ? buildScheduledAtIso(serviceSchedule.date, serviceSchedule.time)
+          : null,
       };
       if (servicePhotographerPays[serviceId]) {
         serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
@@ -1346,12 +1350,13 @@ export function useShootOverviewEditor({
     shoot,
   ]);
 
+  // An UNSET service schedule must stay empty (UNASSIGNED) rather than
+  // inheriting the shoot/order date. The pickers render '' as
+  // "Select date"/"Select time"; save converts a chosen date with no time
+  // to a default time via buildScheduledAtIso.
   const defaultServiceSchedule = useMemo<ServiceScheduleFields>(
-    () => ({
-      date: formatDateForInput((editedShoot as any).scheduledDate ?? shoot.scheduledDate),
-      time: formatTimeForInput(String((editedShoot as any).time ?? shoot.time ?? '')) || '10:00',
-    }),
-    [editedShoot, shoot.scheduledDate, shoot.time],
+    () => ({ date: '', time: '' }),
+    [],
   );
 
   useEffect(() => {

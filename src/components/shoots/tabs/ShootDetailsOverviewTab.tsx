@@ -72,7 +72,6 @@ import {
 } from '@/utils/shootPhotographerAssignments';
 import { to12Hour } from '@/utils/availabilityUtils';
 import AddressLookupField, { buildNormalizedPropertyDetails } from '@/components/AddressLookupField';
-import { AlternateDateField } from '@/components/shoots/AlternateDateField';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
@@ -893,16 +892,6 @@ export function ShootDetailsOverviewTab({
         updateField={updateField}
       />
 
-      {/* Shared alternate date/time field + apply controls (Req 4.1, 1.4, 7.1-7.4).
-          Renders nothing when no alternate is stored. Controls are gated to the
-          authorized-editor roles the apply endpoint enforces. */}
-      <AlternateDateField
-        shoot={shoot}
-        formatDate={formatDate}
-        formatTime={formatTime}
-        showControls={isAdmin || role === 'superadmin' || role === 'editing_manager'}
-      />
-
       {hasExternalBookingMapping && (
         <OverviewExternalBookingSection
           ref={externalBookingSectionRef}
@@ -910,7 +899,6 @@ export function ShootDetailsOverviewTab({
           formatDate={formatDate}
           formatTime={formatTime}
           resolvePhotographerName={resolvePhotographerName}
-          showAlternateControls={isAdmin || role === 'superadmin' || role === 'editing_manager'}
         />
       )}
 
