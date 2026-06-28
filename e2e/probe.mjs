@@ -1,0 +1,20 @@
+import { chromium } from '@playwright/test';
+const BASE = 'http://localhost:5173';
+const browser = await chromium.launch();
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+const log = (...a) => console.log('[probe]', ...a);
+page.on('response', (r) => { if (r.url().includes('/api/shoots')) log('RESP', r.status(), r.url().slice(30, 70)); });
+page.on('requestfailed', (r) => { if (r.url().includes('/api/shoots')) log('FAIL', r.url().slice(30, 70), r.failure()?.errorText); });
+
+await page.goto(BASE + '/');
+await page.getByPlaceholder('Email').fill('qa.admin@example.test');
+await page.getByPlaceholder('Password').fill('QaDemo123!');
+await page.getByRole('button', { name: 'Log In' }).click();
+await page.waitForURL(/\/dashboard/, { timeout: 20000 });
+log('logged in');
+await page.goto(BASE + '/shoots/24', { waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(9000);
+const txt = (await page.locator('body').innerText().catch(() => '')) || '';
+log('detail has Approve:', /Approve/i.test(txt), 'Modify:', /Modify/i.test(txt), 'Photographer:', /Photographer/i.test(txt));
+log('snippet:', txt.replace(/\s+/g, ' ').slice(0, 300));
+await browser.close();
