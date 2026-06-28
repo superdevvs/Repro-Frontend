@@ -861,7 +861,10 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     }
 
     const base = API_BASE_URL;
-    const url = `${base}/api/address/details?place_id=${encodeURIComponent(suggestion.place_id)}`;
+    const addressParam = suggestion.description
+      ? `&address=${encodeURIComponent(suggestion.description)}`
+      : '';
+    const url = `${base}/api/address/details?place_id=${encodeURIComponent(suggestion.place_id)}${addressParam}`;
     const response = await fetch(url, {
       headers: getAuthHeaders(),
       signal,
