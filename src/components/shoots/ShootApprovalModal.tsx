@@ -25,6 +25,7 @@ import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import axios from 'axios';
@@ -196,6 +197,7 @@ export function ShootApprovalModal({
   photographers = [],
 }: ShootApprovalModalProps) {
   const { toast } = useToast();
+  const isPickerMobile = useIsMobile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shootDetails, setShootDetails] = useState<ShootDetails | null>(null);
@@ -1023,6 +1025,14 @@ export function ShootApprovalModal({
     </div>
   );
 
+  // Photographer picker renders as a centered Dialog on desktop and a bottom
+  // Drawer on mobile, matching the responsive pattern used elsewhere.
+  const PickerRoot: React.ElementType = isPickerMobile ? Drawer : Dialog;
+  const PickerContent: React.ElementType = isPickerMobile ? DrawerContent : DialogContent;
+  const PickerHeader: React.ElementType = isPickerMobile ? DrawerHeader : DialogHeader;
+  const PickerTitle: React.ElementType = isPickerMobile ? DrawerTitle : DialogTitle;
+  const PickerDescription: React.ElementType = isPickerMobile ? DrawerDescription : DialogDescription;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[900px] md:max-w-[1150px] xl:max-w-[1320px]">
@@ -1316,32 +1326,41 @@ export function ShootApprovalModal({
           </Button>
         </DialogFooter>
 
-        <Drawer shouldScaleBackground={false} open={photographerPickerOpen} onOpenChange={(open) => {
+        <PickerRoot {...(isPickerMobile ? { shouldScaleBackground: false } : {})} open={photographerPickerOpen} onOpenChange={(open) => {
           if (!open) {
             closePhotographerPicker();
           }
         }}>
-          <DrawerContent className="z-[190] flex max-h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-slate-800/80 bg-background">
+          <PickerContent
+            className={cn(
+              'overflow-hidden border-slate-800/80 bg-background',
+              isPickerMobile
+                ? 'z-[190] flex max-h-[88dvh] flex-col rounded-t-3xl'
+                : 'flex h-[min(88vh,44rem)] w-[92vw] max-h-[90vh] flex-col p-0 sm:max-w-4xl',
+            )}
+          >
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
-                <DrawerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-2 h-8 w-8 rounded-full"
-                    onClick={closePhotographerPicker}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <DrawerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
+                <PickerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
+                  {isPickerMobile ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-2 h-8 w-8 rounded-full"
+                      onClick={closePhotographerPicker}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  <PickerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
                     {photographerPickerContext?.categoryName
                       ? `Select Photographer for ${photographerPickerContext.categoryName}`
                       : 'Select Photographer'}
-                  </DrawerTitle>
-                  <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                  </PickerTitle>
+                  <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                     Curated network - {filteredPhotographers.length} available
-                  </DrawerDescription>
-                </DrawerHeader>
+                  </PickerDescription>
+                </PickerHeader>
 
                 <div className="space-y-3">
                   <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -1558,8 +1577,8 @@ export function ShootApprovalModal({
                   </div>
                 </div>
             </div>
-          </DrawerContent>
-        </Drawer>
+          </PickerContent>
+        </PickerRoot>
       </DialogContent>
     </Dialog>
   );
