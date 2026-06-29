@@ -195,12 +195,6 @@ export function ShootSettingsTab({
   const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
   const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
-  const [featuredTitle, setFeaturedTitle] = useState<string>(() => resolveFeaturedField(shoot, 'featured_homepage_title', 'featuredHomepageTitle'));
-  const [featuredLocation, setFeaturedLocation] = useState<string>(() => resolveFeaturedField(shoot, 'featured_homepage_location', 'featuredHomepageLocation'));
-  const [featuredSubtitle, setFeaturedSubtitle] = useState<string>(() => resolveFeaturedField(shoot, 'featured_homepage_subtitle', 'featuredHomepageSubtitle'));
-  const [featuredCtaLabel, setFeaturedCtaLabel] = useState<string>(() => resolveFeaturedField(shoot, 'featured_homepage_cta_label', 'featuredHomepageCtaLabel') || 'See the shoot');
-  const [featuredCtaHref, setFeaturedCtaHref] = useState<string>(() => resolveFeaturedField(shoot, 'featured_homepage_cta_href', 'featuredHomepageCtaHref'));
-  const [featuredImages, setFeaturedImages] = useState<FeaturedHomepageImageDraft[]>(() => normalizeFeaturedHomepageImages(shoot));
   const [isSavingFeaturedHero, setIsSavingFeaturedHero] = useState(false);
   const [timezone, setTimezone] = useState<string>(() => (shoot as any)?.timezone || 'America/New_York');
   const [mlsImageWidth, setMlsImageWidth] = useState<string>(() => resolveMlsImageWidth(shoot));
@@ -233,12 +227,6 @@ export function ShootSettingsTab({
     setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
     setIsPrivateExclusive(!!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
     setIsFeaturedShoot(resolveFeaturedState(shoot));
-    setFeaturedTitle(resolveFeaturedField(shoot, 'featured_homepage_title', 'featuredHomepageTitle'));
-    setFeaturedLocation(resolveFeaturedField(shoot, 'featured_homepage_location', 'featuredHomepageLocation'));
-    setFeaturedSubtitle(resolveFeaturedField(shoot, 'featured_homepage_subtitle', 'featuredHomepageSubtitle'));
-    setFeaturedCtaLabel(resolveFeaturedField(shoot, 'featured_homepage_cta_label', 'featuredHomepageCtaLabel') || 'See the shoot');
-    setFeaturedCtaHref(resolveFeaturedField(shoot, 'featured_homepage_cta_href', 'featuredHomepageCtaHref'));
-    setFeaturedImages(normalizeFeaturedHomepageImages(shoot));
     setTimezone((shoot as any)?.timezone || 'America/New_York');
     setMlsImageWidth(resolveMlsImageWidth(shoot));
     setSelectedGhostUserIds(normalizeGhostUserIds(shoot));
@@ -742,56 +730,21 @@ export function ShootSettingsTab({
     }
   };
 
-  const availableHomepageImages = (Array.isArray((shoot as any).files) ? (shoot as any).files : [])
-    .filter((file: any) => !file?.is_hidden && isEditedDashboardImageFile(file) && resolveFilePreview(file))
-    .map((file: any) => ({
-      id: Number(file.id),
-      filename: file.filename || file.stored_filename || `Image ${file.id}`,
-      preview: resolveFilePreview(file),
-    }))
-    .filter((file: { id: number }) => Number.isFinite(file.id));
+  // The homepage hero uses this shoot's single cover image. The cover is chosen
+  // from the Media tab (is_cover); here we surface it and push it to the public
+  // homepage hero as the sole featured image. Title/location/CTA fall back to
+  // backend defaults derived from the shoot.
+  const coverFile = (Array.isArray((shoot as any).files) ? (shoot as any).files : [])
+    .find((file: any) => Boolean(file?.is_cover) && !file?.is_hidden && resolveFilePreview(file));
+  const coverFileId = coverFile && Number.isFinite(Number(coverFile.id)) ? Number(coverFile.id) : null;
+  const coverPreview = coverFile ? resolveFilePreview(coverFile) : '';
+  const heroImageSet =
+    coverFileId !== null &&
+    normalizeFeaturedHomepageImages(shoot).some((image) => image.shoot_file_id === coverFileId);
 
-  const selectedFeaturedImageIds = new Set(featuredImages.map((image) => image.shoot_file_id));
-
-  const toggleFeaturedImage = (fileId: number, checked: boolean) => {
-    setFeaturedImages((current) => {
-      if (!checked) {
-        return current.filter((image) => image.shoot_file_id !== fileId);
-      }
-
-      if (current.some((image) => image.shoot_file_id === fileId)) {
-        return current;
-      }
-
-      return [
-        ...current,
-        {
-          shoot_file_id: fileId,
-          sort: current.length + 1,
-          alt: '',
-          focal: '50% 50%',
-        },
-      ];
-    });
-  };
-
-  const updateFeaturedImage = (fileId: number, updates: Partial<FeaturedHomepageImageDraft>) => {
-    setFeaturedImages((current) =>
-      current.map((image) =>
-        image.shoot_file_id === fileId ? { ...image, ...updates } : image,
-      ),
-    );
-  };
-
-  const saveFeaturedHeroSettings = async () => {
-    if (featuredImages.length > 0 && (featuredImages.length < 3 || featuredImages.length > 6)) {
-      sonnerToast.error('Choose 3 to 6 homepage hero images, or clear the list before saving.');
-      return;
-    }
-
-    const invalidFocal = featuredImages.find((image) => !/^\d{1,3}%\s+\d{1,3}%$/.test(image.focal.trim()));
-    if (invalidFocal) {
-      sonnerToast.error('Focal points must look like 50% 35%.');
+  const setHomepageHero = async () => {
+    if (!coverFileId) {
+      sonnerToast.error('Set a cover image for this shoot in the Media tab first.');
       return;
     }
 
@@ -808,20 +761,9 @@ export function ShootSettingsTab({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          featured_homepage_title: featuredTitle.trim() || null,
-          featured_homepage_location: featuredLocation.trim() || null,
-          featured_homepage_subtitle: featuredSubtitle.trim() || null,
-          featured_homepage_cta_label: featuredCtaLabel.trim() || null,
-          featured_homepage_cta_href: featuredCtaHref.trim() || null,
-          featured_homepage_images: featuredImages
-            .slice()
-            .sort((a, b) => a.sort - b.sort)
-            .map((image, index) => ({
-              shoot_file_id: image.shoot_file_id,
-              sort: index + 1,
-              alt: image.alt.trim() || null,
-              focal: image.focal.trim() || '50% 50%',
-            })),
+          featured_homepage_images: [
+            { shoot_file_id: coverFileId, sort: 1, alt: null, focal: '50% 50%' },
+          ],
         }),
       });
 
@@ -838,19 +780,13 @@ export function ShootSettingsTab({
       const json = await response.json().catch(() => null);
       const returned = json?.data || json || {};
       const persistedImages = normalizeFeaturedHomepageImages(returned as ShootData);
-      setFeaturedImages(persistedImages);
       onUpdate?.({
-        featured_homepage_title: featuredTitle.trim() || null,
-        featured_homepage_location: featuredLocation.trim() || null,
-        featured_homepage_subtitle: featuredSubtitle.trim() || null,
-        featured_homepage_cta_label: featuredCtaLabel.trim() || null,
-        featured_homepage_cta_href: featuredCtaHref.trim() || null,
         featured_homepage_images: persistedImages,
       } as Partial<ShootData>);
-      sonnerToast.success('Homepage hero settings saved');
+      sonnerToast.success('Homepage hero set to this shoot’s cover image');
     } catch (error) {
-      console.error('Failed to save homepage hero settings', error);
-      sonnerToast.error(error instanceof Error ? error.message : 'Failed to save homepage hero settings');
+      console.error('Failed to set homepage hero', error);
+      sonnerToast.error(error instanceof Error ? error.message : 'Failed to set homepage hero');
     } finally {
       setIsSavingFeaturedHero(false);
     }
@@ -941,149 +877,42 @@ export function ShootSettingsTab({
       })()}
 
       {canManageFeaturedShoot && (
-        <div className="border rounded-lg p-3.5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+        <div className="border rounded-lg p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">Homepage Hero</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Configure the text and ordered image set the public site reads from this featured shoot.
+                {coverFileId
+                  ? 'Send this shoot’s cover image to the public homepage hero.'
+                  : 'Set a cover image in the Media tab, then send it to the homepage hero.'}
               </div>
             </div>
-            {PUBLIC_SITE_URL ? (
-              <Button variant="outline" size="sm" asChild className="h-8 flex-shrink-0">
-                <a href={PUBLIC_SITE_URL} target="_blank" rel="noreferrer">
-                  Preview on site <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                </a>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {coverPreview ? (
+                <img
+                  src={coverPreview}
+                  alt="Cover"
+                  className="h-9 w-12 rounded object-cover border"
+                  loading="lazy"
+                />
+              ) : null}
+              {PUBLIC_SITE_URL ? (
+                <Button variant="outline" size="sm" asChild className="h-8">
+                  <a href={PUBLIC_SITE_URL} target="_blank" rel="noreferrer">
+                    Preview <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                onClick={setHomepageHero}
+                disabled={isSavingFeaturedHero || !coverFileId}
+                className="h-8"
+              >
+                {isSavingFeaturedHero ? 'Setting…' : heroImageSet ? 'Update homepage hero' : 'Set homepage hero'}
               </Button>
-            ) : null}
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="featured-homepage-title" className="text-xs">Title</Label>
-              <Input
-                id="featured-homepage-title"
-                value={featuredTitle}
-                onChange={(event) => setFeaturedTitle(event.target.value)}
-                placeholder={(shoot as any)?.location?.address || (shoot as any)?.address || 'Modern Arlington Townhouse'}
-              />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="featured-homepage-location" className="text-xs">Location</Label>
-              <Input
-                id="featured-homepage-location"
-                value={featuredLocation}
-                onChange={(event) => setFeaturedLocation(event.target.value)}
-                placeholder={[(shoot as any)?.location?.city || (shoot as any)?.city, (shoot as any)?.location?.state || (shoot as any)?.state].filter(Boolean).join(', ') || 'Arlington, VA'}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="featured-homepage-subtitle" className="text-xs">Subtitle</Label>
-              <Input
-                id="featured-homepage-subtitle"
-                value={featuredSubtitle}
-                onChange={(event) => setFeaturedSubtitle(event.target.value)}
-                placeholder="Twilight + Drone"
-              />
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="featured-homepage-cta-label" className="text-xs">CTA Label</Label>
-                <Input
-                  id="featured-homepage-cta-label"
-                  value={featuredCtaLabel}
-                  onChange={(event) => setFeaturedCtaLabel(event.target.value)}
-                  placeholder="See the shoot"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="featured-homepage-cta-href" className="text-xs">CTA Href</Label>
-                <Input
-                  id="featured-homepage-cta-href"
-                  value={featuredCtaHref}
-                  onChange={(event) => setFeaturedCtaHref(event.target.value)}
-                  placeholder="/projects/modern-arlington"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <Label className="text-xs">Hero Images</Label>
-              <span className="text-[11px] text-muted-foreground">{featuredImages.length}/6 selected</span>
-            </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {availableHomepageImages.length === 0 ? (
-                <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                  Upload edited image media to this shoot before selecting homepage hero images.
-                </div>
-              ) : availableHomepageImages.map((file) => {
-                const selected = selectedFeaturedImageIds.has(file.id);
-                const draft = featuredImages.find((image) => image.shoot_file_id === file.id);
-
-                return (
-                  <div key={file.id} className="rounded-md border p-2">
-                    <div className="flex gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={(event) => toggleFeaturedImage(file.id, event.target.checked)}
-                        className="mt-8 h-4 w-4 flex-shrink-0 accent-primary"
-                        aria-label={`Select ${file.filename} for homepage hero`}
-                      />
-                      <img
-                        src={file.preview}
-                        alt={file.filename}
-                        className="h-20 w-28 flex-shrink-0 rounded object-cover"
-                        loading="lazy"
-                      />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="truncate text-xs font-medium">{file.filename}</div>
-                        {selected && draft ? (
-                          <div className="grid gap-2 sm:grid-cols-[72px_minmax(0,1fr)_112px]">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={6}
-                              value={draft.sort}
-                              onChange={(event) => updateFeaturedImage(file.id, { sort: Number(event.target.value) || 1 })}
-                              aria-label="Hero image sort order"
-                              className="h-8 text-xs"
-                            />
-                            <Input
-                              value={draft.alt}
-                              onChange={(event) => updateFeaturedImage(file.id, { alt: event.target.value })}
-                              placeholder="Alt text"
-                              className="h-8 text-xs"
-                            />
-                            <Input
-                              value={draft.focal}
-                              onChange={(event) => updateFeaturedImage(file.id, { focal: event.target.value })}
-                              placeholder="50% 35%"
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-muted-foreground">Select to set order, alt text, and focal point.</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="sm"
-              onClick={saveFeaturedHeroSettings}
-              disabled={isSavingFeaturedHero}
-            >
-              {isSavingFeaturedHero ? 'Saving...' : 'Save Homepage Hero'}
-            </Button>
           </div>
         </div>
       )}

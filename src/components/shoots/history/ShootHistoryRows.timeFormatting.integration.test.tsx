@@ -2,9 +2,14 @@ import { render } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/hooks/useWeatherData', () => ({
+  useWeatherData: () => ({ temperature: '20', condition: 'Cloudy', distance: '5' }),
+}))
+
 import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
 import { HoldOnShootCard } from '@/components/shoots/history/HoldOnShootCard'
+import { ScheduledShootListRow } from '@/components/shoots/history/ScheduledShootListRow'
 import { ShootListRow } from '@/components/shoots/history/ShootListRow'
 import type { ShootData } from '@/types/shoots'
 
@@ -87,5 +92,19 @@ describe('Shoot History row time-formatting wiring (task 2.3)', () => {
     expect(text).toContain('1:30 PM')
     expect(text).not.toContain('13:30:00')
     expect(text).toContain(formatTimeForDisplay('13:30:00'))
+  })
+
+  it('renders unpaid payment status for scheduled rows when totalPaid is zero', () => {
+    const shoot = buildShoot({
+      payment: { baseQuote: 250, taxRate: 0, taxAmount: 0, totalQuote: 250, totalPaid: 0 },
+    })
+
+    const { container } = renderWithPreferences(
+      <ScheduledShootListRow shoot={shoot} onSelect={vi.fn()} isSuperAdmin />,
+    )
+
+    expect(container.textContent ?? '').toContain('Unpaid')
+    expect(container.textContent ?? '').toContain('68°F')
+    expect(container.textContent ?? '').toContain('Cloudy')
   })
 })

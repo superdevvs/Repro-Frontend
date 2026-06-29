@@ -852,6 +852,24 @@ export function ShootDetailsOverviewTab({
         formattedTemperature={formattedTemperature}
         weatherDescription={weatherDescription}
         weatherIcon={renderWeatherIcon(weatherIcon)}
+        rightSlot={
+          !isEditor ? (
+            <OverviewAccessSection
+              isEditMode={isEditMode}
+              propertyDetails={propertyDetails}
+              presenceOption={presenceOption}
+              setPresenceOption={setPresenceOption}
+              lockboxCode={lockboxCode}
+              setLockboxCode={setLockboxCode}
+              lockboxLocation={lockboxLocation}
+              setLockboxLocation={setLockboxLocation}
+              accessContactName={accessContactName}
+              setAccessContactName={setAccessContactName}
+              accessContactPhone={accessContactPhone}
+              setAccessContactPhone={setAccessContactPhone}
+            />
+          ) : undefined
+        }
       />
 
       <OverviewServicesTableSection
@@ -899,23 +917,6 @@ export function ShootDetailsOverviewTab({
         setSelectedClientId={setSelectedClientId}
         updateField={updateField}
       />
-
-      {!isEditor && (
-        <OverviewAccessSection
-          isEditMode={isEditMode}
-          propertyDetails={propertyDetails}
-          presenceOption={presenceOption}
-          setPresenceOption={setPresenceOption}
-          lockboxCode={lockboxCode}
-          setLockboxCode={setLockboxCode}
-          lockboxLocation={lockboxLocation}
-          setLockboxLocation={setLockboxLocation}
-          accessContactName={accessContactName}
-          setAccessContactName={setAccessContactName}
-          accessContactPhone={accessContactPhone}
-          setAccessContactPhone={setAccessContactPhone}
-        />
-      )}
 
       {(() => {
         const canManageFeaturedShoot = isAdmin || isRep || role === 'editing_manager';
@@ -989,6 +990,7 @@ export function ShootDetailsOverviewTab({
         <OverviewPaymentSummarySection
           isEditMode={isEditMode}
           isAdmin={isAdmin}
+          isRep={isRep}
           isClient={isClient}
           isClientReleaseLocked={isClientReleaseLocked}
           editedShoot={editedShoot}

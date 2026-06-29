@@ -85,12 +85,22 @@ export type OverviewServicesTableSectionProps = {
   isPhotographer: boolean;
 };
 
-// Placeholder shown in Date/Time/Photographer cells when the underlying value is
-// absent (UNASSIGNED). Date/Time use an em dash; Photographer uses "Not assigned".
-const UNASSIGNED = '—';
-const NOT_ASSIGNED = 'Not assigned';
+// Placeholder shown in Date/Time/Photographer/Price cells when the underlying
+// value is absent (UNASSIGNED). Both date/time and photographer use "N/A".
+const UNASSIGNED = 'Unassigned';
+const NOT_ASSIGNED = 'Unassigned';
 
-const HEADER_CELLS = ['Services', 'Date', 'Time', 'Photographer', 'Price'] as const;
+// Column definitions. The Services column is intentionally given no fixed width
+// so that (with `table-fixed` in read-only mode) it absorbs the remaining space
+// and shows as much of the service name as possible. Price is right-aligned and
+// sits in the final column at the extreme right edge.
+const HEADER_CELLS = [
+  { label: 'Services', className: '' },
+  { label: 'Date', className: 'w-[74px]' },
+  { label: 'Time', className: 'w-[58px]' },
+  { label: 'Photographer', className: 'w-[92px]' },
+  { label: 'Price', className: 'w-[66px] text-right pr-0' },
+] as const;
 
 // Default schedule applied to a row that has no saved schedule yet, matching the
 // fallback used by the existing services editor (empty date, 10:00 time).
@@ -198,17 +208,16 @@ export function OverviewServicesTableSection(
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
-      <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">
-        Services
-      </span>
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed text-[11px]">
+      <div className={isEditMode ? 'overflow-x-auto' : 'overflow-visible'}>
+        <table className={`w-full text-[11px] ${isEditMode ? '' : 'table-fixed'}`}>
           <thead>
-            <tr className="text-left text-[9px] font-medium uppercase text-muted-foreground">
-              {/* Leading unlabeled narrow column for the Status_Dot / Delete_Control */}
-              <th scope="col" className="w-5 pb-1.5" aria-label="Status" />
-              {HEADER_CELLS.map((label) => (
-                <th key={label} scope="col" className="pb-1.5 pr-1.5 font-medium">
+            <tr className="text-left text-[11px] font-semibold uppercase text-muted-foreground">
+              {/* Leading narrow column for the Delete_Control (edit mode only). In
+                  read-only mode the status dot is rendered inside the Services
+                  cell and offset outside the card on the left. */}
+              {isEditMode && <th scope="col" className="w-5 pb-1.5" aria-label="Actions" />}
+              {HEADER_CELLS.map(({ label, className }) => (
+                <th key={label} scope="col" className={`pb-1.5 pr-1.5 font-medium ${className}`}>
                   {label}
                 </th>
               ))}
@@ -247,7 +256,7 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
   if (serviceItems.length === 0) {
     return (
       <tr>
-        <td colSpan={HEADER_CELLS.length + 1} className="py-3 text-center text-muted-foreground">
+        <td colSpan={HEADER_CELLS.length} className="py-3 text-center text-muted-foreground">
           No services
         </td>
       </tr>
@@ -265,15 +274,13 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
 
     return (
       <tr key={item.id} className="align-middle">
-        <td className="py-1.5 pr-2">
+        <td className="relative py-1.5 pr-2">
           <span
             data-testid="status-dot"
             data-status={status}
-            className={`inline-block h-2.5 w-2.5 rounded-full ${dotClass}`}
+            className={`absolute -left-4 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full ${dotClass}`}
             aria-hidden="true"
           />
-        </td>
-        <td className="py-1.5 pr-2">
           <span className="block truncate font-medium text-foreground">{label}</span>
         </td>
         <td className="py-1.5 pr-2 whitespace-nowrap">
@@ -289,7 +296,7 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
             <span className="text-muted-foreground">{NOT_ASSIGNED}</span>
           )}
         </td>
-        <td className="py-1.5 pr-2 whitespace-nowrap font-medium text-muted-foreground">
+        <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
           {getReadonlyServiceDisplayPrice(item.source)}
         </td>
       </tr>
@@ -422,7 +429,7 @@ function renderEditRows(
             >
               <span className="block min-w-0 truncate text-left">
                 <span className="block truncate">
-                  {photographer?.name || 'Not assigned'}
+                  {photographer?.name || NOT_ASSIGNED}
                 </span>
                 {!isClient && photographer?.email && (
                   <span className="block truncate text-[10px] text-muted-foreground">
@@ -432,7 +439,7 @@ function renderEditRows(
               </span>
             </Button>
           </td>
-          <td className="py-1.5 pr-2 whitespace-nowrap font-medium text-muted-foreground">
+          <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
             {getServiceDisplayPrice(service)}
           </td>
         </tr>

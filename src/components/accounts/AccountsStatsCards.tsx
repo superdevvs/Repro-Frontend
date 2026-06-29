@@ -47,10 +47,17 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
 }) => {
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
+  const isSalesRep = viewerRole === 'salesRep';
 
-  // Filter out superadmin card for non-superadmin users
+  // Sales reps only manage clients and photographers, so scope their pills to
+  // the relevant roles (plus the Total/all filter). Admin/superadmin see all.
+  const SALES_REP_ROLE_KEYS = new Set(['total', 'photographer', 'client']);
+
+  // Filter out superadmin card for non-superadmin users, and scope sales reps
+  // to their relevant roles.
   const visibleRoles = roleConfig.filter(role => {
     if (role.key === 'superadmin' && !isSuperAdmin) return false;
+    if (isSalesRep && !SALES_REP_ROLE_KEYS.has(role.key)) return false;
     return true;
   });
 

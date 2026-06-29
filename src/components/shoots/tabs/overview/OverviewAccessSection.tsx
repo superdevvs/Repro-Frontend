@@ -35,7 +35,7 @@ export function OverviewAccessSection({
   setAccessContactPhone,
 }: OverviewAccessSectionProps) {
   return (
-    <div className="p-2.5 border rounded-lg bg-card">
+    <div className="p-2.5 border rounded-lg bg-card h-full">
       <div className="flex items-center gap-1.5 mb-1.5">
         {presenceOption === 'lockbox' ? (
           <Key className="h-3.5 w-3.5 text-muted-foreground" />
@@ -51,7 +51,7 @@ export function OverviewAccessSection({
           <RadioGroup
             value={presenceOption}
             onValueChange={(value) => setPresenceOption(value as PresenceOption)}
-            className="grid grid-cols-3 gap-2"
+            className="grid grid-cols-1 gap-1.5"
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="self" id="presence-self" />
@@ -59,7 +59,7 @@ export function OverviewAccessSection({
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="other" id="presence-other" />
-              <Label htmlFor="presence-other" className="text-xs cursor-pointer">Other contact</Label>
+              <Label htmlFor="presence-other" className="text-xs cursor-pointer whitespace-nowrap">Other contact</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="lockbox" id="presence-lockbox" />
@@ -119,7 +119,7 @@ export function OverviewAccessSection({
         const hasLockboxData = !!(details.lockboxCode || details.lockboxLocation);
         const hasAccessContactData = !!(details.accessContactName || details.accessContactPhone);
         if (!hasLockboxData && !hasAccessContactData) {
-          return <div className="text-xs text-muted-foreground">No access details provided.</div>;
+          return <div className="text-xs text-muted-foreground">Unavailable</div>;
         }
         const isLockbox = hasLockboxData || details.presenceOption === 'lockbox';
         return (

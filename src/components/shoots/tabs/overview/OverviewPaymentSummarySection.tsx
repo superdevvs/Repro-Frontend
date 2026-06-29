@@ -4,6 +4,36 @@ import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
 import { CreditCard, Loader2 } from 'lucide-react';
 import { PendingPaymentIntentsCard } from '@/components/payments/PendingPaymentIntentsCard';
+import { calculateDiscountAmount } from '@/utils/pricing';
+
+/**
+ * Resolve the discount amount for a payment object. Prefers a precomputed
+ * `discountAmount` (camelCase or snake_case), otherwise derives it from the
+ * discount type/value against the service subtotal (mirroring how the main
+ * ShootEditModal computes it). Returns 0 when there is no discount.
+ */
+const resolveDiscountAmount = (payment?: ShootData['payment'] | null): number => {
+  if (!payment) return 0;
+  const raw = payment as unknown as Record<string, unknown>;
+  const precomputed =
+    Number(payment.discountAmount ?? (raw.discount_amount as number | undefined) ?? 0) || 0;
+  if (precomputed > 0.005) return precomputed;
+
+  const discountType =
+    payment.discountType ?? (raw.discount_type as ShootData['payment']['discountType']) ?? null;
+  const discountValue =
+    Number(payment.discountValue ?? (raw.discount_value as number | undefined) ?? 0) || 0;
+  if (!discountValue) return 0;
+
+  const serviceSubtotal =
+    Number(
+      payment.serviceSubtotal ??
+        (raw.service_subtotal as number | undefined) ??
+        payment.baseQuote ??
+        0,
+    ) || 0;
+  return calculateDiscountAmount(serviceSubtotal, discountType, discountValue);
+};
 
 type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
@@ -53,9 +83,9 @@ export function OverviewPaymentSummarySection({
 
   // Discount derived from the client's pricing settings; informational (not
   // directly editable) but surfaced so the breakdown reconciles with the total.
-  const discountAmount = Number(shoot.payment?.discountAmount || 0);
-  const editedDiscountAmount = Number(
-    editedShoot.payment?.discountAmount ?? shoot.payment?.discountAmount ?? 0,
+  const discountAmount = resolveDiscountAmount(shoot.payment);
+  const editedDiscountAmount = resolveDiscountAmount(
+    (editedShoot.payment as ShootData['payment'] | undefined) ?? shoot.payment,
   );
   const hasDiscount = discountAmount > 0.005;
   const hasEditedDiscount = editedDiscountAmount > 0.005;

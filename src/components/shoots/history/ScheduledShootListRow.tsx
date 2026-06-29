@@ -14,8 +14,9 @@ import { API_BASE_URL } from '@/config/env'
 import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
+import { useWeatherData } from '@/hooks/useWeatherData'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
-import { getShootLocalDate } from '@/utils/shootLocalDate'
+import { getShootLocalDate, parseLocalYmd } from '@/utils/shootLocalDate'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
@@ -28,6 +29,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  CloudSun,
   CreditCard,
   DollarSign,
   Download,
@@ -36,6 +38,7 @@ import {
   Image,
   Layers,
   Loader2,
+  MoreHorizontal,
   PauseCircle,
   Send,
   Trash2,
@@ -166,7 +169,7 @@ export const ScheduledShootListRow = ({
   onSendToEditing?: (shoot: ShootData) => void | Promise<void>
   shouldHideClientDetails?: boolean
 }) => {
-  const { formatDate: formatDatePref } = useUserPreferences()
+  const { formatDate: formatDatePref, formatTemperature } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
   // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
   const formatTime = formatTimeForDisplay
@@ -176,6 +179,18 @@ export const ScheduledShootListRow = ({
     if (!value) return '—'
     try { return formatDatePref(value) } catch { return value ?? '—' }
   }
+  const shootLocalDate = getShootLocalDate(shoot)
+  const weatherDate = parseLocalYmd(shootLocalDate)
+  const hasWeatherDate = !Number.isNaN(weatherDate.getTime())
+  const fetchedWeather = useWeatherData({
+    date: hasWeatherDate ? weatherDate : undefined,
+    time: shoot.time,
+    address: shoot.location.fullAddress || shoot.location.address,
+    city: shoot.location.city,
+    state: shoot.location.state,
+    zip: shoot.location.zip,
+    enabled: hasWeatherDate,
+  })
   // Prioritize status over workflowStatus for display, but check both
   const displayStatus = shoot.status ?? shoot.workflowStatus ?? 'scheduled'
   // Normalize hold_on to on_hold for config lookup
@@ -186,18 +201,47 @@ export const ScheduledShootListRow = ({
   const StatusIcon = config.icon
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
-  const paymentStatus = isSuperAdmin && shoot.payment?.totalPaid && shoot.payment?.totalQuote
-    ? shoot.payment.totalPaid >= shoot.payment.totalQuote
+  const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient
+  const paymentStatus = canShowPaymentStatus
+    ? paymentSummary.paymentStatus === 'paid'
       ? 'Paid'
-      : 'Unpaid'
+      : paymentSummary.paymentStatus === 'partial'
+        ? 'Partial'
+        : 'Unpaid'
     : null
+  const paymentBadgeVariant = paymentStatus === 'Paid'
+    ? 'secondary'
+    : paymentStatus === 'Partial'
+      ? 'outline'
+      : 'destructive'
   const approvalNotes = getApprovalNotes(shoot.notes)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify)
+  const hasBottomActions = Boolean(
+    (clientHasPendingPayment && onPayNow) ||
+      canSendToEditing ||
+      onViewInvoice ||
+      ((isSuperAdmin || isAdmin) && onDelete) ||
+      canShowRequestedActions
+  )
   const [isSendingToEditing, setIsSendingToEditing] = useState(false)
+  const weatherTemperatureLabel = (() => {
+    const rawTemperature = fetchedWeather.temperature ?? shoot.weather?.temperature ?? (shoot as any).temperature
+    if (rawTemperature === null || rawTemperature === undefined || rawTemperature === '') return null
+
+    if (typeof rawTemperature === 'string' && rawTemperature.includes('°')) {
+      return rawTemperature
+    }
+
+    const numericTemperature = Number(rawTemperature)
+    return Number.isFinite(numericTemperature) ? formatTemperature(numericTemperature) : String(rawTemperature)
+  })()
+  const weatherCondition = fetchedWeather.condition ?? shoot.weather?.summary ?? (shoot as any).weather_description ?? null
+  const hasWeather = Boolean(weatherTemperatureLabel || weatherCondition)
 
   const handleSendToEditingClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -210,12 +254,74 @@ export const ScheduledShootListRow = ({
     }
   }
 
+  const overflowActionsAvailable = Boolean(
+    canSendToEditing || onViewInvoice || ((isSuperAdmin || isAdmin) && onDelete),
+  )
+
+  const renderOverflowMenu = (triggerClassName: string) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className={triggerClassName}
+          onClick={(e) => e.stopPropagation()}
+          title="More actions"
+          aria-label="More actions"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        {canSendToEditing && (
+          <DropdownMenuItem
+            disabled={isSendingToEditing}
+            onClick={(e) => {
+              e.stopPropagation()
+              void handleSendToEditingClick(e)
+            }}
+          >
+            {isSendingToEditing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            Send to editing
+          </DropdownMenuItem>
+        )}
+        {onViewInvoice && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewInvoice(shoot)
+            }}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            View invoice
+          </DropdownMenuItem>
+        )}
+        {(isSuperAdmin || isAdmin) && onDelete && (
+          <DropdownMenuItem
+            className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(shoot)
+            }}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete shoot
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
   return (
     <Card
       className="cursor-pointer border border-border/70 bg-card/50 hover:border-primary/50 hover:shadow-lg transition-all group backdrop-blur-sm flex flex-col"
       onClick={() => onSelect(shoot)}
     >
-      <div className="p-3 sm:p-4 flex flex-col flex-1">
+      <div className="p-4 sm:p-4 flex flex-col flex-1">
         {/* Row 1: Date/Time | Address | Client/Photographer | Status */}
         {/* Mobile: Stack vertically, Desktop: Horizontal layout */}
         <div className="grid gap-3 md:grid-cols-[140px_minmax(0,1fr)] lg:grid-cols-[140px_minmax(220px,1fr)_minmax(220px,0.72fr)_auto] lg:items-start lg:gap-4 mb-2">
@@ -225,7 +331,7 @@ export const ScheduledShootListRow = ({
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1.5 text-sm font-medium">
                 <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span>{formatDisplayDateLocal(getShootLocalDate(shoot))}</span>
+                <span>{formatDisplayDateLocal(shootLocalDate)}</span>
               </div>
               {shoot.time && shoot.time !== 'TBD' && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -233,17 +339,34 @@ export const ScheduledShootListRow = ({
                   <span>{formatTime(shoot.time)}</span>
                 </div>
               )}
+              {hasWeather && (
+                <div
+                  className="mt-1 flex max-w-[130px] items-center gap-1.5 truncate text-xs text-muted-foreground"
+                  title={[weatherTemperatureLabel, weatherCondition].filter(Boolean).join(' · ')}
+                >
+                  <CloudSun className="h-3.5 w-3.5 flex-shrink-0 text-sky-400" />
+                  {weatherTemperatureLabel && <span className="font-medium text-foreground">{weatherTemperatureLabel}</span>}
+                  {weatherCondition && <span className="min-w-0 truncate capitalize">{weatherCondition}</span>}
+                </div>
+              )}
             </div>
             {/* Status - Right Side (mobile only) */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
-                <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-                {statusLabel}
-              </Badge>
-              {paymentStatus && (
-                <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
-                  {paymentStatus}
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
+                  <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                  {statusLabel}
                 </Badge>
+                {paymentStatus && (
+                  <Badge variant={paymentBadgeVariant} className="text-xs">
+                    {paymentStatus}
+                  </Badge>
+                )}
+              </div>
+              {overflowActionsAvailable && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  {renderOverflowMenu('h-9 w-9 rounded-xl p-0')}
+                </div>
               )}
             </div>
           </div>
@@ -252,12 +375,22 @@ export const ScheduledShootListRow = ({
           <div className="hidden md:flex flex-col gap-0.5 min-w-[140px] flex-shrink-0">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span>{formatDisplayDateLocal(getShootLocalDate(shoot))}</span>
+              <span>{formatDisplayDateLocal(shootLocalDate)}</span>
             </div>
             {shoot.time && shoot.time !== 'TBD' && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>{formatTime(shoot.time)}</span>
+              </div>
+            )}
+            {hasWeather && (
+              <div
+                className="mt-1 flex max-w-[132px] items-center gap-1.5 truncate text-xs text-muted-foreground"
+                title={[weatherTemperatureLabel, weatherCondition].filter(Boolean).join(' · ')}
+              >
+                <CloudSun className="h-3.5 w-3.5 flex-shrink-0 text-sky-400" />
+                {weatherTemperatureLabel && <span className="font-medium text-foreground">{weatherTemperatureLabel}</span>}
+                {weatherCondition && <span className="min-w-0 truncate capitalize">{weatherCondition}</span>}
               </div>
             )}
           </div>
@@ -307,7 +440,7 @@ export const ScheduledShootListRow = ({
           {/* Desktop: Status & Actions - Right Side */}
           <div className="hidden md:flex md:col-start-2 lg:col-start-auto items-center gap-2 flex-shrink-0 lg:justify-end">
             {paymentStatus && (
-              <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
+              <Badge variant={paymentBadgeVariant} className="text-xs">
                 {paymentStatus}
               </Badge>
             )}
@@ -315,51 +448,6 @@ export const ScheduledShootListRow = ({
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
               </div>
-            )}
-            {canSendToEditing && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
-                onClick={handleSendToEditingClick}
-                title="Send to Editing"
-                disabled={isSendingToEditing}
-              >
-                {isSendingToEditing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            )}
-            {/* Invoice button - Available for all roles */}
-            {onViewInvoice && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onViewInvoice(shoot)
-                }}
-                title="View Invoice"
-              >
-                <FileText className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {/* Delete button - Only for admin/superadmin */}
-            {(isSuperAdmin || isAdmin) && onDelete && (
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-8 gap-1.5 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(shoot)
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
             )}
           </div>
         </div>
@@ -427,65 +515,79 @@ export const ScheduledShootListRow = ({
                       <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
                     )}
                   </div>
-                  {clientHasPendingPayment && onPayNow && (
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onPayNow(shoot)
-                      }}
+                  {hasBottomActions ? (
+                    <div
+                      className="mt-1 flex w-full flex-col gap-2 sm:mt-0 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <CreditCard className="mr-1 h-3.5 w-3.5" />
-                      Pay ${paymentSummary.balance.toFixed(2)}
-                    </Button>
-                  )}
-                  {/* Action buttons for requested shoots - bottom right */}
-                  {displayStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify) && (
-                    <div className="flex flex-wrap gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {onApprove && (
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onApprove(shoot);
-                          }}
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1" />
-                          Approve
-                        </Button>
-                      )}
-                      {onModify && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onModify(shoot);
-                          }}
-                        >
-                          <Edit className="h-3.5 w-3.5 mr-1" />
-                          Modify
-                        </Button>
-                      )}
-                      {onDecline && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDecline(shoot);
-                          }}
-                        >
-                          <X className="h-3.5 w-3.5 mr-1" />
-                          Decline
-                        </Button>
+                      {/* Primary row: primary action + overflow menu side by side */}
+                      <div className="flex items-center justify-end gap-2 sm:contents">
+                        {clientHasPendingPayment && onPayNow && (
+                          <Button
+                            size="sm"
+                            className="h-11 flex-1 justify-center rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 sm:h-9 sm:flex-none sm:rounded-md sm:text-xs sm:font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onPayNow(shoot)
+                            }}
+                          >
+                            <CreditCard className="mr-1.5 h-4 w-4" />
+                            Pay ${paymentSummary.balance.toFixed(2)}
+                          </Button>
+                        )}
+                        {canShowRequestedActions && onApprove && (
+                          <Button
+                            size="sm"
+                            className="h-11 flex-1 justify-center rounded-xl bg-green-600 text-sm font-semibold text-white shadow-sm hover:bg-green-700 sm:h-9 sm:flex-none sm:rounded-md sm:text-xs sm:font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onApprove(shoot);
+                            }}
+                          >
+                            <Check className="mr-1.5 h-4 w-4" />
+                            Approve
+                          </Button>
+                        )}
+                        {overflowActionsAvailable && (
+                          <div className="hidden md:contents">
+                            {renderOverflowMenu('h-9 w-9 shrink-0 rounded-md p-0 md:order-last')}
+                          </div>
+                        )}
+                      </div>
+                      {canShowRequestedActions && (onModify || onDecline) && (
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                          {onModify && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 w-full justify-center rounded-xl text-sm font-medium sm:h-9 sm:w-auto sm:rounded-md sm:text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onModify(shoot);
+                              }}
+                            >
+                              <Edit className="mr-1.5 h-4 w-4" />
+                              Modify
+                            </Button>
+                          )}
+                          {onDecline && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 w-full justify-center rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30 sm:h-9 sm:w-auto sm:rounded-md sm:text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDecline(shoot);
+                              }}
+                            >
+                              <X className="mr-1.5 h-4 w-4" />
+                              Decline
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
