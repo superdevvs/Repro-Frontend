@@ -22,6 +22,10 @@ rsync -rltD --delete --omit-dir-times --no-owner --no-group --no-perms \
   "$APP_DIR/" "$BUILD_DIR/"
 
 cd "$BUILD_DIR"
+if [ -f "$APP_DIR/.env" ]; then
+  cp "$APP_DIR/.env" "$BUILD_DIR/.env"
+fi
+export VITE_API_URL="${VITE_API_URL:-https://api.reprodashboard.com}"
 if ! npm ci; then
   npm install
 fi
