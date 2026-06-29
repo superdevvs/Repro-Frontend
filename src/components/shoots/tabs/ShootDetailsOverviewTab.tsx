@@ -78,11 +78,8 @@ import { OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
-import { OverviewPhotographerSection } from './overview/OverviewPhotographerSection';
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
-import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
-import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
-import { OverviewServicesSection } from './overview/OverviewServicesSection';
+import { OverviewServicesTableSection } from './overview/OverviewServicesTableSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
   extractPhotoCountFromServiceName,
@@ -711,6 +708,7 @@ export function ShootDetailsOverviewTab({
       return String(service);
     })
     .filter((service): service is string => Boolean(service));
+  const serviceItems = useMemo(() => getShootServiceItems(shoot), [shoot]);
   const paymentServiceItems = useMemo(
     () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),
     [shoot],
@@ -836,21 +834,6 @@ export function ShootDetailsOverviewTab({
 
   return (
     <div className="space-y-2">
-      <OverviewScheduleWeatherSection
-        isEditMode={isEditMode}
-        editedShoot={editedShoot}
-        shoot={shoot}
-        scheduleDateDisplay={scheduleDateDisplay}
-        scheduleTimeDisplay={scheduleTimeDisplay}
-        hasWeatherDetails={hasWeatherDetails}
-        formattedTemperature={formattedTemperature}
-        weatherDescription={weatherDescription}
-        weatherIcon={renderWeatherIcon(weatherIcon)}
-        alternateScheduleDisplay={alternateScheduleDisplay}
-        formatDateForInput={formatDateForInput}
-        updateField={updateField}
-      />
-
       <OverviewPropertyLocationSection
         isEditMode={isEditMode}
         propertyMetrics={propertyMetrics}
@@ -865,31 +848,39 @@ export function ShootDetailsOverviewTab({
         handleAddressSelect={handleAddressSelect}
         getLocationAddress={getLocationAddress}
         locationDetails={locationDetails}
+        hasWeatherDetails={hasWeatherDetails}
+        formattedTemperature={formattedTemperature}
+        weatherDescription={weatherDescription}
+        weatherIcon={renderWeatherIcon(weatherIcon)}
       />
 
-      <OverviewServicesSection
+      <OverviewServicesTableSection
         isEditMode={isEditMode}
         shoot={shoot}
-        services={services}
+        serviceItems={serviceItems}
         servicesList={servicesList}
         selectedServiceIds={selectedServiceIds}
         serviceSchedules={serviceSchedules}
-        updateServiceSchedule={updateServiceSchedule}
-        serviceDialogOpen={serviceDialogOpen}
-        setServiceDialogOpen={setServiceDialogOpen}
-        serviceCategoryOptions={serviceCategoryOptions}
-        servicePanelCategory={servicePanelCategory}
-        setServicePanelCategory={setServicePanelCategory}
-        serviceModalSearch={serviceModalSearch}
-        setServiceModalSearch={setServiceModalSearch}
-        panelServices={panelServices}
+        effectiveSqft={effectiveSqft}
+        editModePhotographerRows={editModePhotographerRows}
+        perCategoryPhotographers={perCategoryPhotographers}
+        selectedPhotographerIdEdit={selectedPhotographerIdEdit}
+        resolvePhotographerDetails={resolvePhotographerDetails}
         toggleServiceSelection={toggleServiceSelection}
-        formatServiceLabel={formatServiceLabel}
-        getServiceCountBadge={getServiceCountBadge}
+        updateServiceSchedule={updateServiceSchedule}
+        openEditPhotographerPicker={openEditPhotographerPicker}
         getServiceDisplayPrice={getServiceDisplayPrice}
         getReadonlyServiceDisplayPrice={getServiceDisplayPrice}
-        getServiceCategoryBadgeName={getServiceCategoryBadgeName}
-        effectiveSqft={effectiveSqft}
+        formatServiceLabel={formatServiceLabel}
+        serviceDialogOpen={serviceDialogOpen}
+        setServiceDialogOpen={setServiceDialogOpen}
+        serviceModalSearch={serviceModalSearch}
+        setServiceModalSearch={setServiceModalSearch}
+        servicePanelCategory={servicePanelCategory}
+        setServicePanelCategory={setServicePanelCategory}
+        panelServices={panelServices}
+        isClient={isClient}
+        isPhotographer={isPhotographer}
       />
 
       <OverviewClientSection
@@ -908,21 +899,6 @@ export function ShootDetailsOverviewTab({
         setSelectedClientId={setSelectedClientId}
         updateField={updateField}
       />
-
-      {!isEditor && (
-        <OverviewPhotographerSection
-          shoot={shoot}
-          isEditMode={isEditMode}
-          isPhotographer={isPhotographer}
-          isClient={isClient}
-          photographerAssignments={photographerAssignments}
-          editModePhotographerRows={editModePhotographerRows}
-          perCategoryPhotographers={perCategoryPhotographers}
-          selectedPhotographerIdEdit={selectedPhotographerIdEdit}
-          resolvePhotographerDetails={resolvePhotographerDetails}
-          openEditPhotographerPicker={openEditPhotographerPicker}
-        />
-      )}
 
       {!isEditor && (
         <OverviewAccessSection
@@ -1005,15 +981,6 @@ export function ShootDetailsOverviewTab({
           shoot={shoot}
           isEditor={isEditor || role === 'editing_manager'}
           showShareText={role === 'editing_manager'}
-        />
-      )}
-
-      {!isPhotographer && !isEditor && (
-        <OverviewServiceProgressSection
-          shoot={shoot}
-          canDeliver={isAdmin}
-          deliveringServiceItemId={deliveringServiceItemId}
-          onDeliverServiceItem={handleDeliverServiceItem}
         />
       )}
 

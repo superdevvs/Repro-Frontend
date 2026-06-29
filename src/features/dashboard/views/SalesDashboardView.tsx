@@ -127,6 +127,8 @@ export const SalesDashboardView = ({
         title={greetingTitleFullName}
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
+        collapsibleColumns
+        pendingIndicatorCount={pendingReviews.length}
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"

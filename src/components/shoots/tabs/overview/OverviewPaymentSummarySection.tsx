@@ -8,6 +8,7 @@ import { PendingPaymentIntentsCard } from '@/components/payments/PendingPaymentI
 type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
   isAdmin: boolean;
+  isRep: boolean;
   isClient: boolean;
   isClientReleaseLocked: boolean;
   editedShoot: Partial<ShootData>;

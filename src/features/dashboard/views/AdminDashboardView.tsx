@@ -11,6 +11,8 @@ import type { DashboardOverview } from "@/types/dashboard";
 
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import type { MobileDashboardTab } from "../types";
+import { CollapsibleColumnHandle } from "../components/CollapsibleColumnHandle";
+import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
 
 interface AdminDashboardViewProps {
   adminMetricTiles: DashboardMetricTile[];
@@ -32,7 +34,6 @@ interface AdminDashboardViewProps {
 }
 
 const AUTO_HIDE_LEFT_MIN_WIDTH = 1025;
-const AUTO_HIDE_LEFT_MAX_WIDTH = 1420;
 
 export const AdminDashboardView = ({
   adminMetricTiles,
@@ -52,103 +53,18 @@ export const AdminDashboardView = ({
   setCancellationDialogOpen,
   setMobileDashboardTab,
 }: AdminDashboardViewProps) => {
-  const [leftColumnHidden, setLeftColumnHidden] = React.useState(false);
-  const [rightColumnHidden, setRightColumnHidden] = React.useState(false);
-  const [autoRangeVisibleColumn, setAutoRangeVisibleColumn] = React.useState<"left" | "right" | null>("right");
-  const [leftHandleSettling, setLeftHandleSettling] = React.useState(false);
-  const [rightHandleSettling, setRightHandleSettling] = React.useState(false);
-  const [viewportWidth, setViewportWidth] = React.useState(() => (
-    typeof window === "undefined" ? 0 : window.innerWidth
-  ));
-  const leftHandleSettleTimerRef = React.useRef<number | null>(null);
-  const rightHandleSettleTimerRef = React.useRef<number | null>(null);
-  const shouldAutoHideLeftColumn = viewportWidth >= AUTO_HIDE_LEFT_MIN_WIDTH && viewportWidth <= AUTO_HIDE_LEFT_MAX_WIDTH;
-  const autoRangeLeftColumnHidden = shouldAutoHideLeftColumn && autoRangeVisibleColumn !== "left";
-  const autoRangeRightColumnHidden = shouldAutoHideLeftColumn && autoRangeVisibleColumn !== "right";
-  const effectiveLeftColumnHidden = leftColumnHidden || autoRangeLeftColumnHidden;
-  const effectiveRightColumnHidden = rightColumnHidden || autoRangeRightColumnHidden;
-  const isDesktopGrid = viewportWidth >= AUTO_HIDE_LEFT_MIN_WIDTH;
-  const desktopGridTemplateColumns = effectiveLeftColumnHidden && effectiveRightColumnHidden
-    ? "0px 0px minmax(0, 1fr) 0px 0px"
-    : effectiveLeftColumnHidden
-      ? "0px 0px minmax(0, 1fr) 24px 320px"
-      : effectiveRightColumnHidden
-        ? "320px 24px minmax(0, 1fr) 0px 0px"
-        : "320px 24px minmax(0, 1fr) 24px 320px";
-  // Anchor the toggle handles to the middle column's own edges so they always
-  // sit centered in the column gap, independent of viewport width. This avoids
-  // the fluid percentage drift and the breakpoint jump that previously caused
-  // the buttons to shift left/right when resizing the window.
-  const leftHandlePositionClass = "-left-6";
-  const rightHandlePositionClass = "-right-6";
+  const {
+    isDesktopGrid,
+    desktopGridTemplateColumns,
+    effectiveLeftColumnHidden,
+    effectiveRightColumnHidden,
+    leftHandleSettling,
+    rightHandleSettling,
+    toggleLeftColumn,
+    toggleRightColumn,
+  } = useCollapsibleDashboardColumns({ desktopMinWidth: AUTO_HIDE_LEFT_MIN_WIDTH });
+
   const hasRequestIndicator = requestIndicatorCount > 0;
-
-  React.useEffect(() => {
-    const handleResize = () => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      if (leftHandleSettleTimerRef.current !== null) {
-        window.clearTimeout(leftHandleSettleTimerRef.current);
-      }
-      if (rightHandleSettleTimerRef.current !== null) {
-        window.clearTimeout(rightHandleSettleTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleToggleLeftColumn = React.useCallback(() => {
-    setLeftHandleSettling(true);
-    if (leftHandleSettleTimerRef.current !== null) {
-      window.clearTimeout(leftHandleSettleTimerRef.current);
-    }
-    leftHandleSettleTimerRef.current = window.setTimeout(() => {
-      setLeftHandleSettling(false);
-      leftHandleSettleTimerRef.current = null;
-    }, 420);
-    if (shouldAutoHideLeftColumn) {
-      if (effectiveLeftColumnHidden) {
-        setAutoRangeVisibleColumn("left");
-        setLeftColumnHidden(false);
-        setRightColumnHidden(false);
-      } else {
-        setAutoRangeVisibleColumn(null);
-        setLeftColumnHidden(false);
-        setRightColumnHidden(false);
-      }
-      return;
-    }
-    setLeftColumnHidden((hidden) => !hidden);
-  }, [effectiveLeftColumnHidden, shouldAutoHideLeftColumn]);
-
-  const handleToggleRightColumn = React.useCallback(() => {
-    setRightHandleSettling(true);
-    if (rightHandleSettleTimerRef.current !== null) {
-      window.clearTimeout(rightHandleSettleTimerRef.current);
-    }
-    rightHandleSettleTimerRef.current = window.setTimeout(() => {
-      setRightHandleSettling(false);
-      rightHandleSettleTimerRef.current = null;
-    }, 420);
-    if (shouldAutoHideLeftColumn) {
-      if (effectiveRightColumnHidden) {
-        setAutoRangeVisibleColumn("right");
-        setLeftColumnHidden(false);
-        setRightColumnHidden(false);
-      } else {
-        setAutoRangeVisibleColumn(null);
-        setLeftColumnHidden(false);
-        setRightColumnHidden(false);
-      }
-      return;
-    }
-    setRightColumnHidden((hidden) => !hidden);
-  }, [effectiveRightColumnHidden, shouldAutoHideLeftColumn]);
 
   const mobileTabs = [
     {
@@ -223,63 +139,19 @@ export const AdminDashboardView = ({
                 : "md:col-span-6 min-[1025px]:col-span-1"
           )}
         >
-          <div
-            style={{ visibility: leftHandleSettling ? "hidden" : "visible" }}
-            className={cn(
-              "group/left-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
-              leftHandlePositionClass,
-              leftHandleSettling && "pointer-events-none !opacity-0"
-            )}
-          >
-            <button
-              type="button"
-              aria-label={effectiveLeftColumnHidden ? "Show left dashboard column" : "Hide left dashboard column"}
-              onClick={handleToggleLeftColumn}
-              className={cn(
-                "pointer-events-auto flex h-16 w-6 translate-y-0 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/left-handle:opacity-100",
-                leftHandleSettling && "opacity-0 group-hover/left-handle:opacity-0"
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "h-0 w-0 border-y-[7px] border-y-transparent",
-                  effectiveLeftColumnHidden ? "border-l-[9px] border-l-current" : "border-r-[9px] border-r-current"
-                )}
-              />
-            </button>
-          </div>
-          <div
-            style={{ visibility: rightHandleSettling ? "hidden" : "visible" }}
-            className={cn(
-              "group/right-handle absolute bottom-0 top-0 z-10 hidden w-6 items-start justify-center pt-2 md:flex",
-              rightHandlePositionClass,
-              rightHandleSettling && "pointer-events-none !opacity-0"
-            )}
-          >
-            {hasRequestIndicator && (
-              <span className="pointer-events-none absolute left-1/2 top-5 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-lg shadow-primary/30 opacity-0 transition-opacity duration-150 group-hover/right-handle:opacity-100">
-                {requestIndicatorCount > 9 ? '9+' : requestIndicatorCount}
-              </span>
-            )}
-            <button
-              type="button"
-              aria-label={effectiveRightColumnHidden ? "Show right dashboard column" : "Hide right dashboard column"}
-              onClick={handleToggleRightColumn}
-              className={cn(
-                "pointer-events-auto mt-9 flex h-16 w-6 items-center justify-center rounded-full border border-primary/25 bg-background/95 text-primary opacity-0 shadow-lg shadow-primary/10 backdrop-blur transition-opacity duration-150 group-hover/right-handle:opacity-100",
-                rightHandleSettling && "opacity-0 group-hover/right-handle:opacity-0"
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "h-0 w-0 border-y-[7px] border-y-transparent",
-                  effectiveRightColumnHidden ? "border-r-[9px] border-r-current" : "border-l-[9px] border-l-current"
-                )}
-              />
-            </button>
-          </div>
+          <CollapsibleColumnHandle
+            side="left"
+            hidden={effectiveLeftColumnHidden}
+            settling={leftHandleSettling}
+            onToggle={toggleLeftColumn}
+          />
+          <CollapsibleColumnHandle
+            side="right"
+            hidden={effectiveRightColumnHidden}
+            settling={rightHandleSettling}
+            onToggle={toggleRightColumn}
+            indicatorCount={hasRequestIndicator ? requestIndicatorCount : 0}
+          />
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
           {renderShootsTabsCard()}
         </motion.div>

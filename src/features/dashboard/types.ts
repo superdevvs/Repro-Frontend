@@ -44,6 +44,16 @@ export interface RoleDashboardLayoutProps {
   emptyPendingText?: string;
   role?: UserRole;
   hideLeftColumn?: boolean;
+  /**
+   * When true, the desktop layout renders collapsible left/right side columns
+   * with hover handles and the automatic "tight range" hide behavior (the same
+   * behavior used by the admin dashboard). Requires both a left column and a
+   * right column to be meaningful. Defaults to false so other roles keep the
+   * simple static grid.
+   */
+  collapsibleColumns?: boolean;
+  /** Optional badge count shown on the right column's collapse handle. */
+  pendingIndicatorCount?: number;
   mobileTab?: string;
   onMobileTabChange?: (value: string) => void;
   mobileTabs?: Array<{

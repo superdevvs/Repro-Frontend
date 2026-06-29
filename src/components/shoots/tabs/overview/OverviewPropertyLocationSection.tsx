@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { BedDouble, MapPinIcon, Ruler, ShowerHead } from 'lucide-react';
 import AddressLookupField from '@/components/AddressLookupField';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,10 @@ type OverviewPropertyLocationSectionProps = {
     state?: string;
     zip?: string;
   };
+  hasWeatherDetails: boolean;
+  formattedTemperature: string | null;
+  weatherDescription: string | null;
+  weatherIcon: ReactNode;
 };
 
 const propertyMetricFields: Array<{
@@ -61,6 +65,10 @@ export function OverviewPropertyLocationSection({
   handleAddressSelect,
   getLocationAddress,
   locationDetails,
+  hasWeatherDetails,
+  formattedTemperature,
+  weatherDescription,
+  weatherIcon,
 }: OverviewPropertyLocationSectionProps) {
   const propertyMetricsGridClassName = propertyMetrics.length > 3
     ? 'grid grid-cols-2 gap-2 sm:grid-cols-4'
@@ -116,69 +124,86 @@ export function OverviewPropertyLocationSection({
       </div>
 
       <div className="p-2.5 border rounded-lg bg-card">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase">Location</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Location</span>
+            </div>
+            {isEditMode ? (
+              <div className="space-y-1.5 text-xs">
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">Address:</span>
+                  <AddressLookupField
+                    value={addressInput}
+                    onChange={(value) => {
+                      setAddressInput(value);
+                      updateField('location.address', value);
+                    }}
+                    onSelectionReset={() => {
+                      clearAddressDerivedState();
+                    }}
+                    onSelectionStarted={() => {
+                      clearAddressDerivedState({ keepAddressInput: false });
+                    }}
+                    onAddressSelect={handleAddressSelect as any}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground">City:</span>
+                    <Input
+                      type="text"
+                      value={editedShoot.location?.city || shoot.location?.city || ''}
+                      onChange={(event) => updateField('location.city', event.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground">State:</span>
+                    <Input
+                      type="text"
+                      maxLength={2}
+                      value={editedShoot.location?.state || shoot.location?.state || ''}
+                      onChange={(event) => updateField('location.state', event.target.value.toUpperCase())}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">ZIP:</span>
+                  <Input
+                    type="text"
+                    value={editedShoot.location?.zip || shoot.location?.zip || ''}
+                    onChange={(event) => updateField('location.zip', event.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs">
+                <div className="font-medium truncate">{getLocationAddress()}</div>
+                <div className="text-muted-foreground mt-0.5 truncate">
+                  {[locationDetails.city, locationDetails.state, locationDetails.zip].filter(Boolean).join(', ') || 'Not set'}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 flex items-center gap-1.5">
+            {weatherIcon}
+            {hasWeatherDetails ? (
+              <div className="flex items-center gap-1.5">
+                {formattedTemperature && <span className="text-xs font-medium">{formattedTemperature}</span>}
+                {weatherDescription && (
+                  <span className="text-xs text-muted-foreground capitalize">{weatherDescription}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No data</span>
+            )}
+          </div>
         </div>
-        {isEditMode ? (
-          <div className="space-y-1.5 text-xs">
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Address:</span>
-              <AddressLookupField
-                value={addressInput}
-                onChange={(value) => {
-                  setAddressInput(value);
-                  updateField('location.address', value);
-                }}
-                onSelectionReset={() => {
-                  clearAddressDerivedState();
-                }}
-                onSelectionStarted={() => {
-                  clearAddressDerivedState({ keepAddressInput: false });
-                }}
-                onAddressSelect={handleAddressSelect as any}
-                className="text-xs"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground">City:</span>
-                <Input
-                  type="text"
-                  value={editedShoot.location?.city || shoot.location?.city || ''}
-                  onChange={(event) => updateField('location.city', event.target.value)}
-                  className="h-7 text-xs"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground">State:</span>
-                <Input
-                  type="text"
-                  maxLength={2}
-                  value={editedShoot.location?.state || shoot.location?.state || ''}
-                  onChange={(event) => updateField('location.state', event.target.value.toUpperCase())}
-                  className="h-7 text-xs"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">ZIP:</span>
-              <Input
-                type="text"
-                value={editedShoot.location?.zip || shoot.location?.zip || ''}
-                onChange={(event) => updateField('location.zip', event.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="text-xs">
-            <div className="font-medium truncate">{getLocationAddress()}</div>
-            <div className="text-muted-foreground mt-0.5 truncate">
-              {[locationDetails.city, locationDetails.state, locationDetails.zip].filter(Boolean).join(', ') || 'Not set'}
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

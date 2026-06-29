@@ -121,7 +121,7 @@ export function OverviewClientSection({
               <div className="text-muted-foreground truncate">{shoot.client.phone}</div>
             )}
           </div>
-          {isAdmin && (
+          {(isAdmin || isRep) && (
             <div className="text-xs text-right">
               <div className="text-[10px] text-muted-foreground uppercase mb-0.5">Rep</div>
               {repName ? (
