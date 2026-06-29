@@ -338,7 +338,7 @@ interface ShootDetailsOverviewTabProps {
   isClientReleaseLocked?: boolean;
   shouldHideClientDetails?: boolean;
   role: string;
-  onShootUpdate: () => void;
+  onShootUpdate: () => void | Promise<ShootData | null>;
   weather?: WeatherInfo | null;
   isEditMode?: boolean;
   onSave?: (updates: Partial<ShootData>) => void;
@@ -501,7 +501,10 @@ export function ShootDetailsOverviewTab({
       const json = await response.json().catch(() => null);
       const persisted = resolveFeaturedShootState((json?.data || json || { is_featured: checked }) as Partial<ShootData>);
       setFeaturedShootState(persisted);
-      onShootUpdate();
+      const refreshedShoot = await Promise.resolve(onShootUpdate());
+      if (refreshedShoot) {
+        setFeaturedShootState(resolveFeaturedShootState(refreshedShoot));
+      }
       toast(resolveFeaturedShootRequestToast(persisted));
     } catch (error) {
       console.error('Failed to update Featured Shoot', error);
@@ -963,7 +966,8 @@ export function ShootDetailsOverviewTab({
         ).toLowerCase();
         const featuredAllowedStatuses = new Set(['ready', 'delivered']);
         const featuredAvailable = featuredAllowedStatuses.has(normalizedStatus);
-        const canApproveFeaturedShoot = role === 'admin' || role === 'superadmin';
+        const normalizedRoleForFeatured = String(role ?? '').trim().toLowerCase();
+        const canApproveFeaturedShoot = ['admin', 'superadmin', 'super_admin'].includes(normalizedRoleForFeatured);
         const featuredSwitchChecked = isFeaturedShootSwitchOn(featuredShootState);
         const featuredDisabled = isSavingFeaturedShoot || !featuredAvailable || (featuredShootState.approved && !canApproveFeaturedShoot);
         const featuredDescription = featuredShootState.approved

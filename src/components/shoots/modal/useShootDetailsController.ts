@@ -20,16 +20,20 @@ export function useShootDetailsController({
   shouldHideClientDetailsProp = false,
 }: UseShootDetailsControllerInput) {
   const currentUserRole = currentRole || authRole || '';
+  const normalizedRole = currentUserRole.trim().toLowerCase();
 
   const roleFlags = useMemo(() => {
-    const isEditingManager = currentUserRole === 'editing_manager';
+    const isEditingManager = normalizedRole === 'editing_manager';
     const isAdmin =
-      ['admin', 'superadmin'].includes(currentUserRole) || isEditingManager;
+      ['admin', 'superadmin', 'super_admin'].includes(normalizedRole) || isEditingManager;
     const isRep =
-      currentUserRole === 'salesRep' || currentUserRole === 'rep' || currentUserRole === 'representative';
-    const isPhotographer = currentUserRole === 'photographer';
-    const isEditor = currentUserRole === 'editor';
-    const isClient = currentUserRole === 'client';
+      normalizedRole === 'salesrep' ||
+      normalizedRole === 'sales_rep' ||
+      normalizedRole === 'rep' ||
+      normalizedRole === 'representative';
+    const isPhotographer = normalizedRole === 'photographer';
+    const isEditor = normalizedRole === 'editor';
+    const isClient = normalizedRole === 'client';
 
     return {
       isEditingManager,
@@ -40,7 +44,7 @@ export function useShootDetailsController({
       isEditor,
       isClient,
     };
-  }, [currentUserRole]);
+  }, [normalizedRole]);
 
   const shouldHideClientDetails =
     shouldHideClientDetailsProp || roleFlags.isEditor;

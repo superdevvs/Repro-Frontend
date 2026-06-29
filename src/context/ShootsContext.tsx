@@ -534,6 +534,18 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     typeof (shoot as any).is_private_listing === 'boolean'
       ? Boolean((shoot as any).is_private_listing)
       : Boolean((shoot as any).isPrivateListing);
+  const isFeatured =
+    typeof (shoot as any).is_featured === 'boolean'
+      ? Boolean((shoot as any).is_featured)
+      : Boolean((shoot as any).isFeatured);
+  const featuredPending =
+    typeof (shoot as any).featured_pending === 'boolean'
+      ? Boolean((shoot as any).featured_pending)
+      : Boolean((shoot as any).featuredPending);
+  const featuredStatus =
+    (shoot as any).featured_status ??
+    (shoot as any).featuredStatus ??
+    (isFeatured ? 'featured' : featuredPending ? 'pending' : 'none');
   const normalizedGhostUsers = (() => {
     const source = Array.isArray((shoot as any).ghost_users)
       ? (shoot as any).ghost_users
@@ -955,6 +967,20 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     files: shoot.files || undefined,
     tourPurchased: shoot.tour_purchased ? Boolean(shoot.tour_purchased) : undefined,
     isPrivateListing,
+    isFeatured,
+    is_featured: isFeatured,
+    featuredPending,
+    featured_pending: featuredPending,
+    featuredStatus,
+    featured_status: featuredStatus,
+    featuredRequestedAt: (shoot as any).featuredRequestedAt ?? (shoot as any).featured_requested_at ?? null,
+    featured_requested_at: (shoot as any).featured_requested_at ?? (shoot as any).featuredRequestedAt ?? null,
+    featuredRequestedBy: (shoot as any).featuredRequestedBy ?? (shoot as any).featured_requested_by ?? null,
+    featured_requested_by: (shoot as any).featured_requested_by ?? (shoot as any).featuredRequestedBy ?? null,
+    featuredApprovedAt: (shoot as any).featuredApprovedAt ?? (shoot as any).featured_approved_at ?? null,
+    featured_approved_at: (shoot as any).featured_approved_at ?? (shoot as any).featuredApprovedAt ?? null,
+    featuredApprovedBy: (shoot as any).featuredApprovedBy ?? (shoot as any).featured_approved_by ?? null,
+    featured_approved_by: (shoot as any).featured_approved_by ?? (shoot as any).featuredApprovedBy ?? null,
     photographerPay: toNumber((shoot as any).total_photographer_pay),
     totalPhotographerPay: toNumber((shoot as any).total_photographer_pay),
     propertyDetails: (shoot as any).property_details || undefined,
