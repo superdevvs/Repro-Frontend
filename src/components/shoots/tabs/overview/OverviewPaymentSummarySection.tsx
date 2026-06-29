@@ -185,6 +185,12 @@ export function OverviewPaymentSummarySection({
                   <span>${cancellationFee.toFixed(2)}</span>
                 </div>
               )}
+              {hasDiscount && !shouldShowCancelledServiceCharges && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Discount:</span>
+                  <span className="text-emerald-600">-${discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-medium">
                 <span>Total:</span>
                 <span>${(Number(shoot.payment?.totalQuote) || 0).toFixed(2)}</span>
