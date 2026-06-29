@@ -25,9 +25,10 @@ import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
-const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
+const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
+const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
 const BROWSER_LOCATION_KEY = 'dashboard.browserLocation.v1';
-const IP_LOCATION_KEY = 'dashboard.ipLocation.v6';
+const IP_LOCATION_KEY = 'dashboard.ipLocation.v7';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type WeatherCoordSource = 'browser' | 'ip' | 'default';
 type IpLocation = {
@@ -73,7 +74,10 @@ const readCachedLocation = (storageKey: string) => {
 
 const readCachedBrowserLocation = () => readCachedLocation(BROWSER_LOCATION_KEY);
 
-const readCachedIpLocation = () => readCachedLocation(IP_LOCATION_KEY);
+const readCachedIpLocation = () => {
+  const cached = readCachedLocation(IP_LOCATION_KEY);
+  return cached ? normalizeWeatherLocation(cached) : null;
+};
 
 const cacheLocation = (storageKey: string, coords: IpLocation) => {
   if (typeof window === 'undefined') return;
@@ -90,6 +94,24 @@ const cacheIpLocation = (coords: IpLocation) => cacheLocation(IP_LOCATION_KEY, c
 const buildIpLocationLabel = (city?: string | null, region?: string | null) => {
   const parts = [city, region].filter((part): part is string => Boolean(part && part.trim()));
   return parts.length > 0 ? parts.join(', ') : null;
+};
+
+const normalizeWeatherLocation = (location: IpLocation): IpLocation => {
+  const label = location.label?.toLowerCase() ?? '';
+  const isNamkumArea = label.includes('namkum');
+  const isNearHatia = Math.abs(location.lat - DEFAULT_WEATHER_COORDS.lat) <= 0.12
+    && Math.abs(location.lon - DEFAULT_WEATHER_COORDS.lon) <= 0.12;
+
+  if (!isNamkumArea && !isNearHatia) {
+    return location;
+  }
+
+  return {
+    ...location,
+    lat: DEFAULT_WEATHER_COORDS.lat,
+    lon: DEFAULT_WEATHER_COORDS.lon,
+    label: DEFAULT_WEATHER_LABEL,
+  };
 };
 
 const refineLocationHint = async (location: IpLocation, signal?: AbortSignal): Promise<IpLocation> => {
@@ -118,7 +140,7 @@ const refineLocationHint = async (location: IpLocation, signal?: AbortSignal): P
       typeof data.latitude === 'number' &&
       typeof data.longitude === 'number'
     ) {
-      return {
+      return normalizeWeatherLocation({
         lat: data.latitude,
         lon: data.longitude,
         label:
@@ -127,13 +149,13 @@ const refineLocationHint = async (location: IpLocation, signal?: AbortSignal): P
             : location.label,
         postalCode: typeof data.postalCode === 'string' ? data.postalCode : location.postalCode ?? null,
         countryCode: location.countryCode ?? null,
-      };
+      });
     }
   } catch {
     // ignore refinement failures and use the original location
   }
 
-  return location;
+  return normalizeWeatherLocation(location);
 };
 
 const normalizeApiLocation = (data: Record<string, unknown>): IpLocation | null => {
@@ -144,7 +166,7 @@ const normalizeApiLocation = (data: Record<string, unknown>): IpLocation | null 
     return null;
   }
 
-  return {
+  return normalizeWeatherLocation({
     lat: data.latitude,
     lon: data.longitude,
     label:
@@ -153,7 +175,7 @@ const normalizeApiLocation = (data: Record<string, unknown>): IpLocation | null 
         : null,
     postalCode: typeof data.postalCode === 'string' ? data.postalCode : null,
     countryCode: typeof data.countryCode === 'string' ? data.countryCode : null,
-  };
+  });
 };
 
 const fetchBackendIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
@@ -238,7 +260,7 @@ const resolveInitialWeatherState = () => {
     return { coords: cachedIpCoords, source: 'ip' as const, label: cachedIpCoords.label ?? null };
   }
 
-  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, label: null };
+  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, label: DEFAULT_WEATHER_LABEL };
 };
 
 export function Navbar() {
