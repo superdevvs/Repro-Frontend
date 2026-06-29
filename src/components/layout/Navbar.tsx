@@ -260,7 +260,7 @@ const resolveInitialWeatherState = () => {
     return { coords: cachedIpCoords, source: 'ip' as const, label: cachedIpCoords.label ?? null };
   }
 
-  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, label: DEFAULT_WEATHER_LABEL };
+  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, label: null };
 };
 
 export function Navbar() {
