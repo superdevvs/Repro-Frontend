@@ -5,6 +5,7 @@ import {
   STATUS_FILTERS_BY_TAB,
   isEditorActiveOperationalShoot,
   isEditorDeliveredOperationalShoot,
+  isFeaturedTabShoot,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootData } from '@/types/shoots'
 import {
@@ -14,6 +15,7 @@ import {
   Image,
   Loader2,
   PauseCircle,
+  Star,
 } from 'lucide-react'
 
 type UseShootHistoryViewStateArgs = {
@@ -46,6 +48,7 @@ export function useShootHistoryViewState({
     const holdCount = operationalData.filter((shoot) => matchesTab(shoot, 'hold')).length
     const editingCount = operationalData.filter((shoot) => isEditorActiveOperationalShoot(shoot)).length
     const editedCount = operationalData.filter((shoot) => isEditorDeliveredOperationalShoot(shoot)).length
+    const featuredCount = operationalData.filter((shoot) => isFeaturedTabShoot(shoot)).length
 
     if (isEditor) {
       const editorTabs: AutoExpandingTab[] = [
@@ -69,6 +72,7 @@ export function useShootHistoryViewState({
           icon: Clock,
           label: 'History',
           badge: historyMeta?.total ? historyMeta.total : undefined,
+          collapseOnDesktop: true,
         })
       }
 
@@ -76,6 +80,8 @@ export function useShootHistoryViewState({
     }
 
     const canViewInProgress = !['client', 'editor'].includes(role || '')
+    const normalizedRole = String(role ?? '').trim().toLowerCase()
+    const canViewFeatured = normalizedRole === 'admin' || normalizedRole === 'superadmin'
 
     const baseTabs: AutoExpandingTab[] = [
       {
@@ -108,12 +114,23 @@ export function useShootHistoryViewState({
       },
     ]
 
+    if (canViewFeatured) {
+      baseTabs.push({
+        value: 'featured',
+        icon: Star,
+        label: 'Featured',
+        badge: featuredCount > 0 ? featuredCount : undefined,
+        collapseOnDesktop: true,
+      })
+    }
+
     if (canViewHistory) {
       baseTabs.push({
         value: 'history',
         icon: Clock,
         label: 'History',
         badge: historyMeta?.total ? historyMeta.total : undefined,
+        collapseOnDesktop: true,
       })
     }
 

@@ -42,7 +42,7 @@ type OperationalMeta = { current_page: number; per_page: number; total: number }
 type PhotographerOption = { id: string | number; name: string; avatar?: string }
 type ShootHistoryRecordWithMls = ShootHistoryRecord & { mls_id?: string | number | null }
 
-const ACTIVE_OPERATIONAL_TABS = ['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const
+const ACTIVE_OPERATIONAL_TABS = ['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited', 'featured'] as const
 
 const isActiveOperationalTab = (value: AvailableTab): value is ActiveOperationalTab =>
   ACTIVE_OPERATIONAL_TABS.includes(value as ActiveOperationalTab)

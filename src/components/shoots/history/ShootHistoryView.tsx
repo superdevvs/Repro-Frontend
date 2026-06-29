@@ -131,6 +131,7 @@ export type ShootHistoryViewProps = {
   scheduledContent: React.ReactNode
   completedContent: React.ReactNode
   holdOnContent: React.ReactNode
+  featuredContent: React.ReactNode
   canViewHistory: boolean
   historyOptions: FilterCollections
   onHistoryFilterChange: (key: keyof HistoryFiltersState, value: FilterValue) => void
@@ -416,6 +417,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     scheduledContent,
     completedContent,
     holdOnContent,
+    featuredContent,
     canViewHistory,
     historyOptions,
     onHistoryFilterChange,
@@ -688,6 +690,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           { value: 'delivered', content: completedContent },
           { value: 'completed', content: completedContent },
           { value: 'hold', content: holdOnContent },
+          { value: 'featured', content: featuredContent },
         ].map(({ value, content }) => (
           <TabsContent key={value} value={value} className="w-full space-y-6">
             {content}

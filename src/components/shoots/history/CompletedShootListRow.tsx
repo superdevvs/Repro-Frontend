@@ -19,7 +19,15 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
-import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
+import {
+  getEditingNotes,
+  formatCurrency,
+  getShootPlaceholderSrc,
+  getShootStatusBadgeClass,
+  isFeaturedPendingShoot,
+  isFeaturedShoot,
+  resolveShootThumbnail,
+} from './shootHistoryUtils'
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -38,6 +46,7 @@ import {
   Loader2,
   PauseCircle,
   Send,
+  Star,
   Trash2,
   User,
   X,
@@ -160,6 +169,7 @@ export const CompletedShootListRow = ({
   onViewInvoice,
   onPayNow,
   onSendToEditing,
+  onApproveFeatured,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
@@ -175,6 +185,7 @@ export const CompletedShootListRow = ({
   onViewInvoice?: (shoot: ShootData) => void
   onPayNow?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void
+  onApproveFeatured?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
@@ -215,6 +226,8 @@ export const CompletedShootListRow = ({
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const isApprovedFeatured = isFeaturedShoot(shoot)
+  const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
 
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
@@ -247,6 +260,16 @@ export const CompletedShootListRow = ({
             >
               {statusLabel || 'Status'}
             </Badge>
+            {isApprovedFeatured ? (
+              <Badge className="absolute bottom-2 left-2 h-5 rounded-full bg-amber-500 px-2 text-[10px] font-semibold text-white shadow-sm">
+                <Star className="mr-1 h-3 w-3" />
+                Featured
+              </Badge>
+            ) : canApproveFeatured ? (
+              <Badge variant="outline" className="absolute bottom-2 left-2 h-5 rounded-full border-amber-300 bg-black/60 px-2 text-[10px] font-semibold text-amber-100 shadow-sm">
+                Pending
+              </Badge>
+            ) : null}
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-start justify-between gap-2">
@@ -317,6 +340,11 @@ export const CompletedShootListRow = ({
                 <FileText className="h-3.5 w-3.5" />
               </Button>
             )}
+            {canApproveFeatured && (
+              <Button size="icon" className="h-7 w-7 bg-amber-500 text-white hover:bg-amber-600" onClick={() => onApproveFeatured?.(shoot)} title="Approve Featured">
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {(isSuperAdmin || isAdmin) && onDelete && (
               <Button size="icon" variant="destructive" className="h-7 w-7 bg-red-500 hover:bg-red-600" onClick={() => onDelete(shoot)} title="Delete">
                 <Trash2 className="h-3.5 w-3.5" />
@@ -360,6 +388,16 @@ export const CompletedShootListRow = ({
                 >
                   {statusLabel || 'Status'}
                 </Badge>
+                {isApprovedFeatured ? (
+                  <Badge className="h-5 rounded-full bg-amber-500 px-2 text-[10px] font-semibold text-white">
+                    <Star className="mr-1 h-3 w-3" />
+                    Featured
+                  </Badge>
+                ) : canApproveFeatured ? (
+                  <Badge variant="outline" className="h-5 rounded-full border-amber-400/70 px-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
+                    Pending featured
+                  </Badge>
+                ) : null}
               </div>
               <p
                 className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
@@ -497,6 +535,20 @@ export const CompletedShootListRow = ({
                     <span className="hidden sm:inline">Pay ${balanceDue.toFixed(2)}</span>
                   </Button>
                 )}
+                {canApproveFeatured && (
+                  <Button
+                    size="sm"
+                    className="h-7 gap-1 bg-amber-500 text-xs text-white hover:bg-amber-600"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onApproveFeatured?.(shoot)
+                    }}
+                    title="Approve Featured"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Approve</span>
+                  </Button>
+                )}
                 {onDownload && (
                   <Button
                     size="sm"
@@ -542,4 +594,3 @@ export const CompletedShootListRow = ({
     </Card>
   )
 }
-

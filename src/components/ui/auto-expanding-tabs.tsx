@@ -8,6 +8,7 @@ export interface AutoExpandingTab {
   label: string
   badge?: number | string
   disabled?: boolean
+  collapseOnDesktop?: boolean
 }
 
 interface AutoExpandingTabsListProps {
@@ -36,6 +37,8 @@ export function AutoExpandingTabsList({
           const isActive = value === tab.value
           const isHovered = hoveredTab === tab.value
           const shouldExpandOnMobile = isActive || isHovered
+          const shouldExpandOnDesktop = desktopExpanded && (!tab.collapseOnDesktop || isHovered)
+          const shouldRenderLabel = shouldExpandOnMobile || desktopExpanded
           const Icon = tab.icon
 
           return (
@@ -48,7 +51,7 @@ export function AutoExpandingTabsList({
               {/* Invisible extended hitbox - only when hovered to prevent wiggle during expansion */}
               {shouldExpandOnMobile && (
                 <div 
-                  className="absolute top-0 bottom-0 left-0"
+                  className="absolute top-0 bottom-0 left-0 sm:hidden"
                   style={{
                     right: '-50px',
                     zIndex: 0,
@@ -75,34 +78,44 @@ export function AutoExpandingTabsList({
                   shouldExpandOnMobile
                     ? "px-4 gap-2" 
                     : variant === 'compact' ? "w-9" : "w-10",
-                  desktopExpanded && "sm:w-auto sm:px-4 sm:gap-2",
+                  desktopExpanded && !tab.collapseOnDesktop && "sm:w-auto sm:px-4 sm:gap-2",
+                  desktopExpanded && tab.collapseOnDesktop && (
+                    isHovered
+                      ? "sm:w-auto sm:px-4 sm:gap-2"
+                      : variant === 'compact'
+                        ? "sm:w-9 sm:px-0 sm:gap-0"
+                        : "sm:w-10 sm:px-0 sm:gap-0"
+                  ),
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : isHovered
                     ? "bg-muted/80 text-foreground"
                     : "bg-muted text-muted-foreground"
                 )}
+                title={tab.label}
               >
                 <Icon className="flex-shrink-0 h-4 w-4" />
-                {(shouldExpandOnMobile || desktopExpanded) && (
+                {shouldRenderLabel && (
                   <span
                     className={cn(
                       "text-sm font-medium whitespace-nowrap",
                       shouldExpandOnMobile ? "inline" : "hidden",
-                      desktopExpanded && "sm:inline"
+                      desktopExpanded && !tab.collapseOnDesktop && "sm:inline",
+                      desktopExpanded && tab.collapseOnDesktop && (shouldExpandOnDesktop ? "sm:inline" : "sm:hidden")
                     )}
                   >
                     {tab.label}
                   </span>
                 )}
-                {tab.badge && (shouldExpandOnMobile || desktopExpanded) && (
+                {tab.badge && shouldRenderLabel && (
                   <span
                     className={cn(
                       "flex items-center justify-center",
                       "rounded-full",
                       "text-xs font-semibold",
                       shouldExpandOnMobile ? "inline-flex" : "hidden",
-                      desktopExpanded && "sm:inline-flex",
+                      desktopExpanded && !tab.collapseOnDesktop && "sm:inline-flex",
+                      desktopExpanded && tab.collapseOnDesktop && (shouldExpandOnDesktop ? "sm:inline-flex" : "sm:hidden"),
                       variant === 'compact' ? "h-4 min-w-[1rem] px-1" : "h-5 min-w-[1.25rem] px-1.5",
                       isActive 
                         ? "bg-primary-foreground/20 text-primary-foreground"

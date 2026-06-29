@@ -351,6 +351,18 @@ export interface ShootData {
   isPrivateListing?: boolean;
   isFeatured?: boolean;
   is_featured?: boolean;
+  featuredPending?: boolean;
+  featured_pending?: boolean;
+  featuredStatus?: 'none' | 'pending' | 'featured' | string;
+  featured_status?: 'none' | 'pending' | 'featured' | string;
+  featuredRequestedAt?: string | null;
+  featured_requested_at?: string | null;
+  featuredRequestedBy?: number | string | null;
+  featured_requested_by?: number | string | null;
+  featuredApprovedAt?: string | null;
+  featured_approved_at?: string | null;
+  featuredApprovedBy?: number | string | null;
+  featured_approved_by?: number | string | null;
   featured_homepage_title?: string | null;
   featuredHomepageTitle?: string | null;
   featured_homepage_location?: string | null;

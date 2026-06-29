@@ -13,7 +13,7 @@ export const DARK_SHOOT_PLACEHOLDER = '/no-image-placeholder.svg'
 
 export type ShootThumbnailPreference = 'thumb' | 'default'
 
-export type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold' | 'editing' | 'edited'
+export type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold' | 'editing' | 'edited' | 'featured'
 export type AvailableTab = ActiveOperationalTab | 'history'
 
 export type OperationalFiltersState = {
@@ -146,7 +146,48 @@ export const STATUS_FILTERS_BY_TAB: Record<ActiveOperationalTab, string[]> = {
   delivered: ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'workflow_completed', 'client_delivered'],
   edited: ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'workflow_completed', 'client_delivered'],
   hold: ['on_hold', 'cancelled', 'canceled', 'declined', 'no_show'],
+  featured: [],
 }
+
+export const isFeaturedShoot = (shoot: Pick<ShootData, 'isFeatured' | 'is_featured'>) =>
+  Boolean(shoot.isFeatured ?? shoot.is_featured)
+
+export const isFeaturedPendingShoot = (
+  shoot: Pick<
+    ShootData,
+    | 'isFeatured'
+    | 'is_featured'
+    | 'featuredPending'
+    | 'featured_pending'
+    | 'featuredStatus'
+    | 'featured_status'
+    | 'featuredRequestedAt'
+    | 'featured_requested_at'
+  >,
+) => {
+  if (isFeaturedShoot(shoot)) return false
+  const status = String(shoot.featuredStatus ?? shoot.featured_status ?? '').toLowerCase()
+  const explicitPending = shoot.featuredPending ?? shoot.featured_pending
+  return Boolean(
+    explicitPending !== undefined
+      ? explicitPending
+      : status === 'pending' || shoot.featuredRequestedAt || shoot.featured_requested_at,
+  )
+}
+
+export const isFeaturedTabShoot = (
+  shoot: Pick<
+    ShootData,
+    | 'isFeatured'
+    | 'is_featured'
+    | 'featuredPending'
+    | 'featured_pending'
+    | 'featuredStatus'
+    | 'featured_status'
+    | 'featuredRequestedAt'
+    | 'featured_requested_at'
+  >,
+) => isFeaturedShoot(shoot) || isFeaturedPendingShoot(shoot)
 
 export const EDITOR_ACTIVE_STATUS_KEYS = [
   'uploaded',
@@ -596,5 +637,19 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     missingFinal: toBooleanValue(item.missing_final),
     mediaSummary: item.media_summary as ShootData['mediaSummary'],
     weather: item.weather as ShootData['weather'],
+    isFeatured: toBooleanValue(item.isFeatured ?? item.is_featured),
+    is_featured: toBooleanValue(item.is_featured ?? item.isFeatured),
+    featuredPending: toBooleanValue(item.featuredPending ?? item.featured_pending),
+    featured_pending: toBooleanValue(item.featured_pending ?? item.featuredPending),
+    featuredStatus: toStringValue(item.featuredStatus ?? item.featured_status, 'none'),
+    featured_status: toStringValue(item.featured_status ?? item.featuredStatus, 'none'),
+    featuredRequestedAt: toStringValue(item.featuredRequestedAt ?? item.featured_requested_at),
+    featured_requested_at: toStringValue(item.featured_requested_at ?? item.featuredRequestedAt),
+    featuredRequestedBy: (item.featuredRequestedBy ?? item.featured_requested_by) as ShootData['featuredRequestedBy'],
+    featured_requested_by: (item.featured_requested_by ?? item.featuredRequestedBy) as ShootData['featured_requested_by'],
+    featuredApprovedAt: toStringValue(item.featuredApprovedAt ?? item.featured_approved_at),
+    featured_approved_at: toStringValue(item.featured_approved_at ?? item.featuredApprovedAt),
+    featuredApprovedBy: (item.featuredApprovedBy ?? item.featured_approved_by) as ShootData['featuredApprovedBy'],
+    featured_approved_by: (item.featured_approved_by ?? item.featuredApprovedBy) as ShootData['featured_approved_by'],
   }
 }

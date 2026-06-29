@@ -19,7 +19,14 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
-import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
+import {
+  getEditingNotes,
+  formatCurrency,
+  getShootPlaceholderSrc,
+  isFeaturedPendingShoot,
+  isFeaturedShoot,
+  resolveShootThumbnail,
+} from './shootHistoryUtils'
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -37,6 +44,7 @@ import {
   Loader2,
   PauseCircle,
   Send,
+  Star,
   Trash2,
   User,
   X,
@@ -159,6 +167,7 @@ export const CompletedAlbumCard = ({
   onViewInvoice,
   onPayNow,
   onSendToEditing,
+  onApproveFeatured,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
@@ -174,6 +183,7 @@ export const CompletedAlbumCard = ({
   onViewInvoice?: (shoot: ShootData) => void
   onPayNow?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void
+  onApproveFeatured?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
@@ -218,6 +228,8 @@ export const CompletedAlbumCard = ({
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const isApprovedFeatured = isFeaturedShoot(shoot)
+  const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
 
   return (
     <Card
@@ -238,7 +250,7 @@ export const CompletedAlbumCard = ({
         ) : null}
         
         {/* Overlay badges */}
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
           {(() => {
             // Get status color based on status value
             const statusKey = statusValue.toLowerCase();
@@ -262,6 +274,16 @@ export const CompletedAlbumCard = ({
               </Badge>
             );
           })()}
+          {isApprovedFeatured ? (
+            <Badge className="bg-amber-500 text-white">
+              <Star className="mr-1 h-3.5 w-3.5" />
+              Featured
+            </Badge>
+          ) : canApproveFeatured ? (
+            <Badge variant="outline" className="border-amber-300 bg-black/55 text-amber-100">
+              Pending featured
+            </Badge>
+          ) : null}
         </div>
 
         {/* Paid/Unpaid badge - Lower right (non-hover) */}
@@ -455,6 +477,22 @@ export const CompletedAlbumCard = ({
             >
               <CreditCard className="mr-2 h-4 w-4" />
               Pay now ${balanceDue.toFixed(2)}
+            </Button>
+          </div>
+        )}
+
+        {canApproveFeatured && (
+          <div className="pt-3 border-t border-border/50">
+            <Button
+              size="sm"
+              className="w-full bg-amber-500 text-white hover:bg-amber-600"
+              onClick={(e) => {
+                e.stopPropagation()
+                onApproveFeatured?.(shoot)
+              }}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Approve Featured
             </Button>
           </div>
         )}

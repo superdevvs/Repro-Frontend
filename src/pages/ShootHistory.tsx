@@ -20,7 +20,8 @@ import { useShootHistoryData } from '@/hooks/useShootHistoryData'
 import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
-import { Calendar as CalendarIcon, CheckCircle2, Loader2, PauseCircle, Trash2 } from 'lucide-react'
+import { API_BASE_URL } from '@/config/env'
+import { Calendar as CalendarIcon, CheckCircle2, Loader2, PauseCircle, Star, Trash2 } from 'lucide-react'
 import {
   DEFAULT_OPERATIONAL_FILTERS,
   HISTORY_ALLOWED_ROLES,
@@ -30,6 +31,7 @@ import {
   filterEditorDeliveredOperationalShoots,
   formatCurrency,
   getShootStatusBadgeClass,
+  isFeaturedTabShoot,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 
@@ -346,6 +348,10 @@ const ShootHistory: React.FC = () => {
       }
       return operationalData
     }
+
+    if (activeTab === 'featured') {
+      return operationalData.filter(isFeaturedTabShoot)
+    }
     
     // In-Progress tab filtering
     if (activeTab === 'completed') {
@@ -482,6 +488,43 @@ const ShootHistory: React.FC = () => {
   const handlePaymentSuccess = React.useCallback(() => {
     refreshActiveTabData()
   }, [refreshActiveTabData])
+
+  const handleApproveFeaturedShoot = React.useCallback(async (shoot: ShootData) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ is_featured: true }),
+      })
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null)
+        const message =
+          errorJson?.message ||
+          errorJson?.error ||
+          (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null) ||
+          `Server ${response.status}`
+        throw new Error(message)
+      }
+
+      toast({
+        title: 'Featured shoot approved',
+        description: 'The shoot is now visible as Featured.',
+      })
+      refreshActiveTabData()
+    } catch (error) {
+      toast({
+        title: 'Unable to approve featured shoot',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }, [refreshActiveTabData, toast])
 
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {
@@ -842,13 +885,94 @@ const ShootHistory: React.FC = () => {
     )
   }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
+  const featuredContent = useMemo(() => {
+    if (loading && activeTab === 'featured') {
+      return <ShootHistoryLoadingPanel />
+    }
+
+    if (!filteredOperationalData.length) {
+      return (
+        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
+          <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="font-medium text-lg">No featured shoots</p>
+          <p className="text-sm mt-1">Shoots marked as Featured will appear here for admins.</p>
+        </div>
+      )
+    }
+
+    if (viewMode === 'grid') {
+      const numCols = getMasonryCols()
+      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
+      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
+
+      return (
+        <div className="masonry-grid">
+          {cols.map((colItems, colIdx) => (
+            <div key={colIdx} className="masonry-grid-col">
+              {colItems.map((shoot) => (
+                <CompletedAlbumCard
+                  key={shoot.id}
+                  shoot={shoot}
+                  onSelect={handleShootSelect}
+                  onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+                  isSuperAdmin={isSuperAdmin}
+                  isAdmin={isAdmin}
+                  isClient={isClient}
+                  showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+                  isEditingManager={isEditingManager}
+                  isEditor={isEditor}
+                  onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+                  onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onPayNow={isClient ? handleOpenPaymentDialog : undefined}
+                  onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
+                  onApproveFeatured={isAdmin || isSuperAdmin ? handleApproveFeaturedShoot : undefined}
+                  shouldHideClientDetails={shouldHideClientDetails}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (viewMode === 'map') {
+      return <ShootMapView markers={operationalMarkers} />
+    }
+
+    return (
+      <div className="space-y-3">
+        {filteredOperationalData.map((shoot) => (
+          <CompletedShootListRow
+            key={shoot.id}
+            shoot={shoot}
+            onSelect={handleShootSelect}
+            onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+            isSuperAdmin={isSuperAdmin}
+            isAdmin={isAdmin}
+            isClient={isClient}
+            showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+            isEditingManager={isEditingManager}
+            isEditor={isEditor}
+            onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+            onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onPayNow={isClient ? handleOpenPaymentDialog : undefined}
+            onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
+            onApproveFeatured={isAdmin || isSuperAdmin ? handleApproveFeaturedShoot : undefined}
+            shouldHideClientDetails={shouldHideClientDetails}
+          />
+        ))}
+      </div>
+    )
+  }, [loading, activeTab, filteredOperationalData, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
     if (activeTab === 'scheduled') return scheduledContent
     if (activeTab === 'completed') return completedContent
     if (activeTab === 'hold') return holdOnContent
+    if (activeTab === 'featured') return featuredContent
     return scheduledContent
-  }, [activeTab, scheduledContent, completedContent, holdOnContent])
+  }, [activeTab, scheduledContent, completedContent, holdOnContent, featuredContent])
 
   const historyContent = useMemo(() => {
     if (!canViewHistory) {
@@ -1046,6 +1170,7 @@ const ShootHistory: React.FC = () => {
           scheduledContent={scheduledContent}
           completedContent={completedContent}
           holdOnContent={holdOnContent}
+          featuredContent={featuredContent}
           canViewHistory={canViewHistory}
           historyOptions={historyOptions}
           onHistoryFilterChange={onHistoryFilterChange}
@@ -1136,7 +1261,3 @@ const ShootHistory: React.FC = () => {
 const ShootHistoryWithBoundary = withErrorBoundary(ShootHistory)
 
 export default ShootHistoryWithBoundary
-
-
-
-

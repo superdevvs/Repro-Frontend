@@ -730,10 +730,9 @@ export function ShootSettingsTab({
     }
   };
 
-  // The homepage hero uses this shoot's single cover image. The cover is chosen
-  // from the Media tab (is_cover); here we surface it and push it to the public
-  // homepage hero as the sole featured image. Title/location/CTA fall back to
-  // backend defaults derived from the shoot.
+  // The public homepage Projects feed uses this shoot's ordered featured images.
+  // The cover is chosen from the Media tab (is_cover) and saved as the first
+  // featured image so the Lovable site has a stable project card image.
   const coverFile = (Array.isArray((shoot as any).files) ? (shoot as any).files : [])
     .find((file: any) => Boolean(file?.is_cover) && !file?.is_hidden && resolveFilePreview(file));
   const coverFileId = coverFile && Number.isFinite(Number(coverFile.id)) ? Number(coverFile.id) : null;
@@ -783,10 +782,10 @@ export function ShootSettingsTab({
       onUpdate?.({
         featured_homepage_images: persistedImages,
       } as Partial<ShootData>);
-      sonnerToast.success('Homepage hero set to this shoot’s cover image');
+      sonnerToast.success('Homepage project cover set to this shoot’s cover image');
     } catch (error) {
-      console.error('Failed to set homepage hero', error);
-      sonnerToast.error(error instanceof Error ? error.message : 'Failed to set homepage hero');
+      console.error('Failed to set homepage project cover', error);
+      sonnerToast.error(error instanceof Error ? error.message : 'Failed to set homepage project cover');
     } finally {
       setIsSavingFeaturedHero(false);
     }
@@ -854,7 +853,7 @@ export function ShootSettingsTab({
                 <div className="text-sm font-medium">Featured Shoot</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {featuredAvailable
-                    ? 'Use this shoot as the public featured hero source.'
+                    ? 'Publish this shoot in the public homepage Projects feed.'
                     : 'Available once the shoot reaches Ready or Delivered status.'}
                 </div>
               </div>
@@ -880,11 +879,11 @@ export function ShootSettingsTab({
         <div className="border rounded-lg p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">Homepage Hero</div>
+              <div className="text-sm font-medium">Homepage Project Cover</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 {coverFileId
-                  ? 'Send this shoot’s cover image to the public homepage hero.'
-                  : 'Set a cover image in the Media tab, then send it to the homepage hero.'}
+                  ? 'Use this shoot’s cover image as the public project card image.'
+                  : 'Set a cover image in the Media tab, then use it for the homepage project.'}
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -910,7 +909,7 @@ export function ShootSettingsTab({
                 disabled={isSavingFeaturedHero || !coverFileId}
                 className="h-8"
               >
-                {isSavingFeaturedHero ? 'Setting…' : heroImageSet ? 'Update homepage hero' : 'Set homepage hero'}
+                {isSavingFeaturedHero ? 'Setting…' : heroImageSet ? 'Update project cover' : 'Set project cover'}
               </Button>
             </div>
           </div>

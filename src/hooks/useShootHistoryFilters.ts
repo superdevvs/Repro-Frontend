@@ -25,11 +25,21 @@ export const useShootHistoryFilters = ({
     if (isEditor) {
       return canViewHistory ? ['editing', 'edited', 'history'] : ['editing', 'edited']
     }
+    const normalizedRole = String(role ?? '').trim().toLowerCase()
+    const canViewFeatured = normalizedRole === 'admin' || normalizedRole === 'superadmin'
     const tabs: AvailableTab[] = canViewHistory
       ? ['scheduled', 'completed', 'delivered', 'hold', 'history']
       : ['scheduled', 'completed', 'delivered', 'hold']
+    if (canViewFeatured) {
+      const historyIndex = tabs.indexOf('history')
+      if (historyIndex >= 0) {
+        tabs.splice(historyIndex, 0, 'featured')
+      } else {
+        tabs.push('featured')
+      }
+    }
     return tabs
-  }, [canViewHistory, isEditor])
+  }, [canViewHistory, isEditor, role])
 
   const [activeTab, setActiveTab] = useState<AvailableTab>(() => {
     const urlTab = searchParams.get('tab') as AvailableTab | null

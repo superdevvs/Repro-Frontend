@@ -49,6 +49,7 @@ import {
   ShowerHead,
   Ruler,
   Check,
+  Star,
 } from 'lucide-react';
 import { format, isValid, parse } from 'date-fns';
 import axios from 'axios';
@@ -131,18 +132,51 @@ const parseFlexibleDate = (value?: string | null) => {
   return null;
 };
 
-const resolveFeaturedShootState = (shoot?: Partial<ShootData> | null) => {
+type FeaturedShootState = {
+  approved: boolean;
+  pending: boolean;
+};
+
+const resolveFeaturedShootState = (shoot?: Partial<ShootData> | null): FeaturedShootState => {
   const snakeCaseValue = (shoot as any)?.is_featured;
-  if (snakeCaseValue !== undefined && snakeCaseValue !== null) {
-    return Boolean(snakeCaseValue);
-  }
-
   const camelCaseValue = (shoot as any)?.isFeatured;
-  if (camelCaseValue !== undefined && camelCaseValue !== null) {
-    return Boolean(camelCaseValue);
+  const approved = snakeCaseValue !== undefined && snakeCaseValue !== null
+    ? Boolean(snakeCaseValue)
+    : Boolean(camelCaseValue);
+
+  const explicitPending = (shoot as any)?.featuredPending ?? (shoot as any)?.featured_pending;
+  const pendingValue = explicitPending !== undefined
+    ? Boolean(explicitPending)
+    : String((shoot as any)?.featuredStatus ?? (shoot as any)?.featured_status ?? '').toLowerCase() === 'pending';
+  const requestedAt = (shoot as any)?.featuredRequestedAt ?? (shoot as any)?.featured_requested_at;
+
+  return {
+    approved,
+    pending: !approved && Boolean(pendingValue || requestedAt),
+  };
+};
+
+const isFeaturedShootSwitchOn = (state: FeaturedShootState) => state.approved || state.pending;
+
+const resolveFeaturedShootRequestToast = (state: FeaturedShootState) => {
+  if (state.approved) {
+    return {
+      title: 'Featured Shoot enabled',
+      description: 'This shoot is approved for the public featured feed.',
+    };
   }
 
-  return false;
+  if (state.pending) {
+    return {
+      title: 'Featured request sent',
+      description: 'An admin can approve it from Shoot History.',
+    };
+  }
+
+  return {
+    title: 'Featured Shoot removed',
+    description: 'Featured placement was cleared.',
+  };
 };
 
 type ServiceOption = {
@@ -339,7 +373,7 @@ export function ShootDetailsOverviewTab({
   const { user } = useAuth();
   const { toast } = useToast();
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
-  const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedShootState(shoot));
+  const [featuredShootState, setFeaturedShootState] = useState<FeaturedShootState>(() => resolveFeaturedShootState(shoot));
   const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [deliveringServiceItemId, setDeliveringServiceItemId] = useState<string | null>(null);
@@ -428,7 +462,7 @@ export function ShootDetailsOverviewTab({
   });
 
   useEffect(() => {
-    setIsFeaturedShoot(resolveFeaturedShootState(shoot));
+    setFeaturedShootState(resolveFeaturedShootState(shoot));
   }, [shoot]);
 
   const isAssignedPhotographer = Boolean(
@@ -438,8 +472,8 @@ export function ShootDetailsOverviewTab({
   );
 
   const handleFeaturedShootToggle = async (checked: boolean) => {
-    const previousValue = isFeaturedShoot;
-    setIsFeaturedShoot(checked);
+    const previousValue = featuredShootState;
+    setFeaturedShootState(checked ? { approved: false, pending: true } : { approved: false, pending: false });
     setIsSavingFeaturedShoot(true);
 
     try {
@@ -466,15 +500,12 @@ export function ShootDetailsOverviewTab({
 
       const json = await response.json().catch(() => null);
       const persisted = resolveFeaturedShootState((json?.data || json || { is_featured: checked }) as Partial<ShootData>);
-      setIsFeaturedShoot(persisted);
+      setFeaturedShootState(persisted);
       onShootUpdate();
-      toast({
-        title: persisted ? 'Featured Shoot enabled' : 'Featured Shoot removed',
-        description: 'Featured hero source updated.',
-      });
+      toast(resolveFeaturedShootRequestToast(persisted));
     } catch (error) {
       console.error('Failed to update Featured Shoot', error);
-      setIsFeaturedShoot(previousValue);
+      setFeaturedShootState(previousValue);
       toast({
         title: 'Unable to update Featured Shoot',
         description: error instanceof Error ? error.message : 'Please try again.',
@@ -932,18 +963,39 @@ export function ShootDetailsOverviewTab({
         ).toLowerCase();
         const featuredAllowedStatuses = new Set(['ready', 'delivered']);
         const featuredAvailable = featuredAllowedStatuses.has(normalizedStatus);
-        const featuredDisabled = isSavingFeaturedShoot || !featuredAvailable;
+        const canApproveFeaturedShoot = role === 'admin' || role === 'superadmin';
+        const featuredSwitchChecked = isFeaturedShootSwitchOn(featuredShootState);
+        const featuredDisabled = isSavingFeaturedShoot || !featuredAvailable || (featuredShootState.approved && !canApproveFeaturedShoot);
+        const featuredDescription = featuredShootState.approved
+          ? 'Approved for the public homepage Projects feed.'
+          : featuredShootState.pending
+            ? 'Pending admin approval in Shoot History.'
+            : featuredAvailable
+              ? canApproveFeaturedShoot
+                ? 'Approve this shoot for the public homepage Projects feed.'
+                : 'Request admin approval for public featured placement.'
+              : 'Available once the shoot reaches Ready or Delivered status.';
 
         return (
           <div className="p-2.5 border rounded-lg bg-card">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Internal Marketing</span>
             <div className={`flex items-center justify-between gap-4 ${!featuredAvailable ? 'opacity-50' : ''}`}>
               <div className="min-w-0">
-                <div className="text-sm font-medium">Featured Shoot</div>
+                <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  <span>Featured Shoot</span>
+                  {featuredShootState.approved ? (
+                    <Badge className="h-5 gap-1 rounded-full bg-amber-500 text-[10px] font-semibold text-white">
+                      <Star className="h-3 w-3" />
+                      Featured
+                    </Badge>
+                  ) : featuredShootState.pending ? (
+                    <Badge variant="outline" className="h-5 rounded-full border-amber-400/70 px-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
+                      Pending
+                    </Badge>
+                  ) : null}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {featuredAvailable
-                    ? 'Use this shoot as the public featured hero source.'
-                    : 'Available once the shoot reaches Ready or Delivered status.'}
+                  {featuredDescription}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -951,7 +1003,7 @@ export function ShootDetailsOverviewTab({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : null}
                 <Switch
-                  checked={isFeaturedShoot}
+                  checked={featuredSwitchChecked}
                   onCheckedChange={(checked: boolean) => {
                     void handleFeaturedShootToggle(checked);
                   }}

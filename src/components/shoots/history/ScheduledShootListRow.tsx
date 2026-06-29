@@ -404,10 +404,6 @@ export const ScheduledShootListRow = ({
               >
                 {shoot.location.address}
               </h3>
-              <Badge variant="outline" className={cn('hidden md:inline-flex capitalize font-medium', statusBadgeClass)}>
-                <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-                {statusLabel}
-              </Badge>
             </div>
             <p
               className="mt-1 min-w-0 max-w-full truncate text-sm text-muted-foreground"
@@ -493,7 +489,12 @@ export const ScheduledShootListRow = ({
           // Always show services section, even if empty
           return (
             <div className="flex items-start gap-4 mt-2 pt-2 border-t border-border/30">
-              <div className="hidden md:block min-w-[140px] flex-shrink-0"></div> {/* Spacer for date column on desktop */}
+              <div className="hidden md:flex min-w-[140px] flex-shrink-0 items-start">
+                <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
+                  <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                  {statusLabel}
+                </Badge>
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   <Layers className="h-3.5 w-3.5" />

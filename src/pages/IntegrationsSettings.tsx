@@ -65,7 +65,7 @@ const DEFAULT_REPRO_API_SETTINGS: ReproApiSettings = {
   dashboardBaseUrl: API_BASE_URL,
   publicSiteUrl: 'https://reprophotos.com',
   featuredShootApiKey: '',
-  featuredShootEndpoint: '/api/v1/featured-shoot',
+  featuredShootEndpoint: '/api/v1/featured-shoots',
   externalBookingApiKey: '',
   externalBookingEndpoint: '/api/external/book-shoot',
 };
@@ -1578,7 +1578,7 @@ export const IntegrationsSettingsContent = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="repro-featured-endpoint">Featured Shoot Endpoint</Label>
+                      <Label htmlFor="repro-featured-endpoint">Featured Shoots Endpoint</Label>
                       <Input
                         id="repro-featured-endpoint"
                         type="text"
@@ -1586,7 +1586,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setReproApiSettings({ ...reproApiSettings, featuredShootEndpoint: e.target.value })
                         }
-                        placeholder="/api/v1/featured-shoot"
+                        placeholder="/api/v1/featured-shoots"
                         disabled={!reproApiSettings.enabled}
                       />
                     </div>
@@ -1634,7 +1634,7 @@ export const IntegrationsSettingsContent = () => {
                   <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <p className="font-medium text-foreground">Featured Shoot</p>
+                        <p className="font-medium text-foreground">Featured Shoots</p>
                         <p className="break-all">
                           <code>{reproApiSettings.dashboardBaseUrl}{reproApiSettings.featuredShootEndpoint}</code>
                         </p>

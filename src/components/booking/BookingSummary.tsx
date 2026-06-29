@@ -1,13 +1,11 @@
 import React from 'react';
-import { DollarSign, Calendar as CalendarIcon, Clock, MapPin, User, CloudSun, Check, Send, Loader2 } from 'lucide-react';
+import { DollarSign, MapPin, User, Check, Send, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getServiceScheduleLabel } from '@/utils/serviceScheduleLabel';
 import type { PricingBreakdown } from '@/utils/pricing';
@@ -58,13 +56,10 @@ export function BookingSummary({
   setAdjustedTotalInput,
   originalTotalQuote,
   showRepName = false,
-  weather,
   isMobile = false,
 }: BookingSummaryProps) {
-  const { formatTemperature } = useUserPreferences();
   const { user } = useAuth();
   const hasSelectedServices = selectedServices.length > 0;
-  const hasWeather = weather && (weather.temperature !== undefined || weather.condition);
   const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
   const amountPlaceholder = (originalTotalQuote ?? summaryInfo.pricing?.totalQuote ?? summaryInfo.packagePrice).toFixed(2);
   const serviceScheduleLabelFor = (serviceId: string) =>
@@ -121,35 +116,6 @@ export function BookingSummary({
             </div>
           ) : (
             <Skeleton className="h-6 w-full" />
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="text-sm text-blue-600 dark:text-blue-400">Date & Time</div>
-          {summaryInfo.date ? (
-            <div className="flex flex-col gap-1 text-slate-900 dark:text-white">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-blue-500" />
-                <span>{summaryInfo.date}</span>
-              </div>
-              {summaryInfo.time && (
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-blue-500" />
-                  <span>{summaryInfo.time}</span>
-                </div>
-              )}
-              {hasWeather && (
-                <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <CloudSun className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {weather?.temperature !== undefined && weather?.temperature !== null ? formatTemperature(weather.temperature) : '--°'}
-                  </span>
-                  {weather?.condition && <span className="truncate text-slate-900 dark:text-white">{weather.condition}</span>}
-                </div>
-              )}
-            </div>
-          ) : (
-            <Skeleton className="h-6 w-3/4" />
           )}
         </div>
 

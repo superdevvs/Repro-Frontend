@@ -43,6 +43,10 @@ import API_ROUTES from '@/lib/api';
 import { CheckCircle2, Check, Clock } from "lucide-react";
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
+import {
+  buildAssignmentGroups,
+  requiresPerServiceAssignment as computeRequiresPerServiceAssignment,
+} from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions, ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 
 interface SchedulingPhotographer {
@@ -711,54 +715,46 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   ) || selectedPhotographer;
   const fullAddress = address && city && state ? `${address}, ${city}, ${state}${zip ? ' ' + zip : ''}` : '';
 
-  // Multi-photographer: group selected services by normalized category name
-  // Normalizes similar names like "Photo"/"Photos" into a single group
-  const serviceCategories = useMemo(() => {
-    if (!selectedServices.length) return [];
-    // Normalize category name: lowercase, strip trailing 's', trim
-    const normalizeCatName = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
-    const groups: Record<string, { displayName: string; services: typeof selectedServices }> = {};
-    for (const s of selectedServices) {
-      const rawName = s.category?.name || 'Other';
-      const key = normalizeCatName(rawName);
-      if (!groups[key]) groups[key] = { displayName: rawName, services: [] };
-      groups[key].services.push(s);
-    }
-    // Return as [categoryName, services[]] sorted alphabetically, "Other" last
-    return Object.values(groups)
-      .map(g => [g.displayName, g.services] as [string, typeof selectedServices])
-      .sort(([a], [b]) => {
-        if (a === 'Other') return 1;
-        if (b === 'Other') return -1;
-        return a.localeCompare(b);
-      });
-  }, [selectedServices]);
+  // Per-service assignment model: every selected service is independently assignable
+  // to a photographer (and its own schedule), regardless of role or shared category.
+  // Category is preserved only as a visual label, never as the grouping key — so two
+  // same-category services (e.g. two Photos services) still get separate assignments.
+  const assignmentGroups = useMemo(
+    () => buildAssignmentGroups(selectedServices),
+    [selectedServices],
+  );
 
-  const isMultiCategory = serviceCategories.length > 1;
+  // More than one selected service => assign a photographer per service line.
+  const requiresPerServiceAssignment = computeRequiresPerServiceAssignment(selectedServices);
 
-  // Which category is currently being assigned in the picker (null = default/single mode)
-  const [activeCategoryForPicker, setActiveCategoryForPicker] = useState<string | null>(null);
+  // Which service is currently being assigned in the picker (null = default/single mode)
+  const [activeServiceForPicker, setActiveServiceForPicker] = useState<string | null>(null);
 
-  // Get category capability and legacy service IDs for the active category.
-  const activeCategoryCapabilityForPicker = useMemo(() => {
+  // Display name for the service currently being assigned (used in picker headings).
+  const activeServiceNameForPicker = activeServiceForPicker
+    ? (selectedServices.find(s => s.id === activeServiceForPicker)?.name || '')
+    : '';
+
+  // Specialty-filtering capability derived from the active service's own category.
+  const activeServiceCapabilityForPicker = useMemo(() => {
     const empty = {
       categorySpecialtyId: '',
       categoryNameSpecialtyId: '',
       serviceIds: new Set<string>(),
     };
-    if (!activeCategoryForPicker) return empty;
-    const services = serviceCategories.find(([cat]) => cat === activeCategoryForPicker)?.[1] || [];
-    if (!services.length) return empty;
+    if (!activeServiceForPicker) return empty;
+    const service = selectedServices.find(s => s.id === activeServiceForPicker);
+    if (!service) return empty;
 
-    const firstService = services[0];
-    const category = firstService.category || { name: activeCategoryForPicker };
+    const categoryName = service.category?.name || 'Other';
+    const category = service.category || { name: categoryName };
 
     return {
       categorySpecialtyId: getCategorySpecialtyId(category),
-      categoryNameSpecialtyId: getCategorySpecialtyId({ name: activeCategoryForPicker }),
-      serviceIds: new Set(services.map(s => s.id)),
+      categoryNameSpecialtyId: getCategorySpecialtyId({ name: categoryName }),
+      serviceIds: new Set([service.id]),
     };
-  }, [activeCategoryForPicker, serviceCategories]);
+  }, [activeServiceForPicker, selectedServices]);
 
   const photographerOptions = useMemo(() => {
     const byId = new Map<string, SchedulingPhotographer & Record<string, any>>();
@@ -1046,9 +1042,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       disabled: isPhotographerTimeDisabled(photographerId, option.value),
     }));
 
-  // Filter photographers to only those whose specialties match the active category's services
-  const filteredPhotographersForCategory = useMemo(() => {
-    if (!isMultiCategory || activeCategoryCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
+  // Filter photographers to only those whose specialties match the active service's category
+  const filteredPhotographersForService = useMemo(() => {
+    if (!requiresPerServiceAssignment || activeServiceCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
     return photographerOptions.filter(p => {
       const specialties: string[] = (p as any).metadata?.specialties
         || (p as any).specialties
@@ -1056,50 +1052,36 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       if (!specialties.length) return true; // No specialties defined = show (can do anything)
       return hasCategorySpecialty(
         specialties,
-        activeCategoryCapabilityForPicker.categorySpecialtyId,
-        activeCategoryCapabilityForPicker.categoryNameSpecialtyId,
-        activeCategoryCapabilityForPicker.serviceIds,
+        activeServiceCapabilityForPicker.categorySpecialtyId,
+        activeServiceCapabilityForPicker.categoryNameSpecialtyId,
+        activeServiceCapabilityForPicker.serviceIds,
       );
     });
-  }, [isMultiCategory, activeCategoryCapabilityForPicker, photographerOptions]);
+  }, [requiresPerServiceAssignment, activeServiceCapabilityForPicker, photographerOptions]);
 
-  // Helper: get photographer ID for a category (from servicePhotographers map)
-  const getPhotographerForCategory = (categoryName: string): string => {
-    const servicesInCategory = serviceCategories.find(([cat]) => cat === categoryName)?.[1] || [];
-    // Return the photographer assigned to the first service in this category
-    for (const s of servicesInCategory) {
-      if (servicePhotographers[s.id]) return servicePhotographers[s.id];
-    }
-    return '';
-  };
+  // Helper: get photographer ID assigned to a specific service (from servicePhotographers map)
+  const getPhotographerForService = (serviceId: string): string => servicePhotographers[serviceId] || '';
 
-  // Helper: get photographer details for a category
-  const getPhotographerDetailsForCategory = (categoryName: string) => {
-    const photographerId = getPhotographerForCategory(categoryName);
+  // Helper: get photographer details for a specific service
+  const getPhotographerDetailsForService = (serviceId: string) => {
+    const photographerId = getPhotographerForService(serviceId);
     if (!photographerId) return null;
     return photographersWithDistance.find(p => String(p.id) === String(photographerId))
       || photographers.find(p => String(p.id) === String(photographerId))
       || null;
   };
 
-  // Modified confirm handler for multi-category mode
-  const handleConfirmCategoryPhotographer = () => {
-    if (!photographer || !activeCategoryForPicker || !setServicePhotographers) {
+  // Confirm handler for per-service assignment mode
+  const handleConfirmServicePhotographer = () => {
+    if (!photographer || !activeServiceForPicker || !setServicePhotographers) {
       setPhotographerDialogOpen(false);
       return;
     }
-    // Assign this photographer to all services in the active category
-    const servicesInCategory = serviceCategories.find(([cat]) => cat === activeCategoryForPicker)?.[1] || [];
-    setServicePhotographers(prev => {
-      const next = { ...prev };
-      for (const s of servicesInCategory) {
-        next[s.id] = photographer;
-      }
-      return next;
-    });
+    // Assign this photographer to the single active service only — never to siblings.
+    setServicePhotographers(prev => ({ ...prev, [activeServiceForPicker]: photographer }));
     setPhotographerDialogOpen(false);
-    setActiveCategoryForPicker(null);
-    // Also set the first category's photographer as the default/fallback photographer
+    setActiveServiceForPicker(null);
+    // Also set the photographer as the default/fallback photographer if none chosen yet.
     if (!selectedPhotographer) {
       setPhotographer?.(photographer);
     }
@@ -1574,10 +1556,10 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       filtered = filtered.filter((photographerItem) => getAvailabilityMetrics(photographerItem).isAvailable);
     }
 
-    // Multi-category mode: filter by specialties for the active category
-    if (isMultiCategory && activeCategoryForPicker && activeCategoryCapabilityForPicker.serviceIds.size > 0) {
-      const allowedIds = filteredPhotographersForCategory
-        ? new Set(filteredPhotographersForCategory.map(p => String(p.id)))
+    // Per-service mode: filter by specialties for the active service's category
+    if (requiresPerServiceAssignment && activeServiceForPicker && activeServiceCapabilityForPicker.serviceIds.size > 0) {
+      const allowedIds = filteredPhotographersForService
+        ? new Set(filteredPhotographersForService.map(p => String(p.id)))
         : null;
       if (allowedIds) {
         filtered = filtered.filter(p => allowedIds.has(String(p.id)));
@@ -1621,7 +1603,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographerOptions, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
+  }, [photographersWithDistance, photographerOptions, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService]);
 
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
@@ -2293,26 +2275,26 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         {/* Photographer Section */}
         <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
-            {isMultiCategory ? 'Photographers' : 'Photographer'}
+            {requiresPerServiceAssignment ? 'Photographers' : 'Photographer'}
           </h2>
 
-          {isMultiCategory && (
+          {requiresPerServiceAssignment && (
             <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-2">
-              Assign a photographer for each service category
+              Assign a photographer for each service
             </p>
           )}
 
-          {/* Multi-category: per-category photographer triggers */}
-          {isMultiCategory && (
+          {/* Per-service: one photographer + schedule per selected service */}
+          {requiresPerServiceAssignment && (
             <div className="space-y-3">
-              {serviceCategories.map(([categoryName, services]) => {
-                const catPhotographer = getPhotographerDetailsForCategory(categoryName);
+              {assignmentGroups.map(({ key, serviceId, serviceName, categoryName }) => {
+                const svcPhotographer = getPhotographerDetailsForService(serviceId);
                 return (
-                  <div key={categoryName} className="min-w-0 space-y-1">
+                  <div key={key} className="min-w-0 space-y-1">
                     <p className="truncate text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {categoryName}
+                      {serviceName}
                       <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
-                        ({services.map(s => s.name).join(', ')})
+                        ({categoryName})
                       </span>
                     </p>
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -2330,23 +2312,23 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                             });
                             return;
                           }
-                          setActiveCategoryForPicker(categoryName);
-                          const currentId = getPhotographerForCategory(categoryName);
+                          setActiveServiceForPicker(serviceId);
+                          const currentId = getPhotographerForService(serviceId);
                           if (currentId) setPhotographer?.(currentId);
                           setPhotographerDialogOpen(true);
                         }}
                       >
                         <div className="flex items-center min-w-0">
-                          {catPhotographer ? (
+                          {svcPhotographer ? (
                             <>
                               <Avatar className="h-8 w-8 sm:h-10 sm:w-10 mr-2.5 sm:mr-3 shrink-0">
                                 <AvatarImage
-                                  src={getAvatarUrl((catPhotographer as any).avatar, 'photographer', undefined, catPhotographer.id)}
-                                  alt={catPhotographer.name}
+                                  src={getAvatarUrl((svcPhotographer as any).avatar, 'photographer', undefined, svcPhotographer.id)}
+                                  alt={svcPhotographer.name}
                                 />
-                                <AvatarFallback>{catPhotographer.name?.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{svcPhotographer.name?.charAt(0)}</AvatarFallback>
                               </Avatar>
-                              <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{catPhotographer.name}</span>
+                              <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{svcPhotographer.name}</span>
                             </>
                           ) : (
                             <span className="truncate text-slate-500 dark:text-slate-400 text-sm">Select a photographer</span>
@@ -2358,19 +2340,19 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
                           <ServiceDatePicker
-                            value={getServiceSchedule(services[0]?.id || '').date}
-                            onChange={(value) => updateServiceSchedules(services.map(s => s.id), { date: value })}
+                            value={getServiceSchedule(serviceId).date}
+                            onChange={(value) => updateServiceSchedules([serviceId], { date: value })}
                             triggerClassName="h-9"
                           />
                         </div>
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
                           <ServiceTimePicker
-                            value={getServiceSchedule(services[0]?.id || '').time}
-                            options={buildConflictAwareServiceTimeOptions(getPhotographerForCategory(categoryName), getServiceSchedule(services[0]?.id || '').time)}
-                            onChange={(value) => updateServiceSchedules(services.map(s => s.id), { time: value })}
+                            value={getServiceSchedule(serviceId).time}
+                            options={buildConflictAwareServiceTimeOptions(getPhotographerForService(serviceId), getServiceSchedule(serviceId).time)}
+                            onChange={(value) => updateServiceSchedules([serviceId], { time: value })}
                             triggerClassName="h-9"
-                            isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForCategory(categoryName), value)}
+                            isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForService(serviceId), value)}
                           />
                         </div>
                       </div>
@@ -2381,8 +2363,8 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             </div>
           )}
 
-          {/* Single-category: original single photographer trigger with inline Drawer/Dialog */}
-          {!isMultiCategory && (
+          {/* Single service: original single photographer trigger with inline Drawer/Dialog */}
+          {!requiresPerServiceAssignment && (
             <>
               {selectedServices.length > 0 && (
                 <div className="mb-3 space-y-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40">
@@ -2522,18 +2504,18 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             </>
           )}
 
-          {/* Multi-category: shared photographer picker (no trigger, opened programmatically) */}
-          {isMultiCategory && (
+          {/* Per-service: shared photographer picker (no trigger, opened programmatically) */}
+          {requiresPerServiceAssignment && (
             <>
               {isMobile ? (
                 <Drawer open={photographerDialogOpen} onOpenChange={(open) => {
                   setPhotographerDialogOpen(open);
-                  if (!open) setActiveCategoryForPicker(null);
+                  if (!open) setActiveServiceForPicker(null);
                 }}>
                   <DrawerContent className="h-[78vh] max-h-[78vh]">
                     <DrawerHeader className="pb-2 text-left">
                       <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">
-                        Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
+                        Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                       </DrawerTitle>
                       <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                         {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
@@ -2550,14 +2532,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                     <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
                       <div className="min-w-0">
                         <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
-                          {activeCategoryForPicker ? `Photographer for ${activeCategoryForPicker}` : 'Selected photographer'}
+                          {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected photographer'}
                         </p>
                         <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                           {selectedPhotographerDetails?.name || 'None selected'}
                         </p>
                       </div>
                       <Button
-                        onClick={handleConfirmCategoryPhotographer}
+                        onClick={handleConfirmServicePhotographer}
                         className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
                         disabled={!photographer}
                       >
@@ -2569,14 +2551,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
               ) : (
                 <Dialog open={photographerDialogOpen} onOpenChange={(open) => {
                   setPhotographerDialogOpen(open);
-                  if (!open) setActiveCategoryForPicker(null);
+                  if (!open) setActiveServiceForPicker(null);
                 }}>
                   <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
                     <div className="flex flex-col h-full sm:h-[70vh]">
                       <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
                         <DialogHeader className="space-y-1 text-left items-start">
                           <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
-                            Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
+                            Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                           </DialogTitle>
                           <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                             {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
@@ -2614,7 +2596,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                               </Avatar>
                               <div className="min-w-0">
                                 <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
-                                  {activeCategoryForPicker ? `Photographer for ${activeCategoryForPicker}` : 'Selected specialist'}
+                                  {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected specialist'}
                                 </p>
                                 <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                                   {selectedPhotographerDetails?.name || 'None selected'}
@@ -2627,13 +2609,13 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                                 variant="ghost"
                                 onClick={() => {
                                   setPhotographerDialogOpen(false);
-                                  setActiveCategoryForPicker(null);
+                                  setActiveServiceForPicker(null);
                                 }}
                               >
                                 Discard
                               </Button>
                               <Button
-                                onClick={handleConfirmCategoryPhotographer}
+                                onClick={handleConfirmServicePhotographer}
                                 disabled={!photographer}
                               >
                                 Confirm Assignment
