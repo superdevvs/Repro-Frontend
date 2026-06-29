@@ -14,8 +14,8 @@ export function WeatherSection() {
           </Badge>
         </div>
         <CardDescription>
-          In-app weather now uses the Google Maps Platform stack end to end, with lookups routed
-          through the backend so the API key stays off the client.
+          In-app weather is routed through the backend so provider keys stay off the client and
+          lookups can fall back automatically when the primary provider is unavailable.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -24,11 +24,10 @@ export function WeatherSection() {
             <CloudSun className="h-4 w-4" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Google Weather API</p>
+            <p className="text-sm font-semibold text-foreground">Google Weather API with fallback</p>
             <p className="text-xs text-muted-foreground">
-              Forecasts and current conditions come from Google weather endpoints, while address and
-              coordinate resolution use the existing Google mapping key already configured in the
-              backend environment.
+              Current conditions and forecasts use Google Weather first, then fall back to
+              coordinate-based forecast data when Google Weather is unavailable for the configured key.
             </p>
           </div>
         </div>
