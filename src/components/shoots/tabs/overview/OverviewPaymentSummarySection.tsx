@@ -29,6 +29,7 @@ type OverviewPaymentSummarySectionProps = {
 export function OverviewPaymentSummarySection({
   isEditMode,
   isAdmin,
+  isRep,
   isClient,
   editedShoot,
   shoot,
@@ -50,10 +51,22 @@ export function OverviewPaymentSummarySection({
   const cancellationFee = Number(shoot.payment?.cancellationFee || shoot.payment?.totalQuote || 0);
   const shouldShowCancelledServiceCharges = isCancellationFeeOnly && originalServiceSubtotal > 0;
 
+  // Discount derived from the client's pricing settings; informational (not
+  // directly editable) but surfaced so the breakdown reconciles with the total.
+  const discountAmount = Number(shoot.payment?.discountAmount || 0);
+  const editedDiscountAmount = Number(
+    editedShoot.payment?.discountAmount ?? shoot.payment?.discountAmount ?? 0,
+  );
+  const hasDiscount = discountAmount > 0.005;
+  const hasEditedDiscount = editedDiscountAmount > 0.005;
+
+  // Admin and sales reps see the full editable/detailed breakdown.
+  const canViewFullBreakdown = isAdmin || isRep;
+
   return (
     <div className="p-2.5 border rounded-lg bg-card">
       <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
-      {isEditMode && isAdmin ? (
+      {isEditMode && canViewFullBreakdown ? (
         <div className="space-y-1.5 text-xs">
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground">Base Quote:</span>
@@ -65,6 +78,12 @@ export function OverviewPaymentSummarySection({
               className="h-7 text-xs"
             />
           </div>
+          {hasEditedDiscount && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Discount:</span>
+              <span className="text-emerald-600">-${editedDiscountAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground">Tax Amount:</span>
             <Input
@@ -103,7 +122,7 @@ export function OverviewPaymentSummarySection({
         </div>
       ) : (
         <div className="space-y-0.5 text-xs">
-          {isAdmin ? (
+          {canViewFullBreakdown ? (
             <>
               {shouldShowCancelledServiceCharges ? (
                 <>
@@ -122,6 +141,12 @@ export function OverviewPaymentSummarySection({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Base:</span>
                   <span>${(Number(shoot.payment?.baseQuote) || 0).toFixed(2)}</span>
+                </div>
+              )}
+              {hasDiscount && !shouldShowCancelledServiceCharges && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Discount:</span>
+                  <span className="text-emerald-600">-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">
