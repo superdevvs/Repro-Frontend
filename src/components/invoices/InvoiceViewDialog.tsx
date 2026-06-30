@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { Logo } from "@/components/layout/Logo";
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
-import { addInvoiceMiscItem, removeInvoiceMiscItem } from '@/services/invoiceService';
+import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from '@/services/invoiceService';
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
 import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 
@@ -38,6 +39,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const [miscDescription, setMiscDescription] = useState('');
   const [miscAmount, setMiscAmount] = useState('');
   const [miscQuantity, setMiscQuantity] = useState('1');
+  const [miscBillsClient, setMiscBillsClient] = useState(false);
+  const [miscChargeType, setMiscChargeType] = useState('misc');
+  const [editingItemId, setEditingItemId] = useState<number | string | null>(null);
 
   useEffect(() => {
     setCurrentInvoice(invoice);
@@ -165,6 +169,33 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     return Number.isFinite(originalAmount) && originalAmount > 0 ? originalAmount : fallback;
   };
 
+  const resetMiscForm = () => {
+    setEditingItemId(null);
+    setMiscDescription('');
+    setMiscAmount('');
+    setMiscQuantity('1');
+    setMiscBillsClient(false);
+    setMiscChargeType('misc');
+  };
+
+  const prefillVirtualStaging = () => {
+    setEditingItemId(null);
+    setMiscDescription('Virtual Staging Charge');
+    setMiscChargeType('virtual_staging');
+    // Virtual staging is a billable charge type, so default the payable toggle ON.
+    setMiscBillsClient(true);
+  };
+
+  const handleEditMiscItem = (item: InvoiceItem) => {
+    if (!item?.id) return;
+    setEditingItemId(item.id);
+    setMiscDescription(item.description || '');
+    setMiscAmount(String(item.unit_amount ?? ''));
+    setMiscQuantity(String(item.quantity ?? 1));
+    setMiscBillsClient(Boolean(item.meta?.bills_client));
+    setMiscChargeType(String(item.meta?.charge_type || 'misc'));
+  };
+
   const handleAddMiscItem = async () => {
     if (!canEditInvoice) return;
     if (!invoiceData.id) {
@@ -182,30 +213,50 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     if (!miscDescription.trim() || !Number.isFinite(amountValue)) {
       toast({
         title: 'Missing info',
-        description: 'Enter a description and amount for the misc item.',
+        description: 'Enter a description and amount for the adjustment.',
         variant: 'destructive',
       });
       return;
     }
 
+    const normalizedQuantity = Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1;
+
     setIsSavingMisc(true);
     try {
-      const updated = await addInvoiceMiscItem(invoiceData.id, {
-        description: miscDescription.trim(),
-        amount: amountValue,
-        quantity: Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1,
-      });
+      let updated;
+      if (editingItemId != null) {
+        updated = await updateInvoiceMiscItem(invoiceData.id, editingItemId, {
+          description: miscDescription.trim(),
+          amount: amountValue,
+          quantity: normalizedQuantity,
+          bills_client: miscBillsClient,
+          charge_type: miscChargeType,
+        });
+      } else {
+        updated = await addInvoiceMiscItem(invoiceData.id, {
+          description: miscDescription.trim(),
+          amount: amountValue,
+          quantity: normalizedQuantity,
+          bills_client: miscBillsClient,
+          charge_type: miscChargeType,
+          // Idempotency key prevents duplicate line items on double-click / retry.
+          dedupe_key:
+            (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        });
+      }
       setCurrentInvoice(updated);
-      setMiscDescription('');
-      setMiscAmount('');
-      setMiscQuantity('1');
+      resetMiscForm();
       toast({
-        title: 'Misc item added',
-        description: 'The invoice has been updated with the misc item.',
+        title: editingItemId != null ? 'Adjustment updated' : 'Adjustment added',
+        description: miscBillsClient
+          ? 'The client payable amount has been updated.'
+          : 'Added as a display-only item (client payable unchanged).',
       });
     } catch (error) {
       toast({
-        title: 'Failed to add misc item',
+        title: editingItemId != null ? 'Failed to update adjustment' : 'Failed to add adjustment',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -220,13 +271,16 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     try {
       const updated = await removeInvoiceMiscItem(invoiceData.id, itemId);
       setCurrentInvoice(updated);
+      if (editingItemId === itemId) {
+        resetMiscForm();
+      }
       toast({
-        title: 'Misc item removed',
+        title: 'Adjustment removed',
         description: 'The invoice has been updated.',
       });
     } catch (error) {
       toast({
-        title: 'Failed to remove misc item',
+        title: 'Failed to remove adjustment',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -624,9 +678,37 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
 
           {canEditInvoice && (
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-5 py-4 space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Add misc items</p>
-                <p className="text-xs text-muted-foreground">Admin-only extras that will appear on the PDF.</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {editingItemId != null ? 'Edit adjustment' : 'Add invoice adjustment'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Misc extras and charges. Mark "Bill client" to add it to the amount the client owes.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={miscChargeType === 'misc' ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setMiscChargeType('misc')}
+                    disabled={isSavingMisc}
+                  >
+                    Misc item
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={miscChargeType === 'virtual_staging' ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={prefillVirtualStaging}
+                    disabled={isSavingMisc}
+                  >
+                    Virtual staging charge
+                  </Button>
+                </div>
               </div>
               <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto]">
                 <div className="space-y-1">
@@ -661,7 +743,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                     onChange={(event) => setMiscQuantity(event.target.value)}
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end gap-2">
                   <Button
                     type="button"
                     variant="secondary"
@@ -670,9 +752,33 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                     disabled={isSavingMisc}
                   >
                     <Plus className="h-4 w-4" />
-                    {isSavingMisc ? 'Saving...' : 'Add'}
+                    {isSavingMisc ? 'Saving...' : (editingItemId != null ? 'Update' : 'Add')}
                   </Button>
+                  {editingItemId != null && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={resetMiscForm}
+                      disabled={isSavingMisc}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="misc-bills-client"
+                  checked={miscBillsClient}
+                  onCheckedChange={(checked) => setMiscBillsClient(checked === true)}
+                  disabled={isSavingMisc}
+                />
+                <Label htmlFor="misc-bills-client" className="text-xs font-normal cursor-pointer">
+                  Bill client / include in payable amount
+                  <span className="block text-[11px] text-muted-foreground">
+                    Off = appears on the invoice/PDF only and does not change what the client owes.
+                  </span>
+                </Label>
               </div>
             </div>
           )}
@@ -712,20 +818,35 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                           <p className="text-xs text-muted-foreground">Waived after cancellation</p>
                         )}
                         {isAdminMisc && (
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Misc item</p>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                            {item.meta?.charge_type === 'virtual_staging' ? 'Virtual staging' : 'Misc item'}
+                            {item.meta?.bills_client ? ' · billed to client' : ' · display only'}
+                          </p>
                         )}
                         {isAdminMisc && canEditInvoice && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2 h-7 px-2 text-xs text-destructive"
-                            onClick={() => handleRemoveMiscItem(item.id)}
-                            disabled={isSavingMisc}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-1" />
-                            Remove
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 h-7 px-2 text-xs"
+                              onClick={() => handleEditMiscItem(item)}
+                              disabled={isSavingMisc}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 h-7 px-2 text-xs text-destructive"
+                              onClick={() => handleRemoveMiscItem(item.id)}
+                              disabled={isSavingMisc}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
                         )}
                       </td>
                       <td className={`text-right py-4 text-sm text-muted-foreground ${isWaivedCancellationService ? 'line-through' : ''}`}>

@@ -276,7 +276,7 @@ export const markInvoiceAsPaid = async (
 
 export const addInvoiceMiscItem = async (
   invoiceId: string | number,
-  payload: { description: string; amount: number; quantity?: number }
+  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string; dedupe_key?: string }
 ): Promise<InvoiceData> => {
   const token = getAuthToken();
   if (!token) {
@@ -325,6 +325,38 @@ export const removeInvoiceMiscItem = async (
     }
     const error = await response.json().catch(() => ({}));
     throw new Error(error.message || `Failed to remove misc item: ${response.statusText}`);
+  }
+
+  const json = await response.json();
+  const invoice = json.invoice || json.data || json;
+  return mapInvoiceResponse(invoice, invoiceId);
+};
+
+export const updateInvoiceMiscItem = async (
+  invoiceId: string | number,
+  itemId: string | number,
+  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string }
+): Promise<InvoiceData> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/invoices/${invoiceId}/misc-items/${itemId}`,
+    {
+      method: 'PATCH',
+      headers: buildHeaders(),
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('You do not have permission to update invoices');
+    }
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Failed to update misc item: ${response.statusText}`);
   }
 
   const json = await response.json();

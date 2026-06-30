@@ -85,6 +85,9 @@ export type InvoiceViewDialogItem = InvoiceItem & {
     service_name?: string;
     photographer_name?: string;
     source?: string;
+    bills_client?: boolean;
+    charge_type?: string;
+    dedupe_key?: string;
     waived_due_to_cancellation?: boolean;
     cancelled_service_charge?: boolean;
     original_amount?: number;
