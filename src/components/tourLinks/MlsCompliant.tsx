@@ -13,6 +13,7 @@ import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { formatTourPrice } from './tourDisplayUtils';
+import { FloorplanSection } from './FloorplanSection';
 
 interface ShootData {
   id: number;
@@ -55,7 +56,7 @@ export function MlsCompliant() {
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [showGarage, setShowGarage] = useState(false);
-  const [floorplans, setFloorplans] = useState<string[]>([]);
+  const [floorplans, setFloorplans] = useState<any[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
@@ -115,7 +116,7 @@ export function MlsCompliant() {
         if (data?.iguide_tour_url || data?.iguide_url) setIguideUrl(data.iguide_tour_url || data.iguide_url);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
-          setFloorplans(Array.isArray(fps) ? fps.map((f: any) => typeof f === 'string' ? f : f.url || f.path) : []);
+          setFloorplans(Array.isArray(fps) ? fps : []);
         }
         const style = data?.tour_style || data?.tour_links?.tour_style || 'default';
         setTourStyle(style);
@@ -496,24 +497,7 @@ export function MlsCompliant() {
       )}
 
       {/* Floor Plans */}
-      {floorplans.length > 0 && (
-        <section id="floorplan" className="max-w-6xl mx-auto px-6 mt-10 mb-12">
-          <h2 className="text-2xl font-bold text-foreground mb-6">Floor Plans</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {floorplans.map((fp, index) => (
-              <div key={index} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
-                <h3 className="font-semibold mb-3">Level {index + 1}</h3>
-                <div className="flex-1 flex items-center justify-center min-h-[200px]">
-                  <img src={fp} alt={`Floor Plan ${index + 1}`} loading="lazy" decoding="async" className="max-w-full max-h-[300px] object-contain" />
-                </div>
-                <Button variant="outline" className="mt-4 rounded-full w-full" asChild>
-                  <a href={fp} download target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2" />Download</a>
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <FloorplanSection floorplans={floorplans} />
 
       {/* Map */}
       {fullAddress && (
