@@ -732,20 +732,21 @@ export function MediaGrid({
 
   // Helper function to format date/time
   const formatDateTime = (dateStr?: string): string => {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } catch {
-      return '-';
-    }
+    if (!dateStr) return 'Not available';
+    // EXIF stores capture time as "YYYY:MM:DD HH:MM:SS" (colons in the date), which
+    // JS Date cannot parse and would render as "Invalid Date". Normalize the date
+    // portion to "YYYY-MM-DD" first, then guard against any remaining unparseable value.
+    const normalized = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) return 'Not available';
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
   };
 
   // Helper function to get resolution string

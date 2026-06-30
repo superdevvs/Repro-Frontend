@@ -74,7 +74,10 @@ const formatViewerFileSize = (bytes?: number) => {
 
 const formatViewerDateTime = (value?: string | null) => {
   if (!value) return '—';
-  const parsed = new Date(value);
+  // Normalize EXIF capture timestamps ("YYYY:MM:DD HH:MM:SS") so they parse instead of
+  // rendering as "Invalid Date"; ISO strings (comments/requests) are unaffected.
+  const normalized = value.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+  const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return '—';
   return parsed.toLocaleString('en-US', {
     month: 'short',
