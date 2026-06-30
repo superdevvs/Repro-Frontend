@@ -213,6 +213,8 @@ export function MmmPunchoutDialog({
     ? 'Preparing your print session…'
     : errorMessage
       ? 'Couldn’t start a print session. See details below.'
+      : autoOpenStatus === 'blocked' && activeRedirectUrl
+        ? 'Your browser blocked the new tab. Allow popups for this site, then open MMM again.'
       : activeRedirectUrl
         ? 'Opened in a new tab. Complete your order there, then come back to see it here.'
         : 'Start a new print session to send this shoot to MMM.'
@@ -351,9 +353,12 @@ export function MmmPunchoutDialog({
             </div>
 
             {autoOpenStatus === 'blocked' && activeRedirectUrl && (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                Browser blocked the auto-opened tab. Allow popups for this site or use the button above.
-              </p>
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  New tab blocked. Allow popups for this site, then use Open in new tab or Reopen last session.
+                </span>
+              </div>
             )}
           </section>
 

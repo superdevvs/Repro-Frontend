@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -14,18 +13,128 @@ import {
   Zap,
   Settings,
   FileText,
-  TrendingUp,
-  CheckCircle,
   Inbox,
+  ArrowRight,
 } from 'lucide-react';
-import { getMessagingOverview } from '@/services/messaging';
+import { format, isToday, isYesterday } from 'date-fns';
+import { getEmailMessages, getMessagingOverview, getSmsThreads } from '@/services/messaging';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Message, SmsThreadSummary } from '@/types/messaging';
+
+function formatMessageTime(dateString?: string | null): string {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+
+  if (isToday(date)) return format(date, 'h:mm a');
+  if (isYesterday(date)) return 'Yesterday';
+  return format(date, 'MMM d');
+}
+
+const emailStatusTone: Record<string, string> = {
+  SENT: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  DELIVERED: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  SCHEDULED: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  QUEUED: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  FAILED: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300',
+  CANCELLED: 'border-muted bg-muted text-muted-foreground',
+};
+
+function LatestEmailRow({ message }: { message: Message }) {
+  const recipient = message.direction === 'OUTBOUND'
+    ? message.to_address
+    : message.from_address || message.sender_display_name || 'Inbound email';
+  const preview = message.body_text?.trim() || message.subject || 'No preview available';
+
+  return (
+    <Link
+      to="/messaging/email/inbox"
+      className="block rounded-lg border border-transparent px-3 py-3 transition hover:border-border hover:bg-muted/50"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{message.subject || '(No subject)'}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{recipient}</p>
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">{formatMessageTime(message.created_at)}</span>
+      </div>
+      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{preview}</p>
+      <div className="mt-3 flex items-center gap-2">
+        <Badge variant="outline" className={emailStatusTone[message.status] || 'border-muted bg-muted text-muted-foreground'}>
+          {message.status.toLowerCase()}
+        </Badge>
+        {message.send_source === 'AUTOMATION' && <Badge variant="secondary">Auto</Badge>}
+      </div>
+    </Link>
+  );
+}
+
+function LatestSmsRow({ thread }: { thread: SmsThreadSummary }) {
+  const contact = thread.contact?.name || thread.contact?.primaryNumber || 'Unknown contact';
+
+  return (
+    <Link
+      to={`/messaging/sms?thread=${thread.id}`}
+      className="block rounded-lg border border-transparent px-3 py-3 transition hover:border-border hover:bg-muted/50"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {thread.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+            <p className="truncate text-sm font-semibold">{contact}</p>
+          </div>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {thread.lastDirection === 'OUTBOUND' ? 'Sent message' : 'Received message'}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">{formatMessageTime(thread.lastMessageAt)}</span>
+      </div>
+      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{thread.lastMessageSnippet || 'No preview available'}</p>
+      <div className="mt-3 flex items-center gap-2">
+        {thread.contact?.type && (
+          <Badge variant="outline" className="capitalize">
+            {thread.contact.type}
+          </Badge>
+        )}
+        {thread.unread && <Badge variant="secondary">Unread</Badge>}
+      </div>
+    </Link>
+  );
+}
+
+function LatestPanelSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="rounded-lg px-3 py-3">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="mt-2 h-3 w-1/3" />
+          <Skeleton className="mt-3 h-8 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function MessagingOverview() {
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['messaging-overview'],
     queryFn: getMessagingOverview,
   });
+
+  const { data: emailMessagesData, isLoading: emailMessagesLoading } = useQuery({
+    queryKey: ['messaging-overview-email-messages'],
+    queryFn: () => getEmailMessages({ per_page: 5 }),
+  });
+
+  const { data: smsThreadsData, isLoading: smsThreadsLoading } = useQuery({
+    queryKey: ['messaging-overview-sms-threads'],
+    queryFn: () => getSmsThreads({ per_page: 5 }),
+  });
+
+  const latestEmails = emailMessagesData?.data || [];
+  const latestSmsThreads = smsThreadsData?.data || [];
 
   const stats = [
     { title: 'Sent Today', value: overview?.total_sent_today || 0, icon: Send, color: 'text-emerald-500 dark:text-emerald-300', bgColor: 'bg-emerald-100/70 dark:bg-emerald-500/15' },
@@ -43,88 +152,71 @@ export default function MessagingOverview() {
     { title: 'Settings', description: 'Email & SMS providers', icon: Settings, href: '/messaging/settings', color: 'text-gray-600' },
   ];
 
-  const heroMetrics = useMemo(() => ([
-    { label: 'Delivery rate', value: overview?.delivery_rate ? `${overview.delivery_rate}%` : '—', icon: TrendingUp, lightTone: 'text-emerald-600', darkTone: 'text-emerald-100' },
-    { label: 'Avg. response time', value: overview?.average_response_time || '—', icon: Clock, lightTone: 'text-indigo-600', darkTone: 'text-white' },
-    { label: 'Active workflows', value: overview?.active_automations || 0, icon: Zap, lightTone: 'text-amber-600', darkTone: 'text-amber-100' },
-  ]), [overview]);
-
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-24 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0 overflow-hidden min-w-0">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="relative overflow-hidden border border-border bg-gradient-to-br from-indigo-50 via-purple-50 to-rose-50 dark:from-indigo-600 dark:via-purple-600 dark:to-rose-500 lg:col-span-2">
-            <div className="absolute inset-y-0 right-0 opacity-10 dark:opacity-20">
-              <Inbox className="h-full w-40 translate-x-12 translate-y-6 text-indigo-400 dark:text-white" />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card className="overflow-hidden border border-border bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-300">
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Email</p>
+                  <p className="truncate text-xs text-muted-foreground">Latest email messages</p>
+                </div>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="shrink-0 gap-1">
+                <Link to="/messaging/email/inbox">
+                  View all
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
-            <div className="relative z-10 flex flex-col gap-6 p-6">
-              <div>
-                <p className="text-sm uppercase tracking-wide text-indigo-600 dark:text-white/70">Messaging Center</p>
-                <h1 className="text-3xl font-semibold leading-tight text-gray-900 dark:text-white">
-                  All client conversations, perfectly orchestrated.
-                </h1>
-                <p className="mt-2 text-gray-700 dark:text-white/80 max-w-3xl">
-                  Keep track of email, SMS, automations, and templates in one streamlined workspace.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-white/15 dark:hover:bg-white/25 dark:backdrop-blur">
-                  <Link to="/messaging/email/compose">Compose Message</Link>
-                </Button>
-                <Button asChild variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-white/40 dark:text-white dark:hover:bg-white/10">
-                  <Link to="/messaging/email/templates">Manage Templates</Link>
-                </Button>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {heroMetrics.map((metric, idx) => {
-                  const Icon = metric.icon;
-                  const iconClass = idx === 0 
-                    ? 'h-4 w-4 text-emerald-600 dark:text-emerald-100'
-                    : idx === 1
-                    ? 'h-4 w-4 text-indigo-600 dark:text-white'
-                    : 'h-4 w-4 text-amber-600 dark:text-amber-100';
-                  return (
-                    <div key={idx} className="rounded-lg bg-white/80 dark:bg-white/10 backdrop-blur border border-indigo-100 dark:border-white/20 p-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-white/80">
-                        <Icon className={iconClass} />
-                        <span>{metric.label}</span>
-                      </div>
-                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{metric.value}</p>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="p-2">
+              {emailMessagesLoading ? (
+                <LatestPanelSkeleton />
+              ) : latestEmails.length > 0 ? (
+                latestEmails.map((message) => <LatestEmailRow key={message.id} message={message} />)
+              ) : (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-4 py-8 text-center text-sm text-muted-foreground">
+                  <Inbox className="h-10 w-10 opacity-25" />
+                  <p>No email messages yet.</p>
+                </div>
+              )}
             </div>
           </Card>
-          <Card className="border border-border bg-card">
-            <div className="flex flex-col gap-4 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Delivery Health</p>
-                  <p className="text-3xl font-semibold mt-1">
-                    {overview?.delivery_score ? `${overview.delivery_score}%` : '87%'}
-                  </p>
+
+          <Card className="overflow-hidden border border-border bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                  <MessageSquare className="h-5 w-5" />
                 </div>
-                <div className="rounded-full bg-emerald-100 text-emerald-600 p-3">
-                  <CheckCircle className="h-5 w-5" />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Based on bounce rate, template freshness, and active workflows.
-              </p>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Templates active</span>
-                  <span className="font-medium">{overview?.template_usage?.active || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Automation coverage</span>
-                  <span className="font-medium">{overview?.automation_summary?.coverage || '64%'}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Messages</p>
+                  <p className="truncate text-xs text-muted-foreground">Latest SMS conversations</p>
                 </div>
               </div>
-              <Button asChild>
-                <Link to="/messaging/email/automations">Improve Health</Link>
+              <Button asChild variant="ghost" size="sm" className="shrink-0 gap-1">
+                <Link to="/messaging/sms">
+                  View all
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </Button>
+            </div>
+            <div className="p-2">
+              {smsThreadsLoading ? (
+                <LatestPanelSkeleton />
+              ) : latestSmsThreads.length > 0 ? (
+                latestSmsThreads.map((thread) => <LatestSmsRow key={thread.id} thread={thread} />)
+              ) : (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-4 py-8 text-center text-sm text-muted-foreground">
+                  <MessageSquare className="h-10 w-10 opacity-25" />
+                  <p>No SMS conversations yet.</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>

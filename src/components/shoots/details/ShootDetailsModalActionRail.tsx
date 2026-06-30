@@ -375,7 +375,7 @@ export function ShootDetailsModalActionRail({
                       ) : (
                         <>
                           <Printer className="h-3 w-3 mr-1" />
-                          <span>Print Media</span>
+                          <span>Print Marketing</span>
                         </>
                       )}
                     </Button>

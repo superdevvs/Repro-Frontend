@@ -335,7 +335,7 @@ export function useShootDetailsModalActions({
 
       toast({
         title: 'Print session ready',
-        description: 'MMM opened in the dashboard popup so you can continue the print order there.',
+        description: 'MMM is ready to open in a new tab so you can continue the print order there.',
       });
     } catch (error) {
       const message = getMmmErrorMessage(
