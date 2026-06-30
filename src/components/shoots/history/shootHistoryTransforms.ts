@@ -515,5 +515,17 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     files: toArrayValue<ShootFileData>(item.files),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),
     tourLinks: (item.tour_links ?? item.tourLinks) as ShootData['tourLinks'],
+    // Featured-shoot fields — required so the Shoot History "Featured" tab can
+    // identify featured/pending shoots (isFeaturedTabShoot). Without these the
+    // featured filter never matches and the tab is always empty even though the
+    // backend's tab=featured scope returns the shoots.
+    isFeatured: toBooleanValue(item.isFeatured ?? item.is_featured),
+    is_featured: toBooleanValue(item.is_featured ?? item.isFeatured),
+    featuredPending: toBooleanValue(item.featuredPending ?? item.featured_pending),
+    featured_pending: toBooleanValue(item.featured_pending ?? item.featuredPending),
+    featuredStatus: toStringValue(item.featuredStatus ?? item.featured_status, 'none'),
+    featured_status: toStringValue(item.featured_status ?? item.featuredStatus, 'none'),
+    featuredRequestedAt: toStringValue(item.featuredRequestedAt ?? item.featured_requested_at),
+    featured_requested_at: toStringValue(item.featured_requested_at ?? item.featuredRequestedAt),
   }
 }

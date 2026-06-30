@@ -110,18 +110,28 @@ export function useWeatherData({
   const location = useMemo(() => buildLocation({ city, state, zip, address }), [city, state, zip, address]);
   const dateTime = useMemo(() => buildDateTime(date, time), [date, time]);
 
+  // Stable numeric key for the date. `date` is frequently a freshly-constructed
+  // Date object (new identity every render), so depending on it directly causes
+  // the effect below to re-run on every render and call setState in a loop
+  // ("Maximum update depth exceeded"). Depending on the timestamp value instead
+  // keeps the effect stable.
+  const dateKey = useMemo(
+    () => (date && !Number.isNaN(date.getTime()) ? date.getTime() : null),
+    [date],
+  );
+
   // Skip weather lookups for shoots well in the past — weather is meaningless
   // for completed/delivered shoots and these are the bulk of dashboard cards.
   const isStalePastShoot = useMemo(() => {
-    if (!date) return false;
-    const target = new Date(date);
-    if (Number.isNaN(target.getTime())) return false;
-    return target.getTime() < Date.now() - WEATHER_STALE_PAST_MS;
-  }, [date]);
+    if (dateKey === null) return false;
+    return dateKey < Date.now() - WEATHER_STALE_PAST_MS;
+  }, [dateKey]);
 
   useEffect(() => {
-    if (!enabled || isStalePastShoot || !date || !location) {
-      setWeatherData({ distance: '5' });
+    if (!enabled || isStalePastShoot || dateKey === null || !location) {
+      setWeatherData((prev) => (prev.temperature === undefined && prev.condition === undefined && prev.distance === '5'
+        ? prev
+        : { distance: '5' }));
       return;
     }
 
@@ -153,7 +163,7 @@ export function useWeatherData({
       controller.abort();
       cancelIdle();
     };
-  }, [enabled, isStalePastShoot, date, dateTime, location]);
+  }, [enabled, isStalePastShoot, dateKey, dateTime, location]);
 
   return weatherData;
 }

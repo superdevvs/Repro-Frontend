@@ -495,18 +495,18 @@ export function ShootDetailsMediaTabView(props: any) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownload('original')}>
-                          <Download className="h-4 w-4 mr-2" />
-                          <div>
-                            <div className="font-medium text-sm">Full Size</div>
-                            <div className="text-xs text-muted-foreground">Original resolution</div>
-                          </div>
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDownload('small')}>
                           <Download className="h-4 w-4 mr-2" />
                           <div>
-                            <div className="font-medium text-sm">Small Size</div>
-                            <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
+                            <div className="font-medium text-sm">MLS Optimized</div>
+                            <div className="text-xs text-muted-foreground">Best for MLS uploads</div>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload('original')}>
+                          <Download className="h-4 w-4 mr-2" />
+                          <div>
+                            <div className="font-medium text-sm">Print Resolution</div>
+                            <div className="text-xs text-muted-foreground">Large files for print/design</div>
                           </div>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -624,18 +624,18 @@ export function ShootDetailsMediaTabView(props: any) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownload('original')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Full Size</div>
-                        <div className="text-xs text-muted-foreground">Original resolution</div>
-                      </div>
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleDownload('small')}>
                       <Download className="h-4 w-4 mr-2" />
                       <div>
-                        <div className="font-medium text-sm">Small Size</div>
-                        <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
+                        <div className="font-medium text-sm">MLS Optimized</div>
+                        <div className="text-xs text-muted-foreground">Best for MLS uploads</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownload('original')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      <div>
+                        <div className="font-medium text-sm">Print Resolution</div>
+                        <div className="text-xs text-muted-foreground">Large files for print/design</div>
                       </div>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

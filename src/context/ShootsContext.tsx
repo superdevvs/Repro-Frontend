@@ -964,6 +964,17 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     iguideFloorplans: (shoot as any).iguide_floorplans || undefined,
     iguidePropertyId: (shoot as any).iguide_property_id || undefined,
     iguideLastSyncedAt: (shoot as any).iguide_last_synced_at || undefined,
+    // CubiCasa — mirror the iGUIDE mapping so the Tours tab can surface
+    // tour/floorplan links (previously these snake_case fields never reached
+    // the view-model, so CubiCasa floor plans never rendered).
+    cubicasaTourUrl: (shoot as any).cubicasa_tour_url || undefined,
+    cubicasaFloorplans: (shoot as any).cubicasa_floorplans || undefined,
+    cubicasaData: (shoot as any).cubicasa_data || undefined,
+    cubicasaStatus: (shoot as any).cubicasa_status || undefined,
+    cubicasaProductType: (shoot as any).cubicasa_product_type || undefined,
+    cubicasaOrderId: (shoot as any).cubicasa_order_id || undefined,
+    cubicasaExternalId: (shoot as any).cubicasa_external_id || undefined,
+    cubicasaLastSyncedAt: (shoot as any).cubicasa_last_synced_at || undefined,
     files: shoot.files || undefined,
     tourPurchased: shoot.tour_purchased ? Boolean(shoot.tour_purchased) : undefined,
     isPrivateListing,

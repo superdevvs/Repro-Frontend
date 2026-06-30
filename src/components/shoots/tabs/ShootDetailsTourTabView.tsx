@@ -394,10 +394,12 @@ export function ShootDetailsTourTabView(props: any) {
                     <Button variant="outline" size="sm" onClick={() => openLink('video_link')} title="Open embed link" disabled={!tourLinks.video_link}>
                       <ExternalLink className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => startEditVideoLink('video_link')} title="Edit video embed">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {tourLinks.video_link && (
+                    {isAdmin && (
+                      <Button variant="outline" size="sm" onClick={() => startEditVideoLink('video_link')} title="Edit video embed">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {isAdmin && tourLinks.video_link && (
                       <Button
                         variant="destructive"
                         size="sm"
@@ -1015,7 +1017,12 @@ export function ShootDetailsTourTabView(props: any) {
                   const lastSyncedAt = c.lastSyncedAt;
                   const orderId = c.orderId;
                   const externalId = c.externalId;
-                  const hasAny = Boolean(status || orderId || externalId || lastSyncedAt);
+                  const brandedUrl = c.brandedUrl;
+                  const unbrandedUrl = c.unbrandedUrl;
+                  const floorplans = Array.isArray(c.floorplans) ? c.floorplans : [];
+                  const hasAny = Boolean(
+                    status || orderId || externalId || lastSyncedAt || brandedUrl || unbrandedUrl || floorplans.length,
+                  );
                   if (!hasAny && !isAdmin) return null;
                   const statusVariant: any = (() => {
                     const s = (status || '').toString().toLowerCase();
@@ -1030,10 +1037,53 @@ export function ShootDetailsTourTabView(props: any) {
                         Floor plans appear under <strong>Media → Edited → Floor Plans</strong> once CubiCasa
                         marks the order as <em>Ready</em>.
                       </p>
+                      {(brandedUrl || unbrandedUrl) && (
+                        <div className="flex flex-wrap gap-2">
+                          {brandedUrl && (
+                            <a
+                              href={brandedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              Open tour <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                          {unbrandedUrl && (
+                            <a
+                              href={unbrandedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              MLS-compliant <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      )}
                       {(status || productType) && (
                         <div className="flex flex-wrap items-center gap-2">
                           {status && <Badge variant={statusVariant}>{status}</Badge>}
                           {productType && <span className="text-muted-foreground">{productType}</span>}
+                        </div>
+                      )}
+                      {floorplans.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <span className="text-[10px] uppercase text-muted-foreground">Floor plans</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                            {floorplans.map((floorplan: any, index: number) => {
+                              const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
+                              if (!url) return null;
+                              const label = typeof floorplan === 'string'
+                                ? `Floor plan ${index + 1}`
+                                : (floorplan?.label || floorplan?.filename || `Floor plan ${index + 1}`);
+                              return (
+                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                                  {label}
+                                </a>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                       {(orderId || externalId || lastSyncedAt) && (

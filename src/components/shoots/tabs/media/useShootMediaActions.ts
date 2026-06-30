@@ -346,8 +346,8 @@ export function useShootMediaActions({
     }
 
     const fileCount = selectedFiles.size;
-    const sizeLabel = size === 'small' ? 'Small (1800x1200)' : 'Full Size';
-    const filename = `shoot-${shoot.id}-${size === 'small' ? 'small' : 'full'}-${Date.now()}.zip`;
+    const sizeLabel = size === 'small' ? 'MLS Optimized' : 'Print Resolution';
+    const filename = `shoot-${shoot.id}-${size === 'small' ? 'mls-optimized' : 'print-resolution'}-${Date.now()}.zip`;
 
     setDownloadPopup({
       visible: true,

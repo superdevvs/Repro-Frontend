@@ -53,7 +53,7 @@ const SHORTCODES: Shortcode[] = [
   // Deliverables & Links
   { code: '{{photo_count}}', description: 'Number of delivered photos', category: 'Deliverables' },
   { code: '{{download_link}}', description: 'Primary download link', category: 'Deliverables' },
-  { code: '{{small_zip_link}}', description: 'MLS-sized zip download', category: 'Deliverables' },
+  { code: '{{small_zip_link}}', description: 'MLS Optimized zip download', category: 'Deliverables' },
   { code: '{{full_zip_link}}', description: 'Full-resolution zip download', category: 'Deliverables' },
   { code: '{{mls_tour_link}}', description: 'MLS compliant tour link', category: 'Deliverables' },
   { code: '{{branded_tour_link}}', description: 'Branded tour link', category: 'Deliverables' },

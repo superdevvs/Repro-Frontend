@@ -85,6 +85,16 @@ const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | nu
   return price;
 };
 
+const isLowPhotoCountServiceForLargeHome = (service: ServicePackage) => {
+  const label = `${service.name || ''} ${service.description || ''}`.toLowerCase();
+  return /\b25\b/.test(label) && /\bphotos?\b/.test(label);
+};
+
+const shouldWarnForLargeHomePhotoCount = (services: ServicePackage[], sqft?: number | null) => {
+  if (!sqft || sqft < 3000) return false;
+  return services.some(isLowPhotoCountServiceForLargeHome);
+};
+
 const normalizeAddressPart = (value?: string | null) =>
   String(value || '')
     .replace(/\s+/g, ' ')
@@ -350,6 +360,7 @@ const BookShoot = () => {
   };
   const { fetchShoots } = useShoots();
   const duplicateLocationWarningAcceptedRef = useRef(false);
+  const largeHomePackageWarningAcceptedRef = useRef(false);
 
   // Hide body scroll on this page; rely on layout/main scroll only
   useEffect(() => {
@@ -1563,6 +1574,21 @@ const BookShoot = () => {
         return;
       }
 
+      const sqftForGuidance = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
+      if (
+        isClientAccount &&
+        shouldWarnForLargeHomePhotoCount(selectedServices, sqftForGuidance) &&
+        !largeHomePackageWarningAcceptedRef.current
+      ) {
+        largeHomePackageWarningAcceptedRef.current = true;
+        toast({
+          title: 'Consider more photo coverage',
+          description: 'This home is 3,000+ sq ft. MLS Optimized delivery works best when the selected photo package covers all key rooms and exterior spaces.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Convert time from 12-hour format (e.g., "02:05 PM") to 24-hour format (e.g., "14:05:00")
       let time24Hour = '00:00:00';
       if (time) {
@@ -1756,6 +1782,7 @@ const BookShoot = () => {
         setCompletedBooking(completedSnapshot);
         clearBookingDraftState();
         duplicateLocationWarningAcceptedRef.current = false;
+        largeHomePackageWarningAcceptedRef.current = false;
         setIsComplete(true);
         // Refresh shoots list in the background — don't block the UI transition
         fetchShoots().catch(() => {});

@@ -18,6 +18,7 @@ import {
   Tag,
   Ruler,
   ExternalLink,
+  FileText,
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
@@ -79,6 +80,49 @@ const normalizeStatusKey = (value?: string | null) => {
     admin_verified: 'delivered',
   };
   return map[key] || key;
+};
+
+const normalizeFloorplanLinks = (shoot: any): Array<{ label: string; url: string }> => {
+  const rawItems = [
+    ...(Array.isArray(shoot?.cubicasaFloorplans) ? shoot.cubicasaFloorplans : []),
+    ...(Array.isArray(shoot?.cubicasa_floorplans) ? shoot.cubicasa_floorplans : []),
+    ...(Array.isArray(shoot?.iguide_floorplans) ? shoot.iguide_floorplans : []),
+    ...(Array.isArray(shoot?.floorplans) ? shoot.floorplans : []),
+  ];
+
+  const seen = new Set<string>();
+
+  return rawItems
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        return { label: `Floor Plan ${index + 1}`, url: item };
+      }
+
+      const url =
+        item?.url ||
+        item?.download_url ||
+        item?.downloadUrl ||
+        item?.pdf_url ||
+        item?.pdfUrl ||
+        item?.image_url ||
+        item?.imageUrl ||
+        item?.href ||
+        item?.path;
+
+      if (!url) return null;
+
+      return {
+        label: item?.label || item?.name || item?.title || item?.type || `Floor Plan ${index + 1}`,
+        url: String(url),
+      };
+    })
+    .filter((item): item is { label: string; url: string } => Boolean(item?.url))
+    .map((item) => ({ ...item, url: resolvePreviewUrl(item.url) || item.url }))
+    .filter((item) => {
+      if (seen.has(item.url)) return false;
+      seen.add(item.url);
+      return true;
+    });
 };
 
 const statusBadgeMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -204,6 +248,8 @@ export default function ExclusiveListingDetails() {
     const links = shoot.tourLinks as Record<string, string | undefined>;
     return links.branded || links.mls || links.genericMls || links.matterport_branded || links.iguide_branded || links.matterport || links.iGuide || null;
   }, [shoot]);
+
+  const floorplanLinks = useMemo(() => normalizeFloorplanLinks(shoot), [shoot]);
 
   const handleGenerateShareLink = async () => {
     if (!shoot) return;
@@ -388,6 +434,33 @@ export default function ExclusiveListingDetails() {
                 )}
 
                 <Separator />
+
+                {floorplanLinks.length > 0 && (
+                  <>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        Floor Plans
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {floorplanLinks.map((floorplan, index) => (
+                          <Button
+                            key={`${floorplan.url}-${index}`}
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => window.open(floorplan.url, '_blank', 'noopener,noreferrer')}
+                          >
+                            {floorplan.label}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Separator />
+                  </>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Card className="border-border/70 bg-background/40">

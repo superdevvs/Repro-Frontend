@@ -335,8 +335,10 @@ export function ShootDetailsTourTab({
   const hasMatterportLinks = Boolean(tourLinks.matterport_branded || tourLinks.matterport_mls);
   const hasIguideLinks = Boolean(tourLinks.iguide_branded || tourLinks.iguide_mls);
   const hasZillow3dLink = Boolean(tourLinks.zillow_3d);
-  const showVideoLinksSection = Boolean(isAdmin || isClientView || hasPublicVideoLinks);
-  const showVideoEmbedSection = Boolean(isAdmin);
+  // Sales reps need the same read-only visibility into video links/embeds that admins have.
+  // Editing/deleting remains admin-only (gated per-button by isAdmin inside the view).
+  const showVideoLinksSection = Boolean(isAdmin || isRep || isClientView || hasPublicVideoLinks);
+  const showVideoEmbedSection = Boolean(isAdmin || isRep || hasVideoEmbedLink);
   const showTourSettings = !isClientView;
   const canManageRealtor = isAdmin || isRep;
   const showPropertyInfo = Boolean(isAdmin || isClientView);
@@ -1033,6 +1035,12 @@ export function ShootDetailsTourTab({
     const unbranded = data?.tour?.mls_compliance_link
       || tourLinksRaw?.cubicasa_mls
       || null;
+    const floorplansRaw = s?.cubicasaFloorplans
+      ?? s?.cubicasa_floorplans
+      ?? data?.floorplans
+      ?? data?.floor_plans
+      ?? [];
+    const floorplans = Array.isArray(floorplansRaw) ? floorplansRaw : [];
     return {
       orderId: s?.cubicasaOrderId ?? s?.cubicasa_order_id ?? null,
       externalId: s?.cubicasaExternalId ?? s?.cubicasa_external_id ?? null,
@@ -1040,6 +1048,7 @@ export function ShootDetailsTourTab({
       productType: s?.cubicasaProductType ?? s?.cubicasa_product_type ?? null,
       brandedUrl: branded,
       unbrandedUrl: unbranded,
+      floorplans,
       lastSyncedAt: s?.cubicasaLastSyncedAt ?? s?.cubicasa_last_synced_at ?? null,
       lastStatusAt: s?.cubicasaLastStatusAt ?? s?.cubicasa_last_status_at ?? null,
       data,
@@ -1055,6 +1064,8 @@ export function ShootDetailsTourTab({
     (shoot as any)?.cubicasa_product_type,
     (shoot as any)?.cubicasaTourUrl,
     (shoot as any)?.cubicasa_tour_url,
+    (shoot as any)?.cubicasaFloorplans,
+    (shoot as any)?.cubicasa_floorplans,
     (shoot as any)?.cubicasaData,
     (shoot as any)?.cubicasa_data,
     (shoot as any)?.cubicasaLastSyncedAt,

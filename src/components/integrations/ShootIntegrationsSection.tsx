@@ -33,6 +33,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
 const BRIGHT_MLS_BUTTON_SRC = '/brightmls-media-sync-button.svg';
+const BRIGHT_MLS_UNSUPPORTED_STATES = new Set(['NJ']);
+
+const isBrightMlsSupportedForShoot = (shoot: { state?: string | null; listing_source?: string | null }) => {
+  const state = String(shoot.state || '').trim().toUpperCase();
+  const listingSource = String(shoot.listing_source || '').trim().toLowerCase();
+
+  if (BRIGHT_MLS_UNSUPPORTED_STATES.has(state)) {
+    return false;
+  }
+
+  if (listingSource.includes('garden state')) {
+    return false;
+  }
+
+  return true;
+};
 
 interface ShootIntegrationsSectionProps {
   shoot: {
@@ -69,6 +85,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
     shoot as unknown as Partial<ShootData> & Record<string, unknown>,
   ).filter((file) => typeof file.id === 'string' || typeof file.id === 'number');
   const allPhotoIds = publishablePhotos.map((file) => String(file.id));
+  const brightMlsSupported = isBrightMlsSupportedForShoot(shoot);
 
   const handleRefreshProperty = async () => {
     setRefreshingProperty(true);
@@ -350,15 +367,24 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
       </Card>
 
       {/* Bright MLS Publishing */}
-      <Card>
+      <Card className={!brightMlsSupported ? 'opacity-80' : undefined}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Bright MLS Publishing
           </CardTitle>
-          <CardDescription>Publish media manifest to Bright MLS</CardDescription>
+          <CardDescription>
+            {brightMlsSupported
+              ? 'Publish media manifest to Bright MLS'
+              : 'Bright MLS media sync is unavailable for this market.'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!brightMlsSupported && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+              This listing appears to be in an unsupported market for Bright MLS sync. Use the local MLS workflow instead.
+            </div>
+          )}
           {shoot.bright_mls_publish_status ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -407,7 +433,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
             }}
           >
             <DialogTrigger asChild>
-              <Button variant="ghost" disabled={!shoot.mls_id} className="h-auto p-0 hover:bg-transparent">
+              <Button variant="ghost" disabled={!shoot.mls_id || !brightMlsSupported} className="h-auto p-0 hover:bg-transparent">
                 <img
                   src={BRIGHT_MLS_BUTTON_SRC}
                   alt="Publish to Bright MLS"

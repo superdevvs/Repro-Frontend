@@ -375,7 +375,7 @@ export function ShootDetailsModalActionRail({
                       ) : (
                         <>
                           <Printer className="h-3 w-3 mr-1" />
-                          <span>Print</span>
+                          <span>Print Media</span>
                         </>
                       )}
                     </Button>
@@ -594,7 +594,7 @@ export function ShootDetailsModalActionRail({
                     <Printer className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   )}
                 </div>
-                {isStartingMmmPunchout ? 'Preparing print...' : 'Print'}
+                {isStartingMmmPunchout ? 'Preparing print...' : 'Print Brochures & Marketing'}
               </button>
             )}
             {isEditor && !isEditMode && (

@@ -35,3 +35,7 @@ public/shoots/**
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Playwright MCP/CLI snapshot artifacts
+.playwright-cli/
+.playwright-mcp/

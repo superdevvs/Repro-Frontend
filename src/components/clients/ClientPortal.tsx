@@ -23,7 +23,6 @@ import {
   Send,
   Home,
   Tag,
-  UserCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -719,25 +718,6 @@ export function ClientPortal() {
                     <div>
                       <p className="text-sm text-muted-foreground">Address</p>
                       <p className="text-base font-medium whitespace-pre-line">{clientInfo.address}</p>
-                    </div>
-                  </div>
-                )}
-
-                {clientInfo?.rep && (
-                  <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                      {clientInfo.rep.avatar ? (
-                        <img src={normalizeImageUrl(clientInfo.rep.avatar)} alt={clientInfo.rep.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <UserCircle className="h-5 w-5 text-primary" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Sales Representative</p>
-                      <p className="text-base font-medium">{clientInfo.rep.name}</p>
-                      {clientInfo.rep.email && (
-                        <a href={`mailto:${clientInfo.rep.email}`} className="text-xs text-primary hover:underline">{clientInfo.rep.email}</a>
-                      )}
                     </div>
                   </div>
                 )}

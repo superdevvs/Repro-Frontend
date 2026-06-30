@@ -37,3 +37,19 @@ export interface SalesRepSummaryResponse {
   top_clients: SalesRepTopClient[];
   new_clients: SalesRepNewClient[];
 }
+
+export interface SalesRepInactiveClient {
+  client_id: number | string;
+  client_name: string;
+  first_known_relationship_at: string | null;
+  last_shoot_date: string | null;
+  days_since_last_shoot: number | null;
+  reason: string;
+}
+
+export interface SalesRepInactiveClientsResponse {
+  cutoff_days: number;
+  cutoff_date: string;
+  total: number;
+  clients: SalesRepInactiveClient[];
+}

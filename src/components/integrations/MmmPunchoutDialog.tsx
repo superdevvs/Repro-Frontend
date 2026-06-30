@@ -232,7 +232,7 @@ export function MmmPunchoutDialog({
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-base font-semibold tracking-tight sm:text-lg">
-                MMM Print Materials
+                Print Brochures & Marketing
               </DialogTitle>
               <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground sm:truncate sm:text-sm">
                 {headerMessage}

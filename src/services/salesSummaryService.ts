@@ -1,6 +1,8 @@
 import { apiClient } from '@/services/api';
 import type {
   SalesRepNewClient,
+  SalesRepInactiveClient,
+  SalesRepInactiveClientsResponse,
   SalesRepSummaryMetrics,
   SalesRepSummaryPeriod,
   SalesRepSummaryResponse,
@@ -55,6 +57,15 @@ const normalizeNewClient = (value: Partial<SalesRepNewClient>): SalesRepNewClien
   created_at: value.created_at || null,
 });
 
+const normalizeInactiveClient = (value: Partial<SalesRepInactiveClient>): SalesRepInactiveClient => ({
+  client_id: value.client_id ?? '',
+  client_name: value.client_name || 'Unknown Client',
+  first_known_relationship_at: value.first_known_relationship_at || null,
+  last_shoot_date: value.last_shoot_date || null,
+  days_since_last_shoot: toNullableNumber(value.days_since_last_shoot),
+  reason: value.reason || 'No recent shoot found',
+});
+
 export const fetchSalesRepSummary = async ({
   startDate,
   endDate,
@@ -77,5 +88,20 @@ export const fetchSalesRepSummary = async ({
     trend: Array.isArray(data.trend) ? data.trend.map(normalizeTrendPoint) : [],
     top_clients: Array.isArray(data.top_clients) ? data.top_clients.map(normalizeTopClient) : [],
     new_clients: Array.isArray(data.new_clients) ? data.new_clients.map(normalizeNewClient) : [],
+  };
+};
+
+export const fetchSalesRepInactiveClients = async (days = 90): Promise<SalesRepInactiveClientsResponse> => {
+  const response = await apiClient.get<Partial<SalesRepInactiveClientsResponse>>('/reports/sales/inactive-clients', {
+    params: { days },
+  });
+
+  const data = response.data ?? {};
+
+  return {
+    cutoff_days: toNumber(data.cutoff_days || days),
+    cutoff_date: data.cutoff_date || '',
+    total: toNumber(data.total),
+    clients: Array.isArray(data.clients) ? data.clients.map(normalizeInactiveClient) : [],
   };
 };

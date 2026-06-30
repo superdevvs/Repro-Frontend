@@ -75,6 +75,7 @@ interface PrivateListing {
     totalQuote?: number;
   };
   tourLinks?: Record<string, any>;
+  floorplans?: Array<Record<string, any> | string>;
   isPrivateListing: boolean;
   isListingHidden: boolean;
   listing_type?: 'for_sale' | 'for_rent';
@@ -627,6 +628,7 @@ const PrivateListingPortal = () => {
               totalQuote: shoot.total_quote,
             },
             tourLinks: shoot.tourLinks || shoot.tour_links || {},
+            floorplans: shoot.cubicasaFloorplans || shoot.cubicasa_floorplans || shoot.iguide_floorplans || shoot.floorplans || [],
             isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
             isListingHidden: Boolean(shoot.is_listing_hidden ?? shoot.isListingHidden ?? false),
             listing_type: shoot.listing_type || shoot.listingType || undefined,
