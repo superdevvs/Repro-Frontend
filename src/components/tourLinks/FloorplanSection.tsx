@@ -25,16 +25,6 @@ export interface TourFloorplan {
   type?: string | null;
 }
 
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif|tiff?)($|\?)/i;
-const PDF_EXT = /\.pdf($|\?)/i;
-
-const isImageUrl = (url?: string | null, type?: string | null): boolean => {
-  if (type && /^(jpe?g|png|webp|gif|image)/i.test(type)) return true;
-  if (!url) return false;
-  if (PDF_EXT.test(url)) return false;
-  return IMAGE_EXT.test(url);
-};
-
 const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -53,13 +43,12 @@ const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
     .filter((x): x is TourFloorplan => !!x);
 };
 
-/** Returns a preview image src to attempt, or null if this floorplan can't be previewed. */
+/** Returns a preview image src to attempt, or null if this floorplan can't be previewed.
+ *  Only a backend-provided preview image is trusted. We deliberately do NOT fall back to
+ *  the raw floorplan URL: external (e.g. iGUIDE) image URLs can be dead/slow and would hang
+ *  the <img> instead of erroring, and a PDF URL can never render in <img>. */
 const resolvePreviewSrc = (fp: TourFloorplan): string | null => {
-  const explicit = fp.image || fp.preview_url || fp.web_url || fp.thumbnail_url;
-  if (explicit) return explicit;
-  // A reachable image URL can be previewed directly; PDFs cannot.
-  if (isImageUrl(fp.url, fp.type)) return fp.url || null;
-  return null;
+  return fp.image || fp.preview_url || fp.web_url || fp.thumbnail_url || null;
 };
 
 interface PreviewItem {
