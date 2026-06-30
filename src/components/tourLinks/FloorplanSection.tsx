@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, FileText } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 
 /**
- * Public tour "Floor Plans" section. Renders a real preview image when one is
- * available (generated JPG for PDFs, or the image itself), and a clean fallback
- * card (icon + label + Open/Download) when no previewable image exists or the
- * image fails to load — never a broken <img> placeholder.
+ * Public tour "Floor Plans" section.
+ *
+ * Public marketing tours must only ever show REAL floorplan previews. A card is
+ * rendered only when the floorplan has a usable preview image (a generated JPG for
+ * PDFs, or a reachable image). Floorplans without a preview — e.g. a bare PDF, or a
+ * dead/stale external (iGUIDE) URL — are NOT shown, and if no floorplan has a usable
+ * preview the entire section is hidden. (No "Preview unavailable" placeholder cards.)
  */
 
 export interface TourFloorplan {
@@ -32,7 +35,7 @@ const isImageUrl = (url?: string | null, type?: string | null): boolean => {
   return IMAGE_EXT.test(url);
 };
 
-export const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
+const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((item): TourFloorplan | null => {
@@ -47,73 +50,76 @@ export const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
         type: item.type || null,
       };
     })
-    .filter((x): x is TourFloorplan => !!x && (!!x.url || !!x.image));
+    .filter((x): x is TourFloorplan => !!x);
 };
 
+/** Returns a preview image src to attempt, or null if this floorplan can't be previewed. */
 const resolvePreviewSrc = (fp: TourFloorplan): string | null => {
   const explicit = fp.image || fp.preview_url || fp.web_url || fp.thumbnail_url;
   if (explicit) return explicit;
+  // A reachable image URL can be previewed directly; PDFs cannot.
   if (isImageUrl(fp.url, fp.type)) return fp.url || null;
   return null;
 };
 
-function FloorplanCard({ fp, index }: { fp: TourFloorplan; index: number }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const previewSrc = resolvePreviewSrc(fp);
-  const downloadUrl = fp.url || fp.original_url || fp.path || '';
-  const label = fp.label || fp.filename || `Level ${index + 1}`;
-  const showImage = previewSrc && !imageFailed;
-
-  return (
-    <div className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
-      <h3 className="font-semibold mb-3">{label}</h3>
-      <div className="flex-1 flex items-center justify-center min-h-[200px]">
-        {showImage ? (
-          <img
-            src={previewSrc as string}
-            alt={label}
-            loading="lazy"
-            decoding="async"
-            className="max-w-full max-h-[300px] object-contain"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-center gap-2 text-muted-foreground py-8">
-            <FileText className="h-10 w-10" />
-            <span className="text-sm font-medium break-all max-w-[260px]">{fp.filename || label}</span>
-            <span className="text-xs">Preview unavailable</span>
-          </div>
-        )}
-      </div>
-      {downloadUrl && (
-        <div className="mt-4 flex gap-2">
-          <Button variant="outline" className="rounded-full flex-1" asChild>
-            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4 mr-2" />Open
-            </a>
-          </Button>
-          <Button variant="outline" className="rounded-full flex-1" asChild>
-            <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
-              <Download className="w-4 h-4 mr-2" />Download
-            </a>
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+interface PreviewItem {
+  fp: TourFloorplan;
+  src: string;
+  label: string;
 }
 
 export function FloorplanSection({ floorplans }: { floorplans: any }) {
-  const items = normalizeTourFloorplans(floorplans);
-  if (items.length === 0) return null;
+  const [failed, setFailed] = useState<Record<number, boolean>>({});
+
+  // Only floorplans that have something previewable are candidates.
+  const candidates: PreviewItem[] = normalizeTourFloorplans(floorplans)
+    .map((fp, i): PreviewItem | null => {
+      const src = resolvePreviewSrc(fp);
+      if (!src) return null;
+      return { fp, src, label: fp.label || fp.filename || `Level ${i + 1}` };
+    })
+    .filter((x): x is PreviewItem => x !== null);
+
+  const visible = candidates.filter((_, i) => !failed[i]);
+  if (visible.length === 0) return null;
 
   return (
     <section id="floorplan" className="max-w-6xl mx-auto px-6 mt-10">
       <h2 className="text-2xl font-bold text-foreground mb-6">Floor Plans</h2>
       <div className="grid md:grid-cols-2 gap-6">
-        {items.map((fp, index) => (
-          <FloorplanCard key={index} fp={fp} index={index} />
-        ))}
+        {candidates.map((item, i) => {
+          if (failed[i]) return null;
+          const downloadUrl = item.fp.url || item.fp.original_url || item.fp.path || item.src;
+          return (
+            <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
+              <h3 className="font-semibold mb-3">{item.label}</h3>
+              <div className="flex-1 flex items-center justify-center min-h-[200px]">
+                <img
+                  src={item.src}
+                  alt={item.label}
+                  loading="lazy"
+                  decoding="async"
+                  className="max-w-full max-h-[300px] object-contain"
+                  onError={() => setFailed((prev) => ({ ...prev, [i]: true }))}
+                />
+              </div>
+              {downloadUrl && (
+                <div className="mt-4 flex gap-2">
+                  <Button variant="outline" className="rounded-full flex-1" asChild>
+                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-4 h-4 mr-2" />Open
+                    </a>
+                  </Button>
+                  <Button variant="outline" className="rounded-full flex-1" asChild>
+                    <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
+                      <Download className="w-4 h-4 mr-2" />Download
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
