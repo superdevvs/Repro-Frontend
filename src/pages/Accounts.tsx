@@ -44,6 +44,7 @@ import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InteractionCloud, type InteractionCloudAccount } from '@/components/accounts/InteractionCloud';
+import { DeletedAccountsPanel } from '@/components/accounts/DeletedAccountsPanel';
 import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { usePermission } from '@/hooks/usePermission';
@@ -1246,18 +1247,22 @@ export default function Accounts() {
   const canUseTopLevelTabs = isAdminOrSuperAdmin || isSalesRep;
   const showPermissionsTab = isAdminOrSuperAdmin && can('permissions-manager', 'view');
   const showLinkingTab = can('account-linking', 'view');
+  const showDeletedTab = isAdminOrSuperAdmin;
 
   // Calculate number of tabs to show
   const tabCount =
     1 +
     (showPermissionsTab ? 1 : 0) +
-    (showLinkingTab ? 1 : 0);
+    (showLinkingTab ? 1 : 0) +
+    (showDeletedTab ? 1 : 0);
   const gridCols =
-    tabCount === 3
-      ? 'grid-cols-3'
-      : tabCount === 2
-        ? 'grid-cols-2'
-        : 'grid-cols-1';
+    tabCount >= 4
+      ? 'grid-cols-4'
+      : tabCount === 3
+        ? 'grid-cols-3'
+        : tabCount === 2
+          ? 'grid-cols-2'
+          : 'grid-cols-1';
 
   const getClientMenuHandlers = (user: UserType) => {
     const client = clientsData.find(
@@ -1371,6 +1376,9 @@ export default function Accounts() {
                 )}
                 {showLinkingTab && (
                   <TabsTrigger value="linking">Linking</TabsTrigger>
+                )}
+                {showDeletedTab && (
+                  <TabsTrigger value="deleted">Deleted</TabsTrigger>
                 )}
               </TabsList>
             ) : (
@@ -1496,6 +1504,12 @@ export default function Accounts() {
           {showLinkingTab && (
             <TabsContent value="linking" className="mt-6">
               <AccountLinkingManager />
+            </TabsContent>
+          )}
+
+          {showDeletedTab && (
+            <TabsContent value="deleted" className="mt-6">
+              <DeletedAccountsPanel />
             </TabsContent>
           )}
 
