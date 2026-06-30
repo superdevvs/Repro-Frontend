@@ -1664,9 +1664,12 @@ export default function Accounts() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove all data for{' '}
-              <span className="font-semibold">{userPendingDelete?.name}</span> including shoots,
-              links, and history. This action cannot be undone.
+              This moves{' '}
+              <span className="font-semibold">{userPendingDelete?.name}</span> to Deleted Accounts.
+              Their email is freed for reuse immediately and they can no longer log in. You can
+              restore the account within <span className="font-semibold">14 days</span> from the
+              Deleted tab; after that it is permanently anonymized. Shoots, invoices, and payment
+              history are preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
