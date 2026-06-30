@@ -69,6 +69,20 @@ import {
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
 const SALES_REP_CREATABLE_ROLE: FormRole = 'client';
 const payoutFrequencyOptions = ['weekly', 'biweekly', 'monthly'] as const;
+
+// Timezone options for the account creation/edit form. Covers the US zones used by
+// the business plus a few common international zones; values are IANA identifiers
+// saved to users.timezone.
+const TIMEZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'America/New_York', label: 'Eastern (America/New_York)' },
+  { value: 'America/Chicago', label: 'Central (America/Chicago)' },
+  { value: 'America/Denver', label: 'Mountain (America/Denver)' },
+  { value: 'America/Phoenix', label: 'Mountain - no DST (America/Phoenix)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (America/Los_Angeles)' },
+  { value: 'America/Anchorage', label: 'Alaska (America/Anchorage)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (Pacific/Honolulu)' },
+  { value: 'UTC', label: 'UTC' },
+];
 const repCategoryOptions = [
   "Residential Sales",
   "Commercial Sales",
@@ -119,6 +133,7 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
   role: z.enum(['superadmin', 'admin', 'editing_manager', 'photographer', 'client', 'editor', 'salesRep'] as const),
+  timezone: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -291,6 +306,7 @@ export function AccountForm({
       lastName: "",
       email: "",
       role: "client" as FormRole,
+      timezone: "",
       phone: "",
       address: "",
       city: "",
@@ -354,6 +370,7 @@ export function AccountForm({
           lastName,
           email: initialData.email,
           role,
+          timezone: (initialData as any).timezone || "",
           phone: initialData.phone || "",
           address: initialData.address || "",
           city: initialData.city || "",
@@ -417,6 +434,7 @@ export function AccountForm({
           lastName: "",
           email: "",
           role: "client",
+          timezone: "",
           phone: "",
           address: "",
           city: "",
@@ -1009,6 +1027,7 @@ export function AccountForm({
         formData.append('client_discount_type', normalizedDiscountType ?? '');
         formData.append('client_discount_value', normalizedDiscountValue !== null ? String(normalizedDiscountValue) : '');
         formData.append('role', values.role || 'client');
+        if (values.timezone) formData.append('timezone', values.timezone);
         if (values.bio) formData.append('bio', values.bio);
         // Only include avatar if it's a valid URL (not a blob URL)
         if (avatarUrl && !avatarUrl.startsWith('blob:')) {
@@ -1160,6 +1179,7 @@ export function AccountForm({
       formData.append('client_discount_type', normalizedDiscountType ?? '');
       formData.append('client_discount_value', normalizedDiscountValue !== null ? String(normalizedDiscountValue) : '');
       formData.append('role', values.role || 'client');
+      if (values.timezone) formData.append('timezone', values.timezone);
       if (values.bio) formData.append('bio', values.bio);
         if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
           formData.append('specialties', JSON.stringify(values.specialties));
@@ -1670,6 +1690,30 @@ export function AccountForm({
                     <FormControl>
                       <Input placeholder="LI0123456" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="timezone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Timezone</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {TIMEZONE_OPTIONS.map((tz) => (
+                          <SelectItem key={tz.value} value={tz.value}>
+                            {tz.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
