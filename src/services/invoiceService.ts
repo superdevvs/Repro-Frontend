@@ -43,6 +43,8 @@ type InvoiceApiRecord = {
   items?: InvoiceItem[];
   services?: string[];
   client?: string | InvoiceParty | null;
+  clientProfile?: InvoiceParty | null;
+  client_profile?: InvoiceParty | null;
   client_name?: string;
   client_id?: number | string;
   photographer?: string | InvoiceParty | null;
@@ -120,6 +122,11 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
 
   const shoot = invoice.shoot;
   const clientRecord = typeof invoice.client === 'object' && invoice.client ? invoice.client : null;
+  const clientProfile = invoice.clientProfile
+    ?? invoice.client_profile
+    ?? clientRecord
+    ?? shoot?.client
+    ?? null;
   const photographerRecord = typeof invoice.photographer === 'object' && invoice.photographer ? invoice.photographer : null;
   const salesRepRecord = typeof invoice.salesRep === 'object' && invoice.salesRep ? invoice.salesRep : null;
   const fullAddress = buildFullAddress(shoot);
@@ -141,7 +148,8 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
     invoiceNumber,
     client: typeof invoice.client === 'string'
       ? invoice.client
-      : clientRecord?.name || shoot?.client?.name || invoice.client_name || 'Unknown Client',
+      : clientProfile?.name || invoice.client_name || 'Unknown Client',
+    clientProfile,
     client_id: toOptionalNumber(invoice.client_id ?? clientRecord?.id ?? shoot?.client_id),
     photographer: typeof invoice.photographer === 'string'
       ? invoice.photographer

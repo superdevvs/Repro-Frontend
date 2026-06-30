@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from '@/services/invoiceService';
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
-import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
+import type { InvoiceParty, InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 
 const COMPANY_NAME = 'REPRO Photos';
 const COMPANY_PHONE = '(202) 868-1663';
@@ -22,6 +22,22 @@ const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
   : [];
 
 type InvoiceItem = InvoiceViewDialogItem;
+
+const isInvoiceParty = (value: unknown): value is InvoiceParty => (
+  Boolean(value) && typeof value === 'object'
+);
+
+const firstText = (source: InvoiceParty | null | undefined, keys: string[]): string => {
+  if (!source) return '';
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' || typeof value === 'number') {
+      const normalized = String(value).trim();
+      if (normalized) return normalized;
+    }
+  }
+  return '';
+};
 
 interface InvoiceViewDialogProps {
   isOpen: boolean;
@@ -69,8 +85,34 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     return 'N/A';
   };
   const clientName = getClientName();
-  const clientEmail = invoiceData.shoot?.client?.email
+  const clientProfile = (
+    invoiceData.clientProfile
+    || invoiceData.client_profile
+    || (isInvoiceParty(invoiceData.client) ? invoiceData.client : null)
+    || invoiceData.shoot?.client
+    || null
+  );
+  const clientEmail = firstText(clientProfile, ['email'])
+    || invoiceData.shoot?.client?.email
     || (typeof invoiceData.client === 'object' ? invoiceData.client?.email : undefined);
+  const clientCompany = firstText(clientProfile, ['company_name', 'company']);
+  const clientPhone = firstText(clientProfile, ['phone_number', 'phonenumber', 'phone']);
+  const clientLicense = firstText(clientProfile, ['license_number']);
+  const clientMailingAddress = [
+    firstText(clientProfile, ['address']),
+    firstText(clientProfile, ['city']),
+    [
+      firstText(clientProfile, ['state']),
+      firstText(clientProfile, ['zip']),
+    ].filter(Boolean).join(' '),
+  ].filter(Boolean).join(', ');
+  const clientDetailLines = [
+    clientCompany ? `Company: ${clientCompany}` : '',
+    clientEmail ? `Email: ${clientEmail}` : '',
+    clientPhone ? `Phone: ${clientPhone}` : '',
+    clientMailingAddress ? `Account address: ${clientMailingAddress}` : '',
+    clientLicense ? `License: ${clientLicense}` : '',
+  ].filter(Boolean);
   
   // Handle property/shoot address
   const getPropertyAddress = () => {
@@ -385,7 +427,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       yPos = headerTop + 30;
 
       // ===== LIGHT BLUE BACKGROUND SECTION =====
-      const blueBoxHeight = 45;
+      const billToDetailLines = clientDetailLines.flatMap((line) => (
+        doc.splitTextToSize(line, contentWidth - 16) as string[]
+      ));
+      const blueBoxHeight = Math.max(45, 30 + (billToDetailLines.length * 5));
       doc.setFillColor(235, 242, 250); // Light blue background
       doc.rect(margin, yPos, contentWidth, blueBoxHeight, 'F');
 
@@ -402,11 +447,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
-      
-      // Client email
-      if (clientEmail) {
-        doc.text(clientEmail, margin + 8, yPos + 25);
-      }
+
+      billToDetailLines.forEach((line, index) => {
+        doc.text(line, margin + 8, yPos + 26 + (index * 5));
+      });
 
       yPos += blueBoxHeight + 10;
 
@@ -509,68 +553,69 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       yPos += 12;
 
       // ===== SUMMARY SECTION =====
-      const summaryLabelX = colQty;
       const summaryValueX = colTotal;
+      const summaryLabelX = summaryValueX - 78;
+      const summaryValueLeftX = summaryLabelX + 34;
+      const summaryValueMaxWidth = summaryValueX - summaryValueLeftX;
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('SUBTOTAL:', summaryLabelX, yPos);
-      doc.text(formatCurrency(subtotal), summaryValueX, yPos, { align: 'right' });
-      yPos += 7;
+      const writeSummaryCurrencyRow = (label: string, value: string, color?: [number, number, number]) => {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(color?.[0] ?? 0, color?.[1] ?? 0, color?.[2] ?? 0);
+        doc.text(label, summaryLabelX, yPos);
+        doc.text(value, summaryValueX, yPos, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+        yPos += 8;
+      };
+
+      const writeSummaryDetailRow = (label: string, value: string) => {
+        const valueLines = doc.splitTextToSize(value, summaryValueMaxWidth) as string[];
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        doc.text(label, summaryLabelX, yPos);
+        doc.setTextColor(0, 0, 0);
+        doc.text(valueLines, summaryValueLeftX, yPos);
+        doc.setTextColor(0, 0, 0);
+        yPos += Math.max(8, valueLines.length * 5 + 3);
+      };
+
+      writeSummaryCurrencyRow('SUBTOTAL:', formatCurrency(subtotal));
 
       if (tax > 0) {
-        doc.text('TAX:', summaryLabelX, yPos);
-        doc.text(formatCurrency(tax), summaryValueX, yPos, { align: 'right' });
-        yPos += 7;
+        writeSummaryCurrencyRow('TAX:', formatCurrency(tax));
       }
 
       // Prior Payment if paid
       if (isPaid && paidAmount > 0) {
-        doc.setTextColor(0, 128, 0);
-        doc.text('PRIOR PAYMENT:', summaryLabelX, yPos);
-        doc.text(`-${formatCurrency(paidAmount)}`, summaryValueX, yPos, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-        yPos += 7;
+        writeSummaryCurrencyRow('PRIOR PAYMENT:', `-${formatCurrency(paidAmount)}`, [0, 128, 0]);
       }
 
       if (isPaid && paymentMethodLabel !== 'N/A') {
-        doc.setTextColor(60, 60, 60);
-        doc.setFont('helvetica', 'normal');
-        doc.text('PAYMENT METHOD:', summaryLabelX, yPos);
-        doc.setTextColor(0, 0, 0);
-        doc.text(paymentMethodLabel, summaryValueX, yPos, { align: 'right' });
-        yPos += 7;
+        writeSummaryDetailRow('METHOD:', paymentMethodLabel);
       }
 
       if (isPaid && paymentBreakdown) {
-        doc.setTextColor(60, 60, 60);
-        doc.setFont('helvetica', 'normal');
-        doc.text('PAYMENT SPLIT:', summaryLabelX, yPos);
-        doc.setTextColor(0, 0, 0);
-        doc.text(paymentBreakdown, summaryValueX, yPos, { align: 'right', maxWidth: 70 });
-        yPos += 7;
+        writeSummaryDetailRow('SPLIT:', paymentBreakdown);
       }
 
       if (isPaid && paidAt) {
-        doc.setTextColor(60, 60, 60);
-        doc.setFont('helvetica', 'normal');
-        doc.text('PAID ON:', summaryLabelX, yPos);
-        doc.setTextColor(0, 0, 0);
-        doc.text(formatDateTime(paidAt), summaryValueX, yPos, { align: 'right' });
-        yPos += 7;
+        writeSummaryDetailRow('PAID ON:', formatDateTime(paidAt));
       }
 
       // Grand Total line
       doc.setDrawColor(180, 180, 180);
-      doc.line(summaryLabelX - 5, yPos - 2, summaryValueX, yPos - 2);
+      doc.line(summaryLabelX, yPos - 1, summaryValueX, yPos - 1);
+      yPos += 7;
       
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('GRAND TOTAL:', summaryLabelX, yPos + 5);
+      doc.text('GRAND TOTAL:', summaryLabelX, yPos);
       const grandTotal = total;
-      doc.text(formatCurrency(grandTotal), summaryValueX, yPos + 5, { align: 'right' });
+      doc.text(formatCurrency(grandTotal), summaryValueX, yPos, { align: 'right' });
 
       // ===== TOTAL DUE/PAYMENT (Large, left side) =====
-      yPos += 5;
+      yPos += 12;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text(isPaid ? 'TOTAL PAYMENT' : 'TOTAL DUE', margin, yPos);

@@ -4,6 +4,18 @@ export interface InvoiceParty {
   id?: number | string;
   name?: string;
   email?: string;
+  phone?: string;
+  phone_number?: string;
+  phonenumber?: string;
+  company?: string;
+  company_name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  license_number?: string;
+  company_notes?: string;
+  notes?: string;
   [key: string]: unknown;
 }
 
@@ -47,6 +59,7 @@ export interface InvoiceData {
   id: string;
   number: string;
   client: string;
+  clientProfile?: InvoiceParty | null;
   property: string;
   date: string;
   dueDate: string;
@@ -113,6 +126,8 @@ export type InvoiceViewDialogInvoice = Omit<
   invoice_number?: string | number;
   number?: string;
   client?: string | InvoiceParty | null;
+  clientProfile?: InvoiceParty | null;
+  client_profile?: InvoiceParty | null;
   photographer?: string | InvoiceParty | null;
   shoot?: InvoiceShootRef | null;
   shoots?: InvoiceShootRef[];

@@ -274,16 +274,6 @@ export const CompletedAlbumCard = ({
               </Badge>
             );
           })()}
-          {isApprovedFeatured ? (
-            <Badge className="bg-amber-500 text-white">
-              <Star className="mr-1 h-3.5 w-3.5" />
-              Featured
-            </Badge>
-          ) : canApproveFeatured ? (
-            <Badge variant="outline" className="border-amber-300 bg-black/55 text-amber-100">
-              Pending featured
-            </Badge>
-          ) : null}
         </div>
 
         {/* Paid/Unpaid badge - Lower right (non-hover) */}
@@ -333,17 +323,29 @@ export const CompletedAlbumCard = ({
           </div>
         )}
         
-        {/* Photo count */}
-        <div className="absolute bottom-3 left-3 flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
-            <Image className="h-3.5 w-3.5" />
-            <span>{photoCount} photos</span>
-          </div>
-          {hasTour && (
-            <div className="bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
-              Tour: Yes
+        {/* Featured state and photo count */}
+        <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2">
+          {isApprovedFeatured ? (
+            <Badge className="bg-amber-500 text-white shadow-sm">
+              <Star className="mr-1 h-3.5 w-3.5" />
+              Featured
+            </Badge>
+          ) : canApproveFeatured ? (
+            <Badge variant="outline" className="border-amber-300 bg-black/55 text-amber-100 shadow-sm">
+              Pending featured
+            </Badge>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
+              <Image className="h-3.5 w-3.5" />
+              <span>{photoCount} photos</span>
             </div>
-          )}
+            {hasTour && (
+              <div className="bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
+                Tour: Yes
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Download and Delete buttons */}
