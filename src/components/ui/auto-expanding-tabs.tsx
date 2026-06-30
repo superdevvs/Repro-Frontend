@@ -31,8 +31,8 @@ export function AutoExpandingTabsList({
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null)
 
   return (
-    <div className={cn("flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]", className)}>
-      <TabsPrimitive.List className="flex gap-2">
+    <div className={cn("flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]", className)}>
+      <TabsPrimitive.List className="flex w-max min-w-max gap-2">
         {tabs.map((tab) => {
           const isActive = value === tab.value
           const isHovered = hoveredTab === tab.value

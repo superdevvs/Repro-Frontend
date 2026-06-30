@@ -121,11 +121,15 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
       : (invoice.status || 'pending').toLowerCase();
 
   const shoot = invoice.shoot;
+  const firstShootClient = Array.isArray(invoice.shoots)
+    ? invoice.shoots.find((entry) => entry?.client)?.client ?? null
+    : null;
   const clientRecord = typeof invoice.client === 'object' && invoice.client ? invoice.client : null;
   const clientProfile = invoice.clientProfile
     ?? invoice.client_profile
     ?? clientRecord
     ?? shoot?.client
+    ?? firstShootClient
     ?? null;
   const photographerRecord = typeof invoice.photographer === 'object' && invoice.photographer ? invoice.photographer : null;
   const salesRepRecord = typeof invoice.salesRep === 'object' && invoice.salesRep ? invoice.salesRep : null;

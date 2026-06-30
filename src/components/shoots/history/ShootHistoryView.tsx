@@ -171,7 +171,7 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
         active
           ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -444,9 +444,11 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     Boolean(historyFilters.photographerId) ||
     historyFilters.dateRange !== defaultHistoryFilters.dateRange ||
     historyFilters.groupBy !== 'shoot'
+  const subTabRailClass =
+    'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} className="shoot-history-tabs space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Shoot History</h1>
@@ -500,9 +502,9 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 pb-[calc(2.75rem+env(safe-area-inset-bottom))] sm:pb-0">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded />
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1" />
             <Button
               variant="ghost"
               size="icon"
@@ -557,14 +559,14 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-b border-border/50 pb-2 -mt-3">
+        <div className="flex min-w-0 items-center justify-between gap-4 overflow-hidden border-b border-border/50 pb-2 -mt-3">
           {activeTab === 'history' ? (
-            <div className="flex items-center gap-2">
+            <div className={subTabRailClass}>
               <SubTabButton active={historySubTab === 'all'} label="All Shoots" onClick={() => setHistorySubTab('all')} />
               <SubTabButton active={historySubTab === 'mls-queue'} label="MLS Queue" onClick={() => setHistorySubTab('mls-queue')} />
             </div>
           ) : activeTab === 'completed' ? (
-            <div className="flex items-center gap-2">
+            <div className={subTabRailClass}>
               <SubTabButton active={inProgressSubTab === 'all'} label="All" onClick={() => setInProgressSubTab('all')} />
               <SubTabButton active={inProgressSubTab === 'uploaded'} label="Uploaded" onClick={() => setInProgressSubTab('uploaded')} />
               <SubTabButton active={inProgressSubTab === 'editing'} label="Editing" onClick={() => setInProgressSubTab('editing')} />
@@ -578,19 +580,19 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               )}
             </div>
           ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
-            <div className="flex items-center gap-2">
+            <div className={subTabRailClass}>
               <SubTabButton active={deliveredSubTab === 'all'} label="All" onClick={() => setDeliveredSubTab('all')} />
               <SubTabButton active={deliveredSubTab === 'ready'} label="Ready" onClick={() => setDeliveredSubTab('ready')} tone="ready" />
               <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} tone="delivered" />
             </div>
           ) : activeTab === 'hold' ? (
-            <div className="flex items-center gap-2">
+            <div className={subTabRailClass}>
               <SubTabButton active={holdSubTab === 'all'} label="All" onClick={() => setHoldSubTab('all')} />
               <SubTabButton active={holdSubTab === 'on_hold'} label="On Hold" onClick={() => setHoldSubTab('on_hold')} />
               <SubTabButton active={holdSubTab === 'cancelled'} label="Cancelled" onClick={() => setHoldSubTab('cancelled')} />
             </div>
           ) : activeTab === 'scheduled' ? (
-            <div className="flex items-center gap-2">
+            <div className={subTabRailClass}>
               <SubTabButton active={scheduledSubTab === 'all'} label="All" onClick={() => setScheduledSubTab('all')} />
               <SubTabButton active={scheduledSubTab === 'requested'} label="Requested" onClick={() => setScheduledSubTab('requested')} tone="requested" />
               <SubTabButton active={scheduledSubTab === 'scheduled'} label="Scheduled" onClick={() => setScheduledSubTab('scheduled')} tone="scheduled" />

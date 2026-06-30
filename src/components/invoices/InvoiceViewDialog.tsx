@@ -70,6 +70,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     ? (invoiceNumber.startsWith('#') ? invoiceNumber : `#${invoiceNumber}`)
     : '';
   const issueDate = invoiceData.issue_date || invoiceData.date;
+  const firstAttachedShootClient = Array.isArray(invoiceData.shoots)
+    ? invoiceData.shoots.find((entry) => entry?.client)?.client ?? null
+    : null;
   
   // Handle client name - can be string or object
   const getClientName = () => {
@@ -82,6 +85,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     if (invoiceData.shoot?.client?.name) {
       return invoiceData.shoot.client.name;
     }
+    if (firstAttachedShootClient?.name) {
+      return firstAttachedShootClient.name;
+    }
     return 'N/A';
   };
   const clientName = getClientName();
@@ -90,6 +96,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     || invoiceData.client_profile
     || (isInvoiceParty(invoiceData.client) ? invoiceData.client : null)
     || invoiceData.shoot?.client
+    || firstAttachedShootClient
     || null
   );
   const clientEmail = firstText(clientProfile, ['email'])

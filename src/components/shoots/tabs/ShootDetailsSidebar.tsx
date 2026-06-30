@@ -322,6 +322,9 @@ export function ShootDetailsSidebar({
       const data = await res.json();
       const invoiceData = data.data || data;
       const dueDate = invoiceData.due_date || invoiceData.dueDate || new Date().toISOString();
+      const firstAttachedShootClient = Array.isArray(invoiceData.shoots)
+        ? invoiceData.shoots.find((entry: any) => entry?.client)?.client ?? null
+        : null;
       // Central rule: only treat an invoice as unpaid/overdue when it has an outstanding balance > 0.
       // A $0.00 invoice (or zero remaining balance) is always settled.
       const invoiceTotal = Number(invoiceData.total ?? invoiceData.total_amount ?? invoiceData.amount ?? 0) || 0;
@@ -340,6 +343,12 @@ export function ShootDetailsSidebar({
         client: typeof invoiceData.client === 'string' 
           ? invoiceData.client 
           : invoiceData.client?.name || invoiceData.shoot?.client?.name || 'Unknown Client',
+        clientProfile: invoiceData.clientProfile
+          || invoiceData.client_profile
+          || (typeof invoiceData.client === 'object' ? invoiceData.client : null)
+          || invoiceData.shoot?.client
+          || firstAttachedShootClient
+          || null,
         property: invoiceData.shoot?.location?.fullAddress 
           || invoiceData.shoot?.address 
           || invoiceData.property 
@@ -354,6 +363,7 @@ export function ShootDetailsSidebar({
         tax: invoiceData.tax || 0,
         total: invoiceData.total || invoiceData.amount || 0,
         shoot: invoiceData.shoot,
+        shoots: invoiceData.shoots,
         paymentMethod: invoiceData.payment_method || invoiceData.paymentMethod || 'N/A',
         paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
         paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,

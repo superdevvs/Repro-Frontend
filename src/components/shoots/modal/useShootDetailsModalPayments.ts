@@ -30,7 +30,10 @@ type InvoiceResponseLike = {
   number?: string;
   invoice_number?: string | number;
   client?: string | InvoiceParty | null;
+  clientProfile?: InvoiceParty | null;
+  client_profile?: InvoiceParty | null;
   shoot?: InvoiceShootRef | null;
+  shoots?: InvoiceShootRef[];
   property?: string;
   issue_date?: string;
   date?: string;
@@ -162,6 +165,9 @@ export function useShootDetailsModalPayments({
       const data = await res.json();
       const invoiceData = (data.data || data) as InvoiceResponseLike;
       const dueDate = invoiceData.due_date || invoiceData.dueDate || new Date().toISOString();
+      const firstAttachedShootClient = Array.isArray(invoiceData.shoots)
+        ? invoiceData.shoots.find((entry) => entry?.client)?.client ?? null
+        : null;
       const isPaid = Boolean(invoiceData.is_paid) || String(invoiceData.status || '').toLowerCase() === 'paid';
       const isOverdue = !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
       const normalizedStatus = isPaid ? 'paid' : (isOverdue ? 'overdue' : 'pending');
@@ -171,6 +177,12 @@ export function useShootDetailsModalPayments({
         client: typeof invoiceData.client === 'string'
           ? invoiceData.client
           : invoiceData.client?.name || invoiceData.shoot?.client?.name || 'Unknown Client',
+        clientProfile: invoiceData.clientProfile
+          || invoiceData.client_profile
+          || (typeof invoiceData.client === 'object' ? invoiceData.client : null)
+          || invoiceData.shoot?.client
+          || firstAttachedShootClient
+          || null,
         property: invoiceData.shoot?.location?.fullAddress
           || invoiceData.shoot?.address
           || invoiceData.property
@@ -190,6 +202,8 @@ export function useShootDetailsModalPayments({
         subtotal: Number(invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0),
         tax: Number(invoiceData.tax || 0),
         total: Number(invoiceData.total || invoiceData.amount || 0),
+        shoot: invoiceData.shoot || undefined,
+        shoots: invoiceData.shoots || undefined,
       };
 
       setSelectedInvoice(invoice);
