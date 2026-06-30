@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatCurrency, getShootStatusBadgeClass } from './shootHistoryUtils'
+import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket'
 import {
   Building2,
   Calendar as CalendarIcon,
@@ -146,7 +147,7 @@ export const HistoryRow = memo(({
               </div>
             )}
             <div className="flex items-center gap-2">
-              {(record as any).mls_id && onPublishMls && !isEditor && (
+              {(record as any).mls_id && onPublishMls && !isEditor && isBrightMlsSupportedForShoot({ state: (record as any).location?.state ?? (record as any).state, listing_source: (record as any).listing_source ?? (record as any).listingSource }) && (
                 <Button size="sm" variant="ghost" onClick={handlePublishMls} disabled={isBusy || publishing} className="h-auto p-0 hover:bg-transparent">
                   {publishing ? (
                     <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">

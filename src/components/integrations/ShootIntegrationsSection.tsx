@@ -33,22 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
 const BRIGHT_MLS_BUTTON_SRC = '/brightmls-media-sync-button.svg';
-const BRIGHT_MLS_UNSUPPORTED_STATES = new Set(['NJ']);
-
-const isBrightMlsSupportedForShoot = (shoot: { state?: string | null; listing_source?: string | null }) => {
-  const state = String(shoot.state || '').trim().toUpperCase();
-  const listingSource = String(shoot.listing_source || '').trim().toLowerCase();
-
-  if (BRIGHT_MLS_UNSUPPORTED_STATES.has(state)) {
-    return false;
-  }
-
-  if (listingSource.includes('garden state')) {
-    return false;
-  }
-
-  return true;
-};
+import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 
 interface ShootIntegrationsSectionProps {
   shoot: {

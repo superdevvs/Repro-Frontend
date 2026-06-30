@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
+import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 import { ShootDetailsOverviewTab } from '../tabs/ShootDetailsOverviewTab';
 import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
@@ -193,7 +194,12 @@ export function ShootDetailsModalBody({
     (activeMediaDisplayTab === 'uploaded' && canSubmitRaw && !!handleSubmitRaw) ||
     (activeMediaDisplayTab === 'edited' && canSubmitEdits && !!handleSubmitEdits);
   const showDesktopDownloadActions = canOpenDeliveredDownloadDialog || canPrivilegedProgressDownload;
-  const showDesktopPublishAction = isDelivered && !isEditor && !isPhotographer;
+  // Bright MLS sync must not be exposed in unsupported markets (e.g. NJ / Garden State).
+  const brightMlsSupported = isBrightMlsSupportedForShoot({
+    state: (shoot as any).location?.state ?? (shoot as any).state,
+    listing_source: (shoot as any).listing_source ?? (shoot as any).listingSource,
+  });
+  const showDesktopPublishAction = isDelivered && !isEditor && !isPhotographer && brightMlsSupported;
   const showMobileSubmitActions =
     !isEditMode &&
     !isRequestedStatus &&

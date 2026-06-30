@@ -55,14 +55,14 @@ const PHOTO_SIZE_OPTIONS: Array<{
   description: string;
 }> = [
   {
-    size: 'original',
-    label: 'Original',
-    description: 'Full resolution',
+    size: 'small',
+    label: 'MLS Optimized',
+    description: 'Best for MLS uploads (1800×1200)',
   },
   {
-    size: 'small',
-    label: 'MLS',
-    description: '1800x1200 export',
+    size: 'original',
+    label: 'Print Resolution',
+    description: 'Full resolution — large files for print/design',
   },
 ];
 
