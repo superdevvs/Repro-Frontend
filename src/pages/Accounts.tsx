@@ -45,6 +45,7 @@ import { API_BASE_URL } from '@/config/env';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InteractionCloud, type InteractionCloudAccount } from '@/components/accounts/InteractionCloud';
 import { DeletedAccountsPanel } from '@/components/accounts/DeletedAccountsPanel';
+import { InactiveClientsPanel } from '@/components/accounts/InactiveClientsPanel';
 import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { usePermission } from '@/hooks/usePermission';
@@ -1248,21 +1249,25 @@ export default function Accounts() {
   const showPermissionsTab = isAdminOrSuperAdmin && can('permissions-manager', 'view');
   const showLinkingTab = can('account-linking', 'view');
   const showDeletedTab = isAdminOrSuperAdmin;
+  const showInactiveTab = isAdminOrSuperAdmin || isSalesRep;
 
   // Calculate number of tabs to show
   const tabCount =
     1 +
     (showPermissionsTab ? 1 : 0) +
     (showLinkingTab ? 1 : 0) +
-    (showDeletedTab ? 1 : 0);
+    (showDeletedTab ? 1 : 0) +
+    (showInactiveTab ? 1 : 0);
   const gridCols =
-    tabCount >= 4
-      ? 'grid-cols-4'
-      : tabCount === 3
-        ? 'grid-cols-3'
-        : tabCount === 2
-          ? 'grid-cols-2'
-          : 'grid-cols-1';
+    tabCount >= 5
+      ? 'grid-cols-5'
+      : tabCount === 4
+        ? 'grid-cols-4'
+        : tabCount === 3
+          ? 'grid-cols-3'
+          : tabCount === 2
+            ? 'grid-cols-2'
+            : 'grid-cols-1';
 
   const getClientMenuHandlers = (user: UserType) => {
     const client = clientsData.find(
@@ -1379,6 +1384,9 @@ export default function Accounts() {
                 )}
                 {showDeletedTab && (
                   <TabsTrigger value="deleted">Deleted</TabsTrigger>
+                )}
+                {showInactiveTab && (
+                  <TabsTrigger value="inactive">Inactive</TabsTrigger>
                 )}
               </TabsList>
             ) : (
@@ -1510,6 +1518,12 @@ export default function Accounts() {
           {showDeletedTab && (
             <TabsContent value="deleted" className="mt-6">
               <DeletedAccountsPanel />
+            </TabsContent>
+          )}
+
+          {showInactiveTab && (
+            <TabsContent value="inactive" className="mt-6">
+              <InactiveClientsPanel />
             </TabsContent>
           )}
 
