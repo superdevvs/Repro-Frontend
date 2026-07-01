@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SmsThreadList } from '@/components/messaging/sms/SmsThreadList';
 import { SmsConversation } from '@/components/messaging/sms/SmsConversation';
@@ -48,6 +48,7 @@ export default function SmsCenter() {
         search: search || undefined,
         per_page: 50,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
@@ -83,9 +84,15 @@ export default function SmsCenter() {
     queryKey: ['sms-thread', activeThreadId],
     queryFn: () => (activeThreadId ? getSmsThread(activeThreadId) : null),
     enabled: !!activeThreadId,
+    // Keep the currently displayed conversation on screen while the next one
+    // loads. Without this the pane unmounts to a skeleton on every switch,
+    // which reads as a flicker/glitch when opening conversations.
+    placeholderData: keepPreviousData,
   });
 
   const threadDetail = threadDetailQuery.data;
+  // Only show the skeleton on the very first load (no cached/placeholder data).
+  const showThreadSkeleton = threadDetailQuery.isLoading && !threadDetail;
 
   const templatesQuery = useQuery({
     queryKey: ['sms-templates'],
@@ -278,14 +285,19 @@ export default function SmsCenter() {
 
         {conversationVisible ? (
           <div className="flex min-w-0 flex-1 flex-col">
-            {threadDetailQuery.isLoading && (
+            {showThreadSkeleton && (
               <div className="space-y-4 p-6">
                 <Skeleton className="h-10 w-1/3" />
                 <Skeleton className="h-[60vh] rounded-3xl" />
               </div>
             )}
             {threadDetail && (
-              <SmsConversation
+              <div
+                className={`flex min-h-0 flex-1 flex-col transition-opacity duration-150 ${
+                  threadDetailQuery.isPlaceholderData && threadDetailQuery.isFetching ? 'opacity-60' : 'opacity-100'
+                }`}
+              >
+                <SmsConversation
                 thread={threadDetail.thread}
                 contact={threadDetail.contact}
                 messages={threadDetail.messages}
@@ -313,6 +325,7 @@ export default function SmsCenter() {
                 onToggleContactAi={(enabled) => toggleContactAiMutation.mutate(enabled)}
                 togglingContactAi={toggleContactAiMutation.isPending}
               />
+              </div>
             )}
           </div>
         ) : (
