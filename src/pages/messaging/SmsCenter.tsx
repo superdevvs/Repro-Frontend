@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SmsThreadList } from '@/components/messaging/sms/SmsThreadList';
@@ -53,8 +53,14 @@ export default function SmsCenter() {
 
   const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
 
+  // Adopt the thread from the URL only when it actually changes (deep-link or
+  // browser navigation). Comparing against activeThreadId here caused a
+  // feedback loop with the URL-sync effect below, making activeThreadId
+  // oscillate between threads and firing mark-read in a runaway loop.
+  const lastRequestedThreadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (requestedThreadId && requestedThreadId !== activeThreadId) {
+    if (requestedThreadId && requestedThreadId !== lastRequestedThreadRef.current) {
+      lastRequestedThreadRef.current = requestedThreadId;
       setActiveThreadId(requestedThreadId);
       return;
     }
@@ -70,6 +76,7 @@ export default function SmsCenter() {
 
     if (activeThreadId) {
       if (currentThread === activeThreadId) return;
+      lastRequestedThreadRef.current = activeThreadId;
       nextParams.set('thread', activeThreadId);
       setSearchParams(nextParams, { replace: true });
       return;
@@ -115,12 +122,18 @@ export default function SmsCenter() {
   });
   const { mutate: markThreadRead } = markReadMutation;
 
+  // Mark each thread read at most once per open. Previously this fired on every
+  // render because markRead's onSuccess invalidates the thread list, which
+  // re-rendered and re-triggered the effect — a runaway loop that flooded the
+  // API with thousands of mark-read requests and exhausted browser connections.
+  const markedThreadsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (activeThreadId) {
-      markThreadRead(activeThreadId);
-      setContactPanelOpen(false);
-      setContactDrawerOpen(false);
-    }
+    if (!activeThreadId) return;
+    setContactPanelOpen(false);
+    setContactDrawerOpen(false);
+    if (markedThreadsRef.current.has(activeThreadId)) return;
+    markedThreadsRef.current.add(activeThreadId);
+    markThreadRead(activeThreadId);
   }, [activeThreadId, markThreadRead]);
 
   const sendMutation = useMutation({
