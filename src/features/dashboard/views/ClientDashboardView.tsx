@@ -38,6 +38,7 @@ import { DashboardOnboarding } from "../components/DashboardOnboarding";
 import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
+import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useClientDashboardMetrics } from "../hooks/useDashboardMetrics";
@@ -120,6 +121,8 @@ export const ClientDashboardView = ({
   const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
   const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
+  const [accessInfoOpen, setAccessInfoOpen] = useState(false);
+  const [accessInfoRecord, setAccessInfoRecord] = useState<ClientShootRecord | null>(null);
   const clientOnboarding = useDashboardOnboarding(user, "client");
   const shootToPayServiceItems = shootToPay
     ? getShootServiceItems(shootToPay.data).filter((item) => item.balanceDue > 0.01)
@@ -208,6 +211,11 @@ export const ClientDashboardView = ({
     const status = (record.summary.workflowStatus || record.summary.status || "").toLowerCase();
     if (status.includes("payment")) {
       navigate("/invoices");
+      return;
+    }
+    if (status.includes("access")) {
+      setAccessInfoRecord(record);
+      setAccessInfoOpen(true);
       return;
     }
     onOpenSupportEmail("Shoot assistance needed");
@@ -377,6 +385,15 @@ export const ClientDashboardView = ({
         </div>
       </DashboardLayout>
       {shootDetailsModal}
+      <ClientAccessInfoDialog
+        open={accessInfoOpen}
+        onOpenChange={(open) => {
+          setAccessInfoOpen(open);
+          if (!open) setAccessInfoRecord(null);
+        }}
+        record={accessInfoRecord}
+        onSaved={() => refresh()}
+      />
       {shootToReschedule && (
         <RescheduleDialog
           shoot={shootToReschedule}

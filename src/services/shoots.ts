@@ -26,3 +26,57 @@ export const applyAlternateDate = async (
   const res = await apiClient.post(`/shoots/${shootId}/apply-alternate-date`, { scope });
   return res.data?.data ?? res.data;
 };
+
+/**
+ * Property access details a client can self-serve (lockbox-text-code-access-info).
+ * Text/code only — no media/image upload (kept disabled until malware scanning
+ * is in place). Maps to the shoot's `property_details` JSON keys.
+ */
+export type ShootAccessInfo = {
+  presenceOption?: 'self' | 'other' | 'lockbox';
+  lockboxCode?: string | null;
+  lockboxLocation?: string | null;
+  accessContactName?: string | null;
+  accessContactPhone?: string | null;
+};
+
+/**
+ * PATCH /shoots/{id} — submit property access info for a shoot. The backend
+ * restricts clients to exactly these access keys within `property_details`
+ * (see UpdateShootAction), so price/MLS/description cannot be overwritten here.
+ *
+ * @param shootId Shoot identifier.
+ * @param info    Access fields to persist. Only the provided keys are sent.
+ * @returns The raw, updated shoot resource (unwrapped from the `{ data }` envelope).
+ */
+export const updateShootAccessInfo = async (
+  shootId: string,
+  info: ShootAccessInfo,
+): Promise<unknown> => {
+  const propertyDetails: Record<string, unknown> = {};
+
+  if (info.presenceOption) {
+    propertyDetails.presenceOption = info.presenceOption;
+  }
+  if (info.presenceOption === 'lockbox') {
+    propertyDetails.lockboxCode = info.lockboxCode?.trim() || null;
+    propertyDetails.lockboxLocation = info.lockboxLocation?.trim() || null;
+    propertyDetails.accessContactName = null;
+    propertyDetails.accessContactPhone = null;
+  } else if (info.presenceOption === 'other') {
+    propertyDetails.accessContactName = info.accessContactName?.trim() || null;
+    propertyDetails.accessContactPhone = info.accessContactPhone?.trim() || null;
+    propertyDetails.lockboxCode = null;
+    propertyDetails.lockboxLocation = null;
+  } else if (info.presenceOption === 'self') {
+    propertyDetails.lockboxCode = null;
+    propertyDetails.lockboxLocation = null;
+    propertyDetails.accessContactName = null;
+    propertyDetails.accessContactPhone = null;
+  }
+
+  const res = await apiClient.patch(`/shoots/${shootId}`, {
+    property_details: propertyDetails,
+  });
+  return res.data?.data ?? res.data;
+};
