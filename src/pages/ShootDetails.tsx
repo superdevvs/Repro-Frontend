@@ -56,6 +56,7 @@ import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetail
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
+import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -203,6 +204,16 @@ const ShootDetails: React.FC = () => {
   const clientReleaseAccess = useMemo(
     () => getShootClientReleaseAccess(shoot, isClient),
     [isClient, shoot],
+  );
+  const visibleClient = useMemo(
+    () =>
+      getVisibleClientContact({
+        client: shoot?.client,
+        role,
+        shoot,
+        shouldHideClientDetails: isEditor,
+      }),
+    [isEditor, role, shoot],
   );
   const {
     isDownloadDialogOpen,
@@ -836,6 +847,23 @@ const ShootDetails: React.FC = () => {
                         )}
                       </div>
                     </div>
+                    {visibleClient.canShowName && (
+                      <div className="flex items-start gap-3 w-full sm:w-auto">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <User className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1.5">Client</p>
+                          <p className="text-sm font-medium truncate">{visibleClient.name || 'Unknown'}</p>
+                          {visibleClient.phone && (
+                            <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
+                          )}
+                          {visibleClient.email && (
+                            <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Quick Actions - Stack on mobile (Admin only) */}

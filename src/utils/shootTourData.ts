@@ -344,3 +344,13 @@ export const getPreferredMlsTourLink = (shoot?: ShootLike | null): string => {
     ) ?? '',
   );
 };
+
+export const getPhotographerEditedMediaMlsLink = (shoot?: ShootLike | null): string => {
+  const links = normalizeTourLinks(shoot);
+  return String(
+    pickFirst(
+      links.mls,
+      shoot?.mls_compliant_link,
+    ) ?? '',
+  );
+};

@@ -39,6 +39,7 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
 import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 
@@ -74,6 +75,18 @@ export function ShootDetailsSidebar({
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: isPhotographer
+      ? 'photographer'
+      : isEditor
+        ? 'editor'
+        : isAdmin || isSuperAdmin || isEditingManager
+          ? 'admin'
+          : '',
+    shoot,
+    shouldHideClientDetails: isEditor,
+  });
   
   // Photographer selection state
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
@@ -387,8 +400,8 @@ export function ShootDetailsSidebar({
 
   return (
     <div className="w-80 border-l bg-muted/20 p-6 space-y-4 overflow-y-auto h-full">
-      {/* Client Info Card - Hidden for photographers and editors */}
-      {!isPhotographer && !isEditor && (
+      {/* Client Info Card */}
+      {visibleClient.canShowName && (
       <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -402,43 +415,43 @@ export function ShootDetailsSidebar({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border-2 border-primary/20">
-                {client?.name ? (
+                {visibleClient.name ? (
                   <span className="text-sm font-bold text-primary">
-                    {client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    {visibleClient.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                   </span>
                 ) : (
                   <User className="h-5 w-5 text-primary" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-base truncate">{client?.name || 'Unknown'}</p>
-                {client?.company && (
+                <p className="font-semibold text-base truncate">{visibleClient.name || 'Unknown'}</p>
+                {visibleClient.canShowEmail && client?.company && (
                   <p className="text-xs text-muted-foreground truncate">{client.company}</p>
                 )}
               </div>
             </div>
             
-            {client?.email && (
+            {visibleClient.email && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start text-sm h-9"
-                onClick={() => handleEmail(client.email!)}
+                onClick={() => handleEmail(visibleClient.email!)}
               >
                 <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="truncate">{client.email}</span>
+                <span className="truncate">{visibleClient.email}</span>
               </Button>
             )}
             
-            {client?.phone && (
+            {visibleClient.phone && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start text-sm h-9"
-                onClick={() => handleCall(client.phone!)}
+                onClick={() => handleCall(visibleClient.phone!)}
               >
                 <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{client.phone}</span>
+                <span>{visibleClient.phone}</span>
               </Button>
             )}
           </div>

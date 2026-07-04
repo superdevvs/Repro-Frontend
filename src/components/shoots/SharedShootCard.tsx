@@ -31,6 +31,7 @@ import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { normalizeImageUrl } from '@/utils/imageUrl';
+import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { getApprovalNotes, getEditingNotes } from '@/components/shoots/history/shootHistoryUtils';
 
 interface SharedShootCardProps {
@@ -118,6 +119,12 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const isEditor = role === 'editor';
   const isClient = role === 'client';
   const canDelete = (isSuperAdmin || isAdmin) && onDelete;
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role,
+    shoot,
+    shouldHideClientDetails,
+  });
   const approvalNotes = getApprovalNotes(shoot.notes);
   const editingNotes = getEditingNotes(shoot.notes);
   const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
@@ -359,18 +366,21 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         <div
           className={cn(
             'grid gap-4 pt-2 border-t border-border/50',
-            shouldHideClientDetails ? 'grid-cols-1' : 'grid-cols-2'
+            visibleClient.canShowName ? 'grid-cols-2' : 'grid-cols-1'
           )}
         >
-          {!shouldHideClientDetails && (
+          {visibleClient.canShowName && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 <User className="h-3.5 w-3.5" />
                 <span>Client</span>
               </div>
-              <p className="text-sm font-semibold">{shoot.client.name}</p>
-              {shoot.client.email && (
-                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              <p className="text-sm font-semibold">{visibleClient.name}</p>
+              {visibleClient.email && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
+              )}
+              {visibleClient.phone && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
               )}
             </div>
           )}

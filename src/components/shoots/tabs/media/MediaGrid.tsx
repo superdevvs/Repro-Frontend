@@ -876,7 +876,7 @@ export function MediaGrid({
                   const stackThumbUrl = getImageUrl(stackFile, 'thumb');
                   const stackDisplayFilename = getDisplayMediaFilename(stackFile) || stackFile.filename;
                   const stackVideoSrc = stackIsVid ? getVideoThumbnailSource(stackFile) : '';
-                  const stackThumbSrc = stackFile.thumb || stackThumbUrl || '';
+                  const stackThumbSrc = stackThumbUrl || stackFile.thumb || '';
                   const hasProcessedStackThumb = stackIsRaw
                     ? !!(stackFile.thumbnail_path || stackFile.web_path)
                     : true;
@@ -919,7 +919,7 @@ export function MediaGrid({
           const hasProcessedThumb = isRaw 
             ? !!(file.thumbnail_path || file.web_path)
             : true;
-          const thumbSrc = file.thumb || thumbUrl || '';
+          const thumbSrc = thumbUrl || file.thumb || '';
           const hasDisplayableImage = hasDisplayableStillThumbnail(
             file,
             thumbSrc,
@@ -963,7 +963,7 @@ export function MediaGrid({
             const hasProcessedThumb = isRaw 
               ? !!(file.thumbnail_path || file.web_path)
               : true;
-            const thumbSrc = file.thumb || thumbUrl || '';
+            const thumbSrc = thumbUrl || file.thumb || '';
             const hasDisplayableImage = hasDisplayableStillThumbnail(
               file,
               thumbSrc,
@@ -1105,7 +1105,7 @@ export function MediaGrid({
             <div className="relative aspect-[4/3] bg-muted/40">
             {(() => {
               const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-              const thumbSrc = file.thumb || thumbUrl || '';
+              const thumbSrc = thumbUrl || file.thumb || '';
               const hasDisplayableImage = hasDisplayableStillThumbnail(
                 file,
                 thumbSrc,
@@ -1145,7 +1145,7 @@ export function MediaGrid({
               className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
               style={{ display: (() => {
                 const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-                const thumbSrc = file.thumb || thumbUrl || '';
+                const thumbSrc = thumbUrl || file.thumb || '';
                 const hasDisplayableImage = hasDisplayableStillThumbnail(
                   file,
                   thumbSrc,
@@ -1242,7 +1242,7 @@ export function MediaGrid({
     const hasProcessedThumb = isRaw 
       ? !!(file.thumbnail_path || file.web_path)
       : true;
-    const thumbSrc = file.thumb || imageUrl || '';
+    const thumbSrc = imageUrl || file.thumb || '';
     const hasDisplayableImage = hasDisplayableStillThumbnail(
       file,
       thumbSrc,
@@ -1428,7 +1428,7 @@ export function MediaGrid({
     const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-    const thumbSrc = file.thumb || imageUrl || '';
+    const thumbSrc = imageUrl || file.thumb || '';
     const hasDisplayableImage = hasDisplayableStillThumbnail(
       file,
       thumbSrc,

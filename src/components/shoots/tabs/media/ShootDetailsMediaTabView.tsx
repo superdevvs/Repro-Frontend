@@ -9,7 +9,7 @@ import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { IguideMediaPanel } from './IguideMediaPanel';
-import { getPreferredMlsTourLink } from '@/utils/shootTourData';
+import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
 
 export function ShootDetailsMediaTabView(props: any) {
@@ -147,7 +147,7 @@ export function ShootDetailsMediaTabView(props: any) {
               event.stopPropagation();
               return;
             }
-            const mlsLink = getPreferredMlsTourLink(shoot);
+            const mlsLink = getPhotographerEditedMediaMlsLink(shoot);
             if (mlsLink) {
               window.open(mlsLink, '_blank', 'noopener,noreferrer');
             } else {

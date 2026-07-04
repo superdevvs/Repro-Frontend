@@ -33,6 +33,8 @@ export interface MediaFile {
   original_url?: string;
   web_url?: string;
   placeholder_url?: string;
+  preview_images?: string[];
+  previewImages?: string[];
   // Processed image paths (for RAW files)
   thumbnail_path?: string;
   web_path?: string;
@@ -149,6 +151,10 @@ const fetchShootFiles = async (
         original_url: f.original_url,
         web_url: f.web_url,
         placeholder_url: f.placeholder_url,
+        preview_images: Array.isArray(f.preview_images) ? f.preview_images.filter(Boolean) : [],
+        previewImages: Array.isArray(f.previewImages ?? f.preview_images)
+          ? (f.previewImages ?? f.preview_images).filter(Boolean)
+          : [],
         thumbnail_path: f.thumbnail_path,
         web_path: f.web_path,
         placeholder_path: f.placeholder_path,
@@ -208,6 +214,10 @@ const fetchShootFiles = async (
       original_url: f.original_url,
       web_url: f.web_url,
       placeholder_url: f.placeholder_url,
+      preview_images: Array.isArray(f.preview_images) ? f.preview_images.filter(Boolean) : [],
+      previewImages: Array.isArray(f.previewImages ?? f.preview_images)
+        ? (f.previewImages ?? f.preview_images).filter(Boolean)
+        : [],
       thumbnail_path: f.thumbnail_path,
       web_path: f.web_path,
       placeholder_path: f.placeholder_path,

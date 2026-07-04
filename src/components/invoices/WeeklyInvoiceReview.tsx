@@ -301,7 +301,10 @@ export const WeeklyInvoiceReview: React.FC = () => {
   }, [loadInvoices]);
 
   const canModify = (invoice: WeeklyInvoice) =>
-    ['pending', 'rejected'].includes(invoice.approval_status) && invoice.status === 'draft';
+    ['pending', 'rejected'].includes(invoice.approval_status) &&
+    invoice.status !== 'paid' &&
+    !(invoice as any).is_paid &&
+    !(invoice as any).paid_at;
 
   // Show review actions whenever the invoice is still awaiting the photographer's
   // decision (approval_status pending/rejected). Backend `canBeModifiedByPhotographer`

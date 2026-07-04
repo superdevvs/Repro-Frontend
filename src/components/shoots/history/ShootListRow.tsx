@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
 import { getShootLocalDate } from '@/utils/shootLocalDate'
+import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
@@ -136,11 +137,13 @@ export const ShootListRow = ({
   onSelect,
   isSuperAdmin = false,
   shouldHideClientDetails = false,
+  viewerRole,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
   shouldHideClientDetails?: boolean
+  viewerRole?: string
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -161,6 +164,12 @@ export const ShootListRow = ({
       ? 'Paid'
       : 'Unpaid'
     : null
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  })
 
   return (
     <Card
@@ -225,15 +234,18 @@ export const ShootListRow = ({
         )}
         
         <div className="grid gap-4 md:grid-cols-3 text-sm">
-          {!shouldHideClientDetails && (
+          {visibleClient.canShowName && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 <User className="h-3.5 w-3.5" />
                 <span>Client</span>
               </div>
-              <p className="font-semibold">{shoot.client.name}</p>
-              {shoot.client.email && (
-                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              <p className="font-semibold">{visibleClient.name}</p>
+              {visibleClient.email && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
+              )}
+              {visibleClient.phone && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
               )}
             </div>
           )}

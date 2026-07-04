@@ -359,7 +359,7 @@ export function ShootDetailsQuickActions({
     <>
       <div className="flex flex-wrap gap-1.5 sm:gap-2.5">
         {/* Editor quick action buttons removed - Download Raw and Share Link are now in the header */}
-        {iguideUrl && (
+        {iguideUrl && !isPhotographer && (
           <Button
             variant="outline"
             size="sm"

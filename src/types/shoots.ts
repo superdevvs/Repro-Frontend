@@ -82,6 +82,8 @@ export interface ShootFileData {
   large?: string;
   large_url?: string;
   placeholder_url?: string;
+  preview_images?: string[];
+  previewImages?: string[];
   watermarked_storage_path?: string;
   watermarked_thumbnail_path?: string;
   watermarked_web_path?: string;
@@ -482,6 +484,22 @@ export interface ShootData {
   iguide_last_synced_at?: string;
   iguideData?: Record<string, unknown> | null;
   iguide_data?: Record<string, unknown> | null;
+  cubicasaTourUrl?: string;
+  cubicasa_tour_url?: string;
+  cubicasaFloorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
+  cubicasa_floorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
+  cubicasaData?: Record<string, unknown> | null;
+  cubicasa_data?: Record<string, unknown> | null;
+  cubicasaStatus?: string;
+  cubicasa_status?: string;
+  cubicasaProductType?: string;
+  cubicasa_product_type?: string;
+  cubicasaOrderId?: string | number;
+  cubicasa_order_id?: string | number;
+  cubicasaExternalId?: string | number;
+  cubicasa_external_id?: string | number;
+  cubicasaLastSyncedAt?: string;
+  cubicasa_last_synced_at?: string;
   files?: ShootFileData[];
   tourPurchased?: boolean; // Add this field for ImportShootsDialog
   propertyDetails?: {

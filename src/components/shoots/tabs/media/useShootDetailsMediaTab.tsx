@@ -81,7 +81,6 @@ import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
 import { getSortedMediaIds, normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
-import { getPreferredMlsTourLink } from '@/utils/shootTourData';
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
@@ -531,16 +530,38 @@ export function useShootDetailsMediaTab({
     }))
   );
 
+  const mergeUniqueFiles = (baseFiles: MediaFile[], extraFiles: MediaFile[]): MediaFile[] => {
+    if (extraFiles.length === 0) return baseFiles;
+    const seen = new Set(baseFiles.map((file) => String(file.id)));
+    const merged = [...baseFiles];
+    for (const file of extraFiles) {
+      const id = String(file.id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(file);
+    }
+    return merged;
+  };
+
+  const editedFloorplanFiles = useMemo(
+    () => editedFilesData.filter((file) => String(file.media_type || '').toLowerCase() === 'floorplan'),
+    [editedFilesData],
+  );
+  const uploadedFilesData = useMemo(
+    () => mergeUniqueFiles(rawFilesData, editedFloorplanFiles),
+    [editedFloorplanFiles, rawFilesData],
+  );
+
   // Update local state when data changes - use JSON.stringify to detect actual content changes
   // This prevents infinite loops from new array references with same content
   const rawFilesRef = useRef<string>('');
   useEffect(() => {
-    const newRawFilesJson = buildFilesFingerprint(rawFilesData);
+    const newRawFilesJson = buildFilesFingerprint(uploadedFilesData);
     if (rawFilesRef.current !== newRawFilesJson) {
       rawFilesRef.current = newRawFilesJson;
-      setRawFiles(rawFilesData);
+      setRawFiles(uploadedFilesData);
     }
-  }, [rawFilesData]);
+  }, [uploadedFilesData]);
 
   const editedFilesRef = useRef<string>('');
   useEffect(() => {

@@ -19,6 +19,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
   formatCurrency,
@@ -171,6 +172,7 @@ export const CompletedShootListRow = ({
   onSendToEditing,
   onApproveFeatured,
   shouldHideClientDetails = false,
+  viewerRole,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -187,6 +189,7 @@ export const CompletedShootListRow = ({
   onSendToEditing?: (shoot: ShootData) => void
   onApproveFeatured?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
+  viewerRole?: string
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -206,6 +209,12 @@ export const CompletedShootListRow = ({
     ? (shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
     : (shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  })
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const canShowPaymentStatus = showPaymentStatus && Boolean(onViewInvoice) && (
     paymentSummary.paymentStatus !== null ||
@@ -461,10 +470,10 @@ export const CompletedShootListRow = ({
             <div className="flex flex-row items-center gap-3 pt-2 border-t border-border/50">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                  {!shouldHideClientDetails && (
+                  {visibleClient.canShowName && (
                     <span className="flex min-w-0 items-center gap-1.5">
                       <User className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate"><span className="font-semibold text-foreground">{shoot.client.name}</span></span>
+                      <span className="truncate"><span className="font-semibold text-foreground">{visibleClient.name}</span></span>
                     </span>
                   )}
                   {!isEditor && (
@@ -483,8 +492,11 @@ export const CompletedShootListRow = ({
                     </Badge>
                   )}
                 </div>
-                {!shouldHideClientDetails && shoot.client.email && (
-                  <p className="mt-1 text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+                {visibleClient.email && (
+                  <p className="mt-1 text-xs text-muted-foreground truncate">{visibleClient.email}</p>
+                )}
+                {visibleClient.phone && (
+                  <p className="mt-1 text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
                 )}
               </div>
               <div className="flex flex-shrink-0 items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>

@@ -201,9 +201,13 @@ export function InvoiceApprovalDialog({
   const status = currentInvoice?.approval_status || 'pending';
   const statusCfg = statusConfig[status] || statusConfig.pending;
 
-  // The photographer can edit only their own invoice while it is pending or rejected (draft state).
+  // Payee editability follows approval status, not legacy sent/draft state.
   const photographerCanEdit =
-    mode === 'photographer' && ['pending', 'rejected'].includes(status);
+    mode === 'photographer' &&
+    ['pending', 'rejected'].includes(status) &&
+    currentInvoice?.status !== 'paid' &&
+    !(currentInvoice as any)?.is_paid &&
+    !(currentInvoice as any)?.paid_at;
   const photographerCanReview = photographerCanEdit;
   const adminCanReview = mode === 'admin' && ['pending', 'pending_approval'].includes(status);
 

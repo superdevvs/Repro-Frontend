@@ -92,6 +92,7 @@ import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -747,6 +748,12 @@ export function ShootDetailsOverviewTab({
     () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),
     [shoot],
   );
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role,
+    shoot,
+    shouldHideClientDetails,
+  });
 
   const { rates: editorRates } = useEditorRates(user?.id, {
     enabled: isEditor && Boolean(user?.id),
@@ -1072,8 +1079,8 @@ export function ShootDetailsOverviewTab({
         serviceItems={paymentServiceItems}
         shootDate={shoot.scheduledDate}
         shootTime={shoot.time ? formatTime(shoot.time) : undefined}
-        clientName={shouldHideClientDetails ? undefined : shoot.client?.name}
-        clientEmail={shouldHideClientDetails ? undefined : shoot.client?.email}
+        clientName={visibleClient.name || undefined}
+        clientEmail={visibleClient.email || undefined}
         totalQuote={shoot.payment?.totalQuote}
         totalPaid={shoot.payment?.totalPaid}
         onPaymentSuccess={handlePaymentSuccess}

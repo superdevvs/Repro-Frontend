@@ -674,6 +674,7 @@ const ShootHistory: React.FC = () => {
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
+            viewerRole={role}
           />
         ))}
       </div>
@@ -761,6 +762,7 @@ const ShootHistory: React.FC = () => {
                   onPayNow={isClient ? handleOpenPaymentDialog : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
+                  viewerRole={role}
                 />
               ))}
             </div>
@@ -792,6 +794,7 @@ const ShootHistory: React.FC = () => {
             onPayNow={isClient ? handleOpenPaymentDialog : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
+            viewerRole={role}
           />
         ))}
       </div>
@@ -850,6 +853,7 @@ const ShootHistory: React.FC = () => {
                   onPayNow={isClient ? handleOpenPaymentDialog : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
+                  viewerRole={role}
                 />
               ))}
             </div>
@@ -879,6 +883,7 @@ const ShootHistory: React.FC = () => {
             onPayNow={isClient ? handleOpenPaymentDialog : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
+            viewerRole={role}
           />
         ))}
       </div>
@@ -927,6 +932,7 @@ const ShootHistory: React.FC = () => {
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   onApproveFeatured={isAdmin || isSuperAdmin ? handleApproveFeaturedShoot : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
+                  viewerRole={role}
                 />
               ))}
             </div>
@@ -959,6 +965,7 @@ const ShootHistory: React.FC = () => {
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             onApproveFeatured={isAdmin || isSuperAdmin ? handleApproveFeaturedShoot : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
+            viewerRole={role}
           />
         ))}
       </div>

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ShootData } from '@/types/shoots';
+import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import type { ClientOption } from './useShootOverviewEditor';
 
 type OverviewClientSectionProps = {
@@ -38,7 +39,25 @@ export function OverviewClientSection({
   setSelectedClientId,
   updateField,
 }: OverviewClientSectionProps) {
-  if ((!shoot.client && !isEditMode) || isPhotographer || isEditor || isClient || shouldHideClientDetails) {
+  const viewerRole = isPhotographer
+    ? 'photographer'
+    : isEditor
+      ? 'editor'
+      : isRep
+        ? 'salesRep'
+        : isAdmin
+          ? 'admin'
+          : isClient
+            ? 'client'
+            : '';
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  });
+
+  if ((!shoot.client && !isEditMode) || isEditor || isClient || !visibleClient.canShowName) {
     return null;
   }
 
@@ -113,12 +132,12 @@ export function OverviewClientSection({
       ) : (
         <div className="flex items-start justify-between">
           <div className="space-y-1 text-xs">
-            <div className="font-medium">{shoot.client?.name || 'Unknown'}</div>
-            {shoot.client?.email && (
-              <div className="text-muted-foreground truncate">{shoot.client.email}</div>
+            <div className="font-medium">{visibleClient.name || 'Unknown'}</div>
+            {visibleClient.email && (
+              <div className="text-muted-foreground truncate">{visibleClient.email}</div>
             )}
-            {(isAdmin || isRep) && shoot.client?.phone && (
-              <div className="text-muted-foreground truncate">{shoot.client.phone}</div>
+            {visibleClient.phone && (
+              <div className="text-muted-foreground truncate">{visibleClient.phone}</div>
             )}
           </div>
           {(isAdmin || isRep) && (

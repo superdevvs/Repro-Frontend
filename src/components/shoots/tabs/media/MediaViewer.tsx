@@ -125,6 +125,14 @@ export function MediaViewer({
   const prefersReducedMotion = useReducedMotion();
 
   const isImageFile = (file: MediaFile): boolean => {
+    const mediaType = (file.media_type || '').toLowerCase();
+    const hasPreviewImages =
+      (Array.isArray((file as any).previewImages) && (file as any).previewImages.length > 0) ||
+      (Array.isArray((file as any).preview_images) && (file as any).preview_images.length > 0);
+    if (mediaType === 'floorplan' && (hasPreviewImages || file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
+      return true;
+    }
+
     // If RAW file has processed thumbnail, it's displayable
     if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
       return true;
@@ -142,6 +150,14 @@ export function MediaViewer({
     return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
   };
   const isPreviewableImage = (file: MediaFile): boolean => {
+    const mediaType = (file.media_type || '').toLowerCase();
+    const hasPreviewImages =
+      (Array.isArray((file as any).previewImages) && (file as any).previewImages.length > 0) ||
+      (Array.isArray((file as any).preview_images) && (file as any).preview_images.length > 0);
+    if (mediaType === 'floorplan' && (hasPreviewImages || file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
+      return true;
+    }
+
     // If RAW file has processed thumbnail, it's previewable
     if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
       return true;

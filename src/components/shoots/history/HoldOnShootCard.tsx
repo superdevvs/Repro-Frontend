@@ -19,6 +19,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -167,6 +168,7 @@ export const HoldOnShootCard = ({
   onPayNow,
   onSendToEditing,
   shouldHideClientDetails = false,
+  viewerRole,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -180,6 +182,7 @@ export const HoldOnShootCard = ({
   onPayNow?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
+  viewerRole?: string
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -190,6 +193,12 @@ export const HoldOnShootCard = ({
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
   const rawShootStatus = String(shoot.workflowStatus ?? shoot.status ?? '').trim().toLowerCase()
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  })
   const isCancelledStatus = rawShootStatus === 'cancelled' || rawShootStatus === 'canceled'
   const rawHoldStatus = isCancelledStatus
     ? rawShootStatus
@@ -298,10 +307,10 @@ export const HoldOnShootCard = ({
           </div>
 
           <div className="flex items-center gap-6">
-            {!shouldHideClientDetails && (
+            {visibleClient.canShowName && (
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <span>{shoot.client.name}</span>
+                <span>{visibleClient.name}</span>
               </div>
             )}
             {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (

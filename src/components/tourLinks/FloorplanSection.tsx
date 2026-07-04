@@ -18,6 +18,8 @@ export interface TourFloorplan {
   path?: string;
   image?: string | null;
   preview_url?: string | null;
+  preview_images?: string[];
+  previewImages?: string[];
   web_url?: string | null;
   thumbnail_url?: string | null;
   label?: string | null;
@@ -35,6 +37,10 @@ const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
         url: item.url || item.original_url || item.path || undefined,
         original_url: item.original_url || undefined,
         image: item.image || item.preview_url || item.web_url || item.thumbnail_url || null,
+        preview_images: Array.isArray(item.preview_images) ? item.preview_images.filter(Boolean) : [],
+        previewImages: Array.isArray(item.previewImages ?? item.preview_images)
+          ? (item.previewImages ?? item.preview_images).filter(Boolean)
+          : [],
         label: item.label || item.filename || null,
         filename: item.filename || null,
         type: item.type || null,
@@ -48,12 +54,12 @@ const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
  *  the raw floorplan URL: external (e.g. iGUIDE) image URLs can be dead/slow and would hang
  *  the <img> instead of erroring, and a PDF URL can never render in <img>. */
 const resolvePreviewSrc = (fp: TourFloorplan): string | null => {
-  return fp.image || fp.preview_url || fp.web_url || fp.thumbnail_url || null;
+  return fp.previewImages?.[0] || fp.preview_images?.[0] || fp.image || fp.preview_url || fp.web_url || fp.thumbnail_url || null;
 };
 
 interface PreviewItem {
   fp: TourFloorplan;
-  src: string;
+  sources: string[];
   label: string;
 }
 
@@ -65,7 +71,12 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
     .map((fp, i): PreviewItem | null => {
       const src = resolvePreviewSrc(fp);
       if (!src) return null;
-      return { fp, src, label: fp.label || fp.filename || `Level ${i + 1}` };
+      const sources = Array.from(new Set([
+        ...(fp.previewImages || []),
+        ...(fp.preview_images || []),
+        src,
+      ].filter(Boolean)));
+      return { fp, sources, label: fp.label || fp.filename || `Level ${i + 1}` };
     })
     .filter((x): x is PreviewItem => x !== null);
 
@@ -78,19 +89,27 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
       <div className="grid md:grid-cols-2 gap-6">
         {candidates.map((item, i) => {
           if (failed[i]) return null;
-          const downloadUrl = item.fp.url || item.fp.original_url || item.fp.path || item.src;
+          const downloadUrl = item.fp.original_url || item.fp.url || item.fp.path || item.sources[0];
           return (
             <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
               <h3 className="font-semibold mb-3">{item.label}</h3>
-              <div className="flex-1 flex items-center justify-center min-h-[200px]">
-                <img
-                  src={item.src}
-                  alt={item.label}
-                  loading="lazy"
-                  decoding="async"
-                  className="max-w-full max-h-[300px] object-contain"
-                  onError={() => setFailed((prev) => ({ ...prev, [i]: true }))}
-                />
+              <div className="flex-1 space-y-3 min-h-[200px]">
+                {item.sources.map((src, pageIndex) => (
+                  <div key={src} className="flex items-center justify-center">
+                    <img
+                      src={src}
+                      alt={item.sources.length > 1 ? `${item.label} page ${pageIndex + 1}` : item.label}
+                      loading="lazy"
+                      decoding="async"
+                      className="max-w-full max-h-[300px] object-contain"
+                      onError={() => {
+                        if (pageIndex === 0) {
+                          setFailed((prev) => ({ ...prev, [i]: true }));
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
               {downloadUrl && (
                 <div className="mt-4 flex gap-2">

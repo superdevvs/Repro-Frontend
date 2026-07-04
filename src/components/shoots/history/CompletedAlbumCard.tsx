@@ -19,6 +19,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
   formatCurrency,
@@ -169,6 +170,7 @@ export const CompletedAlbumCard = ({
   onSendToEditing,
   onApproveFeatured,
   shouldHideClientDetails = false,
+  viewerRole,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -185,6 +187,7 @@ export const CompletedAlbumCard = ({
   onSendToEditing?: (shoot: ShootData) => void
   onApproveFeatured?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
+  viewerRole?: string
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -203,6 +206,12 @@ export const CompletedAlbumCard = ({
   const photoCount = isInProgress 
     ? (shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
     : (shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  })
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
@@ -441,18 +450,21 @@ export const CompletedAlbumCard = ({
         <div
           className={cn(
             'grid gap-4 pt-2 border-t border-border/50',
-            shouldHideClientDetails ? 'grid-cols-1' : 'grid-cols-2'
+            visibleClient.canShowName ? 'grid-cols-2' : 'grid-cols-1'
           )}
         >
-          {!shouldHideClientDetails && (
+          {visibleClient.canShowName && (
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 <User className="h-3.5 w-3.5" />
                 <span>Client</span>
               </div>
-              <p className="text-sm font-semibold truncate">{shoot.client.name}</p>
-              {shoot.client.email && (
-                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              <p className="text-sm font-semibold truncate">{visibleClient.name}</p>
+              {visibleClient.email && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
+              )}
+              {visibleClient.phone && (
+                <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
               )}
             </div>
           )}

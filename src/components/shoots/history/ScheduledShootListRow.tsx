@@ -17,6 +17,7 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { useWeatherData } from '@/hooks/useWeatherData'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
 import { getShootLocalDate, parseLocalYmd } from '@/utils/shootLocalDate'
+import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
@@ -152,6 +153,7 @@ export const ScheduledShootListRow = ({
   onModify,
   onSendToEditing,
   shouldHideClientDetails = false,
+  viewerRole,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -168,6 +170,7 @@ export const ScheduledShootListRow = ({
   onModify?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void | Promise<void>
   shouldHideClientDetails?: boolean
+  viewerRole?: string
 }) => {
   const { formatDate: formatDatePref, formatTemperature } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -214,6 +217,12 @@ export const ScheduledShootListRow = ({
     : paymentStatus === 'Partial'
       ? 'outline'
       : 'destructive'
+  const visibleClient = getVisibleClientContact({
+    client: shoot.client,
+    role: viewerRole,
+    shoot,
+    shouldHideClientDetails,
+  })
   const approvalNotes = getApprovalNotes(shoot.notes)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager)
@@ -415,11 +424,11 @@ export const ScheduledShootListRow = ({
 
           {/* Client & Photographer - Compact Inline */}
           <div className="flex min-w-0 flex-col gap-1.5 text-sm md:col-start-2 lg:col-start-auto lg:max-w-[360px] xl:max-w-[440px]">
-            {!shouldHideClientDetails && (
+            {visibleClient.canShowName && (
               <div className="flex min-w-0 items-center gap-1.5">
                 <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="min-w-0 truncate font-medium" title={shoot.client.name}>
-                  {shoot.client.name}
+                <span className="min-w-0 truncate font-medium" title={visibleClient.name || undefined}>
+                  {visibleClient.name}
                 </span>
               </div>
             )}

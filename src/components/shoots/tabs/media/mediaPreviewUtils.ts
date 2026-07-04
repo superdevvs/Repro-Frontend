@@ -27,8 +27,34 @@ const isRawMediaFile = (file: MediaFile): boolean => {
 const hasProcessedRawPreview = (file: MediaFile): boolean =>
   Boolean(file.thumbnail_path || file.thumb || file.medium || file.web_path);
 
+const getPreviewImageList = (file: MediaFile): string[] => {
+  const raw = Array.isArray(file.previewImages)
+    ? file.previewImages
+    : Array.isArray(file.preview_images)
+      ? file.preview_images
+      : [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const candidate of raw) {
+    const normalized = normalizeImageUrl(String(candidate || '').trim());
+    if (!normalized || isPlaceholderImageUrl(normalized) || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    urls.push(normalized);
+  }
+
+  return urls;
+};
+
 const hasPreviewableImageFile = (file: MediaFile): boolean => {
-  if ((file.media_type === 'raw' || file.media_type === 'image') && hasProcessedRawPreview(file)) {
+  const mediaType = (file.media_type || '').toLowerCase();
+  if (mediaType === 'floorplan' && (getPreviewImageList(file).length > 0 || hasProcessedRawPreview(file))) {
+    return true;
+  }
+
+  if ((mediaType === 'raw' || mediaType === 'image') && hasProcessedRawPreview(file)) {
     return true;
   }
 
@@ -81,24 +107,30 @@ const getStrictResolvedUrls = (
 };
 
 const getStrictThumbCandidates = (file: MediaFile): string[] =>
-  getStrictResolvedUrls(file, [
-    'thumb_url',
-    'thumb',
-    'thumbnail_url',
-    'thumbnail_path',
-    'watermarked_thumbnail_path',
-  ]);
+  [
+    ...getPreviewImageList(file),
+    ...getStrictResolvedUrls(file, [
+      'thumb_url',
+      'thumb',
+      'thumbnail_url',
+      'thumbnail_path',
+      'watermarked_thumbnail_path',
+    ]),
+  ];
 
 const getStrictPreviewCandidates = (file: MediaFile): string[] =>
-  getStrictResolvedUrls(file, [
-    'web_url',
-    'web_path',
-    'medium_url',
-    'medium',
-    'large_url',
-    'large',
-    'watermarked_web_path',
-  ]);
+  [
+    ...getPreviewImageList(file),
+    ...getStrictResolvedUrls(file, [
+      'web_url',
+      'web_path',
+      'medium_url',
+      'medium',
+      'large_url',
+      'large',
+      'watermarked_web_path',
+    ]),
+  ];
 
 const getStrictLargePreviewCandidates = (file: MediaFile): string[] =>
   getStrictResolvedUrls(file, [
