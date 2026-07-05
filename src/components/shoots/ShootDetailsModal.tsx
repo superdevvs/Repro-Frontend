@@ -715,7 +715,7 @@ export function ShootDetailsModal({
 
   if (loading) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="w-[min(90vw,16rem)] sm:max-w-6xl max-h-[90vh] rounded-2xl sm:rounded-lg">
           <DialogHeader className="sr-only">
             <DialogTitle>
@@ -817,7 +817,7 @@ export function ShootDetailsModal({
 
   if (!shoot) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-6xl max-h-[90vh]">
           <DialogHeader className="sr-only">
             <DialogTitle>Shoot Details</DialogTitle>
@@ -833,7 +833,7 @@ export function ShootDetailsModal({
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col gap-0 p-0 sm:max-w-[95vw] sm:max-h-[95vh] sm:h-[95vh] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:sm:flex">
         {/* DialogHeader for accessibility - must be first child */}
         <DialogHeader className="sr-only">

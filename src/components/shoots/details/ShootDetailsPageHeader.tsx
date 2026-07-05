@@ -12,6 +12,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  PanelTopOpen,
   PauseCircle,
   Send,
   Share2,
@@ -61,6 +62,7 @@ interface ShootDetailsPageHeaderProps {
   activeTab: string;
   onActiveTabChange: (value: string) => void;
   onBack: () => void;
+  onOpenOverview: () => void;
   onCopyAddress: () => void;
   onOpenInMaps: () => void;
   onOpenHoldDialog: () => void;
@@ -110,6 +112,7 @@ export function ShootDetailsPageHeader({
   activeTab,
   onActiveTabChange,
   onBack,
+  onOpenOverview,
   onCopyAddress,
   onOpenInMaps,
   onOpenHoldDialog,
@@ -204,6 +207,16 @@ export function ShootDetailsPageHeader({
                 {shoot.location?.address || 'Shoot Details'}
               </h1>
               <div className="flex items-center gap-1 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  onClick={onOpenOverview}
+                  title="Open overview"
+                  aria-label="Open shoot overview"
+                >
+                  <PanelTopOpen className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

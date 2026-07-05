@@ -67,6 +67,7 @@ import { ShootDetailsActivityLogTab } from '@/components/shoots/tabs/ShootDetail
 import { ShootDetailsIssuesTab } from '@/components/shoots/tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSidebar } from '@/components/shoots/tabs/ShootDetailsSidebar';
 import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
+import { ShootDetailsModal as ShootOverviewModal } from '@/components/shoots/ShootDetailsModal';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 
@@ -151,6 +152,8 @@ const ShootDetails: React.FC = () => {
   const [isHoldApprovalDialogOpen, setIsHoldApprovalDialogOpen] = useState(false);
   const [holdProcessing, setHoldProcessing] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
+  const [autoOpenedOverviewShootId, setAutoOpenedOverviewShootId] = useState<string | number | null>(null);
   const [activeMediaDisplayTab, setActiveMediaDisplayTab] = useState<'uploaded' | 'edited'>('uploaded');
   const {
     shoot,
@@ -274,6 +277,25 @@ const ShootDetails: React.FC = () => {
   useEffect(() => {
     setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
   }, [isClient, id]);
+
+  const openOverviewModal = useCallback(() => {
+    if (shoot?.id) {
+      setAutoOpenedOverviewShootId(shoot.id);
+    }
+    setIsOverviewModalOpen(true);
+  }, [shoot?.id]);
+
+  useEffect(() => {
+    if (!shoot?.id || autoOpenedOverviewShootId === shoot.id) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      openOverviewModal();
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [autoOpenedOverviewShootId, openOverviewModal, shoot?.id]);
 
   const handleCreatePaymentLink = async () => {
     if (!shoot) return;
@@ -804,6 +826,7 @@ const ShootDetails: React.FC = () => {
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
           onBack={() => navigate('/shoot-history')}
+          onOpenOverview={openOverviewModal}
           onCopyAddress={copyAddress}
           onOpenInMaps={openInMaps}
           onOpenHoldDialog={() => setIsOnHoldDialogOpen(true)}
@@ -1060,6 +1083,17 @@ const ShootDetails: React.FC = () => {
           onApproveHold={handleApproveHold}
           onDownloadMedia={handleDownloadMedia}
           onDownloadFile={handleDownloadFile}
+        />
+      )}
+      {shoot && isOverviewModalOpen && (
+        <ShootOverviewModal
+          shootId={shoot.id}
+          isOpen={isOverviewModalOpen}
+          onClose={() => setIsOverviewModalOpen(false)}
+          currentRole={role}
+          onShootUpdate={loadShoot}
+          initialTab="overview"
+          shouldHideClientDetails={isEditor}
         />
       )}
     </DashboardLayout>

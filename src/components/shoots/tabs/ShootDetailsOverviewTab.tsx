@@ -940,6 +940,7 @@ export function ShootDetailsOverviewTab({
         panelServices={panelServices}
         isClient={isClient}
         isPhotographer={isPhotographer}
+        isEditor={isEditor}
       />
 
       <OverviewClientSection

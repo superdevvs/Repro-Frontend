@@ -83,6 +83,7 @@ export type OverviewServicesTableSectionProps = {
   // Role flags affecting visibility of e.g. photographer email
   isClient: boolean;
   isPhotographer: boolean;
+  isEditor: boolean;
 };
 
 // Placeholder shown in Date/Time/Photographer/Price cells when the underlying
@@ -94,13 +95,30 @@ const NOT_ASSIGNED = 'Unassigned';
 // so that (with `table-fixed` in read-only mode) it absorbs the remaining space
 // and shows as much of the service name as possible. Price is right-aligned and
 // sits in the final column at the extreme right edge.
-const HEADER_CELLS = [
+const BASE_HEADER_CELLS = [
   { label: 'Services', className: '' },
   { label: 'Date', className: 'w-[74px]' },
   { label: 'Time', className: 'w-[58px]' },
-  { label: 'Photographer', className: 'w-[92px]' },
-  { label: 'Price', className: 'w-[66px] text-right pr-0' },
 ] as const;
+
+type HeaderCell = {
+  label: string;
+  className: string;
+};
+
+const isPayView = (props: Pick<OverviewServicesTableSectionProps, 'isPhotographer' | 'isEditor'>) =>
+  props.isPhotographer || props.isEditor;
+
+const getHeaderCells = (
+  props: Pick<OverviewServicesTableSectionProps, 'isPhotographer' | 'isEditor'>,
+): HeaderCell[] => [
+  ...BASE_HEADER_CELLS,
+  ...(isPayView(props) ? [] : [{ label: 'Photographer', className: 'w-[92px]' }]),
+  {
+    label: isPayView(props) ? 'Pay' : 'Price',
+    className: 'w-[66px] text-right pr-0',
+  },
+];
 
 // Default schedule applied to a row that has no saved schedule yet, matching the
 // fallback used by the existing services editor (empty date, 10:00 time).
@@ -169,6 +187,7 @@ export function OverviewServicesTableSection(
   // Ephemeral UI state: tracks which row's Services cell opened the picker so the
   // change-service flow is routed to a single row. `null` means the "Add New" flow.
   const [editingServiceRowId, setEditingServiceRowId] = useState<string | null>(null);
+  const headerCells = getHeaderCells(props);
 
   const selectedServicesForDialog = servicesList.filter((service) =>
     selectedServiceIds.includes(String(service.id)),
@@ -216,7 +235,7 @@ export function OverviewServicesTableSection(
                   read-only mode the status dot is rendered inside the Services
                   cell and offset outside the card on the left. */}
               {isEditMode && <th scope="col" className="w-5 pb-1.5" aria-label="Actions" />}
-              {HEADER_CELLS.map(({ label, className }) => (
+              {headerCells.map(({ label, className }) => (
                 <th key={label} scope="col" className={`pb-1.5 pr-1.5 font-medium ${className}`}>
                   {label}
                 </th>
@@ -252,11 +271,13 @@ export function OverviewServicesTableSection(
  */
 function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
   const { serviceItems, formatServiceLabel, getReadonlyServiceDisplayPrice } = props;
+  const headerCells = getHeaderCells(props);
+  const showPhotographerColumn = !isPayView(props);
 
   if (serviceItems.length === 0) {
     return (
       <tr>
-        <td colSpan={HEADER_CELLS.length} className="py-3 text-center text-muted-foreground">
+        <td colSpan={headerCells.length} className="py-3 text-center text-muted-foreground">
           No services
         </td>
       </tr>
@@ -289,13 +310,15 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
         <td className="py-1.5 pr-2 whitespace-nowrap">
           {timeDisplay ?? <span className="text-muted-foreground">{UNASSIGNED}</span>}
         </td>
-        <td className="py-1.5 pr-2">
-          {item.photographerName ? (
-            <span className="block truncate">{item.photographerName}</span>
-          ) : (
-            <span className="text-muted-foreground">{NOT_ASSIGNED}</span>
-          )}
-        </td>
+        {showPhotographerColumn && (
+          <td className="py-1.5 pr-2">
+            {item.photographerName ? (
+              <span className="block truncate">{item.photographerName}</span>
+            ) : (
+              <span className="text-muted-foreground">{NOT_ASSIGNED}</span>
+            )}
+          </td>
+        )}
         <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
           {getReadonlyServiceDisplayPrice(item.source)}
         </td>
@@ -329,10 +352,12 @@ function renderEditRows(
     getServiceDisplayPrice,
     isClient,
   } = props;
+  const headerCells = getHeaderCells(props);
+  const showPhotographerColumn = !isPayView(props);
 
   const addNewRow = (
     <tr key="__add_new__">
-      <td colSpan={HEADER_CELLS.length + 1} className="pt-2">
+      <td colSpan={headerCells.length + 1} className="pt-2">
         <button
           type="button"
           data-testid="add-new-service"
@@ -350,7 +375,7 @@ function renderEditRows(
     return [
       <tr key="__empty__">
         <td
-          colSpan={HEADER_CELLS.length + 1}
+          colSpan={headerCells.length + 1}
           className="py-3 text-center text-muted-foreground"
         >
           No services
@@ -412,33 +437,35 @@ function renderEditRows(
               triggerClassName="h-8 rounded-lg"
             />
           </td>
-          <td className="py-1.5 pr-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="photographer-cell"
-              className="h-8 max-w-full justify-start text-xs"
-              onClick={() =>
-                openEditPhotographerPicker({
-                  source: 'edit',
-                  categoryKey,
-                  categoryName,
-                })
-              }
-            >
-              <span className="block min-w-0 truncate text-left">
-                <span className="block truncate">
-                  {photographer?.name || NOT_ASSIGNED}
-                </span>
-                {!isClient && photographer?.email && (
-                  <span className="block truncate text-[10px] text-muted-foreground">
-                    {photographer.email}
+          {showPhotographerColumn && (
+            <td className="py-1.5 pr-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="photographer-cell"
+                className="h-8 max-w-full justify-start text-xs"
+                onClick={() =>
+                  openEditPhotographerPicker({
+                    source: 'edit',
+                    categoryKey,
+                    categoryName,
+                  })
+                }
+              >
+                <span className="block min-w-0 truncate text-left">
+                  <span className="block truncate">
+                    {photographer?.name || NOT_ASSIGNED}
                   </span>
-                )}
-              </span>
-            </Button>
-          </td>
+                  {!isClient && photographer?.email && (
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {photographer.email}
+                    </span>
+                  )}
+                </span>
+              </Button>
+            </td>
+          )}
           <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
             {getServiceDisplayPrice(service)}
           </td>
