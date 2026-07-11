@@ -41,6 +41,7 @@ import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 
 interface ShootsTabsCardProps {
   upcomingShoots: DashboardShootSummary[];
@@ -146,8 +147,6 @@ type FiltersState = {
     highPriority: boolean;
     missingRaw: boolean;
     missingEditor: boolean;
-    overdue: boolean;
-    unpaid: boolean;
   };
 };
 
@@ -165,8 +164,6 @@ const defaultFilters: FiltersState = {
     highPriority: false,
     missingRaw: false,
     missingEditor: false,
-    overdue: false,
-    unpaid: false,
   },
 };
 
@@ -182,14 +179,6 @@ const getSummaryLocalDate = (shoot: DashboardShootSummary): Date | null => {
     if (!Number.isNaN(local.getTime())) return local;
   }
   return shoot.startTime ? new Date(shoot.startTime) : null;
-};
-
-const isOverdue = (shoot: DashboardShootSummary) => {
-  if (!shoot.deliveryDeadline) return false;
-  const dueDate = new Date(shoot.deliveryDeadline);
-  const now = new Date();
-  const completed = (shoot.workflowStatus || shoot.status || '').toLowerCase() === 'completed';
-  return !completed && isAfter(now, dueDate);
 };
 
 const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) => {
@@ -256,8 +245,6 @@ const countActiveFilters = (filters: FiltersState) => {
   if (filters.priority.highPriority) count += 1;
   if (filters.priority.missingRaw) count += 1;
   if (filters.priority.missingEditor) count += 1;
-  if (filters.priority.overdue) count += 1;
-  if (filters.priority.unpaid) count += 1;
   return count;
 };
 
@@ -281,7 +268,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   customTabs = [],
   title = 'Shoots',
 }) => {
-  const isPhotographerRole = role === 'photographer';
+  const normalizedRole = normalizeDashboardRole(role);
+  const isPhotographerRole = normalizedRole === 'photographer';
+  const showAssignmentFilters = canFilterByPhotographer(role);
   const isEditingManagerMode = mode === 'editing_manager' && customTabs.length > 0;
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [activeTab, setActiveTab] = useState<TabType>(() =>
@@ -299,6 +288,18 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCompactMobile, setIsCompactMobile] = useState(false);
   const lastRequestedCountRef = useRef<number>(requestedShoots.length);
+
+  useEffect(() => {
+    if (showAssignmentFilters) return;
+
+    const clearRestrictedFilters = (current: FiltersState): FiltersState => {
+      if (current.photographerIds.length === 0 && !current.unassignedOnly) return current;
+      return { ...current, photographerIds: [], unassignedOnly: false };
+    };
+
+    setFilters(clearRestrictedFilters);
+    setDraftFilters(clearRestrictedFilters);
+  }, [showAssignmentFilters]);
   
   const SHOOTS_PER_PAGE = 5;
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
@@ -370,13 +371,13 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   }, [allShoots]);
 
   const serviceOptions = useMemo(() => {
-    const set = new Set<string>();
+    const map = new Map<string, string>();
     allShoots.forEach((shoot) => {
       shoot.services.forEach((service) => {
-        set.add(getServiceKey(service.label, service.type));
+        map.set(getServiceKey(service.label, service.type), service.label);
       });
     });
-    return Array.from(set);
+    return Array.from(map, ([key, label]) => ({ key, label }));
   }, [allShoots]);
 
   const applyFilters = () => {
@@ -409,14 +410,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         if (!addressTarget.includes(filters.address.toLowerCase())) return false;
       }
 
-      if (filters.photographerIds.length) {
+      if (showAssignmentFilters && filters.photographerIds.length) {
         const shootPhotographerId = shoot.photographer?.id ?? null;
         if (!shootPhotographerId || !filters.photographerIds.includes(shootPhotographerId)) {
           return false;
         }
       }
 
-      if (filters.unassignedOnly && shoot.photographer) return false;
+      if (showAssignmentFilters && filters.unassignedOnly && shoot.photographer) return false;
 
       if (filters.services.length) {
         const serviceMatch = shoot.services.some((service) =>
@@ -439,18 +440,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         if (!note.includes('editor')) return false;
       }
 
-      if (filters.priority.overdue && !isOverdue(shoot)) return false;
-
-      if (filters.priority.unpaid) {
-        const status = (shoot.status || shoot.workflowStatus || '').toLowerCase();
-        if (!status.includes('payment') && !status.includes('unpaid')) return false;
-      }
-
       if (!matchesDateRange(shoot, filters)) return false;
 
       return true;
     });
-  }, [filters]);
+  }, [filters, showAssignmentFilters]);
 
   const filteredUpcomingShoots = useMemo(() => filterShoots(upcomingShoots), [filterShoots, upcomingShoots]);
   const filteredRequestedShoots = useMemo(() => filterShoots(visibleRequestedShoots), [filterShoots, visibleRequestedShoots]);
@@ -1407,7 +1401,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 </div>
               </section>
 
-              <section>
+              {showAssignmentFilters && <section>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
                 <div className="rounded-2xl border border-border/60 bg-muted/30">
                   <ScrollArea className="max-h-64">
@@ -1451,14 +1445,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                     Unassigned only
                   </label>
                 </div>
-              </section>
+              </section>}
 
               <section>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {serviceOptions.map((serviceKey) => {
+                  {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
                     const active = draftFilters.services.includes(serviceKey);
-                    const label = SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
+                    const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
                     return (
                       <button
                         key={serviceKey}
@@ -1575,30 +1569,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                       }
                     />
                     Missing editor
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-foreground">
-                    <Checkbox
-                      checked={draftFilters.priority.overdue}
-                      onCheckedChange={(value) =>
-                        setDraftFilters((prev) => ({
-                          ...prev,
-                          priority: { ...prev.priority, overdue: Boolean(value) },
-                        }))
-                      }
-                    />
-                    Overdue
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-foreground">
-                    <Checkbox
-                      checked={draftFilters.priority.unpaid}
-                      onCheckedChange={(value) =>
-                        setDraftFilters((prev) => ({
-                          ...prev,
-                          priority: { ...prev.priority, unpaid: Boolean(value) },
-                        }))
-                      }
-                    />
-                    Unpaid
                   </label>
                 </div>
               </section>
@@ -1920,7 +1890,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   </div>
                 </section>
 
-                <section>
+                {showAssignmentFilters && <section>
                   <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
                   <div className="rounded-2xl border border-border/60 bg-muted/30">
                     <ScrollArea className="max-h-64">
@@ -1964,14 +1934,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                       Unassigned only
                     </label>
                   </div>
-                </section>
+                </section>}
 
                 <section>
                   <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {serviceOptions.map((serviceKey) => {
+                    {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
                       const active = draftFilters.services.includes(serviceKey);
-                      const label = SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
+                      const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
                       return (
                         <button
                           key={serviceKey}
@@ -2088,30 +2058,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         }
                       />
                       Missing editor
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.overdue}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, overdue: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Overdue
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.unpaid}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, unpaid: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Unpaid
                     </label>
                   </div>
                 </section>
