@@ -1272,6 +1272,7 @@ export function AccountForm({
 
       const json = await res.json();
       const created = json.user;
+      const notificationDelivery = json.notification_delivery;
       setServerEmailHealth(normalizeEmailHealth(created?.email_health));
 
       // Inform parent so it can update local list (include id)
@@ -1306,7 +1307,19 @@ export function AccountForm({
         })),
       } as any);
 
-      toast({ title: 'User created', description: `${created.name} added successfully.` });
+      const failedNotifications = [
+        notificationDelivery?.email?.account_created,
+        notificationDelivery?.email?.verification,
+        notificationDelivery?.sms,
+      ].filter((channel) => channel?.attempted && !channel?.sent);
+
+      toast({
+        title: failedNotifications.length > 0 ? 'User created — notification issue' : 'User created',
+        description: failedNotifications.length > 0
+          ? `${created.name} was added, but ${failedNotifications.length} notification channel${failedNotifications.length === 1 ? '' : 's'} failed. Check Messaging logs before considering onboarding complete.`
+          : `${created.name} added successfully. Email and SMS delivery were accepted.`,
+        variant: failedNotifications.length > 0 ? 'destructive' : 'default',
+      });
       if (values.role === 'client') {
         queryClient.invalidateQueries({ queryKey: ['service-groups'] });
       }
