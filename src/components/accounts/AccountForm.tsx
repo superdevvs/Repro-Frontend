@@ -128,7 +128,7 @@ const formatEquipmentMoney = (amount?: number | null) => {
 };
 
 // Create schema with viewer role parameter - superadmin can skip mandatory fields
-const createAccountFormSchema = (viewerRole?: string) => z.object({
+const createAccountFormSchema = (viewerRole?: string, isEditing = false) => z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
@@ -170,14 +170,14 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   repCanTextClients: z.boolean().optional(),
   repNotes: z.string().optional(),
   created_by_name: z.string().optional(),
-  created_by_id: z.string().optional(),
+  created_by_id: z.coerce.string().optional(),
   serviceGroupIds: z.array(z.string()).optional(),
 })
 .superRefine((data, ctx) => {
   const isSalesRepViewer = viewerRole === 'salesRep';
 
   // License number required for clients except for superadmins and sales reps
-  if (data.role === "client" && !data.licenseNumber?.trim() && viewerRole !== 'superadmin' && !isSalesRepViewer) {
+  if (!isEditing && data.role === "client" && !data.licenseNumber?.trim() && viewerRole !== 'superadmin' && !isSalesRepViewer) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "License number is required for clients",
@@ -186,7 +186,7 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   }
 
   // City, State, Zip required for non-salesRep roles (superadmin can skip)
-  if (data.role !== "salesRep" && viewerRole !== 'superadmin') {
+  if (!isEditing && data.role !== "salesRep" && viewerRole !== 'superadmin') {
     if (!data.city?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -300,7 +300,7 @@ export function AccountForm({
   const queryClient = useQueryClient();
   
   const form = useForm<AccountFormValues>({
-    resolver: zodResolver(createAccountFormSchema(viewerRole)),
+    resolver: zodResolver(createAccountFormSchema(viewerRole, Boolean(initialData))),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -362,7 +362,8 @@ export function AccountForm({
         const repMetadata = (initialData.metadata as Record<string, any> | undefined) || {};
         const repMetaId = repMetadata.accountRepId || repMetadata.account_rep_id || repMetadata.repId || repMetadata.rep_id;
         const repMetaName = repMetadata.accountRep || repMetadata.account_rep || repMetadata.rep;
-        const createdById = (initialData as any).created_by_id || repMetaId || "";
+        const rawCreatedById = (initialData as any).created_by_id || repMetaId || "";
+        const createdById = rawCreatedById ? String(rawCreatedById) : "";
         const createdByName = (initialData as any).created_by_name || (initialData as any).createdBy || repMetaName || "";
 
         form.reset({
@@ -1310,6 +1311,7 @@ export function AccountForm({
       const failedNotifications = [
         notificationDelivery?.email?.account_created,
         notificationDelivery?.email?.verification,
+        notificationDelivery?.email?.equipment,
         notificationDelivery?.sms,
       ].filter((channel) => channel?.attempted && !channel?.sent);
 
