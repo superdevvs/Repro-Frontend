@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { addDays, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
@@ -28,7 +29,6 @@ import {
 } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -305,6 +305,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const filterPanelHostRef = useRef<HTMLDivElement>(null);
   // Dynamic height so the list reveals ~7.5 cards at a time, peeking the 8th
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
 
@@ -1276,9 +1277,10 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
               onClick={() => {
                 setDraftFilters(filters);
-                setIsFilterOpen(true);
+                setIsFilterOpen((open) => !open);
               }}
               aria-label="Filters"
+              aria-expanded={isFilterOpen}
             >
               <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
               <span className="max-[1550px]:hidden">
@@ -1310,8 +1312,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
               onClick={() => {
                 setDraftFilters(filters);
-                setIsFilterOpen(true);
+                setIsFilterOpen((open) => !open);
               }}
+              aria-expanded={isFilterOpen}
             >
               <Filter size={14} className="mr-1.5" />
               Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
@@ -1319,20 +1322,22 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
           </div>
         )}
 
-        <Dialog
-          open={isFilterOpen}
-          onOpenChange={(open) => {
-            setIsFilterOpen(open);
-            if (!open) setDraftFilters(filters);
-          }}
-        >
-          <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
-            <DialogHeader className="mb-2">
-              <DialogTitle className="text-base sm:text-lg">Filter shoots</DialogTitle>
+        {filterPanelHostRef.current && createPortal(
+          <div className={cn(
+            'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
+            isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
+          )}>
+            <div className="min-h-0 overflow-hidden">
+              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+              <h3 className="text-base sm:text-lg font-semibold">Filter shoots</h3>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Narrow the list by status, assignments, services, and priority.
               </p>
-            </DialogHeader>
+              </div>
+              <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
+            </div>
 
             <div className="space-y-4 sm:space-y-6">
               <section>
@@ -1573,7 +1578,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 </div>
               </section>
             </div>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 mt-5">
               <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
                 Cancel
               </Button>
@@ -1583,9 +1588,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               <Button className="flex-1" onClick={applyFilters}>
                 Apply filters
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+              </div>
+            </div>
+          </div>,
+          filterPanelHostRef.current,
+        )}
+
+        <div ref={filterPanelHostRef} />
 
         <div className="flex-1 flex flex-col">
           {editingManagerPaginatedGroups.length === 0 ? (
@@ -1735,8 +1745,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               variant="secondary"
               size="sm"
               className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
-              onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}
+              onClick={() => { setDraftFilters(filters); setIsFilterOpen((open) => !open); }}
               aria-label="Filters"
+              aria-expanded={isFilterOpen}
             >
               <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
               <span className="max-[1550px]:hidden">
@@ -1784,7 +1795,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               variant="secondary"
               size="sm"
               className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
-              onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}
+              onClick={() => { setDraftFilters(filters); setIsFilterOpen((open) => !open); }}
+              aria-expanded={isFilterOpen}
             >
               <Filter size={14} className="mr-1.5" />
               Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
@@ -1808,20 +1820,22 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       )}
 
       {/* Shared filter dialog (used by both mobile and desktop) */}
-      <Dialog
-        open={isFilterOpen}
-        onOpenChange={(open) => {
-          setIsFilterOpen(open);
-          if (!open) setDraftFilters(filters);
-        }}
-      >
-        <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
-              <DialogHeader className="mb-2">
-                <DialogTitle className="text-base sm:text-lg">Filter shoots</DialogTitle>
+      {filterPanelHostRef.current && createPortal(
+        <div className={cn(
+          'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
+          isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
+        )}>
+          <div className="min-h-0 overflow-hidden">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                <h3 className="text-base sm:text-lg font-semibold">Filter shoots</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Narrow the list by status, assignments, services, and priority.
                 </p>
-              </DialogHeader>
+                </div>
+                <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
+              </div>
 
               <div className="space-y-4 sm:space-y-6">
                 <section>
@@ -2062,7 +2076,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   </div>
                 </section>
               </div>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 mt-5">
                 <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
                   Cancel
                 </Button>
@@ -2072,9 +2086,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 <Button className="flex-1" onClick={applyFilters}>
                   Apply filters
                 </Button>
-              </DialogFooter>
-          </DialogContent>
-      </Dialog>
+              </div>
+            </div>
+          </div>
+        </div>,
+        filterPanelHostRef.current,
+      )}
+
+      <div ref={filterPanelHostRef} />
 
       {/* Content based on active tab - flex-1 to fill remaining space */}
       <div className="flex-1 flex flex-col">
