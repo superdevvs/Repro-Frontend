@@ -696,7 +696,7 @@ function SmartDialerPanel({
         axiosErr?.response?.data?.error
         || axiosErr?.response?.data?.message
         || axiosErr?.message
-        || 'Please check Vapi and Telnyx settings and try again.';
+        || 'Please check the canary allowlist and Telnyx voice readiness.';
       toast({
         title: 'Unable to start call',
         description,
@@ -743,7 +743,7 @@ function SmartDialerPanel({
     setNumber((current) => current.slice(0, -1));
   };
 
-  const canCall = number.trim().length > 0 && !callMutation.isPending;
+  const canCall = number.trim().length > 0 && !callMutation.isPending && health?.can_place_calls === true;
 
   return (
     <aside className={`${dialerPanelClass} h-fit`}>
@@ -874,9 +874,14 @@ function SmartDialerPanel({
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
             <HealthRow label="Telnyx carrier" status={health?.telnyx_carrier?.status || 'unknown'} />
-            <HealthRow label="Vapi assistant" status={health?.vapi_assistant?.status || 'unknown'} />
+            <HealthRow label="Telnyx assistant" status={health?.telnyx_assistant?.status || 'unknown'} />
             <HealthRow label="Backend webhooks" status={health?.backend_webhooks?.status || 'unknown'} />
             <div className="text-xs">Last event: {formatRelative(health?.last_provider_event_at)}</div>
+            {health && !health.can_place_calls && (
+              <div className="text-xs text-amber-700 dark:text-amber-300">
+                {health.readiness_blockers[0] || 'Outbound calling is not ready.'}
+              </div>
+            )}
           </div>
         </div>
         <div className="mt-2 flex h-6 items-center gap-1">
@@ -925,7 +930,7 @@ function SmartDialerPanel({
 }
 
 function HealthRow({ label, status }: { label: string; status: string }) {
-  const healthy = ['connected', 'online', 'healthy'].includes(status);
+  const healthy = ['connected', 'online', 'healthy', 'synced', 'routed', 'ready'].includes(status);
   return (
     <div className="flex items-center gap-2">
       <span className={`h-2 w-2 rounded-full ${healthy ? 'bg-emerald-500' : 'bg-amber-500'}`} />

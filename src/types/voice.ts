@@ -86,6 +86,8 @@ export interface VoiceNumberConfig {
 }
 
 export interface VoiceSettings {
+  provider?: 'telnyx' | 'vapi' | string;
+  canary_mode?: boolean;
   enabled: boolean;
   assistant_id?: string | null;
   webhook_url?: string | null;
@@ -210,7 +212,12 @@ export interface VoiceLlmUsageSummary {
 }
 
 export interface VoiceHealth {
+  provider: 'telnyx' | 'vapi' | string;
   enabled: boolean;
+  can_place_calls: boolean;
+  readiness_blockers: string[];
+  canary_mode: boolean;
+  canary_number_count: number;
   webhook_url_configured: boolean;
   webhook_url?: string | null;
   telnyx_carrier?: {
@@ -218,13 +225,36 @@ export interface VoiceHealth {
     latest_event_at?: string | null;
     latest_event_type?: string | null;
   };
+  telnyx_assistant?: {
+    status?: string | null;
+    assistant_id?: string | null;
+    version_id?: string | null;
+    canary_version_id?: string | null;
+    canary_route_status?: string | null;
+    error?: string | null;
+  };
+  assistant_sync?: {
+    status?: string | null;
+    assistant_id?: string | null;
+    version_id?: string | null;
+    main_version_id?: string | null;
+    canary_version_id?: string | null;
+    canary_route_status?: string | null;
+    configured_tools?: string[];
+    desired_tools?: string[];
+    missing_tools?: string[];
+    extra_webhook_tools?: string[];
+    automatic_recording_enabled?: boolean;
+    policy_instructions_current?: boolean;
+    fetched_at?: string | null;
+  } | null;
   vapi_assistant?: {
     status?: string | null;
     assistant_id?: string | null;
     phone_number_id?: string | null;
     latest_event_at?: string | null;
     latest_event_type?: string | null;
-  };
+  } | null;
   backend_webhooks?: {
     status?: string | null;
     latest_failed_at?: string | null;

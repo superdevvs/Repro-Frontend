@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { getScheduleState, placeVoiceCall } from '@/services/voice';
+import { getScheduleState, getVoiceHealth, placeVoiceCall } from '@/services/voice';
 
 interface MakeTestCallDialogProps {
   trigger?: ReactNode;
@@ -35,6 +35,11 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
   const schedule = useQuery({
     queryKey: ['voice-schedule-state'],
     queryFn: () => getScheduleState(),
+    enabled: open,
+  });
+  const health = useQuery({
+    queryKey: ['voice-health'],
+    queryFn: getVoiceHealth,
     enabled: open,
   });
   const scheduleState = schedule.data?.state?.state;
@@ -64,7 +69,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
-      toast({ title: 'Test call started', description: 'The outbound AI call was sent to Vapi.' });
+      toast({ title: 'Test call started', description: 'The outbound AI call was sent through direct Telnyx Call Control.' });
       setTo(initialTo);
       setFrom(initialFrom);
       setReason(initialContext);
@@ -73,13 +78,13 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
     onError: (error) => {
       toast({
         title: 'Unable to start test call',
-        description: error instanceof Error ? error.message : 'Please check the number, Vapi settings, and Telnyx carrier setup.',
+        description: error instanceof Error ? error.message : 'Please check the canary allowlist and Telnyx voice readiness.',
         variant: 'destructive',
       });
     },
   });
 
-  const canSubmit = to.trim().length > 0 && !call.isPending;
+  const canSubmit = to.trim().length > 0 && !call.isPending && health.data?.can_place_calls === true;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -89,7 +94,7 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
           <DialogTitle className="flex items-center gap-2">
             <PhoneOutgoing className="h-4 w-4 text-blue-600" /> Make Test Call
           </DialogTitle>
-          <DialogDescription>Place an immediate outbound Robbie AI call through Vapi using the Telnyx-backed number.</DialogDescription>
+          <DialogDescription>Place an immediate outbound Robbie AI call through direct Telnyx Call Control.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="space-y-1.5">
@@ -125,6 +130,14 @@ export default function MakeTestCallDialog({ trigger, initialTo = '', initialFro
                 Heads up: the schedule is currently <strong>{scheduleState?.replace(/_/g, ' ')}</strong>
                 {schedule.data?.state?.label ? ` (${schedule.data.state.label})` : ''}. You may be dialing into
                 quiet hours.
+              </span>
+            </div>
+          )}
+          {health.data && !health.data.can_place_calls && (
+            <div className="flex items-start gap-2 rounded-md border border-rose-300 bg-rose-50 p-2 text-xs text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Calling is blocked: {health.data.readiness_blockers.join(' ')}
               </span>
             </div>
           )}

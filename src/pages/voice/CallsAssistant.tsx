@@ -22,9 +22,13 @@ export default function CallsAssistant() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <Row label="Assistant ID" value={settings.data?.assistant_id || 'Not configured'} />
+          <Row label="Provider" value={health.data?.provider || settings.data?.provider || 'unknown'} />
           <Row label="Voice enabled" value={settings.data?.enabled ? 'Enabled' : 'Disabled'} />
           <Row label="Webhook URL" value={settings.data?.webhook_url || 'Not configured'} />
-          <Row label="Recording" value={settings.data?.recording_enabled ? 'Enabled' : 'Disabled'} />
+          <Row label="Recording" value={settings.data?.recording_enabled ? 'Available after explicit consent' : 'Disabled'} />
+          <Row label="Outbound readiness" value={health.data?.can_place_calls ? 'Ready' : 'Blocked'} />
+          <Row label="Canary routing" value={health.data?.telnyx_assistant?.canary_route_status || 'unknown'} />
+          <Row label="Assistant sync" value={health.data?.assistant_sync?.status || 'unknown'} />
           <Row label="Support number" value={settings.data?.support_handoff_number || 'Not configured'} />
           <Row label="Quiet hours" value={settings.data?.quiet_hours?.enabled ? `${settings.data.quiet_hours.start}-${settings.data.quiet_hours.end} ${settings.data.quiet_hours.timezone}` : 'Disabled'} />
           <Row label="Webhook URL" value={health.data?.webhook_url_configured ? 'Configured' : 'Missing'} />
@@ -37,6 +41,11 @@ export default function CallsAssistant() {
             value={failedWebhook ? `${failedWebhook.event_type || 'unknown'}: ${failedWebhook.processing_error || 'failed'}` : 'None'}
           />
           <Row label="Due callbacks" value={String(health.data?.scheduler?.due_scheduled_calls ?? 0)} />
+          {!health.data?.can_place_calls && health.data?.readiness_blockers?.length ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {health.data.readiness_blockers.join(' ')}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -75,6 +84,20 @@ export default function CallsAssistant() {
               value={health.data?.latest_failed_tool ? `${health.data.latest_failed_tool.tool || 'unknown'}: ${health.data.latest_failed_tool.error_code || health.data.latest_failed_tool.status || 'failed'}` : 'None'}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Assistant Synchronization</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2 text-sm md:grid-cols-2">
+          <Row label="Active version" value={health.data?.assistant_sync?.version_id || 'unknown'} />
+          <Row label="Canary version" value={health.data?.assistant_sync?.canary_version_id || 'not routed'} />
+          <Row label="Missing tools" value={health.data?.assistant_sync?.missing_tools?.join(', ') || 'None'} />
+          <Row label="Legacy webhooks" value={health.data?.assistant_sync?.extra_webhook_tools?.join(', ') || 'None'} />
+          <Row label="Automatic recording" value={health.data?.assistant_sync?.automatic_recording_enabled ? 'Unsafe: enabled' : 'Disabled'} />
+          <Row label="Policy prompt" value={health.data?.assistant_sync?.policy_instructions_current ? 'Current' : 'Needs sync'} />
         </CardContent>
       </Card>
 
