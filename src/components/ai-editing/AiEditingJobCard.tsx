@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  AlertCircle,
   CheckCircle2,
   Clock,
   ExternalLink,
   Image as ImageIcon,
   Loader2,
   RotateCw,
+  Sparkles,
   XCircle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -59,6 +59,21 @@ const STATUS_CONFIG: Record<JobStatus, { label: string; chip: string; icon: Reac
     icon: XCircle,
     ring: 'ring-slate-400/30',
   },
+};
+
+// fal.ai does not report a real completion percentage, so we derive a smooth
+// estimate from elapsed processing time. It eases towards — but never reaches —
+// 99% so the bar keeps moving while we wait for the provider to finish.
+const ESTIMATED_JOB_SECONDS = 75;
+
+const estimateProgress = (startedAt?: string | null): number => {
+  if (!startedAt) return 5;
+  const started = new Date(startedAt).getTime();
+  if (!Number.isFinite(started)) return 5;
+  const elapsedSeconds = Math.max(0, (Date.now() - started) / 1000);
+  const eased = 1 - Math.exp(-elapsedSeconds / ESTIMATED_JOB_SECONDS);
+
+  return Math.min(99, Math.max(5, Math.round(eased * 100)));
 };
 
 const Thumb: React.FC<{ url?: string | null; alt: string; placeholder?: React.ReactNode; className?: string }> = ({
@@ -124,6 +139,19 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
   const isCompleted = job.status === 'completed';
   const isFailed = job.status === 'failed';
   const isCancelable = ['pending', 'processing'].includes(job.status);
+  const isAiResult = Boolean(enhancedPreview) || isCompleted;
+
+  const [progress, setProgress] = useState(() => estimateProgress(job.started_at || job.created_at));
+
+  useEffect(() => {
+    if (!isProcessing) return;
+
+    const tick = () => setProgress(estimateProgress(job.started_at || job.created_at));
+    tick();
+    const interval = window.setInterval(tick, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isProcessing, job.started_at, job.created_at]);
 
   return (
     <div
@@ -160,12 +188,22 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
 
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className={cn('gap-1', statusInfo.chip)}>
+            <Badge variant="secondary" className="font-medium">{editingType}</Badge>
+            {isAiResult && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"
+              >
+                <Sparkles className="h-3 w-3" />
+                AI
+              </Badge>
+            )}
+            <span className="text-[11px] text-muted-foreground">Job #{job.id}</span>
+            <Badge variant="outline" className={cn('ml-auto gap-1', statusInfo.chip)}>
               <StatusIcon className={cn('h-3 w-3', isProcessing && 'animate-spin')} />
               {statusInfo.label}
+              {isProcessing && <span className="tabular-nums">{progress}%</span>}
             </Badge>
-            <Badge variant="secondary" className="font-medium">{editingType}</Badge>
-            <span className="text-[11px] text-muted-foreground">Job #{job.id}</span>
           </div>
 
           <div className="min-w-0 space-y-0.5">
@@ -175,37 +213,21 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
             </p>
           </div>
 
-          {/* Status row — prominent, below the title, replaces the in-thumb status overlay */}
-          <div
-            className={cn(
-              'flex items-start gap-2 rounded-md border px-2 py-1.5 text-xs',
-              isFailed && 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200',
-              isProcessing && 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200',
-              isCompleted && 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
-              !isFailed && !isProcessing && !isCompleted && 'border-border/60 bg-muted/40 text-muted-foreground',
-            )}
-          >
-            <StatusIcon className={cn('mt-0.5 h-3.5 w-3.5 flex-shrink-0', isProcessing && 'animate-spin')} />
-            <div className="min-w-0 flex-1 leading-snug">
-              <span className="font-semibold">{statusInfo.label}</span>
-              {isFailed && job.error_message && (
-                <>
-                  <span className="px-1 opacity-60">·</span>
-                  <span className="opacity-90 line-clamp-2">{job.error_message}</span>
-                </>
-              )}
-              {isProcessing && (
-                <span className="ml-1 opacity-80">— Autoenhance is working on this image…</span>
-              )}
-              {isCompleted && (
-                <span className="ml-1 opacity-80">— Result is ready to compare or open.</span>
-              )}
-            </div>
-          </div>
+          {isFailed && job.error_message && (
+            <p className="line-clamp-2 text-xs text-red-600 dark:text-red-300">{job.error_message}</p>
+          )}
 
           {isProcessing && (
-            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400" />
+            <div className="space-y-1">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                <span className="tabular-nums font-medium">{progress}%</span> · image 1 of 1
+              </p>
             </div>
           )}
 

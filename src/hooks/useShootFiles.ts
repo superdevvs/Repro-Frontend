@@ -77,6 +77,12 @@ export interface MediaFile {
   // (Req 15.8). The frontend maps `quarantined` → "scanning" for display.
   scan_status?: ScanStatus | null;
   scanStatus?: ScanStatus | null;
+  // AI editing provenance (fal.ai / Autoenhance results created from the AI
+  // Editing workspace) so media cards can render an "AI" tag.
+  is_ai_edited?: boolean;
+  isAiEdited?: boolean;
+  ai_editing_job_id?: number | string | null;
+  aiEditingJobId?: number | string | null;
 }
 
 export type ScanStatus = 'quarantined' | 'clean' | 'infected' | 'failed';

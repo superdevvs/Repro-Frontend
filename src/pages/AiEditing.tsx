@@ -500,6 +500,27 @@ const AiEditing = () => {
     };
   }, [jobs]);
 
+  // Batch progress for the jobs submitted today — "3 of 8 done · 38%" — so a
+  // multi-image submission shows overall completion, not just per-card state.
+  const batchProgress = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todaysJobs = jobs.filter((job) => {
+      const created = job.created_at ? new Date(job.created_at) : null;
+      return created && created >= todayStart;
+    });
+    const total = todaysJobs.length;
+    if (total === 0) return null;
+
+    const active = todaysJobs.filter((job) => ['pending', 'processing'].includes(job.status)).length;
+    if (active === 0) return null;
+
+    const done = total - active;
+
+    return { total, done, active, percent: Math.round((done / total) * 100) };
+  }, [jobs]);
+
   const selectedRawFiles = useMemo(
     () => sourceFiles.filter((file) => selectedFiles.has(file.id)),
     [sourceFiles, selectedFiles],
@@ -1711,6 +1732,26 @@ const AiEditing = () => {
           <CardDescription className="text-xs sm:text-sm">
             Track Autoenhance jobs, retry failures, or open completed results.
           </CardDescription>
+          {batchProgress && (
+            <div className="max-w-xs space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-medium text-blue-700 dark:text-blue-300">
+                <span>
+                  <span className="tabular-nums">{batchProgress.done}</span> of{' '}
+                  <span className="tabular-nums">{batchProgress.total}</span> done
+                </span>
+                <span className="tabular-nums">{batchProgress.percent}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-out"
+                  style={{ width: `${batchProgress.percent}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                <span className="tabular-nums">{batchProgress.active}</span> still processing
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 sm:flex-none sm:w-56">

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play, Sparkles } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -1037,6 +1037,14 @@ export function MediaGrid({
           <div className="absolute bottom-2 left-2 bg-white/90 text-slate-900 text-[10px] px-1.5 py-0.5 rounded-full font-medium z-[3] flex items-center gap-1">
             <MessageSquare className="h-3 w-3" />
             {file.comment_count}
+          </div>
+        )}
+
+        {/* AI badge — results produced by the AI Editing workspace (fal.ai / Autoenhance) */}
+        {(file.is_ai_edited || file.isAiEdited) && (
+          <div className="absolute bottom-2 right-2 z-[3] flex items-center gap-1 rounded-full bg-violet-600/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+            <Sparkles className="h-2.5 w-2.5" />
+            AI
           </div>
         )}
         
