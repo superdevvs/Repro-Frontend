@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import type { MetricsSummary } from './studioService';
 
 /**
  * Studio metrics service.
@@ -57,4 +58,16 @@ export const studioMetricsService = {
     const response = await apiClient.get('/studio/metrics/active-queue');
     return response.data.data || response.data || [];
   },
+
+  /**
+   * Trailing 30-day Measurement_Window metrics for the Metrics_Strip
+   * (Req 8.1–8.8, 16.6). Same payload as `studioService.getMetricsSummary`,
+   * exposed here so metrics consumers can stay on this service.
+   */
+  async getSummary(): Promise<MetricsSummary> {
+    const response = await apiClient.get('/studio/metrics/summary');
+    return response.data.data || response.data;
+  },
 };
+
+export type { MetricsSummary } from './studioService';

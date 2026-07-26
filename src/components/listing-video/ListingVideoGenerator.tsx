@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 const MIN_PICK = 6;
 const MAX_PICK = 10;
 const LENGTHS = [30, 40, 45] as const;
+const LONG_RUNNING_JOB_MS = 10 * 60 * 1000;
 
 interface ShootOption {
   id: number;
@@ -75,6 +76,24 @@ const resolveAssetUrl = (value?: string | null) => {
   if (/^(https?:|data:|blob:)/i.test(value)) return value;
   return `${API_BASE_URL}/${value.replace(/^\/+/, '')}`;
 };
+
+const getJobElapsedMs = (job: ListingVideoJob) => {
+  const startedAt = new Date(job.started_at || job.created_at).getTime();
+  return Number.isFinite(startedAt) ? Math.max(0, Date.now() - startedAt) : 0;
+};
+
+const formatJobElapsed = (job: ListingVideoJob) => {
+  const totalMinutes = Math.floor(getJobElapsedMs(job) / 60_000);
+  if (totalMinutes < 1) return '<1 min';
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+};
+
+const isLongRunningJob = (job: ListingVideoJob) =>
+  isActiveJob(job) && getJobElapsedMs(job) >= LONG_RUNNING_JOB_MS;
 
 const parseShoots = (responses: any[]): ShootOption[] => {
   const shootsById = new Map<number, ShootOption>();
@@ -150,9 +169,20 @@ function ListingVideoJobPanel({ jobId }: { jobId: number | null }) {
                   ? 'Assembling final formats'
                   : `Generated ${job.completed_clips}/${job.total_clips} clips`}
               </span>
-              <span>{job.status === 'stitching' ? 'Finalizing' : `${progress}%`}</span>
+              <span>
+                {job.status === 'stitching' ? 'Finalizing' : `${progress}%`}
+                {' · '}
+                {formatJobElapsed(job)}
+              </span>
             </div>
             <Progress value={job.status === 'stitching' ? 100 : progress} className="h-2" />
+          </div>
+        )}
+
+        {isLongRunningJob(job) && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>This is taking longer than usual. It will stop automatically if the provider stops responding.</span>
           </div>
         )}
 
@@ -191,6 +221,7 @@ function OutputLinks({ outputs }: { outputs: Record<string, ListingVideoOutput> 
 }
 
 function ListingVideoJobsList({ onSelectJob }: { onSelectJob: (jobId: number) => void }) {
+  const { toast } = useToast();
   const { data, isLoading } = useListingVideoJobs({ per_page: 20 });
   const cancelJob = useCancelListingVideoJob();
   const jobs = data?.data || [];
@@ -259,7 +290,9 @@ function ListingVideoJobsList({ onSelectJob }: { onSelectJob: (jobId: number) =>
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {job.target_seconds}s · {job.total_clips} clips · {format(new Date(job.created_at), 'MMM d, yyyy')}
+                  {isActiveJob(job)
+                    ? `${job.completed_clips}/${job.total_clips} clips ready · ${formatJobElapsed(job)} elapsed`
+                    : `${job.target_seconds}s · ${job.total_clips} clips · ${format(new Date(job.created_at), 'MMM d, yyyy')}`}
                 </p>
               </div>
             </button>
@@ -275,10 +308,20 @@ function ListingVideoJobsList({ onSelectJob }: { onSelectJob: (jobId: number) =>
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => cancelJob.mutate(job.id)}
+                  onClick={() => cancelJob.mutate(job.id, {
+                    onSuccess: () => toast({
+                      title: 'Listing video cancelled',
+                      description: 'The job has been stopped.',
+                    }),
+                    onError: () => toast({
+                      title: 'Could not cancel listing video',
+                      description: 'Please refresh and try again.',
+                      variant: 'destructive',
+                    }),
+                  })}
                   disabled={cancelJob.isPending}
                 >
-                  Cancel
+                  {cancelJob.isPending ? 'Cancelling…' : 'Cancel'}
                 </Button>
               )}
             </div>

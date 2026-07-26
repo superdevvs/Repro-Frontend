@@ -47,6 +47,7 @@ import { useServiceCategories } from "@/hooks/useServiceCategories";
 import { useServiceGroups } from "@/hooks/useServiceGroups";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { MultiSelectChecklist } from "@/components/ui/multi-select-checklist";
 import {
   Drawer,
@@ -54,6 +55,11 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useQueryClient } from "@tanstack/react-query";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { getCategorySpecialtyId } from "@/utils/photographerSpecialties";
@@ -294,6 +300,7 @@ export function AccountForm({
   const hasAutoSelectedDefaultServiceGroupRef = React.useRef(false);
   const { toast } = useToast();
   const { role: viewerRole, user: currentUser } = useAuth();
+  const useDesktopAvatarPicker = useMediaQuery("(min-width: 768px)");
   const permission = usePermission();
   const clientsPermission = permission.forResource('clients');
   const canEditSensitiveRepFields = viewerRole === 'superadmin';
@@ -1535,29 +1542,35 @@ export function AccountForm({
                   className="h-16 w-16 sm:h-24 sm:w-24"
                 />
                 <div className="flex flex-col gap-1.5 sm:items-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs sm:h-9 sm:gap-2 sm:text-sm"
-                    onClick={() => setAvatarPickerOpen(true)}
-                  >
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="Selected avatar" className="h-4 w-4 rounded-full object-cover sm:h-5 sm:w-5" />
-                    ) : (
-                      <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    )}
-                    Choose Avatar
-                  </Button>
-                  <Drawer open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
-                    <DrawerContent className="max-h-[70dvh]">
-                      <DrawerHeader className="pb-2">
-                        <DrawerTitle>Choose Avatar</DrawerTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Upload a profile image or choose a default avatar
-                        </p>
-                      </DrawerHeader>
-                      <div className="overflow-y-auto px-4 pb-6">
+                  {useDesktopAvatarPicker ? (
+                    <Popover open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 gap-2 text-sm"
+                        >
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt="Selected avatar" className="h-5 w-5 rounded-full object-cover" />
+                          ) : (
+                            <Camera className="h-4 w-4" />
+                          )}
+                          Choose Avatar
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="bottom"
+                        align="center"
+                        sideOffset={8}
+                        className="z-[80] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl p-4 shadow-xl"
+                      >
+                        <div className="mb-3 space-y-1">
+                          <h3 className="text-sm font-semibold">Choose Avatar</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Choose a default avatar for this account.
+                          </p>
+                        </div>
                         <AvatarPicker
                           selectedAvatar={avatarUrl}
                           onSelect={(url) => {
@@ -1566,9 +1579,46 @@ export function AccountForm({
                             setAvatarPickerOpen(false);
                           }}
                         />
-                      </div>
-                    </DrawerContent>
-                  </Drawer>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        onClick={() => setAvatarPickerOpen(true)}
+                      >
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="Selected avatar" className="h-4 w-4 rounded-full object-cover" />
+                        ) : (
+                          <Camera className="h-3.5 w-3.5" />
+                        )}
+                        Choose Avatar
+                      </Button>
+                      <Drawer open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
+                        <DrawerContent className="max-h-[70dvh]">
+                          <DrawerHeader className="pb-2">
+                            <DrawerTitle>Choose Avatar</DrawerTitle>
+                            <p className="text-sm text-muted-foreground">
+                              Choose a default avatar for this account.
+                            </p>
+                          </DrawerHeader>
+                          <div className="overflow-y-auto px-4 pb-6">
+                            <AvatarPicker
+                              selectedAvatar={avatarUrl}
+                              onSelect={(url) => {
+                                setAvatarUrl(url);
+                                form.setValue("avatar", url);
+                                setAvatarPickerOpen(false);
+                              }}
+                            />
+                          </div>
+                        </DrawerContent>
+                      </Drawer>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="space-y-2.5 sm:space-y-4">
@@ -2719,7 +2769,6 @@ export function AccountForm({
 
                     return (
                       <FormItem>
-                        <FormLabel>Lane Assignment</FormLabel>
                         <div className="grid gap-2 sm:grid-cols-2">
                           {editorCapabilityOptions.map((option) => {
                             const active = valueArray.includes(option.id)
