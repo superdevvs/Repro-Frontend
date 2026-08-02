@@ -1,42 +1,18 @@
 import { formatDistanceToNow } from 'date-fns';
-import { motion } from 'framer-motion';
-import { AlertCircle, Clock, ImageIcon, Inbox, Video } from 'lucide-react';
+import { Clock3, ImageIcon, Plus } from 'lucide-react';
 
-import { Badge, type BadgeProps } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useStudioRecentProjects } from '@/hooks/useStudioMetrics';
-import type { StudioRecentProject } from '@/services/studioMetricsService';
+import { Button } from '@/components/ui/button';
+import { useStudioProjects } from '@/hooks/useStudio';
+import { resolveGeneratedAsset, resolveStudioAssetPath } from '@/lib/studioAssets';
 import { cn } from '@/lib/utils';
+import type { StudioRecentProject } from '@/services/studioMetricsService';
+import type { StudioProjectSummary } from '@/services/studioService';
 
+import { SectionError, SectionSkeleton, StatusBadge } from './feedback/StudioFeedback';
+import { useOptionalStudioShell } from './StudioShell';
 import type { RouteTarget, RouteToCapability } from './types';
 
-/**
- * StudioRecentProjects — Recent_Projects_Section of the Studio Landing.
- *
- * Lists the most recently active projects from `useStudioRecentProjects`,
- * showing each project's shoot address, its most recent activity time, and its
- * most recent job status (Req 5.3). The panel owns its own query so its
- * loading (Req 5.5), empty (Req 5.6), and error (Req 5.7) states stay isolated
- * to this section and never block the rest of the landing from rendering.
- *
- * Selecting a project deep-links into the Subtab matching the project's
- * `latest_job_type` with the shoot preselected (Req 5.4): photo jobs route to
- * the Photo Subtab, video jobs to the Video Subtab. The routing decision is
- * factored into the pure `recentProjectRouteTarget` helper so it can be
- * exercised directly in tests (Property 8, task 6.9).
- */
-export interface StudioRecentProjectsProps {
-  routeToCapability: RouteToCapability;
-  className?: string;
-}
-
-/**
- * Pure mapping from a Recent_Project to its deep-link {@link RouteTarget}.
- *
- * Routes by `latest_job_type` — `video` → Video Subtab, anything else
- * (`photo`) → Photo Subtab — with the project's shoot preselected (Req 5.4).
- */
+/** Kept for compatibility with the original landing tests and route contract. */
 export function recentProjectRouteTarget(project: StudioRecentProject): RouteTarget {
   const shoot = { id: project.shoot_id, address: project.address };
   return project.latest_job_type === 'video'
@@ -44,92 +20,137 @@ export function recentProjectRouteTarget(project: StudioRecentProject): RouteTar
     : { subtab: 'photo', shoot };
 }
 
-const SKELETON_ROWS = 4;
-
-/** Map a job status into a Badge variant for at-a-glance scanning. */
-function statusVariant(status: string): BadgeProps['variant'] {
-  const normalized = status.toLowerCase();
-  if (normalized === 'completed') return 'default';
-  if (normalized === 'failed') return 'destructive';
-  if (normalized === 'cancelled') return 'outline';
-  return 'secondary';
+export function projectRequiredFields(project: StudioProjectSummary) {
+  return {
+    thumbnail: project.thumbnailRef,
+    workflow: project.latestWorkflow,
+    status: project.latestStatus,
+    activity: project.lastActivityAt,
+    mediaCount: project.mediaCount,
+  };
 }
 
-/** Format an ISO timestamp into a relative "x ago" string, guarding bad input. */
-function formatActivity(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  return formatDistanceToNow(date, { addSuffix: true });
+export interface StudioRecentProjectsProps {
+  routeToCapability?: RouteToCapability;
+  onNewProject?: () => void;
+  limit?: number;
+  cards?: boolean;
+  className?: string;
 }
 
-export function StudioRecentProjects({ routeToCapability, className }: StudioRecentProjectsProps) {
-  const { data, isLoading, isError } = useStudioRecentProjects();
+export function StudioRecentProjects({
+  onNewProject,
+  limit = 5,
+  cards = false,
+  className,
+}: StudioRecentProjectsProps) {
+  const query = useStudioProjects();
+  const shell = useOptionalStudioShell();
+  const projects = (query.data ?? []).slice(0, limit);
 
   return (
-    <section className={cn('space-y-4', className)}>
-      <h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
-      <Card className="divide-y divide-border">
-        {isLoading ? (
-          <div className="space-y-3 p-4" role="status" aria-label="Loading recent projects">
-            {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-              <div key={index} className="flex items-center justify-between gap-4">
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/3" />
-                </div>
-                <Skeleton className="h-5 w-16 rounded-full" />
-              </div>
-            ))}
-          </div>
-        ) : isError ? (
-          <div className="flex items-center gap-2 p-6 text-sm text-destructive" role="alert">
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>Couldn’t load recent projects. Please try again later.</span>
-          </div>
-        ) : !data || data.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
-            <Inbox className="h-6 w-6" aria-hidden="true" />
-            <span>No recent projects yet. Start a capability to see it here.</span>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {data.map((project, index) => {
-              const JobIcon = project.latest_job_type === 'video' ? Video : ImageIcon;
-              return (
-                <motion.li
-                  key={`${project.latest_job_type}-${project.shoot_id}`}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, delay: index * 0.03 }}
+    <section className={cn('space-y-4', className)} aria-labelledby="recent-projects-heading">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 id="recent-projects-heading" className="text-base font-semibold">
+            Recent projects
+          </h2>
+          <p className="text-sm text-muted-foreground">Ordered by server activity</p>
+        </div>
+        {query.data && query.data.length > 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => shell?.setDestination('projects')}
+          >
+            View all projects
+          </Button>
+        ) : null}
+      </div>
+
+      {query.isLoading ? (
+        <SectionSkeleton label="Loading recent projects" rows={3} />
+      ) : query.isError ? (
+        <SectionError
+          title="Recent projects are unavailable"
+          onRetry={() => query.refetch()}
+        />
+      ) : projects.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <p className="text-sm font-medium">No Studio projects yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Start an AI workflow to create the first one.
+          </p>
+          {onNewProject ? (
+            <Button type="button" size="sm" className="mt-4" onClick={onNewProject}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              New AI Project
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <ul className={cn(
+          cards
+            ? 'grid gap-3 lg:grid-cols-3'
+            : 'divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card',
+        )}>
+          {projects.map((project) => {
+            const thumbnail =
+              resolveStudioAssetPath(project.thumbnailRef) ??
+              resolveGeneratedAsset('selected-shoot');
+            const activity = new Date(project.lastActivityAt);
+            const activityLabel = Number.isNaN(activity.getTime())
+              ? 'Activity time unavailable'
+              : formatDistanceToNow(activity, { addSuffix: true });
+            return (
+              <li key={project.id} className={cn(cards && 'min-w-0')}>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/50',
+                    cards && 'h-full rounded-xl border border-border bg-card',
+                  )}
+                  aria-label={`Open ${project.name}`}
+                  onClick={() => shell?.openDeepLink(project.deepLink)}
                 >
-                  <button
-                    type="button"
-                    onClick={() => routeToCapability(recentProjectRouteTarget(project))}
-                    className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={`Open ${project.address}`}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <JobIcon className="h-4 w-4" aria-hidden="true" />
-                      </span>
+                  <div className={cn('shrink-0 overflow-hidden rounded-lg bg-muted', cards ? 'h-20 w-28' : 'h-14 w-20')}>
+                    {thumbnail ? (
+                      <img
+                        src={thumbnail}
+                        alt={`${project.name} property thumbnail`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{project.address}</p>
-                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" aria-hidden="true" />
-                          {formatActivity(project.last_activity_at)}
+                        <p className="truncate text-sm font-medium">{project.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {project.latestWorkflow}
                         </p>
                       </div>
+                      <StatusBadge status={project.latestStatus} />
                     </div>
-                    <Badge variant={statusVariant(project.latest_status)} className="shrink-0 capitalize">
-                      {project.latest_status}
-                    </Badge>
-                  </button>
-                </motion.li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 className="h-3 w-3" aria-hidden="true" />
+                        {activityLabel}
+                      </span>
+                      <span>{project.mediaCount} media</span>
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

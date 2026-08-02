@@ -128,6 +128,94 @@ body {
     --sidebar-border: 210 40% 16%;
     --sidebar-ring: 210 100% 50%;
   }
+  /* ---------------------------------------------------------------------
+     Deep-navy Studio visual system (ai-editing-studio-revamp, Req 11.1).
+
+     Scoped to `.studio-theme`, which `StudioSurface` applies on the Studio_Page
+     only. The block declares the navy palette roles and then remaps the shadcn
+     semantic tokens onto them, so existing cards, badges, inputs, and buttons
+     rendered inside the Studio inherit the navy system without being rewritten —
+     and no other page's theming changes.
+
+     Role lightness values are mirrored in `components/studio/studioTheme.ts`;
+     keep the two in sync.
+     --------------------------------------------------------------------- */
+  .studio-theme {
+    /* Light mode: cool architectural whites with the same blue action colour. */
+    --studio-base: 216 33% 97%;
+    --studio-base-elevated: 0 0% 100%;
+    --studio-surface: 0 0% 100%;
+    --studio-surface-raised: 216 28% 94%;
+    --studio-surface-hover: 216 28% 94%;
+    --studio-text: 222 47% 11%;
+    --studio-text-muted: 215 16% 43%;
+    --studio-accent: 217 91% 60%;
+    --studio-accent-foreground: 0 0% 100%;
+    --studio-border: 214 25% 84%;
+    --studio-ring: 217 91% 60%;
+    --studio-success: 158 64% 36%;
+    --studio-warning: 36 86% 43%;
+    --studio-error: 0 72% 51%;
+
+    --background: var(--studio-base);
+    --foreground: var(--studio-text);
+    --card: var(--studio-surface);
+    --card-foreground: var(--studio-text);
+    --popover: var(--studio-base-elevated);
+    --popover-foreground: var(--studio-text);
+    --primary: var(--studio-accent);
+    --primary-foreground: var(--studio-accent-foreground);
+    --secondary: var(--studio-surface-hover);
+    --secondary-foreground: var(--studio-text);
+    --muted: var(--studio-surface-hover);
+    --muted-foreground: var(--studio-text-muted);
+    --accent: var(--studio-surface-hover);
+    --accent-foreground: var(--studio-text);
+    --destructive: var(--studio-error);
+    --destructive-foreground: var(--studio-base);
+    --border: var(--studio-border);
+    --input: var(--studio-border);
+    --ring: var(--studio-ring);
+  }
+
+  .dark .studio-theme {
+    /* Dark mode: near-black navy canvas and restrained cobalt highlights. */
+    --studio-base: 216 55% 6%;
+    --studio-base-elevated: 216 48% 8%;
+    --studio-surface: 215 43% 11%;
+    --studio-surface-raised: 214 38% 15%;
+    --studio-surface-hover: 214 38% 16%;
+    --studio-text: 210 40% 98%;
+    --studio-text-muted: 213 24% 72%;
+    --studio-accent: 217 94% 60%;
+    --studio-accent-foreground: 0 0% 100%;
+    --studio-border: 214 32% 23%;
+    --studio-ring: 210 100% 68%;
+    --studio-success: 158 64% 50%;
+    --studio-warning: 38 92% 58%;
+    --studio-error: 0 82% 66%;
+  }
+
+  /* Keyboard focus stays visible on light and dark Studio surfaces. */
+  .studio-theme :focus-visible {
+    outline: 2px solid hsl(var(--studio-ring));
+    outline-offset: 2px;
+  }
+
+  /* Non-essential animated transitions become immediate state changes when the
+     motion-reduction preference is active (Req 11.9). Framer Motion transitions
+     are handled in JS by `useReducedMotion`/`useStudioMotion`. */
+  @media (prefers-reduced-motion: reduce) {
+    .studio-theme *,
+    .studio-theme *::before,
+    .studio-theme *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* MapLibre GL Popup Styling - Theme Aware */
   .maplibregl-popup-content {
     @apply bg-card border border-border rounded-md shadow-lg p-0;
