@@ -22,6 +22,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
 import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -205,18 +206,8 @@ export const ScheduledShootListRow = ({
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
   const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient
-  const paymentStatus = canShowPaymentStatus
-    ? paymentSummary.paymentStatus === 'paid'
-      ? 'Paid'
-      : paymentSummary.paymentStatus === 'partial'
-        ? 'Partial'
-        : 'Unpaid'
-    : null
-  const paymentBadgeVariant = paymentStatus === 'Paid'
-    ? 'secondary'
-    : paymentStatus === 'Partial'
-      ? 'outline'
-      : 'destructive'
+  // Payment state is rendered by the shared <ShootPaymentBadge>; this flag only
+  // decides whether the viewer is allowed to see it at all.
   const visibleClient = getVisibleClientContact({
     client: shoot.client,
     role: viewerRole,
@@ -366,11 +357,7 @@ export const ScheduledShootListRow = ({
                   <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                   {statusLabel}
                 </Badge>
-                {paymentStatus && (
-                  <Badge variant={paymentBadgeVariant} className="text-xs">
-                    {paymentStatus}
-                  </Badge>
-                )}
+                {canShowPaymentStatus && <ShootPaymentBadge shoot={shoot} />}
               </div>
               {overflowActionsAvailable && (
                 <div onClick={(e) => e.stopPropagation()}>
@@ -444,12 +431,8 @@ export const ScheduledShootListRow = ({
 
           {/* Desktop: Status & Actions - Right Side */}
           <div className="hidden md:flex md:col-start-2 lg:col-start-auto items-center gap-2 flex-shrink-0 lg:justify-end">
-            {paymentStatus && (
-              <Badge variant={paymentBadgeVariant} className="text-xs">
-                {paymentStatus}
-              </Badge>
-            )}
-            {isSuperAdmin && paymentStatus === 'Unpaid' && (
+            {canShowPaymentStatus && <ShootPaymentBadge shoot={shoot} />}
+            {isSuperAdmin && paymentSummary.paymentStatus === 'unpaid' && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
               </div>
@@ -624,4 +607,7 @@ export const ScheduledShootListRow = ({
     </Card>
   )
 }
+
+
+
 

@@ -217,11 +217,38 @@ describe('ExclusiveListingsShowcase', () => {
   it('fits the map to every displayed mapped location', async () => {
     render(<ControlledShowcase listings={[listingA, listingB]} />)
 
+    // Padding is passed so the fit reserves the space the listing panel overlays
+    // (a rail on the right from `lg` up, a bottom sheet below that). Without it a
+    // pin can land under the panel or be pushed to the edge of the canvas.
     await waitFor(() => {
-      expect(mapSpies.recenter).toHaveBeenCalledWith([
-        { lat: listingA.latitude, lng: listingA.longitude },
-        { lat: listingB.latitude, lng: listingB.longitude },
-      ])
+      expect(mapSpies.recenter).toHaveBeenCalledWith(
+        [
+          { lat: listingA.latitude, lng: listingA.longitude },
+          { lat: listingB.latitude, lng: listingB.longitude },
+        ],
+        expect.objectContaining({
+          padding: expect.objectContaining({
+            top: expect.any(Number),
+            right: expect.any(Number),
+            bottom: expect.any(Number),
+            left: expect.any(Number),
+          }),
+        }),
+      )
+    })
+  })
+
+  it('fits a single mapped listing too', async () => {
+    mapSpies.recenter.mockClear()
+    render(<ControlledShowcase listings={[listingA]} />)
+
+    // A lone listing used to be skipped entirely (`coords.length < 2`), leaving
+    // the map on its initial centre with no padding applied.
+    await waitFor(() => {
+      expect(mapSpies.recenter).toHaveBeenCalledWith(
+        [{ lat: listingA.latitude, lng: listingA.longitude }],
+        expect.objectContaining({ padding: expect.anything() }),
+      )
     })
   })
 

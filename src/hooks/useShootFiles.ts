@@ -25,6 +25,8 @@ export interface MediaFile {
   thumb?: string;
   thumb_url?: string;
   thumbnail_url?: string;
+  /** ~1000px rendition used for desktop grid tiles. */
+  grid_url?: string;
   medium?: string;
   medium_url?: string;
   large?: string;
@@ -149,6 +151,7 @@ const fetchShootFiles = async (
         thumb: f.thumb_url || f.thumb,
         thumb_url: f.thumb_url,
         thumbnail_url: f.thumbnail_url,
+        grid_url: f.grid_url,
         medium: f.medium_url || f.medium,
         medium_url: f.medium_url,
         large: f.large_url || f.large,
@@ -212,6 +215,7 @@ const fetchShootFiles = async (
       thumb: f.thumb_url || f.thumb,
       thumb_url: f.thumb_url,
       thumbnail_url: f.thumbnail_url,
+      grid_url: f.grid_url,
       medium: f.medium_url || f.medium,
       medium_url: f.medium_url,
       large: f.large_url || f.large,
@@ -272,3 +276,4 @@ export const useShootFiles = (
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 };
+

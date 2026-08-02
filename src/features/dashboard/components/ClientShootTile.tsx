@@ -5,6 +5,7 @@ import { Calendar, CreditCard, Download, Ghost, Image as ImageIcon } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getShootClientReleaseAccess } from "@/components/shoots/details/shootClientReleaseAccess";
+import { ShootPaymentBadge } from "@/components/shoots/ShootPaymentBadge";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
@@ -156,17 +157,26 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                 {hasPendingPayment && onPayment && (
                   <Button
                     size="sm"
-                    className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                    className={`h-8 text-xs px-3 text-white shadow-sm ${
+                      paymentStatus === 'partial'
+                        ? 'bg-orange-500 hover:bg-orange-600'
+                        : 'bg-red-600 hover:bg-red-700'
+                    }`}
                     onClick={() => onPayment(record)}
                   >
                     <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                     Pay ${balanceDue.toFixed(2)}
                   </Button>
                 )}
-                <Button size="sm" variant="outline" className="h-8 text-xs px-3 shadow-sm" onClick={() => onDownload(record)}>
-                  <Download className="w-3.5 h-3.5 mr-1.5" />
-                  Downloads
-                </Button>
+                {/* Gated on release access like every other download surface —
+                    this one was unconditional, so it offered a download that the
+                    server would refuse while payment was outstanding. */}
+                {clientReleaseAccess.canClientDownload && (
+                  <Button size="sm" variant="outline" className="h-8 text-xs px-3 shadow-sm" onClick={() => onDownload(record)}>
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Downloads
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -237,23 +247,27 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
         <div className="flex flex-wrap gap-2">
           {variant === "upcoming" && (
             <>
+              {/*
+                Both actions are *requests*: a client asks, staff approve. The
+                labels say so, because the previous "Reschedule" wording implied
+                the change was already applied. Cancel used to appear only while
+                a shoot was still `requested`, which left an approved shoot with
+                no way to ask for cancellation at all.
+              */}
               <Button size="sm" className="text-xs sm:text-sm" onClick={() => onReschedule(record)}>
-                Reschedule
+                Request to reschedule
               </Button>
-              <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs sm:text-sm"
+                onClick={() => onCancel(record)}
+              >
+                Request to cancel
+              </Button>
+              <Button size="sm" variant="ghost" className="text-xs sm:text-sm" onClick={onContactSupport}>
                 Contact support
               </Button>
-              {/* Only show cancel button for requested shoots (not yet approved) */}
-              {(summary.workflowStatus || summary.status || '').toLowerCase() === 'requested' && (
-                <Button 
-                  size="sm"
-                  variant="destructive"
-                  className="text-xs sm:text-sm"
-                  onClick={() => onCancel(record)}
-                >
-                  Cancel shoot
-                </Button>
-              )}
             </>
           )}
           {variant === "hold" && (
@@ -267,27 +281,28 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
             </>
           )}
         </div>
-        {hasPendingPayment && onPayment && (
-          <Button 
-            size="sm" 
+        {/*
+          Payment first: an unpaid shoot gets an actionable red Pay button, and
+          anything else shows the shared status badge. This slot used to hold a
+          Downloads control, which on an unshot booking offered nothing to
+          download — downloads for upcoming shoots now live in the shoot itself.
+        */}
+        {hasPendingPayment && onPayment ? (
+          <Button
+            size="sm"
             variant="default"
-            className="text-xs sm:text-sm bg-green-600 hover:bg-green-700"
+            className={`text-xs sm:text-sm ${
+              paymentStatus === 'partial'
+                ? 'bg-orange-500 hover:bg-orange-600'
+                : 'bg-red-600 hover:bg-red-700'
+            }`}
             onClick={() => onPayment(record)}
           >
             <CreditCard className="w-3 h-3 mr-1" />
             Pay ${balanceDue.toFixed(2)}
           </Button>
-        )}
-        {variant === "upcoming" && clientReleaseAccess.canClientDownload && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs sm:text-sm"
-            onClick={() => onDownload(record)}
-          >
-            <Download className="w-3 h-3 mr-1" />
-            Downloads
-          </Button>
+        ) : (
+          <ShootPaymentBadge shoot={data} />
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Calendar as CalendarIcon, FileText } from 'lucide-react';
+import { AlertTriangle, Calendar as CalendarIcon, CreditCard, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,15 @@ interface ClientBillingListProps {
   items: ClientBillingItem[];
   loading?: boolean;
   onView: (item: ClientBillingItem) => void;
+  /**
+   * Start payment for a billing row. Optional so the table still renders in
+   * contexts that cannot take payment.
+   */
+  onPay?: (item: ClientBillingItem) => void;
 }
+
+/** A row is payable when money is actually outstanding on it. */
+const isPayable = (item: ClientBillingItem) => item.bucket !== 'paid' && item.balance > 0.01;
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -52,6 +60,7 @@ export function ClientBillingList({
   items,
   loading = false,
   onView,
+  onPay,
 }: ClientBillingListProps) {
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'all' | 'due_now' | 'upcoming' | 'paid'>('all');
@@ -123,6 +132,18 @@ export function ClientBillingList({
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {/* An overdue balance needs a way to pay it; View alone was the
+                      only action on this table. */}
+                  {onPay && isPayable(item) && (
+                    <Button
+                      size="sm"
+                      className="h-8 bg-red-600 px-3 text-xs text-white hover:bg-red-700"
+                      onClick={() => onPay(item)}
+                    >
+                      <CreditCard className="mr-1 h-3.5 w-3.5" />
+                      Pay {currencyFormatter.format(item.balance)}
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => onView(item)}>
                     View
                   </Button>
@@ -199,9 +220,21 @@ export function ClientBillingList({
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <Button variant="outline" size="sm" onClick={() => onView(item)}>
-                        View
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {onPay && isPayable(item) && (
+                          <Button
+                            size="sm"
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            onClick={() => onPay(item)}
+                          >
+                            <CreditCard className="mr-1 h-3.5 w-3.5" />
+                            Pay {currencyFormatter.format(item.balance)}
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => onView(item)}>
+                          View
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
