@@ -518,37 +518,31 @@ export const WeeklyInvoiceReview: React.FC = () => {
     );
   }
 
-  // Compute the photographer's payout for an invoice. Charges may not always
-  // map cleanly to a single service (mismatched description / multiple charges
-  // per shoot), so we compute the payout at the SHOOT level: for each unique
-  // shoot referenced by a charge item we add the photographer's pay for that
-  // shoot once. Charge items that have no shoot_id fall back to their raw
-  // amount so manual / off-shoot lines are still counted.
-  const computeInvoicePhotographerPay = (invoice: WeeklyInvoice): number => {
-    if (invoiceRole !== 'photographer') {
-      return (invoice.items || [])
-        .filter((i) => i.type === 'charge')
-        .reduce((sum, item) => sum + getChargeDisplayAmount(invoice, item), 0);
-    }
+  // Sum the charge lines recorded on the invoice.
+  //
+  // This used to re-derive a photographer's payout from ShootsContext instead of
+  // reading the invoice, which made the list and the KPI cards disagree with the
+  // invoice itself: `getPhotographerPayForShoot` returns 0 whenever a shoot uses
+  // per-service photographer assignment and the top-level photographer is
+  // someone else, so a real $350 invoice rendered as $0.00 here while the
+  // approval dialog (which reads `total_amount`) showed the true figure.
+  //
+  // An invoice is a financial record; the server-computed amount is the only
+  // authoritative value, so every display and aggregate now reads it directly.
+  const computeInvoiceChargeTotal = (invoice: WeeklyInvoice): number =>
+    (invoice.items || [])
+      .filter((i) => i.type === 'charge')
+      .reduce((sum, item) => sum + parseFloat(String(item.total_amount ?? 0)), 0);
 
-    const charges = (invoice.items || []).filter((i) => i.type === 'charge');
-    const seenShootIds = new Set<string>();
-    let payout = 0;
-    charges.forEach((item) => {
-      if (item.shoot_id != null) {
-        const key = String(item.shoot_id);
-        if (seenShootIds.has(key)) return;
-        seenShootIds.add(key);
-        const shoot = shootLookup.get(key);
-        if (shoot) {
-          payout += getPhotographerPayForShoot(shoot, user);
-          return;
-        }
-      }
-      // Fallback: no shoot mapping → use the raw line amount.
-      payout += parseFloat(String(item.total_amount || 0));
-    });
-    return payout;
+  // Prefer the invoice's own recorded total; fall back to summing its lines when
+  // the field is absent (older payloads), never to a client-side re-derivation.
+  const getInvoiceTotal = (invoice: WeeklyInvoice): number => {
+    const recorded = parseFloat(String(invoice.total_amount ?? ''));
+    if (Number.isFinite(recorded) && recorded !== 0) return recorded;
+    return (invoice.items || []).reduce(
+      (sum, item) => sum + parseFloat(String(item.total_amount ?? 0)),
+      0,
+    );
   };
 
   // -------- Aggregate stats across all loaded invoices --------
@@ -556,12 +550,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
     (acc, invoice) => {
       const invoiceCharges = (invoice.items || []).filter((i) => i.type === 'charge');
       const invoiceExpenses = (invoice.items || []).filter((i) => i.type === 'expense');
-      const chargesTotal = computeInvoicePhotographerPay(invoice);
       const expensesTotal = invoiceExpenses.reduce(
         (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
         0,
       );
-      acc.totalAmount += chargesTotal + expensesTotal;
+      acc.totalAmount += getInvoiceTotal(invoice);
       acc.totalShoots += invoiceCharges.length;
       acc.totalExpensesAmount += expensesTotal;
       if (invoice.approval_status === 'pending') {
@@ -598,12 +591,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const detailExpenses = detailInvoice
     ? (detailInvoice.items || []).filter((i) => i.type === 'expense')
     : [];
-  const detailShootPay = detailInvoice ? computeInvoicePhotographerPay(detailInvoice) : 0;
+  const detailShootPay = detailInvoice ? computeInvoiceChargeTotal(detailInvoice) : 0;
   const detailExpensesTotal = detailExpenses.reduce(
     (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
     0,
   );
-  const detailTotal = detailShootPay + detailExpensesTotal;
+  const detailTotal = detailInvoice ? getInvoiceTotal(detailInvoice) : 0;
   const detailStatusCfg = detailInvoice
     ? approvalStatusConfig[detailInvoice.approval_status] || approvalStatusConfig.pending
     : null;
@@ -694,12 +687,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
               const isActive = detailInvoice?.id === invoice.id;
               const charges = (invoice.items || []).filter((i) => i.type === 'charge');
               const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
-              const chargesTotal = computeInvoicePhotographerPay(invoice);
               const expensesTotal = expenses.reduce(
                 (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
                 0,
               );
-              const itemTotal = chargesTotal + expensesTotal;
+              const itemTotal = getInvoiceTotal(invoice);
               const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
               const statusDot = invoice.approval_status === 'pending'
                 ? 'bg-amber-500'
@@ -973,7 +965,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                           <p className="text-xs text-muted-foreground">{reviewCopy.breakdownItemDescription}</p>
                         </div>
                         <p className="font-semibold tabular-nums">
-                          {formatCurrency(getChargeDisplayAmount(detailInvoice, item))}
+                          {formatCurrency(parseFloat(String(item.total_amount ?? 0)))}
                         </p>
                       </div>
                     ))}

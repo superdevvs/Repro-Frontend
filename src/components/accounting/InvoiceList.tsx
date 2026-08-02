@@ -43,6 +43,28 @@ const formatInvoiceDate = (value?: string | null) => {
   return format(parsed, 'MMM d, yyyy');
 };
 
+/**
+ * Whether an invoice is worth chasing.
+ *
+ * Gating on `pending`/`overdue` alone missed the most common case: the backend
+ * marks an issued invoice `sent`, and a part-paid one `partial`, so a reminder
+ * was unreachable for exactly the invoices that need one. A settled, draft or
+ * cancelled invoice is excluded instead, and a zero balance short-circuits it.
+ */
+export const isChaseableInvoice = (invoice: Pick<InvoiceData, 'status' | 'balance' | 'amount'>): boolean => {
+  const status = String(invoice.status || '').trim().toLowerCase();
+
+  if (['paid', 'draft', 'cancelled', 'canceled', 'void', 'refunded'].includes(status)) {
+    return false;
+  }
+
+  const balance = typeof invoice.balance === 'number' && Number.isFinite(invoice.balance)
+    ? invoice.balance
+    : invoice.amount;
+
+  return typeof balance !== 'number' || !Number.isFinite(balance) || balance > 0.005;
+};
+
 interface InvoiceListProps {
   data: {
     invoices: InvoiceData[];
@@ -51,7 +73,7 @@ interface InvoiceListProps {
   onEdit: (invoice: InvoiceData) => void;
   onDownload: (invoice: InvoiceData) => void;
   onPay: (invoice: InvoiceData) => void;
-  onSendReminder: (invoice: InvoiceData) => void;
+  onSendReminder: (invoice: InvoiceData) => void | Promise<void>;
   isAdmin?: boolean; // Prop to determine if user is admin
   isSuperAdmin?: boolean; // Prop to determine if user is super admin (for payment visibility)
   role?: string; // User role
@@ -68,6 +90,15 @@ export function InvoiceList({
   isSuperAdmin = false, // Default to false for safety
   role = '' // Default to empty string
 }: InvoiceListProps) {
+  /**
+   * Who may chase a payment: admins, superadmins, sales reps and editing
+   * managers. Photographers, editors and clients must not see this.
+   */
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  const canSendReminder =
+    isAdmin ||
+    isSuperAdmin ||
+    ['salesrep', 'sales_rep', 'sales-rep', 'rep', 'editing_manager'].includes(normalizedRole);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
@@ -291,6 +322,17 @@ export function InvoiceList({
                             Mark Paid
                           </Button>
                         )}
+                        {canSendReminder && isChaseableInvoice(invoice) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 text-xs"
+                            onClick={() => onSendReminder(invoice)}
+                            aria-label="Send payment reminder"
+                          >
+                            Send reminder
+                          </Button>
+                        )}
                         {isAdmin && (
                           <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleEditInvoice(invoice)}>
                             Edit
@@ -359,6 +401,20 @@ export function InvoiceList({
                                 aria-label="Mark as Paid"
                               >
                                 Mark Paid
+                              </Button>
+                            )}
+                            {/* An unsettled invoice needs a chase action. The
+                                `onSendReminder` prop existed but was never bound
+                                to anything, so this was unreachable. */}
+                            {canSendReminder && isChaseableInvoice(invoice) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onSendReminder(invoice)}
+                                className="px-3 py-1 text-xs"
+                                aria-label="Send payment reminder"
+                              >
+                                Send reminder
                               </Button>
                             )}
                             {isAdmin && (

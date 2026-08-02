@@ -63,6 +63,26 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Deep-navy Studio palette (ai-editing-studio-revamp, Req 11.1). The
+        // custom properties are defined only under `.studio-theme`
+        // (src/index.css), so these utilities are scoped to the Studio_Page and
+        // leave every other page's theming untouched.
+        studio: {
+          base: "hsl(var(--studio-base))",
+          "base-elevated": "hsl(var(--studio-base-elevated))",
+          surface: "hsl(var(--studio-surface))",
+          "surface-raised": "hsl(var(--studio-surface-raised))",
+          "surface-hover": "hsl(var(--studio-surface-hover))",
+          text: "hsl(var(--studio-text))",
+          "text-muted": "hsl(var(--studio-text-muted))",
+          accent: "hsl(var(--studio-accent))",
+          "accent-foreground": "hsl(var(--studio-accent-foreground))",
+          border: "hsl(var(--studio-border))",
+          ring: "hsl(var(--studio-ring))",
+          success: "hsl(var(--studio-success))",
+          warning: "hsl(var(--studio-warning))",
+          error: "hsl(var(--studio-error))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

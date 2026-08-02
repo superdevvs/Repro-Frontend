@@ -27,9 +27,11 @@ import {
   updateWeeklyInvoiceItem,
 } from '@/services/invoiceService';
 
-const COMPANY_NAME = 'REPRO Photos';
-const COMPANY_PHONE = '(202) 868-1663';
-const COMPANY_EMAIL = 'contact@reprophotos.com';
+import { BRAND_EMAIL, BRAND_NAME, BRAND_PHONE } from '@/config/brand';
+
+const COMPANY_NAME = BRAND_NAME;
+const COMPANY_PHONE = BRAND_PHONE;
+const COMPANY_EMAIL = BRAND_EMAIL;
 const COMPANY_ADDRESS = import.meta.env.VITE_COMPANY_ADDRESS?.trim() || '';
 const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
   ? COMPANY_ADDRESS.split('|').map((line) => line.trim()).filter(Boolean)

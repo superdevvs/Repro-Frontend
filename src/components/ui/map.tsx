@@ -205,9 +205,23 @@ export type RecenterTarget =
   | Array<{ lat: number; lng: number }> // markers
 
 /** Imperative handle exposed via ref on the Map component. */
+/**
+ * Edge padding, in pixels, kept free of fitted content. Use the object form when
+ * a panel overlays part of the map so that "centred" means centred within the
+ * visible area rather than the container.
+ */
+export type RecenterPadding =
+  | number
+  | { top: number; right: number; bottom: number; left: number }
+
+export interface RecenterOptions {
+  padding?: RecenterPadding
+  maxZoom?: number
+}
+
 export interface MapHandle {
   /** Recenter / fitBounds on the provided coordinate(s) or markers. */
-  recenter: (target: RecenterTarget) => void
+  recenter: (target: RecenterTarget, options?: RecenterOptions) => void
   /** Access the underlying MapLibre instance (null until loaded). */
   getMap: () => MapLibreMap | null
   /** Access the outer container element. */
@@ -281,22 +295,28 @@ const Map = React.forwardRef<MapHandle, MapProps>(
     }, [])
 
     // Imperative recenter (R8.2): fit the map to the provided coordinates/markers.
-    const recenter = React.useCallback((target: RecenterTarget) => {
-      if (!map.current) return
-      const coords = normalizeRecenterTarget(target)
-      if (coords.length === 0) return
-      if (coords.length === 1) {
-        map.current.flyTo({ center: coords[0], duration: 600 })
-        return
-      }
-      try {
-        const bounds = new LngLatBounds(coords[0], coords[0])
-        coords.forEach((c) => bounds.extend(c))
-        map.current.fitBounds(bounds, { padding: 64, maxZoom: 14, duration: 600 })
-      } catch (error) {
-        console.warn("Recenter failed:", error)
-      }
-    }, [])
+    const recenter = React.useCallback(
+      (target: RecenterTarget, options?: RecenterOptions) => {
+        if (!map.current) return
+        const coords = normalizeRecenterTarget(target)
+        if (coords.length === 0) return
+
+        const padding = options?.padding ?? 64
+        const maxZoom = options?.maxZoom ?? 14
+
+        // A single coordinate is fitted rather than flown to, so that the same
+        // padding applies. `flyTo` centres on the container, which pushes the
+        // point off-centre whenever a panel overlays part of the map.
+        try {
+          const bounds = new LngLatBounds(coords[0], coords[0])
+          coords.forEach((c) => bounds.extend(c))
+          map.current.fitBounds(bounds, { padding, maxZoom, duration: 600 })
+        } catch (error) {
+          console.warn("Recenter failed:", error)
+        }
+      },
+      [],
+    )
 
     React.useImperativeHandle(
       ref,

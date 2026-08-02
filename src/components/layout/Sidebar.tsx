@@ -62,6 +62,7 @@ export function Sidebar({ className }: SidebarProps) {
   // Desktop sidebar
   return (
     <motion.div
+      data-testid="application-sidebar"
       initial={false}
       animate={{
         width: isCollapsed ? 80 : 210,

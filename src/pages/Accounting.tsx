@@ -1,5 +1,6 @@
 
 import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
 import { OverviewCards } from '@/components/accounting/OverviewCards';
@@ -19,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
-import { fetchInvoices, markInvoiceAsPaid } from '@/services/invoiceService';
+import { fetchInvoices, markInvoiceAsPaid, sendInvoicePaymentReminder } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useClientBilling } from '@/hooks/useClientBilling';
 import { useEditorRates } from '@/hooks/useEditorRates';
@@ -245,6 +246,7 @@ const toInvoiceViewDialogInvoice = (invoice: ViewableInvoice): InvoiceViewDialog
 
 const AccountingPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { role, user } = useAuth(); // Use the correct AuthProvider
   const { can } = usePermission();
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -526,6 +528,26 @@ const AccountingPage = () => {
     setViewDialogOpen(true);
   };
 
+  /**
+   * Take the client to payment for a billing row.
+   *
+   * Routes to the shoot, which already owns the client payment flow (balance,
+   * partial amounts, Stripe checkout), rather than introducing a second
+   * checkout implementation on this page.
+   */
+  const handlePayClientBillingItem = (item: ClientBillingItem) => {
+    if (item.shootId) {
+      navigate(`/shoots/${item.shootId}`);
+      return;
+    }
+
+    toast({
+      title: 'Payment unavailable here',
+      description: 'This billing item is not linked to a shoot. Please contact support to pay it.',
+      variant: 'destructive',
+    });
+  };
+
   const handleViewPhotographerShoot = (shoot: ShootData) => {
     setSelectedPhotographerShoot(shootDataToSummary(shoot));
   };
@@ -614,12 +636,33 @@ const AccountingPage = () => {
     });
   };
 
-  const handleSendReminder = (invoice: InvoiceData) => {
-    toast({
-      title: "Reminder Sent",
-      description: `Payment reminder sent to ${invoice.client} for invoice ${invoice.id}.`,
-      variant: "default",
-    });
+  const [reminderInvoiceId, setReminderInvoiceId] = useState<string | number | null>(null);
+
+  /**
+   * Send a payment reminder for real.
+   *
+   * This used to raise a success toast without calling anything, so a chased
+   * client never received the reminder the operator believed they had sent.
+   */
+  const handleSendReminder = async (invoice: InvoiceData) => {
+    setReminderInvoiceId(invoice.id);
+    try {
+      const result = await sendInvoicePaymentReminder(invoice.id, {
+        asSalesRep: accountingMode === 'rep',
+      });
+      toast({
+        title: 'Reminder sent',
+        description: result.message || `Payment reminder sent to ${invoice.client}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Reminder not sent',
+        description: error instanceof Error ? error.message : 'Something went wrong.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReminderInvoiceId(null);
+    }
   };
 
   const handleInvoiceEdit = (updatedInvoice: InvoiceData) => {
@@ -775,6 +818,7 @@ const AccountingPage = () => {
                         items={clientBillingItems}
                         loading={clientBillingLoading}
                         onView={handleViewClientBillingItem}
+                        onPay={handlePayClientBillingItem}
                       />
                     )}
 
@@ -999,3 +1043,5 @@ const AccountingPage = () => {
 };
 
 export default AccountingPage;
+
+

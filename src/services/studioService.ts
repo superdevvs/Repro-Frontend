@@ -322,6 +322,20 @@ export function clampProgress(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
+/**
+ * Clamp an AI_Job Progress_Value that may be absent. A missing value stays
+ * `null` so the Live_Queue renders an indeterminate state instead of a
+ * fabricated number (Req 7.10); any present value is clamped to 0–100
+ * (Req 16.4).
+ */
+export function clampNullableProgress(
+  value: number | string | null | undefined,
+): number | null {
+  if (value === null || value === undefined || value === '') return null;
+
+  return clampProgress(Number(value));
+}
+
 /** Stable local id for a file in an upload batch, used for per-file progress. */
 export function uploadFileId(file: File, index: number): string {
   return `${index}:${file.name}`;
@@ -375,10 +389,7 @@ const unwrap = <T>(payload: unknown, fallback: T): T => {
 /** Normalizes a queue record so progress stays within 0–100 or stays null. */
 const normalizeQueueRecord = (record: QueueRecord): QueueRecord => ({
   ...record,
-  progress:
-    record.progress === null || record.progress === undefined
-      ? null
-      : clampProgress(Number(record.progress)),
+  progress: clampNullableProgress(record.progress),
   eta: record.eta ?? null,
   failureReason: record.failureReason ?? null,
   terminalAt: record.terminalAt ?? null,

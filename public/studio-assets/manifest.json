@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-26",
+  "assets": [
+    {
+      "instructionIndex": 1,
+      "placement": "hero-before",
+      "path": "hero-before.webp",
+      "alt": "Contemporary luxury home before AI twilight enhancement"
+    },
+    {
+      "instructionIndex": 2,
+      "placement": "hero-after",
+      "path": "hero-after.webp",
+      "alt": "The same contemporary luxury home after AI twilight enhancement"
+    },
+    {
+      "instructionIndex": 3,
+      "placement": "selected-shoot",
+      "path": "selected-shoot.webp",
+      "alt": "Selected modern suburban property"
+    },
+    {
+      "instructionIndex": 4,
+      "placement": "queue-photo-enhancement",
+      "path": "queue-photo-enhancement.webp",
+      "alt": "Bright open-plan living room queued for photo enhancement"
+    },
+    {
+      "instructionIndex": 5,
+      "placement": "queue-twilight",
+      "path": "queue-twilight.webp",
+      "alt": "Modern luxury residence queued for twilight conversion"
+    },
+    {
+      "instructionIndex": 6,
+      "placement": "queue-video-cleanup",
+      "path": "queue-video-cleanup.webp",
+      "alt": "Open-plan interior queued for video cleanup"
+    },
+    {
+      "instructionIndex": 7,
+      "placement": "workflow-photo-enhancement",
+      "path": "workflow-photo-enhancement.webp",
+      "alt": "Enhanced luxury living room"
+    },
+    {
+      "instructionIndex": 8,
+      "placement": "workflow-twilight",
+      "path": "workflow-twilight.webp",
+      "alt": "Modern luxury home at twilight"
+    },
+    {
+      "instructionIndex": 9,
+      "placement": "workflow-video-cleanup",
+      "path": "workflow-video-cleanup.webp",
+      "alt": "Polished luxury kitchen walkthrough frame"
+    },
+    {
+      "instructionIndex": 10,
+      "placement": "workflow-listing-video",
+      "path": "workflow-listing-video.webp",
+      "alt": "Cinematic luxury home listing video frame"
+    },
+    {
+      "instructionIndex": 11,
+      "placement": "workflow-reel-generator",
+      "path": "workflow-reel-generator.webp",
+      "alt": "Smartphone showing a vertical property reel"
+    },
+    {
+      "instructionIndex": 12,
+      "placement": "workflow-batch-ai-jobs",
+      "path": "workflow-batch-ai-jobs.webp",
+      "alt": "Six luxury property photos prepared for batch processing"
+    }
+  ]
+}

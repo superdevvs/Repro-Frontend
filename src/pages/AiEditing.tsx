@@ -60,8 +60,9 @@ import { BatchJobsPanel } from '@/components/ai-editing/BatchJobsPanel';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { ListingVideoGenerator } from '@/components/listing-video/ListingVideoGenerator';
 import { ReelGenerator } from '@/components/reel/ReelGenerator';
-import { StudioLanding } from '@/components/studio/StudioLanding';
-import { StudioSubtabNav } from '@/components/studio/StudioSubtabNav';
+import { LiveQueueProvider } from '@/components/studio/LiveQueue';
+import { StudioDestinationContent } from '@/components/studio/StudioDestinations';
+import { StudioShell, useStudioShell } from '@/components/studio/StudioShell';
 import type { StudioShootRef } from '@/components/studio/types';
 import {
   DropdownMenu,
@@ -147,19 +148,25 @@ const MAX_BATCH_SIZE = 100;
 const COMBINABLE_MODE_IDS = new Set<string>(['enhance', 'sky_replace', 'vertical_correction', 'window_pull']);
 const UNSUPPORTED_MODE_IDS = new Set<string>(['hdr_merge']);
 
-const AiEditing = () => {
+const AiEditingStudio = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('photo');
 
-  // Studio shell Subtab navigation. Defaults to 'studio' so the Studio Landing
-  // is the default view and Photo/Video are never auto-opened on first load
-  // (Req 1.1, 1.4). Visual nav wiring lands in task 5.2.
-  const [activeSubtab, setActiveSubtab] = useState<StudioSubtab>('studio');
-  const [photoCapability, setPhotoCapability] = useState<PhotoCapability>('workspace');
-  const [videoCapability, setVideoCapability] = useState<VideoCapability>('listing');
+  // Studio shell navigation (ai-editing-studio-revamp, task 10.1). The active
+  // Studio_Destination lives in URL route state (`?d=...&rec=type:id`) and the
+  // existing `activeSubtab`/capability view model is derived from it, so the
+  // Command_Center is the default destination (Req 1.1) and the destination is
+  // always exposed through route state (Req 1.10). The existing
+  // `workspaceMode` still drives the in-Subtab photo/video content.
+  const {
+    activeSubtab,
+    photoCapability,
+    videoCapability,
+    setDestinationFromRouteTarget,
+  } = useStudioShell();
 
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
   const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
@@ -575,13 +582,14 @@ const AiEditing = () => {
 
   /**
    * Centralized navigation for Studio feature cards, templates, and recent-project
-   * deep-links. Switches the active Subtab and primes the target capability in
-   * place — it never changes the route (Req 2.2, 2.3, 10.1, 11.1). The existing
+   * deep-links. Maps the legacy `RouteTarget` onto a Studio_Destination in route
+   * state and primes the target capability in place — it stays on `/ai-editing`
+   * and only updates the destination query params (Req 1.7, 1.10). The existing
    * `workspaceMode` remains the in-Subtab driver so the photo/video components
    * need no changes.
    */
   const routeToCapability = useCallback((target: RouteTarget) => {
-    setActiveSubtab(target.subtab);
+    setDestinationFromRouteTarget(target);
 
     // Recent-project deep-links arrive with a loose shoot ref; resolve it to the
     // full loaded shoot when available so the photo/video components get the
@@ -600,7 +608,7 @@ const AiEditing = () => {
 
     if (target.subtab === 'photo') {
       setWorkspaceMode('photo');
-      setPhotoCapability(target.photoCapability ?? 'workspace');
+      // `photoCapability` is now derived from the active destination.
       if (target.photoMode) {
         setSelectedEnhancementIds(new Set([target.photoMode]));
         setQuickStartMode(target.photoMode);
@@ -620,7 +628,7 @@ const AiEditing = () => {
 
     if (target.subtab === 'video') {
       setWorkspaceMode('video');
-      setVideoCapability(target.videoCapability ?? 'listing');
+      // `videoCapability` is now derived from the active destination.
       const shoot = resolveShoot(target.shoot);
       if (shoot) {
         setSelectedShoot(shoot);
@@ -631,29 +639,7 @@ const AiEditing = () => {
     }
 
     // 'studio' — landing overview; do not auto-open the Photo/Video Subtabs.
-  }, [shoots]);
-
-  /**
-   * Subtab navigation handler for StudioSubtabNav. Switches the active Subtab and
-   * maps it onto the existing in-Subtab driver: Studio → landing overview,
-   * Photo → `workspaceMode='photo'`, Video → `workspaceMode='video'` (Req 2.1,
-   * 2.5, 2.6). Unlike `routeToCapability`, it preserves the current photo/video
-   * working state (selected shoot, stepper position) so simply switching tabs
-   * never discards in-progress work. It only leaves the chat view so the chosen
-   * Subtab can render.
-   */
-  const handleSubtabSelect = useCallback((subtab: StudioSubtab) => {
-    setActiveSubtab(subtab);
-    if (subtab === 'photo') {
-      setWorkspaceMode('photo');
-      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
-    } else if (subtab === 'video') {
-      setWorkspaceMode('video');
-      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
-    }
-    // 'studio' leaves the in-Subtab photo/video state untouched; the Studio
-    // Landing renders purely off `activeSubtab`.
-  }, []);
+  }, [setDestinationFromRouteTarget, shoots]);
 
   const handleUpgrade = useCallback(() => {
     toast({
@@ -2571,7 +2557,7 @@ const AiEditing = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-32 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="studio-theme min-w-0 max-w-full space-y-4 overflow-x-hidden px-2 pb-32 pt-3 text-foreground sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
         {activeSubtab === 'photo' && photoCapability !== 'batch' && workspaceMode === 'photo' && viewMode !== 'activity' && viewMode !== 'chat' && (
           <PageHeader
             title="AI Editing"
@@ -2606,10 +2592,8 @@ const AiEditing = () => {
           </Card>
         ) : (
           <>
-            <StudioSubtabNav activeSubtab={activeSubtab} onSelect={handleSubtabSelect} />
-
             {activeSubtab === 'studio' ? (
-              <StudioLanding
+              <StudioDestinationContent
                 routeToCapability={routeToCapability}
                 canUseAutoenhance={canUseAutoenhance}
                 onUpgrade={handleUpgrade}
@@ -2728,5 +2712,20 @@ const AiEditing = () => {
     </DashboardLayout>
   );
 };
+
+/**
+ * The Studio_Page is wrapped in `StudioShell`, which owns the active
+ * Studio_Destination as URL route state (`?d=...&rec=type:id`) and derives the
+ * page's `activeSubtab`/capability view model from it (Req 1.1, 1.7, 1.10). The
+ * shell renders no chrome, so the existing `DashboardLayout` Application_Sidebar
+ * stays the only sidebar on the page (Req 1.2, 1.6).
+ */
+const AiEditing = () => (
+  <StudioShell>
+    <LiveQueueProvider>
+      <AiEditingStudio />
+    </LiveQueueProvider>
+  </StudioShell>
+);
 
 export default AiEditing;

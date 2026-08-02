@@ -13,13 +13,18 @@ import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
 import type { InvoiceParty, InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 
-const COMPANY_NAME = 'REPRO Photos';
-const COMPANY_PHONE = '(202) 868-1663';
-const COMPANY_EMAIL = 'contact@reprophotos.com';
-const COMPANY_ADDRESS = import.meta.env.VITE_COMPANY_ADDRESS?.trim() || '';
-const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
-  ? COMPANY_ADDRESS.split('|').map((line) => line.trim()).filter(Boolean)
-  : [];
+import {
+  BRAND_ADDRESS_LINES,
+  BRAND_EMAIL,
+  BRAND_LOGO_SRC,
+  BRAND_NAME,
+  BRAND_PHONE,
+} from '@/config/brand';
+
+const COMPANY_NAME = BRAND_NAME;
+const COMPANY_PHONE = BRAND_PHONE;
+const COMPANY_EMAIL = BRAND_EMAIL;
+const COMPANY_ADDRESS_LINES = BRAND_ADDRESS_LINES;
 
 type InvoiceItem = InvoiceViewDialogItem;
 
@@ -339,7 +344,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   };
 
   const loadLogoPngForPdf = useCallback(async () => {
-    const response = await fetch('/REPRO-HQ.svg');
+    const response = await fetch(BRAND_LOGO_SRC);
     if (!response.ok) {
       throw new Error('Failed to fetch logo SVG');
     }
@@ -416,7 +421,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       } catch {
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text('REPRO Photos', margin, headerTop + 10);
+        doc.text(COMPANY_NAME, margin, headerTop + 10);
       }
 
       // INVOICE title on right
@@ -981,3 +986,4 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     </Dialog>
   );
 }
+

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -66,6 +68,15 @@ type PaymentActionDetails = {
   refundStatus?: string;
   refundedAt?: string;
   hostedReceiptUrl?: string;
+  /**
+   * Authoritative refund figures from the `payment_refunds` rows.
+   *
+   * `refundStatus` / `refundedAt` are set by the first refund of any size, so
+   * they cannot tell a partial refund from a full one. The remainder can, and
+   * it is what decides whether a second partial refund is still possible.
+   */
+  refundedAmount?: number;
+  refundableRemainder?: number;
 };
 
 const activityTypeIcons: Record<string, React.ReactNode> = {
@@ -174,6 +185,8 @@ const getPaymentActionDetails = (entry: ActivityLogEntry): PaymentActionDetails 
       status: toOptionalString(container.status)?.toLowerCase(),
       refundStatus: toOptionalString(container.refund_status ?? container.refundStatus)?.toLowerCase(),
       refundedAt: toOptionalString(container.refunded_at ?? container.refundedAt),
+      refundedAmount: toOptionalNumber(container.refunded_amount ?? container.refundedAmount),
+      refundableRemainder: toOptionalNumber(container.refundable_remainder ?? container.refundableRemainder),
       hostedReceiptUrl: toOptionalString(
         container.hosted_receipt_url
           ?? container.hostedReceiptUrl
@@ -196,6 +209,7 @@ export function ShootDetailsActivityLogTab({
   const [loading, setLoading] = useState(true);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [pendingRefundEntry, setPendingRefundEntry] = useState<ActivityLogEntry | null>(null);
+  const [refundAmountInput, setRefundAmountInput] = useState('');
   const [refundingEntryId, setRefundingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -279,27 +293,79 @@ export function ShootDetailsActivityLogTab({
     return groups;
   };
 
-  const refundedPaymentIds = useMemo(() => {
+  /**
+   * Payments that can no longer be refunded because nothing is left.
+   *
+   * The remainder decides this whenever the server reports it: a payment with a
+   * $100 refund against a $300 charge carries `refund_status` and `refunded_at`
+   * but still has $200 outstanding, and the old status-only test hid the Refund
+   * control from it — making a second partial refund impossible from the UI.
+   * Older payloads without a remainder keep the previous status heuristic.
+   */
+  const fullyRefundedPaymentIds = useMemo(() => {
     return activities.reduce((paymentIds, entry) => {
       const payment = getPaymentActionDetails(entry);
-      const isRefundEvent = entry.action.toLowerCase().includes('refund');
-      const isRefunded = Boolean(
-        payment?.paymentId
-        && (
-          isRefundEvent
-          || payment.status === 'refunded'
-          || payment.refundStatus
-          || payment.refundedAt
-        )
-      );
+      if (!payment?.paymentId) {
+        return paymentIds;
+      }
 
-      if (isRefunded && payment) {
+      const remainder = payment.refundableRemainder;
+      const hasRemainder = typeof remainder === 'number' && Number.isFinite(remainder);
+
+      const isFullyRefunded = hasRemainder
+        ? remainder <= 0.005
+        : (
+          entry.action.toLowerCase().includes('refund')
+          || payment.status === 'refunded'
+          || Boolean(payment.refundStatus)
+          || Boolean(payment.refundedAt)
+        );
+
+      if (isFullyRefunded) {
         paymentIds.add(payment.paymentId);
       }
 
       return paymentIds;
     }, new Set<string>());
   }, [activities]);
+
+  /**
+   * The most that can still be refunded on the pending charge.
+   *
+   * Prefers the server-computed remainder so a second partial refund is capped
+   * at what is actually left, falling back to the charge amount for payloads
+   * that predate that field.
+   */
+  const refundMaxAmount = useMemo(() => {
+    if (!pendingRefundEntry) return null;
+    const details = getPaymentActionDetails(pendingRefundEntry);
+    if (!details) return null;
+    const remainder = details.refundableRemainder;
+    const max = typeof remainder === 'number' && Number.isFinite(remainder)
+      ? remainder
+      : details.amount;
+    return typeof max === 'number' && Number.isFinite(max) ? Math.max(max, 0) : null;
+  }, [getPaymentActionDetails, pendingRefundEntry]);
+
+  // Default the input to a full refund of the remainder when the dialog opens.
+  useEffect(() => {
+    if (pendingRefundEntry && refundMaxAmount != null) {
+      setRefundAmountInput(refundMaxAmount.toFixed(2));
+    } else if (!pendingRefundEntry) {
+      setRefundAmountInput('');
+    }
+  }, [pendingRefundEntry, refundMaxAmount]);
+
+  const refundAmountError = useMemo(() => {
+    if (!pendingRefundEntry) return '';
+    const parsed = Number.parseFloat(refundAmountInput);
+    if (!Number.isFinite(parsed)) return 'Enter an amount to refund.';
+    if (parsed <= 0) return 'Refund amount must be greater than zero.';
+    if (refundMaxAmount != null && parsed > refundMaxAmount + 0.001) {
+      return `Cannot exceed $${refundMaxAmount.toFixed(2)}.`;
+    }
+    return '';
+  }, [pendingRefundEntry, refundAmountInput, refundMaxAmount]);
 
   const handleRefundCharge = async (entry: ActivityLogEntry) => {
     const refundablePayment = getPaymentActionDetails(entry);
@@ -324,7 +390,8 @@ export function ShootDetailsActivityLogTab({
         },
         body: JSON.stringify({
           payment_id: refundablePayment.paymentId,
-          amount: refundablePayment.amount,
+          // Operator-entered amount; the server caps it at the unrefunded remainder.
+          amount: Number.parseFloat(refundAmountInput),
         }),
       });
 
@@ -432,13 +499,12 @@ export function ShootDetailsActivityLogTab({
                     const paymentDetails = getPaymentActionDetails(entry);
                     const isRefundEvent = entry.action.toLowerCase().includes('refund');
                     const canViewCharge = Boolean(paymentDetails?.hostedReceiptUrl);
+                    // Only an exhausted remainder closes the door. A partially
+                    // refunded charge stays refundable down to zero.
                     const canRefundCharge = Boolean(
                       paymentDetails
                       && !isRefundEvent
-                      && !refundedPaymentIds.has(paymentDetails.paymentId)
-                      && paymentDetails.status !== 'refunded'
-                      && !paymentDetails.refundStatus
-                      && !paymentDetails.refundedAt
+                      && !fullyRefundedPaymentIds.has(paymentDetails.paymentId)
                     );
                     
                     return (
@@ -562,17 +628,48 @@ export function ShootDetailsActivityLogTab({
           <AlertDialogHeader>
             <AlertDialogTitle>Refund this Stripe charge?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will refund the recorded charge amount for this shoot. The payment total, receipt state, and available refund actions will update after the refund finishes.
+              Refund the full remaining amount or enter a smaller amount for a partial
+              refund. The payment total, balance, and receipt state update once the
+              refund finishes.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Partial refunds were impossible before: the request always sent the
+              full charge, and the backend flagged the whole payment refunded. */}
+          <div className="space-y-2">
+            <Label htmlFor="refund-amount">Refund amount</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">$</span>
+              <Input
+                id="refund-amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                max={refundMaxAmount ?? undefined}
+                value={refundAmountInput}
+                onChange={(event) => setRefundAmountInput(event.target.value)}
+                disabled={Boolean(refundingEntryId)}
+                placeholder={refundMaxAmount != null ? refundMaxAmount.toFixed(2) : '0.00'}
+              />
+            </div>
+            {refundMaxAmount != null && (
+              <p className="text-xs text-muted-foreground">
+                Up to ${refundMaxAmount.toFixed(2)} can be refunded on this charge.
+              </p>
+            )}
+            {refundAmountError && (
+              <p className="text-xs text-destructive">{refundAmountError}</p>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={Boolean(refundingEntryId)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
-              disabled={!pendingRefundEntry || Boolean(refundingEntryId)}
+              disabled={!pendingRefundEntry || Boolean(refundingEntryId) || Boolean(refundAmountError)}
               onClick={(event) => {
                 event.preventDefault();
-                if (pendingRefundEntry) {
+                if (pendingRefundEntry && !refundAmountError) {
                   void handleRefundCharge(pendingRefundEntry);
                 }
               }}

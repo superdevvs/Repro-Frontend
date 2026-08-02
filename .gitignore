@@ -39,3 +39,7 @@ public/shoots/**
 # Playwright MCP/CLI snapshot artifacts
 .playwright-cli/
 .playwright-mcp/
+
+# Local QA output: browser screenshots and verification logs. These are
+# evidence for a review, never part of a release.
+/output/

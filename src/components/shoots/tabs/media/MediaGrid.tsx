@@ -8,7 +8,11 @@ import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
-import { getDisplayMediaFilename, getMediaVideoUrl } from './mediaPreviewUtils';
+import {
+  MEDIA_GRID_SIZES_ATTR,
+  getDisplayMediaFilename,
+  getMediaVideoUrl,
+} from './mediaPreviewUtils';
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -942,6 +946,8 @@ export function MediaGrid({
             return hasDisplayableImage ? (
               <img
                 src={thumbSrc}
+                srcSet={getSrcSet?.(file) || undefined}
+                sizes={MEDIA_GRID_SIZES_ATTR}
                 alt={displayFilename}
                 className={getGridPreviewMediaClassName(file)}
                 loading="lazy"
@@ -1135,6 +1141,8 @@ export function MediaGrid({
               return hasDisplayableImage ? (
                 <img
                   src={thumbSrc}
+                  srcSet={getSrcSet?.(file) || undefined}
+                  sizes={MEDIA_GRID_SIZES_ATTR}
                   alt={displayFilename}
                   className={getGridPreviewMediaClassName(file)}
                   loading="lazy"
@@ -1725,3 +1733,4 @@ export function MediaGrid({
     </div>
   );
 }
+

@@ -96,15 +96,74 @@ export const getTargetRect = (target: string): TargetRect | null => {
   };
 };
 
-const getCardPositionClass = (rect: TargetRect | null, isMobile: boolean) => {
+/** Card size used when anchoring next to a target. */
+const CARD_WIDTH = 360;
+const CARD_HEIGHT_ESTIMATE = 260;
+/** Gap between the spotlight ring and the step card. */
+const CARD_GAP = 16;
+/** Keep the card away from the viewport edge. */
+const VIEWPORT_MARGIN = 12;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+/**
+ * Position the step card immediately beside the highlighted element.
+ *
+ * Previously the card was pinned to a viewport edge (`right-8` centred
+ * vertically), which on a wide screen left it far away from whatever was being
+ * explained. Anchoring keeps the explanation next to its subject; the preferred
+ * side is chosen by available space and the result is clamped so the card never
+ * leaves the viewport.
+ */
+const getCardAnchorStyle = (
+  rect: TargetRect | null,
+  isMobile: boolean,
+): React.CSSProperties | undefined => {
+  if (isMobile || !rect || typeof window === "undefined") return undefined;
+
+  const { innerWidth, innerHeight } = window;
+  const spaceRight = innerWidth - (rect.left + rect.width);
+  const spaceLeft = rect.left;
+  const spaceBelow = innerHeight - (rect.top + rect.height);
+  const spaceAbove = rect.top;
+
+  const maxTop = Math.max(VIEWPORT_MARGIN, innerHeight - CARD_HEIGHT_ESTIMATE - VIEWPORT_MARGIN);
+  const maxLeft = Math.max(VIEWPORT_MARGIN, innerWidth - CARD_WIDTH - VIEWPORT_MARGIN);
+
+  // Prefer right, then left, then below, then above.
+  if (spaceRight >= CARD_WIDTH + CARD_GAP + VIEWPORT_MARGIN) {
+    return {
+      left: rect.left + rect.width + CARD_GAP,
+      top: clamp(rect.top + rect.height / 2 - CARD_HEIGHT_ESTIMATE / 2, VIEWPORT_MARGIN, maxTop),
+      width: CARD_WIDTH,
+    };
+  }
+  if (spaceLeft >= CARD_WIDTH + CARD_GAP + VIEWPORT_MARGIN) {
+    return {
+      left: Math.max(VIEWPORT_MARGIN, rect.left - CARD_WIDTH - CARD_GAP),
+      top: clamp(rect.top + rect.height / 2 - CARD_HEIGHT_ESTIMATE / 2, VIEWPORT_MARGIN, maxTop),
+      width: CARD_WIDTH,
+    };
+  }
+  if (spaceBelow >= spaceAbove) {
+    return {
+      left: clamp(rect.left + rect.width / 2 - CARD_WIDTH / 2, VIEWPORT_MARGIN, maxLeft),
+      top: clamp(rect.top + rect.height + CARD_GAP, VIEWPORT_MARGIN, maxTop),
+      width: CARD_WIDTH,
+    };
+  }
+  return {
+    left: clamp(rect.left + rect.width / 2 - CARD_WIDTH / 2, VIEWPORT_MARGIN, maxLeft),
+    top: clamp(rect.top - CARD_HEIGHT_ESTIMATE - CARD_GAP, VIEWPORT_MARGIN, maxTop),
+    width: CARD_WIDTH,
+  };
+};
+
+/** Fallback classes for mobile, or desktop before the target rect is measured. */
+const getCardFallbackClass = (rect: TargetRect | null, isMobile: boolean) => {
   if (isMobile || !rect) return "left-3 right-3 bottom-[calc(1rem+env(safe-area-inset-bottom))]";
-
-  const hasRoomBelow = rect.top + rect.height + 260 < window.innerHeight;
-  const hasRoomRight = rect.left + rect.width + 380 < window.innerWidth;
-
-  if (hasRoomRight) return "top-1/2 -translate-y-1/2 right-8 w-[360px]";
-  if (hasRoomBelow) return "left-1/2 -translate-x-1/2 bottom-8 w-[420px]";
-  return "left-1/2 -translate-x-1/2 top-8 w-[420px]";
+  return "";
 };
 
 export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
@@ -412,11 +471,20 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
 
       {tourOpen && (
         <div className="fixed inset-0 z-[75] pointer-events-none">
-          <div className="absolute inset-0 bg-black/65" />
-          {targetRect && (
+          {/*
+            The spotlight ring's outward shadow IS the dimmer: it darkens
+            everything outside the target rect and leaves the rect itself
+            untouched. A separate full-screen dim layer used to sit underneath,
+            which dimmed the highlighted element too and compounded with this
+            shadow to roughly 85% outside — the target has to render at full
+            opacity for the tour to be legible, so only one dimmer may exist.
+            When the target has not been measured yet there is no rect to spare,
+            so fall back to a plain full-screen dim.
+          */}
+          {targetRect ? (
             <div
               className={cn(
-                "absolute rounded-2xl border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.58)]",
+                "absolute rounded-2xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.65)]",
                 !prefersReducedMotion && "transition-all duration-200",
               )}
               style={{
@@ -426,6 +494,8 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
                 height: targetRect.height + 16,
               }}
             />
+          ) : (
+            <div className="absolute inset-0 bg-black/65" />
           )}
 
           <div
@@ -435,7 +505,12 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
             aria-labelledby="onboarding-step-title"
             aria-describedby="onboarding-step-description"
             tabIndex={-1}
-            className={cn("pointer-events-auto fixed rounded-2xl border border-border bg-background p-4 shadow-2xl outline-none", getCardPositionClass(targetRect, isMobile))}
+            className={cn(
+              "pointer-events-auto fixed rounded-2xl border border-border bg-background p-4 shadow-2xl outline-none",
+              !prefersReducedMotion && "transition-all duration-200",
+              getCardFallbackClass(targetRect, isMobile),
+            )}
+            style={getCardAnchorStyle(targetRect, isMobile)}
           >
             <div className="flex items-start justify-between gap-3">
               <div>

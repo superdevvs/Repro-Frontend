@@ -4,6 +4,19 @@ export type MediaSortOrder = 'name' | 'date' | 'time' | 'manual';
 
 const compareStrings = (left?: string, right?: string) => (left || '').localeCompare(right || '');
 
+/**
+ * Compare filenames the way a person reads them, so `IMG_2` precedes `IMG_10`.
+ *
+ * Plain `localeCompare` is lexicographic, which interleaves shot sequences
+ * (`_1, _10, _11, _2`) and makes a delivered set look shuffled. Numeric
+ * collation keeps the camera's counter in order regardless of zero-padding.
+ */
+const compareFilenames = (left?: string, right?: string) =>
+  (left || '').localeCompare(right || '', undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+
 export const normalizeManualOrder = (manualOrder: string[], files: MediaFile[]): string[] => {
   const fileIds = files.map((file) => file.id);
   const knownIds = new Set(fileIds);
@@ -45,7 +58,7 @@ export const sortMediaFiles = (
 
   return [...files].sort((left, right) => {
     if (sortOrder === 'name') {
-      return compareStrings(left.filename, right.filename);
+      return compareFilenames(left.filename, right.filename);
     }
 
     if (sortOrder === 'date') {

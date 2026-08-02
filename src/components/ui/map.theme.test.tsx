@@ -298,7 +298,11 @@ describe('Map imperative recenter (R8.2)', () => {
     )
   })
 
-  it('flies to a single coordinate rather than fitting bounds', async () => {
+  // A single coordinate is fitted, not flown to. `flyTo` centres on the whole
+  // container, so when a panel overlays part of the map the point is pushed
+  // toward the edge; fitting applies the caller's padding and keeps it inside
+  // the visible area.
+  it('fits a single coordinate so padding still applies', async () => {
     const ref = React.createRef<MapHandle>()
     render(<Map ref={ref} center={[0, 0]} theme="light" />)
 
@@ -311,9 +315,31 @@ describe('Map imperative recenter (R8.2)', () => {
       ref.current?.recenter([-97.74, 30.27])
     })
 
-    expect(instance.flyToCalls).toHaveLength(1)
-    expect(instance.flyToCalls[0].center).toEqual([-97.74, 30.27])
-    expect(instance.fitBoundsCalls).toHaveLength(0)
+    expect(instance.fitBoundsCalls).toHaveLength(1)
+    // Degenerate bounds: every corner is the same point, so the fit resolves to
+    // that coordinate at `maxZoom` with the requested padding applied.
+    const points = instance.fitBoundsCalls[0].bounds.points as Array<[number, number]>
+    expect(points.length).toBeGreaterThan(0)
+    points.forEach((point) => expect(point).toEqual([-97.74, 30.27]))
+    expect(instance.flyToCalls).toHaveLength(0)
+  })
+
+  it('forwards asymmetric padding to fitBounds', async () => {
+    const ref = React.createRef<MapHandle>()
+    render(<Map ref={ref} center={[0, 0]} theme="light" />)
+
+    const instance = await waitForMapInstance()
+    await act(async () => {
+      instance.__fire('load')
+    })
+
+    const padding = { top: 80, right: 372, bottom: 64, left: 64 }
+    act(() => {
+      ref.current?.recenter([-97.74, 30.27], { padding })
+    })
+
+    expect(instance.fitBoundsCalls).toHaveLength(1)
+    expect(instance.fitBoundsCalls[0].opts?.padding).toEqual(padding)
   })
 
   it('recenters on marker objects ({lat,lng}) by fitting their bounds', async () => {
