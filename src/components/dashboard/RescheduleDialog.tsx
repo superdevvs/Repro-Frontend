@@ -15,6 +15,7 @@ import { useShoots } from '@/context/ShootsContext';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { MapPin, Camera, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { canReviewRescheduleRequests } from '@/utils/rescheduleRequests';
 
 interface RescheduleDialogProps {
   shoot: ShootData;
@@ -36,7 +37,14 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
   const { user, role } = useAuth();
   const { toast } = useToast();
   const { fetchShoots } = useShoots();
-  
+
+  /**
+   * Staff reschedule outright; everyone else raises a request that waits for
+   * review. The copy below follows this so the dialog cannot promise something
+   * the backend will not do — the A1 item 4 mismatch.
+   */
+  const appliesImmediately = canReviewRescheduleRequests(role);
+
   const handleReschedule = async () => {
     if (!date) {
       toast({
@@ -57,7 +65,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
         throw new Error('Authentication token missing');
       }
 
-      await axios.post(
+      const response = await axios.post(
         `${API_BASE_URL}/api/shoots/${shoot.id}/reschedule`,
         {
           requested_date: format(date, 'yyyy-MM-dd'),
@@ -71,13 +79,18 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
           },
         },
       );
-      
+
       await fetchShoots();
-      
-      // Show success message
+
+      // The server reports whether it applied the change or queued a request;
+      // trust that over the local role guess so the toast is never wrong.
+      const applied = response?.data?.applied ?? appliesImmediately;
+
       toast({
-        title: 'Shoot rescheduled',
-        description: 'The shoot has been rescheduled successfully.',
+        title: applied ? 'Shoot rescheduled' : 'Reschedule requested',
+        description: applied
+          ? 'The shoot has been rescheduled successfully.'
+          : 'Your request was submitted for review. The shoot keeps its current date until it is approved.',
       });
       
       // Notify parent to refresh
@@ -90,8 +103,10 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     } catch (error) {
       console.error('Error rescheduling shoot:', error);
       toast({
-        title: "Failed to reschedule",
-        description: "There was an error rescheduling the shoot. Please try again.",
+        title: appliesImmediately ? 'Failed to reschedule' : 'Failed to submit request',
+        description: appliesImmediately
+          ? 'There was an error rescheduling the shoot. Please try again.'
+          : 'There was an error submitting your reschedule request. Please try again.',
         variant: "destructive",
       });
     } finally {
@@ -103,9 +118,13 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Reschedule Shoot</DialogTitle>
+          <DialogTitle>
+            {appliesImmediately ? 'Reschedule Shoot' : 'Request to Reschedule'}
+          </DialogTitle>
           <DialogDescription>
-            Select a new date and time for this shoot.
+            {appliesImmediately
+              ? 'Select a new date and time. This is applied to the shoot straight away.'
+              : 'Select the date and time you would like. The shoot keeps its current slot until our team approves the request.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -174,7 +193,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
           {/* Right Pane - Reschedule Form */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Select New Date</Label>
+              <Label>{appliesImmediately ? 'Select New Date' : 'Preferred Date'}</Label>
               <Calendar
                 mode="single"
                 selected={date}
@@ -185,7 +204,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
             </div>
             
             <div className="space-y-2">
-              <Label>Select New Time</Label>
+              <Label>{appliesImmediately ? 'Select New Time' : 'Preferred Time'}</Label>
               <TimeSelect
                 value={time}
                 onChange={setTime}
@@ -196,7 +215,11 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
             </div>
             
             <div className="space-y-2">
-              <Label>Reason for Rescheduling (Optional)</Label>
+              <Label>
+                {appliesImmediately
+                  ? 'Reason for Rescheduling (Optional)'
+                  : 'Reason for the Request (Optional)'}
+              </Label>
               <Textarea
                 placeholder="Enter the reason for rescheduling..."
                 value={reason}
@@ -211,7 +234,11 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleReschedule} disabled={isSubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Reschedule Shoot'}
+            {isSubmitting
+              ? 'Submitting...'
+              : appliesImmediately
+                ? 'Reschedule Shoot'
+                : 'Submit Request'}
           </Button>
         </DialogFooter>
       </DialogContent>

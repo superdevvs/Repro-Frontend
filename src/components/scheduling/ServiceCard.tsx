@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,9 @@ type ServiceProps = {
     delivery_time?: string;
     photographer_required?: boolean;
     photographer_pay?: string | number;
+    /** Whether pay is a flat amount or a percentage of this service's price. */
+    photographer_pay_type?: 'fixed' | 'percent';
+    photographer_pay_percent?: string | number | null;
     exclude_from_sales_commission?: boolean;
     photo_count?: number;
     quantity?: number;
@@ -63,6 +67,16 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const isPhotoCategory = (service.category || '').toLowerCase().includes('photo');
+  const isPercentPay = editedService.photographer_pay_type === 'percent';
+  /** Preview the resolved amount so the admin sees the result before saving. */
+  const percentPayPreview = (() => {
+    if (!isPercentPay) return '';
+    const percent = parseFloat(String(editedService.photographer_pay_percent));
+    const price = parseFloat(String(editedService.price));
+    if (!Number.isFinite(percent) || !Number.isFinite(price) || price <= 0) return '';
+    const amount = (price * percent) / 100;
+    return `${percent}% of $${price.toFixed(2)} = $${amount.toFixed(2)}`;
+  })();
   const editRangeGridClass = editedService.photographer_required
     ? 'grid-cols-[0.75fr_0.75fr_0.6fr_0.6fr_0.8fr_0.9fr_auto]'
     : 'grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto]';
@@ -146,9 +160,19 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       photographer_required: editedService.photographer_required || false,
       exclude_from_sales_commission: editedService.exclude_from_sales_commission || false,
       photographer_pay: editedService.photographer_required
+        && !isPercentPay
         && editedService.photographer_pay !== ''
         && editedService.photographer_pay != null
         ? parseFloat(String(editedService.photographer_pay))
+        : null,
+      photographer_pay_type: editedService.photographer_required
+        ? (editedService.photographer_pay_type || 'fixed')
+        : 'fixed',
+      photographer_pay_percent: editedService.photographer_required
+        && isPercentPay
+        && editedService.photographer_pay_percent !== ''
+        && editedService.photographer_pay_percent != null
+        ? parseFloat(String(editedService.photographer_pay_percent))
         : null,
       photo_count: (isPhotoCategory && editedService.photo_count != null)
         ? editedService.photo_count
@@ -322,10 +346,25 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
               </span>
             </div>
 
-            {service.photographer_required && service.photographer_pay != null && (
+            {service.photographer_required
+              && (service.photographer_pay_type === 'percent'
+                ? service.photographer_pay_percent != null
+                : service.photographer_pay != null) && (
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Photographer Pay:</span>
-                <span>${Number(service.photographer_pay).toFixed(2)}</span>
+                {service.photographer_pay_type === 'percent' ? (
+                  <span>
+                    {Number(service.photographer_pay_percent).toFixed(2)}%
+                    {Number(service.price) > 0 && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        (${((Number(service.price) * Number(service.photographer_pay_percent)) / 100).toFixed(2)})
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span>${Number(service.photographer_pay).toFixed(2)}</span>
+                )}
               </div>
             )}
 
@@ -647,16 +686,73 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
             </div>
             {editedService.photographer_required && (
               <div className="space-y-2">
-                <Label htmlFor="photographer_pay">Photographer's Pay ($)</Label>
-                <Input
-                  id="photographer_pay"
-                  name="photographer_pay"
-                  type="number"
-                  step="0.01"
-                  value={editedService.photographer_pay ?? ''}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                />
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="photographer_pay">
+                    {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
+                  </Label>
+                  {/* Flat amount or a percentage of this service's price. Both
+                      models are supported so an admin can use whichever fits. */}
+                  <div className="flex overflow-hidden rounded-md border border-border">
+                    <button
+                      type="button"
+                      aria-pressed={!isPercentPay}
+                      className={cn(
+                        'px-2 py-1 text-xs font-medium transition-colors',
+                        !isPercentPay
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                      onClick={() =>
+                        setEditedService({ ...editedService, photographer_pay_type: 'fixed' })
+                      }
+                    >
+                      $
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={isPercentPay}
+                      className={cn(
+                        'px-2 py-1 text-xs font-medium transition-colors',
+                        isPercentPay
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                      onClick={() =>
+                        setEditedService({ ...editedService, photographer_pay_type: 'percent' })
+                      }
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+                {isPercentPay ? (
+                  <>
+                    <Input
+                      id="photographer_pay"
+                      name="photographer_pay_percent"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={editedService.photographer_pay_percent ?? ''}
+                      onChange={handleInputChange}
+                      placeholder="45.00"
+                    />
+                    {percentPayPreview && (
+                      <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
+                    )}
+                  </>
+                ) : (
+                  <Input
+                    id="photographer_pay"
+                    name="photographer_pay"
+                    type="number"
+                    step="0.01"
+                    value={editedService.photographer_pay ?? ''}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                  />
+                )}
               </div>
             )}
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
@@ -727,3 +823,4 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
     </>
   );
 }
+

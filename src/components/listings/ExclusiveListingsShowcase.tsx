@@ -141,25 +141,45 @@ const LazyListingMapCanvas = lazy(() =>
       )
       const zoom = markers.length > 1 ? 10 : 13
 
+      // The listing panel overlays the map: a 340px rail on the right from `lg`
+      // up, and a bottom sheet taking ~42% of the height below that. Fitting has
+      // to reserve that space, otherwise a pin lands under the panel or gets
+      // pushed toward the edge, which reads as "the listing is in the outer area".
+      const getFitPadding = useCallback(() => {
+        if (typeof window === 'undefined') return 64
+        const isDesktop = window.innerWidth >= 1024
+        if (isDesktop) {
+          return { top: 80, right: 372, bottom: 64, left: 64 }
+        }
+        return {
+          top: 72,
+          right: 32,
+          bottom: Math.round(window.innerHeight * 0.42) + 24,
+          left: 32,
+        }
+      }, [])
+
       // Recenter on the loaded mapped listings (R8.2).
       const handleRecenter = useCallback(() => {
         const coords = markers.map((marker) => marker.coords)
         if (coords.length === 0) return
-        mapRef.current?.recenter(coords)
-      }, [markers])
+        mapRef.current?.recenter(coords, { padding: getFitPadding() })
+      }, [getFitPadding, markers])
 
       // Fit all currently displayed locations after the map has initialized and
       // whenever background geocoding, search, or filters change the pin set.
+      // A single listing is fitted too: it previously fell through to the map's
+      // initial centre/zoom with no padding applied.
       useEffect(() => {
         const coords = markers.map((marker) => marker.coords)
-        if (coords.length < 2) return
+        if (coords.length === 0) return
 
         let attempts = 0
         let timeoutId: ReturnType<typeof setTimeout> | undefined
         const fitWhenReady = () => {
           const mapHandle = mapRef.current
           if (mapHandle?.getMap()) {
-            mapHandle.recenter(coords)
+            mapHandle.recenter(coords, { padding: getFitPadding() })
             return
           }
           attempts += 1
@@ -170,7 +190,7 @@ const LazyListingMapCanvas = lazy(() =>
         return () => {
           if (timeoutId) clearTimeout(timeoutId)
         }
-      }, [markers])
+      }, [getFitPadding, markers])
 
       // Draw-area mode is a local stub toggle for now (R8.1).
       const handleToggleDrawArea = useCallback(() => {

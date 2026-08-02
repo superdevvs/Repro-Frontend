@@ -286,6 +286,46 @@ export const markInvoiceAsPaid = async (
   return mapInvoiceResponse(invoice, invoiceId);
 };
 
+/**
+ * Send a payment reminder for an invoice.
+ *
+ * Sales reps hit their own prefixed route; admins, superadmins and editing
+ * managers share the admin one. The backend delegates to the same sender the
+ * scheduled reminder sweep uses, so a manual reminder is identical to an
+ * automatic one and is recorded the same way.
+ */
+export const sendInvoicePaymentReminder = async (
+  invoiceId: string | number,
+  options: { asSalesRep?: boolean } = {}
+): Promise<{ message: string; sent_at?: string }> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const prefix = options.asSalesRep ? 'salesrep' : 'admin';
+  const response = await fetch(
+    `${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/send-reminder`,
+    {
+      method: 'POST',
+      headers: buildHeaders(),
+    }
+  );
+
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('You do not have permission to send payment reminders');
+    }
+    // 422 carries a specific, user-meaningful reason (already paid, no contact
+    // details, not linked to a shoot) — surface it rather than a generic failure.
+    throw new Error(json.message || `Failed to send reminder: ${response.statusText}`);
+  }
+
+  return json;
+};
+
 export const addInvoiceMiscItem = async (
   invoiceId: string | number,
   payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string; dedupe_key?: string }

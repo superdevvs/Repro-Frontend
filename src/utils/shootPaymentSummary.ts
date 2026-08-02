@@ -13,6 +13,9 @@ type RawPaymentRecord = {
   refundedAt?: unknown;
   refund_status?: unknown;
   refundStatus?: unknown;
+  /** Total refunded against this payment; supports partial refunds. */
+  refunded_amount?: unknown;
+  refundedAmount?: unknown;
 };
 
 type RawPaymentContainer = {
@@ -121,8 +124,21 @@ export const sumCompletedPayments = (payments: unknown): number => {
       return sum;
     }
 
+    // Refunds reduce this payment's contribution rather than removing it.
+    // Dropping the whole row on any refund made a $50 refund against a $500
+    // payment wipe out all $500, so a partially refunded shoot looked unpaid.
+    const refundedAmount = toNumber(
+      record.refunded_amount ?? record.refundedAmount ?? 0,
+    );
     const refundStatus = String(record.refund_status ?? record.refundStatus ?? '').trim().toLowerCase();
-    if (record.refunded_at || record.refundedAt || refundStatus === 'refunded') {
+    const isFullyRefunded =
+      refundStatus === 'refunded' ||
+      Boolean(record.refunded_at || record.refundedAt) ||
+      (refundedAmount > 0 && refundedAmount + 0.01 >= toNumber(record.amount));
+
+    if (isFullyRefunded && refundedAmount <= 0) {
+      // Legacy row: flagged refunded with no amount recorded, so treat the whole
+      // payment as returned.
       return sum;
     }
 
@@ -144,7 +160,11 @@ export const sumCompletedPayments = (payments: unknown): number => {
       seenKeys.add(normalizedKey);
     }
 
-    return sum + toNumber(record.amount);
+    // Net contribution, floored at zero so an over-refunded row cannot reduce
+    // the total contributed by other payments.
+    const net = Math.max(toNumber(record.amount) - refundedAmount, 0);
+
+    return sum + net;
   }, 0);
 };
 

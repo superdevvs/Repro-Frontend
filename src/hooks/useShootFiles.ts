@@ -25,6 +25,8 @@ export interface MediaFile {
   thumb?: string;
   thumb_url?: string;
   thumbnail_url?: string;
+  /** ~1000px rendition used for desktop grid tiles. */
+  grid_url?: string;
   medium?: string;
   medium_url?: string;
   large?: string;
@@ -77,6 +79,12 @@ export interface MediaFile {
   // (Req 15.8). The frontend maps `quarantined` → "scanning" for display.
   scan_status?: ScanStatus | null;
   scanStatus?: ScanStatus | null;
+  // AI editing provenance (fal.ai / Autoenhance results created from the AI
+  // Editing workspace) so media cards can render an "AI" tag.
+  is_ai_edited?: boolean;
+  isAiEdited?: boolean;
+  ai_editing_job_id?: number | string | null;
+  aiEditingJobId?: number | string | null;
 }
 
 export type ScanStatus = 'quarantined' | 'clean' | 'infected' | 'failed';
@@ -143,6 +151,7 @@ const fetchShootFiles = async (
         thumb: f.thumb_url || f.thumb,
         thumb_url: f.thumb_url,
         thumbnail_url: f.thumbnail_url,
+        grid_url: f.grid_url,
         medium: f.medium_url || f.medium,
         medium_url: f.medium_url,
         large: f.large_url || f.large,
@@ -206,6 +215,7 @@ const fetchShootFiles = async (
       thumb: f.thumb_url || f.thumb,
       thumb_url: f.thumb_url,
       thumbnail_url: f.thumbnail_url,
+      grid_url: f.grid_url,
       medium: f.medium_url || f.medium,
       medium_url: f.medium_url,
       large: f.large_url || f.large,
@@ -266,3 +276,4 @@ export const useShootFiles = (
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 };
+

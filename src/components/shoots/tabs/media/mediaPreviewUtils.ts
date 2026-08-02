@@ -118,6 +118,28 @@ const getStrictThumbCandidates = (file: MediaFile): string[] =>
     ]),
   ];
 
+/**
+ * The ~1000px grid rendition, used for desktop media tiles.
+ *
+ * Tiles render far larger than the 300px thumbnail, so serving the thumbnail
+ * left the browser upscaling it and the result looked soft. Falls back to the
+ * web/thumbnail chain for files processed before this rendition existed.
+ */
+const getStrictGridCandidates = (file: MediaFile): string[] =>
+  [
+    ...getPreviewImageList(file),
+    ...getStrictResolvedUrls(file, [
+      'grid_url',
+      'web_url',
+      'web_path',
+      'watermarked_web_path',
+      'thumb_url',
+      'thumb',
+      'thumbnail_url',
+      'thumbnail_path',
+    ]),
+  ];
+
 const getStrictPreviewCandidates = (file: MediaFile): string[] =>
   [
     ...getPreviewImageList(file),
@@ -309,12 +331,29 @@ export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): stri
   return `${cleanedBaseName}.${extension}`;
 };
 
+/**
+ * Candidate renditions for a media tile, smallest first.
+ *
+ * Offering 300w / 1000w (and only then the 1600w preview) lets the browser pick
+ * per device: a phone keeps the small file, a desktop grid gets the sharp grid
+ * rendition, and nothing pulls the full preview for a tile.
+ */
 export const getMediaSrcSet = (file: MediaFile): string => {
   const sizes: string[] = [];
   const thumbUrl = getStrictThumbCandidates(file)[0] || '';
+  const gridUrl = getStrictGridCandidates(file)[0] || '';
   const previewUrl = getStrictPreviewCandidates(file)[0] || '';
 
-  if (thumbUrl && thumbUrl !== previewUrl) sizes.push(`${thumbUrl} 300w`);
-  if (previewUrl) sizes.push(`${previewUrl} 1600w`);
+  if (thumbUrl && thumbUrl !== gridUrl) sizes.push(`${thumbUrl} 300w`);
+  if (gridUrl) sizes.push(`${gridUrl} 1000w`);
+  if (previewUrl && previewUrl !== gridUrl) sizes.push(`${previewUrl} 1600w`);
   return sizes.join(', ');
 };
+
+/**
+ * `sizes` hint matching the media grid's responsive columns, so the browser can
+ * choose a rendition before layout. Without it a browser assumes 100vw and
+ * downloads the largest candidate.
+ */
+export const MEDIA_GRID_SIZES_ATTR =
+  '(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 320px';

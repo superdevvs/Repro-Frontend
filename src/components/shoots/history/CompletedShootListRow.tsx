@@ -19,6 +19,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
@@ -222,11 +223,6 @@ export const CompletedShootListRow = ({
     paymentSummary.totalPaid > 0
   )
   const isPaid = paymentSummary.paymentStatus === 'paid'
-  const paymentBadgeLabel = isPaid
-    ? `Paid: ${formatCurrency(paymentSummary.totalPaid)}`
-    : paymentSummary.totalPaid > 0.01
-      ? `Partial: ${formatCurrency(paymentSummary.totalPaid)}`
-      : 'Unpaid'
   const balanceDue = paymentSummary.balance
   const hasPendingPayment = isClient && balanceDue > 0.01 && paymentSummary.paymentStatus !== 'paid'
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
@@ -318,9 +314,7 @@ export const CompletedShootListRow = ({
                 </div>
               </div>
               {canShowPaymentStatus && (
-                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="h-6 shrink-0 rounded-full px-2 text-[10px] leading-none">
-                  {paymentBadgeLabel}
-                </Badge>
+                <ShootPaymentBadge shoot={shoot} size="sm" className="h-6 shrink-0 rounded-full leading-none" />
               )}
             </div>
           </div>
@@ -427,9 +421,7 @@ export const CompletedShootListRow = ({
                 </div>
               )}
               {canShowPaymentStatus && (
-                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs">
-                  {paymentBadgeLabel}
-                </Badge>
+                <ShootPaymentBadge shoot={shoot} size="sm" className="h-6 shrink-0 rounded-full leading-none" />
               )}
             </div>
             </div>
@@ -606,3 +598,4 @@ export const CompletedShootListRow = ({
     </Card>
   )
 }
+

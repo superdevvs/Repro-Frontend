@@ -1,4 +1,5 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,12 @@ import API_ROUTES from '@/lib/api';
 import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import { useQueryClient } from '@tanstack/react-query';
 
+/**
+ * How a service's photographer pay is expressed: a flat dollar amount, or a
+ * percentage of that service's price. Admins choose per service.
+ */
+type PhotographerPayType = 'fixed' | 'percent';
+
 type SqftRange = {
   id?: number;
   sqft_from: number;
@@ -46,6 +53,8 @@ type Service = {
   delivery_time?: string;
   photographer_required?: boolean;
   photographer_pay?: string | number;
+  photographer_pay_type?: PhotographerPayType;
+  photographer_pay_percent?: string | number | null;
   exclude_from_sales_commission?: boolean;
   photo_count?: number;
   quantity?: number;
@@ -83,12 +92,27 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     icon: '',
     photographer_required: false,
     photographer_pay: '',
+    photographer_pay_type: 'fixed' as PhotographerPayType,
+    photographer_pay_percent: '',
     exclude_from_sales_commission: false,
     photo_count: undefined as number | undefined,
     quantity: undefined as number | undefined,
     service_group_ids: [] as string[],
   });
   const [newSqftRanges, setNewSqftRanges] = useState<SqftRange[]>([]);
+  const isPercentPay = newService.photographer_pay_type === 'percent';
+  /**
+   * Show what the configured percentage works out to, so an admin entering "45"
+   * against a $100 service can see the $45.00 result before saving.
+   */
+  const percentPayPreview = (() => {
+    if (!isPercentPay) return '';
+    const percent = parseFloat(String(newService.photographer_pay_percent));
+    const price = parseFloat(String(newService.price));
+    if (!Number.isFinite(percent) || !Number.isFinite(price) || price <= 0) return '';
+    const amount = (price * percent) / 100;
+    return `${percent}% of $${price.toFixed(2)} = $${amount.toFixed(2)}`;
+  })();
   const { toast } = useToast();
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
   const { data: serviceGroups = [] } = useServiceGroups();
@@ -184,6 +208,8 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       icon: '',
       photographer_required: false,
       photographer_pay: '',
+      photographer_pay_type: 'fixed',
+      photographer_pay_percent: '',
       exclude_from_sales_commission: false,
       photo_count: undefined,
       quantity: undefined,
@@ -269,9 +295,19 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       photographer_required: newService.photographer_required || false,
       exclude_from_sales_commission: newService.exclude_from_sales_commission || false,
       photographer_pay: newService.photographer_required
+        && !isPercentPay
         && newService.photographer_pay !== ''
         && newService.photographer_pay != null
         ? parseFloat(String(newService.photographer_pay))
+        : null,
+      photographer_pay_type: newService.photographer_required
+        ? newService.photographer_pay_type
+        : 'fixed',
+      photographer_pay_percent: newService.photographer_required
+        && isPercentPay
+        && newService.photographer_pay_percent !== ''
+        && newService.photographer_pay_percent != null
+        ? parseFloat(String(newService.photographer_pay_percent))
         : null,
       photo_count: isNewServicePhotoCategory && newService.photo_count != null
         ? newService.photo_count
@@ -974,16 +1010,73 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
             </div>
             {newService.photographer_required && (
               <div className="space-y-2">
-                <Label htmlFor="photographer_pay">Photographer's Pay ($)</Label>
-                <Input
-                  id="photographer_pay"
-                  name="photographer_pay"
-                  type="number"
-                  step="0.01"
-                  value={newService.photographer_pay}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                />
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="photographer_pay">
+                    {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
+                  </Label>
+                  {/* Flat amount or a percentage of this service's price — admins
+                      pick per service, so both models can coexist. */}
+                  <div className="flex overflow-hidden rounded-md border border-border">
+                    <button
+                      type="button"
+                      aria-pressed={!isPercentPay}
+                      className={cn(
+                        'px-2 py-1 text-xs font-medium transition-colors',
+                        !isPercentPay
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                      onClick={() =>
+                        setNewService((prev) => ({ ...prev, photographer_pay_type: 'fixed' }))
+                      }
+                    >
+                      $
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={isPercentPay}
+                      className={cn(
+                        'px-2 py-1 text-xs font-medium transition-colors',
+                        isPercentPay
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                      onClick={() =>
+                        setNewService((prev) => ({ ...prev, photographer_pay_type: 'percent' }))
+                      }
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+                {isPercentPay ? (
+                  <>
+                    <Input
+                      id="photographer_pay"
+                      name="photographer_pay_percent"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={newService.photographer_pay_percent ?? ''}
+                      onChange={handleInputChange}
+                      placeholder="45.00"
+                    />
+                    {percentPayPreview && (
+                      <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
+                    )}
+                  </>
+                ) : (
+                  <Input
+                    id="photographer_pay"
+                    name="photographer_pay"
+                    type="number"
+                    step="0.01"
+                    value={newService.photographer_pay}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                  />
+                )}
               </div>
             )}
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">

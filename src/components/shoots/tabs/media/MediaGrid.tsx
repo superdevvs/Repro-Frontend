@@ -3,12 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play, Sparkles } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
-import { getDisplayMediaFilename, getMediaVideoUrl } from './mediaPreviewUtils';
+import {
+  MEDIA_GRID_SIZES_ATTR,
+  getDisplayMediaFilename,
+  getMediaVideoUrl,
+} from './mediaPreviewUtils';
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -942,6 +946,8 @@ export function MediaGrid({
             return hasDisplayableImage ? (
               <img
                 src={thumbSrc}
+                srcSet={getSrcSet?.(file) || undefined}
+                sizes={MEDIA_GRID_SIZES_ATTR}
                 alt={displayFilename}
                 className={getGridPreviewMediaClassName(file)}
                 loading="lazy"
@@ -1039,6 +1045,14 @@ export function MediaGrid({
             {file.comment_count}
           </div>
         )}
+
+        {/* AI badge — results produced by the AI Editing workspace (fal.ai / Autoenhance) */}
+        {(file.is_ai_edited || file.isAiEdited) && (
+          <div className="absolute bottom-2 right-2 z-[3] flex items-center gap-1 rounded-full bg-violet-600/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+            <Sparkles className="h-2.5 w-2.5" />
+            AI
+          </div>
+        )}
         
         {canSelect && (
           <div 
@@ -1127,6 +1141,8 @@ export function MediaGrid({
               return hasDisplayableImage ? (
                 <img
                   src={thumbSrc}
+                  srcSet={getSrcSet?.(file) || undefined}
+                  sizes={MEDIA_GRID_SIZES_ATTR}
                   alt={displayFilename}
                   className={getGridPreviewMediaClassName(file)}
                   loading="lazy"
@@ -1717,3 +1733,4 @@ export function MediaGrid({
     </div>
   );
 }
+

@@ -357,7 +357,10 @@ export function useShootDetailsMediaTab({
     } catch {
       // Ignore unavailable localStorage and fall back to the default sort mode.
     }
-    return 'time';
+    // Filename is the default: capture time is unreliable (files uploaded from a
+    // copied folder all share one timestamp, and `captured_at` is often absent),
+    // whereas the camera's filename counter reflects the order they were shot in.
+    return 'name';
   });
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [isDragMode, setIsDragMode] = useState(false);
@@ -662,7 +665,9 @@ export function useShootDetailsMediaTab({
           throw new Error(errorData.message || 'Failed to save file order');
         }
 
-        const orderMap = new Map(nextOrder.map((id, index) => [id, index]));
+        // 1-based, matching what the server persists, so the local copy and a
+        // subsequent refetch agree on positions.
+        const orderMap = new Map(nextOrder.map((id, index) => [id, index + 1]));
         const applyOrder = (files: MediaFile[]) =>
           files.map((file) =>
             orderMap.has(file.id) ? { ...file, sort_order: orderMap.get(file.id) ?? file.sort_order ?? 0 } : file,
