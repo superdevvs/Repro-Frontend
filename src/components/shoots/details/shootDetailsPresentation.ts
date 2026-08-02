@@ -1,5 +1,9 @@
 import { ShootData } from '@/types/shoots';
-import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import {
+  normalizeShootPaymentSummary,
+  type CanonicalPaymentStatus,
+  type ShootPaymentSummaryInput,
+} from '@/utils/shootPaymentSummary';
 import { normalizeShootDetailsStatus } from '@/components/shoots/modal/shootDetailsCapabilities';
 import { getShootStatusBadgeClass } from '@/components/shoots/history/shootHistoryUtils';
 
@@ -72,13 +76,33 @@ export const getShootDetailsStatusBadgeInfo = (status?: string | null) => {
   );
 };
 
-export const getShootDetailsPaymentStatus = (payment?: ShootData['payment']) => {
-  const paymentSummary = normalizeShootPaymentSummary({ payment });
+/**
+ * Takes the whole shoot, not its `payment` sub-object.
+ *
+ * `GET /api/shoots/{id}` does not return a nested `payment` object at all: the
+ * canonical figures arrive as top-level `payment_status`, `total_quote`,
+ * `total_paid` and `payments`. Passing `{ payment }` therefore handed the
+ * summary an empty container, `totalQuote` resolved to 0, and the
+ * "a zero-total shoot is settled" rule reported **paid** for every shoot —
+ * including one showing an outstanding balance on the same screen.
+ */
+export const getShootDetailsPaymentStatus = (
+  shoot?: ShootPaymentSummaryInput | null,
+): CanonicalPaymentStatus | null => {
+  // No shoot means unknown, not settled. Without this guard the summary sees a
+  // total of 0 and the zero-total rule reports "paid" for a shoot still loading.
+  if (!shoot) return null;
+
+  const paymentSummary = normalizeShootPaymentSummary(shoot);
   return paymentSummary.paymentStatus ?? 'unpaid';
 };
 
-export const getShootDetailsPaymentBadge = (payment?: ShootData['payment']) =>
-  shootDetailsPaymentBadgeMap[getShootDetailsPaymentStatus(payment)];
+export const getShootDetailsPaymentBadge = (shoot?: ShootPaymentSummaryInput | null) => {
+  const status = getShootDetailsPaymentStatus(shoot);
+  // Both consumers already treat a falsy badge as "render nothing", which is the
+  // right outcome for an unknown payment state.
+  return status ? shootDetailsPaymentBadgeMap[status] : undefined;
+};
 
 export const getShootDetailsCreatedByLabel = (shoot: ShootData | null) => {
   if (!shoot) return null;

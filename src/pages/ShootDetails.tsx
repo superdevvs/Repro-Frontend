@@ -198,7 +198,7 @@ const ShootDetails: React.FC = () => {
   const isAdminOrSuperAdmin = isAdmin;
   const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
-  const paymentBadge = getShootDetailsPaymentBadge(shoot?.payment);
+  const paymentBadge = getShootDetailsPaymentBadge(shoot);
   const shootServices = getShootDetailsServiceNames(shoot);
   const paymentServiceItems = useMemo(
     () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),

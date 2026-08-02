@@ -98,7 +98,11 @@ const toOptionalNumber = (value: string | number | undefined | null): number | u
   return Number.isFinite(normalized) ? normalized : undefined;
 };
 
-const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | number): InvoiceData => {
+/**
+ * Exported for tests: the status/balance rules here decide whether an invoice can be
+ * chased, so they are worth asserting against production-shaped payloads directly.
+ */
+export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | number): InvoiceData => {
   const fallbackDate = new Date().toISOString().split('T')[0];
   const issueDate = invoice.issue_date || invoice.billing_period_start || invoice.created_at || fallbackDate;
   const dueDate = invoice.due_date || invoice.billing_period_end || issueDate;
@@ -106,19 +110,46 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
   const tax = toNumber(invoice.tax ?? invoice.tax_amount ?? invoice.sales_tax, 0);
   const baseAmount = toNumber(invoice.total_amount ?? invoice.total ?? invoice.amount ?? subtotal + tax);
   const amountPaid = toNumber(invoice.amount_paid ?? invoice.paid_amount);
-  const balance = toNumber(invoice.balance_due, baseAmount - amountPaid);
+  // `balance_due` may legitimately raise the outstanding figure, but a 0 or absent
+  // value cannot settle an invoice: for client invoices the field is simply not
+  // populated. Fall back to the authoritative total-minus-paid in that case.
+  const reportedBalance = toNumber(invoice.balance_due, Number.NaN);
+  const derivedBalance = baseAmount - amountPaid;
+  const balance = Number.isFinite(reportedBalance) && reportedBalance > 0.005
+    ? reportedBalance
+    : derivedBalance;
   const invoiceNumber = String(invoice.invoice_number ?? invoice.invoiceNumber ?? invoice.id ?? fallbackId ?? '');
-  // Central rule: an invoice is only "unpaid/overdue" when it has an outstanding balance > 0.
-  // A $0.00 product/invoice (or a zero remaining balance) is always settled and must never
-  // surface as Unpaid/Overdue or appear in the unpaid section/report.
-  const hasOutstandingBalance = baseAmount > 0.01 && balance > 0.01;
-  const isPaid = !hasOutstandingBalance || invoice.is_paid || (invoice.status || '').toLowerCase() === 'paid';
-  const overdue = hasOutstandingBalance && !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
+  const rawStatus = String(invoice.status ?? '').trim().toLowerCase();
+
+  // A $0.00 invoice is settled by definition and must never surface as Unpaid/Overdue —
+  // but only when the total was actually reported. An incomplete payload carrying no
+  // total at all is unknown, not zero, and must not be relabelled paid.
+  const explicitTotal = invoice.total_amount ?? invoice.total ?? invoice.amount;
+  const hasExplicitTotal = explicitTotal !== undefined && explicitTotal !== null && explicitTotal !== '';
+  const isZeroValue = hasExplicitTotal && baseAmount <= 0.01;
+  // Paid is only ever asserted from authoritative fields: the server's own status,
+  // its is_paid flag, a zero-value invoice, or payments that actually cover the total.
+  //
+  // It is deliberately *not* inferred from the balance. `balance_due` belongs to the
+  // weekly payout model and is returned as 0 for client invoices that still owe the
+  // full amount, so treating a zero/absent balance as settled silently relabelled
+  // every `sent` invoice as `paid` and removed its Send Reminder control.
+  const settledByPayments = hasExplicitTotal && baseAmount > 0.01 && amountPaid + 0.005 >= baseAmount;
+  // Boolean() rather than `=== true` so a truthy 1 from the API still counts, while
+  // undefined/null/false correctly do not.
+  const isPaid =
+    rawStatus === 'paid'
+    || Boolean(invoice.is_paid)
+    || isZeroValue
+    || settledByPayments;
+
+  const hasOutstandingBalance = !isPaid && balance > 0.01;
+  const overdue = hasOutstandingBalance && Boolean(dueDate) && new Date(dueDate) < new Date();
   const normalizedStatus = isPaid
     ? 'paid'
     : overdue
       ? 'overdue'
-      : (invoice.status || 'pending').toLowerCase();
+      : (rawStatus || 'pending');
 
   const shoot = invoice.shoot;
   const firstShootClient = Array.isArray(invoice.shoots)

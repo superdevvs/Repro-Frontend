@@ -685,7 +685,7 @@ export function ShootDetailsModal({
       return null;
     }
 
-    const badge = getShootDetailsPaymentBadge(shoot.payment);
+    const badge = getShootDetailsPaymentBadge(shoot);
     if (!badge) return null;
 
     return <Badge variant={badge.variant}>{badge.label}</Badge>;

@@ -50,6 +50,12 @@ type RawPaymentContainer = {
   payment_type?: unknown;
 };
 
+/**
+ * The shape this module accepts: a whole shoot record, in either the API's
+ * snake_case top-level form or the legacy nested `payment` form.
+ */
+export type ShootPaymentSummaryInput = RawPaymentContainer;
+
 export type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial';
 
 export type NormalizedShootPaymentSummary = {
