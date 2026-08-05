@@ -53,6 +53,8 @@ import type { SavedView } from '@/lib/listing-presentation/types';
 import type { PrivateListing } from '@/types/privateListings';
 import {
   asListingRecord,
+  getErrorMessage,
+  getResponseErrorMessage,
   getBrandedTourUrl,
   hasListingCoords,
   formatListingPrice,
@@ -63,15 +65,6 @@ import {
   writeGeoCache,
 } from '@/utils/privateListings';
 import type { ListingRecord } from '@/utils/privateListings';
-
-const getErrorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error && error.message ? error.message : fallback;
-
-const getResponseErrorMessage = async (response: Response): Promise<string> => {
-  const payload: unknown = await response.json().catch(() => null);
-  const message = asListingRecord(payload).message;
-  return typeof message === 'string' && message ? message : `Server ${response.status}`;
-};
 
 const PrivateListingPortal = () => {
   const { toast } = useToast();
@@ -343,7 +336,10 @@ const PrivateListingPortal = () => {
 
   useEffect(() => {
     void fetchPrivateListings();
-  }, [fetchPrivateListings]);
+    // Keyed on primitives, not `fetchPrivateListings`: its identity follows `toast`,
+    // so depending on it refetched `/api/shoots` four times per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingScope, role]);
 
   useEffect(() => {
     if (addDialogOpen) void fetchDeliveredShoots();

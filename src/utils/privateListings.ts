@@ -9,6 +9,15 @@ const GEO_CACHE_KEY = 'exclusive-listing-geo-cache-v1';
 export const asListingRecord = (value: unknown): ListingRecord =>
   value !== null && typeof value === 'object' ? value as ListingRecord : {};
 
+export const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback;
+
+export const getResponseErrorMessage = async (response: Response): Promise<string> => {
+  const payload: unknown = await response.json().catch(() => null);
+  const message = asListingRecord(payload).message;
+  return typeof message === 'string' && message ? message : `Server ${response.status}`;
+};
+
 const optionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value : undefined;
 
