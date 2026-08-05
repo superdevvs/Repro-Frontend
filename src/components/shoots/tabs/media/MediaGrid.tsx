@@ -1,101 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play, Sparkles } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
-import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
+import { sortMediaFiles } from './mediaSort';
+import { MediaTileBadges } from './MediaTileBadges';
 import {
   MEDIA_GRID_SIZES_ATTR,
   getDisplayMediaFilename,
   getMediaVideoUrl,
 } from './mediaPreviewUtils';
-import { normalizeImageUrl } from '@/utils/imageUrl';
-import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
-interface SortableItemWrapperProps {
-  id: string;
-  children: (args: {
-    attributes: ReturnType<typeof useSortable>['attributes'];
-    listeners: ReturnType<typeof useSortable>['listeners'];
-    isDragging: boolean;
-  }) => React.ReactNode;
-}
-
-function SortableItemWrapper({ id, children }: SortableItemWrapperProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 10 : 'auto',
-      }}
-    >
-      {children({ attributes, listeners, isDragging })}
-    </div>
-  );
-}
-// Media Grid Component
-interface MediaGridProps {
-  files: MediaFile[];
-  onFileClick: (index: number, sortedFiles: MediaFile[]) => void;
-  selectedFiles: Set<string>;
-  onSelectionChange: (fileId: string) => void;
-  onSelectAll?: () => void;
-  canSelect: boolean;
-  sortOrder?: MediaSortOrder;
-  manualSortActive?: boolean;
-  manualOrder?: string[];
-  onManualOrderChange?: (newOrder: string[]) => void;
-  getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
-  getSrcSet: (file: MediaFile) => string;
-  isImage: (file: MediaFile) => boolean;
-  isVideo?: (file: MediaFile) => boolean;
-  viewMode?: 'list' | 'grid';
-  isClient?: boolean;
-  toggleFileHidden?: (fileId: string, hidden: boolean) => void;
-  separateExtras?: boolean;
-  canInteractSingleMedia?: boolean;
-  canDownloadSingleMedia?: boolean;
-  onToggleFavorite?: (fileId: string) => void;
-  onAddComment?: (fileId: string, comment: string) => void;
-  onDownloadSingle?: (fileId: string) => void;
-  enableRawStacks?: boolean;
-  rawStackSize?: number | null;
-  /**
-   * Optional renderer for the scan-status badge (Req 15.5/15.8). When
-   * provided, the grid renders the returned node alongside each file's
-   * filename in both grid and row views — this is how the admin Dashboard
-   * surfaces virus-scan state. Returning `null` for a given file (or
-   * leaving the prop unset) hides the badge entirely. The parent decides
-   * which roles see the badge and wires the rescan retry control.
-   */
-  renderScanStatus?: (file: MediaFile) => React.ReactNode | null;
-}
-
-interface MediaStack {
-  id: string;
-  files: MediaFile[];
-  // First file encountered in input order (i.e. respects the user's chosen sort).
-  // `files` may be reordered (e.g. by sequence for hover rotation), but the cover
-  // tile must keep following the active sort so the dropdown visibly works.
-  coverFile: MediaFile;
-  expectedSize: number;
-}
-
-const MAX_CAPTURED_TIME_STACK_SIZE = 7;
-const CAPTURED_BRACKET_GAP_SECONDS = 15;
-const FILENAME_OUTER_GAP_SECONDS = 120;
-const MAX_FILENAME_SEQUENCE_STACK_SIZE = 7;
-const VIDEO_URL_EXTENSION_REGEX = /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)(?:$|[?#])/i;
+import { buildMediaStacks, type MediaStack } from './mediaGridStacks';
+import type { MediaGridProps } from './mediaGridTypes';
+import { SortableMediaItem } from './SortableMediaItem';
+import { useMediaGridDragAndDrop } from './useMediaGridDragAndDrop';
+import { useMediaGridActions } from './useMediaGridActions';
+import {
+  formatMediaDateTime,
+  formatMediaFileSize,
+  getGridPreviewMediaClassName,
+  getHiddenMediaClassName,
+  getMediaResolution,
+  hasDisplayableStillThumbnail,
+} from './mediaGridPresentation';
+import { HiddenMediaOverlay } from './HiddenMediaOverlay';
+import { MediaGridLayout } from './MediaGridLayout';
 
 export function MediaGrid({ 
   files, 
@@ -126,10 +56,6 @@ export function MediaGrid({
   renderScanStatus,
 }: MediaGridProps) {
   const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [commentPopoverFileId, setCommentPopoverFileId] = useState<string | null>(null);
-  const [commentDraft, setCommentDraft] = useState('');
   const [stackPreviewIndexes, setStackPreviewIndexes] = useState<Record<string, number>>({});
   const [hoveredStackId, setHoveredStackId] = useState<string | null>(null);
 
@@ -153,293 +79,15 @@ export function MediaGrid({
       : null;
   const shouldStackRawFiles = enableRawStacks && viewMode === 'grid' && !isManualSortEnabled;
 
-  const parseCapturedSecond = (value?: string) => {
-    if (!value) {
-      return null;
-    }
-
-    const normalizedValue = value.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-    const timestamp = Date.parse(normalizedValue);
-
-    return Number.isNaN(timestamp) ? null : Math.floor(timestamp / 1000);
-  };
-
-  const parseFilenameParts = (filename: string): { prefix: string; sequence: number } | null => {
-    const nameWithoutExtension = (filename || '').replace(/\.[^.]+$/, '');
-    const match = /^(.*?)(\d+)(?!.*\d)/.exec(nameWithoutExtension);
-    if (!match) {
-      return null;
-    }
-    const sequence = Number(match[2]);
-    if (!Number.isFinite(sequence)) {
-      return null;
-    }
-    return { prefix: match[1] ?? '', sequence };
-  };
-
-  const getPositiveNumber = (value: unknown) => {
-    const numberValue = Number(value);
-    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
-  };
-
-  const getStackOrderSecond = (file: MediaFile) =>
-    parseCapturedSecond(file.captured_at) ?? parseCapturedSecond(file.created_at);
-
-  const compareRawStackingOrder = (left: MediaFile, right: MediaFile) => {
-    const leftTime = getStackOrderSecond(left);
-    const rightTime = getStackOrderSecond(right);
-    if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
-      return leftTime - rightTime;
-    }
-
-    const leftFilenameParts = parseFilenameParts(left.filename);
-    const rightFilenameParts = parseFilenameParts(right.filename);
-    if (leftFilenameParts && rightFilenameParts) {
-      const prefixCompare = leftFilenameParts.prefix.localeCompare(rightFilenameParts.prefix, undefined, { numeric: true });
-      if (prefixCompare !== 0) {
-        return prefixCompare;
-      }
-
-      if (leftFilenameParts.sequence !== rightFilenameParts.sequence) {
-        return leftFilenameParts.sequence - rightFilenameParts.sequence;
-      }
-    }
-
-    return (left.filename || '').localeCompare(right.filename || '', undefined, { numeric: true });
-  };
-
-  const compareStackMembers = (left: MediaFile, right: MediaFile) => {
-    const leftSequence = getPositiveNumber(left.sequence);
-    const rightSequence = getPositiveNumber(right.sequence);
-    if (leftSequence !== null && rightSequence !== null && leftSequence !== rightSequence) {
-      return leftSequence - rightSequence;
-    }
-
-    return compareRawStackingOrder(left, right);
-  };
-
-  const isRawStackCandidate = (file: MediaFile) =>
-    !file.isExtra &&
-    !isVideo?.(file) &&
-    ((file.media_type || '').toLowerCase() === 'raw' || isRawFile(file.filename));
-
-  const buildMediaStacks = (stackFiles: MediaFile[]): MediaStack[] => {
-    if (!shouldStackRawFiles) {
-      return stackFiles.map((file) => ({ id: file.id, files: [file], coverFile: file, expectedSize: 1 }));
-    }
-
-    const normalizeStack = (stack: MediaStack): MediaStack[] => {
-      if (stack.files.length <= 1) {
-        return [{ ...stack, expectedSize: 1 }];
-      }
-
-      return [{
-        ...stack,
-        expectedSize: stack.files.length > 1 ? Math.max(stack.expectedSize, stack.files.length) : 1,
-      }];
-    };
-
-    const stacks: MediaStack[] = [];
-    let currentStack: MediaStack | null = null;
-
-    const rawCandidates = stackFiles.filter(isRawStackCandidate);
-    const rawCandidatesWithGroup = rawCandidates.filter((file) => getPositiveNumber(file.bracket_group) !== null);
-
-    if (normalizedRawStackSize || rawCandidatesWithGroup.length > 0) {
-      const rawStackByFileId = new Map<string, MediaStack>();
-      const bracketGroups = new Map<number, MediaFile[]>();
-      const ungroupedRawFiles: MediaFile[] = [];
-
-      rawCandidates.forEach((file) => {
-        const bracketGroup = getPositiveNumber(file.bracket_group);
-        if (bracketGroup !== null) {
-          const groupFiles = bracketGroups.get(bracketGroup) ?? [];
-          groupFiles.push(file);
-          bracketGroups.set(bracketGroup, groupFiles);
-          return;
-        }
-
-        ungroupedRawFiles.push(file);
-      });
-
-      const getCoverFile = (groupFiles: MediaFile[]) =>
-        groupFiles.reduce((currentCover, candidate) => {
-          const currentIndex = stackFiles.findIndex((file) => file.id === currentCover.id);
-          const candidateIndex = stackFiles.findIndex((file) => file.id === candidate.id);
-          return candidateIndex >= 0 && (currentIndex < 0 || candidateIndex < currentIndex)
-            ? candidate
-            : currentCover;
-        }, groupFiles[0]);
-
-      const registerStack = (id: string, groupFiles: MediaFile[], expectedSize: number) => {
-        if (groupFiles.length === 0) {
-          return;
-        }
-
-        const stack: MediaStack = {
-          id,
-          files: [...groupFiles].sort(compareStackMembers),
-          coverFile: getCoverFile(groupFiles),
-          expectedSize,
-        };
-
-        stack.files.forEach((file) => rawStackByFileId.set(file.id, stack));
-      };
-
-      const bracketStackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
-      bracketGroups.forEach((groupFiles, bracketGroup) => {
-        const orderedGroupFiles = [...groupFiles].sort(compareStackMembers);
-        for (let startIndex = 0; startIndex < orderedGroupFiles.length; startIndex += bracketStackLimit) {
-          const stackFilesChunk = orderedGroupFiles.slice(startIndex, startIndex + bracketStackLimit);
-          registerStack(
-            `bracket-${bracketGroup}:${Math.floor(startIndex / bracketStackLimit)}`,
-            stackFilesChunk,
-            normalizedRawStackSize ?? stackFilesChunk.length,
-          );
-        }
-      });
-
-      if (normalizedRawStackSize) {
-        const orderedRawFiles = [...ungroupedRawFiles].sort(compareRawStackingOrder);
-        for (let startIndex = 0; startIndex < orderedRawFiles.length; startIndex += normalizedRawStackSize) {
-          const stackFilesChunk = orderedRawFiles.slice(startIndex, startIndex + normalizedRawStackSize);
-          registerStack(
-            `raw-chunk:${startIndex}`,
-            stackFilesChunk,
-            stackFilesChunk.length > 1 ? normalizedRawStackSize : 1,
-          );
-        }
-      }
-
-      const emittedStackIds = new Set<string>();
-      const orderedStacks: MediaStack[] = [];
-      stackFiles.forEach((file) => {
-        const rawStack = rawStackByFileId.get(file.id);
-        if (rawStack) {
-          if (!emittedStackIds.has(rawStack.id)) {
-            orderedStacks.push(rawStack);
-            emittedStackIds.add(rawStack.id);
-          }
-          return;
-        }
-
-        orderedStacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
-      });
-
-      return orderedStacks.flatMap(normalizeStack);
-    }
-
-    const bracketStacksByKey = new Map<string, MediaStack>();
-
-    stackFiles.forEach((file) => {
-      if (!isRawStackCandidate(file)) {
-        currentStack = null;
-        stacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
-        return;
-      }
-
-      const bracketGroup =
-        file.bracket_group === null || file.bracket_group === undefined
-          ? null
-          : Number(file.bracket_group);
-      const capturedSecond = parseCapturedSecond(file.captured_at);
-      const filenameParts = parseFilenameParts(file.filename);
-      const baseKey = typeof bracketGroup === 'number' && Number.isFinite(bracketGroup) && bracketGroup > 0
-        ? `bracket-${bracketGroup}`
-        : null;
-      const bracketStackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
-
-      if (baseKey) {
-        const existingBracketStack = bracketStacksByKey.get(baseKey);
-        if (existingBracketStack && existingBracketStack.files.length < bracketStackLimit) {
-          existingBracketStack.files.push(file);
-          existingBracketStack.expectedSize =
-            normalizedRawStackSize ?? existingBracketStack.files.length;
-          currentStack = existingBracketStack;
-          return;
-        }
-
-        const newBracketStack: MediaStack = {
-          id: `${baseKey}:${stacks.length}`,
-          files: [file],
-          coverFile: file,
-          expectedSize: normalizedRawStackSize ?? 1,
-        };
-        bracketStacksByKey.set(baseKey, newBracketStack);
-        stacks.push(newBracketStack);
-        currentStack = newBracketStack;
-        return;
-      }
-
-      // Combined time + filename grouping for non-bracket-tagged files.
-      const previousFile = currentStack?.files[currentStack.files.length - 1];
-      const previousCapturedSecond = parseCapturedSecond(previousFile?.captured_at);
-      const previousFilenameParts = previousFile ? parseFilenameParts(previousFile.filename) : null;
-      const burstStackLimit =
-        normalizedRawStackSize ?? Math.max(MAX_CAPTURED_TIME_STACK_SIZE, MAX_FILENAME_SEQUENCE_STACK_SIZE);
-      const isBurstStack = currentStack?.id.startsWith('burst:') ?? false;
-
-      const timeDelta =
-        capturedSecond !== null && previousCapturedSecond !== null
-          ? Math.abs(capturedSecond - previousCapturedSecond)
-          : null;
-      const isTimeClose = timeDelta !== null && timeDelta <= CAPTURED_BRACKET_GAP_SECONDS;
-      const isTimeWithinOuterBound = timeDelta === null || timeDelta <= FILENAME_OUTER_GAP_SECONDS;
-
-      const filenameDelta =
-        filenameParts !== null && previousFilenameParts !== null
-          ? Math.abs(filenameParts.sequence - previousFilenameParts.sequence)
-          : null;
-      const isFilenameConsecutive =
-        filenameParts !== null &&
-        previousFilenameParts !== null &&
-        filenameParts.prefix === previousFilenameParts.prefix &&
-        filenameDelta === 1;
-      const isFilenameContradictory =
-        filenameParts !== null &&
-        previousFilenameParts !== null &&
-        (filenameParts.prefix !== previousFilenameParts.prefix ||
-          (filenameDelta !== null && filenameDelta !== 1));
-
-      // Merge into the current burst stack when:
-      //   - time is close AND filename isn't contradictory, OR
-      //   - filename is consecutive AND time is within outer bound (covers minute-boundary / slow saves).
-      const shouldContinue =
-        isBurstStack &&
-        currentStack !== null &&
-        currentStack.files.length < burstStackLimit &&
-        ((isTimeClose && !isFilenameContradictory) ||
-          (isFilenameConsecutive && isTimeWithinOuterBound));
-
-      if (shouldContinue && currentStack) {
-        currentStack.files.push(file);
-        currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
-        return;
-      }
-
-      // Start a new burst candidate stack when we at least have a time or filename signal.
-      if (capturedSecond !== null || filenameParts !== null) {
-        currentStack = {
-          id: `burst:${stacks.length}`,
-          files: [file],
-          coverFile: file,
-          expectedSize: normalizedRawStackSize ?? 1,
-        };
-        stacks.push(currentStack);
-        return;
-      }
-
-      currentStack = null;
-      stacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
-    });
-
-    // Keep `files` in insertion order (which already matches the user's sort),
-    // so the cover tile AND the hover-rotation both follow the active sort.
-
-    return stacks.flatMap(normalizeStack);
-  };
-
-  const regularStacks = buildMediaStacks(regularFiles);
+  const regularStacks = useMemo(
+    () =>
+      buildMediaStacks(regularFiles, {
+        shouldStackRawFiles,
+        normalizedRawStackSize,
+        isVideo,
+      }),
+    [isVideo, normalizedRawStackSize, regularFiles, shouldStackRawFiles],
+  );
   useEffect(() => {
     if (!hoveredStackId) {
       return undefined;
@@ -464,338 +112,38 @@ export function MediaGrid({
     return () => window.clearInterval(intervalId);
   }, [hoveredStackId, regularStacks]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 150,
-        tolerance: 8,
-      },
-    }),
-  );
-
-  // Handle drag start
-  const handleDragStart = (e: React.DragEvent, fileId: string) => {
-    if (!isManualSortEnabled) return;
-    setDraggedId(fileId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', fileId);
-  };
-
-  // Handle drag over
-  const handleDragOver = (e: React.DragEvent, fileId: string) => {
-    if (!isManualSortEnabled || !draggedId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (fileId !== draggedId) {
-      setDragOverId(fileId);
-    }
-  };
-
-  // Handle drag leave
-  const handleDragLeave = () => {
-    setDragOverId(null);
-  };
-
-  // Handle drop
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!isManualSortEnabled || !draggedId || draggedId === targetId) {
-      setDraggedId(null);
-      setDragOverId(null);
-      return;
-    }
-
-    const currentOrder = normalizeManualOrder(visibleRegularIds, regularFiles);
-    const selectedBlock = currentOrder.filter((id) => selectedFiles.has(id));
-    const draggedBlock = selectedFiles.has(draggedId) && selectedBlock.length > 1 ? selectedBlock : [draggedId];
-    const sourceStartIndex = Math.min(...draggedBlock.map((id) => currentOrder.indexOf(id)).filter((index) => index >= 0));
-    const targetIndex = currentOrder.indexOf(targetId);
-
-    if (draggedBlock.includes(targetId)) {
-      setDraggedId(null);
-      setDragOverId(null);
-      return;
-    }
-
-    if (targetIndex !== -1 && sourceStartIndex !== Number.POSITIVE_INFINITY) {
-      const remainingOrder = currentOrder.filter((id) => !draggedBlock.includes(id));
-      const remainingTargetIndex = remainingOrder.indexOf(targetId);
-      const insertIndex = sourceStartIndex < targetIndex ? remainingTargetIndex + 1 : remainingTargetIndex;
-      remainingOrder.splice(insertIndex, 0, ...draggedBlock);
-      onManualOrderChange?.(remainingOrder);
-    }
-
-    setDraggedId(null);
-    setDragOverId(null);
-  };
-
-  // Handle drag end
-  const handleDragEnd = () => {
-    setDraggedId(null);
-    setDragOverId(null);
-  };
-
-  const handleManualSortEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!isManualSortEnabled || !over || active.id === over.id) {
-      return;
-    }
-
-    const currentOrder = normalizeManualOrder(visibleRegularIds, regularFiles);
-    const activeId = String(active.id);
-    const overId = String(over.id);
-    const selectedBlock = currentOrder.filter((id) => selectedFiles.has(id));
-    const draggedBlock = selectedFiles.has(activeId) && selectedBlock.length > 1 ? selectedBlock : [activeId];
-
-    if (draggedBlock.includes(overId)) {
-      return;
-    }
-
-    const sourceStartIndex = Math.min(...draggedBlock.map((id) => currentOrder.indexOf(id)).filter((index) => index >= 0));
-    const targetIndex = currentOrder.indexOf(overId);
-    if (sourceStartIndex === Number.POSITIVE_INFINITY || targetIndex === -1) {
-      return;
-    }
-
-    if (draggedBlock.length === 1) {
-      const oldIndex = currentOrder.indexOf(activeId);
-      const newIndex = currentOrder.indexOf(overId);
-      onManualOrderChange?.(arrayMove(currentOrder, oldIndex, newIndex));
-      return;
-    }
-
-    const remainingOrder = currentOrder.filter((id) => !draggedBlock.includes(id));
-    const remainingTargetIndex = remainingOrder.indexOf(overId);
-    const insertIndex = sourceStartIndex < targetIndex ? remainingTargetIndex + 1 : remainingTargetIndex;
-    remainingOrder.splice(insertIndex, 0, ...draggedBlock);
-    onManualOrderChange?.(remainingOrder);
-  };
+  const {
+    draggedId,
+    dragOverId,
+    sensors,
+    handleDragStart,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleDragEnd,
+    handleManualSortEnd,
+  } = useMediaGridDragAndDrop({
+    enabled: isManualSortEnabled,
+    visibleRegularIds,
+    regularFiles,
+    selectedFiles,
+    onManualOrderChange,
+  });
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
-  const getLatestCommentText = (file: MediaFile) =>
-    file.latest_comment?.comment?.trim() ||
-    file.comments?.[file.comments.length - 1]?.comment?.trim() ||
-    '';
-  const handleCommentPopoverChange = (fileId: string, open: boolean) => {
-    if (open) {
-      setCommentPopoverFileId(fileId);
-      setCommentDraft('');
-      return;
-    }
+  const {
+    getLatestCommentText,
+    renderCommentAction,
+    renderSingleMediaActions,
+  } = useMediaGridActions({
+    canInteractSingleMedia,
+    canDownloadSingleMedia,
+    isClient,
+    toggleFileHidden,
+    onToggleFavorite,
+    onAddComment,
+    onDownloadSingle,
+  });
 
-    if (commentPopoverFileId === fileId) {
-      setCommentPopoverFileId(null);
-      setCommentDraft('');
-    }
-  };
-  const submitInlineComment = (fileId: string) => {
-    if (!onAddComment) {
-      return;
-    }
-
-    const trimmedComment = commentDraft.trim();
-    if (!trimmedComment) {
-      return;
-    }
-
-    onAddComment(fileId, trimmedComment);
-    setCommentPopoverFileId(null);
-    setCommentDraft('');
-  };
-  const renderCommentAction = (file: MediaFile, buttonClassName: string) => {
-    if (!canInteractSingleMedia || !onAddComment) {
-      return null;
-    }
-
-    const displayFilename = getDisplayMediaFilename(file) || file.filename;
-
-    return (
-      <Popover
-        open={commentPopoverFileId === file.id}
-        onOpenChange={(open) => handleCommentPopoverChange(file.id, open)}
-      >
-        <PopoverTrigger asChild>
-          <button
-            className={buttonClassName}
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-            title="Add comment"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          side="bottom"
-          className="z-[80] w-80 rounded-xl border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Comment on image</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">{displayFilename}</p>
-            </div>
-            <Textarea
-              value={commentDraft}
-              onChange={(event) => setCommentDraft(event.target.value)}
-              placeholder="Add a quick note for this image..."
-              className="min-h-[88px] resize-none"
-            />
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCommentPopoverFileId(null);
-                  setCommentDraft('');
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  submitInlineComment(file.id);
-                }}
-                disabled={!commentDraft.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-  const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
-    const showHiddenToggle = Boolean(toggleFileHidden) && !isClient;
-    if (!canInteractSingleMedia && !showHiddenToggle) {
-      return null;
-    }
-
-    const isCommentPopoverOpen = commentPopoverFileId === file.id;
-
-    return (
-      <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${alwaysVisible || isCommentPopoverOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        {canInteractSingleMedia && onToggleFavorite && (
-          <button
-            className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_favorite ? 'bg-red-500/90 text-white' : 'bg-black/55 text-white'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(file.id);
-            }}
-            title={file.is_favorite ? 'Unlike image' : 'Like image'}
-          >
-            <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
-          </button>
-        )}
-        {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
-        {canDownloadSingleMedia && onDownloadSingle && (
-          <button
-            className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDownloadSingle(file.id);
-            }}
-            title="Download image"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {showHiddenToggle && (
-          <button
-            className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_hidden ? 'bg-yellow-500/90 text-white opacity-100' : 'bg-black/55 text-white'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFileHidden?.(file.id, !file.is_hidden);
-            }}
-            title={file.is_hidden ? 'Unhide image' : 'Hide image'}
-          >
-            {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  // Helper function to format file size
-  const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return '-';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
-
-  // Helper function to format date/time
-  const formatDateTime = (dateStr?: string): string => {
-    if (!dateStr) return 'Not available';
-    // EXIF stores capture time as "YYYY:MM:DD HH:MM:SS" (colons in the date), which
-    // JS Date cannot parse and would render as "Invalid Date". Normalize the date
-    // portion to "YYYY-MM-DD" first, then guard against any remaining unparseable value.
-    const normalized = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-    const date = new Date(normalized);
-    if (Number.isNaN(date.getTime())) return 'Not available';
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  // Helper function to get resolution string
-  const getResolution = (file: MediaFile): string => {
-    if (file.width && file.height) {
-      return `${file.width} × ${file.height}`;
-    }
-    return '-';
-  };
-  const getHiddenMediaClassName = (file: MediaFile) =>
-    file.is_hidden ? 'blur-[1px] brightness-[0.92]' : '';
-  const getGridPreviewMediaClassName = (file: MediaFile) =>
-    `absolute inset-0 h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`;
-  const getVideoThumbnailSource = (file: MediaFile): string =>
-    getMediaVideoUrl(file) || getImageUrl(file, 'original');
-  const isSameResolvedUrl = (left?: string | null, right?: string | null): boolean => {
-    if (!left || !right) return false;
-    return normalizeImageUrl(left) === normalizeImageUrl(right);
-  };
-  const isLikelyVideoUrl = (value?: string | null): boolean =>
-    Boolean(value && VIDEO_URL_EXTENSION_REGEX.test(value));
-  const hasDisplayableStillThumbnail = (
-    file: MediaFile,
-    thumbSrc: string,
-    videoSrc: string,
-    isVid: boolean,
-    hasProcessedThumb: boolean,
-  ): boolean => {
-    if (!hasProcessedThumb || !thumbSrc) return false;
-    if (!isVid) return true;
-
-    return !isSameResolvedUrl(thumbSrc, videoSrc) && !isLikelyVideoUrl(thumbSrc);
-  };
-  const renderHiddenMediaOverlay = () => (
-    <>
-      <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />
-      <div className="absolute inset-x-3 bottom-3 z-[3] flex items-center justify-center pointer-events-none">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
-          <EyeOff className="h-3.5 w-3.5" />
-          <span>Hidden</span>
-        </div>
-      </div>
-    </>
-  );
-  
   const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false, stack?: MediaStack) => {
     const isSelected = selectedFiles.has(file.id);
     const isImg = isImage(file);
@@ -804,7 +152,7 @@ export function MediaGrid({
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
-    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
+    const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
     
     // Find the actual index in the full sorted array for viewer
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
@@ -879,13 +227,12 @@ export function MediaGrid({
                   const stackIsVid = isVideo?.(stackFile) ?? false;
                   const stackThumbUrl = getImageUrl(stackFile, 'thumb');
                   const stackDisplayFilename = getDisplayMediaFilename(stackFile) || stackFile.filename;
-                  const stackVideoSrc = stackIsVid ? getVideoThumbnailSource(stackFile) : '';
+                  const stackVideoSrc = stackIsVid ? (getMediaVideoUrl(stackFile) || getImageUrl(stackFile, 'original')) : '';
                   const stackThumbSrc = stackThumbUrl || stackFile.thumb || '';
                   const hasProcessedStackThumb = stackIsRaw
                     ? !!(stackFile.thumbnail_path || stackFile.web_path)
                     : true;
                   const hasDisplayableStackImage = hasDisplayableStillThumbnail(
-                    stackFile,
                     stackThumbSrc,
                     stackVideoSrc,
                     stackIsVid,
@@ -925,7 +272,6 @@ export function MediaGrid({
             : true;
           const thumbSrc = thumbUrl || file.thumb || '';
           const hasDisplayableImage = hasDisplayableStillThumbnail(
-            file,
             thumbSrc,
             videoThumbSrc,
             isVid,
@@ -971,7 +317,6 @@ export function MediaGrid({
               : true;
             const thumbSrc = thumbUrl || file.thumb || '';
             const hasDisplayableImage = hasDisplayableStillThumbnail(
-              file,
               thumbSrc,
               videoThumbSrc,
               isVid,
@@ -996,7 +341,7 @@ export function MediaGrid({
         )}
 
         {/* Hidden overlay */}
-        {file.is_hidden && renderHiddenMediaOverlay()}
+        {file.is_hidden && <HiddenMediaOverlay />}
 
         {hasStack && (
           <>
@@ -1026,19 +371,7 @@ export function MediaGrid({
 
         {renderSingleMediaActions(file)}
 
-        {/* Extra badge */}
-        {file.isExtra && (
-          <div className="absolute top-1 left-1 bg-orange-500 text-white text-[8px] px-1 py-0.5 rounded font-medium">
-            EXTRA
-          </div>
-        )}
-        
-        {/* Hero badge */}
-        {file.is_cover && !file.isExtra && (
-          <div className="absolute top-1 left-1 bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded font-medium">
-            HERO
-          </div>
-        )}
+        <MediaTileBadges file={file} />
         {Number(file.comment_count ?? 0) > 0 && (
           <div className="absolute bottom-2 left-2 bg-white/90 text-slate-900 text-[10px] px-1.5 py-0.5 rounded-full font-medium z-[3] flex items-center gap-1">
             <MessageSquare className="h-3 w-3" />
@@ -1046,14 +379,6 @@ export function MediaGrid({
           </div>
         )}
 
-        {/* AI badge — results produced by the AI Editing workspace (fal.ai / Autoenhance) */}
-        {(file.is_ai_edited || file.isAiEdited) && (
-          <div className="absolute bottom-2 right-2 z-[3] flex items-center gap-1 rounded-full bg-violet-600/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-            <Sparkles className="h-2.5 w-2.5" />
-            AI
-          </div>
-        )}
-        
         {canSelect && (
           <div 
             className={`absolute z-[3] ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity`}
@@ -1103,12 +428,12 @@ export function MediaGrid({
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
-    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
+    const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const latestCommentText = getLatestCommentText(file);
 
     return (
-      <SortableItemWrapper key={file.id} id={file.id}>
+      <SortableMediaItem key={file.id} id={file.id}>
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`relative rounded-xl overflow-hidden border transition-all group select-none bg-card flex flex-col ${
@@ -1121,7 +446,6 @@ export function MediaGrid({
               const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
               const thumbSrc = thumbUrl || file.thumb || '';
               const hasDisplayableImage = hasDisplayableStillThumbnail(
-                file,
                 thumbSrc,
                 videoThumbSrc,
                 isVid,
@@ -1163,7 +487,6 @@ export function MediaGrid({
                 const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
                 const thumbSrc = thumbUrl || file.thumb || '';
                 const hasDisplayableImage = hasDisplayableStillThumbnail(
-                  file,
                   thumbSrc,
                   videoThumbSrc,
                   isVid,
@@ -1186,8 +509,9 @@ export function MediaGrid({
               </div>
             )}
 
-            {file.is_hidden && renderHiddenMediaOverlay()}
+            {file.is_hidden && <HiddenMediaOverlay />}
 
+            <MediaTileBadges file={file} />
             {renderSingleMediaActions(file)}
 
             <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1237,7 +561,7 @@ export function MediaGrid({
             </div>
           </div>
         )}
-      </SortableItemWrapper>
+      </SortableMediaItem>
     );
   };
 
@@ -1249,7 +573,7 @@ export function MediaGrid({
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
-    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
+    const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
@@ -1260,7 +584,6 @@ export function MediaGrid({
       : true;
     const thumbSrc = imageUrl || file.thumb || '';
     const hasDisplayableImage = hasDisplayableStillThumbnail(
-      file,
       thumbSrc,
       videoThumbSrc,
       isVid,
@@ -1338,18 +661,14 @@ export function MediaGrid({
               </div>
             </div>
           )}
-          {file.isExtra && (
-            <div className="absolute top-0.5 left-0.5 bg-orange-500 text-white text-[6px] px-0.5 py-0 rounded font-medium">
-              EXTRA
-            </div>
-          )}
+          <MediaTileBadges file={file} variant="list" />
           {Number(file.comment_count ?? 0) > 0 && (
             <div className="absolute bottom-1 left-1 bg-white/90 text-slate-900 text-[9px] px-1 py-0.5 rounded-full font-medium flex items-center gap-1">
               <MessageSquare className="h-2.5 w-2.5" />
               {file.comment_count}
             </div>
           )}
-          {file.is_hidden && renderHiddenMediaOverlay()}
+          {file.is_hidden && <HiddenMediaOverlay />}
         </div>
 
         {/* Filename - takes remaining space */}
@@ -1368,7 +687,7 @@ export function MediaGrid({
           )}
           {!isClient && (
             <p className="text-[10px] text-muted-foreground sm:hidden">
-              {formatDateTime(file.captured_at || file.created_at)}
+              {formatMediaDateTime(file.captured_at || file.created_at)}
             </p>
           )}
         </div>
@@ -1378,13 +697,13 @@ export function MediaGrid({
             {/* Shot Time - fixed width on right */}
             <div className="hidden sm:block w-36 flex-shrink-0 text-right">
               <p className="text-[10px] text-muted-foreground">Shot Time</p>
-              <p className="text-xs">{formatDateTime(file.captured_at || file.created_at)}</p>
+              <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
             </div>
 
             {/* Size - fixed width on right */}
             <div className="hidden sm:block w-20 flex-shrink-0 text-right">
               <p className="text-[10px] text-muted-foreground">Size</p>
-              <p className="text-xs">{formatFileSize(file.fileSize)}</p>
+              <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
             </div>
           </>
         )}
@@ -1441,12 +760,11 @@ export function MediaGrid({
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
-    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
+    const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
     const thumbSrc = imageUrl || file.thumb || '';
     const hasDisplayableImage = hasDisplayableStillThumbnail(
-      file,
       thumbSrc,
       videoThumbSrc,
       isVid,
@@ -1455,7 +773,7 @@ export function MediaGrid({
     const latestCommentText = getLatestCommentText(file);
 
     return (
-      <SortableItemWrapper key={file.id} id={file.id}>
+      <SortableMediaItem key={file.id} id={file.id}>
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
@@ -1519,7 +837,8 @@ export function MediaGrid({
                   <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
                 </div>
               </div>
-              {file.is_hidden && renderHiddenMediaOverlay()}
+              <MediaTileBadges file={file} variant="list" />
+              {file.is_hidden && <HiddenMediaOverlay />}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -1537,7 +856,7 @@ export function MediaGrid({
               )}
               {!isClient && (
                 <p className="text-[10px] text-muted-foreground sm:hidden">
-                  {formatDateTime(file.captured_at || file.created_at)}
+                  {formatMediaDateTime(file.captured_at || file.created_at)}
                 </p>
               )}
             </div>
@@ -1546,11 +865,11 @@ export function MediaGrid({
               <>
                 <div className="hidden sm:block w-36 flex-shrink-0 text-right">
                   <p className="text-[10px] text-muted-foreground">Shot Time</p>
-                  <p className="text-xs">{formatDateTime(file.captured_at || file.created_at)}</p>
+                  <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
                 </div>
                 <div className="hidden sm:block w-20 flex-shrink-0 text-right">
                   <p className="text-[10px] text-muted-foreground">Size</p>
-                  <p className="text-xs">{formatFileSize(file.fileSize)}</p>
+                  <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
                 </div>
               </>
             )}
@@ -1597,140 +916,31 @@ export function MediaGrid({
             </div>
           </div>
         )}
-      </SortableItemWrapper>
+      </SortableMediaItem>
     );
   };
 
-  if (viewMode === 'grid') {
-    return (
-      <div className="space-y-2">
-        {/* Select all for grid view */}
-        {canSelect && files.length > 0 && (
-          <div className="flex items-center gap-2 px-1 py-1">
-            <div 
-              className="cursor-pointer hover:text-foreground transition-colors text-muted-foreground"
-              onClick={onSelectAll}
-              title={selectedFiles.size === files.length ? 'Deselect All' : 'Select All'}
-            >
-              {selectedFiles.size === files.length ? (
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-              ) : selectedFiles.size > 0 ? (
-                <MinusCircle className="h-4 w-4" />
-              ) : (
-                <Circle className="h-4 w-4" />
-              )}
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              {selectedFiles.size > 0 ? `${selectedFiles.size} selected` : 'Select all'}
-            </span>
-          </div>
-        )}
-        {showMultiSortHint && (
-          <div className="px-1 text-[11px] text-muted-foreground">
-            Select multiple images, then drag one to move the group.
-          </div>
-        )}
-
-        {/* Regular files - grid */}
-        {isManualSortEnabled ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleManualSortEnd}>
-            <SortableContext items={visibleRegularIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-                {regularFiles.map((file, index) => renderSortableFileCard(file, index))}
-              </div>
-          </SortableContext>
-        </DndContext>
-      ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-            {regularStacks.map((stack, index) => renderStackCard(stack, index))}
-          </div>
-        )}
-
-        {/* Extra files section with separator */}
-        {extraFiles.length > 0 && (
-          <>
-            <div className="flex items-center gap-2 py-2">
-              <div className="flex-1 h-px bg-orange-500/30" />
-              <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">
-                Extras ({extraFiles.length})
-              </span>
-              <div className="flex-1 h-px bg-orange-500/30" />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-              {extraFiles.map((file, index) => renderFileCard(file, index, true))}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-2">
-      {/* Header row - visible on larger screens */}
-      <div className="hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
-        {canSelect && (
-          <div 
-            className="w-4 flex-shrink-0 cursor-pointer hover:text-foreground transition-colors"
-            onClick={onSelectAll}
-            title={selectedFiles.size === files.length ? 'Deselect All' : 'Select All'}
-          >
-            {selectedFiles.size === files.length ? (
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-            ) : selectedFiles.size > 0 ? (
-              <MinusCircle className="h-4 w-4" />
-            ) : (
-              <Circle className="h-4 w-4" />
-            )}
-          </div>
-        )}
-        <div className="w-28 flex-shrink-0">Preview</div>
-        <div className="flex-1">Filename</div>
-        {!isClient && (
-          <>
-            <div className="w-36 flex-shrink-0" aria-hidden="true"></div>
-            <div className="w-20 flex-shrink-0" aria-hidden="true"></div>
-          </>
-        )}
-        <div className="w-6 flex-shrink-0"></div>
-      </div>
-      {showMultiSortHint && (
-        <div className="px-2 text-[11px] text-muted-foreground">
-          Select multiple images, then drag one to move the group.
-        </div>
-      )}
-
-      {/* Regular files */}
-      {isManualSortEnabled ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleManualSortEnd}>
-          <SortableContext items={visibleRegularIds} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1">
-              {regularFiles.map((file, index) => renderSortableFileRow(file, index))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      ) : (
-        <div className="space-y-1">
-          {regularFiles.map((file, index) => renderFileRow(file, index, false))}
-        </div>
-      )}
-      
-      {/* Extra files section with separator */}
-      {extraFiles.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 py-2">
-            <div className="flex-1 h-px bg-orange-500/30" />
-            <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">
-              Extras ({extraFiles.length})
-            </span>
-            <div className="flex-1 h-px bg-orange-500/30" />
-          </div>
-          <div className="space-y-1">
-            {extraFiles.map((file, index) => renderFileRow(file, index, true))}
-          </div>
-        </>
-      )}
-    </div>
+    <MediaGridLayout
+      viewMode={viewMode}
+      canSelect={canSelect}
+      isClient={isClient}
+      files={files}
+      selectedFiles={selectedFiles}
+      onSelectAll={onSelectAll}
+      showMultiSortHint={showMultiSortHint}
+      isManualSortEnabled={isManualSortEnabled}
+      sensors={sensors}
+      onManualSortEnd={handleManualSortEnd}
+      visibleRegularIds={visibleRegularIds}
+      regularFiles={regularFiles}
+      regularStacks={regularStacks}
+      extraFiles={extraFiles}
+      renderFileCard={renderFileCard}
+      renderStackCard={renderStackCard}
+      renderSortableFileCard={renderSortableFileCard}
+      renderFileRow={renderFileRow}
+      renderSortableFileRow={renderSortableFileRow}
+    />
   );
 }
-

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   DollarSign,
   CheckCircle,
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { AccountingMode } from "@/config/accountingConfig";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SegmentedDays } from "./OverviewCards";
+import type { ShootData } from '@/types/shoots';
 import {
   calculatePercentageTrend,
   getEarningsDateRange,
@@ -36,9 +37,29 @@ interface RoleBasedOverviewCardsProps {
   daysWindow?: number;
   onDaysWindowChange?: (value: number) => void;
   // Role-specific data
-  shoots?: any[];
-  editingJobs?: any[];
+  shoots?: ShootData[];
+  editingJobs?: EditingJob[];
 }
+
+type InvoiceWithAliases = InvoiceData & {
+  clientId?: string | number;
+  created_at?: string;
+  paid_at?: string;
+  updated_at?: string;
+  updatedAt?: string;
+};
+
+type EditingJob = {
+  editor_id?: string | number;
+  editorId?: string | number;
+  completed_at?: string;
+  completedAt?: string;
+  completedDate?: string;
+  pay?: string | number;
+  payAmount?: string | number;
+  payout_status?: string;
+  payoutStatus?: string;
+};
 
 export function RoleBasedOverviewCards({ 
   invoices, 
@@ -55,30 +76,32 @@ export function RoleBasedOverviewCards({
   const handleDaysWindowChange = onDaysWindowChange ?? setLocalDaysWindow;
 
   // Helper to get date from invoice
-  const getInvoiceDate = (inv: any): Date | null => {
-    const maybe = inv.dueDate ?? inv.date ?? inv.createdAt ?? inv.created_at;
+  const getInvoiceDate = (inv: InvoiceData): Date | null => {
+    const invoice = inv as InvoiceWithAliases;
+    const maybe = invoice.dueDate ?? invoice.date ?? invoice.createdAt ?? invoice.created_at;
     if (!maybe) return null;
     const d = new Date(maybe);
     return isNaN(d.getTime()) ? null : d;
   };
 
-  const getInvoicePaidDate = (inv: any): Date | null => {
-    const maybe = inv.paidAt ?? inv.paid_at ?? inv.updated_at ?? inv.updatedAt;
+  const getInvoicePaidDate = (inv: InvoiceData): Date | null => {
+    const invoice = inv as InvoiceWithAliases;
+    const maybe = invoice.paidAt ?? invoice.paid_at ?? invoice.updated_at ?? invoice.updatedAt;
     if (!maybe) return null;
     const d = new Date(maybe);
     return isNaN(d.getTime()) ? null : d;
   };
 
-  const isInvoiceForCurrentClient = (inv: InvoiceData) => {
+  const isInvoiceForCurrentClient = useCallback((inv: InvoiceData) => {
     if (!user) return false;
-    const invoiceClientId = (inv.client_id ?? (inv as any).clientId) as unknown;
+    const invoiceClientId = inv.client_id ?? (inv as InvoiceWithAliases).clientId;
     if (invoiceClientId != null && user.id != null) {
       return String(invoiceClientId) === String(user.id);
     }
     const invoiceClientName = (inv.client || '').trim().toLowerCase();
     const userName = String(user.name || '').trim().toLowerCase();
     return Boolean(invoiceClientName && userName && invoiceClientName === userName);
-  };
+  }, [user]);
 
   const daysBetween = (d: Date) => {
     const now = new Date();
@@ -185,25 +208,25 @@ export function RoleBasedOverviewCards({
 
       case 'editor': {
         // Filter editing jobs for this editor
-        const myJobs = editingJobs.filter((j: any) => j.editor_id === user?.id || j.editorId === user?.id);
-        const completedThisMonth = myJobs.filter((j: any) => {
-          const completed = j.completed_at || j.completedAt || j.completedDate;
+        const myJobs = editingJobs.filter((job) => job.editor_id === user?.id || job.editorId === user?.id);
+        const completedThisMonth = myJobs.filter((job) => {
+          const completed = job.completed_at || job.completedAt || job.completedDate;
           if (!completed) return false;
           const d = new Date(completed);
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
-        const totalEarnings = completedThisMonth.reduce((sum: number, j: any) => {
-          return sum + (Number(j.pay || j.payAmount || 0));
+        const totalEarnings = completedThisMonth.reduce((sum, job) => {
+          return sum + Number(job.pay || job.payAmount || 0);
         }, 0);
 
         const pendingPayouts = myJobs
-          .filter((j: any) => {
-            const status = j.payout_status || j.payoutStatus;
-            return (j.completed_at || j.completedAt || j.completedDate) && (status === 'pending' || status === 'unpaid');
+          .filter((job) => {
+            const status = job.payout_status || job.payoutStatus;
+            return (job.completed_at || job.completedAt || job.completedDate) && (status === 'pending' || status === 'unpaid');
           })
-          .reduce((sum: number, j: any) => {
-            return sum + (Number(j.pay || j.payAmount || 0));
+          .reduce((sum, job) => {
+            return sum + Number(job.pay || job.payAmount || 0);
           }, 0);
 
         const avgPayPerJob = completedThisMonth.length > 0 
@@ -259,7 +282,7 @@ export function RoleBasedOverviewCards({
       default:
         return {};
     }
-  }, [mode, invoices, shoots, editingJobs, user, effectiveDaysWindow]);
+  }, [mode, invoices, shoots, editingJobs, user, effectiveDaysWindow, isInvoiceForCurrentClient, timeFilter]);
 
   // Fake trend data (replace with real data)
   const trends = {

@@ -6,7 +6,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
 const distAssetsDir = path.join(repoRoot, 'dist', 'assets');
 
-const MAX_JS_BYTES = Number.parseInt(process.env.MAX_JS_BUNDLE_BYTES ?? '1200000', 10);
+const MAX_JS_BYTES = Number.parseInt(process.env.MAX_JS_BUNDLE_BYTES ?? '512000', 10);
 const MAX_CSS_BYTES = Number.parseInt(process.env.MAX_CSS_BUNDLE_BYTES ?? '325000', 10);
 
 const formatSize = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;

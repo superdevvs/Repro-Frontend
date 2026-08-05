@@ -133,6 +133,7 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   shoot_delivered: 'Shoot Delivered',
   email_received: 'Email Received',
   email_sent: 'Email Sent',
+  internal_message_received: 'New Dashboard Message',
 };
 
 const SYSTEM_NOTIFICATION_ACTIONS = new Set([
@@ -230,25 +231,31 @@ const buildSmsNotification = (
 
 const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string>): NotificationItem => {
   const isInbound = event.direction === 'INBOUND';
+  const isInternal = event.provider === 'INTERNAL';
   const id = `email-${event.id}`;
-  
-  const title = isInbound 
-    ? 'New Email Received' 
-    : 'Email Sent';
+
+  const title = isInternal
+    ? 'New Dashboard Message'
+    : isInbound
+      ? 'New Email Received'
+      : 'Email Sent';
   const senderName = event.sender_display_name || event.from_address;
   const subjectPreview = event.subject ? event.subject.substring(0, 50) : '(No Subject)';
+  const bodyPreview = event.body_text?.trim().substring(0, 90);
   
   return {
     id,
     title,
-    message: isInbound 
-      ? `From ${senderName}: ${subjectPreview}`
-      : `To ${event.to_address}: ${subjectPreview}`,
+    message: isInternal
+      ? `From ${senderName}: ${bodyPreview || subjectPreview}`
+      : isInbound
+        ? `From ${senderName}: ${subjectPreview}`
+        : `To ${event.to_address}: ${subjectPreview}`,
     type: 'messages',
     isRead: readIds.has(id),
     date: event.created_at || new Date().toISOString(),
-    actionUrl: '/messaging/email/inbox',
-    actionLabel: 'View Email',
+    actionUrl: isInternal ? `/messaging/email/inbox?message=${event.id}` : '/messaging/email/inbox',
+    actionLabel: isInternal ? 'View message' : 'View Email',
   };
 };
 
@@ -471,12 +478,18 @@ export const useNotifications = () => {
   // Email real-time events - all authenticated users can receive email notifications
   useEmailRealtime({
     onEmailReceived: (email) => {
+      if (email.send_source === 'INTERNAL_MESSAGE_NOTIFICATION') return;
+      if (email.sender_user_id && Number(email.sender_user_id) === Number(user?.id)) return;
+      if (normalizeNotificationRole(role) === 'client' && email.provider !== 'INTERNAL') return;
       const notification = buildEmailNotification(email, readIdsRef.current);
       addNotification(notification, { showToast: true });
     },
     onEmailSent: (email) => {
+      if (email.send_source === 'INTERNAL_MESSAGE_NOTIFICATION') return;
+      if (email.sender_user_id && Number(email.sender_user_id) === Number(user?.id)) return;
+      if (normalizeNotificationRole(role) === 'client' && email.provider !== 'INTERNAL') return;
       const notification = buildEmailNotification(email, readIdsRef.current);
-      addNotification(notification, { showToast: false }); // Don't toast for sent emails
+      addNotification(notification, { showToast: email.provider === 'INTERNAL' });
     },
   });
 

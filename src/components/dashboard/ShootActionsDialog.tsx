@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { ShootData } from '@/types/shoots';
 import { RescheduleDialog } from './RescheduleDialog';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { useToast } from '@/hooks/use-toast';
 
 interface ShootActionsDialogProps {

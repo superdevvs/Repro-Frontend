@@ -1,0 +1,43 @@
+.listingOverlay {
+  background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 5%) 0%,
+    rgb(255 255 255 / 2%) 22%,
+    rgb(255 255 255 / 18%) 50%,
+    rgb(255 255 255 / 42%) 66%,
+    rgb(255 255 255 / 86%) 84%,
+    rgb(255 255 255 / 98%) 100%
+  );
+}
+
+.listingFloor {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(255 255 255 / 40%) 20%,
+    rgb(255 255 255 / 78%) 52%,
+    rgb(255 255 255 / 98%) 100%
+  );
+}
+
+:global(.dark) .listingOverlay {
+  background: linear-gradient(
+    180deg,
+    rgb(6 10 14 / 10%) 0%,
+    rgb(6 10 14 / 2%) 22%,
+    rgb(6 10 14 / 18%) 50%,
+    rgb(6 10 14 / 36%) 66%,
+    rgb(6 10 14 / 80%) 84%,
+    rgb(6 10 14 / 96%) 100%
+  );
+}
+
+:global(.dark) .listingFloor {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(6 10 14 / 32%) 20%,
+    rgb(6 10 14 / 68%) 52%,
+    rgb(6 10 14 / 94%) 100%
+  );
+}

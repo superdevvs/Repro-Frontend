@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
@@ -23,8 +23,33 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
+import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
+
+type ExclusiveListingShoot = ShootData & {
+  bedrooms?: string | number | null;
+  bathrooms?: string | number | null;
+  sqft?: string | number | null;
+  price?: string | number | null;
+  mls_number?: string | number | null;
+  floorplans?: unknown[];
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const firstString = (...values: unknown[]): string | undefined => {
+  const value = values.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return typeof value === 'string' ? value : undefined;
+};
+
+const listingValue = (...values: unknown[]): string | number | null | undefined => {
+  for (const value of values) {
+    if (value === null) return null;
+    if (typeof value === 'string' || typeof value === 'number') return value;
+  }
+  return undefined;
+};
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -82,7 +107,7 @@ const normalizeStatusKey = (value?: string | null) => {
   return map[key] || key;
 };
 
-const normalizeFloorplanLinks = (shoot: any): Array<{ label: string; url: string }> => {
+const normalizeFloorplanLinks = (shoot?: ExclusiveListingShoot | null): Array<{ label: string; url: string }> => {
   const rawItems = [
     ...(Array.isArray(shoot?.cubicasaFloorplans) ? shoot.cubicasaFloorplans : []),
     ...(Array.isArray(shoot?.cubicasa_floorplans) ? shoot.cubicasa_floorplans : []),
@@ -98,22 +123,25 @@ const normalizeFloorplanLinks = (shoot: any): Array<{ label: string; url: string
         return { label: `Floor Plan ${index + 1}`, url: item };
       }
 
-      const url =
-        item?.url ||
-        item?.download_url ||
-        item?.downloadUrl ||
-        item?.pdf_url ||
-        item?.pdfUrl ||
-        item?.image_url ||
-        item?.imageUrl ||
-        item?.href ||
-        item?.path;
+      const itemRecord = asRecord(item);
+      const url = firstString(
+        itemRecord.url,
+        itemRecord.download_url,
+        itemRecord.downloadUrl,
+        itemRecord.pdf_url,
+        itemRecord.pdfUrl,
+        itemRecord.image_url,
+        itemRecord.imageUrl,
+        itemRecord.href,
+        itemRecord.path,
+      );
 
       if (!url) return null;
 
       return {
-        label: item?.label || item?.name || item?.title || item?.type || `Floor Plan ${index + 1}`,
-        url: String(url),
+        label: firstString(itemRecord.label, itemRecord.name, itemRecord.title, itemRecord.type)
+          || `Floor Plan ${index + 1}`,
+        url,
       };
     })
     .filter((item): item is { label: string; url: string } => Boolean(item?.url))
@@ -148,11 +176,11 @@ export default function ExclusiveListingDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [shoot, setShoot] = useState<ShootData | null>(null);
+  const [shoot, setShoot] = useState<ExclusiveListingShoot | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
 
-  const loadShoot = async () => {
+  const loadShoot = useCallback(async () => {
     if (!id) return;
     try {
       setLoading(true);
@@ -166,65 +194,33 @@ export default function ExclusiveListingDetails() {
 
       if (!res.ok) throw new Error('Failed to fetch listing');
 
-      const json = await res.json();
-      const shootData = (json.data || json) as any;
-
-      if (shootData) {
-        // Normalize location
-        if (!shootData.location && (shootData.address || shootData.city)) {
-          shootData.location = {
-            address: shootData.address || '',
-            city: shootData.city || '',
-            state: shootData.state || '',
-            zip: shootData.zip || '',
-            fullAddress: shootData.fullAddress || shootData.address || '',
-          };
-        }
-
-        const paymentSummary = normalizeShootPaymentSummary(shootData);
-
-        if (!shootData.payment) {
-          shootData.payment = {
-            baseQuote: paymentSummary.baseQuote,
-            taxRate: paymentSummary.taxRate,
-            taxAmount: paymentSummary.taxAmount,
-            totalQuote: paymentSummary.totalQuote,
-            totalPaid: paymentSummary.totalPaid,
-            lastPaymentDate: paymentSummary.lastPaymentDate,
-            lastPaymentType: paymentSummary.lastPaymentType,
-          };
-        } else {
-          shootData.payment = {
-            ...shootData.payment,
-            baseQuote: paymentSummary.baseQuote,
-            taxRate: paymentSummary.taxRate,
-            taxAmount: paymentSummary.taxAmount,
-            totalQuote: paymentSummary.totalQuote,
-            totalPaid: paymentSummary.totalPaid,
-            lastPaymentDate: paymentSummary.lastPaymentDate ?? shootData.payment.lastPaymentDate,
-            lastPaymentType: paymentSummary.lastPaymentType ?? shootData.payment.lastPaymentType,
-          };
-        }
-
-        shootData.heroImage = shootData.heroImage || shootData.hero_image;
-        shootData.workflowStatus = shootData.workflowStatus || shootData.workflow_status;
-        shootData.isPrivateListing = Boolean(shootData.is_private_listing ?? shootData.isPrivateListing ?? shootData.isPrivateListing);
-      }
-
+      const json: unknown = await res.json();
+      const jsonRecord = asRecord(json);
+      const rawShoot = asRecord(jsonRecord.data ?? json);
+      if (rawShoot.id === undefined || rawShoot.id === null) throw new Error('Listing data is invalid');
+      const propertyDetails = asRecord(rawShoot.property_details ?? rawShoot.propertyDetails);
+      const shootData: ExclusiveListingShoot = {
+        ...transformShootFromApi(rawShoot as ApiShoot),
+        bedrooms: listingValue(rawShoot.bedrooms, propertyDetails.bedrooms, propertyDetails.beds),
+        bathrooms: listingValue(rawShoot.bathrooms, propertyDetails.bathrooms, propertyDetails.baths),
+        sqft: listingValue(rawShoot.sqft, propertyDetails.sqft, propertyDetails.squareFeet),
+        price: listingValue(rawShoot.price, propertyDetails.price),
+        mls_number: listingValue(rawShoot.mls_number, propertyDetails.mls_number, propertyDetails.mlsNumber),
+        floorplans: Array.isArray(rawShoot.floorplans) ? rawShoot.floorplans : undefined,
+      };
       setShoot(shootData);
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: 'Error', description: e?.message || 'Failed to load listing', variant: 'destructive' });
+    } catch (error: unknown) {
+      console.error(error);
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to load listing', variant: 'destructive' });
       setShoot(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, toast]);
 
   useEffect(() => {
     loadShoot();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [loadShoot]);
 
   const statusKey = normalizeStatusKey(shoot?.workflowStatus || shoot?.status);
   const statusCfg = statusBadgeMap[statusKey] || { label: statusKey || 'Unknown', variant: 'outline' as const };
@@ -235,7 +231,7 @@ export default function ExclusiveListingDetails() {
   }, [shoot]);
 
   const bathroomDisplay = useMemo(() => {
-    return getBathroomMetricDisplay((shoot as any)?.bathrooms);
+    return getBathroomMetricDisplay(shoot?.bathrooms);
   }, [shoot]);
 
   const isPaid = useMemo(() => {
@@ -266,15 +262,17 @@ export default function ExclusiveListingDetails() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to generate share link' }));
-        throw new Error(errorData.error || 'Failed to generate share link');
+        const errorData: unknown = await res.json().catch(() => null);
+        throw new Error(firstString(asRecord(errorData).error) || 'Failed to generate share link');
       }
 
-      const data = await res.json();
-      await navigator.clipboard.writeText(data.share_link);
+      const data: unknown = await res.json();
+      const shareLink = firstString(asRecord(data).share_link);
+      if (!shareLink) throw new Error('Share link response is invalid');
+      await navigator.clipboard.writeText(shareLink);
       toast({ title: 'Share link generated!', description: 'Link copied to clipboard. Lifetime link.' });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to generate share link', variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate share link', variant: 'destructive' });
     } finally {
       setIsGeneratingShareLink(false);
     }
@@ -361,38 +359,38 @@ export default function ExclusiveListingDetails() {
                     Ref ID: <span className="text-foreground font-medium">{shoot.id}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {(shoot as any)?.listing_type && (
+                    {shoot.listingType && (
                       <Badge className={`${
-                        (shoot as any).listing_type === 'for_rent'
+                        shoot.listingType === 'for_rent'
                           ? 'bg-blue-500 hover:bg-blue-600'
                           : 'bg-green-500 hover:bg-green-600'
                       } text-white border-0`}>
                         <Tag className="h-3 w-3 mr-1" />
-                        {(shoot as any).listing_type === 'for_rent' ? 'For Rent' : 'For Sale'}
+                        {shoot.listingType === 'for_rent' ? 'For Rent' : 'For Sale'}
                       </Badge>
                     )}
-                    {(shoot as any)?.price && (
+                    {shoot.price && (
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <div className="text-xs text-muted-foreground">Price</div>
-                          <div className="font-medium">${Number((shoot as any).price).toLocaleString()}</div>
+                          <div className="font-medium">${Number(shoot.price).toLocaleString()}</div>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {((shoot as any)?.bedrooms || (shoot as any)?.bathrooms || (shoot as any)?.sqft || (shoot as any)?.price || (shoot as any)?.mls_number) && (
+                {(shoot.bedrooms || shoot.bathrooms || shoot.sqft || shoot.price || shoot.mls_number) && (
                   <div className="rounded-lg border bg-muted/30 p-4">
                     <div className="mb-3 text-sm font-medium">Property Details</div>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                      {(shoot as any)?.bedrooms && (
+                      {shoot.bedrooms && (
                         <div className="flex items-center gap-2">
                           <Home className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <div className="text-xs text-muted-foreground">Beds</div>
-                            <div className="font-medium">{(shoot as any).bedrooms}</div>
+                            <div className="font-medium">{shoot.bedrooms}</div>
                           </div>
                         </div>
                       )}
@@ -405,29 +403,29 @@ export default function ExclusiveListingDetails() {
                           </div>
                         </div>
                       )}
-                      {(shoot as any)?.sqft && (
+                      {shoot.sqft && (
                         <div className="flex items-center gap-2">
                           <Ruler className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <div className="text-xs text-muted-foreground">Sq Ft</div>
-                            <div className="font-medium">{Number((shoot as any).sqft).toLocaleString()}</div>
+                            <div className="font-medium">{Number(shoot.sqft).toLocaleString()}</div>
                           </div>
                         </div>
                       )}
-                      {(shoot as any)?.price && (
+                      {shoot.price && (
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <div className="text-xs text-muted-foreground">Price</div>
-                            <div className="font-medium">${Number((shoot as any).price).toLocaleString()}</div>
+                            <div className="font-medium">${Number(shoot.price).toLocaleString()}</div>
                           </div>
                         </div>
                       )}
                     </div>
-                    {(shoot as any)?.mls_number && (
+                    {shoot.mls_number && (
                       <div className="mt-3 border-t pt-3">
                         <div className="text-xs text-muted-foreground">MLS #</div>
-                        <div className="font-medium">{(shoot as any).mls_number}</div>
+                        <div className="font-medium">{shoot.mls_number}</div>
                       </div>
                     )}
                   </div>

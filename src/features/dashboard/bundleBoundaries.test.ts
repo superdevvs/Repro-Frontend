@@ -24,7 +24,7 @@ const collectSourceFiles = (directory: string): string[] => {
 
 describe("app-wide bundle boundaries", () => {
   it("keeps PDF and spreadsheet libraries out of static imports", () => {
-    const staticHeavyImport = /^\s*import\s+(?:[^'"]+\s+from\s+)?['"](jspdf|xlsx)['"]/m;
+    const staticHeavyImport = /^\s*import\s+(?:[^'"]+\s+from\s+)?['"](jspdf|write-excel-file\/browser)['"]/m;
     const offenders = collectSourceFiles(srcRoot).filter((filePath) =>
       staticHeavyImport.test(readFileSync(filePath, "utf8")),
     );

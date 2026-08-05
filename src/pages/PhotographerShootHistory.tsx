@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Calendar, Clock, MapPin, ChevronRight, Building, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -148,19 +148,7 @@ describe('CommandBar', () => {
 
     const austin = await screen.findByText('Austin')
 
-    // Selecting a suggestion runs `onSearchChange(value)` and then
-    // `setOpen(false)`, which unmounts cmdk's CommandList in the same commit.
-    // cmdk's internal group-recalculation layout effect then dereferences the
-    // now-null list ref (`Array.from(listRef.current?.querySelectorAll(...))`)
-    // and throws under jsdom. That teardown crash happens AFTER our handler has
-    // already fired, so we tolerate only that specific library error while
-    // keeping the wiring assertion strict — any other error re-throws.
-    try {
-      await user.click(austin)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (!/is not iterable/.test(message)) throw error
-    }
+    await user.click(austin)
 
     expect(onSearchChange).toHaveBeenLastCalledWith('Austin')
   })

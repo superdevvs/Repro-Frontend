@@ -6,7 +6,7 @@ import type { NormalizedPropertyDetails } from '@/utils/shootTourData'
 
 type SourceMapValue = string | number | null | undefined
 
-type SourceMap = Record<string, SourceMapValue>
+type SourceMap = Record<string, unknown>
 
 type ShootWithLegacyMls = ShootData & {
   mls_id?: SourceMapValue

@@ -1,5 +1,5 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { transformShootFromApi } from '@/context/ShootsContext';
+import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
 import { API_BASE_URL } from '@/config/env';
 import { blurActiveElement } from '../dialogFocusUtils';
 import type { ShootData } from '@/types/shoots';
@@ -16,6 +16,19 @@ interface UseShootDetailsModalSaveParams {
   canNotifyClient: boolean;
   canNotifyPhotographer: boolean;
 }
+
+type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services'> & {
+  photographer?: ShootData['photographer'] | null;
+  services?: unknown[];
+  service_items?: unknown[];
+  service_photographers?: unknown[];
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const optionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value : undefined;
 
 const hasOwn = (value: unknown, key: PropertyKey): boolean =>
   value !== null && value !== undefined && Object.prototype.hasOwnProperty.call(value, key);
@@ -77,7 +90,7 @@ export function useShootDetailsModalSave({
 
   // Handle save changes
   const handleSaveChanges = async (
-    updates: Partial<ShootData>,
+    updates: ShootSaveUpdates,
     notifyOptions?: { notifyClient?: boolean; notifyPhotographer?: boolean },
   ) => {
     if (!shoot) {
@@ -117,7 +130,6 @@ export function useShootDetailsModalSave({
       const payload: Record<string, unknown> = {};
       
       // Map updates to API format (support snake_case from API)
-      const shootAny = shoot as any;
       if (hasOwn(updates, 'scheduledDate')) {
         payload.scheduled_date = normalizeNullableString(updates.scheduledDate);
       }
@@ -195,7 +207,7 @@ export function useShootDetailsModalSave({
       // Property details (beds, baths, sqft, access info)
       if (hasOwn(updates, 'propertyDetails')) {
         // Ensure numeric fields are properly converted to numbers
-        const propertyDetails: any = { ...updates.propertyDetails };
+        const propertyDetails: Record<string, unknown> = { ...updates.propertyDetails };
 
         const bedroomsValue = toNullableInteger(propertyDetails.beds ?? propertyDetails.bedrooms);
         const bathroomsValue = toNullableNumber(propertyDetails.baths ?? propertyDetails.bathrooms);
@@ -259,13 +271,14 @@ export function useShootDetailsModalSave({
       
       // Services - convert to API format
       if (hasOwn(updates, 'services') && Array.isArray(updates.services)) {
-        const servicesPayload = updates.services.map((service: any) => {
+        const servicesPayload = updates.services.map((service) => {
           if (typeof service === 'string') {
             // If it's just a string (service name), we can't update it without ID
             // Return null to skip
             return null;
           }
-          const rawServiceId = service.id ?? service.service_id;
+          const serviceRecord = asRecord(service);
+          const rawServiceId = serviceRecord.id ?? serviceRecord.service_id;
           if (rawServiceId !== undefined && rawServiceId !== null) {
             // Ensure service ID is a number
             const serviceId = typeof rawServiceId === 'string'
@@ -273,42 +286,42 @@ export function useShootDetailsModalSave({
               : Number(rawServiceId);
             
             if (!isNaN(serviceId) && serviceId > 0) {
-              const serviceData: any = {
+              const serviceData: Record<string, unknown> = {
                 id: serviceId,
-                quantity: service.quantity || 1,
+                quantity: serviceRecord.quantity || 1,
               };
               
               // Include price if provided
-              if (service.price !== undefined && service.price !== null) {
-                const price = typeof service.price === 'string' 
-                  ? parseFloat(service.price) 
-                  : Number(service.price);
+              if (serviceRecord.price !== undefined && serviceRecord.price !== null) {
+                const price = typeof serviceRecord.price === 'string'
+                  ? parseFloat(serviceRecord.price)
+                  : Number(serviceRecord.price);
                 if (!isNaN(price) && price >= 0) {
                   serviceData.price = price;
                 }
               }
               
               // Include photographer_pay if provided
-              if (service.photographer_pay !== undefined && service.photographer_pay !== null) {
-                const photographerPay = typeof service.photographer_pay === 'string' 
-                  ? parseFloat(service.photographer_pay) 
-                  : Number(service.photographer_pay);
+              if (serviceRecord.photographer_pay !== undefined && serviceRecord.photographer_pay !== null) {
+                const photographerPay = typeof serviceRecord.photographer_pay === 'string'
+                  ? parseFloat(serviceRecord.photographer_pay)
+                  : Number(serviceRecord.photographer_pay);
                 if (!isNaN(photographerPay) && photographerPay >= 0) {
                   serviceData.photographer_pay = photographerPay;
                 }
               }
 
-              if (service.scheduled_at !== undefined) {
-                serviceData.scheduled_at = normalizeNullableString(service.scheduled_at);
+              if (serviceRecord.scheduled_at !== undefined) {
+                serviceData.scheduled_at = normalizeNullableString(serviceRecord.scheduled_at);
               }
-              if (service.photographer_id !== undefined) {
-                serviceData.photographer_id = toNullableInteger(service.photographer_id);
+              if (serviceRecord.photographer_id !== undefined) {
+                serviceData.photographer_id = toNullableInteger(serviceRecord.photographer_id);
               }
-              if (service.editor_id !== undefined) {
-                serviceData.editor_id = toNullableInteger(service.editor_id);
+              if (serviceRecord.editor_id !== undefined) {
+                serviceData.editor_id = toNullableInteger(serviceRecord.editor_id);
               }
-              if (service.is_deliverable !== undefined) {
-                serviceData.is_deliverable = Boolean(service.is_deliverable);
+              if (serviceRecord.is_deliverable !== undefined) {
+                serviceData.is_deliverable = Boolean(serviceRecord.is_deliverable);
               }
               
               return serviceData;
@@ -321,16 +334,17 @@ export function useShootDetailsModalSave({
         console.log('💾 Services update:', servicesPayload);
       }
 
-      if (hasOwn(updates as any, 'service_items') && Array.isArray((updates as any).service_items)) {
-        const serviceItemsPayload = (updates as any).service_items.map((serviceItem: any) => {
-          if (!serviceItem || typeof serviceItem !== 'object') return null;
+      if (hasOwn(updates, 'service_items') && Array.isArray(updates.service_items)) {
+        const serviceItemsPayload = updates.service_items.map((value) => {
+          if (!value || typeof value !== 'object') return null;
+          const serviceItem = asRecord(value);
           const rawServiceId = serviceItem.service_id ?? serviceItem.id;
           const serviceId = typeof rawServiceId === 'string'
             ? parseInt(rawServiceId, 10)
             : Number(rawServiceId);
           if (!Number.isFinite(serviceId) || serviceId <= 0) return null;
 
-          const itemData: any = {
+          const itemData: Record<string, unknown> = {
             service_id: serviceId,
             quantity: serviceItem.quantity || 1,
           };
@@ -384,8 +398,8 @@ export function useShootDetailsModalSave({
       }
 
       // Per-service photographer assignments
-      if (hasOwn(updates, 'service_photographers') && Array.isArray((updates as any).service_photographers)) {
-        payload.service_photographers = (updates as any).service_photographers;
+      if (hasOwn(updates, 'service_photographers') && Array.isArray(updates.service_photographers)) {
+        payload.service_photographers = updates.service_photographers;
         console.log('💾 Service photographers update:', payload.service_photographers);
       }
       
@@ -488,7 +502,7 @@ export function useShootDetailsModalSave({
       if (!res.ok) {
         // Try to get error message from response
         let errorMessage = 'Failed to update shoot';
-        let errorData: any = null;
+        let errorData: Record<string, unknown> | null = null;
         
         try {
           // Try to read response as text first to see what we got
@@ -497,7 +511,7 @@ export function useShootDetailsModalSave({
           
           if (responseText) {
             try {
-              errorData = JSON.parse(responseText);
+              errorData = asRecord(JSON.parse(responseText) as unknown);
               console.error('💾 Save error response (parsed):', errorData);
             } catch (parseError) {
               // Response is not JSON, use the text as error message
@@ -507,8 +521,9 @@ export function useShootDetailsModalSave({
           
           // Handle validation errors
           if (errorData) {
-            if (errorData.errors && typeof errorData.errors === 'object') {
-              const errorMessages = Object.entries(errorData.errors)
+            const validationErrors = asRecord(errorData.errors);
+            if (Object.keys(validationErrors).length > 0) {
+              const errorMessages = Object.entries(validationErrors)
                 .map(([key, value]) => {
                   if (Array.isArray(value)) {
                     return `${key}: ${value.join(', ')}`;
@@ -516,11 +531,11 @@ export function useShootDetailsModalSave({
                   return `${key}: ${value}`;
                 })
                 .join('; ');
-              errorMessage = errorMessages || errorData.message || errorMessage;
-            } else if (errorData.message) {
-              errorMessage = errorData.message;
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
+              errorMessage = errorMessages || optionalString(errorData.message) || errorMessage;
+            } else if (optionalString(errorData.message)) {
+              errorMessage = optionalString(errorData.message) || errorMessage;
+            } else if (optionalString(errorData.error)) {
+              errorMessage = optionalString(errorData.error) || errorMessage;
             }
           }
         } catch (parseError) {
@@ -542,11 +557,11 @@ export function useShootDetailsModalSave({
         throw new Error(errorMessage);
       }
       
-      let responseData: any;
+      let responseData: Record<string, unknown>;
       try {
         const responseText = await res.text();
         if (responseText) {
-          responseData = JSON.parse(responseText);
+          responseData = asRecord(JSON.parse(responseText) as unknown);
         } else {
           responseData = {};
         }
@@ -558,18 +573,21 @@ export function useShootDetailsModalSave({
       console.log('💾 Save success response:', responseData);
       
       // Get updated shoot data from response or refresh
-      let updatedShootData: ShootData | null = responseData.data || responseData;
+      const rawUpdatedShoot = asRecord(responseData.data ?? responseData);
+      let updatedShootData: ShootData | null = Object.keys(rawUpdatedShoot).length > 0
+        ? rawUpdatedShoot as unknown as ShootData
+        : null;
 
       const shouldTransform = updatedShootData && (
-        'scheduled_date' in (updatedShootData as any) ||
-        'workflow_status' in (updatedShootData as any) ||
-        'base_quote' in (updatedShootData as any) ||
-        'services_list' in (updatedShootData as any)
+        'scheduled_date' in rawUpdatedShoot ||
+        'workflow_status' in rawUpdatedShoot ||
+        'base_quote' in rawUpdatedShoot ||
+        'services_list' in rawUpdatedShoot
       );
 
       if (updatedShootData && shouldTransform) {
         try {
-          updatedShootData = transformShootFromApi(updatedShootData as any);
+          updatedShootData = transformShootFromApi(rawUpdatedShoot as ApiShoot);
         } catch (error) {
           console.warn('💾 Failed to normalize shoot response, using raw data:', error);
         }
@@ -581,14 +599,16 @@ export function useShootDetailsModalSave({
         updatedShootData = await refreshShoot();
       } else {
         // Normalize location if needed (raw responses may omit location wrapper)
-        const shootAny = updatedShootData as any;
-        if (!updatedShootData.location && (shootAny.address || shootAny.city)) {
+        const updatedShootRecord = asRecord(updatedShootData);
+        if (!updatedShootData.location && (updatedShootRecord.address || updatedShootRecord.city)) {
           updatedShootData.location = {
-            address: shootAny.address || '',
-            city: shootAny.city || '',
-            state: shootAny.state || '',
-            zip: shootAny.zip || '',
-            fullAddress: shootAny.fullAddress || shootAny.address || '',
+            address: optionalString(updatedShootRecord.address) || '',
+            city: optionalString(updatedShootRecord.city) || '',
+            state: optionalString(updatedShootRecord.state) || '',
+            zip: optionalString(updatedShootRecord.zip) || '',
+            fullAddress: optionalString(updatedShootRecord.fullAddress)
+              || optionalString(updatedShootRecord.address)
+              || '',
           };
         }
         // Update local state

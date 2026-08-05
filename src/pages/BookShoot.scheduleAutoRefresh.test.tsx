@@ -25,7 +25,7 @@ import userEvent from '@testing-library/user-event'
 
 import axios from 'axios'
 
-import { useShoots } from '@/context/ShootsContext'
+import { useShoots } from '@/context/shootsContextState'
 
 // Mock axios so we never hit the network and can drive the create response.
 vi.mock('axios', () => {
@@ -40,7 +40,7 @@ vi.mock('axios', () => {
 // Mock `useShoots` to surface a controllable `fetchShoots` spy. This is the
 // integration seam the Schedule_View (ShootCalendar) and BookShoot share.
 const fetchShootsMock = vi.fn().mockResolvedValue([])
-vi.mock('@/context/ShootsContext', () => ({
+vi.mock('@/context/shootsContextState', () => ({
   __esModule: true,
   useShoots: () => ({ fetchShoots: fetchShootsMock }),
 }))

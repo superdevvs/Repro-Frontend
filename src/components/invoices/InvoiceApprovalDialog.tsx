@@ -203,13 +203,16 @@ export function InvoiceApprovalDialog({
   const status = currentInvoice?.approval_status || 'pending';
   const statusCfg = statusConfig[status] || statusConfig.pending;
 
-  // Payee editability follows approval status, not legacy sent/draft state.
-  const photographerCanEdit =
-    mode === 'photographer' &&
+  // Payee editability is server-computed (can_edit). Fall back to the local
+  // approval-status derivation only for older payloads that predate the flag.
+  const serverCanEdit = typeof currentInvoice?.can_edit === 'boolean' ? currentInvoice.can_edit : null;
+  const derivedCanEdit =
     ['pending', 'rejected'].includes(status) &&
     currentInvoice?.status !== 'paid' &&
-    !(currentInvoice as any)?.is_paid &&
-    !(currentInvoice as any)?.paid_at;
+    !currentInvoice?.is_paid &&
+    !currentInvoice?.paid_at;
+  const photographerCanEdit = mode === 'photographer' && (serverCanEdit ?? derivedCanEdit);
+  const editLockedReason = currentInvoice?.edit_locked_reason ?? null;
   const photographerCanReview = photographerCanEdit;
   const adminCanReview = mode === 'admin' && ['pending', 'pending_approval'].includes(status);
 
@@ -463,6 +466,11 @@ export function InvoiceApprovalDialog({
         </DialogHeader>
 
         <div className="p-6 space-y-8 bg-background">
+          {mode === 'photographer' && !photographerCanEdit && editLockedReason ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              {editLockedReason}
+            </div>
+          ) : null}
           {/* Top header: photographer info + INVOICE eyebrow */}
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-start gap-4">

@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Download, ExternalLink } from 'lucide-react';
 
 /**
  * Public tour "Floor Plans" section.
@@ -89,7 +87,6 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
       <div className="grid md:grid-cols-2 gap-6">
         {candidates.map((item, i) => {
           if (failed[i]) return null;
-          const downloadUrl = item.fp.original_url || item.fp.url || item.fp.path || item.sources[0];
           return (
             <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
               <h3 className="font-semibold mb-3">{item.label}</h3>
@@ -111,20 +108,6 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
                   </div>
                 ))}
               </div>
-              {downloadUrl && (
-                <div className="mt-4 flex gap-2">
-                  <Button variant="outline" className="rounded-full flex-1" asChild>
-                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-4 h-4 mr-2" />Open
-                    </a>
-                  </Button>
-                  <Button variant="outline" className="rounded-full flex-1" asChild>
-                    <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
-                      <Download className="w-4 h-4 mr-2" />Download
-                    </a>
-                  </Button>
-                </div>
-              )}
             </div>
           );
         })}

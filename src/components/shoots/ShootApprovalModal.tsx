@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -69,6 +69,21 @@ type AvailabilitySlot = {
 
 type PhotographerAvailabilityMap = Record<string, AvailabilitySlot[]>;
 
+interface ShootServiceDetails {
+  id: number;
+  service_id?: number;
+  serviceId?: number;
+  name?: string;
+  label?: string;
+  service_name?: string;
+  price?: number;
+  category?: { id?: string | number; name?: string } | string | null;
+  photographer_id?: string | number | null;
+  resolved_photographer_id?: string | number | null;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
+}
+
 interface ShootDetails {
   id: number;
   address?: string;
@@ -76,29 +91,44 @@ interface ShootDetails {
   state?: string;
   zip?: string;
   client?: { id: number; name: string; email?: string; email_verified?: boolean; emailVerified?: boolean };
-  services?: Array<{
-    id: number;
-    service_id?: number;
-    name?: string;
-    label?: string;
-    price?: number;
-    category?: { id?: string | number; name?: string } | string | null;
-    photographer_id?: string | number | null;
-    resolved_photographer_id?: string | number | null;
-    scheduled_at?: string | null;
-    scheduledAt?: string | null;
-  } | string>;
+  services?: Array<ShootServiceDetails | string>;
+  serviceObjects?: Array<Record<string, unknown>>;
   serviceItems?: Array<Record<string, unknown>>;
   service_items?: Array<Record<string, unknown>>;
   scheduledAt?: string;
+  scheduled_at?: string;
+  scheduledDate?: string;
+  scheduled_date?: string;
+  start_time?: string;
+  scheduledTime?: string;
+  scheduled_time?: string;
+  timeLabel?: string;
+  time_label?: string;
+  alternateScheduledDate?: string;
+  alternate_scheduled_date?: string;
+  alternateTime?: string;
+  alternate_time?: string;
   totalQuote?: number;
   shootNotes?: string;
   photographerNotes?: string;
   companyNotes?: string;
   location?: { address?: string; city?: string; state?: string; zip?: string };
-  photographer?: { id?: string | number; name?: string };
+  photographer?: { id?: string | number; name?: string; email?: string };
+  photographer_id?: string | number;
+  photographerId?: string | number;
   time?: string;
-  financials?: { totalQuote?: number };
+  financials?: { baseQuote?: number; taxAmount?: number; totalQuote?: number };
+  payment?: { baseQuote?: number; taxAmount?: number; taxRate?: number; totalQuote?: number };
+  baseQuote?: number;
+  base_quote?: number;
+  taxAmount?: number;
+  tax_amount?: number;
+  taxPercent?: number;
+  tax_percent?: number;
+  total_quote?: number;
+  shoot_notes?: string;
+  photographer_notes?: string;
+  company_notes?: string;
   notes?: {
     shoot?: string;
     approval?: string;
@@ -142,18 +172,80 @@ const availabilityScaleStartMinutes = 8 * 60;
 const availabilityScaleTotalMinutes = 12 * 60;
 const availabilityScaleTickCount = 9;
 
-const mapPhotographerOption = (photographer: any): Photographer => ({
-  id: photographer.id?.toString() || '',
-  name: photographer.name || 'Unknown',
-  avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
-  email: photographer.email || '',
-  address: photographer.address || photographer.metadata?.address || photographer.metadata?.homeAddress,
-  city: photographer.city || photographer.metadata?.city,
-  state: photographer.state || photographer.metadata?.state,
-  zip: photographer.zip || photographer.zipcode || photographer.metadata?.zip || photographer.metadata?.zipcode,
-  travel_range: photographer.travel_range ?? photographer.metadata?.travel_range ?? null,
-  travel_range_unit: photographer.travel_range_unit ?? photographer.metadata?.travel_range_unit ?? 'miles',
-});
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const isShootServiceDetails = (value: unknown): value is ShootServiceDetails =>
+  value !== null && typeof value === 'object';
+
+const getServiceIdentifier = (value: unknown): string => {
+  if (!isShootServiceDetails(value)) return '';
+  const service = asRecord(value);
+  const id = service.service_id ?? service.serviceId ?? service.id;
+  return id === null || id === undefined ? '' : String(id);
+};
+
+const getServiceName = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  const service = asRecord(value);
+  return String(service.name || service.label || service.service_name || 'Service');
+};
+
+const getServiceCategoryKey = (value: unknown): string => {
+  const service = asRecord(value);
+  const category = service.category;
+  const categoryName = typeof category === 'string'
+    ? category
+    : String(asRecord(category).name || 'Other');
+  return normalizeCategoryKey(categoryName);
+};
+
+const resolveScheduledDate = (shoot?: ShootDetails | null): Date | null => {
+  const scheduledDate = shoot?.scheduled_date || shoot?.scheduledDate;
+  if (scheduledDate) {
+    const dateOnly = scheduledDate.split('T')[0];
+    const date = new Date(`${dateOnly}T12:00:00`);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+
+  const scheduledIso = shoot?.start_time || shoot?.scheduled_at || shoot?.scheduledAt;
+  if (scheduledIso) {
+    const date = new Date(scheduledIso);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+
+  return null;
+};
+
+const normalizeAvailabilitySlots = (value: unknown): AvailabilitySlot[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((slotValue) => {
+    const slot = asRecord(slotValue);
+    if (typeof slot.start_time !== 'string' || typeof slot.end_time !== 'string') return [];
+    return [{ start_time: slot.start_time, end_time: slot.end_time }];
+  });
+};
+
+const EMPTY_PHOTOGRAPHERS: Photographer[] = [];
+
+const mapPhotographerOption = (value: unknown): Photographer => {
+  const photographer = asRecord(value);
+  const metadata = asRecord(photographer.metadata);
+  return {
+    id: String(photographer.id ?? ''),
+    name: String(photographer.name || 'Unknown'),
+    avatar: String(photographer.avatar || photographer.profile_image || photographer.profile_photo_url || ''),
+    email: String(photographer.email || ''),
+    address: String(photographer.address || metadata.address || metadata.homeAddress || ''),
+    city: String(photographer.city || metadata.city || ''),
+    state: String(photographer.state || metadata.state || ''),
+    zip: String(photographer.zip || photographer.zipcode || metadata.zip || metadata.zipcode || ''),
+    travel_range: photographer.travel_range == null && metadata.travel_range == null
+      ? null
+      : Number(photographer.travel_range ?? metadata.travel_range),
+    travel_range_unit: String(photographer.travel_range_unit ?? metadata.travel_range_unit ?? 'miles'),
+  };
+};
 
 const loadPhotographerOptions = async (initialPhotographers: Photographer[] = []): Promise<Photographer[]> => {
   if (initialPhotographers.length > 0) {
@@ -194,7 +286,7 @@ export function ShootApprovalModal({
   shootAddress,
   currentScheduledAt,
   onApproved,
-  photographers = [],
+  photographers = EMPTY_PHOTOGRAPHERS,
 }: ShootApprovalModalProps) {
   const { toast } = useToast();
   const isPickerMobile = useIsMobile();
@@ -259,53 +351,9 @@ export function ShootApprovalModal({
     return formatTimeForWallClockInput(raw);
   };
 
-  const getServiceIdentifier = (service: any): string => {
-    if (!service || typeof service === 'string') return '';
-    const id = service.service_id ?? service.serviceId ?? service.id;
-    return id === null || id === undefined ? '' : String(id);
-  };
-
-  const getServiceName = (service: any): string => {
-    if (typeof service === 'string') return service;
-    return service?.name || service?.label || service?.service_name || 'Service';
-  };
-
-  const getServiceCategoryKey = (service: any): string => {
-    const categoryName =
-      typeof service?.category === 'string'
-        ? service.category
-        : service?.category?.name || 'Other';
-    return normalizeCategoryKey(categoryName);
-  };
-
-  const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
+  const buildScheduledAtIso = useCallback((dateValue?: string, timeValue?: string): string | null => {
     return buildWallClockIso(dateValue, normalizeTimeValue(timeValue || scheduledTime) || '10:00');
-  };
-
-  const resolveScheduledDate = (shoot: any) => {
-    const scheduledDate = shoot?.scheduled_date || shoot?.scheduledDate;
-    if (scheduledDate) {
-      // Handle ISO date format (e.g., "2026-01-25T00:00:00.000000Z")
-      // Extract just the date part and create date at noon local time
-      const dateOnly = typeof scheduledDate === 'string' 
-        ? scheduledDate.split('T')[0] 
-        : scheduledDate;
-      const date = new Date(`${dateOnly}T12:00:00`);
-      if (!isNaN(date.getTime())) return date;
-    }
-
-    // Fallback to scheduled_at only if scheduled_date is not available
-    // NOTE: scheduled_at may be stale if only scheduled_date was updated
-    const scheduledIso = shoot?.start_time || shoot?.scheduled_at || shoot?.scheduledAt;
-    if (scheduledIso) {
-      const date = new Date(scheduledIso);
-      if (!isNaN(date.getTime())) {
-        return date;
-      }
-    }
-
-    return null;
-  };
+  }, [scheduledTime]);
 
   const buildTimeOptions = React.useCallback(
     (ensure?: string | null) => {
@@ -375,8 +423,9 @@ export function ShootApprovalModal({
         setPhotographerOptions(loadedPhotographers);
         
         if (response.ok) {
-          const data = await response.json();
-          const shoot = data.data || data;
+          const responseJson: unknown = await response.json();
+          const responseRecord = asRecord(responseJson);
+          const shoot = asRecord(responseRecord.data ?? responseJson) as unknown as ShootDetails;
           console.log('🔍 ShootApprovalModal - API Response:', {
             shootId,
             scheduled_date: shoot.scheduled_date,
@@ -451,8 +500,8 @@ export function ShootApprovalModal({
             }
           });
           const nextServiceSchedules: ServiceScheduleMap = {};
-          (Array.isArray(shoot.services) ? shoot.services : []).forEach((service: any) => {
-            if (!service || typeof service === 'string') return;
+          (Array.isArray(shoot.services) ? shoot.services : []).forEach((service) => {
+            if (!isShootServiceDetails(service)) return;
             const serviceId = getServiceIdentifier(service);
             if (!serviceId) return;
             const itemSchedule = serviceItemSchedules.get(serviceId);
@@ -489,7 +538,7 @@ export function ShootApprovalModal({
     };
     
     fetchShootDetails();
-  }, [isOpen, shootId]);
+  }, [buildTimeOptions, isOpen, photographers, shootId]);
 
   const handleApprove = async () => {
     if (!scheduledDate) {
@@ -527,8 +576,8 @@ export function ShootApprovalModal({
       }
 
       if (Array.isArray(shootDetails?.services) && Object.keys(perCategoryPhotographers).length > 0) {
-        const serviceAssignments = shootDetails.services.reduce((assignments: Array<{ service_id: number; photographer_id: number }>, service: any) => {
-          if (!service || typeof service === 'string') return assignments;
+        const serviceAssignments = shootDetails.services.reduce((assignments: Array<{ service_id: number; photographer_id: number }>, service) => {
+          if (!isShootServiceDetails(service)) return assignments;
           const serviceId = Number(service.id || service.service_id);
           if (!serviceId) return assignments;
           const categoryName =
@@ -553,8 +602,8 @@ export function ShootApprovalModal({
 
       if (Array.isArray(shootDetails?.services)) {
         const defaultDate = format(scheduledAt, 'yyyy-MM-dd');
-        const serviceItemsPayload = shootDetails.services.reduce((items: Array<Record<string, unknown>>, service: any) => {
-          if (!service || typeof service === 'string') return items;
+        const serviceItemsPayload = shootDetails.services.reduce((items: Array<Record<string, unknown>>, service) => {
+          if (!isShootServiceDetails(service)) return items;
           const serviceId = Number(getServiceIdentifier(service));
           if (!serviceId) return items;
           const categoryKey = getServiceCategoryKey(service);
@@ -620,8 +669,8 @@ export function ShootApprovalModal({
     const groups = new Map<string, { key: string; name: string; serviceIds: string[] }>();
     const serviceList = Array.isArray(shootDetails?.services) ? shootDetails.services : [];
 
-    serviceList.forEach((service: any) => {
-      if (!service || typeof service === 'string') return;
+    serviceList.forEach((service) => {
+      if (!isShootServiceDetails(service)) return;
       const serviceId = service.id || service.service_id;
       if (serviceId == null) return;
       const categoryName =
@@ -681,10 +730,18 @@ export function ShootApprovalModal({
   const formatPhotographerLocationLabel = (photographer?: Photographer | null) =>
     [photographer?.address, photographer?.city, photographer?.state, photographer?.zip].filter(Boolean).join(', ');
 
+  const photographerIdsForAvailability = useMemo(
+    () => photographerOptions
+      .map((photographer) => Number(photographer.id))
+      .filter(Number.isFinite)
+      .join(','),
+    [photographerOptions],
+  );
+
   useEffect(() => {
     const availabilityDateValue = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
 
-    if (!isOpen || photographerOptions.length === 0 || !availabilityDateValue) {
+    if (!isOpen || !photographerIdsForAvailability || !availabilityDateValue) {
       setPhotographerAvailability({});
       return;
     }
@@ -712,14 +769,17 @@ export function ShootApprovalModal({
             shoot_city: requestCity,
             shoot_state: requestState,
             shoot_zip: requestZip || '',
-            photographer_ids: photographerOptions.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
+            photographer_ids: photographerIdsForAvailability.split(',').map(Number),
           }),
         });
 
         if (!response.ok) throw new Error('Failed to fetch photographer availability');
 
-        const json = await response.json();
-        const enrichedPhotographers: any[] = Array.isArray(json?.data) ? json.data : [];
+        const json: unknown = await response.json();
+        const rawPhotographers = asRecord(json).data;
+        const enrichedPhotographers = Array.isArray(rawPhotographers)
+          ? rawPhotographers.map(asRecord)
+          : [];
         const nextAvailability: PhotographerAvailabilityMap = {};
         const enrichedById = new Map(enrichedPhotographers.map((item) => [String(item.id), item]));
 
@@ -731,21 +791,26 @@ export function ShootApprovalModal({
             : enriched.distance
               ? Number.parseFloat(String(enriched.distance))
               : undefined;
-          const netAvailableSlots = enriched.net_available_slots || enriched.availability_slots || [];
-          nextAvailability[String(photographer.id)] = netAvailableSlots.map((slot: any) => ({
-            start_time: slot.start_time,
-            end_time: slot.end_time,
-          }));
+          const availabilitySlots = normalizeAvailabilitySlots(enriched.availability_slots);
+          const unavailableSlots = normalizeAvailabilitySlots(enriched.unavailable_slots);
+          const bookedSlots = normalizeAvailabilitySlots(enriched.booked_slots);
+          const netAvailableSlots = normalizeAvailabilitySlots(
+            enriched.net_available_slots ?? enriched.availability_slots,
+          );
+          nextAvailability[String(photographer.id)] = netAvailableSlots;
+          const distanceFrom = enriched.distance_from === 'previous_shoot' ? 'previous_shoot' : 'home';
+          const previousShootId = Number(enriched.previous_shoot_id);
+          const shootsCountToday = Number(enriched.shoots_count_today);
           return {
             ...photographer,
-            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
-            distanceFrom: enriched.distance_from,
-            previousShootId: enriched.previous_shoot_id,
-            availabilitySlots: enriched.availability_slots || [],
-            unavailableSlots: enriched.unavailable_slots || [],
-            bookedSlots: enriched.booked_slots || [],
+            distance: typeof parsedDistance === 'number' && Number.isFinite(parsedDistance) ? parsedDistance : undefined,
+            distanceFrom,
+            previousShootId: Number.isFinite(previousShootId) ? previousShootId : undefined,
+            availabilitySlots,
+            unavailableSlots,
+            bookedSlots,
             netAvailableSlots,
-            shootsCountToday: enriched.shoots_count_today,
+            shootsCountToday: Number.isFinite(shootsCountToday) ? shootsCountToday : undefined,
           };
         }));
 
@@ -762,7 +827,7 @@ export function ShootApprovalModal({
     fetchAvailability();
 
     return () => abortController.abort();
-  }, [isOpen, photographerOptions.length, scheduledDate, scheduledTime, shootDetails, shootAddress]);
+  }, [isOpen, photographerIdsForAvailability, scheduledDate, scheduledTime, shootDetails, shootAddress]);
 
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
     const singleCategory = serviceCategoryGroups[0];
@@ -839,36 +904,36 @@ export function ShootApprovalModal({
   const clientVerified = Boolean(
     shootDetails?.client?.email_verified ?? shootDetails?.client?.emailVerified,
   );
-  const services = shootDetails?.services || [];
+  const services = useMemo(() => shootDetails?.services ?? [], [shootDetails?.services]);
   const servicePriceTotal =
     Array.isArray(services) && services.length
-      ? services.reduce((sum, svc: any) => {
-          const price = typeof svc === 'object' ? Number(svc.price ?? 0) : 0;
+      ? services.reduce((sum, service) => {
+          const price = isShootServiceDetails(service) ? Number(service.price ?? 0) : 0;
           return sum + (Number.isFinite(price) ? price : 0);
         }, 0)
       : 0;
   const resolvedBaseQuote =
-    (shootDetails as any)?.payment?.baseQuote ??
-    (shootDetails?.financials as any)?.baseQuote ??
-    (shootDetails as any)?.baseQuote ??
-    (shootDetails as any)?.base_quote ??
+    shootDetails?.payment?.baseQuote ??
+    shootDetails?.financials?.baseQuote ??
+    shootDetails?.baseQuote ??
+    shootDetails?.base_quote ??
     servicePriceTotal;
   const baseQuote = Number(resolvedBaseQuote ?? 0);
 
   // Get stored tax amount
   const storedTaxAmount = Number(
-    (shootDetails as any)?.payment?.taxAmount ??
-    (shootDetails?.financials as any)?.taxAmount ??
-    (shootDetails as any)?.taxAmount ??
-    (shootDetails as any)?.tax_amount ??
+    shootDetails?.payment?.taxAmount ??
+    shootDetails?.financials?.taxAmount ??
+    shootDetails?.taxAmount ??
+    shootDetails?.tax_amount ??
     0
   );
 
   // If stored tax is 0 but we have a base quote and tax_percent, recalculate
   const rawTaxPercent = Number(
-    (shootDetails as any)?.tax_percent ??
-    (shootDetails as any)?.taxPercent ??
-    (shootDetails as any)?.payment?.taxRate ??
+    shootDetails?.tax_percent ??
+    shootDetails?.taxPercent ??
+    shootDetails?.payment?.taxRate ??
     0
   );
   const normalizedTaxRate = rawTaxPercent > 1 ? rawTaxPercent / 100 : rawTaxPercent;
@@ -877,26 +942,26 @@ export function ShootApprovalModal({
     : Number((baseQuote * normalizedTaxRate).toFixed(2));
 
   const storedTotalQuote = Number(
-    (shootDetails as any)?.payment?.totalQuote ??
+    shootDetails?.payment?.totalQuote ??
     shootDetails?.financials?.totalQuote ??
     shootDetails?.totalQuote ??
-    (shootDetails as any)?.total_quote ??
+    shootDetails?.total_quote ??
     0
   );
   const totalQuote = storedTotalQuote > 0 ? storedTotalQuote : baseQuote + taxAmount;
   const shootNotes =
     shootDetails?.shootNotes ||
-    (shootDetails as any)?.shoot_notes ||
+    shootDetails?.shoot_notes ||
     shootDetails?.notes?.shoot ||
     '';
   const photographerNotes =
     shootDetails?.photographerNotes ||
-    (shootDetails as any)?.photographer_notes ||
+    shootDetails?.photographer_notes ||
     shootDetails?.notes?.photographer ||
     '';
   const companyNotes =
     shootDetails?.companyNotes ||
-    (shootDetails as any)?.company_notes ||
+    shootDetails?.company_notes ||
     shootDetails?.notes?.company ||
     '';
   const minSelectableDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
@@ -906,10 +971,11 @@ export function ShootApprovalModal({
   );
   const serviceScheduleRows = useMemo(() => {
     const rows = Array.isArray(services)
-      ? services.filter((service: any) => service && typeof service === 'object' && getServiceIdentifier(service))
+      ? services.filter((service): service is ShootServiceDetails =>
+          isShootServiceDetails(service) && Boolean(getServiceIdentifier(service)))
       : [];
 
-    return [...rows].sort((first: any, second: any) => {
+    return [...rows].sort((first, second) => {
       const firstServiceId = getServiceIdentifier(first);
       const secondServiceId = getServiceIdentifier(second);
       const firstSchedule = serviceSchedules[firstServiceId] || {};
@@ -922,7 +988,7 @@ export function ShootApprovalModal({
       if (firstTime !== secondTime) return firstTime - secondTime;
       return getServiceName(first).localeCompare(getServiceName(second));
     });
-  }, [services, serviceSchedules, scheduledDateInputValue, scheduledTime]);
+  }, [buildScheduledAtIso, services, serviceSchedules, scheduledDateInputValue, scheduledTime]);
   const updateServiceSchedule = (serviceId: string, field: 'date' | 'time', value: string) => {
     setServiceSchedules((current) => ({
       ...current,
@@ -1124,13 +1190,15 @@ export function ShootApprovalModal({
                       <div>
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Services</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {services.map((service: any, index: number) => (
+                          {services.map((service, index) => (
                             <Badge 
-                              key={(service && (service.id || service.name || service.label)) || index} 
+                              key={isShootServiceDetails(service)
+                                ? service.id || service.name || service.label || index
+                                : `${service}-${index}`}
                               variant="secondary" 
                               className="bg-primary/10 text-primary border-primary/20 text-xs"
                             >
-                              {service?.name || service?.label || service || 'Service'}
+                              {getServiceName(service)}
                             </Badge>
                           ))}
                         </div>
@@ -1251,7 +1319,7 @@ export function ShootApprovalModal({
                       <span className="text-[11px] text-muted-foreground">Defaults to order schedule</span>
                     </div>
                     <div className="space-y-2">
-                      {serviceScheduleRows.map((service: any) => {
+                      {serviceScheduleRows.map((service) => {
                         const serviceId = getServiceIdentifier(service);
                         const schedule = serviceSchedules[serviceId] || {};
                         const serviceDate = schedule.date || scheduledDateInputValue;

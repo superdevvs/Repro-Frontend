@@ -13,8 +13,14 @@ export interface EmailRealtimeMessage {
   from_address: string;
   to_address: string;
   sender_display_name: string | null;
+  sender_user_id?: number | null;
   direction: 'INBOUND' | 'OUTBOUND';
+  provider?: string | null;
+  send_source?: string | null;
   status: string;
+  related_shoot_id?: number | null;
+  related_account_id?: number | null;
+  thread_id?: number | null;
   created_at: string;
   body_text: string;
 }
@@ -55,10 +61,17 @@ export const useEmailRealtime = ({ onEmailReceived, onEmailSent }: EmailRealtime
         userChannel = echo.private(`email.user.${user.id}`);
         userChannel
           .listen('.EmailMessageReceived', (event: EmailRealtimeMessage) => {
-            onEmailReceived?.(event);
+            // Staff also subscribe to the shared inbox channel. Their personal
+            // channel is needed for scoped dashboard messages, but processing
+            // ordinary email events here as well would create duplicate toasts.
+            if (event.provider === 'INTERNAL' || !shouldListenToInbox) {
+              onEmailReceived?.(event);
+            }
           })
           .listen('.EmailMessageSent', (event: EmailRealtimeMessage) => {
-            onEmailSent?.(event);
+            if (event.provider === 'INTERNAL' || !shouldListenToInbox) {
+              onEmailSent?.(event);
+            }
           });
       }
     };

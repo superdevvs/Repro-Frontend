@@ -36,6 +36,51 @@ type ManagedVideoLinkKey =
   | 'video_branded'
   | 'video_mls'
   | 'video_generic';
+
+type LooseRecord = Record<string, unknown>;
+
+type TourLinkSource = LooseRecord & {
+  tour_style?: string;
+  embeds?: unknown[];
+  featured_embed_id?: string;
+  featured_embed?: string;
+  header_position?: string;
+  tour_version?: string;
+  realtor_info?: string;
+  autoplay?: boolean;
+  show_garage?: boolean;
+  property_description?: string;
+};
+
+type ShootTourCompat = ShootData & {
+  tour_links?: LooseRecord;
+  tour_style?: string;
+  bedrooms?: string | number | null;
+  bedRooms?: string | number | null;
+  bathrooms?: string | number | null;
+  bathRooms?: string | number | null;
+  sqft?: string | number | null;
+  squareFeet?: string | number | null;
+  square_feet?: string | number | null;
+  cubicasaLastStatusAt?: string | null;
+  cubicasa_last_status_at?: string | null;
+};
+
+const asRecord = (value: unknown): LooseRecord =>
+  value && typeof value === 'object' ? value as LooseRecord : {};
+
+const asOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value : undefined;
+
+const toStringMap = (value: unknown): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(asRecord(value))
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback;
+
 export function ShootDetailsTourTab({
   shoot,
   isAdmin,
@@ -46,6 +91,7 @@ export function ShootDetailsTourTab({
   onShowAnalytics,
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
+  const shootTourData = shoot as ShootTourCompat;
   const [tourLinks, setTourLinks] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     links: true,
@@ -98,49 +144,24 @@ export function ShootDetailsTourTab({
   const [isSavingCubicasaIdentifiers, setIsSavingCubicasaIdentifiers] = useState(false);
   const [isSyncingCubicasa, setIsSyncingCubicasa] = useState(false);
   const sourceTourLinks = useMemo(
-    () => getRawTourLinks(shoot as any) as Record<string, any>,
-    [(shoot as any)?.tourLinks, (shoot as any)?.tour_links],
+    () => getRawTourLinks(shootTourData) as TourLinkSource,
+    [shootTourData],
   );
   const sourcePropertyDetails = useMemo(
-    () => getRawPropertyDetails(shoot as any) as Record<string, any>,
-    [(shoot as any)?.propertyDetails, (shoot as any)?.property_details],
+    () => getRawPropertyDetails(shootTourData),
+    [shootTourData],
   );
   const normalizedTourLinks = useMemo(
-    () => normalizeTourLinks(shoot as any),
-    [(shoot as any)?.tourLinks, (shoot as any)?.tour_links],
+    () => normalizeTourLinks(shootTourData),
+    [shootTourData],
   );
   const normalizedPropertyDetails = useMemo(
-    () => normalizePropertyDetails(shoot as any),
-    [
-      (shoot as any)?.propertyDetails,
-      (shoot as any)?.property_details,
-      (shoot as any)?.bedrooms,
-      (shoot as any)?.bedRooms,
-      (shoot as any)?.bathrooms,
-      (shoot as any)?.bathRooms,
-      (shoot as any)?.sqft,
-      (shoot as any)?.squareFeet,
-      (shoot as any)?.square_feet,
-    ],
+    () => normalizePropertyDetails(shootTourData),
+    [shootTourData],
   );
   const iguideSync = useMemo(
-    () => getNormalizedIguideSync(shoot as any),
-    [
-      (shoot as any)?.tourLinks,
-      (shoot as any)?.tour_links,
-      (shoot as any)?.iguideTourUrl,
-      (shoot as any)?.iguide_tour_url,
-      (shoot as any)?.iguideFloorplans,
-      (shoot as any)?.iguide_floorplans,
-      (shoot as any)?.iguidePropertyId,
-      (shoot as any)?.iguide_property_id,
-      (shoot as any)?.iguideWorkOrderId,
-      (shoot as any)?.iguide_work_order_id,
-      (shoot as any)?.iguideLastSyncedAt,
-      (shoot as any)?.iguide_last_synced_at,
-      (shoot as any)?.iguideData,
-      (shoot as any)?.iguide_data,
-    ],
+    () => getNormalizedIguideSync(shootTourData),
+    [shootTourData],
   );
   const {
     isClientView,
@@ -192,17 +213,20 @@ export function ShootDetailsTourTab({
   const initialTourState = useMemo(() => {
     const style =
       sourceTourLinks?.tour_style ||
-      (shoot as any)?.tour_style ||
+      shootTourData.tour_style ||
       'default';
     const rawEmbeds = Array.isArray(sourceTourLinks?.embeds)
       ? sourceTourLinks?.embeds
       : [];
-    const normalizedEmbeds = rawEmbeds.map((embed: any, index: number) => ({
-      id: embed?.id || `embed-${shoot.id}-${index}`,
-      title: embed?.title || `Embed ${index + 1}`,
-      branded: embed?.branded || embed?.branded_embed || embed?.url || '',
-      mls: embed?.mls || embed?.mls_embed || '',
-    }));
+    const normalizedEmbeds = rawEmbeds.map((embedValue, index) => {
+      const embed = asRecord(embedValue);
+      return {
+        id: String(embed.id || `embed-${shoot.id}-${index}`),
+        title: String(embed.title || `Embed ${index + 1}`),
+        branded: String(embed.branded || embed.branded_embed || embed.url || ''),
+        mls: String(embed.mls || embed.mls_embed || ''),
+      };
+    });
     const featuredId =
       sourceTourLinks?.featured_embed_id ||
       sourceTourLinks?.featured_embed ||
@@ -235,12 +259,7 @@ export function ShootDetailsTourTab({
         show_garage: Boolean(sourceTourLinks?.show_garage),
       },
     };
-  }, [normalizedTourLinks, shoot.id, sourceTourLinks, (shoot as any)?.tour_style]);
-
-  const initialTourStateKey = useMemo(
-    () => JSON.stringify(initialTourState),
-    [initialTourState],
-  );
+  }, [normalizedTourLinks, shoot.id, shootTourData.tour_style, sourceTourLinks]);
 
   useEffect(() => {
     setTourLinks((prev) =>
@@ -263,7 +282,7 @@ export function ShootDetailsTourTab({
         ? prev
         : initialTourState.settings,
     );
-  }, [initialTourStateKey]);
+  }, [initialTourState]);
   useEffect(() => {
     if (!(isAdmin || isRep)) return;
 
@@ -283,13 +302,22 @@ export function ShootDetailsTourTab({
           throw new Error('Failed to load clients');
         }
 
-        const json = await response.json();
-        const clientsList = (json.data || json || []).map((client: any) => ({
-          id: String(client.id),
-          name: client.name || 'Client',
-          email: client.email || '',
-          company: client.company_name || client.company || '',
-        }));
+        const json: unknown = await response.json();
+        const responseRecord = asRecord(json);
+        const clientValues = Array.isArray(responseRecord.data)
+          ? responseRecord.data
+          : Array.isArray(json)
+            ? json
+            : [];
+        const clientsList: TourRealtorOption[] = clientValues
+          .map((value) => asRecord(value))
+          .filter((client) => client.id !== undefined && client.id !== null)
+          .map((client) => ({
+            id: String(client.id),
+            name: String(client.name || 'Client'),
+            email: String(client.email || ''),
+            company: String(client.company_name || client.company || ''),
+          }));
         const currentRealtor = normalizedTourLinks.realtor_client;
         if (
           currentRealtor?.id &&
@@ -400,9 +428,10 @@ export function ShootDetailsTourTab({
       return '';
     }
   };
-  const getSavedTourLinksFromResponse = (payload: any): Record<string, any> => {
-    const savedShoot = payload?.data ?? payload;
-    return getRawTourLinks(savedShoot as any) as Record<string, any>;
+  const getSavedTourLinksFromResponse = (payload: unknown): Record<string, string> => {
+    const payloadRecord = asRecord(payload);
+    const savedShoot = asRecord(payloadRecord.data ?? payload);
+    return toStringMap(savedShoot.tourLinks ?? savedShoot.tour_links);
   };
   const persistTourSettings = async (nextSettings: typeof tourSettings) => {
     if (!isAdmin) return;
@@ -433,11 +462,11 @@ export function ShootDetailsTourTab({
       }
       setTourSettings(nextSettings);
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save tour settings failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to update tour settings. Please try again.',
+        description: getErrorMessage(err, 'Failed to update tour settings. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -469,11 +498,11 @@ export function ShootDetailsTourTab({
       }
       await onShootUpdate();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save realtor failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to update realtor. Please try again.',
+        description: getErrorMessage(err, 'Failed to update realtor. Please try again.'),
         variant: 'destructive',
       });
       return false;
@@ -547,11 +576,11 @@ export function ShootDetailsTourTab({
         description: 'Embeds updated successfully',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save embeds failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to update embeds. Please try again.',
+        description: getErrorMessage(err, 'Failed to update embeds. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -774,11 +803,11 @@ export function ShootDetailsTourTab({
         description: '3D tour link saved successfully',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save 3D tour failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to save 3D tour. Please try again.',
+        description: getErrorMessage(err, 'Failed to save 3D tour. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -844,11 +873,11 @@ export function ShootDetailsTourTab({
         description: 'Video link saved successfully',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save video link failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to save video link. Please try again.',
+        description: getErrorMessage(err, 'Failed to save video link. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -906,11 +935,11 @@ export function ShootDetailsTourTab({
         description: 'Video link removed successfully',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to delete video link', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to remove video link. Please try again.',
+        description: getErrorMessage(err, 'Failed to remove video link. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -951,15 +980,15 @@ export function ShootDetailsTourTab({
         description: 'Tour style saved successfully. Refresh tour pages to see the change.',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save tour style failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to save tour style. Please try again.',
+        description: getErrorMessage(err, 'Failed to save tour style. Please try again.'),
         variant: 'destructive',
       });
       // Revert to previous value on error
-      const previousStyle = (shoot.tourLinks as any)?.tour_style || (shoot as any)?.tour_style || 'default';
+      const previousStyle = String(sourceTourLinks.tour_style || shootTourData.tour_style || 'default');
       setTourStyle(previousStyle);
     } finally {
       setIsSavingTourStyle(false);
@@ -1004,11 +1033,11 @@ export function ShootDetailsTourTab({
         description: 'Tour link removed successfully',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to delete tour link', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to remove link. Please try again.',
+        description: getErrorMessage(err, 'Failed to remove link. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -1023,61 +1052,44 @@ export function ShootDetailsTourTab({
 
   // Build the CubiCasa view-model from server fields. Mirrors iguideSync.
   const cubicasaSync = useMemo(() => {
-    const s: any = shoot as any;
-    const data = (s?.cubicasaData ?? s?.cubicasa_data) || {};
-    const tourLinksRaw = (s?.tourLinks ?? s?.tour_links) || {};
-    const branded = data?.tour?.link
-      || tourLinksRaw?.cubicasa_branded
-      || tourLinksRaw?.cubicasa
-      || s?.cubicasaTourUrl
-      || s?.cubicasa_tour_url
+    const data = asRecord(shootTourData.cubicasaData ?? shootTourData.cubicasa_data);
+    const cubicasaTour = asRecord(data.tour);
+    const tourLinksRaw = asRecord(shootTourData.tourLinks ?? shootTourData.tour_links);
+    const branded = asOptionalString(cubicasaTour.link)
+      || asOptionalString(tourLinksRaw.cubicasa_branded)
+      || asOptionalString(tourLinksRaw.cubicasa)
+      || shootTourData.cubicasaTourUrl
+      || shootTourData.cubicasa_tour_url
       || null;
-    const unbranded = data?.tour?.mls_compliance_link
-      || tourLinksRaw?.cubicasa_mls
+    const unbranded = asOptionalString(cubicasaTour.mls_compliance_link)
+      || asOptionalString(tourLinksRaw.cubicasa_mls)
       || null;
-    const floorplansRaw = s?.cubicasaFloorplans
-      ?? s?.cubicasa_floorplans
-      ?? data?.floorplans
-      ?? data?.floor_plans
+    const floorplansRaw = shootTourData.cubicasaFloorplans
+      ?? shootTourData.cubicasa_floorplans
+      ?? data.floorplans
+      ?? data.floor_plans
       ?? [];
     const floorplans = Array.isArray(floorplansRaw) ? floorplansRaw : [];
     return {
-      orderId: s?.cubicasaOrderId ?? s?.cubicasa_order_id ?? null,
-      externalId: s?.cubicasaExternalId ?? s?.cubicasa_external_id ?? null,
-      status: s?.cubicasaStatus ?? s?.cubicasa_status ?? null,
-      productType: s?.cubicasaProductType ?? s?.cubicasa_product_type ?? null,
+      orderId: shootTourData.cubicasaOrderId ?? shootTourData.cubicasa_order_id ?? null,
+      externalId: shootTourData.cubicasaExternalId ?? shootTourData.cubicasa_external_id ?? null,
+      status: shootTourData.cubicasaStatus ?? shootTourData.cubicasa_status ?? null,
+      productType: shootTourData.cubicasaProductType ?? shootTourData.cubicasa_product_type ?? null,
       brandedUrl: branded,
       unbrandedUrl: unbranded,
       floorplans,
-      lastSyncedAt: s?.cubicasaLastSyncedAt ?? s?.cubicasa_last_synced_at ?? null,
-      lastStatusAt: s?.cubicasaLastStatusAt ?? s?.cubicasa_last_status_at ?? null,
+      lastSyncedAt: shootTourData.cubicasaLastSyncedAt ?? shootTourData.cubicasa_last_synced_at ?? null,
+      lastStatusAt: shootTourData.cubicasaLastStatusAt ?? shootTourData.cubicasa_last_status_at ?? null,
       data,
     };
-  }, [
-    (shoot as any)?.cubicasaOrderId,
-    (shoot as any)?.cubicasa_order_id,
-    (shoot as any)?.cubicasaExternalId,
-    (shoot as any)?.cubicasa_external_id,
-    (shoot as any)?.cubicasaStatus,
-    (shoot as any)?.cubicasa_status,
-    (shoot as any)?.cubicasaProductType,
-    (shoot as any)?.cubicasa_product_type,
-    (shoot as any)?.cubicasaTourUrl,
-    (shoot as any)?.cubicasa_tour_url,
-    (shoot as any)?.cubicasaFloorplans,
-    (shoot as any)?.cubicasa_floorplans,
-    (shoot as any)?.cubicasaData,
-    (shoot as any)?.cubicasa_data,
-    (shoot as any)?.cubicasaLastSyncedAt,
-    (shoot as any)?.cubicasa_last_synced_at,
-    (shoot as any)?.tourLinks,
-    (shoot as any)?.tour_links,
-  ]);
+  }, [shootTourData]);
 
   // Seed admin inputs from server values.
   useEffect(() => {
-    setCubicasaOrderIdInput((prev) => (prev === (cubicasaSync.orderId || '') ? prev : (cubicasaSync.orderId || '')));
-    setCubicasaExternalIdInput((prev) => (prev === (cubicasaSync.externalId || '') ? prev : (cubicasaSync.externalId || '')));
+    const orderId = cubicasaSync.orderId == null ? '' : String(cubicasaSync.orderId);
+    const externalId = cubicasaSync.externalId == null ? '' : String(cubicasaSync.externalId);
+    setCubicasaOrderIdInput((prev) => (prev === orderId ? prev : orderId));
+    setCubicasaExternalIdInput((prev) => (prev === externalId ? prev : externalId));
   }, [cubicasaSync.orderId, cubicasaSync.externalId]);
 
   const saveIguideIdentifiers = async () => {
@@ -1106,11 +1118,11 @@ export function ShootDetailsTourTab({
         description: 'iGuide identifiers updated. Webhooks will now match this shoot.',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save iGuide identifiers failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to save iGuide identifiers.',
+        description: getErrorMessage(err, 'Failed to save iGuide identifiers.'),
         variant: 'destructive',
       });
     } finally {
@@ -1152,11 +1164,11 @@ export function ShootDetailsTourTab({
           : 'iGuide metadata refreshed.',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sync iGuide failed', err);
       toast({
         title: 'iGuide sync failed',
-        description: err?.message || 'No matching iGuide was found for this shoot.',
+        description: getErrorMessage(err, 'No matching iGuide was found for this shoot.'),
         variant: 'destructive',
       });
     } finally {
@@ -1190,11 +1202,11 @@ export function ShootDetailsTourTab({
         description: 'CubiCasa identifiers updated. Webhooks will now match this shoot.',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save CubiCasa identifiers failed', err);
       toast({
         title: 'Error',
-        description: err?.message || 'Failed to save CubiCasa identifiers.',
+        description: getErrorMessage(err, 'Failed to save CubiCasa identifiers.'),
         variant: 'destructive',
       });
     } finally {
@@ -1233,11 +1245,11 @@ export function ShootDetailsTourTab({
           : 'CubiCasa metadata refreshed.',
       });
       onShootUpdate();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sync CubiCasa failed', err);
       toast({
         title: 'CubiCasa sync failed',
-        description: err?.message || 'Could not fetch CubiCasa order.',
+        description: getErrorMessage(err, 'Could not fetch CubiCasa order.'),
         variant: 'destructive',
       });
     } finally {
@@ -1403,7 +1415,7 @@ export function ShootDetailsTourTab({
           setPropertyPrice={setPropertyPrice}
           propertyLotSize={propertyLotSize}
           setPropertyLotSize={setPropertyLotSize}
-          sourcePropertyDescription={(sourceTourLinks as any)?.property_description || ''}
+          sourcePropertyDescription={sourceTourLinks.property_description || ''}
           saveShootField={saveShootField}
           savePropertyDetails={savePropertyDetails}
           savePropertyField={savePropertyField}

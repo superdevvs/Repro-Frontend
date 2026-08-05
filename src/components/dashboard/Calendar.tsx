@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { ShootData } from '@/types/shoots';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, MapPinIcon, UserIcon, ClockIcon } from 'lucide-react';

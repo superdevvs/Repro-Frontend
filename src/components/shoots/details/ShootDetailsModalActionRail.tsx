@@ -110,7 +110,7 @@ interface ShootDetailsModalActionRailProps {
   handleSendToEditing: () => void;
   handleApproveEditingReview?: () => void;
   handleFinalise: () => void;
-  handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large') => void;
+  handleDownloadMedia: (size: 'original' | 'small') => void;
   handleSendToBrightMls: () => void;
   handleOpenMmm: () => void;
   handleStartMmmPunchout: () => Promise<void>;
@@ -285,17 +285,6 @@ export function ShootDetailsModalActionRail({
                   </Button>
                 </>
               )}
-              {canOpenAiEdit && !isRequestedStatus && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-violet-600 hover:bg-violet-700 text-white"
-                  onClick={handleOpenAiEdit}
-                >
-                  <Link2 className="h-3 w-3 mr-1" />
-                  <span>AI Edit</span>
-                </Button>
-              )}
               {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isRequestedStatus && (
                 <Button
                   variant="outline"
@@ -405,6 +394,19 @@ export function ShootDetailsModalActionRail({
                     <span>{isGeneratingShareLink ? 'Generating...' : 'Share Link'}</span>
                   </Button>
                 </>
+              )}
+              {/* AI editing sits last so downloads, media, and MLS actions rank
+                  above marketing/AI actions in the rail (Req 7.7). */}
+              {canOpenAiEdit && !isRequestedStatus && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={handleOpenAiEdit}
+                >
+                  <Link2 className="h-3 w-3 mr-1" />
+                  <span>AI Edit</span>
+                </Button>
               )}
             </>
           )}

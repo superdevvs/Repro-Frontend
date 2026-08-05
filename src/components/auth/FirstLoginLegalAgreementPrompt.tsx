@@ -13,7 +13,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { privacySections, PRIVACY_EFFECTIVE_DATE as PRIVACY_POLICY_EFFECTIVE_DATE } from '@/content/privacyPolicy';
-import { TERMS_EFFECTIVE_DATE, termsSections } from '@/components/auth/RegisterForm';
+import { TERMS_EFFECTIVE_DATE, termsSections } from '@/components/auth/registerFormModel';
 import { toast } from '@/lib/sonner-toast';
 
 const requiresFirstUseAgreement = (metadata: Record<string, unknown> | undefined | null) => {

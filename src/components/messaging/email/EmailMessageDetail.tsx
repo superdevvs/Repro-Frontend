@@ -142,8 +142,9 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
         related_shoot_context_type: message.related_shoot_context_type,
         related_account_id: message.related_account_id,
         related_invoice_id: message.related_invoice_id,
+        in_reply_to_message_id: message.provider === 'INTERNAL' ? message.id : undefined,
       });
-      toast.success('Reply sent');
+      toast.success(message.provider === 'INTERNAL' ? 'Dashboard reply sent' : 'Reply sent');
       setShowReply(false);
       setReplyBody('');
       onRefresh();

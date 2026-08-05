@@ -102,6 +102,7 @@ const writeFallbackState = (
   try {
     window.localStorage.setItem(buildFallbackKey(fallbackPrefix, userId), JSON.stringify(state));
   } catch {
+    // Storage can be unavailable in private browsing or restricted browser contexts.
   }
 };
 

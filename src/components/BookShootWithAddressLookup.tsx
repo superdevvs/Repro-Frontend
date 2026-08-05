@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AddressLookup from './AddressLookup';
 import { Calendar, Clock, Camera, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { BRAND_PHONE } from '@/config/brand';
 
 interface AddressDetails {
     formatted_address: string;
@@ -216,7 +217,7 @@ const BookShootWithAddressLookup: React.FC = () => {
                             </div>
                             {!serviceAreaInfo.in_service_area && (
                                 <p className="mt-2 text-sm text-red-700">
-                                    Please contact us at (202) 868-1663 for service in this area.
+                                    Please contact us at {BRAND_PHONE} for service in this area.
                                 </p>
                             )}
                         </div>

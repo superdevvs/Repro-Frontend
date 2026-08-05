@@ -24,8 +24,8 @@ import { CompactListingRow } from '@/components/listings/CompactListingRow'
 import { SelectedPropertyCard } from '@/components/listings/SelectedPropertyCard'
 import { SidebarEmptyState } from '@/components/listings/SidebarEmptyState'
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
-// Type-only import: erased at build time, so it does NOT pull maplibre-gl into
-// the main bundle (the lazy map chunk below remains the only maplibre entry).
+// Type-only import: erased at build time, so it does not pull the map runtime
+// into the main bundle (the lazy map chunk below remains the only map entry).
 import type { MapHandle } from '@/components/ui/map'
 
 const LISTING_BOOKMARKS_KEY = 'exclusive-listing-bookmarks-v1'
@@ -106,10 +106,8 @@ interface ListingMapCanvasProps {
   theme: 'light' | 'dark'
 }
 
-// The maplibre-powered map canvas is code-split so maplibre-gl stays out of the
-// main bundle (preserving the original lazy-map pattern). `CustomPinMarkers` and
-// the `Map` component both statically import maplibre-gl, so importing them here
-// (dynamically) keeps the heavy dependency in this lazy chunk.
+// The Leaflet map canvas is code-split so its runtime and styles stay out of the
+// main bundle. Both the map shell and custom markers load through this boundary.
 const LazyListingMapCanvas = lazy(() =>
   Promise.all([
     import('@/components/ui/map'),
@@ -178,7 +176,7 @@ const LazyListingMapCanvas = lazy(() =>
         let timeoutId: ReturnType<typeof setTimeout> | undefined
         const fitWhenReady = () => {
           const mapHandle = mapRef.current
-          if (mapHandle?.getMap()) {
+          if (mapHandle?.isReady()) {
             mapHandle.recenter(coords, { padding: getFitPadding() })
             return
           }

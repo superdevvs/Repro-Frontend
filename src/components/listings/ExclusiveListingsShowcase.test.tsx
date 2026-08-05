@@ -4,12 +4,12 @@
 // selection sync.
 // Validates: Requirements 2.2, 10.7, 10.9, 7.1
 //
-// The showcase renders a code-split, maplibre-gl-backed map canvas (lazy import
-// of `@/components/ui/map` + `CustomPinMarkers`, both pulling in maplibre-gl,
-// which needs WebGL that jsdom lacks) alongside a sidebar of `ListingCard`s and
+// The showcase renders a code-split Leaflet map canvas (lazy import of
+// `@/components/ui/map` + `CustomPinMarkers`, which needs browser layout APIs
+// that jsdom lacks) alongside a sidebar of `ListingCard`s and
 // `SidebarEmptyState`. To keep this an RTL test focused on layout + selection
 // sync + the empty state, we MOCK the heavy/async map pieces so the lazy import
-// resolves without maplibre:
+// resolves without a browser map runtime:
 //
 //   - `@/components/ui/map`            → a fake `Map` that renders its children
 //                                        synchronously inside a <div>, plus inert
@@ -33,7 +33,7 @@ import '@testing-library/jest-dom/vitest'
 
 const mapSpies = vi.hoisted(() => ({
   recenter: vi.fn(),
-  getMap: vi.fn(() => ({})),
+  isReady: vi.fn(() => true),
 }))
 
 // --- jsdom polyfills ---------------------------------------------------------
@@ -64,12 +64,12 @@ beforeAll(() => {
 
 // --- map module stub ---------------------------------------------------------
 // A fake `Map` that renders its children synchronously (so `CustomPinMarkers`
-// renders inside it without maplibre/WebGL). `MapControls` is inert; the map
+// renders inside it without Leaflet/layout APIs). `MapControls` is inert; the map
 // context hooks return harmless defaults. The lazy canvas destructures
 // `{ Map, MapControls }` from this module, so both must be exported.
 vi.mock('@/components/ui/map', () => {
   const Map = React.forwardRef<
-    { recenter: typeof mapSpies.recenter; getMap: typeof mapSpies.getMap },
+    { recenter: typeof mapSpies.recenter; isReady: typeof mapSpies.isReady },
     { children?: React.ReactNode }
   >(
     ({ children }, ref) => {
@@ -137,7 +137,7 @@ import { ThemeProvider } from '@/hooks/useTheme'
 afterEach(() => {
   cleanup()
   mapSpies.recenter.mockClear()
-  mapSpies.getMap.mockClear()
+  mapSpies.isReady.mockClear()
 })
 
 const resolveImageUrl = (v: string | null | undefined): string | null => v ?? null

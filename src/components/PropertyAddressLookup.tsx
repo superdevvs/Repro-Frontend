@@ -3,7 +3,7 @@ import { Search, CheckCircle, Loader2, MapPin, AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { usePropertyLookup, PropertyData, AddressSuggestion } from '@/hooks/usePropertyLookup';
-import { parseStreetLine, formatParsedStreetLine } from '@/components/AddressLookupField';
+import { parseStreetLine, formatParsedStreetLine, type AddressRecord } from '@/utils/addressLookup';
 
 export interface PropertyAddressDetails {
   formatted_address: string;
@@ -18,7 +18,7 @@ export interface PropertyAddressDetails {
   garage_sqft?: number;
   yearBuilt?: number;
   lotSize?: string;
-  property_details?: Record<string, any>;
+  property_details?: AddressRecord;
 }
 
 interface PropertyAddressLookupProps {

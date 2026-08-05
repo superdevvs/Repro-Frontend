@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useOptionalShoots } from "@/context/ShootsContext";
+import { useOptionalShoots } from "@/context/shootsContextState";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";

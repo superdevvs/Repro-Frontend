@@ -29,7 +29,6 @@ import {
 import { getCurrentReturnTo, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { formatServiceItemStatus } from '@/utils/shootServiceItems';
-
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
   destroy: () => void;

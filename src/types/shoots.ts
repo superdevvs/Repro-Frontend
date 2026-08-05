@@ -567,6 +567,10 @@ export interface ShootHistoryRecord {
   scheduledDate?: string | null;
   completedDate?: string | null;
   status?: string | null;
+  mls_id?: string | number | null;
+  listing_source?: string | null;
+  listingSource?: string | null;
+  bright_mls_publish_status?: string | null;
   client: {
     id?: number | null;
     name?: string | null;
@@ -595,6 +599,8 @@ export interface ShootHistoryRecord {
     photographer?: string | null;
     company?: string | null;
     editing?: string | null;
+    approvalNotes?: string | null;
+    editingNotes?: string | null;
   };
   userCreatedBy?: string | null;
 }

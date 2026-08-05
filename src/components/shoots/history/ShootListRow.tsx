@@ -20,7 +20,7 @@ import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
-import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
+import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, isAwaitingFinalizeShoot, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -200,6 +200,14 @@ export const ShootListRow = ({
           {paymentStatus && (
             <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'}>
               {paymentStatus}
+            </Badge>
+          )}
+          {isAwaitingFinalizeShoot(shoot) && (
+            <Badge
+              variant="outline"
+              className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            >
+              Awaiting Finalize
             </Badge>
           )}
           {shoot.missingRaw && <Badge variant="destructive">Missing RAW</Badge>}

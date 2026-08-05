@@ -74,8 +74,8 @@ export const HistoryRow = memo(({
   }
   const isPaid = isSuperAdmin ? (financials.totalPaid >= financials.totalQuote) : false
   const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
-  const approvalNotesValue = (record.notes as any)?.approvalNotes || (record.notes as any)?.approval
-  const editingNotesValue = (record.notes as any)?.editingNotes || (record.notes as any)?.editing
+  const approvalNotesValue = record.notes?.approvalNotes || record.notes?.approval
+  const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
   const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const recordStatus = String(record.status ?? '').toLowerCase()
@@ -147,7 +147,7 @@ export const HistoryRow = memo(({
               </div>
             )}
             <div className="flex items-center gap-2">
-              {(record as any).mls_id && onPublishMls && !isEditor && isBrightMlsSupportedForShoot({ state: (record as any).location?.state ?? (record as any).state, listing_source: (record as any).listing_source ?? (record as any).listingSource }) && (
+              {record.mls_id && onPublishMls && !isEditor && isBrightMlsSupportedForShoot({ state: record.address?.state, listing_source: record.listing_source ?? record.listingSource }) && (
                 <Button size="sm" variant="ghost" onClick={handlePublishMls} disabled={isBusy || publishing} className="h-auto p-0 hover:bg-transparent">
                   {publishing ? (
                     <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
@@ -236,7 +236,7 @@ export const HistoryRow = memo(({
           <div className="flex flex-wrap gap-1.5">
             {services.slice(0, 3).map((service, idx) => (
               <Badge key={idx} variant="outline" className="text-xs font-normal">
-                {typeof service === 'string' ? service : (service as any).name || String(service)}
+                {service}
               </Badge>
             ))}
             {services.length > 3 && (
@@ -246,11 +246,11 @@ export const HistoryRow = memo(({
           <span className="text-muted-foreground">
             Tour: {record.tourPurchased ? 'Yes' : 'No'}
           </span>
-          {(record as any).mls_id && !isEditor && (
+          {record.mls_id && !isEditor && (
             <span className="text-muted-foreground">
-              MLS: {(record as any).mls_id} · {(record as any).bright_mls_publish_status ? (
-                <Badge variant={(record as any).bright_mls_publish_status === 'published' ? 'default' : (record as any).bright_mls_publish_status === 'error' ? 'destructive' : 'secondary'} className="ml-1">
-                  {(record as any).bright_mls_publish_status === 'published' ? 'Published' : (record as any).bright_mls_publish_status === 'error' ? 'Error' : 'Pending'}
+              MLS: {record.mls_id} · {record.bright_mls_publish_status ? (
+                <Badge variant={record.bright_mls_publish_status === 'published' ? 'default' : record.bright_mls_publish_status === 'error' ? 'destructive' : 'secondary'} className="ml-1">
+                  {record.bright_mls_publish_status === 'published' ? 'Published' : record.bright_mls_publish_status === 'error' ? 'Error' : 'Pending'}
                 </Badge>
               ) : 'Not Published'}
             </span>
@@ -335,10 +335,10 @@ export const HistoryRow = memo(({
                       <p className="mt-0.5">{record.notes.approval}</p>
                     </div>
                   )}
-                  {(record.notes as any)?.editing && (
+                  {record.notes?.editing && (
                     <div>
                       <span className="text-muted-foreground">Editing Notes:</span>
-                      <p className="mt-0.5">{(record.notes as any).editing}</p>
+                      <p className="mt-0.5">{record.notes.editing}</p>
                     </div>
                   )}
                 </div>
@@ -409,7 +409,7 @@ export const HistoryRow = memo(({
                   {services.length > 0 ? (
                     services.map((service, idx) => (
                       <Badge key={idx} variant="outline">
-                        {typeof service === 'string' ? service : (service as any).name || String(service)}
+                        {service}
                       </Badge>
                     ))
                   ) : (

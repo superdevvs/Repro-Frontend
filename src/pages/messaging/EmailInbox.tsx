@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { getEmailMessages } from '@/services/messaging';
+import { getEmailMessage, getEmailMessages, markEmailThreadRead } from '@/services/messaging';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
 import { EmailMessageList } from '@/components/messaging/email/EmailMessageList';
 import { EmailMessageDetail } from '@/components/messaging/email/EmailMessageDetail';
@@ -16,6 +16,7 @@ export default function EmailInbox() {
   const { role } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -32,6 +33,42 @@ export default function EmailInbox() {
   });
 
   const messages = messagesData?.data || [];
+  const directMessageId = useMemo(() => {
+    const value = Number(searchParams.get('message'));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }, [searchParams]);
+
+  const { data: directMessage } = useQuery({
+    queryKey: ['email-message', directMessageId],
+    queryFn: () => getEmailMessage(directMessageId!),
+    enabled: directMessageId !== null,
+  });
+
+  const markConversationRead = useCallback((message: Message) => {
+    if (!message.thread_id) return;
+
+    void markEmailThreadRead(message.thread_id).then(() => refetch()).catch(() => {
+      // Opening a message should remain usable if the read receipt cannot be saved.
+    });
+  }, [refetch]);
+
+  const handleSelectMessage = useCallback((message: Message) => {
+    setSelectedMessage(message);
+    setSearchParams({ message: String(message.id) }, { replace: true });
+    markConversationRead(message);
+  }, [markConversationRead, setSearchParams]);
+
+  const handleCloseMessage = useCallback(() => {
+    setSelectedMessage(null);
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    if (!directMessage || selectedMessage?.id === directMessage.id) return;
+
+    setSelectedMessage(directMessage);
+    markConversationRead(directMessage);
+  }, [directMessage, markConversationRead, selectedMessage?.id]);
 
   // Mobile: show detail view full-screen when a message is selected
   const showMobileDetail = isMobile && selectedMessage;
@@ -49,7 +86,7 @@ export default function EmailInbox() {
             <div className="flex-1 flex flex-col overflow-hidden">
               <EmailMessageDetail
                 message={selectedMessage}
-                onClose={() => setSelectedMessage(null)}
+                onClose={handleCloseMessage}
                 onRefresh={refetch}
               />
             </div>
@@ -59,7 +96,7 @@ export default function EmailInbox() {
                 messages={messages}
                 isLoading={isLoading}
                 selectedMessage={selectedMessage}
-                onSelectMessage={setSelectedMessage}
+                onSelectMessage={handleSelectMessage}
                 onSearchChange={setSearchQuery}
                 onStatusFilterChange={setStatusFilter}
                 onRefresh={refetch}
@@ -74,7 +111,7 @@ export default function EmailInbox() {
                 messages={messages}
                 isLoading={isLoading}
                 selectedMessage={selectedMessage}
-                onSelectMessage={setSelectedMessage}
+                onSelectMessage={handleSelectMessage}
                 onSearchChange={setSearchQuery}
                 onStatusFilterChange={setStatusFilter}
                 onRefresh={refetch}
@@ -84,7 +121,7 @@ export default function EmailInbox() {
               {selectedMessage ? (
                 <EmailMessageDetail
                   message={selectedMessage}
-                  onClose={() => setSelectedMessage(null)}
+                  onClose={handleCloseMessage}
                   onRefresh={refetch}
                 />
               ) : (

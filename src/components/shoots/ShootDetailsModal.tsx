@@ -30,12 +30,12 @@ import {
   Upload,
 } from "lucide-react";
 import { ShootData } from '@/types/shoots';
-import { transformShootFromApi } from '@/context/ShootsContext';
+import { transformShootFromApi } from '@/context/shootNormalization';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { computePhotographerPayForShoot, formatPay } from '@/utils/photographerPay';
 import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { useShootRealtime } from '@/hooks/use-shoot-realtime';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
@@ -61,77 +61,14 @@ import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
 import { getShootClientReleaseAccess } from './details/shootClientReleaseAccess';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
-
-const sanitizeWeatherSegment = (value?: string | null) => value?.replace(/\s+/g, ' ').trim() ?? '';
-
-const buildWeatherLocationQuery = (shoot: ShootData | null) => {
-  if (!shoot) return null;
-
-  const fullAddress = sanitizeWeatherSegment(shoot.location?.fullAddress);
-  const streetAddress = sanitizeWeatherSegment(shoot.location?.address);
-  const city = sanitizeWeatherSegment(shoot.location?.city);
-  const state = sanitizeWeatherSegment(shoot.location?.state);
-  const zip = sanitizeWeatherSegment(shoot.location?.zip);
-  const fallbackAddressLine = sanitizeWeatherSegment((shoot as any).addressLine);
-  const fallbackCityStateZip = sanitizeWeatherSegment((shoot as any).cityStateZip);
-
-  if (fullAddress) {
-    return fullAddress;
-  }
-
-  const parts = [
-    streetAddress,
-    city,
-    [state, zip].filter(Boolean).join(' '),
-  ].filter(Boolean);
-
-  if (parts.length > 0) {
-    return parts.join(', ');
-  }
-
-  const fallbackParts = [fallbackAddressLine, fallbackCityStateZip].filter(Boolean);
-  return fallbackParts.length > 0 ? fallbackParts.join(', ') : null;
-};
-
-const buildWeatherDateTime = (shoot: ShootData | null) => {
-  if (!shoot) return undefined;
-
-  const startTime = (shoot as any).startTime;
-  if (typeof startTime === 'string' && !Number.isNaN(Date.parse(startTime))) {
-    return new Date(startTime).toISOString();
-  }
-
-  if (!shoot.scheduledDate) {
-    return undefined;
-  }
-
-  const target = new Date(shoot.scheduledDate);
-  if (Number.isNaN(target.getTime())) {
-    const parsed = new Date(`${shoot.scheduledDate} ${shoot.time || '12:00'}`);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-  }
-
-  const time = shoot.time || '12:00';
-  const twelveHour = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  const twentyFourHour = time.match(/^(\d{1,2}):(\d{2})$/);
-
-  if (twelveHour) {
-    let hours = parseInt(twelveHour[1], 10);
-    const minutes = parseInt(twelveHour[2], 10);
-    const period = twelveHour[3].toUpperCase();
-
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-
-    target.setHours(hours, minutes, 0, 0);
-  } else if (twentyFourHour) {
-    target.setHours(parseInt(twentyFourHour[1], 10), parseInt(twentyFourHour[2], 10), 0, 0);
-  } else {
-    target.setHours(12, 0, 0, 0);
-  }
-
-  return target.toISOString();
-};
+import {
+  buildWeatherDateTime,
+  buildWeatherLocationQuery,
+  canSubmitEditsFromDetails,
+  canSubmitRawFromDetails,
+  getShootDetailsAddressTitle,
+  getShootSubmitFileCount,
+} from './details/shootDetailsModalHelpers';
 
 interface ShootDetailsModalProps {
   shootId: string | number;
@@ -256,11 +193,11 @@ export function ShootDetailsModal({
   );
   const weatherLocationQuery = useMemo(
     () => buildWeatherLocationQuery(shoot),
-    [shoot, shoot?.location?.address, shoot?.location?.fullAddress, shoot?.location?.city, shoot?.location?.state, shoot?.location?.zip, (shoot as any)?.addressLine, (shoot as any)?.cityStateZip],
+    [shoot],
   );
   const weatherDateTime = useMemo(
     () => buildWeatherDateTime(shoot),
-    [shoot, shoot?.scheduledDate, shoot?.time, (shoot as any)?.startTime],
+    [shoot],
   );
 
   // Subscribe to weather provider updates
@@ -358,58 +295,24 @@ export function ShootDetailsModal({
     () => activeUploads.some((u) => u.shootId === String(shoot?.id) && u.status === 'uploading'),
     [activeUploads, shoot?.id],
   );
-  const canSubmitRawAction = useMemo(() => {
-    if (!shoot) {
-      return false;
-    }
-
-    const backendFlag = Boolean(shoot.canSubmitRaw ?? (shoot as any).can_submit_raw);
-    if (backendFlag) {
-      return true;
-    }
-
-    const role = (currentUserRole || '').toLowerCase();
-    const allowedRole =
-      isAdmin ||
-      isEditingManager ||
-      isPhotographer ||
-      ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer'].includes(role);
-    const status = String(normalizedStatus || shoot.workflowStatus || shoot.status || '').toLowerCase();
-    const allowedStatus = ['scheduled', 'booked', 'raw_upload_pending'].includes(status);
-    const count = Math.max(
-      Number(rawFileCount || 0),
-      Number(shoot.rawPhotoCount || 0),
-      Number((shoot as any).raw_photo_count || 0),
-    );
-
-    return allowedRole && allowedStatus && count > 0;
-  }, [currentUserRole, isAdmin, isEditingManager, isPhotographer, normalizedStatus, rawFileCount, shoot]);
-  const canSubmitEditsAction = useMemo(() => {
-    if (!shoot) {
-      return false;
-    }
-
-    const backendFlag = Boolean(shoot.canSubmitEdits ?? (shoot as any).can_submit_edits);
-    if (backendFlag) {
-      return true;
-    }
-
-    const role = (currentUserRole || '').toLowerCase();
-    const allowedRole =
-      isAdmin ||
-      isEditingManager ||
-      isEditor ||
-      ['admin', 'superadmin', 'super_admin', 'editing_manager', 'editor'].includes(role);
-    const status = String(normalizedStatus || shoot.workflowStatus || shoot.status || '').toLowerCase();
-    const allowedStatus = ['uploaded', 'editing'].includes(status);
-    const count = Math.max(
-      Number(editedMediaCount || 0),
-      Number(shoot.editedPhotoCount || 0),
-      Number((shoot as any).edited_photo_count || 0),
-    );
-
-    return allowedRole && allowedStatus && count > 0;
-  }, [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
+  const canSubmitRawAction = useMemo(() => canSubmitRawFromDetails({
+    shoot,
+    currentUserRole,
+    isAdmin,
+    isEditingManager,
+    isPhotographer,
+    normalizedStatus,
+    rawFileCount,
+  }), [currentUserRole, isAdmin, isEditingManager, isPhotographer, normalizedStatus, rawFileCount, shoot]);
+  const canSubmitEditsAction = useMemo(() => canSubmitEditsFromDetails({
+    shoot,
+    currentUserRole,
+    isAdmin,
+    isEditingManager,
+    isEditor,
+    normalizedStatus,
+    editedMediaCount,
+  }), [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
   const handleOpenAiEdit = useCallback(() => {
     if (typeof window === 'undefined' || !shoot?.id) {
       return;
@@ -459,7 +362,6 @@ export function ShootDetailsModal({
     handleShowInvoice,
   } = useShootDetailsModalPayments({
     shoot,
-    queryClient,
     refreshShoot,
     formatTime,
     navigate,
@@ -690,23 +592,7 @@ export function ShootDetailsModal({
 
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
   }, [shoot, isEditor, isPhotographer, user?.id]);
-  const addressTitle = shoot
-    ? (() => {
-        const address = shoot.location?.address || (shoot as any).address || '';
-        const city = shoot.location?.city || (shoot as any).city || '';
-        const state = shoot.location?.state || (shoot as any).state || '';
-        const zip = shoot.location?.zip || (shoot as any).zip || '';
-        if (address && (city || state || zip)) {
-          let streetAddress = address;
-          if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
-          if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
-          if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
-          streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
-          if (streetAddress) return streetAddress;
-        }
-        return address || shoot.location?.fullAddress || 'Shoot Details';
-      })()
-    : 'Shoot Details';
+  const addressTitle = getShootDetailsAddressTitle(shoot);
 
   // Admins/superadmins only (backend gates role:superadmin,admin). `isAdmin` here also
   // includes editing_manager, so exclude it along with the non-admin roles.
@@ -1079,9 +965,7 @@ export function ShootDetailsModal({
           open={Boolean(submitConfirm)}
           kind={submitConfirm.kind}
           fileCount={
-            submitConfirm.kind === 'raw'
-              ? (shoot.rawPhotoCount ?? (shoot as any).raw_photo_count ?? 0)
-              : (shoot.editedPhotoCount ?? (shoot as any).edited_photo_count ?? 0)
+            getShootSubmitFileCount(shoot, submitConfirm.kind)
           }
           isSubmitting={submitConfirm.kind === 'raw' ? isSubmittingRaw : isSubmittingEdits}
           hasInflightUploads={activeUploads.some(

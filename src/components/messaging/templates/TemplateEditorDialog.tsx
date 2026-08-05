@@ -27,6 +27,7 @@ import { Eye, Code, Save, X, ChevronDown, Braces, Send } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getStoredTemplateTestEmail, setStoredTemplateTestEmail } from './testSendStorage';
+import { BRAND_EMAIL, BRAND_NAME, BRAND_PHONE } from '@/config/brand';
 
 interface TemplateEditorDialogProps {
   template: MessageTemplate | null;
@@ -563,6 +564,23 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     return html;
   };
 
+  // Company-wide shortcodes always resolve to the same values, so the preview can
+  // show them for real instead of leaking raw `{{company_email}}` text. Shoot- and
+  // invoice-specific shortcodes stay untouched — they only exist at send time.
+  const resolveBrandShortcodes = (content: string): string => {
+    const brandValues: Record<string, string> = {
+      company_name: BRAND_NAME,
+      company_email: BRAND_EMAIL,
+      company_phone: BRAND_PHONE,
+    };
+
+    return Object.entries(brandValues).reduce(
+      (carry, [token, value]) =>
+        carry.split(`{{${token}}}`).join(value).split(`[${token}]`).join(value),
+      content
+    );
+  };
+
   const insertShortcode = (shortcode: string) => {
     const textarea = activeTab === 'html' ? htmlTextareaRef.current : textTextareaRef.current;
     if (!textarea) return;
@@ -826,10 +844,10 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                   <div
                     className="email-preview"
                     style={{ color: '#333333', lineHeight: 1.6 }}
-                    dangerouslySetInnerHTML={{ __html: stripLegacyEmailWrapper(formData.body_html) }}
+                    dangerouslySetInnerHTML={{ __html: resolveBrandShortcodes(stripLegacyEmailWrapper(formData.body_html)) }}
                   />
                 ) : formData.body_text ? (
-                  <pre className="whitespace-pre-wrap font-sans text-sm">{formData.body_text}</pre>
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{resolveBrandShortcodes(formData.body_text)}</pre>
                 ) : (
                   <p className="text-muted-foreground text-center py-8">No content to preview</p>
                 )}
@@ -839,12 +857,12 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                 <h4>Need help with a shoot, invoice, or account question?</h4>
                 <p>
                   Our team is here to keep your workflow moving. Reach us at
-                  {' '}contact@reprophotos.com or call 202-868-1113.
+                  {' '}{BRAND_EMAIL} or call {BRAND_PHONE}.
                 </p>
                 <div className="preview-footer-grid">
                   <div className="preview-footer-card">
                     <span className="preview-footer-label">Support</span>
-                    <span className="preview-footer-value">contact@reprophotos.com<br />202-868-1113</span>
+                    <span className="preview-footer-value">{BRAND_EMAIL}<br />{BRAND_PHONE}</span>
                   </div>
                   <div className="preview-footer-card">
                     <span className="preview-footer-label">Portal</span>

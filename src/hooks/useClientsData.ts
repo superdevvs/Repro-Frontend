@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 

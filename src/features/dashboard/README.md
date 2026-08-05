@@ -13,4 +13,4 @@ shoot-details chunks.
 Phase 7 result after interaction-level lazy loading:
 `Dashboard` ~155 KB, `Accounting` ~125 KB, `InvoiceViewDialog` ~16 KB, `ShootDetailsTourTab`
 ~59 KB. PDF and spreadsheet engines are now deferred into separate action-time chunks:
-`jspdf` ~358 KB and `xlsx` ~430 KB.
+`jspdf` and the browser XLSX writer are loaded only when an export is requested.

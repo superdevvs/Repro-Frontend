@@ -1,0 +1,39 @@
+.shell {
+  background: linear-gradient(135deg, #020617, #08152b, #0b1f47);
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%);
+}
+
+.cloudNode {
+  box-shadow: 0 18px 40px rgb(3 7 18 / 45%);
+}
+
+.avatar {
+  box-shadow: 0 4px 12px rgb(2 6 23 / 55%);
+}
+
+.nodeCopy {
+  filter: drop-shadow(0 6px 22px rgb(2 6 23 / 45%));
+}
+
+.glowBlue {
+  background-color: rgb(73 120 246 / 25%);
+  filter: blur(110px);
+}
+
+.glowCyan {
+  background-color: rgb(93 224 230 / 35%);
+  filter: blur(130px);
+}
+
+.constellation {
+  background: linear-gradient(135deg, rgb(255 255 255 / 10%), transparent), #050b1a;
+}
+
+.constellationGlow {
+  background: radial-gradient(circle, rgb(255 255 255 / 15%), transparent 65%);
+}
+
+.insightCard {
+  background-color: rgb(11 18 39 / 95%);
+  box-shadow: 0 30px 70px rgb(3 7 18 / 65%);
+}

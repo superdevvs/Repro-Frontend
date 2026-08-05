@@ -78,7 +78,7 @@ export function EmailMessageList({
 }: EmailMessageListProps) {
   const [searchValue, setSearchValue] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === 'admin' || role === 'superadmin';
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -173,6 +173,10 @@ export function EmailMessageList({
           messages.map((message) => {
             const StatusIcon = statusIcons[message.status] || Mail;
             const isSelected = selectedMessage?.id === message.id;
+            const isUnread = Boolean(
+              user?.id
+              && message.thread?.unread_for_user_ids_json?.some((id) => Number(id) === Number(user.id)),
+            );
             const senderLabel = message.sender_display_name
               ? message.sender_display_name
               : message.direction === 'OUTBOUND'
@@ -184,7 +188,8 @@ export function EmailMessageList({
                 key={message.id}
                 className={cn(
                   'p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors',
-                  isSelected && 'bg-muted'
+                  isSelected && 'bg-muted',
+                  isUnread && !isSelected && 'bg-primary/[0.035]',
                 )}
                 onClick={() => onSelectMessage(message)}
               >
@@ -195,7 +200,8 @@ export function EmailMessageList({
 
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium truncate">
+                      <span className={cn('truncate', isUnread ? 'font-semibold' : 'font-medium')}>
+                        {isUnread && <span className="mr-2 inline-block h-2 w-2 rounded-full bg-primary" aria-label="Unread" />}
                         {senderLabel}
                       </span>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">

@@ -1,10 +1,8 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { cn } from '@/lib/utils';
+import React, { useCallback, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -15,33 +13,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Save, Edit, Trash2, MoreVertical, HelpCircle } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Loader2, Plus, Save, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { ServiceCard } from './ServiceCard';
-import { CategorySelect } from '@/components/settings/CategorySelect';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { useServiceGroups } from '@/hooks/useServiceGroups';
 import API_ROUTES from '@/lib/api';
-import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import { useQueryClient } from '@tanstack/react-query';
-
-/**
- * How a service's photographer pay is expressed: a flat dollar amount, or a
- * percentage of that service's price. Admins choose per service.
- */
-type PhotographerPayType = 'fixed' | 'percent';
-
-type SqftRange = {
-  id?: number;
-  sqft_from: number;
-  sqft_to: number;
-  duration: number | null;
-  price: number;
-  photographer_pay: number | null;
-  photo_count?: number | null;
-};
+import { ServiceCreateDialog } from './ServiceCreateDialog';
+import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
 
 type Service = {
   id: string;
@@ -71,6 +51,122 @@ const extractPhotoCount = (name: string) => {
   return match ? Number(match[1]) : 0;
 };
 
+interface ServiceCategory {
+  id: string;
+  name: string;
+  icon?: string | null;
+  is_default?: boolean;
+}
+
+const CATEGORY_ORDER = [
+  'photo', 'video', 'drone', '3d', '360/3d tours', 'floor plans', 'floorplan',
+  'virtual staging', 'commercials', 'packages', 'addons', 'unassigned',
+];
+
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback;
+
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord =>
+  value !== null && typeof value === 'object' ? value as UnknownRecord : {};
+
+const toNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const readResponseErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+  const payload: unknown = await response.json().catch(() => null);
+  const message = asRecord(payload).message;
+  return typeof message === 'string' && message ? message : fallback;
+};
+
+const normalizeSqftRange = (value: unknown): SqftRange | null => {
+  const range = asRecord(value);
+  const sqftFrom = toNumber(range.sqft_from);
+  const sqftTo = toNumber(range.sqft_to);
+  if (sqftFrom === undefined || sqftTo === undefined) return null;
+  return {
+    id: toNumber(range.id),
+    sqft_from: sqftFrom,
+    sqft_to: sqftTo,
+    duration: toNumber(range.duration) ?? null,
+    price: toNumber(range.price) ?? 0,
+    photographer_pay: toNumber(range.photographer_pay) ?? null,
+    photo_count: toNumber(range.photo_count) ?? null,
+  };
+};
+
+const normalizeService = (value: unknown): Service | null => {
+  const item = asRecord(value);
+  if (item.id === null || item.id === undefined || typeof item.name !== 'string') return null;
+  const category = asRecord(item.category);
+  const categoryName = typeof category.name === 'string' ? category.name : '';
+  const rangeValues = item.sqft_ranges ?? item.sqftRanges;
+  const sqftRanges = Array.isArray(rangeValues)
+    ? rangeValues.map(normalizeSqftRange).filter((range): range is SqftRange => range !== null)
+    : [];
+  const groupValues = Array.isArray(item.service_groups) ? item.service_groups : [];
+  const serviceGroups = groupValues.flatMap((value) => {
+    const group = asRecord(value);
+    if (group.id === null || group.id === undefined || typeof group.name !== 'string') return [];
+    return [{
+      id: String(group.id),
+      name: group.name,
+      description: typeof group.description === 'string' ? group.description : '',
+    }];
+  });
+  const photoCount = toNumber(item.photo_count)
+    ?? (categoryName.toLowerCase().includes('photo') ? extractPhotoCount(item.name) : undefined);
+  const payType = item.photographer_pay_type;
+  const pay = item.photographer_pay;
+  const rawGroupIds = Array.isArray(item.service_group_ids)
+    ? item.service_group_ids
+    : serviceGroups.map((group) => group.id);
+
+  return {
+    id: String(item.id),
+    name: item.name,
+    description: typeof item.description === 'string' ? item.description : '',
+    price: String(item.price ?? '0'),
+    pricing_type: item.pricing_type === 'variable' ? 'variable' : 'fixed',
+    allow_multiple: Boolean(item.allow_multiple),
+    delivery_time: item.delivery_time === null || item.delivery_time === undefined
+      ? undefined
+      : String(item.delivery_time),
+    category: categoryName,
+    photographer_required: Boolean(item.photographer_required),
+    photographer_pay: typeof pay === 'string' || typeof pay === 'number' ? pay : undefined,
+    photographer_pay_type: payType === 'percent' ? 'percent' : 'fixed',
+    photographer_pay_percent: typeof item.photographer_pay_percent === 'string'
+      || typeof item.photographer_pay_percent === 'number'
+      ? item.photographer_pay_percent
+      : null,
+    exclude_from_sales_commission: Boolean(item.exclude_from_sales_commission),
+    photo_count: photoCount,
+    quantity: toNumber(item.quantity),
+    icon: typeof item.icon === 'string' ? item.icon : undefined,
+    service_group_ids: rawGroupIds.map(String),
+    service_groups: serviceGroups,
+    sqft_ranges: sqftRanges,
+    active: item.active === undefined ? true : Boolean(item.active),
+  };
+};
+
+const normalizeServiceCategory = (value: unknown): ServiceCategory | null => {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  if (record.id === null || record.id === undefined || typeof record.name !== 'string') return null;
+  return {
+    id: String(record.id),
+    name: record.name,
+    icon: typeof record.icon === 'string' ? record.icon : null,
+    is_default: Boolean(record.is_default),
+  };
+};
+
 export interface ServicesTabHandle {
   openAddService: () => void;
   openAddCategory: () => void;
@@ -81,40 +177,34 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({
+  const [newService, setNewService] = useState<ServiceDraft>({
     name: '',
     description: '',
     price: '',
-    pricing_type: 'fixed' as 'fixed' | 'variable',
+    pricing_type: 'fixed',
     allow_multiple: false,
     delivery_time: '',
     category: '',
     icon: '',
     photographer_required: false,
     photographer_pay: '',
-    photographer_pay_type: 'fixed' as PhotographerPayType,
+    photographer_pay_type: 'fixed',
     photographer_pay_percent: '',
     exclude_from_sales_commission: false,
-    photo_count: undefined as number | undefined,
-    quantity: undefined as number | undefined,
-    service_group_ids: [] as string[],
+    photo_count: undefined,
+    quantity: undefined,
+    service_group_ids: [],
   });
   const [newSqftRanges, setNewSqftRanges] = useState<SqftRange[]>([]);
   const isPercentPay = newService.photographer_pay_type === 'percent';
-  /**
-   * Show what the configured percentage works out to, so an admin entering "45"
-   * against a $100 service can see the $45.00 result before saving.
-   */
-  const percentPayPreview = (() => {
-    if (!isPercentPay) return '';
-    const percent = parseFloat(String(newService.photographer_pay_percent));
-    const price = parseFloat(String(newService.price));
-    if (!Number.isFinite(percent) || !Number.isFinite(price) || price <= 0) return '';
-    const amount = (price * percent) / 100;
-    return `${percent}% of $${price.toFixed(2)} = $${amount.toFixed(2)}`;
-  })();
   const { toast } = useToast();
-  const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
+  const { data: categoryData, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
+  const categories = React.useMemo(() => {
+    const values: unknown = categoryData;
+    return Array.isArray(values)
+      ? values.map(normalizeServiceCategory).filter((category): category is ServiceCategory => category !== null)
+      : [];
+  }, [categoryData]);
   const { data: serviceGroups = [] } = useServiceGroups();
   const queryClient = useQueryClient();
 
@@ -162,15 +252,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const [isEditCategoryOpen, setIsEditCategoryOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
   const [editCategoryIcon, setEditCategoryIcon] = useState('');
   const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
-
-  useEffect(() => {
-    fetchServices();
-  }, [categories]);
 
   useEffect(() => {
     if (!mergedCategories.length) return;
@@ -223,42 +309,6 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     openAddService: handleOpenAddService,
     openAddCategory: () => setIsAddCategoryOpen(true),
   }));
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setNewService(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const addNewSqftRange = () => {
-    const lastRange = newSqftRanges[newSqftRanges.length - 1];
-    const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
-    setNewSqftRanges([
-      ...newSqftRanges,
-      {
-        sqft_from: newFrom,
-        sqft_to: newFrom + 1499,
-        duration: 60,
-        price: 0,
-        photographer_pay: null,
-        photo_count: null,
-      },
-    ]);
-  };
-
-  const updateNewSqftRange = (index: number, field: keyof SqftRange, value: number | null) => {
-    setNewSqftRanges(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const removeNewSqftRange = (index: number) => {
-    setNewSqftRanges(prev => prev.filter((_, i) => i !== index));
-  };
 
   const handleSaveService = async () => {
     const token = localStorage.getItem('authToken');
@@ -339,8 +389,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create service');
+        throw new Error(await readResponseErrorMessage(response, 'Failed to create service'));
       }
 
       toast({
@@ -350,11 +399,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       setIsAddDialogOpen(false);
       setNewSqftRanges([]);
       queryClient.invalidateQueries({ queryKey: ['service-groups'] });
-      fetchServices();
-    } catch (error: any) {
+      void fetchServices();
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to create service.',
+        description: getErrorMessage(error, 'Failed to create service.'),
         variant: 'destructive',
       });
     }
@@ -384,8 +433,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create category');
+        throw new Error(await readResponseErrorMessage(response, 'Failed to create category'));
       }
 
       toast({
@@ -396,10 +444,10 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       setNewCategoryName('');
       setNewCategoryIcon('');
       await refetchCategories();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to create category.',
+        description: getErrorMessage(error, 'Failed to create category.'),
         variant: 'destructive',
       });
     } finally {
@@ -407,7 +455,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     }
   };
 
-  const handleEditCategory = (category: any) => {
+  const handleEditCategory = (category: ServiceCategory) => {
     setEditingCategory(category);
     setEditCategoryName(category?.name || '');
     setEditCategoryIcon(category?.icon || '');
@@ -439,8 +487,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to update category');
+        throw new Error(await readResponseErrorMessage(response, 'Failed to update category'));
       }
 
       toast({
@@ -450,10 +497,10 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       setIsEditCategoryOpen(false);
       setEditingCategory(null);
       await refetchCategories();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to update category.',
+        description: getErrorMessage(error, 'Failed to update category.'),
         variant: 'destructive',
       });
     } finally {
@@ -461,7 +508,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     }
   };
 
-  const handleDeleteCategory = async (category: any) => {
+  const handleDeleteCategory = async (category: ServiceCategory) => {
     if (!category?.id) return;
     const shouldDelete = window.confirm(`Delete category "${category.name}"? This cannot be undone.`);
     if (!shouldDelete) return;
@@ -475,8 +522,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to delete category');
+        throw new Error(await readResponseErrorMessage(response, 'Failed to delete category'));
       }
 
       toast({
@@ -487,11 +533,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
         setSelectedCategory(null);
       }
       await refetchCategories();
-      fetchServices();
-    } catch (error: any) {
+      void fetchServices();
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to delete category.',
+        description: getErrorMessage(error, 'Failed to delete category.'),
         variant: 'destructive',
       });
     } finally {
@@ -499,7 +545,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     }
   };
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -520,59 +566,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       if (!response.ok) {
         throw new Error('Failed to fetch services');
       }
-      const data = await response.json();
-
-      const mappedServices: Service[] = data.data.map((item) => {
-        const categoryName = item.category?.name || '';
-        const isPhotoCategory = categoryName.toLowerCase().includes('photo');
-        const sqftRanges = Array.isArray(item.sqft_ranges || item.sqftRanges)
-          ? (item.sqft_ranges || item.sqftRanges).map((range: any) => ({
-              id: range.id,
-              sqft_from: range.sqft_from,
-              sqft_to: range.sqft_to,
-              duration: range.duration ?? null,
-              price: range.price,
-              photographer_pay: range.photographer_pay ?? null,
-              photo_count: range.photo_count ?? null,
-            }))
-          : [];
-
-        let photoCount = item.photo_count;
-        if (photoCount == null && isPhotoCategory) {
-          photoCount = extractPhotoCount(item.name);
-        }
-
-        return {
-          id: item.id,
-          name: item.name,
-          description: item.description || '',
-          price: item.price,
-          pricing_type: item.pricing_type || 'fixed',
-          allow_multiple: item.allow_multiple ?? false,
-          delivery_time: item.delivery_time,
-          category: categoryName,
-          photographer_required: item.photographer_required ?? false,
-          photographer_pay: item.photographer_pay ?? null,
-          exclude_from_sales_commission: item.exclude_from_sales_commission ?? false,
-          photo_count: photoCount,
-          quantity: item.quantity,
-          icon: item.icon,
-          service_group_ids: Array.isArray(item.service_group_ids)
-            ? item.service_group_ids.map((id: any) => String(id))
-            : Array.isArray(item.service_groups)
-              ? item.service_groups.map((group: any) => String(group.id))
-              : [],
-          service_groups: Array.isArray(item.service_groups)
-            ? item.service_groups.map((group: any) => ({
-                id: String(group.id),
-                name: group.name,
-                description: group.description ?? '',
-              }))
-            : [],
-          sqft_ranges: sqftRanges,
-          active: true,
-        };
-      });
+      const data: unknown = await response.json();
+      const values = asRecord(data).data ?? data;
+      const mappedServices = Array.isArray(values)
+        ? values.map(normalizeService).filter((service): service is Service => service !== null)
+        : [];
 
       setServices(mappedServices);
     } catch (error) {
@@ -585,7 +583,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void fetchServices();
+  }, [categories, fetchServices]);
 
   const selectedCategoryName = mergedCategories.find(cat => cat.id === selectedCategory)?.name;
   const normalizedSelectedCategory = selectedCategoryName
@@ -595,25 +597,6 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const filteredServices = selectedCategory && normalizedSelectedCategory
     ? services.filter(service => normalizeCategoryName(service.category || '') === normalizedSelectedCategory)
     : services;
-  const addRangeGridClass = newService.photographer_required
-    ? 'grid-cols-[0.75fr_0.75fr_0.6fr_0.6fr_0.8fr_0.9fr_auto]'
-    : 'grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto]';
-
-  const CATEGORY_ORDER = [
-    'photo',
-    'video',
-    'drone',
-    '3d',
-    '360/3d tours',
-    'floor plans',
-    'floorplan',
-    'virtual staging',
-    'commercials',
-    'packages',
-    'addons',
-    'unassigned',
-  ];
-
   const sortedCategories = React.useMemo(() => {
     if (!mergedCategories.length) return [];
 
@@ -724,390 +707,17 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
         ))}
       </div>
 
-      {/* Add New Service Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Add New Service</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[calc(88vh-10.5rem)] space-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)]">
-            <div className="space-y-2">
-              <CategorySelect
-                value={newService.category}
-                onChange={(value) => {
-                  setNewService(prev => ({ ...prev, category: value }));
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Service Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={newService.name}
-                onChange={handleInputChange}
-                placeholder="e.g., HDR Photos"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                name="description"
-                value={newService.description}
-                onChange={handleInputChange}
-                placeholder="Service description"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Service Groups</Label>
-              <MultiSelectChecklist
-                options={serviceGroupOptions}
-                value={newService.service_group_ids}
-                onChange={(value) => setNewService((prev) => ({ ...prev, service_group_ids: value }))}
-                placeholder="Visible to all clients unless you assign one or more service groups."
-                emptyMessage="Create a service group to start restricting visibility."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Icon</Label>
-                <IconPicker
-                  value={newService.icon}
-                  onChange={(value) => setNewService(prev => ({ ...prev, icon: value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quantity_field">
-                  {isNewServicePhotoCategory ? 'Photo Count' : 'Quantity'}
-                </Label>
-                <Input
-                  id="quantity_field"
-                  type="number"
-                  min="0"
-                  value={isNewServicePhotoCategory 
-                    ? (newService.photo_count ?? '') 
-                    : (newService.quantity ?? '')}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const numVal = val === '' ? undefined : parseInt(val, 10);
-                    if (isNewServicePhotoCategory) {
-                      setNewService(prev => ({ ...prev, photo_count: numVal }));
-                    } else {
-                      setNewService(prev => ({ ...prev, quantity: numVal }));
-                    }
-                  }}
-                  placeholder={isNewServicePhotoCategory ? "Number of photos" : "Quantity"}
-                />
-              </div>
-            </div>
-
-            {/* Pricing Type */}
-            <div className="space-y-2">
-              <Label>Pricing</Label>
-              <Select
-                value={newService.pricing_type}
-                onValueChange={(value: 'fixed' | 'variable') => 
-                  setNewService(prev => ({ ...prev, pricing_type: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select pricing type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixed">Fixed Price</SelectItem>
-                  <SelectItem value="variable">Variable (SQFT)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Fixed pricing fields */}
-            {newService.pricing_type !== 'variable' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    value={newService.price}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
-                  <Input
-                    id="delivery_time"
-                    name="delivery_time"
-                    type="number"
-                    value={newService.delivery_time}
-                    onChange={handleInputChange}
-                    placeholder="24"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Variable pricing - SQFT Ranges */}
-            {newService.pricing_type === 'variable' && (
-              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    Define each square footage range and provide the duration and price for each range.
-                  </p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>Price will be automatically calculated based on the property's square footage when booking a shoot.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-
-                {/* Header row */}
-                <div className={`grid ${addRangeGridClass} gap-2 text-xs font-medium text-muted-foreground`}>
-                  <div>From</div>
-                  <div>To</div>
-                  <div>Count</div>
-                  <div>Dur (min)</div>
-                  <div>Price ($)</div>
-                  {newService.photographer_required && <div>Photographer Pay ($)</div>}
-                  <div className="w-8"></div>
-                </div>
-
-                {/* Range rows */}
-                {newSqftRanges.map((range, index) => (
-                  <div key={index} className={`grid ${addRangeGridClass} gap-2 items-center`}>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={range.sqft_from}
-                      onChange={(e) => updateNewSqftRange(index, 'sqft_from', parseInt(e.target.value) || 0)}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      value={range.sqft_to}
-                      onChange={(e) => updateNewSqftRange(index, 'sqft_to', parseInt(e.target.value) || 0)}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      value={range.photo_count ?? ''}
-                      onChange={(e) => updateNewSqftRange(index, 'photo_count', e.target.value ? parseInt(e.target.value) : null)}
-                      className="h-8 text-sm"
-                      placeholder={isNewServicePhotoCategory ? "25" : "1"}
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      value={range.duration || ''}
-                      onChange={(e) => updateNewSqftRange(index, 'duration', e.target.value ? parseInt(e.target.value) : null)}
-                      className="h-8 text-sm"
-                      placeholder="60"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={range.price}
-                        onChange={(e) => updateNewSqftRange(index, 'price', parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm pl-5"
-                      />
-                    </div>
-                    {newService.photographer_required && (
-                      <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={range.photographer_pay ?? ''}
-                          onChange={(e) =>
-                            updateNewSqftRange(
-                              index,
-                              'photographer_pay',
-                              e.target.value === '' ? null : parseFloat(e.target.value),
-                            )
-                          }
-                          className="h-8 text-sm pl-5"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => removeNewSqftRange(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-
-                {/* Add new range button */}
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  className="text-primary p-0 h-auto"
-                  onClick={addNewSqftRange}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add New Range
-                </Button>
-
-                {/* Default/fallback price */}
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                  <div className="space-y-2">
-                    <Label htmlFor="price" className="text-xs">Default Price (fallback)</Label>
-                    <Input
-                      id="price"
-                      name="price"
-                      type="number"
-                      value={newService.price}
-                      onChange={handleInputChange}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="delivery_time" className="text-xs">Default Duration (hours)</Label>
-                    <Input
-                      id="delivery_time"
-                      name="delivery_time"
-                      type="number"
-                      value={newService.delivery_time}
-                      onChange={handleInputChange}
-                      className="h-8"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="photographer_required" className="cursor-pointer">
-                Photographer Required
-              </Label>
-              <Switch
-                id="photographer_required"
-                checked={newService.photographer_required}
-                onCheckedChange={(checked) => 
-                  setNewService(prev => ({ ...prev, photographer_required: checked }))
-                }
-              />
-            </div>
-            {newService.photographer_required && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="photographer_pay">
-                    {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
-                  </Label>
-                  {/* Flat amount or a percentage of this service's price — admins
-                      pick per service, so both models can coexist. */}
-                  <div className="flex overflow-hidden rounded-md border border-border">
-                    <button
-                      type="button"
-                      aria-pressed={!isPercentPay}
-                      className={cn(
-                        'px-2 py-1 text-xs font-medium transition-colors',
-                        !isPercentPay
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background text-muted-foreground hover:bg-muted',
-                      )}
-                      onClick={() =>
-                        setNewService((prev) => ({ ...prev, photographer_pay_type: 'fixed' }))
-                      }
-                    >
-                      $
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={isPercentPay}
-                      className={cn(
-                        'px-2 py-1 text-xs font-medium transition-colors',
-                        isPercentPay
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background text-muted-foreground hover:bg-muted',
-                      )}
-                      onClick={() =>
-                        setNewService((prev) => ({ ...prev, photographer_pay_type: 'percent' }))
-                      }
-                    >
-                      %
-                    </button>
-                  </div>
-                </div>
-                {isPercentPay ? (
-                  <>
-                    <Input
-                      id="photographer_pay"
-                      name="photographer_pay_percent"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newService.photographer_pay_percent ?? ''}
-                      onChange={handleInputChange}
-                      placeholder="45.00"
-                    />
-                    {percentPayPreview && (
-                      <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
-                    )}
-                  </>
-                ) : (
-                  <Input
-                    id="photographer_pay"
-                    name="photographer_pay"
-                    type="number"
-                    step="0.01"
-                    value={newService.photographer_pay}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                  />
-                )}
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
-                  Exclude from sales commission
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Use for travel, cancellation, and reschedule fees.
-                </p>
-              </div>
-              <Switch
-                id="exclude_from_sales_commission"
-                checked={newService.exclude_from_sales_commission}
-                onCheckedChange={(checked) =>
-                  setNewService(prev => ({ ...prev, exclude_from_sales_commission: checked }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter className="border-t pt-3 sm:pt-4">
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveService}>
-              <Save className="w-4 h-4 mr-2" />
-              Save Service
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceCreateDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        newService={newService}
+        setNewService={setNewService}
+        newSqftRanges={newSqftRanges}
+        setNewSqftRanges={setNewSqftRanges}
+        isNewServicePhotoCategory={isNewServicePhotoCategory}
+        serviceGroupOptions={serviceGroupOptions}
+        onSave={handleSaveService}
+      />
 
       {/* Add New Category Dialog */}
       <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>

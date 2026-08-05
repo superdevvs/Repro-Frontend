@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, Database, Home, Search } from 'lucide-react';
-import AddressLookupField, { type AddressDetails } from '@/components/AddressLookupField';
+import AddressLookupField from '@/components/AddressLookupField';
+import type { AddressDetails, AddressRecord } from '@/utils/addressLookup';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,18 +75,18 @@ const formatSourceLabel = (value: string) =>
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-const normalizePayload = (value: unknown): Record<string, any> | null => {
+const normalizePayload = (value: unknown): AddressRecord | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
 
-  return value as Record<string, any>;
+  return value as AddressRecord;
 };
 
 const pickRawPayload = (
-  sources: Array<Record<string, any> | null | undefined>,
+  sources: Array<AddressRecord | null | undefined>,
   keys: string[],
-): Record<string, any> | null => {
+): AddressRecord | null => {
   for (const source of sources) {
     if (!source) {
       continue;
@@ -102,7 +103,7 @@ const pickRawPayload = (
   return null;
 };
 
-const renderPayloadHint = (payload: Record<string, any> | null, label: string) => {
+const renderPayloadHint = (payload: AddressRecord | null, label: string) => {
   if (payload) {
     return (
       <Badge variant="secondary" className="border-emerald-200 bg-emerald-50 text-emerald-900">
@@ -147,9 +148,10 @@ export const AddressLookupTester: React.FC = () => {
 
   const emptyFields = inspectedFields.filter((field) => field.empty);
   const filledFields = inspectedFields.filter((field) => !field.empty);
-  const propertyDetails = selectedAddress?.property_details ?? {};
+  const propertyDetails = useMemo(() => selectedAddress?.property_details ?? {}, [selectedAddress]);
+  const selectedAddressRecord = selectedAddress as unknown as AddressRecord | null;
   const rawParcelPayload = pickRawPayload(
-    [selectedAddress as Record<string, any> | null, propertyDetails],
+    [selectedAddressRecord, propertyDetails],
     [
       'raw_parcel_data',
       'parcel_data',
@@ -161,7 +163,7 @@ export const AddressLookupTester: React.FC = () => {
     ],
   );
   const rawAssessmentPayload = pickRawPayload(
-    [selectedAddress as Record<string, any> | null, propertyDetails],
+    [selectedAddressRecord, propertyDetails],
     [
       'raw_assessment_data',
       'assessment_data',
@@ -173,18 +175,28 @@ export const AddressLookupTester: React.FC = () => {
     ],
   );
   const rawLegacyPayload = pickRawPayload(
-    [selectedAddress as Record<string, any> | null, propertyDetails],
+    [selectedAddressRecord, propertyDetails],
     ['raw_legacy_data', 'raw_legacy_lookup', 'legacy_lookup'],
   );
   const manualOverridePayload = pickRawPayload(
-    [selectedAddress as Record<string, any> | null, propertyDetails],
+    [selectedAddressRecord, propertyDetails],
     ['manual_override', 'raw_manual_override'],
   );
-  const areas = Array.isArray(propertyDetails?.areas) ? propertyDetails.areas : [];
+  const areas = useMemo(
+    () => Array.isArray(propertyDetails.areas)
+      ? propertyDetails.areas.map(normalizePayload).filter((area): area is AddressRecord => area !== null)
+      : [],
+    [propertyDetails],
+  );
   const building = Array.isArray(propertyDetails?.building)
     ? propertyDetails.building[0] ?? null
     : propertyDetails?.building ?? null;
-  const garages = Array.isArray(propertyDetails?.garages) ? propertyDetails.garages : [];
+  const garages = useMemo(
+    () => Array.isArray(propertyDetails.garages)
+      ? propertyDetails.garages.map(normalizePayload).filter((garage): garage is AddressRecord => garage !== null)
+      : [],
+    [propertyDetails],
+  );
   const propertySourceChain = Array.isArray(selectedAddress?.property_source_chain)
     ? selectedAddress.property_source_chain
     : [];

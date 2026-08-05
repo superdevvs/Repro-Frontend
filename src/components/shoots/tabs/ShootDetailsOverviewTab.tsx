@@ -72,7 +72,8 @@ import {
   normalizeShootServiceCategoryKey,
 } from '@/utils/shootPhotographerAssignments';
 import { to12Hour } from '@/utils/availabilityUtils';
-import AddressLookupField, { buildNormalizedPropertyDetails } from '@/components/AddressLookupField';
+import AddressLookupField from '@/components/AddressLookupField';
+import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
@@ -127,11 +128,21 @@ const parseFlexibleDate = (value?: string | null) => {
     try {
       const parsed = parse(trimmed, fmt, new Date());
       if (isValid(parsed)) return parsed;
-    // eslint-disable-next-line no-empty
-    } catch {}
+    } catch {
+      continue;
+    }
   }
   return null;
 };
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const optionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value : undefined;
+
+const isWeatherIcon = (value: unknown): value is WeatherInfo['icon'] =>
+  value === 'sunny' || value === 'cloudy' || value === 'rainy' || value === 'snowy';
 
 type FeaturedShootState = {
   approved: boolean;
@@ -139,17 +150,17 @@ type FeaturedShootState = {
 };
 
 const resolveFeaturedShootState = (shoot?: Partial<ShootData> | null): FeaturedShootState => {
-  const snakeCaseValue = (shoot as any)?.is_featured;
-  const camelCaseValue = (shoot as any)?.isFeatured;
+  const snakeCaseValue = shoot?.is_featured;
+  const camelCaseValue = shoot?.isFeatured;
   const approved = snakeCaseValue !== undefined && snakeCaseValue !== null
     ? Boolean(snakeCaseValue)
     : Boolean(camelCaseValue);
 
-  const explicitPending = (shoot as any)?.featuredPending ?? (shoot as any)?.featured_pending;
+  const explicitPending = shoot?.featuredPending ?? shoot?.featured_pending;
   const pendingValue = explicitPending !== undefined
     ? Boolean(explicitPending)
-    : String((shoot as any)?.featuredStatus ?? (shoot as any)?.featured_status ?? '').toLowerCase() === 'pending';
-  const requestedAt = (shoot as any)?.featuredRequestedAt ?? (shoot as any)?.featured_requested_at;
+    : String(shoot?.featuredStatus ?? shoot?.featured_status ?? '').toLowerCase() === 'pending';
+  const requestedAt = shoot?.featuredRequestedAt ?? shoot?.featured_requested_at;
 
   return {
     approved,
@@ -192,6 +203,39 @@ type ServiceOption = {
   photographer_pay?: number | null;
   duration?: number | null;
   [key: string]: unknown;
+};
+
+const normalizePricingService = (value: unknown): ServiceWithPricing => {
+  const service = asRecord(value);
+  const sqftRanges = Array.isArray(service.sqft_ranges)
+    ? service.sqft_ranges.flatMap((rangeValue) => {
+        const range = asRecord(rangeValue);
+        const sqftFrom = Number(range.sqft_from);
+        const sqftTo = Number(range.sqft_to);
+        const price = Number(range.price);
+        if (!Number.isFinite(sqftFrom) || !Number.isFinite(sqftTo) || !Number.isFinite(price)) return [];
+        const duration = Number(range.duration);
+        const photographerPay = Number(range.photographer_pay);
+        const photoCount = Number(range.photo_count);
+        return [{
+          sqft_from: sqftFrom,
+          sqft_to: sqftTo,
+          duration: Number.isFinite(duration) ? duration : null,
+          price,
+          photographer_pay: Number.isFinite(photographerPay) ? photographerPay : null,
+          photo_count: Number.isFinite(photoCount) ? photoCount : null,
+        }];
+      })
+    : [];
+  const rawPrice = service.price;
+  return {
+    ...service,
+    id: typeof service.id === 'number' || typeof service.id === 'string' ? service.id : '',
+    name: optionalString(service.name) || optionalString(service.label) || 'Service',
+    price: typeof rawPrice === 'number' || typeof rawPrice === 'string' ? rawPrice : 0,
+    pricing_type: service.pricing_type === 'variable' ? 'variable' : 'fixed',
+    sqft_ranges: sqftRanges,
+  };
 };
 
 type ServiceCategoryOption = {
@@ -289,17 +333,27 @@ const deriveServiceCategoryName = (service: ServiceOption) => {
   return service.category.name || 'Uncategorized';
 };
 
-const mapPhotographerPickerOption = (photographer: any): PhotographerPickerOption => ({
-  ...photographer,
-  id: photographer.id?.toString() || '',
-  name: photographer.name || 'Unknown',
-  email: photographer.email || '',
-  avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
-  address: photographer.address || photographer.metadata?.address || photographer.metadata?.homeAddress,
-  city: photographer.city || photographer.metadata?.city,
-  state: photographer.state || photographer.metadata?.state,
-  zip: photographer.zip || photographer.zipcode || photographer.metadata?.zip || photographer.metadata?.zipcode,
-});
+const mapPhotographerPickerOption = (value: unknown): PhotographerPickerOption => {
+  const photographer = asRecord(value);
+  const metadata = asRecord(photographer.metadata);
+  return {
+    id: String(photographer.id ?? ''),
+    name: optionalString(photographer.name) || 'Unknown',
+    email: optionalString(photographer.email) || '',
+    avatar: optionalString(photographer.avatar)
+      || optionalString(photographer.profile_image)
+      || optionalString(photographer.profile_photo_url),
+    address: optionalString(photographer.address)
+      || optionalString(metadata.address)
+      || optionalString(metadata.homeAddress),
+    city: optionalString(photographer.city) || optionalString(metadata.city),
+    state: optionalString(photographer.state) || optionalString(metadata.state),
+    zip: optionalString(photographer.zip)
+      || optionalString(photographer.zipcode)
+      || optionalString(metadata.zip)
+      || optionalString(metadata.zipcode),
+  };
+};
 
 const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption[]> => {
   const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -373,6 +427,7 @@ export function ShootDetailsOverviewTab({
 }: ShootDetailsOverviewTabProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const shootRecord = asRecord(shoot);
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
   const [featuredShootState, setFeaturedShootState] = useState<FeaturedShootState>(() => resolveFeaturedShootState(shoot));
   const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
@@ -469,7 +524,7 @@ export function ShootDetailsOverviewTab({
   const isAssignedPhotographer = Boolean(
     isPhotographer &&
     user?.id != null &&
-    String(shoot.photographer?.id ?? (shoot as any)?.photographer_id ?? '') === String(user.id),
+    String(shoot.photographer?.id ?? shootRecord.photographer_id ?? '') === String(user.id),
   );
 
   const handleFeaturedShootToggle = async (checked: boolean) => {
@@ -608,10 +663,15 @@ export function ShootDetailsOverviewTab({
     : 'Not scheduled';
   const scheduleTimeDisplay = shoot.time ? formatTime(shoot.time) : null;
 
-  const weatherSource = weather || shoot.weather || (shoot as any).weather || null;
-  const rawTemperature = weather?.temperature ?? weatherSource?.temperature ?? (shoot as any).temperature ?? null;
-  const weatherDescription = weather?.description ?? weatherSource?.description ?? (shoot as any).weather_description ?? null;
-  const weatherIcon = (weather?.icon ?? weatherSource?.icon ?? (shoot as any).weather_icon) as WeatherInfo['icon'] | undefined;
+  const shootWeather = asRecord(shoot.weather);
+  const rawTemperature = weather?.temperature ?? shootWeather.temperature ?? shootRecord.temperature ?? null;
+  const weatherDescription = weather?.description
+    ?? optionalString(shootWeather.description)
+    ?? optionalString(shootWeather.summary)
+    ?? optionalString(shootRecord.weather_description)
+    ?? null;
+  const rawWeatherIcon = weather?.icon ?? shootWeather.icon ?? shootRecord.weather_icon;
+  const weatherIcon = isWeatherIcon(rawWeatherIcon) ? rawWeatherIcon : undefined;
   const formattedTemperature = useMemo(() => {
     // Prefer explicit C/F pair from WeatherInfo
     if (weather && typeof weather.temperatureC === 'number') {
@@ -627,20 +687,20 @@ export function ShootDetailsOverviewTab({
   // Read-only alternate (backup) schedule line for the overview. Populated only when
   // the booking carried an alternate date; tolerates snake_case + camelCase aliases.
   const alternateDateRaw =
-    shoot.alternate_scheduled_date || (shoot as any).alternateScheduledDate || null;
-  const alternateTimeRaw = shoot.alternate_time || (shoot as any).alternateTime || null;
+    shoot.alternate_scheduled_date || optionalString(shootRecord.alternateScheduledDate) || null;
+  const alternateTimeRaw = shoot.alternate_time || optionalString(shootRecord.alternateTime) || null;
   const alternateScheduleDisplay = alternateDateRaw
     ? `${formatDate(alternateDateRaw)}${alternateTimeRaw ? ` · ${formatTime(alternateTimeRaw)}` : ''}`
     : null;
 
   // Get location address - return only street address, not full address with city/state/zip
   const getLocationAddress = () => {
-    const address = shoot.location?.address || (shoot as any).address || '';
+    const address = shoot.location?.address || optionalString(shootRecord.address) || '';
     
     // If we have city/state/zip, try to strip them from the address to get just street address
-    const city = shoot.location?.city || (shoot as any).city || '';
-    const state = shoot.location?.state || (shoot as any).state || '';
-    const zip = shoot.location?.zip || (shoot as any).zip || '';
+    const city = shoot.location?.city || optionalString(shootRecord.city) || '';
+    const state = shoot.location?.state || optionalString(shootRecord.state) || '';
+    const zip = shoot.location?.zip || optionalString(shootRecord.zip) || '';
     
     if (address && (city || state || zip)) {
       // Remove city, state, zip from the end of address if present
@@ -660,9 +720,9 @@ export function ShootDetailsOverviewTab({
 
   // Get location city/state/zip
   const getLocationDetails = () => {
-    const city = shoot.location?.city || (shoot as any).city || '';
-    const state = shoot.location?.state || (shoot as any).state || '';
-    const zip = shoot.location?.zip || (shoot as any).zip || '';
+    const city = shoot.location?.city || optionalString(shootRecord.city) || '';
+    const state = shoot.location?.state || optionalString(shootRecord.state) || '';
+    const zip = shoot.location?.zip || optionalString(shootRecord.zip) || '';
     return { city, state, zip };
   };
 
@@ -672,11 +732,12 @@ export function ShootDetailsOverviewTab({
       return shoot.services;
     }
     // Check if service is a single object
-    if ((shoot as any).service) {
-      const service = (shoot as any).service;
+    if (shootRecord.service) {
+      const service = shootRecord.service;
       if (typeof service === 'string') return [service];
-      if (service.name) return [service.name];
       if (Array.isArray(service)) return service;
+      const serviceName = optionalString(asRecord(service).name);
+      if (serviceName) return [serviceName];
     }
     // Check if services is a string
     if (typeof shoot.services === 'string' && shoot.services) {
@@ -685,45 +746,49 @@ export function ShootDetailsOverviewTab({
     return [];
   };
 
-  const getServiceQuantity = (service: any) => {
-    if (!service || typeof service === 'string') return 1;
+  const getServiceQuantity = (value: unknown) => {
+    if (!value || typeof value === 'string') return 1;
+    const service = asRecord(value);
+    const category = service.category;
     const categoryName = String(
-      service.category?.name ??
+      asRecord(category).name ??
       service.category_name ??
-      service.category ??
+      (typeof category === 'string' ? category : '') ??
       '',
     ).toLowerCase();
     const isPhotoCategory = categoryName === 'photo' || categoryName === 'photos';
-    const serviceWithPricing = { ...service, price: service.price ?? 0 };
+    const serviceWithPricing = normalizePricingService(service);
     const pricingInfo =
-      numericBaseSqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+      numericBaseSqft && serviceWithPricing.pricing_type === 'variable' && serviceWithPricing.sqft_ranges?.length
         ? getServicePricingForSqft(serviceWithPricing, numericBaseSqft)
         : null;
+    const pivot = asRecord(service.pivot);
     const rawQuantity =
       (isPhotoCategory
         ? pricingInfo?.matchedRange?.photo_count ??
           service.photo_count ??
           service.photoCount ??
-          service.pivot?.photo_count
+          pivot.photo_count
         : undefined) ??
       service.quantity ??
-      service.pivot?.quantity ??
+      pivot.quantity ??
       service.qty ??
       service.count;
     const parsedQuantity = Number(rawQuantity);
     return Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
   };
 
-  const formatServiceLabel = (service: any) => {
-    const baseName = typeof service === 'string'
-      ? service
-      : service?.name || service?.label || String(service);
-    const quantity = getServiceQuantity(service);
+  const formatServiceLabel = (value: unknown) => {
+    const service = asRecord(value);
+    const baseName = typeof value === 'string'
+      ? value
+      : optionalString(service.name) || optionalString(service.label) || 'Service';
+    const quantity = getServiceQuantity(value);
     if (isClient) return baseName;
     return quantity > 1 ? `${baseName} x${quantity}` : baseName;
   };
 
-  const getServiceCountBadge = (service: any) => {
+  const getServiceCountBadge = (service: unknown) => {
     if (isClient) return null;
     const quantity = getServiceQuantity(service);
     return quantity > 1 ? `x${quantity}` : null;
@@ -809,7 +874,7 @@ export function ShootDetailsOverviewTab({
   const locationDetails = getLocationDetails();
   
   // Get property details - handle both camelCase and snake_case
-  const propertyDetails = normalizePropertyDetails(shoot as any);
+  const propertyDetails = normalizePropertyDetails(shoot);
   const baseBeds = propertyDetails?.bedrooms;
   const baseBaths = propertyDetails?.bathrooms;
   const baseSqft = propertyDetails?.sqft;
@@ -819,7 +884,7 @@ export function ShootDetailsOverviewTab({
       : Number.isFinite(Number(baseSqft))
         ? Number(baseSqft)
         : null;
-  const iguideSync = getNormalizedIguideSync(shoot as any);
+  const iguideSync = getNormalizedIguideSync(shoot);
   const iguideTourUrl = iguideSync.url;
   const iguideFloorplans = iguideSync.floorplans;
   const iguideLastSyncedAt = iguideSync.lastSyncedAt;
@@ -967,9 +1032,9 @@ export function ShootDetailsOverviewTab({
         }
 
         const normalizedStatus = String(
-          (shoot as any)?.workflowStatus
-            || (shoot as any)?.workflow_status
-            || (shoot as any)?.status
+          shoot.workflowStatus
+            || shootRecord.workflow_status
+            || shoot.status
             || '',
         ).toLowerCase();
         const featuredAllowedStatuses = new Set(['ready', 'delivered']);

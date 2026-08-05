@@ -9,6 +9,7 @@ import {
 } from '@/services/dropboxMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
+import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 
 type PendingAction = 'hold' | 'cancel' | null;
 
@@ -45,6 +46,8 @@ export function useShootDetailsModalWorkflow({
   onShootUpdate,
   toast,
 }: UseShootDetailsModalWorkflowOptions) {
+  const refreshShootMutations = useShootMutationRefresh();
+
   const [isOnHoldDialogOpen, setIsOnHoldDialogOpen] = useState(false);
   const [onHoldReason, setOnHoldReason] = useState('');
   const [isCancellationFeeDialogOpen, setIsCancellationFeeDialogOpen] = useState(false);
@@ -183,10 +186,12 @@ export function useShootDetailsModalWorkflow({
           description: 'Shoot finalized successfully',
         });
         await refreshShoot();
+        refreshShootMutations(shoot.id);
         return;
       }
 
       const result = await pollFinalizeCompletion();
+      refreshShootMutations(shoot.id);
       if (result.failed) {
         toast({
           title: 'Finalize failed',
@@ -278,6 +283,7 @@ export function useShootDetailsModalWorkflow({
       }
 
       await refreshShoot();
+      refreshShootMutations(shoot.id);
 
       toast({
         title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
@@ -372,6 +378,7 @@ export function useShootDetailsModalWorkflow({
       }
 
       await refreshShoot();
+      refreshShootMutations(shoot.id);
 
       toast({
         title: isClientCancellationRequest ? 'Cancellation request submitted' : 'Shoot cancelled',
@@ -504,6 +511,7 @@ export function useShootDetailsModalWorkflow({
       });
 
       await refreshShoot();
+      refreshShootMutations(shoot.id);
       onShootUpdate?.();
     } catch (error) {
       console.error('Error resuming shoot from hold:', error);

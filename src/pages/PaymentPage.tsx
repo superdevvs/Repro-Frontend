@@ -10,117 +10,18 @@ import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
-import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
 
-type ReceiptDetails = {
-  payment_id?: number;
-  number: string;
-  amount: number;
-  currency: string;
-  paid_at: string | null;
-  provider: string;
-  status: string;
-  hosted_receipt_url?: string | null;
-  receipt_url?: string | null;
-  refund_status?: string | null;
-  refunded_at?: string | null;
-  refund_amount?: number | null;
-};
-
-type ShootPaymentRecord = {
-  id?: number;
-  payment_id?: number;
-  amount: number;
-  status?: string;
-  refunded_at?: string | null;
-  refund_status?: string | null;
-  stripe_payment_id?: string | null;
-  stripe_session_id?: string | null;
-  hosted_receipt_url?: string | null;
-  receipt_url?: string | null;
-};
-
-interface ShootDetails {
-  id: number;
-  address: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  scheduled_date?: string;
-  time?: string;
-  total_quote: number;
-  base_quote: number;
-  service_subtotal?: number;
-  discount_type?: 'fixed' | 'percent' | 'percentage' | null;
-  discount_value?: number | null;
-  discount_amount?: number;
-  discounted_subtotal?: number;
-  tax_amount: number;
-  services: Array<{ name: string; pivot?: { price: number; quantity: number } }>;
-  client?: { name: string; email: string };
-  payments?: ShootPaymentRecord[];
-  amount_due?: number;
-  receipt?: ReceiptDetails | null;
-}
-
-type PaymentConfirmationResult = {
-  last_payment_amount?: number | string | null;
-  return_to?: string | null;
-  receipt?: ReceiptDetails | null;
-};
-
-const AUTO_RETURN_DELAY_SECONDS = 8;
-const POPUP_CLOSE_DELAY_SECONDS = 5;
-
-function formatCurrency(amount: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatPaidAt(value?: string | null) {
-  if (!value) {
-    return 'Just now';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Just now';
-  }
-
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function formatScheduledAt(dateValue?: string, timeValue?: string) {
-  if (!dateValue) {
-    return null;
-  }
-
-  // Render from the intended LOCAL calendar day (no UTC round-trip) so the date
-  // does not drift across browser timezones; the time stays a fixed string.
-  const date = parseLocalYmd(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return timeValue ? `${dateValue} at ${timeValue}` : dateValue;
-  }
-
-  const formattedDate = date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  return timeValue ? `${formattedDate} at ${timeValue}` : formattedDate;
-}
+import {
+  AUTO_RETURN_DELAY_SECONDS,
+  POPUP_CLOSE_DELAY_SECONDS,
+  formatPaymentCurrency as formatCurrency,
+  formatPaymentPaidAt as formatPaidAt,
+  formatPaymentScheduledAt as formatScheduledAt,
+  type EmbeddedCheckoutInstance,
+  type PaymentConfirmationResult,
+  type ShootDetails,
+} from './paymentPageModel';
 
 export default function PaymentPage() {
   const { token } = useParams<{ token: string }>();
@@ -147,29 +48,28 @@ export default function PaymentPage() {
   const [embeddedCheckoutLoading, setEmbeddedCheckoutLoading] = useState(false);
   const [autoReturnCancelled, setAutoReturnCancelled] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
-  const embeddedCheckoutRef = useRef<any>(null);
+  const embeddedCheckoutRef = useRef<EmbeddedCheckoutInstance | null>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const checkoutSessionIdRef = useRef<string | null>(initialSessionId);
-
   const fetchShootDetails = useCallback(async () => {
     if (!token) return;
-
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
       setShoot(response.data.data || response.data);
-    } catch (err: any) {
-      console.error('Failed to fetch shoot details:', err);
-      setError(err.response?.data?.message || 'Failed to load shoot details. Please try again.');
+    } catch (error: unknown) {
+      console.error('Failed to fetch shoot details:', error);
+      const message = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      setError(message || 'Failed to load shoot details. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [token]);
-
   const destroyEmbeddedCheckout = useCallback(() => {
     if (!embeddedCheckoutRef.current) return;
-
     try {
       embeddedCheckoutRef.current.destroy();
     } catch (destroyError) {
@@ -178,12 +78,10 @@ export default function PaymentPage() {
       embeddedCheckoutRef.current = null;
     }
   }, []);
-
   const confirmStripeSession = useCallback(async (sessionId: string): Promise<PaymentConfirmationResult | null> => {
     if (!token || !sessionId) {
       return null;
     }
-
     try {
       const response = await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
         session_id: sessionId,
@@ -194,39 +92,31 @@ export default function PaymentPage() {
       return null;
     }
   }, [token]);
-
   useEffect(() => {
     if (token) {
       fetchShootDetails();
     }
   }, [token, fetchShootDetails]);
-
   useEffect(() => {
     if (!isSuccessRedirect || !initialSessionId) {
       setConfirmingPayment(false);
       return;
     }
-
     let cancelled = false;
-
     const confirmPayment = async () => {
       setConfirmingPayment(true);
       const confirmation = await confirmStripeSession(initialSessionId);
       await fetchShootDetails();
-
       if (cancelled) {
         return;
       }
-
       const confirmedAmount = Number(confirmation?.last_payment_amount ?? Number.NaN);
       if (Number.isFinite(confirmedAmount) && confirmedAmount > 0) {
         setLastPaymentAmount(confirmedAmount);
       }
-
       if (confirmation?.receipt) {
         setShoot((current) => current ? { ...current, receipt: confirmation.receipt ?? null } : current);
       }
-
       setResolvedReturnTo(
         sanitizeRelativeReturnTo(confirmation?.return_to ?? initialReturnTo),
       );
@@ -234,28 +124,21 @@ export default function PaymentPage() {
       setPaymentSuccess(Boolean(confirmation));
       setConfirmingPayment(false);
     };
-
     void confirmPayment();
-
     return () => {
       cancelled = true;
     };
   }, [confirmStripeSession, fetchShootDetails, initialReturnTo, initialSessionId, isSuccessRedirect]);
-
   const totalPaid = sumCompletedPayments(shoot?.payments);
-
   const amountDue = Math.max((shoot?.total_quote || 0) - totalPaid, 0);
-
   const fullAddress = shoot
     ? [shoot.address, shoot.city, shoot.state, shoot.zip].filter(Boolean).join(', ')
     : '';
-
   useEffect(() => {
     setPaymentAmount(amountDue);
     setPaymentAmountInput(amountDue.toFixed(2));
     setIsPartialOpen(false);
   }, [amountDue]);
-
   const effectivePaymentAmount = isPartialOpen ? paymentAmount : amountDue;
   const remainingAfterPartial = Math.max(amountDue - paymentAmount, 0);
   const scheduledAtLabel = formatScheduledAt(shoot?.scheduled_date, shoot?.time);
@@ -285,7 +168,6 @@ export default function PaymentPage() {
   const paymentLayoutClass = showEmbeddedCheckout
     ? 'xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]'
     : 'xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]';
-
   const handleTogglePartial = () => {
     setIsPartialOpen((prev) => {
       const next = !prev;
@@ -299,7 +181,6 @@ export default function PaymentPage() {
       return next;
     });
   };
-
   const handlePartialAmountChange = (value: string) => {
     let inputValue = value.replace(/[^0-9.]/g, '');
     const parts = inputValue.split('.');
@@ -315,7 +196,6 @@ export default function PaymentPage() {
       setPaymentAmount(0);
     }
   };
-
   const handlePartialAmountBlur = () => {
     const numericValue = parseFloat(paymentAmountInput);
     if (isNaN(numericValue)) {
@@ -327,7 +207,6 @@ export default function PaymentPage() {
     setPaymentAmount(clamped);
     setPaymentAmountInput(clamped.toFixed(2));
   };
-
   const handlePaymentSuccess = (processedAmount: number, returnTo?: string | null) => {
     setLastPaymentAmount(processedAmount);
     setResolvedReturnTo(sanitizeRelativeReturnTo(returnTo ?? null));
@@ -335,7 +214,6 @@ export default function PaymentPage() {
     setPaymentSuccess(true);
     void fetchShootDetails();
   };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -343,40 +221,32 @@ export default function PaymentPage() {
       destroyEmbeddedCheckout();
     };
   }, [destroyEmbeddedCheckout]);
-
   const handleStripeCheckout = async () => {
     if (!token) return;
     setStripeLoading(true);
     setStripeError(null);
-
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/public/payments/${token}/checkout`,
         { amount: effectivePaymentAmount },
       );
-
       if (!response.data?.clientSecret) {
         throw new Error('No client secret returned');
       }
-
       checkoutSessionIdRef.current = response.data.sessionId || null;
       setShowEmbeddedCheckout(true);
       setEmbeddedCheckoutLoading(true);
-
       // Start polling for payment success
       startPaymentPolling(response.data.sessionId || null);
-
       // Mount embedded checkout
       requestAnimationFrame(async () => {
         try {
           const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
           if (!stripe) throw new Error('Failed to load Stripe');
-
           const checkout = await stripe.initEmbeddedCheckout({
             clientSecret: response.data.clientSecret,
           });
           embeddedCheckoutRef.current = checkout;
-
           const waitForMount = () => {
             if (checkoutMountRef.current) {
               checkout.mount(checkoutMountRef.current);
@@ -387,19 +257,21 @@ export default function PaymentPage() {
             }
           };
           waitForMount();
-        } catch (mountErr: any) {
-          console.error('Stripe embedded checkout mount error:', mountErr);
+        } catch (mountError: unknown) {
+          console.error('Stripe embedded checkout mount error:', mountError);
           setEmbeddedCheckoutLoading(false);
           setStripeLoading(false);
         }
       });
-    } catch (err: any) {
-      const message = err.response?.data?.error || err.message || 'Failed to create checkout session.';
+    } catch (error: unknown) {
+      const responseMessage = axios.isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error
+        : undefined;
+      const message = responseMessage || (error instanceof Error ? error.message : null) || 'Failed to create checkout session.';
       setStripeError(message);
       setStripeLoading(false);
     }
   };
-
   const startPaymentPolling = (sessionId?: string | null) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
 

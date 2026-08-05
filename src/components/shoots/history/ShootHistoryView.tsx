@@ -582,7 +582,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
             <div className={subTabRailClass}>
               <SubTabButton active={deliveredSubTab === 'all'} label="All" onClick={() => setDeliveredSubTab('all')} />
-              <SubTabButton active={deliveredSubTab === 'ready'} label="Ready" onClick={() => setDeliveredSubTab('ready')} tone="ready" />
+              <SubTabButton active={deliveredSubTab === 'ready'} label="Awaiting Finalize" onClick={() => setDeliveredSubTab('ready')} tone="ready" />
               <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} tone="delivered" />
             </div>
           ) : activeTab === 'hold' ? (

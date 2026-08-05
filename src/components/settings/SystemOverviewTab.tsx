@@ -2,13 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Background,
   Controls,
-  Handle,
-  Position,
   ReactFlow,
-  type Edge,
-  type Node,
-  type NodeTypes,
-  type NodeProps,
   useEdgesState,
   useNodesState,
 } from '@xyflow/react';
@@ -17,20 +11,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   AlertTriangle,
-  Banknote,
   ChevronDown,
   ChevronUp,
   Clock3,
-  LayoutDashboard,
   Maximize2,
-  MessageSquareText,
   Minimize2,
   Network,
   Plug,
-  Route,
-  Settings2,
-  Shield,
-  Sparkles,
   Users,
   Workflow,
   ZoomIn,
@@ -54,467 +41,18 @@ import {
 } from '@/services/systemOverviewService';
 import { useTheme } from '@/hooks/useTheme';
 import type {
-  LiveUserActivity,
   SystemHistory,
-  SystemRouteCatalogEntry,
-  SystemSnapshot,
 } from '@/types/systemOverview';
+import styles from './SystemOverviewTab.module.css';
 
-type FlowNodeData = {
-  id: string;
-  label: string;
-  kind: 'domain' | 'page' | 'component' | 'api' | 'service' | 'external';
-  domain: string;
-  description?: string;
-  activeUsers?: number;
-  requests?: number;
-  errors?: number;
-  avgDurationMs?: number;
-  routePath?: string;
-  componentName?: string;
-  apiPath?: string;
-  serviceName?: string;
-  externalName?: string;
-};
-
-type FlowNode = Node<FlowNodeData, 'overviewNode'>;
-
-const ICONS = {
-  shield: Shield,
-  layout: LayoutDashboard,
-  route: Route,
-  users: Users,
-  message: MessageSquareText,
-  banknote: Banknote,
-  plug: Plug,
-  sparkles: Sparkles,
-  settings: Settings2,
-};
-
-const STORAGE_KEY = 'system-overview.flow.positions.v5';
-const PAGE_NODE_WIDTH = 268;
-const CHILD_NODE_WIDTH = 220;
-const PAGE_GROUP_WIDTH = CHILD_NODE_WIDTH * 2 + 28;
-const PAGE_COLUMN_GAP = 56;
-const PAGE_DETAIL_GAP = 164;
-const PAGE_SECTION_GAP = 38;
-const STACK_STEP = 138;
-const DOMAIN_ROW_GAP = 140;
-const DOMAIN_COLUMN_GAP = 140;
-const DOMAIN_COLUMNS = 2;
-
-const getStackHeight = (count: number) => (count > 0 ? count * STACK_STEP : 0);
-
-function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const sizeClass = data.kind === 'domain' ? 'w-[300px]' : data.kind === 'page' ? 'w-[268px]' : 'w-[220px]';
-  const metricGridClass = data.kind === 'domain' ? 'gap-2 text-[11px]' : 'gap-1.5 text-[10px]';
-  const metricPadClass = data.kind === 'domain' ? 'px-2 py-2' : 'px-2 py-1.5';
-  const kindStyles: Record<FlowNodeData['kind'], string> = isDark
-    ? {
-        domain: 'border-sky-400/30 bg-slate-950/95 text-slate-50',
-        page: 'border-sky-300/25 bg-slate-900/95 text-slate-50',
-        component: 'border-slate-700/80 bg-slate-900/80 text-slate-100',
-        api: 'border-emerald-400/25 bg-emerald-950/60 text-emerald-50',
-        service: 'border-amber-400/25 bg-amber-950/60 text-amber-50',
-        external: 'border-fuchsia-400/25 bg-fuchsia-950/60 text-fuchsia-50',
-      }
-    : {
-        domain: 'border-slate-300 bg-white/95 text-slate-950',
-        page: 'border-sky-200 bg-sky-50/90 text-slate-950',
-        component: 'border-slate-200 bg-white text-slate-900',
-        api: 'border-emerald-200 bg-emerald-50/90 text-emerald-950',
-        service: 'border-amber-200 bg-amber-50/90 text-amber-950',
-        external: 'border-fuchsia-200 bg-fuchsia-50/90 text-fuchsia-950',
-      };
-  const metricTone = isDark ? 'bg-white/5' : 'bg-slate-950/5';
-
-  return (
-    <div
-      className={`${sizeClass} rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
-        selected ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-background' : ''
-      }`}
-    >
-      <Handle type="target" position={Position.Top} className="!bg-sky-400" />
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">{data.kind}</div>
-          <div className="mt-1 text-sm font-semibold break-words">{data.label}</div>
-          <div className="mt-1 text-xs opacity-75 break-words">{data.description || data.domain}</div>
-        </div>
-        {(data.activeUsers || 0) > 0 && (
-          <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[11px]">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            {data.activeUsers}
-          </div>
-        )}
-      </div>
-      <div className={`mt-3 grid grid-cols-3 ${metricGridClass}`}>
-        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
-          <div className="opacity-60">Req</div>
-          <div className="font-semibold">{data.requests ?? 0}</div>
-        </div>
-        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
-          <div className="opacity-60">Err</div>
-          <div className="font-semibold">{data.errors ?? 0}</div>
-        </div>
-        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
-          <div className="opacity-60">Avg</div>
-          <div className="font-semibold">{data.avgDurationMs ?? 0}ms</div>
-        </div>
-      </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-sky-400" />
-    </div>
-  );
-}
-
-const nodeTypes = {
-  overviewNode: SystemOverviewNode,
-} satisfies NodeTypes;
-
-const loadSavedPositions = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Record<string, { x: number; y: number }>;
-  } catch {
-    return {};
-  }
-};
-
-const saveNodePositions = (nodes: FlowNode[]) => {
-  try {
-    const positions = nodes.reduce<Record<string, { x: number; y: number }>>((acc, node) => {
-      acc[node.id] = node.position;
-      return acc;
-    }, {});
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-  } catch {
-    // Ignore persistence failures.
-  }
-};
-
-const aggregateRouteMetrics = (paths: string[], snapshot?: SystemSnapshot, routes?: SystemRouteCatalogEntry[]) => {
-  const metrics = snapshot?.routeMetrics ?? [];
-  const routeLookup = new Map((routes ?? []).map((route) => [route.path, route.metrics]));
-
-  const matched = paths
-    .map((path) => routeLookup.get(path) || metrics.find((metric) => metric.path === path))
-    .filter(Boolean);
-
-  return {
-    requests: matched.reduce((sum, metric) => sum + (metric?.requestCount ?? 0), 0),
-    errors: matched.reduce((sum, metric) => sum + (metric?.errorCount ?? 0), 0),
-    avgDurationMs:
-      matched.length > 0 ? Math.round(matched.reduce((sum, metric) => sum + (metric?.avgDurationMs ?? 0), 0) / matched.length) : 0,
-  };
-};
-
-const countLiveUsersForRoute = (route: string, users: LiveUserActivity[]) =>
-  users.filter((user) => {
-    const currentRoute = user.currentRoute || '';
-    if (route.includes('/:')) {
-      return currentRoute.startsWith(route.split('/:')[0]);
-    }
-    return currentRoute === route || currentRoute.startsWith(`${route}/`) || currentRoute.startsWith(`${route}?`);
-  }).length;
-
-const buildFlow = (
-  snapshot: SystemSnapshot | undefined,
-  routes: SystemRouteCatalogEntry[] | undefined,
-  expandedDomains: string[],
-  showEverything: boolean,
-) => {
-  const savedPositions = loadSavedPositions();
-  const nodes: FlowNode[] = [];
-  const edges: Edge[] = [];
-  let currentX = 120;
-  let currentY = 80;
-  let currentColumn = 0;
-  let currentRowHeight = 0;
-
-  systemOverviewCatalog.forEach((domain) => {
-    const domainIsExpanded = expandedDomains.includes(domain.id);
-    const extraRoutes = showEverything
-      ? (routes ?? []).filter((route) => route.domain === domain.id && !domain.pages.some((page) => page.apis.includes(route.path)))
-      : [];
-    const pageLayouts = domain.pages.map((page) => {
-      const topRowHeight = Math.max(getStackHeight(page.components.length), getStackHeight(page.apis.length));
-      const bottomRowHeight = Math.max(getStackHeight(page.services.length), getStackHeight((page.externals ?? []).length));
-      const totalHeight =
-        PAGE_DETAIL_GAP +
-        topRowHeight +
-        (bottomRowHeight > 0 ? PAGE_SECTION_GAP + bottomRowHeight : 0);
-
-      return {
-        page,
-        topRowHeight,
-        bottomRowHeight,
-        totalHeight,
-      };
-    });
-    const tallestPageStack = Math.max(0, ...pageLayouts.map((layout) => layout.totalHeight));
-    const clusterWidth = domainIsExpanded
-      ? Math.max(360, domain.pages.length * PAGE_GROUP_WIDTH + Math.max(0, domain.pages.length - 1) * PAGE_COLUMN_GAP)
-      : 320;
-    const clusterHeight = domainIsExpanded
-      ? 260 + tallestPageStack + (extraRoutes.length > 0 ? 140 + Math.ceil(extraRoutes.length / 2) * 148 : 0)
-      : 180;
-
-    const clusterX = currentX;
-    const clusterY = currentY;
-
-    currentColumn += 1;
-    currentRowHeight = Math.max(currentRowHeight, clusterHeight);
-
-    if (currentColumn >= DOMAIN_COLUMNS) {
-      currentY += currentRowHeight + DOMAIN_ROW_GAP;
-      currentX = 120;
-      currentColumn = 0;
-      currentRowHeight = 0;
-    } else {
-      currentX += clusterWidth + DOMAIN_COLUMN_GAP;
-    }
-
-    const domainId = `domain:${domain.id}`;
-    const domainPosition = savedPositions[domainId] ?? { x: clusterX, y: clusterY };
-    const domainStats = snapshot?.domainStats?.[domain.id];
-
-    nodes.push({
-      id: domainId,
-      type: 'overviewNode',
-      position: domainPosition,
-      data: {
-        id: domainId,
-        label: domain.label,
-        kind: 'domain',
-        domain: domain.id,
-        description: domain.description,
-        activeUsers: domainStats?.activeUsers ?? 0,
-        requests: domainStats?.requests ?? 0,
-        errors: domainStats?.errors ?? 0,
-        avgDurationMs: domainStats?.avgDurationMs ?? 0,
-      },
-    });
-
-    if (!domainIsExpanded) {
-      return;
-    }
-
-    const childStartX = domainPosition.x;
-    const childStartY = domainPosition.y + 220;
-
-    pageLayouts.forEach(({ page, topRowHeight }, pageIndex) => {
-      const pageGroupX = childStartX + pageIndex * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP);
-      const pageId = `page:${page.id}`;
-      const pagePosition = savedPositions[pageId] ?? {
-        x: pageGroupX + Math.round((PAGE_GROUP_WIDTH - PAGE_NODE_WIDTH) / 2),
-        y: childStartY,
-      };
-      const pageMetrics = aggregateRouteMetrics(page.apis, snapshot, routes);
-      const pageActiveUsers = countLiveUsersForRoute(page.route.replace(/:\w+/g, ''), snapshot?.liveUsers ?? []);
-
-      nodes.push({
-        id: pageId,
-        type: 'overviewNode',
-        position: pagePosition,
-        data: {
-          id: pageId,
-          label: page.label,
-          kind: 'page',
-          domain: domain.id,
-          description: page.route,
-          routePath: page.route,
-          activeUsers: pageActiveUsers,
-          requests: pageMetrics.requests,
-          errors: pageMetrics.errors,
-          avgDurationMs: pageMetrics.avgDurationMs,
-        },
-      });
-
-      edges.push({
-        id: `${domainId}->${pageId}`,
-        source: domainId,
-        target: pageId,
-        animated: pageActiveUsers > 0,
-        style: { stroke: '#38bdf8', strokeWidth: 1.6 },
-      });
-
-      const firstRowY = pagePosition.y + PAGE_DETAIL_GAP;
-      const secondRowY = firstRowY + (topRowHeight > 0 ? topRowHeight + PAGE_SECTION_GAP : 0);
-
-      page.components.forEach((component, componentIndex) => {
-        const componentId = `component:${page.id}:${component}`;
-        const componentPosition = savedPositions[componentId] ?? {
-          x: pageGroupX,
-          y: firstRowY + componentIndex * STACK_STEP,
-        };
-        const activeUsers = (snapshot?.liveUsers ?? []).filter((user) => user.componentStack?.includes(component)).length;
-
-        nodes.push({
-          id: componentId,
-          type: 'overviewNode',
-          position: componentPosition,
-          data: {
-            id: componentId,
-            label: component,
-            kind: 'component',
-            domain: domain.id,
-            description: 'UI component',
-            componentName: component,
-            activeUsers,
-            requests: pageMetrics.requests,
-            errors: pageMetrics.errors,
-            avgDurationMs: pageMetrics.avgDurationMs,
-          },
-        });
-
-        edges.push({
-          id: `${pageId}->${componentId}`,
-          source: pageId,
-          target: componentId,
-          style: { stroke: '#94a3b8', strokeWidth: 1.1 },
-        });
-      });
-
-      page.apis.forEach((apiPath, apiIndex) => {
-        const apiId = `api:${page.id}:${apiPath}`;
-        const apiPosition = savedPositions[apiId] ?? {
-          x: pageGroupX + CHILD_NODE_WIDTH + 28,
-          y: firstRowY + apiIndex * STACK_STEP,
-        };
-        const routeMetric = aggregateRouteMetrics([apiPath], snapshot, routes);
-
-        nodes.push({
-          id: apiId,
-          type: 'overviewNode',
-          position: apiPosition,
-          data: {
-            id: apiId,
-            label: apiPath.replace('/api/', ''),
-            kind: 'api',
-            domain: domain.id,
-            description: 'Backend route',
-            apiPath,
-            requests: routeMetric.requests,
-            errors: routeMetric.errors,
-            avgDurationMs: routeMetric.avgDurationMs,
-          },
-        });
-
-        edges.push({
-          id: `${pageId}->${apiId}`,
-          source: pageId,
-          target: apiId,
-          animated: routeMetric.requests > 0,
-          style: { stroke: '#10b981', strokeWidth: 1.4 },
-        });
-      });
-
-      page.services.forEach((service, serviceIndex) => {
-        const serviceId = `service:${page.id}:${service}`;
-        const servicePosition = savedPositions[serviceId] ?? {
-          x: pageGroupX,
-          y: secondRowY + serviceIndex * STACK_STEP,
-        };
-
-        nodes.push({
-          id: serviceId,
-          type: 'overviewNode',
-          position: servicePosition,
-          data: {
-            id: serviceId,
-            label: service,
-            kind: 'service',
-            domain: domain.id,
-            description: 'Controller / service',
-            serviceName: service,
-            requests: pageMetrics.requests,
-            errors: pageMetrics.errors,
-            avgDurationMs: pageMetrics.avgDurationMs,
-          },
-        });
-
-        edges.push({
-          id: `${pageId}->${serviceId}`,
-          source: pageId,
-          target: serviceId,
-          style: { stroke: '#f59e0b', strokeWidth: 1.3 },
-        });
-      });
-
-      (page.externals ?? []).forEach((external, externalIndex) => {
-        const externalId = `external:${page.id}:${external}`;
-        const externalPosition = savedPositions[externalId] ?? {
-          x: pageGroupX + CHILD_NODE_WIDTH + 28,
-          y: secondRowY + externalIndex * STACK_STEP,
-        };
-
-        nodes.push({
-          id: externalId,
-          type: 'overviewNode',
-          position: externalPosition,
-          data: {
-            id: externalId,
-            label: external,
-            kind: 'external',
-            domain: domain.id,
-            description: 'External dependency',
-            externalName: external,
-            requests: pageMetrics.requests,
-            errors: pageMetrics.errors,
-            avgDurationMs: pageMetrics.avgDurationMs,
-          },
-        });
-
-        edges.push({
-          id: `${pageId}->${externalId}`,
-          source: pageId,
-          target: externalId,
-          animated: pageMetrics.requests > 0,
-          style: { stroke: '#d946ef', strokeWidth: 1.3 },
-        });
-      });
-    });
-
-    extraRoutes.forEach((route, routeIndex) => {
-      const apiId = `api-extra:${domain.id}:${route.path}`;
-      const extraColumn = routeIndex % 2;
-      const extraRow = Math.floor(routeIndex / 2);
-      const apiPosition = savedPositions[apiId] ?? {
-        x: childStartX + extraColumn * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP),
-        y: childStartY + tallestPageStack + 100 + extraRow * 148,
-      };
-      const metric = route.metrics;
-
-      nodes.push({
-        id: apiId,
-        type: 'overviewNode',
-        position: apiPosition,
-        data: {
-          id: apiId,
-          label: route.path.replace('/api/', ''),
-          kind: 'api',
-          domain: domain.id,
-          description: route.controllerAction || 'Mapped backend route',
-          apiPath: route.path,
-          requests: metric?.requestCount ?? 0,
-          errors: metric?.errorCount ?? 0,
-          avgDurationMs: metric?.avgDurationMs ?? 0,
-        },
-      });
-
-      edges.push({
-        id: `${domainId}->${apiId}`,
-        source: domainId,
-        target: apiId,
-        animated: (metric?.requestCount ?? 0) > 0,
-        style: { stroke: '#22c55e', strokeDasharray: '6 4' },
-      });
-    });
-  });
-
-  return { nodes, edges };
-};
+import {
+  buildFlow,
+  clearNodePositions,
+  ICONS,
+  nodeTypes,
+  saveNodePositions,
+  type FlowNode,
+} from './systemOverviewFlow';
 
 export function SystemOverviewTab() {
   const { theme } = useTheme();
@@ -704,9 +242,7 @@ export function SystemOverviewTab() {
       </div>
       <div
         className={`${heightClass} w-full ${
-          isDark
-            ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.14),_transparent_28%),#020617]'
-            : 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_28%),#f8fafc]'
+          isDark ? styles.canvasDark : styles.canvasLight
         }`}
       >
         <ReactFlow
@@ -765,7 +301,7 @@ export function SystemOverviewTab() {
   if (!telemetryAvailable) {
     return (
       <Card className="overflow-hidden rounded-3xl border-border/70 shadow-sm">
-        <CardHeader className="border-b border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.94))] text-white">
+        <CardHeader className={`border-b border-border/70 text-white ${styles.setupHeader}`}>
           <div className="flex items-center gap-3">
             <Network className="h-5 w-5 text-sky-300" />
             <div>
@@ -808,8 +344,8 @@ export function SystemOverviewTab() {
         <CardHeader
           className={`border-b border-border/70 ${
             isDark
-              ? 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.92))] text-white'
-              : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_38%),linear-gradient(135deg,_rgba(248,250,252,0.98),_rgba(226,232,240,0.92))] text-slate-950'
+              ? `${styles.headerDark} text-white`
+              : `${styles.headerLight} text-slate-950`
           }`}
         >
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
@@ -908,7 +444,7 @@ export function SystemOverviewTab() {
                   size="sm"
                   className="h-11 px-4 text-sm"
                   onClick={() => {
-                    localStorage.removeItem(STORAGE_KEY);
+                    clearNodePositions();
                     const nextFlow = buildFlow(snapshot, routes, expandedDomains, showEverything);
                     setNodes(nextFlow.nodes);
                     setEdges(nextFlow.edges);

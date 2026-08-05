@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/lib/sonner-toast';
 import { calendarDay, formatInZone } from '@/lib/date';
+import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 
 import { SERVICE_AREA_KINDS, type ServiceAreaKind } from '@/services/serviceArea';
 import {
@@ -125,6 +126,7 @@ export function InternalTestBadge({ className }: { className?: string }) {
  */
 export function TestShootPanel() {
   const queryClient = useQueryClient();
+  const refreshShootMutations = useShootMutationRefresh();
 
   const [kind, setKind] = useState<ServiceAreaKind>('state');
   const [value, setValue] = useState('');
@@ -165,9 +167,10 @@ export function TestShootPanel() {
       assignTestShoot(shootId, userId),
     onSuccess: (data) => {
       setTestShoot(data.shoot);
-      // The Test_Shoot now belongs to the photographer's schedule — refresh shoot queries
-      // so it appears in the Shoot Calendar without a manual reload (AC 10.10).
-      queryClient.invalidateQueries({ queryKey: ['shoots'] });
+      // The Test_Shoot now belongs to the photographer's schedule — refresh shoot
+      // queries and the ShootsContext-backed lists so it appears in the Shoot
+      // Calendar without a manual reload (AC 10.10).
+      refreshShootMutations(data.shoot.id);
       queryClient.invalidateQueries({ queryKey: ['schedule'] });
       const assigned = eligible.find((p) => p.id === data.shoot.photographer_id);
       toast.success('Photographer assigned to Test_Shoot', {

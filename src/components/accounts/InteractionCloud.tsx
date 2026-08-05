@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import styles from "./InteractionCloud.module.css";
 
 export type InteractionCloudAccount = {
   id: string;
@@ -52,8 +53,11 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
   const topAccount = accounts[0];
   const leastAccount = accounts[accounts.length - 1];
   const displayedAccounts = accounts.slice(0, MAX_RENDERED_ACCOUNTS);
-  const getPrimaryValue = (account: InteractionCloudAccount) =>
-    metric === 'deliveries' ? account.deliveredImages : account.totalShoots;
+  const getPrimaryValue = useCallback(
+    (account: InteractionCloudAccount) =>
+      metric === 'deliveries' ? account.deliveredImages : account.totalShoots,
+    [metric],
+  );
   const metricNoun = metric === 'deliveries' ? 'image' : 'booking';
   const metricSuffix = metric === 'deliveries' ? ' delivered' : '';
   const formatPrimaryValue = (value: number) =>
@@ -158,7 +162,7 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
       left: `${(placements[idx].x / CANVAS_WIDTH) * 100}%`,
       top: `${(placements[idx].y / CANVAS_HEIGHT) * 100}%`,
     }));
-  }, [displayedAccounts, maxPrimary, metric]);
+  }, [displayedAccounts, getPrimaryValue, maxPrimary, metric]);
 
   const renderCircle = (node: { account: InteractionCloudAccount; size: number; left: string; top: string }, index: number) => {
     const { account, size, left, top } = node;
@@ -185,7 +189,8 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
       <button
         key={account.id}
         className={cn(
-          "absolute flex flex-col items-center justify-center rounded-full border text-center text-white shadow-[0_18px_40px_rgba(3,7,18,0.45)] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/80",
+          styles.cloudNode,
+          "absolute flex flex-col items-center justify-center rounded-full border text-center text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/80",
           isPrimary ? "bg-white/15 backdrop-blur-xl" : cn("bg-gradient-to-br", paletteClass, "backdrop-blur"),
           isActive ? "border-white/70 scale-105" : "border-white/15 hover:border-white/40"
         )}
@@ -205,7 +210,7 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
       >
         <span className="sr-only">Inspect {account.name}</span>
         <div className="relative flex h-full w-full flex-col items-center justify-center px-4 text-center">
-          <div className="absolute -top-5 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_4px_12px_rgba(2,6,23,0.55)]">
+          <div className={cn(styles.avatar, "absolute -top-5 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-[11px] font-semibold uppercase tracking-[0.2em] text-white")}>
             {account.avatar ? (
               <span
                 className="h-full w-full"
@@ -216,7 +221,7 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
             )}
           </div>
 
-          <div className="flex flex-col items-center justify-center pt-4 text-white drop-shadow-[0_6px_22px_rgba(2,6,23,0.45)]">
+          <div className={cn(styles.nodeCopy, "flex flex-col items-center justify-center pt-4 text-white")}>
             <p className={cn("text-sm font-semibold leading-tight text-balance line-clamp-2", isPrimary && "text-base")}>{account.name}</p>
             {companyLabel && (
               <p className="text-[11px] text-white/75 text-center text-balance line-clamp-1 max-w-[90%]">{companyLabel}</p>
@@ -278,10 +283,10 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
   const contextTooltip = 'Data updates in real time as shoots progress.';
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#020617] via-[#08152b] to-[#0b1f47] text-white shadow-2xl">
+    <section className={cn(styles.shell, "relative overflow-hidden rounded-[28px] border border-white/10 text-white")}>
       <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute left-[-15%] top-[-35%] h-64 w-64 rounded-full bg-[#4978f6]/25 blur-[110px]" />
-        <div className="absolute bottom-[-25%] right-[-5%] h-72 w-72 rounded-full bg-[#5de0e6]/35 blur-[130px]" />
+        <div className={cn(styles.glowBlue, "absolute left-[-15%] top-[-35%] h-64 w-64 rounded-full")} />
+        <div className={cn(styles.glowCyan, "absolute bottom-[-25%] right-[-5%] h-72 w-72 rounded-full")} />
         <div className="absolute inset-x-10 top-1/2 hidden h-px bg-gradient-to-r from-transparent via-white/25 to-transparent lg:block" />
       </div>
 
@@ -324,15 +329,15 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
               <div className="relative">
                 <div
                   id="interaction-cloud-constellation"
-                  className="relative h-[320px] w-full overflow-hidden rounded-[40px] border border-white/10 bg-[#050b1a] bg-gradient-to-br from-white/10 to-white/0 px-2 py-2 sm:px-4 sm:py-4 lg:h-[360px]"
+                  className={cn(styles.constellation, "relative h-[320px] w-full overflow-hidden rounded-[40px] border border-white/10 px-2 py-2 sm:px-4 sm:py-4 lg:h-[360px]")}
                 >
                   <div className="pointer-events-none absolute inset-6 rounded-[34px] border border-white/5" />
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.15),_transparent_65%)]" />
+                  <div className={cn(styles.constellationGlow, "pointer-events-none absolute inset-0")} />
                   {circleLayout.map((node, index) => renderCircle(node, index))}
                 </div>
 
                 {activeAccount && (
-                  <article className="pointer-events-auto mt-4 rounded-[28px] border border-white/15 bg-[#0b1227]/95 p-5 text-left text-white shadow-[0_30px_70px_rgba(3,7,18,0.65)] backdrop-blur-xl lg:absolute lg:right-8 lg:top-1/2 lg:mt-0 lg:w-[360px] lg:-translate-y-1/2">
+                  <article className={cn(styles.insightCard, "pointer-events-auto mt-4 rounded-[28px] border border-white/15 p-5 text-left text-white backdrop-blur-xl lg:absolute lg:right-8 lg:top-1/2 lg:mt-0 lg:w-[360px] lg:-translate-y-1/2")}>
                     <header className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.35em] text-white/60">{infoCardTitle}</p>

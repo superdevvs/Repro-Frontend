@@ -15,13 +15,12 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/profile/ImageUpload';
-import { BrandingImageUpload } from '@/components/profile/BrandingImageUpload';
 import { usePermission } from '@/hooks/usePermission';
 import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
 import { ToursSection } from '@/components/integrations/sections/ToursSection';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink, Camera, MapPin } from 'lucide-react';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, Camera, MapPin, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -33,6 +32,7 @@ import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAre
 import { TestShootPanel } from '@/components/photographers/TestShootPanel';
 import { getOnboardingConfig, type RoleKey } from '@/features/dashboard/config/dashboardOnboardingConfig';
 import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvents';
+import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -368,11 +368,13 @@ const Settings = () => {
         title: "Branding Updated",
         description: "Your branding settings have been saved.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving branding:', error);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to save branding settings",
+        description:
+          (axios.isAxiosError<{ error?: string }>(error) && error.response?.data?.error) ||
+          "Failed to save branding settings",
         variant: "destructive",
       });
     }
@@ -781,258 +783,30 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="branding" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Branding</CardTitle>
-                      <CardDescription>
-                        Upload your company logo and branding images
-                      </CardDescription>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const cid = clientIdFromUrl || user?.id;
-                        if (cid) {
-                          window.open(`/client-portal?clientId=${cid}`, '_blank');
-                        }
-                      }}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      View Portfolio
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSaveBranding} className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-medium">Company Logo</h3>
-                        <p className="text-sm text-muted-foreground">
-                          This logo will appear on your invoices and client communications.
-                        </p>
-                        <BrandingImageUpload
-                          onChange={handleLogoChange}
-                          initialImage={brandLogo}
-                          aspectRatio="1/1"
-                          maxWidth={200}
-                          helperText="Recommended size: 200x200px (square)"
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-medium">About Image</h3>
-                        <p className="text-sm text-muted-foreground">
-                          This image appears in the About section of your portfolio.
-                        </p>
-                        <BrandingImageUpload
-                          onChange={handleBannerChange}
-                          initialImage={brandBanner}
-                          aspectRatio="4/3"
-                          maxWidth={300}
-                          helperText="Recommended size: 600x450px (4:3)"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label htmlFor="brand-colors" className="text-sm font-medium">
-                          Brand Colors
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          <div className="space-y-1">
-                            <span className="text-xs text-muted-foreground">Primary</span>
-                            <Input type="color" defaultValue="#0070f3" className="h-10 p-1" />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-xs text-muted-foreground">Secondary</span>
-                            <Input type="color" defaultValue="#f5f5f5" className="h-10 p-1" />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-xs text-muted-foreground">Accent</span>
-                            <Input type="color" defaultValue="#ff4500" className="h-10 p-1" />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-xs text-muted-foreground">Text</span>
-                            <Input type="color" defaultValue="#333333" className="h-10 p-1" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label htmlFor="tagline" className="text-sm font-medium">
-                          Company Tagline
-                        </label>
-                        <Input
-                          id="tagline"
-                          placeholder="Your business tagline"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label htmlFor="brand-about" className="text-sm font-medium">
-                          Portfolio About
-                        </label>
-                        <Textarea
-                          id="brand-about"
-                          placeholder="Short description to show in the client portfolio About section"
-                          value={brandAbout}
-                          onChange={(e) => setBrandAbout(e.target.value)}
-                          rows={4}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          This text appears in the client-facing portfolio About section.
-                        </p>
-                      </div>
-
-                      <div className="border-t pt-4 mt-2">
-                        <h3 className="text-lg font-medium mb-3">Portfolio Hero Section</h3>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Customize the headline, subtitle, and background image on your portfolio page.
-                        </p>
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label htmlFor="hero_headline" className="text-sm font-medium">Hero Headline</label>
-                            <Input
-                              id="hero_headline"
-                              value={heroHeadline}
-                              onChange={(e) => setHeroHeadline(e.target.value)}
-                              placeholder="Your Real Estate Portfolio"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              This headline is shown to visitors on your portfolio page. Use <code className="bg-muted px-1 rounded">{'{name}'}</code> to insert the visitor's name.
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <label htmlFor="hero_subtitle" className="text-sm font-medium">Hero Subtitle</label>
-                            <Textarea
-                              id="hero_subtitle"
-                              value={heroSubtitle}
-                              onChange={(e) => setHeroSubtitle(e.target.value)}
-                              placeholder="Explore our latest property listings with high-resolution photography and virtual tours."
-                              rows={2}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Hero Background Image</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                              {[
-                                { id: '', label: 'None (Gradient)' },
-                                { id: 'header-1', label: 'Harbor Beach' },
-                                { id: 'header-2', label: 'Coastal Aerial' },
-                                { id: 'header-3', label: 'Residential Aerial' },
-                                { id: 'header-4', label: 'Suburban Homes' },
-                                { id: 'header-5', label: 'Luxury Hillside' },
-                                { id: 'header-6', label: 'Colorful Townhouses' },
-                                { id: 'header-7', label: 'Modern Office' },
-                                { id: 'header-8', label: 'Highland Houses' },
-                                { id: 'header-9', label: 'City Skyline' },
-                                { id: 'header-10', label: 'Family Home' },
-                                { id: 'header-11', label: 'Real Estate Agent' },
-                                { id: 'header-12', label: 'Modern Architecture' },
-                                { id: 'header-13', label: 'Neighborhood' },
-                              ].map((img) => (
-                                <button
-                                  key={img.id}
-                                  type="button"
-                                  onClick={() => setHeroImage(img.id)}
-                                  className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                                    heroImage === img.id
-                                      ? 'border-primary ring-2 ring-primary/30'
-                                      : 'border-border hover:border-muted-foreground/50'
-                                  }`}
-                                >
-                                  {img.id ? (
-                                    <img
-                                      src={`/images/portfolio-headers/${img.id}.jpg`}
-                                      alt={img.label}
-                                      className="w-full aspect-[16/9] object-cover"
-                                      loading="lazy"
-                                    />
-                                  ) : (
-                                    <div className="w-full aspect-[16/9] bg-gradient-to-br from-background via-muted/30 to-primary/5 flex items-center justify-center">
-                                      <span className="text-xs text-muted-foreground">Default</span>
-                                    </div>
-                                  )}
-                                  <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] py-1 text-center truncate px-1">
-                                    {img.label}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4 mt-2">
-                        <h3 className="text-lg font-medium mb-3">Social Links</h3>
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label htmlFor="facebook_url" className="text-sm font-medium">Facebook URL</label>
-                            <Input
-                              id="facebook_url"
-                              value={facebookUrl}
-                              onChange={(e) => setFacebookUrl(e.target.value)}
-                              placeholder="https://facebook.com/yourpage"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label htmlFor="linkedin_url" className="text-sm font-medium">LinkedIn URL</label>
-                            <Input
-                              id="linkedin_url"
-                              value={linkedinUrl}
-                              onChange={(e) => setLinkedinUrl(e.target.value)}
-                              placeholder="https://linkedin.com/in/yourprofile"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label htmlFor="instagram_url" className="text-sm font-medium">Instagram URL</label>
-                            <Input
-                              id="instagram_url"
-                              value={instagramUrl}
-                              onChange={(e) => setInstagramUrl(e.target.value)}
-                              placeholder="https://instagram.com/yourhandle"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium">Show Map in Contact</p>
-                            <p className="text-xs text-muted-foreground">
-                              Toggle the map embed in the client portfolio contact section.
-                            </p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={showMap}
-                              onChange={(e) => setShowMap(e.target.checked)}
-                            />
-                            <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button type="submit">
-                        Save Branding
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
+            <SettingsBrandingTab
+              portfolioUserId={clientIdFromUrl || user?.id}
+              onSubmit={handleSaveBranding}
+              brandLogo={brandLogo}
+              onLogoChange={handleLogoChange}
+              brandBanner={brandBanner}
+              onBannerChange={handleBannerChange}
+              brandAbout={brandAbout}
+              onBrandAboutChange={setBrandAbout}
+              heroHeadline={heroHeadline}
+              onHeroHeadlineChange={setHeroHeadline}
+              heroSubtitle={heroSubtitle}
+              onHeroSubtitleChange={setHeroSubtitle}
+              heroImage={heroImage}
+              onHeroImageChange={setHeroImage}
+              facebookUrl={facebookUrl}
+              onFacebookUrlChange={setFacebookUrl}
+              linkedinUrl={linkedinUrl}
+              onLinkedinUrlChange={setLinkedinUrl}
+              instagramUrl={instagramUrl}
+              onInstagramUrlChange={setInstagramUrl}
+              showMap={showMap}
+              onShowMapChange={setShowMap}
+            />
 
             <TabsContent value="notifications" className="space-y-4">
               <Card>

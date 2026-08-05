@@ -4,9 +4,9 @@
 // Validates: Requirements 10.4, 10.6
 //
 // CustomPinMarkers renders imperatively: for each mapped listing it creates a
-// MapLibre `Marker` whose DOM `element` is populated by a `createRoot(...)`
+// Leaflet marker whose DOM `element` is populated by a `createRoot(...)`
 // React root rendering a custom pin (button + teardrop SVG). Testing it in
-// jsdom requires stubbing `maplibre-gl` (so `Marker`/`Popup` are inert and we
+// jsdom requires stubbing Leaflet (so markers/popups are inert and we
 // can capture the created marker elements) and the `@/components/ui/map`
 // context hooks (so the component does not need a real <Map>).
 //
@@ -23,65 +23,56 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
-// --- maplibre-gl stub --------------------------------------------------------
+// --- Leaflet stub ------------------------------------------------------------
 // Capture every constructed marker so the test can read the DOM `element` that
 // CustomPinMarkers renders its pin into. Popups are inert.
 const h = vi.hoisted(() => {
   interface CapturedMarker {
     element?: HTMLElement
-    lngLat?: [number, number]
+    latLng?: [number, number]
   }
   const markerInstances: CapturedMarker[] = []
 
   class FakeMarker {
     element?: HTMLElement
-    lngLat?: [number, number]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    constructor(opts?: any) {
-      this.element = opts?.element
+    latLng?: [number, number]
+    constructor(
+      latLng: [number, number],
+      options?: { icon?: { options?: { html?: HTMLElement } } },
+    ) {
+      this.element = options?.icon?.options?.html
+      this.latLng = latLng
       markerInstances.push(this)
     }
-    setLngLat(v: [number, number]) {
-      this.lngLat = v
-      return this
-    }
     addTo() {
-      return this
-    }
-    setPopup() {
       return this
     }
     remove() {}
   }
 
   class FakePopup {
-    setLngLat() {
+    setLatLng() {
       return this
     }
-    addTo() {
+    openOn() {
       return this
     }
-    setDOMContent() {
+    setContent() {
       return this
     }
     remove() {}
   }
 
-  class FakeLngLatBounds {}
-
-  return { markerInstances, FakeMarker, FakePopup, FakeLngLatBounds }
+  return { markerInstances, FakeMarker, FakePopup }
 })
 
-vi.mock('maplibre-gl', () => ({
-  __esModule: true,
-  Marker: h.FakeMarker,
-  Popup: h.FakePopup,
-  LngLatBounds: h.FakeLngLatBounds,
-  default: {
-    Marker: h.FakeMarker,
-    Popup: h.FakePopup,
-    LngLatBounds: h.FakeLngLatBounds,
-  },
+vi.mock('leaflet', () => ({
+  divIcon: (options: { html?: HTMLElement }) => ({ options }),
+  marker: (
+    latLng: [number, number],
+    options?: { icon?: { options?: { html?: HTMLElement } } },
+  ) => new h.FakeMarker(latLng, options),
+  popup: () => new h.FakePopup(),
 }))
 
 // --- map context stub --------------------------------------------------------

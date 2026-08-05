@@ -3,7 +3,7 @@
 // `MarkerPreview` is a thin, presentational card that summarizes a single
 // listing for use over the map: on hover over a custom pin (R10.3) and as the
 // popup shown for the currently selected listing (R10.8). It is compact by
-// design so it fits inside a MapLibre popup / hover card.
+// design so it fits inside a compact map popup / hover card.
 //
 // It delegates all derivation to the pure card-presentation helpers
 // (`resolveCardImage`, `formatLocationLine`, `priceDisplay`) and never issues a

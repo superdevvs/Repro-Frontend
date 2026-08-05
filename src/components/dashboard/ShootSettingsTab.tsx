@@ -28,7 +28,7 @@ interface ShootSettingsTabProps {
   isAdmin?: boolean;
   isClient?: boolean;
   canManageGhostUsers?: boolean;
-  onUpdate?: (updated: Partial<ShootData>) => void; // optimistic update callback
+  onUpdate?: (updated: ShootSettingsUpdate) => void; // optimistic update callback
   onDelete?: () => void;
   onProcessPayment?: (invoice: InvoiceData) => void;
   currentInvoice?: InvoiceData | null;
@@ -50,12 +50,56 @@ type FeaturedHomepageImageDraft = {
   focal: string;
 };
 
+type ShootSettingsMeta = Record<string, boolean | string | number | null | undefined> & {
+  finalized?: boolean;
+  downloadable?: boolean;
+  downloadable_mode?: DownloadableMode;
+  downloadableMode?: DownloadableMode;
+};
+
+type ShootSettingsExtension = {
+  meta?: ShootSettingsMeta;
+  downloadable?: boolean;
+  downloadable_mode?: DownloadableMode;
+  downloadableMode?: DownloadableMode;
+  auto_edit_enabled?: boolean;
+  auto_edit_preferences?: {
+    editing_type?: string;
+    style?: string;
+  };
+  vs_naming?: string;
+  custom_filename?: string;
+  hide_proof?: boolean;
+  is_private_listing?: boolean;
+  workflow_status?: string;
+};
+
+type ShootSettingsData = ShootData & ShootSettingsExtension;
+type ShootSettingsUpdate = Partial<ShootData> & ShootSettingsExtension;
+
+type DashboardImageFile = NonNullable<ShootData['files']>[number] & {
+  mime_type?: string;
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const asShootSettingsData = (shoot: ShootData): ShootSettingsData =>
+  shoot as ShootSettingsData;
+
+const resolveServiceName = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  const service = asRecord(value);
+  return String(service.name ?? service.label ?? '');
+};
+
 const PUBLIC_SITE_URL = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://reprophotos.com';
 
 const resolveFeaturedState = (shoot: ShootData): boolean => {
+  const source = asShootSettingsData(shoot);
   const candidates = [
-    (shoot as any)?.is_featured,
-    (shoot as any)?.isFeatured,
+    source.is_featured,
+    source.isFeatured,
   ];
 
   for (const candidate of candidates) {
@@ -68,14 +112,15 @@ const resolveFeaturedState = (shoot: ShootData): boolean => {
 };
 
 const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
-  const meta = (shoot as any)?.meta;
+  const source = asShootSettingsData(shoot);
+  const meta = source.meta;
   const candidates = [
     meta?.downloadable_mode,
     meta?.downloadableMode,
-    (shoot as any)?.downloadable_mode,
-    (shoot as any)?.downloadableMode,
+    source.downloadable_mode,
+    source.downloadableMode,
     meta?.downloadable,
-    (shoot as any)?.downloadable,
+    source.downloadable,
   ];
 
   for (const candidate of candidates) {
@@ -94,16 +139,17 @@ const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
 };
 
 const resolveMlsImageWidth = (shoot: ShootData): string => {
-  const value = (shoot as any)?.mls_image_width ?? (shoot as any)?.mlsImageWidth ?? '';
+  const value = shoot.mls_image_width ?? shoot.mlsImageWidth ?? '';
   return value === null || value === undefined ? '' : String(value);
 };
 
 const resolveFeaturedField = (shoot: ShootData, snake: string, camel: string): string => {
-  const value = (shoot as any)?.[snake] ?? (shoot as any)?.[camel] ?? '';
+  const source = asRecord(shoot);
+  const value = source[snake] ?? source[camel] ?? '';
   return value === null || value === undefined ? '' : String(value);
 };
 
-const resolveFilePreview = (file: any): string => (
+const resolveFilePreview = (file: DashboardImageFile): string => (
   file?.thumbnail_url
   || file?.thumb_url
   || file?.thumb
@@ -114,28 +160,31 @@ const resolveFilePreview = (file: any): string => (
   || ''
 );
 
-const isDashboardImageFile = (file: any): boolean => {
+const isDashboardImageFile = (file: DashboardImageFile): boolean => {
   const mime = String(file?.mime_type || file?.file_type || file?.fileType || '').toLowerCase();
   if (mime.startsWith('image/')) return true;
   const filename = String(file?.filename || file?.stored_filename || file?.path || file?.url || '').toLowerCase();
   return /\.(jpe?g|png|webp)$/i.test(filename);
 };
 
-const isEditedDashboardImageFile = (file: any): boolean => {
+const isEditedDashboardImageFile = (file: DashboardImageFile): boolean => {
   const stage = String(file?.workflow_stage || file?.workflowStage || '').toLowerCase();
   return ['completed', 'verified'].includes(stage) && isDashboardImageFile(file);
 };
 
 const normalizeFeaturedHomepageImages = (shoot: ShootData): FeaturedHomepageImageDraft[] => {
-  const rawImages = ((shoot as any)?.featured_homepage_images || (shoot as any)?.featuredHomepageImages || []) as any[];
+  const rawImages: unknown[] = shoot.featured_homepage_images || shoot.featuredHomepageImages || [];
 
   return rawImages
-    .map((image, index) => ({
-      shoot_file_id: Number(image.shoot_file_id ?? image.shootFileId),
-      sort: Number(image.sort ?? image.sort_order ?? index + 1),
-      alt: String(image.alt ?? image.alt_text ?? ''),
-      focal: String(image.focal ?? image.focal_point ?? '50% 50%'),
-    }))
+    .map((value, index) => {
+      const image = asRecord(value);
+      return {
+        shoot_file_id: Number(image.shoot_file_id ?? image.shootFileId),
+        sort: Number(image.sort ?? image.sort_order ?? index + 1),
+        alt: String(image.alt ?? image.alt_text ?? ''),
+        focal: String(image.focal ?? image.focal_point ?? '50% 50%'),
+      };
+    })
     .filter((image) => Number.isFinite(image.shoot_file_id) && image.shoot_file_id > 0)
     .sort((a, b) => a.sort - b.sort);
 };
@@ -145,8 +194,8 @@ const hasDownloadableModeValue = (shootLike: unknown): boolean => {
     return false;
   }
 
-  const source = shootLike as any;
-  const meta = source?.meta;
+  const source = asRecord(shootLike);
+  const meta = asRecord(source.meta);
   const candidates = [
     meta?.downloadable_mode,
     meta?.downloadableMode,
@@ -183,20 +232,21 @@ export function ShootSettingsTab({
   onProcessPayment,
   currentInvoice = null,
 }: ShootSettingsTabProps) {
+  const settingsShoot = asShootSettingsData(shoot);
   // ---------- local state ----------
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // toggles (use shoot meta if available; safe cast to avoid TS errors)
-  const [isFinalized, setIsFinalized] = useState<boolean>(() => !!(shoot as any)?.meta?.finalized);
+  const [isFinalized, setIsFinalized] = useState<boolean>(() => Boolean(settingsShoot.meta?.finalized));
   const [downloadableMode, setDownloadableMode] = useState<DownloadableMode>(() => resolveDownloadableMode(shoot));
-  const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!(shoot as any)?.payment?.totalPaid);
-  const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!(shoot as any)?.auto_edit_enabled);
-  const [autoEditStyle, setAutoEditStyle] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.style || 'signature');
-  const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
-  const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
+  const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!settingsShoot?.payment?.totalPaid);
+  const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!settingsShoot?.auto_edit_enabled);
+  const [autoEditStyle, setAutoEditStyle] = useState<string>(() => settingsShoot?.auto_edit_preferences?.style || 'signature');
+  const [autoEditType, setAutoEditType] = useState<string>(() => settingsShoot?.auto_edit_preferences?.editing_type || 'enhance');
+  const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!(settingsShoot?.is_private_listing || settingsShoot?.isPrivateListing));
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
   const [isSavingFeaturedHero, setIsSavingFeaturedHero] = useState(false);
-  const [timezone, setTimezone] = useState<string>(() => (shoot as any)?.timezone || 'America/New_York');
+  const [timezone, setTimezone] = useState<string>(() => settingsShoot?.timezone || 'America/New_York');
   const [mlsImageWidth, setMlsImageWidth] = useState<string>(() => resolveMlsImageWidth(shoot));
 
   const auth = useAuth();
@@ -218,16 +268,17 @@ export function ShootSettingsTab({
 
   // initialize from prop
   useEffect(() => {
+    const currentSettings = asShootSettingsData(shoot);
     // refresh toggles from fresh shoot prop
-    setIsFinalized(!!(shoot as any)?.meta?.finalized);
+    setIsFinalized(Boolean(currentSettings.meta?.finalized));
     setDownloadableMode(resolveDownloadableMode(shoot));
-    setIsMarkedPaid(!!(shoot as any)?.payment?.totalPaid);
-    setAutoEditEnabled(!!(shoot as any)?.auto_edit_enabled);
-    setAutoEditStyle((shoot as any)?.auto_edit_preferences?.style || 'signature');
-    setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
-    setIsPrivateExclusive(!!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
+    setIsMarkedPaid(Boolean(currentSettings.payment?.totalPaid));
+    setAutoEditEnabled(Boolean(currentSettings.auto_edit_enabled));
+    setAutoEditStyle(currentSettings.auto_edit_preferences?.style || 'signature');
+    setAutoEditType(currentSettings.auto_edit_preferences?.editing_type || 'enhance');
+    setIsPrivateExclusive(Boolean(currentSettings.is_private_listing || currentSettings.isPrivateListing));
     setIsFeaturedShoot(resolveFeaturedState(shoot));
-    setTimezone((shoot as any)?.timezone || 'America/New_York');
+    setTimezone(currentSettings.timezone || 'America/New_York');
     setMlsImageWidth(resolveMlsImageWidth(shoot));
     setSelectedGhostUserIds(normalizeGhostUserIds(shoot));
   }, [shoot]);
@@ -236,7 +287,7 @@ export function ShootSettingsTab({
   const canManageFeaturedShoot = isAdmin || isSalesRep || isEditingManager;
   const canManageGhostUsersResolved = canManageGhostUsers || isAdmin || isSalesRep;
 
-  const normalizedStatus = String((shoot as any)?.workflowStatus || (shoot as any)?.workflow_status || (shoot as any)?.status || '').toLowerCase();
+  const normalizedStatus = String(settingsShoot?.workflowStatus || settingsShoot?.workflow_status || settingsShoot?.status || '').toLowerCase();
   const eligibleForPrivateExclusive = ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'completed'].includes(normalizedStatus);
 
   // keep localInvoice in sync with prop changes
@@ -260,13 +311,24 @@ export function ShootSettingsTab({
         });
         if (!response.ok) return;
 
-        const json = await response.json();
-        const clients = (json.data || json.users || json || []).map((client: any) => ({
-          id: String(client.id),
-          name: client.name || 'Client',
-          email: client.email || '',
-          company: client.company_name || client.company || '',
-        }));
+        const json: unknown = await response.json();
+        const responseRecord = asRecord(json);
+        const clientValues = Array.isArray(responseRecord.data)
+          ? responseRecord.data
+          : Array.isArray(responseRecord.users)
+            ? responseRecord.users
+            : Array.isArray(json)
+              ? json
+              : [];
+        const clients = clientValues
+          .map(asRecord)
+          .filter((client) => client.id !== undefined && client.id !== null)
+          .map((client) => ({
+            id: String(client.id),
+            name: String(client.name || 'Client'),
+            email: String(client.email || ''),
+            company: String(client.company_name || client.company || ''),
+          }));
         const existingGhostUsers = normalizeGhostUsers(shoot).map((ghostUser) => ({
           id: String(ghostUser.id),
           name: ghostUser.name,
@@ -295,8 +357,8 @@ export function ShootSettingsTab({
 
   // ---------- helpers ----------
   const formatMoney = (v: number) => `$${v.toFixed(2)}`;
-  const computedTaxAmount = () => ((shoot as any)?.payment?.baseQuote ?? 0) * ((shoot as any)?.payment?.taxRate ?? 0) / 100;
-  const computedTotalQuote = () => (shoot as any)?.payment?.baseQuote ?? 0 + computedTaxAmount();
+  const computedTaxAmount = () => (settingsShoot?.payment?.baseQuote ?? 0) * (settingsShoot?.payment?.taxRate ?? 0) / 100;
+  const computedTotalQuote = () => settingsShoot?.payment?.baseQuote ?? 0 + computedTaxAmount();
 
   // ---------- generic toggle persistence ----------
   const toggleSetting = async (key: string, value: boolean | string | number | null) => {
@@ -320,11 +382,11 @@ export function ShootSettingsTab({
           if (!res.ok) throw new Error(`Finalize failed: ${res.status}`);
           sonnerToast.success('Shoot finalized');
           // Optimistic update
-          onUpdate?.({ meta: { ...((shoot as any).meta || {}), finalized: true } } as any);
+          onUpdate?.({ meta: { ...(settingsShoot.meta || {}), finalized: true } });
         } else {
           // Disabling finalized toggle does not undo backend finalization
           sonnerToast.success('Finalization disabled (UI only)');
-          onUpdate?.({ meta: { ...((shoot as any).meta || {}), finalized: false } } as any);
+          onUpdate?.({ meta: { ...(settingsShoot.meta || {}), finalized: false } });
         }
       } else {
         // Update shoot settings via PATCH endpoint
@@ -355,7 +417,7 @@ export function ShootSettingsTab({
               ? Boolean(returned.is_private_listing)
               : (returned?.isPrivateListing !== undefined ? Boolean(returned.isPrivateListing) : Boolean(value));
           setIsPrivateExclusive(persisted);
-          onUpdate?.({ isPrivateListing: persisted } as any);
+          onUpdate?.({ isPrivateListing: persisted });
 
           // Verify persistence by re-fetching the shoot
           try {
@@ -375,7 +437,7 @@ export function ShootSettingsTab({
                   : (verifyData?.isPrivateListing !== undefined ? Boolean(verifyData.isPrivateListing) : persisted);
 
               setIsPrivateExclusive(verified);
-              onUpdate?.({ isPrivateListing: verified } as any);
+              onUpdate?.({ isPrivateListing: verified });
 
               if (verified !== persisted) {
                 sonnerToast.error('Private Exclusive did not persist after refresh. Please restart backend and try again.');
@@ -387,16 +449,16 @@ export function ShootSettingsTab({
         } else if (key === 'timezone') {
           const persisted = returned?.timezone ?? value ?? 'America/New_York';
           setTimezone(String(persisted));
-          onUpdate?.({ timezone: String(persisted) } as any);
+          onUpdate?.({ timezone: String(persisted) });
         } else if (key === 'mls_image_width') {
           const persisted = returned?.mls_image_width ?? returned?.mlsImageWidth ?? value;
           setMlsImageWidth(persisted === null || persisted === undefined ? '' : String(persisted));
           onUpdate?.({
             mls_image_width: persisted,
             mlsImageWidth: persisted,
-          } as any);
+          });
         } else {
-          onUpdate?.({ meta: { ...((shoot as any).meta || {}), [key]: value } } as any);
+          onUpdate?.({ meta: { ...(settingsShoot.meta || {}), [key]: value } });
         }
         sonnerToast.success('Setting updated');
       }
@@ -458,12 +520,12 @@ export function ShootSettingsTab({
         downloadable_mode: persistedMode,
         downloadableMode: persistedMode,
         meta: {
-          ...((shoot as any).meta || {}),
+          ...(settingsShoot.meta || {}),
           downloadable,
           downloadable_mode: persistedMode,
           downloadableMode: persistedMode,
         },
-      } as any);
+      });
       sonnerToast.success('Setting updated');
     } catch (err) {
       console.error('Downloadable update failed', err);
@@ -519,13 +581,13 @@ export function ShootSettingsTab({
       // Minimal payload; adjust according to backend requirements
       const payload = {
         shootId: shoot.id,
-        amount: (shoot as any)?.payment?.totalQuote ?? (shoot as any)?.payment?.baseQuote ?? 0,
+        amount: settingsShoot?.payment?.totalQuote ?? settingsShoot?.payment?.baseQuote ?? 0,
         description: `Invoice for shoot ${shoot.id}`,
       };
 
       const res = await fetch(`${API_BASE_URL}/api/invoices`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(getAuthHeaders() as any) },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload),
       });
 
@@ -648,13 +710,19 @@ export function ShootSettingsTab({
 
       const json = await response.json().catch(() => null);
       const returned = json?.data || json;
-      const persistedGhostUsers = Array.isArray(returned?.ghost_users)
-        ? returned.ghost_users.map((ghostUser: any) => ({
-            id: String(ghostUser.id),
-            name: ghostUser.name || 'Client',
-            email: ghostUser.email || undefined,
-            company: ghostUser.company || ghostUser.company_name || undefined,
-          }))
+      const returnedRecord = asRecord(returned);
+      const persistedGhostUsers = Array.isArray(returnedRecord.ghost_users)
+        ? returnedRecord.ghost_users.map((value) => {
+            const ghostUser = asRecord(value);
+            return {
+              id: String(ghostUser.id),
+              name: String(ghostUser.name || 'Client'),
+              email: typeof ghostUser.email === 'string' ? ghostUser.email : undefined,
+              company: typeof (ghostUser.company || ghostUser.company_name) === 'string'
+                ? String(ghostUser.company || ghostUser.company_name)
+                : undefined,
+            };
+          })
         : ghostClientOptions
             .filter((client) => nextIds.includes(client.id))
             .map((client) => ({
@@ -663,15 +731,15 @@ export function ShootSettingsTab({
               email: client.email || undefined,
               company: client.company || undefined,
             }));
-      const persistedGhostUserIds = Array.isArray(returned?.ghost_user_ids)
-        ? returned.ghost_user_ids.map((id: string | number) => String(id))
+      const persistedGhostUserIds = Array.isArray(returnedRecord.ghost_user_ids)
+        ? returnedRecord.ghost_user_ids.map((id) => String(id))
         : persistedGhostUsers.map((ghostUser) => ghostUser.id);
 
       setSelectedGhostUserIds(persistedGhostUserIds);
       onUpdate?.({
         ghostUsers: persistedGhostUsers,
         ghostUserIds: persistedGhostUserIds,
-        isGhostVisibleForUser: Boolean(returned?.is_ghost_visible_for_user ?? returned?.isGhostVisibleForUser),
+        isGhostVisibleForUser: Boolean(returnedRecord.is_ghost_visible_for_user ?? returnedRecord.isGhostVisibleForUser),
       } as Partial<ShootData>);
       sonnerToast.success('Ghost users updated');
     } catch (error) {
@@ -733,8 +801,8 @@ export function ShootSettingsTab({
   // The public homepage Projects feed uses this shoot's ordered featured images.
   // The cover is chosen from the Media tab (is_cover) and saved as the first
   // featured image so the Lovable site has a stable project card image.
-  const coverFile = (Array.isArray((shoot as any).files) ? (shoot as any).files : [])
-    .find((file: any) => Boolean(file?.is_cover) && !file?.is_hidden && resolveFilePreview(file));
+  const coverFile = (Array.isArray(settingsShoot.files) ? settingsShoot.files : [])
+    .find((file) => Boolean(file.is_cover) && !file.is_hidden && resolveFilePreview(file));
   const coverFileId = coverFile && Number.isFinite(Number(coverFile.id)) ? Number(coverFile.id) : null;
   const coverPreview = coverFile ? resolveFilePreview(coverFile) : '';
   const heroImageSet =
@@ -1138,7 +1206,7 @@ export function ShootSettingsTab({
                   id="vs_naming"
                   type="text"
                   placeholder="e.g., {address}_{date}_{sequence}"
-                  defaultValue={(shoot as any)?.vs_naming || ''}
+                  defaultValue={settingsShoot?.vs_naming || ''}
                   className="h-8 text-xs"
                   onChange={(e) => {
                     toggleSetting("vs_naming", e.target.value);
@@ -1156,7 +1224,7 @@ export function ShootSettingsTab({
                   id="custom_filename"
                   type="text"
                   placeholder="e.g., {property}_{type}_{number}"
-                  defaultValue={(shoot as any)?.custom_filename || ''}
+                  defaultValue={settingsShoot?.custom_filename || ''}
                   className="h-8 text-xs"
                   onChange={(e) => {
                     toggleSetting("custom_filename", e.target.value);
@@ -1175,7 +1243,7 @@ export function ShootSettingsTab({
                   </div>
                 </div>
                 <Switch
-                  checked={(shoot as any)?.hide_proof || false}
+                  checked={settingsShoot?.hide_proof || false}
                   onCheckedChange={(checked: boolean) => {
                     toggleSetting("hide_proof", checked);
                   }}
@@ -1223,7 +1291,7 @@ export function ShootSettingsTab({
                       });
                       
                       if (!res.ok) throw new Error(`Server ${res.status}`);
-                      onUpdate?.({ auto_edit_enabled: checked } as any);
+                      onUpdate?.({ auto_edit_enabled: checked });
                       sonnerToast.success(checked ? 'Auto-edit enabled' : 'Auto-edit disabled');
                     } catch (err) {
                       console.error('Auto-edit toggle failed', err);
@@ -1265,7 +1333,7 @@ export function ShootSettingsTab({
                           });
                           
                           if (!res.ok) throw new Error(`Server ${res.status}`);
-                          onUpdate?.({ auto_edit_preferences: { editing_type: value, style: autoEditStyle } } as any);
+                          onUpdate?.({ auto_edit_preferences: { editing_type: value, style: autoEditStyle } });
                         } catch (err) {
                           console.error('Failed to update auto-edit type', err);
                           sonnerToast.error('Failed to update editing type');
@@ -1312,7 +1380,7 @@ export function ShootSettingsTab({
                           });
                           
                           if (!res.ok) throw new Error(`Server ${res.status}`);
-                          onUpdate?.({ auto_edit_preferences: { editing_type: autoEditType, style: value } } as any);
+                          onUpdate?.({ auto_edit_preferences: { editing_type: autoEditType, style: value } });
                         } catch (err) {
                           console.error('Failed to update auto-edit style', err);
                           sonnerToast.error('Failed to update enhancement style');
@@ -1343,7 +1411,7 @@ export function ShootSettingsTab({
         onClose={() => setPaymentDialogOpen(false)}
         onPaymentComplete={handlePaymentComplete}
         shootAddress={shoot?.location?.fullAddress || shoot?.location?.address}
-        shootServices={Array.isArray(shoot?.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+        shootServices={Array.isArray(shoot.services) ? (shoot.services as unknown[]).map(resolveServiceName).filter(Boolean) : []}
         clientName={shoot?.client?.name}
         clientEmail={shoot?.client?.email}
       />

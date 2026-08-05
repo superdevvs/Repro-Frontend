@@ -16,7 +16,7 @@ import type { ShootData } from '@/types/shoots';
 // Central context method stub — the component must call this, not the raw
 // `@/services/shoots` helper.
 const applyAlternateDate = vi.fn();
-vi.mock('@/context/ShootsContext', () => ({
+vi.mock('@/context/shootsContextState', () => ({
   useShoots: () => ({ applyAlternateDate }),
 }));
 

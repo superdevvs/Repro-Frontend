@@ -22,7 +22,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
-import { UserData } from '@/types/auth';
+import { UserData, type UserRole } from '@/types/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
@@ -35,7 +35,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import RegisterForm, { type RegisterSuccessPayload } from './RegisterForm';
+import RegisterForm from './RegisterForm';
+import type { RegisterSuccessPayload } from './registerFormModel';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 
@@ -104,24 +105,24 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     setLoginError(null);
   };
 
-  const normalizeUser = (apiUser: any): UserData => ({
+  const normalizeUser = (apiUser: Record<string, unknown>): UserData => ({
     id: String(apiUser?.id ?? ''),
-    name: apiUser?.name ?? '',
-    email: apiUser?.email ?? '',
+    name: typeof apiUser?.name === 'string' ? apiUser.name : '',
+    email: typeof apiUser?.email === 'string' ? apiUser.email : '',
     role:
       apiUser?.role === 'sales_rep'
         ? 'salesRep'
-        : apiUser?.role || 'client',
-    company: apiUser?.company_name,
-    phone: apiUser?.phonenumber,
-    avatar: apiUser?.avatar,
-    bio: apiUser?.bio,
+        : typeof apiUser?.role === 'string' ? (apiUser.role as UserRole) : 'client',
+    company: typeof apiUser?.company_name === 'string' ? apiUser.company_name : undefined,
+    phone: typeof apiUser?.phonenumber === 'string' ? apiUser.phonenumber : undefined,
+    avatar: typeof apiUser?.avatar === 'string' ? apiUser.avatar : undefined,
+    bio: typeof apiUser?.bio === 'string' ? apiUser.bio : undefined,
     isActive: apiUser?.account_status === 'active',
     metadata: {
-      city: apiUser?.city,
-      state: apiUser?.state,
-      zip: apiUser?.zip,
-      country: apiUser?.country,
+      city: typeof apiUser?.city === 'string' ? apiUser.city : undefined,
+      state: typeof apiUser?.state === 'string' ? apiUser.state : undefined,
+      zip: typeof apiUser?.zip === 'string' ? apiUser.zip : undefined,
+      country: typeof apiUser?.country === 'string' ? apiUser.country : undefined,
     },
     email_health: normalizeEmailHealth(apiUser?.email_health),
   });
@@ -145,7 +146,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
     try {
       const normalizedEmail = values.email.trim().toLowerCase();
-      const response = await axios.post(`${API_BASE_URL}/api/login`, {
+      const response = await axios.post<{ token: string; user: Record<string, unknown> }>(`${API_BASE_URL}/api/login`, {
         email: normalizedEmail,
         password: values.password,
       });
@@ -163,9 +164,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       // or inside the login function if needed, but typically we let the
       // protected route or the index page redirect authenticated users.
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login error:", error);
-      const message = error.response?.data?.message || 'Login failed.';
+      const message =
+        (axios.isAxiosError<{ message?: string }>(error) && error.response?.data?.message) ||
+        'Login failed.';
       setLoginError(message);
       toast({
         title: "Login Failed",

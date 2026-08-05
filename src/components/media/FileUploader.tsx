@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -35,29 +35,11 @@ import {
   AlertTriangleIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useShoots } from '@/context/ShootsContext';
-import { useUpload } from '@/context/UploadContext';
-import axios from 'axios';
-import { Dropbox } from 'dropbox';
 import { API_BASE_URL } from '@/config/env';
-
-
-// Add these interfaces at the top of your component file
-interface DropboxFile {
-  id: string;
-  name: string;
-  size: number;
-  path_display: string;
-  client_modified: string;
-  content_hash?: string;
-}
-
-interface DropboxAuthState {
-  isAuthenticated: boolean;
-  accessToken: string | null;
-  isConnecting: boolean;
-}
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useShoots } from '@/context/shootsContextState';
+import { useUpload } from '@/context/UploadContext';
+import { useDropboxFilePicker } from './useDropboxFilePicker';
 
 interface FileUploaderProps {
   shootId?: string;
@@ -97,279 +79,6 @@ export function FileUploader({
   const isEditorOnly = normalizedRole === 'editor';
   const defaultsToEditedUpload = isEditorOnly || isEditingManager;
 
-  // Add these state variables to your component
-const [dropboxAuth, setDropboxAuth] = useState<DropboxAuthState>({
-  isAuthenticated: false,
-  accessToken: localStorage.getItem('dropbox_access_token'),
-  isConnecting: false
-});
-const [dropboxFiles, setDropboxFiles] = useState<DropboxFile[]>([]);
-const [selectedDropboxFiles, setSelectedDropboxFiles] = useState<Set<string>>(new Set());
-const [loadingDropboxFiles, setLoadingDropboxFiles] = useState(false);
-
-// Initialize Dropbox client
-const dropboxClient = useMemo(() => {
-  if (dropboxAuth.accessToken) {
-    return new Dropbox({ 
-      accessToken: dropboxAuth.accessToken,
-      fetch: fetch
-    });
-  }
-  return null;
-}, [dropboxAuth.accessToken]);
-
-// Dropbox authentication flow
-const connectDropbox = async () => {
-  setDropboxAuth(prev => ({ ...prev, isConnecting: true }));
-  
-  try {
-    // Fetch Dropbox config from backend
-    let APP_KEY = import.meta.env.VITE_APP_DROPBOX_APP_KEY;
-    
-    if (!APP_KEY) {
-      try {
-        const configResponse = await axios.get(`${API_BASE_URL}/api/dropbox/config`);
-        if (configResponse.data?.success && configResponse.data?.config?.client_id) {
-          APP_KEY = configResponse.data.config.client_id;
-        } else {
-          // Fallback to backend default if API doesn't return it
-          APP_KEY = 'wzdzujsjj1iaaiv';
-        }
-      } catch (error) {
-        console.warn('Failed to fetch Dropbox config from backend, using fallback:', error);
-        // Fallback to backend default client_id from config
-        APP_KEY = 'wzdzujsjj1iaaiv';
-      }
-    }
-    
-    if (!APP_KEY || APP_KEY === 'your_dropbox_app_key') {
-      throw new Error('Dropbox Client ID is not configured. Please set VITE_APP_DROPBOX_APP_KEY in your environment or configure DROPBOX_CLIENT_ID in the backend.');
-    }
-    
-    const REDIRECT_URI = `${window.location.origin}/dropbox-callback`;
-    
-    console.log('Using redirect URI:', REDIRECT_URI); // Debug log
-    
-    // Create authorization URL
-    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${APP_KEY}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
-    
-    // Open popup window for authentication
-    const popup = window.open(
-      authUrl,
-      'dropbox-auth',
-      'width=600,height=700,scrollbars=yes,resizable=yes'
-    );
-    
-    // Listen for the callback
-    const handleCallback = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data.type === 'DROPBOX_AUTH_SUCCESS') {
-        const { accessToken } = event.data;
-        localStorage.setItem('dropbox_access_token', accessToken);
-        setDropboxAuth({
-          isAuthenticated: true,
-          accessToken,
-          isConnecting: false
-        });
-        popup?.close();
-        loadDropboxFiles();
-        
-        toast({
-          title: "Dropbox Connected",
-          description: "Successfully connected to Dropbox. Loading your files...",
-        });
-      } else if (event.data.type === 'DROPBOX_AUTH_ERROR') {
-        setDropboxAuth(prev => ({ ...prev, isConnecting: false }));
-        toast({
-          title: "Connection Failed",
-          description: "Failed to connect to Dropbox. Please try again.",
-          variant: "destructive"
-        });
-        popup?.close();
-      }
-    };
-    
-    window.addEventListener('message', handleCallback);
-    
-    // Clean up if popup is closed manually
-    const checkClosed = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', handleCallback);
-        setDropboxAuth(prev => ({ ...prev, isConnecting: false }));
-      }
-    }, 1000);
-    
-  } catch (error) {
-    console.error('Dropbox connection error:', error);
-    setDropboxAuth(prev => ({ ...prev, isConnecting: false }));
-    toast({
-      title: "Connection Error",
-      description: "An error occurred while connecting to Dropbox.",
-      variant: "destructive"
-    });
-  }
-};
-
-// Load files from Dropbox
-const loadDropboxFiles = async () => {
-  if (!dropboxClient) return;
-  
-  setLoadingDropboxFiles(true);
-  
-  try {
-    const response = await dropboxClient.filesListFolder({
-      path: '',
-      recursive: true,
-      include_media_info: false,
-      include_deleted: false,
-      include_has_explicit_shared_members: false
-    });
-    
-    // Filter for supported file types
-    const supportedFiles = response.result.entries
-      .filter((entry: any) => entry['.tag'] === 'file')
-      .filter((file: any) => {
-        const extension = file.name.toLowerCase().split('.').pop();
-        const supportedExtensions = [
-          'jpg', 'jpeg', 'png', 'tiff', 'tif',
-          'mp4', 'mov', 'avi',
-          'zip', 'rar'
-        ];
-        return supportedExtensions.includes(extension || '');
-      })
-      .map((file: any) => ({
-        id: file.id,
-        name: file.name,
-        size: file.size,
-        path_display: file.path_display,
-        client_modified: file.client_modified,
-        content_hash: file.content_hash
-      }));
-    
-    setDropboxFiles(supportedFiles);
-    
-  } catch (error) {
-    console.error('Error loading Dropbox files:', error);
-    toast({
-      title: "Error Loading Files",
-      description: "Failed to load files from Dropbox. Please try again.",
-      variant: "destructive"
-    });
-  } finally {
-    setLoadingDropboxFiles(false);
-  }
-};
-
-// Toggle file selection
-const toggleDropboxFileSelection = (fileId: string) => {
-  setSelectedDropboxFiles(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(fileId)) {
-      newSet.delete(fileId);
-    } else {
-      newSet.add(fileId);
-    }
-    return newSet;
-  });
-};
-
-// Select all files
-const selectAllDropboxFiles = () => {
-  if (selectedDropboxFiles.size === dropboxFiles.length) {
-    setSelectedDropboxFiles(new Set());
-  } else {
-    setSelectedDropboxFiles(new Set(dropboxFiles.map(f => f.id)));
-  }
-};
-
-// Download selected files from Dropbox and add to upload queue
-const addSelectedDropboxFiles = async () => {
-  if (!dropboxClient || selectedDropboxFiles.size === 0) return;
-  const selectedFiles = dropboxFiles.filter(f => selectedDropboxFiles.has(f.id));
-  const downloadedFiles: File[] = [];
-  try {
-    for (const file of selectedFiles) {
-      toast({
-        title: "Downloading",
-        description: `Downloading ${file.name} from Dropbox...`,
-      });
-      const response = await dropboxClient.filesDownload({ path: file.path_display });
-      // Convert the downloaded data to a File object
-      const blob = (response.result as any).fileBlob || (response.result as any).fileBinary;
-      const downloadedFile = new File([blob], file.name, {
-        type: getMimeType(file.name),
-        lastModified: new Date(file.client_modified).getTime()
-      });
-      downloadedFiles.push(downloadedFile);
-    }
-    // Add downloaded files to the upload queue
-    setFiles(prev => [...prev, ...downloadedFiles]);
-    setSelectedDropboxFiles(new Set());
-    toast({
-      title: "Files Added",
-      description: `${downloadedFiles.length} files downloaded from Dropbox and added to upload queue.`,
-    });
-  } catch (error) {
-    console.error('Error downloading Dropbox files:', error);
-    toast({
-      title: "Download Error",
-      description: "Failed to download some files from Dropbox.",
-      variant: "destructive"
-    });
-  }
-};
-
-// Helper function to get MIME type from filename
-const getMimeType = (filename: string): string => {
-  const extension = filename.toLowerCase().split('.').pop();
-  const mimeTypes: { [key: string]: string } = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'tiff': 'image/tiff',
-    'tif': 'image/tiff',
-    'cr3': 'image/x-canon-cr3',
-    'mp4': 'video/mp4',
-    'mov': 'video/quicktime',
-    'avi': 'video/x-msvideo',
-    'zip': 'application/zip',
-    'rar': 'application/x-rar-compressed'
-  };
-  return mimeTypes[extension || ''] || 'application/octet-stream';
-};
-
-// Disconnect from Dropbox
-const disconnectDropbox = () => {
-  localStorage.removeItem('dropbox_access_token');
-  setDropboxAuth({
-    isAuthenticated: false,
-    accessToken: null,
-    isConnecting: false
-  });
-  setDropboxFiles([]);
-  setSelectedDropboxFiles(new Set());
-  setUploadMethod('local');
-  
-  toast({
-    title: "Disconnected",
-    description: "Successfully disconnected from Dropbox.",
-  });
-};
-
-// Check for existing auth token on component mount
-useEffect(() => {
-  const token = localStorage.getItem('dropbox_access_token');
-  if (token) {
-    setDropboxAuth({
-      isAuthenticated: true,
-      accessToken: token,
-      isConnecting: false
-    });
-  }
-}, []);
-
 // Determine initial upload type based on user role
 // Photographers see raw/unedited, editors see edited/final
 const initialUploadType = defaultsToEditedUpload ? 'edited' : 'raw';
@@ -383,6 +92,26 @@ const [notesChanged, setNotesChanged] = useState(false);
 const [uploadMethod, setUploadMethod] = useState<'local' | 'dropbox' | 'google'>('local');
 const [showMissingPhotosWarning, setShowMissingPhotosWarning] = useState(false);
 const [missingPhotosCount, setMissingPhotosCount] = useState(0);
+
+const handleDropboxFilesAdded = useCallback((downloadedFiles: File[]) => {
+  setFiles((current) => [...current, ...downloadedFiles]);
+}, []);
+const handleDropboxDisconnect = useCallback(() => setUploadMethod('local'), []);
+const {
+  auth: dropboxAuth,
+  files: dropboxFiles,
+  selectedFiles: selectedDropboxFiles,
+  loadingFiles: loadingDropboxFiles,
+  connect: connectDropbox,
+  toggleFile: toggleDropboxFileSelection,
+  selectAll: selectAllDropboxFiles,
+  addSelectedFiles: addSelectedDropboxFiles,
+  disconnect: disconnectDropbox,
+} = useDropboxFilePicker({
+  active: uploadMethod === 'dropbox',
+  onFilesAdded: handleDropboxFilesAdded,
+  onDisconnect: handleDropboxDisconnect,
+});
   
 // Calculate expected file count based on photo count and bracket mode
 const expectedFileCount = useMemo(() => {
@@ -395,19 +124,12 @@ const expectedFileCount = useMemo(() => {
 }, [expectedPhotoCount, bracketMode, uploadType]);
 
   
-// Load files when Dropbox is authenticated and selected
-useEffect(() => {
-  if (uploadMethod === 'dropbox' && dropboxAuth.isAuthenticated && dropboxFiles.length === 0) {
-    loadDropboxFiles();
-  }
-}, [uploadMethod, dropboxAuth.isAuthenticated]);
-
   // Update notes from props if it changes
   useEffect(() => {
     if (initialNotes !== undefined && initialNotes !== notes && !notesChanged) {
       setNotes(initialNotes);
     }
-  }, [initialNotes]);
+  }, [initialNotes, notes, notesChanged]);
 
   // Handle notes change
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -751,7 +473,13 @@ useEffect(() => {
       <CardContent className="p-4">
         {/* Only show tabs if both raw and edited tabs are available (admin) */}
         {showRawTab && showEditedTab ? (
-          <Tabs value={uploadType} onValueChange={(v: any) => setUploadType(v)} className="mb-4">
+          <Tabs
+            value={uploadType}
+            onValueChange={(value) => {
+              if (value === 'raw' || value === 'edited') setUploadType(value);
+            }}
+            className="mb-4"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="raw">Raw/Unedited Files</TabsTrigger>
               <TabsTrigger value="edited">Edited/Final Files</TabsTrigger>

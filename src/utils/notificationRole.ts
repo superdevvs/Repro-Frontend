@@ -35,7 +35,15 @@ export const canReceiveEmailInboxNotifications = (role?: string | null): boolean
 export const canReceivePersonalEmailNotifications = (role?: string | null): boolean => {
   const normalized = normalizeNotificationRole(role);
 
-  return normalized === 'photographer' || normalized === 'editor';
+  return [
+    'client',
+    'photographer',
+    'editor',
+    'admin',
+    'superadmin',
+    'editing_manager',
+    'salesrep',
+  ].includes(normalized);
 };
 
 export const getNotificationChannelForRole = (

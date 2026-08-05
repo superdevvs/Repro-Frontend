@@ -44,19 +44,21 @@ export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  void import('xlsx').then((XLSX) => {
-    const worksheet = XLSX.utils.json_to_sheet(
-    rows.map((row) =>
-      columns.reduce<Record<string, unknown>>((accumulator, column) => {
-        accumulator[column.label] = sanitizeValue(row[column.key]);
-        return accumulator;
-      }, {}),
-    ),
-  );
+  void import('write-excel-file/browser').then(({ default: writeExcelFile }) => {
+    const data = [
+      columns.map((column) => ({
+        value: column.label,
+        fontWeight: 'bold' as const,
+      })),
+      ...rows.map((row) =>
+        columns.map((column) => sanitizeValue(row[column.key])),
+      ),
+    ];
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    return writeExcelFile(data, {
+      sheet: sheetName,
+      columns: columns.map(() => ({ width: 24 })),
+    }).toFile(`${fileName}.xlsx`);
   });
 };
 

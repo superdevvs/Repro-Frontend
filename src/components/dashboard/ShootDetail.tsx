@@ -34,7 +34,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { ShootDetailTabs } from './ShootDetailTabs';
 import { ShootActionsDialog } from './ShootActionsDialog';
 import { ShootApprovalWorkflow } from './ShootApprovalWorkflow';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { InvoiceData } from '@/utils/invoiceUtils';

@@ -67,7 +67,7 @@ export const getVisibleTargetElement = (target: string): Element | null => {
   if (typeof window === "undefined") return null;
 
   const elements = Array.from(
-    document.querySelectorAll(`[data-onboarding-target=\"${target}\"]`),
+    document.querySelectorAll(`[data-onboarding-target="${target}"]`),
   );
   if (elements.length === 0) return null;
 

@@ -25,7 +25,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { parseStreetLine, formatParsedStreetLine } from '@/components/AddressLookupField';
+import { parseStreetLine, formatParsedStreetLine } from '@/utils/addressLookup';
 
 // Representative subset of the known street suffixes, mapping the abbreviated
 // token to its canonical expanded form. The parser keeps the suffix as its own

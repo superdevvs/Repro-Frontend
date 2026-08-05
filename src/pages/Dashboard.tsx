@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useShoots } from "@/context/ShootsContext";
+import { useShoots } from "@/context/shootsContextState";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useDashboardOverview } from "@/hooks/useDashboardOverview";

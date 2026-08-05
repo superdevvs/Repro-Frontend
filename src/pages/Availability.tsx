@@ -1,30 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  addDays,
-  addMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
-  isSameDay,
-  isToday,
-  startOfDay,
-  startOfMonth,
-  startOfWeek,
-  subMonths,
-} from "date-fns";
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isToday, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { Ban, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useToast } from "@/hooks/use-toast";
@@ -33,17 +15,11 @@ import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
 
-import type {
-  Availability,
-  WeeklyScheduleItem,
-} from "@/types/availability";
+import type { Availability, WeeklyScheduleItem } from "@/types/availability";
 import { toHhMm, uiTimeToHhmm } from "@/lib/availability/utils";
 import {
-  buildMonthAvailabilities,
-  buildPhotographerAvailabilityLabel,
-  buildSelectedDateAvailabilities,
-  buildWeekAvailabilities,
-  checkTimeOverlap as checkTimeOverlapFn,
+  buildMonthAvailabilities, buildPhotographerAvailabilityLabel, buildSelectedDateAvailabilities,
+  buildWeekAvailabilities, checkTimeOverlap as checkTimeOverlapFn,
 } from "@/lib/availability/selectors";
 
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";

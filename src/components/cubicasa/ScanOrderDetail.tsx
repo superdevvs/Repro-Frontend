@@ -18,7 +18,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { PhotoUploader } from './PhotoUploader';
 import { cubicasaService } from '@/services/cubicasaService';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import {
   Select,
   SelectContent,

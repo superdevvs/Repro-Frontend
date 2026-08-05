@@ -224,7 +224,7 @@ export function useShootDetailsModalActions({
   };
 
   const handleDownloadMedia = async (
-    size: 'original' | 'small' | 'medium' | 'large',
+    size: 'original' | 'small',
     options: { shootServiceId?: string | number | null; label?: string } = {},
   ) => {
     if (!shoot) return;

@@ -11,7 +11,7 @@ import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from "@/hooks/use-toast";
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { MapPin, Camera, Calendar as CalendarIcon, Clock } from 'lucide-react';

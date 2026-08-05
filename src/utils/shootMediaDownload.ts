@@ -2,7 +2,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 
 export type ShootMediaDownloadType = 'raw' | 'edited';
-export type ShootMediaDownloadSize = 'original' | 'small' | 'medium' | 'large';
+export type ShootMediaDownloadSize = 'original' | 'small';
 export type ShootMediaArchivePreparingState = {
   message: string;
   pollAfterMs: number;
@@ -54,10 +54,6 @@ export const getShootMediaDownloadSizeLabel = (
   switch (size) {
     case 'original':
       return 'Original Size';
-    case 'large':
-      return 'Large Size';
-    case 'medium':
-      return 'Medium Size';
     case 'small':
       return 'MLS Compliant';
     default:
@@ -198,8 +194,8 @@ export const buildShootDownloadFilename = (
     parts.push('web');
   }
 
-  if (size && size !== 'original') {
-    parts.push(size === 'small' ? 'mls_compliant' : size);
+  if (size === 'small') {
+    parts.push('mls_compliant');
   }
 
   return `${parts.join('_')}.zip`;
@@ -293,6 +289,8 @@ export const downloadShootMediaArchive = async ({
   shootServiceId,
   address,
   onPreparing,
+  includeExtras,
+  mediaTypes,
 }: {
   shootId: string | number;
   type: ShootMediaDownloadType;
@@ -300,6 +298,8 @@ export const downloadShootMediaArchive = async ({
   shootServiceId?: string | number | null;
   address?: string | null;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
+  includeExtras?: boolean;
+  mediaTypes?: string[];
 }) => {
   const params = new URLSearchParams({ type });
   if (size) {
@@ -307,6 +307,16 @@ export const downloadShootMediaArchive = async ({
   }
   if (shootServiceId !== undefined && shootServiceId !== null && String(shootServiceId).trim() !== '') {
     params.set('shoot_service_id', String(shootServiceId));
+  }
+  // Extras are excluded server-side by default; opt in explicitly so a
+  // "Download all" for a tab never packages media nobody ordered.
+  if (includeExtras) {
+    params.set('include_extras', '1');
+  }
+  if (Array.isArray(mediaTypes)) {
+    mediaTypes
+      .filter((mediaType) => typeof mediaType === 'string' && mediaType.trim() !== '')
+      .forEach((mediaType) => params.append('media_types[]', mediaType));
   }
 
   return resolveShootMediaArchiveRequest({

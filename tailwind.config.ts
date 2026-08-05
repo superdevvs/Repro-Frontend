@@ -8,8 +8,18 @@ export default {
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
+    "!./src/**/*.{test,spec}.{ts,tsx}",
+    "!./src/**/__tests__/**/*.{ts,tsx}",
   ],
   prefix: "",
+  corePlugins: {
+    backdropBlur: false,
+    backdropFilter: false,
+    blur: false,
+    brightness: false,
+    dropShadow: false,
+    filter: false,
+  },
   theme: {
     container: {
       center: true,
@@ -19,13 +29,6 @@ export default {
       },
     },
     extend: {
-      screens: {
-        "mobile-portrait": { min: "320px", max: "480px" },
-        "mobile-landscape": { min: "481px", max: "768px" },
-        "tablet-portrait": { min: "769px", max: "1024px" },
-        "desktop-laptop": { min: "1025px", max: "1440px" },
-        "large-screen": { min: "1441px", max: "1920px" },
-      },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
       },

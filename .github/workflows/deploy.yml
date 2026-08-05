@@ -16,46 +16,32 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint:ci
+      - name: Run quality gates
+        run: npm run quality
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
-      - name: Check bundle sizes
-        run: npm run check:bundle-sizes
+      - name: Store verified build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          if-no-files-found: error
 
   build-and-deploy:
     needs: quality
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Download verified build
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Check bundle sizes
-        run: npm run check:bundle-sizes
+          name: frontend-dist
+          path: dist/
 
       - name: Deploy to server (rsync)
         uses: burnett01/rsync-deployments@5.2

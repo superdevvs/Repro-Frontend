@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Key, UserRound, Home } from 'lucide-react';
 import { toast } from '@/lib/sonner-toast';
 import { updateShootAccessInfo, type ShootAccessInfo } from '@/services/shoots';
+import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import type { ClientShootRecord } from '@/utils/dashboardDerivedUtils';
 
 type PresenceOption = 'self' | 'other' | 'lockbox';
@@ -28,7 +29,7 @@ interface ClientAccessInfoDialogProps {
  * client-scoped access-info allowlist on PATCH /shoots/{id}.
  */
 export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: ClientAccessInfoDialogProps) => {
-  const queryClient = useQueryClient();
+  const refreshShootMutations = useShootMutationRefresh();
 
   const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
   const [lockboxCode, setLockboxCode] = useState('');
@@ -52,7 +53,7 @@ export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: 
     mutationFn: (info: ShootAccessInfo) => updateShootAccessInfo(String(record!.data.id), info),
     onSuccess: () => {
       toast.success('Access info saved. Thanks — this helps your photographer arrive prepared.');
-      queryClient.invalidateQueries({ queryKey: ['shoots'] });
+      refreshShootMutations(record?.data.id);
       onSaved?.();
       onOpenChange(false);
     },

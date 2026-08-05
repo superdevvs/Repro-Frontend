@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
 import { ShootData } from '@/types/shoots';
-import { transformShootFromApi } from '@/context/ShootsContext';
+import { transformShootFromApi } from '@/context/shootNormalization';
 
 const getToken = (sessionToken?: string | null) => {
   const localToken =

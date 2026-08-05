@@ -454,6 +454,7 @@ export interface ComposeEmailPayload {
   related_shoot_context_type?: RelatedShootContextType;
   related_account_id?: number;
   related_invoice_id?: number;
+  in_reply_to_message_id?: number;
   variables?: MessagingJsonObject;
   cc?: string[];
   bcc?: string[];

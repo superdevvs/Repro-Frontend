@@ -722,8 +722,8 @@ const ShootHistory: React.FC = () => {
           message = 'No delivered shoots'
           description = 'Shoots that have been delivered will appear here.'
         } else if (deliveredSubTab === 'ready') {
-          message = 'No ready shoots'
-          description = 'Shoots ready for client will appear here.'
+          message = 'No shoots awaiting finalize'
+          description = 'Ready shoots that still need to be finalized will appear here.'
         }
       }
       

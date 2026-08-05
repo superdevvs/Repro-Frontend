@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { TimeRangeFilter } from '@/components/dashboard/TimeRangeFilter';
 import { TimeRange, filterShootsByDateRange } from '@/utils/dateUtils';
 import { calendarDay } from '@/lib/date';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';

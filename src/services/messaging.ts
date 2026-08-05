@@ -308,6 +308,7 @@ export const composeEmail = async (data: ComposeEmailPayload): Promise<Message> 
     if (data.related_shoot_context_type) formData.append('related_shoot_context_type', data.related_shoot_context_type);
     if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
     if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
+    if (data.in_reply_to_message_id) formData.append('in_reply_to_message_id', String(data.in_reply_to_message_id));
     if (data.variables) formData.append('variables', JSON.stringify(data.variables));
     if (data.cc) data.cc.forEach((email) => formData.append('cc[]', email));
     if (data.bcc) data.bcc.forEach((email) => formData.append('bcc[]', email));
@@ -368,6 +369,10 @@ export const retryEmail = async (id: number): Promise<Message> => {
 export const cancelEmail = async (id: number): Promise<Message> => {
   const response = await apiClient.post(`/messaging/email/messages/${id}/cancel`);
   return response.data;
+};
+
+export const markEmailThreadRead = async (id: number): Promise<void> => {
+  await apiClient.post(`/messaging/email/threads/${id}/mark-read`);
 };
 
 // SMS

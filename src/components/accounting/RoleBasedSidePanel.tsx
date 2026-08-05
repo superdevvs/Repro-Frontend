@@ -5,7 +5,8 @@ import { InvoiceData } from '@/utils/invoiceUtils';
 import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, DollarSign, CheckCircle2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth, type User } from '@/components/auth/AuthProvider';
+import type { ShootData } from '@/types/shoots';
 import {
   formatPaymentBreakdown,
   formatPaymentMethod,
@@ -28,8 +29,8 @@ import {
 interface RoleBasedSidePanelProps {
   invoices: InvoiceData[];
   mode: AccountingMode;
-  shoots?: any[];
-  editingJobs?: any[];
+  shoots?: ShootData[];
+  editingJobs?: unknown[];
   timeFilter?: EarningsTimeFilter;
 }
 
@@ -331,7 +332,7 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
 }
 
 // Client Side Panel
-function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: any }) {
+function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: User | null }) {
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const userId = user?.id != null ? String(user.id) : null;
   const userName = String(user?.name || '').trim().toLowerCase();
@@ -345,21 +346,6 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
   });
   const paidInvoices = myInvoices.filter(i => i.status === 'paid');
 
-  const getInvoicePaymentInfo = (invoice: InvoiceData) => {
-    const method =
-      invoice.paymentMethod ||
-      (invoice as any).payment_method ||
-      (invoice as any).paymentType ||
-      (invoice as any).payment_type ||
-      undefined;
-    const details =
-      invoice.paymentDetails ||
-      (invoice as any).payment_details ||
-      (invoice as any).paymentDetails ||
-      undefined;
-    return { method, details };
-  };
-  
   const paymentMethods = paidInvoices
     .filter(i => Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
@@ -388,8 +374,8 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
 
   const recentPayments = paidInvoices
     .sort((a, b) => {
-      const aDate = a.paidAt || (a as any).paid_at || a.date;
-      const bDate = b.paidAt || (b as any).paid_at || b.date;
+      const aDate = getInvoicePaymentInfo(a).paidAt;
+      const bDate = getInvoicePaymentInfo(b).paidAt;
       return new Date(String(bDate)).getTime() - new Date(String(aDate)).getTime();
     })
     .slice(0, 5);
@@ -432,7 +418,7 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
               {recentPayments.map((invoice) => {
                 const { method, details } = getInvoicePaymentInfo(invoice);
                 const methodLabel = formatPaymentMethod(method, details);
-                const paidDate = invoice.paidAt || (invoice as any).paid_at || invoice.date;
+                const paidDate = getInvoicePaymentInfo(invoice).paidAt;
                 const isExpanded = expandedInvoiceId === String(invoice.id);
                 const detailRows = getTransactionDetailRows(invoice);
                 return (
@@ -489,18 +475,18 @@ function PhotographerSidePanel({
   user,
   timeFilter,
 }: {
-  shoots: any[];
-  user: any;
+  shoots: ShootData[];
+  user: User | null;
   timeFilter: EarningsTimeFilter;
 }) {
-  const myShoots = shoots.filter((shoot: any) => isShootAssignedToPhotographer(shoot, user));
+  const myShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
   const completedShoots = myShoots.filter(isCompletedShoot);
   const currentRange = getEarningsDateRange(timeFilter);
   const periodLabel = getEarningsPeriodLabel(timeFilter);
 
   const recentCompletedShoots = completedShoots
-    .filter((shoot: any) => isDateInRange(getShootCompletedDate(shoot), currentRange))
-    .sort((a: any, b: any) => {
+    .filter((shoot) => isDateInRange(getShootCompletedDate(shoot), currentRange))
+    .sort((a, b) => {
       const dateA = getShootCompletedDate(a)?.getTime() ?? 0;
       const dateB = getShootCompletedDate(b)?.getTime() ?? 0;
       return dateB - dateA;
@@ -538,7 +524,7 @@ function PhotographerSidePanel({
           {recentCompletedShoots.length > 0 ? (
             <div className="flex-1 overflow-y-auto px-3 py-3">
               <div className="space-y-2">
-              {recentCompletedShoots.map((shoot: any) => {
+              {recentCompletedShoots.map((shoot) => {
                 const completedDate = getShootCompletedDate(shoot);
                 const scheduledDate = getShootScheduledDate(shoot);
                 const payoutStatus = getPhotographerPayoutStatus(shoot);
@@ -628,7 +614,7 @@ function PhotographerSidePanel({
 }
 
 // Editor Side Panel
-function EditorSidePanel({ editingJobs, user }: { editingJobs: any[]; user: any }) {
+function EditorSidePanel({ editingJobs, user }: { editingJobs: unknown[]; user: User | null }) {
   // Jobs in progress and turnaround time have been removed per user request
   return null;
 }

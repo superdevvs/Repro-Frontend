@@ -1,0 +1,82 @@
+.leaflet-container {
+  z-index: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 12px 36px rgb(15 23 42 / 18%);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-popup-tip {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.leaflet-popup-close-button {
+  z-index: 2;
+  color: hsl(var(--foreground)) !important;
+  font-size: 20px !important;
+}
+
+.leaflet-popup-close-button:hover,
+.leaflet-popup-close-button:focus-visible {
+  color: hsl(var(--destructive)) !important;
+}
+
+.leaflet-control-attribution {
+  border-radius: 6px 0 0;
+  background: hsl(var(--background) / 82%) !important;
+  color: hsl(var(--muted-foreground));
+  backdrop-filter: blur(8px);
+}
+
+.leaflet-control-attribution a {
+  color: hsl(var(--primary));
+}
+
+.listing-pin-marker,
+.repro-map-marker {
+  border: 0;
+  background: transparent;
+}
+
+.listing-marker-popup .leaflet-popup-content {
+  width: auto !important;
+}
+
+.repro-map-marker span {
+  display: block;
+  width: 28px;
+  height: 36px;
+  border: 2px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: #3b82f6;
+  box-shadow: 0 5px 12px rgb(15 23 42 / 35%);
+  transform: rotate(-45deg);
+}
+
+.repro-map-marker span::after {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: white;
+  content: "";
+}
+
+.dark .repro-map-marker span {
+  background: #60a5fa;
+}

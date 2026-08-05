@@ -26,6 +26,7 @@ import {
   formatCurrency,
   getShootPlaceholderSrc,
   getShootStatusBadgeClass,
+  isAwaitingFinalizeShoot,
   isFeaturedPendingShoot,
   isFeaturedShoot,
   resolveShootThumbnail,
@@ -233,6 +234,9 @@ export const CompletedShootListRow = ({
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
   const isApprovedFeatured = isFeaturedShoot(shoot)
   const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
+  // `ready` shoots sit in the delivered/edited buckets but are not delivered
+  // until finalized; flag that for staff so it is not mistaken for delivered.
+  const showAwaitingFinalize = !isClient && isAwaitingFinalizeShoot(shoot)
 
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
@@ -265,6 +269,14 @@ export const CompletedShootListRow = ({
             >
               {statusLabel || 'Status'}
             </Badge>
+            {showAwaitingFinalize && (
+              <Badge
+                variant="outline"
+                className="absolute right-2 top-2 h-5 rounded-full border-amber-300 bg-amber-50 px-2 text-[10px] font-semibold leading-none text-amber-700 shadow-sm dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              >
+                Awaiting Finalize
+              </Badge>
+            )}
             {isApprovedFeatured ? (
               <Badge className="absolute bottom-2 left-2 h-5 rounded-full bg-amber-500 px-2 text-[10px] font-semibold text-white shadow-sm">
                 <Star className="mr-1 h-3 w-3" />
@@ -391,6 +403,14 @@ export const CompletedShootListRow = ({
                 >
                   {statusLabel || 'Status'}
                 </Badge>
+                {showAwaitingFinalize && (
+                  <Badge
+                    variant="outline"
+                    className="h-5 rounded-full border-amber-300 bg-amber-50 px-2 text-[10px] font-semibold leading-none text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  >
+                    Awaiting Finalize
+                  </Badge>
+                )}
                 {isApprovedFeatured ? (
                   <Badge className="h-5 rounded-full bg-amber-500 px-2 text-[10px] font-semibold text-white">
                     <Star className="mr-1 h-3 w-3" />

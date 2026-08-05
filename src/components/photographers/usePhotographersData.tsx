@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { PhotographerFromShoots } from '@/types/photographers';
 import { 
   determinePhotographerStatus, 

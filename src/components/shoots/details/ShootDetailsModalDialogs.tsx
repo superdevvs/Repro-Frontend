@@ -104,7 +104,7 @@ interface ShootDetailsModalDialogsProps {
   handleCancellationFeeConfirm: () => void;
   handleMarkOnHold: () => void;
   handleCancelShoot: () => void;
-  handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large', target?: { shootServiceId?: string | number | null; label?: string }) => void;
+  handleDownloadMedia: (size: 'original' | 'small', target?: { shootServiceId?: string | number | null; label?: string }) => void;
   handleDownloadFile?: (fileId: string | number, label?: string) => void;
   handleStartMmmPunchout: () => void | Promise<void>;
   onShootUpdate?: () => void;

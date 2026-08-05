@@ -2,7 +2,7 @@
 //
 // `CustomPinMarkers` replaces the old `ListingPillMarkers`. For each mapped
 // listing it renders a custom teardrop/location-pin SVG (NOT a rounded pill)
-// as a MapLibre `Marker`, with:
+// as a Leaflet marker, with:
 //   - an optional price/short label chip attached to the pin (R10.2)
 //   - a hover `MarkerPreview` popup summarizing the listing (R10.3)
 //   - a click that selects the listing via `onSelectListing` (R10.4)
@@ -10,7 +10,7 @@
 //     unselected pins (R10.6)
 //   - a `MarkerPreview` popup opened for the currently selected listing (R10.8)
 //
-// It imperatively manages MapLibre markers/popups (rendering React into each
+// It imperatively manages Leaflet markers/popups (rendering React into each
 // via `createRoot`) and therefore returns `null`. It MUST be used inside a
 // `<Map>` because it consumes `useMap()`.
 //
@@ -18,7 +18,13 @@
 
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { Marker as MapLibreMarker, Popup as MapLibrePopup } from 'maplibre-gl'
+import {
+  divIcon,
+  marker as createLeafletMarker,
+  popup as createLeafletPopup,
+  type Marker as LeafletMarker,
+  type Popup as LeafletPopup,
+} from 'leaflet'
 
 import { cn } from '@/lib/utils'
 import { useMap, useShowMarkerLabels } from '@/components/ui/map'
@@ -71,7 +77,7 @@ interface CustomPinProps {
 
 /**
  * Presentational custom pin: a teardrop/location-pin SVG with an optional label
- * chip above it. Rendered imperatively into each MapLibre marker element.
+ * chip above it. Rendered imperatively into each Leaflet marker element.
  */
 function CustomPin({ label, showLabel, selected, color, count, onClick }: CustomPinProps) {
   const size = selected ? PIN_SIZE_SELECTED : PIN_SIZE_UNSELECTED
@@ -127,13 +133,13 @@ function CustomPin({ label, showLabel, selected, color, count, onClick }: Custom
 }
 
 interface PopupHandle {
-  popup: MapLibrePopup
+  popup: LeafletPopup
   container: HTMLDivElement
   root: Root
 }
 
 interface MarkerEntry {
-  marker: MapLibreMarker
+  marker: LeafletMarker
   root: Root
   element: HTMLDivElement
   handleEnter: () => void
@@ -156,7 +162,7 @@ function scheduleUnmount(root: Root) {
 
 /**
  * Imperatively manages custom pin markers + hover/selected previews for the
- * Map_Region. Returns `null`; all rendering happens into MapLibre markers and
+ * Map_Region. Returns `null`; all rendering happens into Leaflet markers and
  * popups via `createRoot`. Must be used inside a `<Map>`.
  */
 export function CustomPinMarkers({
@@ -227,7 +233,7 @@ export function CustomPinMarkers({
           onSelectListing={latestRef.current.onSelectListing}
         />,
       )
-      handle.popup.setLngLat(lngLat).addTo(map)
+      handle.popup.setLatLng([lngLat[1], lngLat[0]]).openOn(map)
     },
     [map],
   )
@@ -243,14 +249,14 @@ export function CustomPinMarkers({
     const makePopup = (closeButton: boolean): PopupHandle => {
       const container = document.createElement('div')
       const root = createRoot(container)
-      const popup = new MapLibrePopup({
-        offset: 28,
+      const popup = createLeafletPopup({
+        offset: [0, -28],
         closeButton,
         closeOnClick: false,
         className: 'listing-marker-popup',
-        maxWidth: 'none',
+        maxWidth: 600,
       })
-      popup.setDOMContent(container)
+      popup.setContent(container)
       return { popup, container, root }
     }
 
@@ -331,9 +337,18 @@ export function CustomPinMarkers({
       element.addEventListener('mouseenter', handleEnter)
       element.addEventListener('mouseleave', handleLeave)
 
-      const mapMarker = new MapLibreMarker({ element, anchor: 'bottom' })
-        .setLngLat(lngLat)
-        .addTo(map)
+      const iconHeight = selected ? PIN_SIZE_SELECTED + 30 : PIN_SIZE_UNSELECTED + 30
+      const mapMarker = createLeafletMarker([lngLat[1], lngLat[0]], {
+        icon: divIcon({
+          html: element,
+          className: 'listing-pin-marker',
+          iconSize: [160, iconHeight],
+          iconAnchor: [80, iconHeight],
+          popupAnchor: [0, -iconHeight],
+        }),
+        keyboard: false,
+        zIndexOffset: selected ? 1000 : 0,
+      }).addTo(map)
 
       markerEntriesRef.current.push({
         marker: mapMarker,
@@ -380,7 +395,9 @@ export function CustomPinMarkers({
         onSelectListing={latestRef.current.onSelectListing}
       />,
     )
-    handle.popup.setLngLat([group.coords.lng, group.coords.lat]).addTo(map)
+    handle.popup
+      .setLatLng([group.coords.lat, group.coords.lng])
+      .openOn(map)
   }, [map, selectedListingId, locationGroups, listingsById])
 
   return null

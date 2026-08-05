@@ -1,0 +1,48 @@
+.indicatorExpanded {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--sidebar-primary) / 18%) 0%,
+    hsl(var(--sidebar-primary) / 11%) 46%,
+    hsl(var(--sidebar-accent) / 70%) 100%
+  );
+}
+
+.bookActive {
+  background:
+    linear-gradient(hsl(var(--sidebar-background)), hsl(var(--sidebar-background))) padding-box,
+    linear-gradient(135deg, #60a5fa 0%, #38bdf8 45%, #2563eb 100%) border-box;
+  box-shadow: 0 8px 24px hsl(var(--sidebar-primary) / 14%);
+}
+
+.bookInactive {
+  background:
+    linear-gradient(hsl(var(--sidebar-background)), hsl(var(--sidebar-background))) padding-box,
+    linear-gradient(
+        135deg,
+        hsl(var(--sidebar-primary) / 95%) 0%,
+        hsl(var(--sidebar-primary) / 55%) 45%,
+        hsl(var(--sidebar-accent) / 90%) 100%
+      )
+      border-box;
+}
+
+.bookInactive:hover {
+  background:
+    linear-gradient(hsl(var(--sidebar-background)), hsl(var(--sidebar-background))) padding-box,
+    linear-gradient(135deg, #38bdf8 0%, #0ea5e9 45%, #1d4ed8 100%) border-box;
+}
+
+:global(.dark) .indicatorExpanded {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--sidebar-primary) / 62%) 0%,
+    hsl(var(--sidebar-primary) / 26%) 42%,
+    hsl(var(--sidebar-accent) / 55%) 100%
+  );
+}
+
+:global(.dark) .bookInactive:hover {
+  background:
+    linear-gradient(hsl(var(--sidebar-background)), hsl(var(--sidebar-background))) padding-box,
+    linear-gradient(135deg, #93c5fd 0%, #38bdf8 48%, #2563eb 100%) border-box;
+}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
@@ -22,7 +22,6 @@ import {
   Home,
   Search,
   MapPin,
-  Lock,
   Plus,
   LayoutGrid,
   List,
@@ -41,6 +40,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
+import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListingGridCard';
 import { useListingPresentation } from '@/hooks/useListingPresentation';
 import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
 import { SummaryCards } from '@/components/listings/SummaryCards';
@@ -50,325 +50,27 @@ import {
   serializeSavedViews,
 } from '@/lib/listing-presentation/saved-views';
 import type { SavedView } from '@/lib/listing-presentation/types';
+import type { PrivateListing } from '@/types/privateListings';
+import {
+  asListingRecord,
+  getBrandedTourUrl,
+  hasListingCoords,
+  formatListingPrice,
+  normalizePrivateListing,
+  readGeoCache,
+  resolveListingPreviewUrl,
+  toDeliveredShootOption,
+  writeGeoCache,
+} from '@/utils/privateListings';
+import type { ListingRecord } from '@/utils/privateListings';
 
-interface PrivateListing {
-  id: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  fullAddress: string;
-  heroImage?: string;
-  scheduledDate?: string;
-  completedDate?: string;
-  client: {
-    name: string;
-    email?: string;
-  };
-  photographer?: {
-    name: string;
-  };
-  services: string[];
-  status: string;
-  payment?: {
-    totalPaid?: number;
-    totalQuote?: number;
-  };
-  tourLinks?: Record<string, any>;
-  floorplans?: Array<Record<string, any> | string>;
-  isPrivateListing: boolean;
-  isListingHidden: boolean;
-  listing_type?: 'for_sale' | 'for_rent';
-  bedrooms?: number;
-  bathrooms?: number;
-  sqft?: number;
-  price?: number;
-  mls_number?: string;
-  latitude?: number;
-  longitude?: number;
-  coordsSource?: 'api' | 'cache' | 'geocode';
-}
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback;
 
-const EXCLUSIVE_LISTING_GEO_CACHE_KEY = 'exclusive-listing-geo-cache-v1';
-
-const readGeoCache = (): Record<string, { lat: number; lng: number }> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(EXCLUSIVE_LISTING_GEO_CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    return Object.entries(parsed).reduce<Record<string, { lat: number; lng: number }>>((acc, [key, value]) => {
-      const coords = value as { lat?: unknown; lng?: unknown };
-      const lat = Number(coords?.lat);
-      const lng = Number(coords?.lng);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        acc[key] = { lat, lng };
-      }
-      return acc;
-    }, {});
-  } catch {
-    return {};
-  }
-};
-
-const writeGeoCache = (cache: Record<string, { lat: number; lng: number }>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(EXCLUSIVE_LISTING_GEO_CACHE_KEY, JSON.stringify(cache));
-  } catch {
-    // Ignore localStorage quota/private-mode failures.
-  }
-};
-
-const toFiniteNumber = (value: unknown): number | undefined => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
-
-const resolveApiCoordinates = (shoot: any): Pick<PrivateListing, 'latitude' | 'longitude' | 'coordsSource'> => {
-  const latitude = toFiniteNumber(
-    shoot.location?.latitude ??
-      shoot.latitude ??
-      shoot.property_details?.latitude ??
-      shoot.property_details?.lat,
-  );
-  const longitude = toFiniteNumber(
-    shoot.location?.longitude ??
-      shoot.longitude ??
-      shoot.property_details?.longitude ??
-      shoot.property_details?.lng,
-  );
-
-  if (latitude === undefined || longitude === undefined) {
-    return {};
-  }
-
-  return {
-    latitude,
-    longitude,
-    coordsSource: 'api',
-  };
-};
-
-const hasListingCoords = (listing: Pick<PrivateListing, 'latitude' | 'longitude'>) =>
-  Number.isFinite(listing.latitude) && Number.isFinite(listing.longitude);
-
-const resolvePreviewUrl = (value: string | null | undefined): string | null => {
-  if (!value) return null;
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-
-  const base = String(API_BASE_URL || '').replace(/\/+$/, '');
-  const isAbsolute = /^https?:\/\//i.test(trimmed);
-  const withBase = isAbsolute ? trimmed : `${base}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
-
-  try {
-    return new URL(withBase).toString();
-  } catch {
-    return withBase;
-  }
-};
-
-const formatPrice = (price: number | undefined | null): string => {
-  if (!price) return '';
-  return `$${Number(price).toLocaleString()}`;
-};
-
-const getBrandedTourUrl = (shootId: string): string => {
-  const base = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${base}/tour/branded?shootId=${encodeURIComponent(shootId)}`;
-};
-
-const ExclusiveListingGridCard = ({
-  listing,
-  onOpen,
-  selectionMode = false,
-  selected = false,
-  canManageVisibility = false,
-  savingVisibility = false,
-  onToggleSelect,
-  onUnhide,
-}: {
-  listing: PrivateListing;
-  onOpen: (listing: PrivateListing) => void;
-  selectionMode?: boolean;
-  selected?: boolean;
-  canManageVisibility?: boolean;
-  savingVisibility?: boolean;
-  onToggleSelect?: (listing: PrivateListing) => void;
-  onUnhide?: (listing: PrivateListing) => void;
-}) => {
-  const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-  const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
-  const metrics = [
-    listing.sqft
-      ? {
-          value: listing.sqft.toLocaleString(),
-          label: 'Sq Ft',
-        }
-      : null,
-    listing.bedrooms
-      ? {
-          value: String(listing.bedrooms),
-          label: listing.bedrooms === 1 ? 'Bedroom' : 'Bedrooms',
-        }
-      : null,
-    bathroomDisplay
-      ? {
-          value: bathroomDisplay.value,
-          label: bathroomDisplay.label,
-        }
-      : null,
-  ].filter(Boolean) as Array<{ value: string; label: string }>;
-
-  const location = [listing.city, listing.state].filter(Boolean).join(', ');
-  const locationLine = [location, listing.zip].filter(Boolean).join(' ');
-  const listingTypeLabel =
-    listing.listing_type === 'for_rent'
-      ? 'For Rent'
-      : listing.listing_type === 'for_sale'
-        ? 'For Sale'
-        : null;
-  const isHidden = listing.isListingHidden;
-  const handleClick = () => {
-    if (selectionMode) {
-      if (!isHidden) onToggleSelect?.(listing);
-      return;
-    }
-    onOpen(listing);
-  };
-
-  return (
-    <Card
-      key={listing.id}
-      className={`group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1 ${isHidden ? 'opacity-70' : ''}`}
-      onClick={handleClick}
-      style={{
-        boxShadow: '0 26px 56px -36px rgba(6, 10, 14, 0.38)',
-      }}
-    >
-      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-white dark:bg-[#060a0e]">
-        <img
-          src={heroUrl}
-          alt={listing.address}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.02)_22%,rgba(255,255,255,0.18)_50%,rgba(255,255,255,0.42)_66%,rgba(255,255,255,0.86)_84%,rgba(255,255,255,0.98)_100%)] dark:bg-[linear-gradient(180deg,rgba(6,10,14,0.1)_0%,rgba(6,10,14,0.02)_22%,rgba(6,10,14,0.18)_50%,rgba(6,10,14,0.36)_66%,rgba(6,10,14,0.8)_84%,rgba(6,10,14,0.96)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.4)_20%,rgba(255,255,255,0.78)_52%,rgba(255,255,255,0.98)_100%)] dark:bg-[linear-gradient(180deg,rgba(6,10,14,0)_0%,rgba(6,10,14,0.32)_20%,rgba(6,10,14,0.68)_52%,rgba(6,10,14,0.94)_100%)]" />
-
-        <div className="relative flex h-full flex-col p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {selectionMode && !isHidden && (
-                <span
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/80 text-xs font-bold ${
-                    selected ? 'bg-white text-slate-900' : 'bg-black/25 text-white'
-                  }`}
-                >
-                  {selected ? '✓' : ''}
-                </span>
-              )}
-              <Badge
-                variant="outline"
-                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] shadow-sm ${
-                  isHidden
-                    ? 'border-amber-200 bg-amber-100 text-amber-900'
-                    : 'border-slate-900/15 bg-white/85 text-slate-900 backdrop-blur-sm dark:border-white/40 dark:bg-white/15 dark:text-white'
-                }`}
-              >
-                <Lock className="mr-1.5 h-3 w-3" />
-                {isHidden ? 'Hidden Listing' : 'Exclusive Listing'}
-              </Badge>
-            </div>
-            {isHidden && canManageVisibility ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-8 rounded-full px-3 text-xs"
-                disabled={savingVisibility}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onUnhide?.(listing);
-                }}
-              >
-                Unhide
-              </Button>
-            ) : selectionMode ? (
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/25 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm">
-                <span>{selected ? 'Selected' : 'Select'}</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#8fc2ff] bg-[#79b3ff] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm transition-colors duration-300 group-hover:bg-[#5ea4ff]">
-                <span>Open</span>
-                <ExternalLink className="h-3 w-3" />
-              </div>
-            )}
-          </div>
-
-          <div className="mt-auto space-y-4">
-            {listing.price && (
-              <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-slate-700/70 dark:text-white/60">
-                  List Price
-                </p>
-                <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.05em] text-slate-900 dark:text-white">
-                  {formatPrice(listing.price)}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-1.5 [text-shadow:none] dark:[text-shadow:0_2px_14px_rgba(0,0,0,0.38),0_1px_3px_rgba(0,0,0,0.7)]">
-              <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-slate-900 dark:text-white sm:text-[1.6rem]">
-                {listing.address}
-              </h3>
-              {locationLine && (
-                <p className="max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white">
-                  {locationLine}
-                </p>
-              )}
-            </div>
-
-            {metrics.length > 0 && (
-              <div
-                className="grid gap-3 border-t border-slate-900/10 pt-4 dark:border-white/20"
-                style={{
-                  gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
-                }}
-              >
-                {metrics.map((metric, index) => (
-                  <div
-                    key={metric.label}
-                    className={`min-w-0 ${index > 0 ? 'border-l border-slate-900/10 pl-3 dark:border-white/20' : ''}`}
-                  >
-                    <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
-                      {metric.value}
-                    </p>
-                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-slate-600/80 dark:text-white/80">
-                      {metric.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-3 border-t border-slate-900/10 pt-3 text-sm text-slate-700 dark:border-white/20 dark:text-white">
-              <p className="min-w-0 truncate">
-                By <span className="font-medium text-slate-900 dark:text-white">{listing.client.name}</span>
-              </p>
-              {listingTypeLabel && (
-                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-slate-600/80 dark:text-white/80">
-                  {listingTypeLabel}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
+const getResponseErrorMessage = async (response: Response): Promise<string> => {
+  const payload: unknown = await response.json().catch(() => null);
+  const message = asListingRecord(payload).message;
+  return typeof message === 'string' && message ? message : `Server ${response.status}`;
 };
 
 const PrivateListingPortal = () => {
@@ -382,9 +84,6 @@ const PrivateListingPortal = () => {
   const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
   const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
   const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>(readGeoCache);
-  // Saved Views (R4.7/4.8/4.9): load persisted views on mount, tolerant of
-  // missing/malformed storage (parseSavedViews never throws). Persistence on
-  // change is handled by an effect below, mirroring the geo-cache write pattern.
   const [savedViews, setSavedViews] = useState<SavedView[]>(() =>
     parseSavedViews(
       typeof window !== 'undefined' ? window.localStorage.getItem(SAVED_VIEWS_KEY) : null,
@@ -394,7 +93,7 @@ const PrivateListingPortal = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
   const [deliveredSearch, setDeliveredSearch] = useState('');
-  const [deliveredShoots, setDeliveredShoots] = useState<any[]>([]);
+  const [deliveredShoots, setDeliveredShoots] = useState<ListingRecord[]>([]);
   const [selectedShootIds, setSelectedShootIds] = useState<Set<string>>(new Set());
   const [hideSelectionMode, setHideSelectionMode] = useState(false);
   const [selectedHiddenIds, setSelectedHiddenIds] = useState<Set<string>>(new Set());
@@ -402,17 +101,13 @@ const PrivateListingPortal = () => {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const isClient = role === 'client';
   const isAdmin = role === 'admin' || role === 'superadmin';
-
-  useEffect(() => {
-    fetchPrivateListings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingScope, role]);
-
-  useEffect(() => {
-    if (!addDialogOpen) return;
-    fetchDeliveredShoots();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addDialogOpen]);
+  const deliveredShootOptions = useMemo(() => {
+    const query = deliveredSearch.trim().toLowerCase();
+    return deliveredShoots
+      .map(toDeliveredShootOption)
+      .filter((shoot) => !query || shoot.searchText.includes(query))
+      .slice(0, 80);
+  }, [deliveredSearch, deliveredShoots]);
 
   const hiddenListingCount = useMemo(() => {
     return listings.filter((listing) => listing.isListingHidden).length;
@@ -563,7 +258,7 @@ const PrivateListingPortal = () => {
     };
   }, [showcaseGeocodeListings]);
 
-  const fetchPrivateListings = async () => {
+  const fetchPrivateListings = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -593,56 +288,16 @@ const PrivateListingPortal = () => {
 
       if (!response.ok) throw new Error('Failed to fetch listings');
 
-      const data = await response.json();
-      const shoots = data.data || data || [];
-
-      const formattedListings: PrivateListing[] = shoots
-        .filter((shoot: any) => shoot.is_private_listing || shoot.isPrivateListing)
-        .map((shoot: any) => {
-          const coordinates = resolveApiCoordinates(shoot);
-          return {
-            id: String(shoot.id),
-            address: shoot.address || shoot.location?.address || '',
-            city: shoot.city || shoot.location?.city || '',
-            state: shoot.state || shoot.location?.state || '',
-            zip: shoot.zip || shoot.location?.zip || '',
-            fullAddress: shoot.location?.fullAddress || shoot.fullAddress ||
-              `${shoot.address || ''}, ${shoot.city || ''}, ${shoot.state || ''} ${shoot.zip || ''}`.trim(),
-            heroImage: shoot.heroImage || shoot.hero_image || undefined,
-            scheduledDate: shoot.scheduledDate || shoot.scheduled_date,
-            completedDate: shoot.completedDate || shoot.completed_date,
-            client: {
-              name: shoot.client?.name || 'Unknown',
-              email: shoot.client?.email,
-            },
-            photographer: shoot.photographer ? {
-              name: shoot.photographer.name || 'Unassigned',
-            } : undefined,
-            services: Array.isArray(shoot.services) ? shoot.services : [],
-            status: shoot.status || shoot.workflow_status || 'unknown',
-            payment: shoot.payment ? {
-              totalPaid: shoot.payment.totalPaid ?? shoot.payment.total_paid,
-              totalQuote: shoot.payment.totalQuote ?? shoot.payment.total_quote,
-            } : {
-              totalPaid: shoot.total_paid,
-              totalQuote: shoot.total_quote,
-            },
-            tourLinks: shoot.tourLinks || shoot.tour_links || {},
-            floorplans: shoot.cubicasaFloorplans || shoot.cubicasa_floorplans || shoot.iguide_floorplans || shoot.floorplans || [],
-            isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
-            isListingHidden: Boolean(shoot.is_listing_hidden ?? shoot.isListingHidden ?? false),
-            listing_type: shoot.listing_type || shoot.listingType || undefined,
-            bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
-            bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms || undefined,
-            sqft: shoot.sqft || shoot.property_details?.sqft || undefined,
-            price: shoot.price || shoot.property_details?.price || undefined,
-            mls_number: shoot.mls_number || shoot.mls_id || undefined,
-            ...coordinates,
-          };
-        });
+      const data: unknown = await response.json();
+      const payload = asListingRecord(data).data ?? data;
+      const shoots = Array.isArray(payload) ? payload : [];
+      const formattedListings = shoots
+        .map(normalizePrivateListing)
+        .filter((listing): listing is PrivateListing => listing !== null)
+        .filter((listing) => listing.isPrivateListing);
 
       setListings(formattedListings);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching private listings:', error);
       toast({
         title: 'Error',
@@ -652,9 +307,9 @@ const PrivateListingPortal = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, isClient, listingScope, toast]);
 
-  const fetchDeliveredShoots = async () => {
+  const fetchDeliveredShoots = useCallback(async () => {
     try {
       setDeliveredLoading(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -667,23 +322,32 @@ const PrivateListingPortal = () => {
 
       if (!res.ok) throw new Error('Failed to fetch delivered shoots');
 
-      const json = await res.json();
-      const items = json.data || json || [];
-      const normalized = Array.isArray(items) ? items : [];
-
-      const notPrivate = normalized.filter((s: any) => !(s?.is_private_listing || s?.isPrivateListing));
+      const json: unknown = await res.json();
+      const items = asListingRecord(json).data ?? json;
+      const normalized = Array.isArray(items) ? items.map(asListingRecord) : [];
+      const notPrivate = normalized.filter(
+        (shoot) => !(shoot.is_private_listing ?? shoot.isPrivateListing),
+      );
       setDeliveredShoots(notPrivate);
-    } catch (e: any) {
-      console.error('Error fetching delivered shoots', e);
+    } catch (error: unknown) {
+      console.error('Error fetching delivered shoots', error);
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to load delivered shoots',
+        description: error instanceof Error ? error.message : 'Failed to load delivered shoots',
         variant: 'destructive',
       });
     } finally {
       setDeliveredLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void fetchPrivateListings();
+  }, [fetchPrivateListings]);
+
+  useEffect(() => {
+    if (addDialogOpen) void fetchDeliveredShoots();
+  }, [addDialogOpen, fetchDeliveredShoots]);
 
   const toggleShootSelected = (id: string) => {
     setSelectedShootIds((prev) => {
@@ -717,9 +381,7 @@ const PrivateListingPortal = () => {
     });
 
     if (!res.ok) {
-      const errJson = await res.json().catch(() => null);
-      const msg = errJson?.message || `Server ${res.status}`;
-      throw new Error(msg);
+      throw new Error(await getResponseErrorMessage(res));
     }
 
     queryClient.invalidateQueries({ queryKey: ['shoot', id] });
@@ -743,7 +405,10 @@ const PrivateListingPortal = () => {
       if (failed.length) {
         toast({
           title: 'Some listings failed',
-          description: failed[0]?.reason?.message || 'One or more listings could not be hidden.',
+          description: getErrorMessage(
+            failed[0]?.reason,
+            'One or more listings could not be hidden.',
+          ),
           variant: 'destructive',
         });
       } else {
@@ -755,11 +420,11 @@ const PrivateListingPortal = () => {
 
       setHideSelectionMode(false);
       setSelectedHiddenIds(new Set());
-      fetchPrivateListings();
-    } catch (e: any) {
+      void fetchPrivateListings();
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to hide listings',
+        description: getErrorMessage(error, 'Failed to hide listings'),
         variant: 'destructive',
       });
     } finally {
@@ -775,11 +440,11 @@ const PrivateListingPortal = () => {
         title: 'Listing unhidden',
         description: `${listing.address || 'This property'} is visible in Exclusive Listings again.`,
       });
-      fetchPrivateListings();
-    } catch (e: any) {
+      void fetchPrivateListings();
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to unhide listing',
+        description: getErrorMessage(error, 'Failed to unhide listing'),
         variant: 'destructive',
       });
     } finally {
@@ -814,15 +479,13 @@ const PrivateListingPortal = () => {
           });
 
           if (!res.ok) {
-            const errJson = await res.json().catch(() => null);
-            const msg = errJson?.message || `Server ${res.status}`;
-            throw new Error(msg);
+            throw new Error(await getResponseErrorMessage(res));
           }
 
-          queryClient.setQueryData(['shoot', id], (prev: any) => {
-            if (!prev) return prev;
+          queryClient.setQueryData<unknown>(['shoot', id], (previous) => {
+            if (!previous) return previous;
             return {
-              ...prev,
+              ...asListingRecord(previous),
               isPrivateListing: true,
               is_private_listing: true,
             };
@@ -835,7 +498,7 @@ const PrivateListingPortal = () => {
       if (failed.length) {
         toast({
           title: 'Some listings failed',
-          description: failed[0]?.reason?.message || 'One or more shoots could not be added.',
+          description: getErrorMessage(failed[0]?.reason, 'One or more shoots could not be added.'),
           variant: 'destructive',
         });
       } else {
@@ -848,11 +511,11 @@ const PrivateListingPortal = () => {
       setAddDialogOpen(false);
       setDeliveredSearch('');
       setSelectedShootIds(new Set());
-      fetchPrivateListings();
-    } catch (e: any) {
+      void fetchPrivateListings();
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to add listings',
+        description: getErrorMessage(error, 'Failed to add listings'),
         variant: 'destructive',
       });
     } finally {
@@ -865,7 +528,6 @@ const PrivateListingPortal = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // ─── Grid Card ─────────────────────────────────────────────
   const renderGridCard = (listing: PrivateListing) => {
     return (
       <ExclusiveListingGridCard
@@ -882,9 +544,8 @@ const PrivateListingPortal = () => {
     );
   };
 
-  // ─── List Row ──────────────────────────────────────────────
   const renderListRow = (listing: PrivateListing) => {
-    const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+    const heroUrl = resolveListingPreviewUrl(listing.heroImage) || '/placeholder.svg';
     const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
     const selected = selectedHiddenIds.has(listing.id);
     const isHidden = listing.isListingHidden;
@@ -957,7 +618,7 @@ const PrivateListingPortal = () => {
               </Button>
             ) : listing.price && (
               <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                {formatPrice(listing.price)}
+                {formatListingPrice(listing.price)}
               </span>
             )}
           </div>
@@ -1210,21 +871,8 @@ const PrivateListingPortal = () => {
                   {deliveredLoading ? (
                     <div className="p-4 text-sm text-muted-foreground">Loading delivered shoots…</div>
                   ) : (
-                    (deliveredShoots
-                      .filter((s: any) => {
-                        if (!deliveredSearch.trim()) return true;
-                        const q = deliveredSearch.toLowerCase();
-                        const addr = String(s?.location?.fullAddress || s?.fullAddress || s?.address || '').toLowerCase();
-                        const city = String(s?.location?.city || s?.city || '').toLowerCase();
-                        const client = String(s?.client?.name || '').toLowerCase();
-                        return addr.includes(q) || city.includes(q) || client.includes(q);
-                      })
-                      .slice(0, 80)
-                    ).map((s: any) => {
-                      const id = String(s?.id);
+                    deliveredShootOptions.map(({ id, title, subtitle }) => {
                       const checked = selectedShootIds.has(id);
-                      const title = s?.location?.fullAddress || s?.fullAddress || `${s?.address || ''}, ${s?.city || ''}`;
-                      const subtitle = `${s?.client?.name || 'Unknown'} · ${String(s?.workflowStatus || s?.workflow_status || s?.status || '').toLowerCase()}`;
                       return (
                         <button
                           key={id}
@@ -1271,8 +919,8 @@ const PrivateListingPortal = () => {
         {viewMode === 'showcase' ? (
           <ExclusiveListingsShowcase
             listings={presentation.displayedListings}
-            resolveImageUrl={resolvePreviewUrl}
-            formatPrice={formatPrice}
+            resolveImageUrl={resolveListingPreviewUrl}
+            formatPrice={formatListingPrice}
             onOpenListing={handleCardClick}
             selectedListingId={presentation.selectedListingId}
             onSelectListing={presentation.selectListing}

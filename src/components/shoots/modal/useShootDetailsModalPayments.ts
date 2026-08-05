@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { QueryClient } from '@tanstack/react-query';
 import { NavigateFunction } from 'react-router-dom';
 import { InvoiceData, InvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
 import { ShootData } from '@/types/shoots';
@@ -7,6 +6,7 @@ import { API_BASE_URL } from '@/config/env';
 import { MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { blurActiveElement } from '../dialogFocusUtils';
 import type { PaymentDetails } from '@/utils/paymentUtils';
+import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 
 interface ToastApi {
   toast: (options: {
@@ -18,7 +18,6 @@ interface ToastApi {
 
 interface UseShootDetailsModalPaymentsOptions {
   shoot: ShootData | null;
-  queryClient: QueryClient;
   refreshShoot: () => Promise<ShootData | null>;
   formatTime: (value: string) => string;
   navigate: NavigateFunction;
@@ -58,12 +57,13 @@ type InvoiceResponseLike = {
 
 export function useShootDetailsModalPayments({
   shoot,
-  queryClient,
   refreshShoot,
   formatTime,
   navigate,
   toast,
 }: UseShootDetailsModalPaymentsOptions) {
+  const refreshShootMutations = useShootMutationRefresh();
+
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -124,8 +124,7 @@ export function useShootDetailsModalPayments({
     }
 
     await refreshShoot();
-    queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
-    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+    refreshShootMutations(shoot.id);
     toast({
       title: 'Success',
       description: 'Shoot marked as paid successfully.',
@@ -139,8 +138,7 @@ export function useShootDetailsModalPayments({
     });
     refreshShoot();
     if (shoot) {
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+      refreshShootMutations(shoot.id);
     }
   };
 

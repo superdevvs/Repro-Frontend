@@ -74,7 +74,7 @@ function toPosix(filePath: string): string {
 }
 
 test.describe('onboarding QA — config/wiring smoke checks (Requirement 1)', () => {
-  test('1.1 onboarding specs match **/*.e2e.ts and live under frontend/e2e/', ({}, testInfo: TestInfo) => {
+  test('1.1 onboarding specs match **/*.e2e.ts and live under frontend/e2e/', ({ browserName: _browserName }, testInfo: TestInfo) => {
     const specPath = toPosix(testInfo.file);
 
     // Lives under the frontend e2e tree (the suite's testDir is ./e2e).
@@ -90,7 +90,7 @@ test.describe('onboarding QA — config/wiring smoke checks (Requirement 1)', ()
     // the assertions above pin the documented location so future onboarding specs follow suit.
   });
 
-  test('1.2 suite runs in the chromium project (npm run test:e2e)', ({}, testInfo: TestInfo) => {
+  test('1.2 suite runs in the chromium project (npm run test:e2e)', ({ browserName: _browserName }, testInfo: TestInfo) => {
     // playwright.config.ts defines a single project named 'chromium'; `npm run test:e2e` runs it.
     expect(testInfo.project.name).toBe('chromium');
   });

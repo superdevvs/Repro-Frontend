@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import type { ShootData } from '@/types/shoots';
 
 const TIME_NOT_SPECIFIED = 'time not specified';

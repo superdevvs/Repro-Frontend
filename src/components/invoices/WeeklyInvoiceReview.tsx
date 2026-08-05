@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,87 +62,15 @@ import {
 import { cn } from '@/lib/utils';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 
-const approvalStatusConfig: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
-  pending: {
-    label: 'Pending Review',
-    className: 'border-primary/20 bg-primary/10 text-primary',
-    icon: <Clock className="h-3 w-3" />,
-  },
-  pending_approval: {
-    label: 'Accepted',
-    className: 'border-border bg-secondary text-secondary-foreground',
-    icon: <CheckCircle className="h-3 w-3" />,
-  },
-  approved: {
-    label: 'Approved',
-    className: 'border-border bg-secondary text-secondary-foreground',
-    icon: <CheckCircle className="h-3 w-3" />,
-  },
-  accounts_approved: {
-    label: 'Accounts Approved',
-    className: 'border-border bg-secondary text-secondary-foreground',
-    icon: <CheckCircle className="h-3 w-3" />,
-  },
-  rejected: {
-    label: 'Requested for Modification',
-    className: 'border-destructive/20 bg-destructive/10 text-destructive',
-    icon: <AlertTriangle className="h-3 w-3" />,
-  },
-};
-
-const ITEMS_PER_PAGE = 4;
-const FETCH_PAGE_SIZE = 100; // Pull a large batch so aggregate stats reflect all invoices, then paginate the list client-side.
-
-const formatCurrency = (amount: number | string) => {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num || 0);
-};
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return 'N/A';
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-/**
- * Format the billing period range as "Week <Sun start> – <Sat end>, <year>".
- * Backend invoices for client/photographer often store billing_period_start
- * and billing_period_end as the same date (the issued/closed date). When that
- * happens we still want to show the user the actual Sun→Sat week the invoice
- * covers, so we derive the surrounding week from the available date.
- */
-const formatBillingPeriod = (start: string, end: string): string => {
-  if (!start && !end) return 'N/A';
-
-  const startDate = start ? new Date(start) : null;
-  const endDate = end ? new Date(end) : null;
-
-  const sameDay =
-    startDate && endDate &&
-    Math.abs(endDate.getTime() - startDate.getTime()) < 1000 * 60 * 60 * 24;
-
-  // When start and end collapse to the same date, derive the Sun→Sat week
-  // window that contains it so the user sees a real range (e.g. "Week May 17 – May 23, 2026").
-  let weekStart: Date | null = startDate;
-  let weekEnd: Date | null = endDate;
-  if (sameDay && startDate) {
-    const dayOfWeek = startDate.getDay(); // 0 = Sun … 6 = Sat
-    weekStart = new Date(startDate);
-    weekStart.setDate(startDate.getDate() - dayOfWeek);
-    weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-  }
-
-  if (!weekStart) return formatDate(end);
-  if (!weekEnd) return formatDate(start);
-
-  // Render as "May 17 – May 23, 2026" when the year matches, else full dates.
-  if (weekStart.getFullYear() === weekEnd.getFullYear()) {
-    const startShort = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${startShort} – ${formatDate(weekEnd.toISOString())}`;
-  }
-
-  return `${formatDate(weekStart.toISOString())} – ${formatDate(weekEnd.toISOString())}`;
-};
+import {
+  FETCH_PAGE_SIZE,
+  ITEMS_PER_PAGE,
+  approvalStatusConfig,
+  formatWeeklyBillingPeriod as formatBillingPeriod,
+  formatWeeklyInvoiceCurrency as formatCurrency,
+  formatWeeklyInvoiceDate as formatDate,
+  getWeeklyInvoiceReviewCopy,
+} from './weeklyInvoiceReviewUtils';
 
 export const WeeklyInvoiceReview: React.FC = () => {
   const { role, user } = useAuth();
@@ -164,63 +92,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [totalInvoices, setTotalInvoices] = useState(0);
 
   const invoiceRole: 'photographer' | 'salesRep' = role === 'salesRep' ? 'salesRep' : 'photographer';
-  const reviewCopy = invoiceRole === 'salesRep'
-    ? {
-        loading: 'Loading commission reviews...',
-        emptyTitle: 'No Weekly Reviews Yet',
-        emptyDescription: 'Weekly commission reviews are generated every Monday morning for the previous completed week.',
-        sectionTitle: 'Weekly Commission Reviews',
-        sectionDescription: 'Commission review packets are auto-generated every Monday for the previous completed week (Sun-Sat).',
-        cardDescription: 'Compact weekly commission summary with line items and review actions tucked into details.',
-        totalLabel: 'Weekly Total',
-        chargeLabel: 'Commission',
-        expenseLabel: 'Adjustments',
-        chargeCountLabel: 'Commission Lines',
-        expenseCountLabel: 'Adjustment Items',
-        breakdownTitle: 'Commission Breakdown',
-        breakdownItemDescription: 'Commission line item',
-        breakdownEmpty: 'No commission line items for this week.',
-        expensesTitle: 'Adjustments & Notes',
-        expensesEmpty: 'No adjustments added for this review.',
-        footerSummary: (charges: number, expenses: number) =>
-          `${charges} commission line${charges !== 1 ? 's' : ''} and ${expenses} adjustment${expenses !== 1 ? 's' : ''} in this review.`,
-        addExpenseLabel: 'Add Adjustment',
-        reviewDialogTitle: 'Review Commission Summary',
-        reviewDialogDescription: 'Choose how you want to review this commission summary. You can accept it or request a modification with notes. The review status will update immediately.',
-        reviewNotesPlaceholder: 'Add an optional note for this commission review...',
-        addExpenseDialogTitle: 'Add Adjustment',
-        addExpenseDialogDescription: 'Add a manual adjustment or reimbursable expense to this commission review.',
-        fileName: 'sales-rep-weekly-commission-reviews',
-        pdfTitle: 'Weekly Commission Review Report',
-      }
-    : {
-        loading: 'Loading invoices...',
-        emptyTitle: 'No Invoices Yet',
-        emptyDescription: 'Weekly invoices are generated every Monday morning for the previous completed week.',
-        sectionTitle: 'Weekly Invoices',
-        sectionDescription: 'Invoices are auto-generated every Monday for the previous completed week (Sun-Sat)',
-        cardDescription: 'Compact weekly payout summary with line items and review actions tucked into details.',
-        totalLabel: 'Invoice Total',
-        chargeLabel: 'Shoot Pay',
-        expenseLabel: 'Expenses',
-        chargeCountLabel: 'Shoots',
-        expenseCountLabel: 'Expense Items',
-        breakdownTitle: 'Service Breakdown',
-        breakdownItemDescription: 'Shoot payout item',
-        breakdownEmpty: 'No payout line items for this week.',
-        expensesTitle: 'Expenses & Notes',
-        expensesEmpty: 'No expenses added for this invoice.',
-        footerSummary: (charges: number, expenses: number) =>
-          `${charges} shoot${charges !== 1 ? 's' : ''} and ${expenses} expense${expenses !== 1 ? 's' : ''} in this invoice.`,
-        addExpenseLabel: 'Add Expense',
-        reviewDialogTitle: 'Review Invoice',
-        reviewDialogDescription: 'Choose how you want to review this invoice. You can accept it or request a modification with notes. The invoice status will update immediately.',
-        reviewNotesPlaceholder: 'Add an optional note for this review...',
-        addExpenseDialogTitle: 'Add Expense',
-        addExpenseDialogDescription: 'Add an expense item to this invoice (e.g., mileage, equipment rental).',
-        fileName: 'photographer-weekly-invoices',
-        pdfTitle: 'Weekly Invoice Report',
-      };
+  const reviewCopy = getWeeklyInvoiceReviewCopy(invoiceRole);
 
   const shootLookup = React.useMemo(() => {
     const map = new Map<string, (typeof shoots)[number]>();
@@ -303,8 +175,8 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const canModify = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status) &&
     invoice.status !== 'paid' &&
-    !(invoice as any).is_paid &&
-    !(invoice as any).paid_at;
+    !invoice.is_paid &&
+    !invoice.paid_at;
 
   // Show review actions whenever the invoice is still awaiting the photographer's
   // decision (approval_status pending/rejected). Backend `canBeModifiedByPhotographer`

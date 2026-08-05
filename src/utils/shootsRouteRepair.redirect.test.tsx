@@ -44,7 +44,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateSpy };
 });
 
-vi.mock('@/context/ShootsContext', () => ({
+vi.mock('@/context/shootsContextState', () => ({
   // No upcoming shoots needed; the "View all" button renders regardless.
   useShoots: () => ({ shoots: [] }),
 }));

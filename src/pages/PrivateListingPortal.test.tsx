@@ -6,7 +6,7 @@
 // PrivateListingPortal is a heavy integration page: it fetches listings from
 // `/api/shoots` on mount, renders inside `DashboardLayout`, reads auth/toast/
 // router context, talks to TanStack Query, and (in `showcase` mode) renders the
-// new `SummaryCards` + `MapTabToolbar` ABOVE the maplibre-backed Map Tab
+// new `SummaryCards` + `MapTabToolbar` ABOVE the Leaflet-backed Map Tab
 // (`ExclusiveListingsShowcase`). To keep this test hermetic and focused on the
 // Map Tab INTEGRATION (not the network), we mock aggressively:
 //
@@ -21,7 +21,7 @@
 //   - `@/components/layout/PageHeader`       → null.
 //   - `@/components/ui/map`                  → fake Map rendering children + inert
 //                                              MapControls/useMap/useShowMarkerLabels
-//                                              (so maplibre/WebGL never loads).
+//                                              (so Leaflet/layout code never loads).
 //   - `@/components/listings/map/CustomPinMarkers` → fake clickable pins.
 //   - `@/components/listings/map/FloatingMapActions` → null.
 //
@@ -89,9 +89,9 @@ vi.mock('@/components/layout/PageHeader', () => ({
 }))
 
 // --- map module stub ---------------------------------------------------------
-// The showcase code-splits a maplibre-gl-backed canvas (lazy import of
-// `@/components/ui/map` + `CustomPinMarkers`). maplibre needs WebGL that jsdom
-// lacks, so we replace the map module with a fake `Map` that renders its
+// The showcase code-splits a Leaflet-backed canvas (lazy import of
+// `@/components/ui/map` + `CustomPinMarkers`). Leaflet needs browser layout
+// APIs that jsdom lacks, so we replace the map module with a fake `Map` that renders its
 // children synchronously inside a <div data-testid="map">, plus inert controls
 // and harmless context-hook defaults.
 vi.mock('@/components/ui/map', () => {
@@ -114,7 +114,7 @@ vi.mock('@/components/ui/map', () => {
 
 // --- custom pin markers stub -------------------------------------------------
 // One clickable button per listing; calls `onSelectListing(id)` on click. Keeps
-// the lazy canvas resolvable without maplibre.
+// the lazy canvas resolvable without a browser map runtime.
 interface MockPinProps {
   listings: Array<{ id: string }>
   selectedListingId: string | null

@@ -6,6 +6,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tailwind's generic backdrop-filter utilities initialize every filter
+   variable, producing several kilobytes of duplicate CSS. The app only uses
+   plain blur values, so keep the same class API with focused declarations. */
+.backdrop-blur-sm {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.backdrop-blur {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.backdrop-blur-md {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-lg {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
+.backdrop-blur-2xl {
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+}
+
+/* As with backdrop filters, the full Tailwind filter variable graph is much
+   larger than the small, fixed set used by the app. These focused utilities
+   preserve the existing class API and keep combined media filters explicit. */
+.blur-sm {
+  filter: blur(4px);
+}
+
+.blur-xl {
+  filter: blur(24px);
+}
+
+.blur-2xl {
+  filter: blur(40px);
+}
+
+.blur-3xl {
+  filter: blur(64px);
+}
+
+[class~="blur-[1px]"] {
+  filter: blur(1px);
+}
+
+[class~="brightness-[0.92]"] {
+  filter: brightness(0.92);
+}
+
+[class~="blur-[1px]"][class~="brightness-[0.92]"] {
+  filter: blur(1px) brightness(0.92);
+}
+
+.hover\:brightness-105:hover,
+[class~="hover:brightness-[1.05]"]:hover {
+  filter: brightness(1.05);
+}
+
+[class~="disabled:hover:brightness-100"]:disabled:hover {
+  filter: brightness(1);
+}
+
+.drop-shadow {
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 10%)) drop-shadow(0 1px 1px rgb(0 0 0 / 6%));
+}
+
+.drop-shadow-md {
+  filter: drop-shadow(0 4px 3px rgb(0 0 0 / 7%)) drop-shadow(0 2px 2px rgb(0 0 0 / 6%));
+}
+
+.drop-shadow-lg {
+  filter: drop-shadow(0 10px 8px rgb(0 0 0 / 4%)) drop-shadow(0 4px 3px rgb(0 0 0 / 10%));
+}
+
+.drop-shadow-2xl {
+  filter: drop-shadow(0 25px 25px rgb(0 0 0 / 15%));
+}
+
+[class~="drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]"] {
+  filter: drop-shadow(0 0 10px rgb(59 130 246 / 65%));
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -216,39 +309,6 @@ body {
     }
   }
 
-  /* MapLibre GL Popup Styling - Theme Aware */
-  .maplibregl-popup-content {
-    @apply bg-card border border-border rounded-md shadow-lg p-0;
-    @apply dark:bg-card dark:border-border;
-  }
-  
-  .maplibregl-popup-tip {
-    @apply border-t-card;
-    @apply dark:border-t-card;
-  }
-  
-  .maplibregl-popup-close-button {
-    @apply text-foreground hover:text-destructive;
-    @apply dark:text-foreground dark:hover:text-destructive;
-    font-size: 18px;
-    padding: 4px 8px;
-  }
-  
-  /* Map Controls Styling */
-  .maplibregl-ctrl {
-    @apply bg-background/80 backdrop-blur-sm border border-border;
-    @apply dark:bg-background/80 dark:border-border;
-  }
-  
-  .maplibregl-ctrl button {
-    @apply text-foreground;
-    @apply dark:text-foreground;
-  }
-  
-  .maplibregl-ctrl button:hover {
-    @apply bg-accent text-accent-foreground;
-    @apply dark:bg-accent dark:text-accent-foreground;
-  }
 }
 
 @layer base {

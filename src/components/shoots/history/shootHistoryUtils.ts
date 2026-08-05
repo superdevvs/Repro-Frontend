@@ -152,6 +152,18 @@ export const STATUS_FILTERS_BY_TAB: Record<ActiveOperationalTab, string[]> = {
 export const isFeaturedShoot = (shoot: Pick<ShootData, 'isFeatured' | 'is_featured'>) =>
   Boolean(shoot.isFeatured ?? shoot.is_featured)
 
+/**
+ * A shoot in the `ready` state has finished editing/review but has not been
+ * finalized yet — finalizing turns it into `delivered` (Req 7.5, 7.6). Staff
+ * lists bucket `ready` alongside genuinely delivered shoots, so this predicate
+ * lets those surfaces flag the shoots still awaiting a finalize action. The
+ * `ready_for_client` alias is intentionally excluded: it is already presented
+ * as Delivered.
+ */
+export const isAwaitingFinalizeShoot = (
+  shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
+) => getOperationalStatusKey(shoot) === 'ready'
+
 export const isFeaturedPendingShoot = (
   shoot: Pick<
     ShootData,

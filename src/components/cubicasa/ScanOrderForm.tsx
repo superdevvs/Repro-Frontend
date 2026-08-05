@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { cubicasaService, CreateOrderData, CubiCasaOrder } from '@/services/cubicasaService';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { Loader2 } from 'lucide-react';
 
 interface ScanOrderFormProps {

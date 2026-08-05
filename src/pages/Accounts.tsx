@@ -39,7 +39,7 @@ import { ClientDetails } from '@/components/clients/ClientDetails';
 import { ClientForm } from '@/components/clients/ClientForm';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientActions } from '@/hooks/useClientActions';
-import { useShoots } from '@/context/ShootsContext';
+import { useShoots } from '@/context/shootsContextState';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { useNavigate, useSearchParams } from 'react-router-dom';

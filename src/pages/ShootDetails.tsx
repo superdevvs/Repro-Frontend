@@ -2,30 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient, getApiHeaders } from '@/services/api';
 import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Cloud,
-  Copy,
-  ExternalLink,
-  MapPin,
-  MoreVertical,
-  Send,
-  CheckCircle,
-  DollarSign,
-  User,
-  Camera,
-  Phone,
-  Mail,
-  Building,
-  ChevronRight,
-  Layers,
-  Image as ImageIcon,
-  Upload,
-  PauseCircle,
-  Download,
-  Share2,
-  Loader2,
+  ArrowLeft, Building, Calendar, Camera, CheckCircle, ChevronRight, Clock, Cloud, Copy, DollarSign,
+  Download, ExternalLink, Image as ImageIcon, Layers, Loader2, Mail, MapPin, MoreVertical,
+  PauseCircle, Phone, Send, Share2, Upload, User,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +15,6 @@ import { toast } from '@/components/ui/use-toast';
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/components/auth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { ShootData } from '@/types/shoots';
 import { getStateFullName } from '@/utils/stateUtils';
 import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { format } from 'date-fns';
@@ -45,11 +23,7 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch';
 import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetailsScreen';
-import {
-  getShootDetailsPaymentBadge,
-  getShootDetailsServiceNames,
-  getShootDetailsWorkflowBadge,
-} from '@/components/shoots/details/shootDetailsPresentation';
+import { getShootDetailsPaymentBadge, getShootDetailsServiceNames, getShootDetailsWorkflowBadge } from '@/components/shoots/details/shootDetailsPresentation';
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
@@ -70,70 +44,13 @@ import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
 import { ShootDetailsModal as ShootOverviewModal } from '@/components/shoots/ShootDetailsModal';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
+import { getLegacyEditedPhotoCount, getShootDetailsErrorMessage, getShootWorkflowLogs } from './shootDetailsPageUtils';
 
 const LazyShootDetailsTourTab = React.lazy(() =>
   import('@/components/shoots/tabs/ShootDetailsTourTab').then((module) => ({
     default: module.ShootDetailsTourTab,
   })),
 );
-
-type ShootWorkflowLog = {
-  action?: string | null;
-  [key: string]: unknown;
-};
-
-type ShootWithWorkflowLogs = ShootData & {
-  workflowLogs?: ShootWorkflowLog[];
-  workflow_logs?: ShootWorkflowLog[];
-};
-
-type ShootWithLegacyEditedCount = ShootData & {
-  edited_photo_count?: number;
-};
-
-const getShootDetailsErrorMessage = (error: unknown, fallback: string) => {
-  if (error && typeof error === 'object') {
-    const errorWithResponse = error as {
-      message?: unknown;
-      response?: { data?: { message?: unknown; error?: unknown } };
-    };
-
-    const responseMessage = errorWithResponse.response?.data?.message;
-    if (typeof responseMessage === 'string' && responseMessage.trim()) {
-      return responseMessage;
-    }
-
-    const responseError = errorWithResponse.response?.data?.error;
-    if (typeof responseError === 'string' && responseError.trim()) {
-      return responseError;
-    }
-
-    if (typeof errorWithResponse.message === 'string' && errorWithResponse.message.trim()) {
-      return errorWithResponse.message;
-    }
-  }
-
-  return fallback;
-};
-
-const getShootWorkflowLogs = (shoot: ShootData | null | undefined): ShootWorkflowLog[] => {
-  if (!shoot) {
-    return [];
-  }
-
-  const shootWithWorkflowLogs = shoot as ShootWithWorkflowLogs;
-  return shootWithWorkflowLogs.workflowLogs ?? shootWithWorkflowLogs.workflow_logs ?? [];
-};
-
-const getLegacyEditedPhotoCount = (shoot?: ShootData | null) => {
-  if (!shoot || typeof shoot !== 'object') {
-    return undefined;
-  }
-
-  const legacyShoot = shoot as ShootWithLegacyEditedCount;
-  return legacyShoot.edited_photo_count;
-};
-
 const ShootDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -236,7 +153,6 @@ const ShootDetails: React.FC = () => {
     refreshShoot: loadShoot,
     toast,
   });
-
   useEffect(() => {
     if (!shootError) return;
     const errorMessage = getShootDetailsErrorMessage(shootError, 'Failed to fetch shoot details');
@@ -246,18 +162,15 @@ const ShootDetails: React.FC = () => {
       variant: 'destructive',
     });
   }, [shootError]);
-
   useEffect(() => {
     if (!id) return;
     return registerShootDetailRefresh(id, () => {
       void loadShoot();
     });
   }, [id, loadShoot]);
-
   useEffect(() => {
     const hashValue = location.hash.replace('#', '').toLowerCase();
     if (!hashValue) return;
-
     const mappedTab = hashValue === 'requests' ? 'issues' : hashValue;
     const sharedVisibleTabIds = new Set(
       visibleTabs.map((tab) => (tab.id === 'tours' ? 'tour' : tab.id)),
@@ -268,35 +181,28 @@ const ShootDetails: React.FC = () => {
       'activity',
       ...sharedVisibleTabIds,
     ]);
-
     if (validTabs.has(mappedTab)) {
       setActiveTab(mappedTab);
     }
   }, [location.hash, visibleTabs]);
-
   useEffect(() => {
     setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
   }, [isClient, id]);
-
   const openOverviewModal = useCallback(() => {
     if (shoot?.id) {
       setAutoOpenedOverviewShootId(shoot.id);
     }
     setIsOverviewModalOpen(true);
   }, [shoot?.id]);
-
   useEffect(() => {
     if (!shoot?.id || autoOpenedOverviewShootId === shoot.id) {
       return;
     }
-
     const timer = window.setTimeout(() => {
       openOverviewModal();
     }, 2000);
-
     return () => window.clearTimeout(timer);
   }, [autoOpenedOverviewShootId, openOverviewModal, shoot?.id]);
-
   const handleCreatePaymentLink = async () => {
     if (!shoot) return;
     setCreatingPayment(true);
@@ -316,7 +222,6 @@ const ShootDetails: React.FC = () => {
       setCreatingPayment(false);
     }
   };
-
   const handleSendToEditing = async () => {
     if (!shoot || isSendingToEditing) return;
     try {
@@ -328,23 +233,19 @@ const ShootDetails: React.FC = () => {
           headers,
           body: JSON.stringify({ editor_id: shoot.editor.id }),
         });
-
         if (!assignRes.ok) {
           const errorData = await assignRes.json().catch(() => ({ message: 'Failed to assign editor' }));
           throw new Error(errorData.message || 'Failed to assign editor');
         }
       }
-
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
         method: 'POST',
         headers,
       });
-
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to send to editing' }));
         throw new Error(errorData.message || 'Failed to send to editing');
       }
-
       toast({
         title: 'Success',
         description: 'Shoot sent to editing',
@@ -360,7 +261,6 @@ const ShootDetails: React.FC = () => {
       setIsSendingToEditing(false);
     }
   };
-
   const handleFinalise = async () => {
     if (!shoot || isFinalising) return;
     try {
@@ -371,14 +271,11 @@ const ShootDetails: React.FC = () => {
         headers,
         body: JSON.stringify(buildFinalizeRequestBody(shoot, 'admin_verified')),
       });
-
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
         throw new Error(errorData.message || 'Failed to finalize shoot');
       }
-
       const isQueued = res.status === 202;
-
       if (!isQueued) {
         toast({
           title: 'Success',
@@ -387,7 +284,6 @@ const ShootDetails: React.FC = () => {
         loadShoot();
         return;
       }
-
       const deliveredStatuses = ['delivered', 'ready', 'ready_for_client', 'admin_verified'];
       for (let attempt = 0; attempt < 20; attempt += 1) {
         const latestShoot = await loadShoot();
@@ -399,11 +295,9 @@ const ShootDetails: React.FC = () => {
           });
           return;
         }
-
         const workflowLogs = getShootWorkflowLogs(latestShoot);
         const hasFinalizeFailure = Array.isArray(workflowLogs)
           && workflowLogs.some((log) => String(log.action || '').toLowerCase() === 'finalize_failed');
-
         if (hasFinalizeFailure) {
           toast({
             title: 'Finalize failed',
@@ -412,10 +306,8 @@ const ShootDetails: React.FC = () => {
           });
           return;
         }
-
         await new Promise((resolve) => window.setTimeout(resolve, 4000));
       }
-
       toast({
         title: 'Still processing',
         description: 'Finalize is still running in background. Check back in a moment.',
@@ -430,11 +322,9 @@ const ShootDetails: React.FC = () => {
       setIsFinalising(false);
     }
   };
-
   const handleProcessPayment = () => {
     setIsPaymentDialogOpen(true);
   };
-
   const handlePaymentSuccess = () => {
     toast({
       title: 'Payment Successful',
@@ -442,7 +332,6 @@ const ShootDetails: React.FC = () => {
     });
     loadShoot(); // Reload shoot data to update payment status
   };
-
   const handleMarkOnHold = async () => {
     if (!shoot || !onHoldReason.trim()) {
       toast({
@@ -452,7 +341,6 @@ const ShootDetails: React.FC = () => {
       });
       return;
     }
-
     const isHoldRequest = isClient;
     if (isHoldRequest && shoot.holdRequestedAt) {
       toast({

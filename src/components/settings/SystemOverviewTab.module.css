@@ -1,0 +1,31 @@
+.canvasDark {
+  background:
+    radial-gradient(circle at top left, rgb(56 189 248 / 10%), transparent 32%),
+    radial-gradient(circle at bottom right, rgb(59 130 246 / 14%), transparent 28%),
+    #020617;
+}
+
+.canvasLight {
+  background:
+    radial-gradient(circle at top left, rgb(56 189 248 / 10%), transparent 32%),
+    radial-gradient(circle at bottom right, rgb(148 163 184 / 18%), transparent 28%),
+    #f8fafc;
+}
+
+.setupHeader {
+  background:
+    radial-gradient(circle at top left, rgb(14 165 233 / 10%), transparent 42%),
+    linear-gradient(135deg, rgb(15 23 42 / 98%), rgb(30 41 59 / 94%));
+}
+
+.headerDark {
+  background:
+    radial-gradient(circle at top left, rgb(14 165 233 / 18%), transparent 42%),
+    linear-gradient(135deg, rgb(15 23 42 / 98%), rgb(30 41 59 / 92%));
+}
+
+.headerLight {
+  background:
+    radial-gradient(circle at top left, rgb(14 165 233 / 12%), transparent 38%),
+    linear-gradient(135deg, rgb(248 250 252 / 98%), rgb(226 232 240 / 92%));
+}
