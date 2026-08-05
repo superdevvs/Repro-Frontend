@@ -133,7 +133,7 @@ test('LIVE radius matrix — for-booking eligibility is server-enforced (Path 1,
   const outside = await probe(outsideCoords);
   const missing = await probe(null);
 
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[radius] for-booking: inside(present=${!!inside}, d=${inside?.distance}) ` +
       `boundary(present=${!!boundary}, d=${boundary?.distance}) ` +
@@ -202,9 +202,9 @@ test('LIVE radius matrix — manual assignment is server-enforced (Path 2, confi
     // OUTSIDE (50mi) → blocked with 422 radius reason.
     const outside = await assign(northOfAnchor(RADIUS_MILES * 2));
 
-    // eslint-disable-next-line no-console
+     
     console.log(`[radius] assignment: inside.status=${inside.status} outside.status=${outside.status}`);
-    // eslint-disable-next-line no-console
+     
     console.log(`[radius] assignment outside.body=${outside.body}`);
 
     expect(inside.status, `inside-radius assignment should be allowed (got ${inside.status}: ${inside.body})`).toBeLessThan(400);

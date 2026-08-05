@@ -63,7 +63,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
     if (open) {
       setAccountInitial(mapClientToAccount(formData, isEditing));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, formData, isEditing]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {

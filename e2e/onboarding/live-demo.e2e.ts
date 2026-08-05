@@ -40,10 +40,10 @@ async function visit(page: Page, role: string, route: string, label: string): Pr
     await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 20_000 });
     await page.waitForTimeout(1_500); // dwell so a human watching can see the surface
     await page.screenshot({ path: shot, fullPage: true });
-    // eslint-disable-next-line no-console
+     
     console.log(`  [${role}] ${route} -> ${shot}`);
   } catch (error) {
-    // eslint-disable-next-line no-console
+     
     console.log(`  [${role}] ${route} not reachable: ${(error as Error).message}`);
   }
   return shot;
@@ -63,7 +63,7 @@ test('LIVE headed onboarding walkthrough — admin + photographer + client (read
   try {
     // ── Admin context ───────────────────────────────────────────────────────────────────────
     const adminPage = await open();
-    // eslint-disable-next-line no-console
+     
     console.log(`[admin] logging in as ${ADMIN_EMAIL}`);
     await loginAsAdmin(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
     await expect(adminPage).toHaveURL(/\/dashboard/, { timeout: 20_000 });
@@ -79,7 +79,7 @@ test('LIVE headed onboarding walkthrough — admin + photographer + client (read
 
     // ── Photographer context (held open at the same time) ─────────────────────────────────────
     const photogPage = await open();
-    // eslint-disable-next-line no-console
+     
     console.log(`[photographer] logging in as ${PHOTOG_EMAIL}`);
     await loginAsEditor(photogPage, PHOTOG_EMAIL, PHOTOG_PASSWORD);
     await expect(photogPage).toHaveURL(/\/dashboard/, { timeout: 20_000 });
@@ -94,7 +94,7 @@ test('LIVE headed onboarding walkthrough — admin + photographer + client (read
 
     // ── Client context (held open at the same time) ───────────────────────────────────────────
     const clientPage = await open();
-    // eslint-disable-next-line no-console
+     
     console.log(`[client] logging in as ${CLIENT_EMAIL}`);
     await loginAsEditor(clientPage, CLIENT_EMAIL, CLIENT_PASSWORD);
     await expect(clientPage).toHaveURL(/\/dashboard/, { timeout: 20_000 });
@@ -108,7 +108,7 @@ test('LIVE headed onboarding walkthrough — admin + photographer + client (read
 
     // All three contexts authenticated independently and simultaneously.
     expect(contexts.length).toBe(3);
-    // eslint-disable-next-line no-console
+     
     console.log('[demo] admin + photographer + client sessions held open simultaneously — read-only walkthrough complete.');
 
     // Final dwell so the three windows are visible together before teardown.

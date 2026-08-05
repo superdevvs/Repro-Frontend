@@ -964,7 +964,7 @@ const AiEditingStudio = () => {
         }
       } catch (error) {
         // Polling errors are non-fatal — quiet warning only.
-        // eslint-disable-next-line no-console
+         
         console.warn('Autoenhance poll failed', error);
       }
     };

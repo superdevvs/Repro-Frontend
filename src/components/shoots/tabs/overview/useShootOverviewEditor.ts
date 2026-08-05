@@ -37,6 +37,68 @@ import type {
   UseShootOverviewEditorArgs,
 } from './shootOverviewEditorSupport';
 
+// The API also returns snake_case and alternate aliases for the property and
+// schedule fields that `ShootData` does not declare. Reading them through one
+// alias type keeps every lookup typed instead of casting at each access site.
+type ShootWithLegacyOverviewFields = ShootData & {
+  property_details?: Record<string, unknown> | null;
+  beds?: unknown;
+  bedrooms?: unknown;
+  baths?: unknown;
+  bathrooms?: unknown;
+  sqft?: unknown;
+  squareFeet?: unknown;
+  square_feet?: unknown;
+  livingArea?: unknown;
+  living_area?: unknown;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
+  serviceItems?: unknown[];
+  service_items?: unknown[];
+};
+
+// Service items reach this hook under several payload shapes (`serviceItems`,
+// `service_items`, `serviceObjects`) carrying both snake_case and camelCase keys.
+type LegacyServiceItemRecord = {
+  id?: string | number | null;
+  service_id?: string | number | null;
+  serviceId?: string | number | null;
+  name?: string | null;
+  service_name?: string | null;
+  serviceName?: string | null;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
+  [key: string]: unknown;
+};
+
+type OverviewServiceItemPayload = {
+  service_id: number;
+  price: number;
+  quantity: number;
+  scheduled_at: string | null;
+  photographer_pay?: number;
+};
+
+// `onSave` receives the shoot draft plus the service and photographer payload
+// keys the API accepts alongside it. `ShootData` models these for display
+// (`services` as names, `service_items` as saved rows), so the save payload
+// intentionally replaces both with the request shapes the endpoint expects.
+type ShootOverviewUpdatePayload = Omit<Partial<ShootData>, 'service_items' | 'services'> & {
+  service_items?: OverviewServiceItemPayload[];
+  services?: Array<{
+    id: number;
+    price: number;
+    quantity: number;
+    scheduled_at: string | null;
+    photographer_pay?: number;
+  }>;
+  service_photographers?: Array<{ service_id: number; photographer_id: number }>;
+};
+
 export function useShootOverviewEditor({
   shoot,
   isAdmin,
@@ -120,26 +182,27 @@ export function useShootOverviewEditor({
   }, []);
 
   const initializeMetricsFromShoot = useCallback(() => {
-    const propertyDetails = shoot.propertyDetails || (shoot as any).property_details || {};
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     setPropertyMetricsEdit({
-      beds: formatEditableValue(propertyDetails.beds ?? propertyDetails.bedrooms ?? propertyDetails.bed ?? (shoot as any).beds ?? (shoot as any).bedrooms ?? ''),
-      baths: formatEditableValue(propertyDetails.baths ?? propertyDetails.bathrooms ?? propertyDetails.bath ?? (shoot as any).baths ?? (shoot as any).bathrooms ?? ''),
+      beds: formatEditableValue(propertyDetails.beds ?? propertyDetails.bedrooms ?? propertyDetails.bed ?? legacyShoot.beds ?? legacyShoot.bedrooms ?? ''),
+      baths: formatEditableValue(propertyDetails.baths ?? propertyDetails.bathrooms ?? propertyDetails.bath ?? legacyShoot.baths ?? legacyShoot.bathrooms ?? ''),
       sqft: formatEditableValue(
         propertyDetails.sqft ??
         propertyDetails.squareFeet ??
         propertyDetails.square_feet ??
-        (shoot as any).sqft ??
-        (shoot as any).squareFeet ??
-        (shoot as any).square_feet ??
-        (shoot as any).livingArea ??
-        (shoot as any).living_area ??
+        legacyShoot.sqft ??
+        legacyShoot.squareFeet ??
+        legacyShoot.square_feet ??
+        legacyShoot.livingArea ??
+        legacyShoot.living_area ??
         '',
       ),
     });
   }, [shoot]);
 
   const updateField = useCallback((field: string, value: unknown) => {
-    setEditedShoot((current) => setNestedDraftValue(current as Record<string, any>, field, value));
+    setEditedShoot((current) => setNestedDraftValue(current as Record<string, unknown>, field, value));
   }, []);
 
   const clearAddressDerivedState = useCallback(({ keepAddressInput = true }: { keepAddressInput?: boolean } = {}) => {
@@ -178,15 +241,16 @@ export function useShootOverviewEditor({
   }, [updateField]);
 
   const effectiveSqft = useMemo(() => {
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    const legacyPropertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     const rawSqft = isEditMode
       ? propertyMetricsEdit.sqft
-      : (shoot as any).propertyDetails?.sqft ??
-        (shoot as any).property_details?.sqft ??
-        (shoot as any).sqft ??
-        (shoot as any).squareFeet ??
-        (shoot as any).square_feet ??
-        (shoot as any).livingArea ??
-        (shoot as any).living_area ??
+      : legacyPropertyDetails.sqft ??
+        legacyShoot.sqft ??
+        legacyShoot.squareFeet ??
+        legacyShoot.square_feet ??
+        legacyShoot.livingArea ??
+        legacyShoot.living_area ??
         null;
     if (rawSqft === '' || rawSqft === null || rawSqft === undefined) return null;
     const parsedSqft = Number(rawSqft);
@@ -210,7 +274,8 @@ export function useShootOverviewEditor({
   useEffect(() => {
     if (!isEditMode) return;
 
-    const propertyDetails = shoot.propertyDetails || (shoot as any).property_details || {};
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     setServiceSchedules({});
     setEditedShoot({
       scheduledDate: formatDateForInput(shoot.scheduledDate),
@@ -226,7 +291,7 @@ export function useShootOverviewEditor({
       photographer: shoot.photographer ? { ...shoot.photographer } : undefined,
       payment: shoot.payment ? { ...shoot.payment } : undefined,
     });
-    setAddressInput(shoot.location?.address || shoot.location?.fullAddress || (shoot as any).address || '');
+    setAddressInput(shoot.location?.address || shoot.location?.fullAddress || legacyShoot.address || '');
     initializeMetricsFromShoot();
     if (shoot.client) setSelectedClientId(String(shoot.client.id));
     if (shoot.photographer) setSelectedPhotographerIdEdit(String(shoot.photographer.id));
@@ -251,30 +316,29 @@ export function useShootOverviewEditor({
       return nextSchedules;
     });
     setTaxAmountDirty(false);
-    setPresenceOption(propertyDetails.presenceOption === 'lockbox' || propertyDetails.presenceOption === 'other' ? propertyDetails.presenceOption : 'self');
-    setLockboxCode(propertyDetails.lockboxCode || '');
-    setLockboxLocation(propertyDetails.lockboxLocation || '');
-    setAccessContactName(propertyDetails.accessContactName || '');
-    setAccessContactPhone(propertyDetails.accessContactPhone || '');
+    const presenceOptionValue = propertyDetails.presenceOption;
+    setPresenceOption(presenceOptionValue === 'lockbox' || presenceOptionValue === 'other' ? presenceOptionValue : 'self');
+    setLockboxCode(typeof propertyDetails.lockboxCode === 'string' ? propertyDetails.lockboxCode : '');
+    setLockboxLocation(typeof propertyDetails.lockboxLocation === 'string' ? propertyDetails.lockboxLocation : '');
+    setAccessContactName(typeof propertyDetails.accessContactName === 'string' ? propertyDetails.accessContactName : '');
+    setAccessContactPhone(typeof propertyDetails.accessContactPhone === 'string' ? propertyDetails.accessContactPhone : '');
   }, [initializeMetricsFromShoot, isEditMode, photographerAssignments.groups, shoot]);
 
   useEffect(() => {
     if (!isEditMode || selectedServiceIds.length > 0) return;
 
-    const rawSourceItems: any[] = Array.isArray((shoot as any).serviceItems) && (shoot as any).serviceItems.length > 0
-      ? (shoot as any).serviceItems
-      : Array.isArray((shoot as any).service_items) && (shoot as any).service_items.length > 0
-        ? (shoot as any).service_items
-        : Array.isArray(shoot.serviceObjects) && shoot.serviceObjects.length > 0
-          ? shoot.serviceObjects
-          : [];
-    const serviceObjectsById = new Map<string, any>();
-    if (Array.isArray(shoot.serviceObjects)) {
-      shoot.serviceObjects.forEach((serviceObject: any) => {
-        const id = serviceObject?.service_id ?? serviceObject?.serviceId ?? serviceObject?.id;
-        if (id !== null && id !== undefined) serviceObjectsById.set(String(id), serviceObject);
-      });
-    }
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    const serviceObjects = (Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : []) as unknown as LegacyServiceItemRecord[];
+    const rawSourceItems: LegacyServiceItemRecord[] = Array.isArray(legacyShoot.serviceItems) && legacyShoot.serviceItems.length > 0
+      ? legacyShoot.serviceItems as LegacyServiceItemRecord[]
+      : Array.isArray(legacyShoot.service_items) && legacyShoot.service_items.length > 0
+        ? legacyShoot.service_items as LegacyServiceItemRecord[]
+        : serviceObjects;
+    const serviceObjectsById = new Map<string, LegacyServiceItemRecord>();
+    serviceObjects.forEach((serviceObject) => {
+      const id = serviceObject?.service_id ?? serviceObject?.serviceId ?? serviceObject?.id;
+      if (id !== null && id !== undefined) serviceObjectsById.set(String(id), serviceObject);
+    });
     const sourceItems = rawSourceItems.map((item) => {
       if (!item || typeof item !== 'object') return item;
       const id = item.service_id ?? item.serviceId ?? item.id;
@@ -308,11 +372,11 @@ export function useShootOverviewEditor({
           id: serviceId,
           name: String(serviceName),
           price: Number(item.price ?? item.subtotal ?? 0) || 0,
-          pricing_type: item.pricing_type || 'fixed',
-          allow_multiple: item.allow_multiple ?? false,
+          pricing_type: item.pricing_type === 'variable' ? 'variable' : 'fixed',
+          allow_multiple: item.allow_multiple === true,
           sqft_ranges: Array.isArray(item.sqft_ranges) ? item.sqft_ranges : [],
           category: item.category || null,
-          description: item.description || '',
+          description: typeof item.description === 'string' ? item.description : '',
           photographer_pay: item.photographer_pay != null ? Number(item.photographer_pay) : null,
           duration: item.duration != null ? Number(item.duration) : null,
         });
@@ -334,12 +398,15 @@ export function useShootOverviewEditor({
   const handleSave = useCallback(() => {
     if (!onSave) return;
 
-    const updates = { ...editedShoot } as Partial<ShootData> & Record<string, any>;
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    // The draft only ever holds display fields; the service payload keys below
+    // are request-shaped, so the two types deliberately do not overlap.
+    const updates = { ...editedShoot } as unknown as ShootOverviewUpdatePayload;
     const incomingPropertyDetails =
       updates.propertyDetails && typeof updates.propertyDetails === 'object'
-        ? { ...(updates.propertyDetails as Record<string, any>) }
+        ? { ...(updates.propertyDetails as Record<string, unknown>) }
         : null;
-    const basePropertyDetails = { ...(shoot.propertyDetails || (shoot as any).property_details || {}) } as Record<string, any>;
+    const basePropertyDetails = { ...(shoot.propertyDetails ?? legacyShoot.property_details ?? {}) } as Record<string, unknown>;
 
     if (incomingPropertyDetails) {
       [
@@ -403,27 +470,35 @@ export function useShootOverviewEditor({
       }
     }
 
-    const sqftForPricing =
+    const rawSqftForPricing =
       sqftValue ??
       basePropertyDetails.sqft ??
-      (basePropertyDetails as any).squareFeet ??
-      (basePropertyDetails as any).square_feet ??
-      (shoot as any).sqft ??
-      (shoot as any).squareFeet ??
-      (shoot as any).square_feet ??
-      (shoot as any).livingArea ??
-      (shoot as any).living_area ??
+      basePropertyDetails.squareFeet ??
+      basePropertyDetails.square_feet ??
+      legacyShoot.sqft ??
+      legacyShoot.squareFeet ??
+      legacyShoot.square_feet ??
+      legacyShoot.livingArea ??
+      legacyShoot.living_area ??
       null;
+    // `resolveServicePrice` declares `number | null`, so coerce here rather than
+    // passing whichever alias shape the payload happened to carry.
+    const parsedSqftForPricing = Number(rawSqftForPricing);
+    const sqftForPricing =
+      rawSqftForPricing !== null && rawSqftForPricing !== undefined && rawSqftForPricing !== ''
+        && Number.isFinite(parsedSqftForPricing)
+        ? parsedSqftForPricing
+        : null;
 
     const orderSchedule = {
-      date: formatDateForInput((updates as any).scheduledDate ?? shoot.scheduledDate),
-      time: formatTimeForInput(String((updates as any).time ?? shoot.time ?? '')) || '10:00',
+      date: formatDateForInput(updates.scheduledDate ?? shoot.scheduledDate),
+      time: formatTimeForInput(String(updates.time ?? shoot.time ?? '')) || '10:00',
     };
     const existingScheduleByServiceId = new Map<string, ServiceScheduleFields>();
     [
-      ...(((shoot as any).serviceItems as any[]) || []),
-      ...(((shoot as any).service_items as any[]) || []),
-      ...((shoot.serviceObjects as any[]) || []),
+      ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
+      ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
+      ...((shoot.serviceObjects as unknown as LegacyServiceItemRecord[] | undefined) || []),
     ].forEach((item) => {
       if (!item || typeof item !== 'object') return;
       const serviceId = item.service_id ?? item.serviceId ?? item.id;
@@ -446,7 +521,7 @@ export function useShootOverviewEditor({
         savedSchedule.time === orderSchedule.time
           ? existingSchedule
           : savedSchedule;
-      const serviceData: any = {
+      const serviceData: OverviewServiceItemPayload = {
         service_id: Number(serviceId),
         price: resolvedPrice,
         quantity: 1,
@@ -461,8 +536,8 @@ export function useShootOverviewEditor({
       }
       return serviceData;
     });
-    (updates as any).service_items = serviceItemsPayload;
-    (updates as any).services = serviceItemsPayload.map((serviceData) => ({
+    updates.service_items = serviceItemsPayload;
+    updates.services = serviceItemsPayload.map((serviceData) => ({
       id: serviceData.service_id,
       price: serviceData.price,
       quantity: serviceData.quantity,
@@ -488,7 +563,9 @@ export function useShootOverviewEditor({
     }
     updates.service_photographers = servicePhotographerAssignments;
 
-    onSave(updates);
+    // `onSave` is typed against the display model, while this payload carries the
+    // request-shaped service keys the endpoint requires.
+    onSave(updates as unknown as Partial<ShootData>);
   }, [
     accessContactName,
     accessContactPhone,
@@ -649,26 +726,27 @@ export function useShootOverviewEditor({
   ]);
 
   const getShootLocation = useCallback(() => {
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const editedLocation = isEditMode ? editedShoot.location : undefined;
     const address =
       (typeof editedLocation?.address === 'string' ? editedLocation.address : undefined)
       || shoot.location?.address
-      || (shoot as any).address
+      || legacyShoot.address
       || '';
     const city =
       (typeof editedLocation?.city === 'string' ? editedLocation.city : undefined)
       || shoot.location?.city
-      || (shoot as any).city
+      || legacyShoot.city
       || '';
     const state =
       (typeof editedLocation?.state === 'string' ? editedLocation.state : undefined)
       || shoot.location?.state
-      || (shoot as any).state
+      || legacyShoot.state
       || '';
     const zip =
       (typeof editedLocation?.zip === 'string' ? editedLocation.zip : undefined)
       || shoot.location?.zip
-      || (shoot as any).zip
+      || legacyShoot.zip
       || '';
     return { address, city, state, zip };
   }, [editedShoot.location, isEditMode, shoot]);
@@ -682,11 +760,12 @@ export function useShootOverviewEditor({
     setEditPhotographers,
   );
 
+  const legacyScheduleShoot = shoot as ShootWithLegacyOverviewFields;
   const photographerPickerScheduleDate = formatDateForInput(
-    String(editedShoot.scheduledDate ?? (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate ?? ''),
+    String(editedShoot.scheduledDate ?? legacyScheduleShoot.scheduled_at ?? legacyScheduleShoot.scheduledAt ?? shoot.scheduledDate ?? ''),
   );
   const photographerPickerScheduleTime =
-    formatTimeForInput(String(editedShoot.time ?? (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.time ?? ''))
+    formatTimeForInput(String(editedShoot.time ?? legacyScheduleShoot.scheduled_at ?? legacyScheduleShoot.scheduledAt ?? shoot.time ?? ''))
     || '10:00';
 
   usePhotographerDistanceAvailability(
@@ -703,7 +782,7 @@ export function useShootOverviewEditor({
 
   const fallbackAssignedPhotographers = useMemo(() => {
     const photographersMap = new Map<string, PhotographerPickerOption>();
-    const addPhotographer = (photographer?: any | null) => {
+    const addPhotographer = (photographer?: { id?: string | number | null } | null) => {
       if (!photographer?.id) return;
       const mappedPhotographer = mapPhotographerPickerOption(photographer);
       photographersMap.set(String(mappedPhotographer.id), mappedPhotographer);

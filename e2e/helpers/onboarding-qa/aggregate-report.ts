@@ -252,21 +252,21 @@ async function main(): Promise<void> {
   const result = await aggregateReports(dirArg);
 
   const badge = { green: '🟢 GREEN', yellow: '🟡 YELLOW', red: '🔴 RED' }[result.summary];
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[onboarding-qa] ${badge} — ${result.mergedChecks} check(s) across ` +
       `${result.fragments.length} fragment(s); ` +
       `${result.totals.pass} pass · ${result.totals.fail} fail · ` +
       `${result.totals.blocked} blocked · ${result.totals.skipped} skipped`,
   );
-  // eslint-disable-next-line no-console
+   
   console.log(`[onboarding-qa] Wrote ${result.jsonPath} and ${result.markdownPath}`);
 
   if (result.skippedFiles.length > 0) {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[onboarding-qa] Skipped ${result.skippedFiles.length} item(s) during merge:`);
     for (const skipped of result.skippedFiles) {
-      // eslint-disable-next-line no-console
+       
       console.warn(`  - ${skipped.file}: ${skipped.reason}`);
     }
   }
@@ -282,7 +282,7 @@ const invokedDirectly =
 if (invokedDirectly) {
   main().catch((error) => {
     // Even the CLI wrapper honors continue-on-failure: report, set a non-zero code, never crash hard.
-    // eslint-disable-next-line no-console
+     
     console.error(`[onboarding-qa] Aggregation failed: ${describeError(error)}`);
     process.exitCode = 1;
   });

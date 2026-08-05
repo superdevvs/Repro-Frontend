@@ -87,7 +87,7 @@ test('LIVE write-flow — photographer availability + radius → client booking 
     expect(photographerId, 'photographer id').toBeTruthy();
     const auth = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
     const date = nextMondayISO();
-    // eslint-disable-next-line no-console
+     
     console.log(`[write-flow] photographer id=${photographerId}; target Monday=${date}`);
 
     // Clean slate for that photographer (remove any prior windows so the assertion is deterministic).
@@ -102,7 +102,7 @@ test('LIVE write-flow — photographer availability + radius → client booking 
     const availId = ((await avail.json()) as { data?: { id?: number | string }; id?: number | string });
     const aId = availId.data?.id ?? availId.id;
     if (aId !== undefined) createdAvailabilityIds.push(aId);
-    // eslint-disable-next-line no-console
+     
     console.log('[write-flow] availability Mon 09:00-17:00 created');
 
     // ── Step 3: set a BLOCKED window (Mon 10:00–11:00) — a real write ──────────────────────────
@@ -114,7 +114,7 @@ test('LIVE write-flow — photographer availability + radius → client booking 
     const blockedBody = ((await blocked.json()) as { data?: { id?: number | string }; id?: number | string });
     const bId = blockedBody.data?.id ?? blockedBody.id;
     if (bId !== undefined) createdAvailabilityIds.push(bId);
-    // eslint-disable-next-line no-console
+     
     console.log('[write-flow] blocked window Mon 10:00-11:00 created');
 
     // ── Step 4: read-back persistence (real) ───────────────────────────────────────────────────
@@ -137,28 +137,28 @@ test('LIVE write-flow — photographer availability + radius → client booking 
 
     const atBlocked = await probe('10:00 AM');
     const atOpen = await probe('02:00 PM');
-    // eslint-disable-next-line no-console
+     
     console.log(`[write-flow] for-booking @10:00(blocked) available=${atBlocked?.is_available_at_time} distance=${atBlocked?.distance}; @14:00(open) available=${atOpen?.is_available_at_time}`);
 
     // The availability Settings_Effect is SERVER-ENFORCED: blocked time excluded, open time offered.
     if (atBlocked && atOpen) {
       expect(atBlocked.is_available_at_time, 'photographer must NOT be available at the blocked 10:00 slot').toBeFalsy();
       expect(atOpen.is_available_at_time, 'photographer MUST be available at the open 14:00 slot').toBeTruthy();
-      // eslint-disable-next-line no-console
+       
       console.log('[write-flow] VERIFIED: availability/blocked-window gating is enforced end-to-end.');
     } else {
-      // eslint-disable-next-line no-console
+       
       console.log('[write-flow] NOTE: photographer not returned by for-booking (likely missing seeded lat/lng); availability persistence still verified.');
     }
 
     // ── Step 6: Service_Radius round-trip + the documented gap probe ───────────────────────────
     const setRadius = await api.put('/api/profile', { headers: auth, data: { preferences: { serviceRadiusMiles: 25 } } });
     const radiusPersisted = setRadius.ok();
-    // eslint-disable-next-line no-console
+     
     console.log(`[write-flow] radius write status=${setRadius.status()} persisted=${radiusPersisted}`);
     // Distance is returned for the booking (informational), but eligibility is NOT excluded by radius.
     if (atOpen) {
-      // eslint-disable-next-line no-console
+       
       console.log(`[write-flow] FINDING: for-booking returns distance=${atOpen.distance ?? 'n/a'} but does NOT exclude by Service_Radius (no server-side radius gate).`);
     }
 
@@ -180,7 +180,7 @@ test('LIVE write-flow — photographer availability + radius → client booking 
     if (photographerId !== undefined && token) {
       const auth = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
       await api.delete(`/api/photographer/availability/clear/${photographerId}`, { headers: auth }).catch(() => undefined);
-      // eslint-disable-next-line no-console
+       
       console.log('[write-flow] cleanup: cleared QA availability windows for the photographer.');
     }
     await api.dispose();
