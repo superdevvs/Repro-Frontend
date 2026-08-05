@@ -33,7 +33,7 @@ describe('Feature: ai-editing-studio-revamp, Property 27: Recent Project fields'
         fc.string(),
         fc.string({ minLength: 1 }),
         fc.string({ minLength: 1 }),
-        fc.date().map((date) => date.toISOString()),
+        fc.date({ noInvalidDate: true }).map((date) => date.toISOString()),
         fc.nat(),
         (thumbnailRef, workflow, status, lastActivityAt, mediaCount) => {
           const result = projectRequiredFields({
