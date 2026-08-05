@@ -1,0 +1,988 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import {
+  autoenhanceService,
+  type ConnectionStatus,
+  type EditingJob,
+  type EditingType,
+} from '@/services/autoenhanceService';
+import { API_BASE_URL } from '@/config/env';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useStudioShell } from '@/components/studio/StudioShell';
+import type { StudioShootRef } from '@/components/studio/types';
+import { useAiEditingChat } from './useAiEditingChat';
+import {
+  COMBINABLE_MODE_IDS,
+  MAX_BATCH_SIZE,
+  editingTypeLabels,
+  getApiErrorMessage,
+  normalizeMediaFiles,
+  normalizeShoots,
+  type EnhancementModeId,
+  type MediaFile,
+  type RouteTarget,
+  type ShootWithEditing,
+  type StatusFilter,
+  type ViewMode,
+  type WorkspaceMode,
+} from './aiEditingModel';
+
+export function useAiEditingStudioController() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [viewMode, setViewMode] = useState<ViewMode>('activity');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('photo');
+
+  // Studio shell navigation (ai-editing-studio-revamp, task 10.1). The active
+  // Studio_Destination lives in URL route state (`?d=...&rec=type:id`) and the
+  // existing `activeSubtab`/capability view model is derived from it, so the
+  // Command_Center is the default destination (Req 1.1) and the destination is
+  // always exposed through route state (Req 1.10). The existing
+  // `workspaceMode` still drives the in-Subtab photo/video content.
+  const {
+    activeSubtab,
+    photoCapability,
+    videoCapability,
+    setDestinationFromRouteTarget,
+  } = useStudioShell();
+
+  const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
+  const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
+  const [availableFiles, setAvailableFiles] = useState<MediaFile[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
+  const [selectedEnhancementIds, setSelectedEnhancementIds] = useState<Set<EnhancementModeId>>(new Set(['enhance']));
+  const [jobs, setJobs] = useState<EditingJob[]>([]);
+  const [connection, setConnection] = useState<ConnectionStatus | null>(null);
+
+  const [loadingShoots, setLoadingShoots] = useState(true);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [mutatingJobId, setMutatingJobId] = useState<number | null>(null);
+  const [quickSendRippleKey, setQuickSendRippleKey] = useState(0);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [jobStatusFilter, setJobStatusFilter] = useState<StatusFilter>('all');
+  const [jobShootFilter, setJobShootFilter] = useState('');
+
+  // Recent-activity pagination
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsPageSize, setJobsPageSize] = useState<number>(30);
+
+  const [quickStartMode, setQuickStartMode] = useState<EnhancementModeId>('enhance');
+
+  const [enhanceType, setEnhanceType] = useState<'neutral'>('neutral');
+  const [lensCorrection, setLensCorrection] = useState(true);
+  const [windowPullType, setWindowPullType] = useState<'ONLY_WINDOWS' | 'WITH_SKIES'>('ONLY_WINDOWS');
+  const [cloudType, setCloudType] = useState<'CLEAR' | 'LOW_CLOUD' | 'LOW_CLOUD_LOW_SAT' | 'HIGH_CLOUD'>('CLEAR');
+  const [notes, setNotes] = useState('');
+
+  // HDR bracket merging — when set to 3 or 5, selected files are grouped in
+  // selection order and each group is merged into a single enhanced output.
+  const [bracketSize, setBracketSize] = useState<0 | 3 | 5>(0);
+
+  const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
+  const [comparisonJob, setComparisonJob] = useState<EditingJob | null>(null);
+  const [overviewShootId, setOverviewShootId] = useState<number | null>(null);
+
+  const lastShiftAnchorRef = useRef<number | null>(null);
+
+  const canUseAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(user?.role || '');
+
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    return {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    };
+  }, []);
+
+  const resolveImageUrl = useCallback((value?: string | null) => {
+    if (!value) return '';
+    if (value.startsWith('http') || value.startsWith('data:') || value.startsWith('blob:')) return value;
+    return `${API_BASE_URL}/${value.replace(/^\/+/, '')}`;
+  }, []);
+
+  const getImageUrl = useCallback(
+    (file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium') => {
+      if (size === 'thumb') return resolveImageUrl(file.thumb_url || file.medium_url || file.url || file.path);
+      if (size === 'medium') return resolveImageUrl(file.medium_url || file.large_url || file.url || file.path);
+      if (size === 'large') return resolveImageUrl(file.large_url || file.original_url || file.url || file.path);
+      return resolveImageUrl(file.original_url || file.large_url || file.url || file.path);
+    },
+    [resolveImageUrl],
+  );
+
+  const parseJsonResponse = useCallback(async (response: Response): Promise<unknown> => {
+    if (response.status === 204) return {};
+    const text = await response.text();
+    if (!text.trim()) return {};
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const loadConnectionStatus = useCallback(async () => {
+    try {
+      const status = await autoenhanceService.getConnectionStatus();
+      setConnection(status);
+    } catch (error) {
+      console.warn('Failed to fetch Autoenhance connection status', error);
+      setConnection({ success: false, status: 503, message: 'Status unavailable' });
+    }
+  }, []);
+
+  const loadEditingTypes = useCallback(async () => {
+    try {
+      const types = await autoenhanceService.getEditingTypes();
+      setEditingTypes(types);
+    } catch (error) {
+      console.error('Failed to load Autoenhance editing types:', error);
+      toast({
+        title: 'Editing modes unavailable',
+        description: 'Falling back to built-in Autoenhance modes.',
+      });
+    }
+  }, [toast]);
+
+  const loadShoots = useCallback(async () => {
+    setLoadingShoots(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+      const tabs = ['scheduled', 'completed', 'delivered'];
+      const responses = await Promise.all(
+        tabs.map((tab) =>
+          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&per_page=200&no_cache=true`, {
+            headers: getAuthHeaders(),
+          }),
+        ),
+      );
+      if (responses.some((response) => response.status === 401)) {
+        toast({ title: 'Authentication Error', description: 'Please log in again', variant: 'destructive' });
+        return;
+      }
+      const failed = responses.find((response) => !response.ok);
+      if (failed) throw new Error('Failed to load shoots');
+      const payloads = await Promise.all(responses.map((response) => parseJsonResponse(response)));
+      setShoots(normalizeShoots(payloads));
+    } catch (error) {
+      console.error('Failed to load shoots:', error);
+      toast({ title: 'Error', description: 'Failed to load shoots. Please try again.', variant: 'destructive' });
+    } finally {
+      setLoadingShoots(false);
+    }
+  }, [getAuthHeaders, parseJsonResponse, toast]);
+
+  const loadShootFiles = useCallback(
+    async (shootId: number) => {
+      setLoadingFiles(true);
+      try {
+        const responses = await Promise.all(
+          ['raw', 'edited'].map((type) =>
+            fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}`, { headers: getAuthHeaders() }),
+          ),
+        );
+        const failed = responses.find((response) => !response.ok && response.status !== 404);
+        if (failed) throw new Error('Failed to load shoot files');
+
+        const payloads = await Promise.all(
+          responses.map((response) => (response.ok ? parseJsonResponse(response) : Promise.resolve({ data: [] }))),
+        );
+        setAvailableFiles(normalizeMediaFiles(payloads));
+      } catch (error) {
+        console.error('Failed to load shoot files:', error);
+        setAvailableFiles([]);
+        toast({ title: 'Error', description: 'Failed to load shoot files', variant: 'destructive' });
+      } finally {
+        setLoadingFiles(false);
+      }
+    },
+    [getAuthHeaders, parseJsonResponse, toast],
+  );
+
+  const loadJobs = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setLoadingJobs(true);
+      try {
+        const response = await autoenhanceService.listJobs({ per_page: 30 });
+        setJobs(response.data);
+      } catch (error) {
+        console.error('Failed to load Autoenhance jobs:', error);
+        if (showLoader) {
+          toast({ title: 'Error', description: 'Failed to load Autoenhance jobs', variant: 'destructive' });
+        }
+      } finally {
+        if (showLoader) setLoadingJobs(false);
+      }
+    },
+    [toast],
+  );
+
+  useEffect(() => {
+    loadShoots();
+    loadEditingTypes();
+    loadJobs();
+    loadConnectionStatus();
+  }, [loadConnectionStatus, loadEditingTypes, loadJobs, loadShoots]);
+
+  useEffect(() => {
+    const hasActive = jobs.some((job) => ['pending', 'processing'].includes(job.status));
+    if (!hasActive) return;
+    const interval = window.setInterval(() => loadJobs(false), 8000);
+    return () => window.clearInterval(interval);
+  }, [jobs, loadJobs]);
+
+  useEffect(() => {
+    if (selectedShoot) {
+      loadShootFiles(selectedShoot.id);
+    } else {
+      setAvailableFiles([]);
+      setSelectedFiles(new Set());
+    }
+  }, [loadShootFiles, selectedShoot]);
+
+  const rawFiles = useMemo(
+    () => availableFiles.filter((file) => !file.isEdited && !file.isAiEdited),
+    [availableFiles],
+  );
+  const editedFiles = useMemo(
+    () => availableFiles.filter((file) => file.isEdited || file.isAiEdited),
+    [availableFiles],
+  );
+  const sourceFiles = useMemo(
+    () => (rawFiles.length > 0 ? rawFiles : availableFiles.filter((file) => !file.isAiEdited)),
+    [availableFiles, rawFiles],
+  );
+  const usingEditedSources = rawFiles.length === 0 && sourceFiles.length > 0;
+
+  const filteredShoots = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return shoots;
+    return shoots.filter(
+      (shoot) =>
+        shoot.address.toLowerCase().includes(term) ||
+        String(shoot.id).includes(term) ||
+        (shoot.client_name || '').toLowerCase().includes(term),
+    );
+  }, [searchTerm, shoots]);
+
+  // Reset to the first page whenever the filtered result set can change.
+  useEffect(() => {
+    setJobsPage(1);
+  }, [jobStatusFilter, jobShootFilter, jobsPageSize]);
+
+  const filteredJobs = useMemo(() => {
+    const term = jobShootFilter.trim().toLowerCase();
+    return jobs.filter((job) => {
+      if (jobStatusFilter !== 'all' && job.status !== jobStatusFilter) return false;
+      if (term) {
+        const haystack = `${job.shoot?.address || ''} ${job.shoot_id} ${job.source_file?.filename || ''} ${job.editing_type}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [jobShootFilter, jobStatusFilter, jobs]);
+
+  const stats = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    return {
+      active: jobs.filter((job) => ['pending', 'processing'].includes(job.status)).length,
+      completed: jobs.filter((job) => job.status === 'completed').length,
+      failed: jobs.filter((job) => job.status === 'failed').length,
+      today: jobs.filter((job) => {
+        const created = job.created_at ? new Date(job.created_at) : null;
+        return created && created >= todayStart;
+      }).length,
+    };
+  }, [jobs]);
+
+  // Batch progress for the jobs submitted today — "3 of 8 done · 38%" — so a
+  // multi-image submission shows overall completion, not just per-card state.
+  const batchProgress = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todaysJobs = jobs.filter((job) => {
+      const created = job.created_at ? new Date(job.created_at) : null;
+      return created && created >= todayStart;
+    });
+    const total = todaysJobs.length;
+    if (total === 0) return null;
+
+    const active = todaysJobs.filter((job) => ['pending', 'processing'].includes(job.status)).length;
+    if (active === 0) return null;
+
+    const done = total - active;
+
+    return { total, done, active, percent: Math.round((done / total) * 100) };
+  }, [jobs]);
+
+  const selectedRawFiles = useMemo(
+    () => sourceFiles.filter((file) => selectedFiles.has(file.id)),
+    [sourceFiles, selectedFiles],
+  );
+
+  const selectedModeList = useMemo(() => Array.from(selectedEnhancementIds), [selectedEnhancementIds]);
+  const selectedModeLabel = useMemo(
+    () => selectedModeList.map((id) => editingTypeLabels[id] || id).join(' + '),
+    [selectedModeList],
+  );
+  const submitEditingType = selectedModeList.length === 1 ? selectedModeList[0] : 'enhance_custom';
+  const isAutoenhanceConfigured = connection?.success !== false;
+
+  const buildSubmitParams = () => {
+    const params: Record<string, any> = {
+      notes: notes.trim() || undefined,
+      editing_options: selectedModeList,
+      enhance: selectedEnhancementIds.has('enhance'),
+      lens_correction: lensCorrection,
+      vertical_correction: selectedEnhancementIds.has('vertical_correction'),
+    };
+    if (selectedEnhancementIds.has('enhance')) {
+      params.enhance_type = enhanceType;
+    }
+    if (selectedEnhancementIds.has('sky_replace')) {
+      params.sky_replacement = true;
+      params.cloud_type = cloudType;
+    }
+    if (selectedEnhancementIds.has('window_pull')) {
+      params.window_pull_type = windowPullType;
+    }
+    Object.keys(params).forEach((key) => params[key] === undefined && delete params[key]);
+    return params;
+  };
+
+  const startNewEdit = () => {
+    if (!canUseAutoenhance) return;
+    setWorkspaceMode('photo');
+    setSelectedShoot(null);
+    setSelectedFiles(new Set());
+    setSearchTerm('');
+    lastShiftAnchorRef.current = null;
+    setViewMode('select-shoot');
+  };
+
+  const startQuickEdit = (modeId: EnhancementModeId) => {
+    if (!canUseAutoenhance) return;
+    setSelectedEnhancementIds(new Set([modeId]));
+    setQuickStartMode(modeId);
+    startNewEdit();
+  };
+
+  /**
+   * Centralized navigation for Studio feature cards, templates, and recent-project
+   * deep-links. Maps the legacy `RouteTarget` onto a Studio_Destination in route
+   * state and primes the target capability in place — it stays on `/ai-editing`
+   * and only updates the destination query params (Req 1.7, 1.10). The existing
+   * `workspaceMode` remains the in-Subtab driver so the photo/video components
+   * need no changes.
+   */
+  const routeToCapability = useCallback((target: RouteTarget) => {
+    setDestinationFromRouteTarget(target);
+
+    // Recent-project deep-links arrive with a loose shoot ref; resolve it to the
+    // full loaded shoot when available so the photo/video components get the
+    // shape they expect, falling back to a minimal record otherwise.
+    const resolveShoot = (ref?: StudioShootRef): ShootWithEditing | null => {
+      if (!ref) return null;
+      const full = shoots.find((s) => s.id === ref.id);
+      if (full) return full;
+      return {
+        id: ref.id,
+        address: ref.address,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+    };
+
+    if (target.subtab === 'photo') {
+      setWorkspaceMode('photo');
+      // `photoCapability` is now derived from the active destination.
+      if (target.photoMode) {
+        setSelectedEnhancementIds(new Set([target.photoMode]));
+        setQuickStartMode(target.photoMode);
+      }
+      const shoot = resolveShoot(target.shoot);
+      if (shoot) {
+        // Recent-project deep-link arrives with a preselected shoot.
+        setSelectedShoot(shoot);
+        setViewMode('select-files');
+      } else {
+        setSelectedShoot(null);
+        setViewMode('select-shoot');
+      }
+      lastShiftAnchorRef.current = null;
+      return;
+    }
+
+    if (target.subtab === 'video') {
+      setWorkspaceMode('video');
+      // `videoCapability` is now derived from the active destination.
+      const shoot = resolveShoot(target.shoot);
+      if (shoot) {
+        setSelectedShoot(shoot);
+      }
+      // Leave the chat view if it was active so the Video Subtab renders.
+      setViewMode((prev) => (prev === 'chat' ? 'activity' : prev));
+      return;
+    }
+
+    // 'studio' — landing overview; do not auto-open the Photo/Video Subtabs.
+  }, [setDestinationFromRouteTarget, shoots]);
+
+  const handleUpgrade = useCallback(() => {
+    toast({
+      title: 'Upgrade to Pro',
+      description: 'Pro unlocks advanced studio capabilities. Contact your admin to upgrade your plan.',
+    });
+  }, [toast]);
+
+  const firstName = (user?.name || '').split(' ')[0] || 'there';
+
+  const goToActivity = useCallback(() => {
+    setWorkspaceMode('photo');
+    setViewMode('activity');
+    lastShiftAnchorRef.current = null;
+  }, []);
+
+  // -----------------------------------------------------------------------
+  const chat = useAiEditingChat({
+    jobShootFilter,
+    loadJobs,
+    setJobShootFilter,
+    setViewMode,
+    setWorkspaceMode,
+    toast,
+    viewMode,
+  });
+
+  // Drive Autoenhance jobs to completion on local dev (no webhooks reach localhost).
+  // While any job is in `processing`, ask the backend to poll the provider every
+  // ~8 seconds. When updates land, refresh the Activity list so cards flip state.
+  const hasProcessingJobs = useMemo(
+    () => jobs.some((j) => j.status === 'processing'),
+    [jobs]
+  );
+  useEffect(() => {
+    if (!hasProcessingJobs) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const result = await autoenhanceService.pollProcessingJobs();
+        if (!cancelled && (result.updated?.length ?? 0) > 0) {
+          await loadJobs(false);
+        }
+      } catch (error) {
+        // Polling errors are non-fatal — quiet warning only.
+        // eslint-disable-next-line no-console
+        console.warn('Autoenhance poll failed', error);
+      }
+    };
+    // Kick once immediately, then every 8 seconds.
+    void tick();
+    const handle = window.setInterval(tick, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [hasProcessingJobs, loadJobs]);
+
+  const selectShoot = (shoot: ShootWithEditing) => {
+    setSelectedShoot(shoot);
+    setSelectedFiles(new Set());
+    lastShiftAnchorRef.current = null;
+    setViewMode('select-files');
+  };
+
+  const toggleFile = (fileId: number, event?: React.MouseEvent) => {
+    setSelectedFiles((current) => {
+      const next = new Set(current);
+
+      if (event?.shiftKey && lastShiftAnchorRef.current !== null) {
+        const ids = sourceFiles.map((file) => file.id);
+        const a = ids.indexOf(lastShiftAnchorRef.current);
+        const b = ids.indexOf(fileId);
+        if (a !== -1 && b !== -1) {
+          const [start, end] = a < b ? [a, b] : [b, a];
+          for (let index = start; index <= end; index++) next.add(ids[index]);
+          return next;
+        }
+      }
+
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      lastShiftAnchorRef.current = fileId;
+      return next;
+    });
+  };
+
+  const selectAllRawFiles = useCallback(() => {
+    if (sourceFiles.length === 0) return;
+    if (sourceFiles.length > MAX_BATCH_SIZE) {
+      toast({
+        title: 'Large batch',
+        description: `Selecting ${MAX_BATCH_SIZE} of ${sourceFiles.length} photos. Submit in multiple batches if needed.`,
+      });
+    }
+    setSelectedFiles(new Set(sourceFiles.slice(0, MAX_BATCH_SIZE).map((file) => file.id)));
+  }, [sourceFiles, toast]);
+
+  const clearSelection = () => {
+    setSelectedFiles(new Set());
+    lastShiftAnchorRef.current = null;
+  };
+
+  const submitAutoenhance = async () => {
+    if (!selectedShoot || selectedFiles.size === 0) return;
+
+    // HDR bracket validation: file count must be a multiple of bracket size.
+    if (bracketSize !== 0 && selectedFiles.size % bracketSize !== 0) {
+      toast({
+        title: 'Bracket count mismatch',
+        description: `Selected ${selectedFiles.size} photo(s) — for ${bracketSize}-shot brackets, pick a multiple of ${bracketSize}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const fileIds = Array.from(selectedFiles);
+      if (bracketSize !== 0) {
+        const result = await autoenhanceService.submitBracketEditing({
+          shoot_id: selectedShoot.id,
+          file_ids: fileIds,
+          bracket_size: bracketSize,
+          editing_type: submitEditingType,
+          params: buildSubmitParams(),
+        });
+        const bracketCount = Array.isArray(result) ? result.length : Math.floor(fileIds.length / bracketSize);
+        toast({
+          title: 'HDR brackets submitted',
+          description: `${bracketCount} bracket job(s) queued (${bracketSize} photos each). Track progress in Activity.`,
+        });
+      } else {
+        await autoenhanceService.submitEditing({
+          shoot_id: selectedShoot.id,
+          file_ids: fileIds,
+          editing_type: submitEditingType,
+          params: buildSubmitParams(),
+        });
+        toast({
+          title: 'Submitted to Autoenhance',
+          description: `${selectedFiles.size} image(s) queued. Track progress in Activity.`,
+        });
+      }
+      setSelectedFiles(new Set());
+      lastShiftAnchorRef.current = null;
+      setNotes('');
+      setViewMode('activity');
+      setJobStatusFilter('all');
+      await loadJobs(false);
+    } catch (error: any) {
+      const description =
+        error?.response?.data?.message || error?.message || 'Failed to submit Autoenhance job';
+      toast({ title: 'Submission failed', description, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRetryJob = useCallback(
+    async (job: EditingJob) => {
+      setMutatingJobId(job.id);
+      try {
+        await autoenhanceService.retryJob(job.id);
+        toast({ title: 'Job re-queued', description: `Job #${job.id} has been queued for retry.` });
+        await loadJobs(false);
+      } catch (error: any) {
+        const description =
+          error?.response?.data?.message || error?.message || 'Failed to retry job';
+        toast({ title: 'Retry failed', description, variant: 'destructive' });
+      } finally {
+        setMutatingJobId(null);
+      }
+    },
+    [loadJobs, toast],
+  );
+
+  const handleCancelJob = useCallback(
+    async (job: EditingJob) => {
+      setMutatingJobId(job.id);
+      try {
+        await autoenhanceService.cancelJob(job.id);
+        toast({ title: 'Job cancelled', description: `Job #${job.id} cancelled.` });
+        await loadJobs(false);
+      } catch (error: any) {
+        const description =
+          error?.response?.data?.message || error?.message || 'Failed to cancel job';
+        toast({ title: 'Cancel failed', description, variant: 'destructive' });
+      } finally {
+        setMutatingJobId(null);
+      }
+    },
+    [loadJobs, toast],
+  );
+
+  const handleOpenComparison = useCallback((job: EditingJob) => {
+    setComparisonJob(job);
+  }, []);
+
+  const handleOpenShoot = useCallback(
+    (job: EditingJob) => {
+      if (job.shoot_id) setOverviewShootId(job.shoot_id);
+    },
+    [],
+  );
+
+  const toggleEnhancementMode = (modeId: string) => {
+    if (!COMBINABLE_MODE_IDS.has(modeId)) {
+      toast({
+        title: 'HDR workflow is separate',
+        description: 'HDR bracket merging requires Autoenhance order/bracket processing and is not part of combined single-image enhancement yet.',
+      });
+      return;
+    }
+
+    setSelectedEnhancementIds((current) => {
+      const next = new Set(current);
+      const typedModeId = modeId as EnhancementModeId;
+      if (next.has(typedModeId)) {
+        if (next.size === 1) return next;
+        next.delete(typedModeId);
+      } else {
+        next.add(typedModeId);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+
+      if (event.key === 'Escape') {
+        if (previewFile) {
+          setPreviewFile(null);
+          return;
+        }
+        if (comparisonJob) return;
+        if (viewMode === 'configure') setViewMode('select-files');
+        else if (viewMode === 'select-files') setViewMode('select-shoot');
+        else if (viewMode === 'select-shoot') goToActivity();
+      }
+
+      if (viewMode === 'select-files' && (event.key === 'a' || event.key === 'A') && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        selectAllRawFiles();
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [comparisonJob, goToActivity, previewFile, selectAllRawFiles, viewMode]);
+
+  const renderStepper = () => (
+    <Card className="overflow-hidden border-primary/20">
+      <CardContent className="space-y-3 p-3 sm:p-4">
+        <AiEditingStepper
+          steps={STEPPER_STEPS}
+          currentStepId={viewMode === 'activity' ? STEPPER_STEPS[0].id : viewMode}
+          onStepClick={(stepId) => {
+            if (stepId === 'select-shoot') setViewMode('select-shoot');
+            else if (stepId === 'select-files' && selectedShoot) setViewMode('select-files');
+            else if (stepId === 'configure' && selectedShoot && selectedFiles.size > 0) setViewMode('configure');
+          }}
+          isStepReachable={(stepId) => {
+            if (stepId === 'select-shoot') return true;
+            if (stepId === 'select-files') return Boolean(selectedShoot);
+            if (stepId === 'configure') return Boolean(selectedShoot) && selectedFiles.size > 0;
+            return false;
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const stepActionLabel = (() => {
+    if (viewMode === 'select-shoot') return selectedShoot ? 'Continue' : 'Pick a shoot';
+    if (viewMode === 'select-files') return selectedFiles.size === 0 ? 'Select photos' : `Continue · ${selectedFiles.size}`;
+    if (submitting) return 'Submitting...';
+    if (bracketSize !== 0) {
+      const count = Math.floor(selectedFiles.size / bracketSize);
+      return `Submit · ${count} bracket${count === 1 ? '' : 's'}`;
+    }
+    return `Submit · ${selectedFiles.size}`;
+  })();
+
+  const stepCanAdvance = (() => {
+    if (viewMode === 'select-shoot') return Boolean(selectedShoot);
+    if (viewMode === 'select-files') return selectedFiles.size > 0;
+    const bracketMismatch =
+      bracketSize !== 0 && (selectedFiles.size === 0 || selectedFiles.size % bracketSize !== 0);
+    return selectedFiles.size > 0 && isAutoenhanceConfigured && !submitting && !bracketMismatch;
+  })();
+
+  const handleStepNext = () => {
+    if (viewMode === 'select-shoot' && selectedShoot) setViewMode('select-files');
+    else if (viewMode === 'select-files' && selectedFiles.size > 0) setViewMode('configure');
+    else if (viewMode === 'configure') submitAutoenhance();
+  };
+
+  const handleStepBack = () => {
+    if (viewMode === 'select-shoot') goToActivity();
+    else if (viewMode === 'select-files') setViewMode('select-shoot');
+    else if (viewMode === 'configure') setViewMode('select-files');
+  };
+
+  const renderEditFlow = () => (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" onClick={goToActivity} className="px-2">
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Back to activity
+        </Button>
+        {selectedShoot && (
+          <Badge variant="outline" className="max-w-[60vw] truncate">
+            {selectedShoot.address}
+          </Badge>
+        )}
+      </div>
+      {renderStepper()}
+      {viewMode === 'select-shoot' && renderSelectShoot()}
+      {viewMode === 'select-files' && renderSelectFiles()}
+      {viewMode === 'configure' && renderConfigure()}
+    </div>
+  );
+
+  const renderEditFlowFooter = () => {
+    if (activeSubtab !== 'photo' || workspaceMode !== 'photo' || viewMode === 'activity' || viewMode === 'chat') return null;
+    return (
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur sm:px-6"
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <Button variant="outline" size="sm" onClick={handleStepBack}>
+            <ChevronLeft className="mr-1.5 h-4 w-4" />
+            Back
+          </Button>
+          <div className="hidden text-xs text-muted-foreground sm:block">
+            {viewMode === 'select-shoot'
+              ? 'Step 1 of 3'
+              : viewMode === 'select-files'
+              ? 'Step 2 of 3'
+              : 'Step 3 of 3'}
+          </div>
+          <Button size="sm" onClick={handleStepNext} disabled={!stepCanAdvance}>
+            {viewMode === 'configure' ? (
+              <Sparkles className="mr-1.5 h-4 w-4" />
+            ) : (
+              <ArrowRight className="mr-1.5 h-4 w-4" />
+            )}
+            {stepActionLabel}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const previewUrl = previewFile ? getImageUrl(previewFile, 'large') : '';
+  const enhancedUrlForComparison = comparisonJob?.output_file?.url
+    ? resolveImageUrl(comparisonJob.output_file.url)
+    : comparisonJob?.output_file?.thumb_url
+    ? resolveImageUrl(comparisonJob.output_file.thumb_url)
+    : comparisonJob?.edited_image_url
+    ? resolveImageUrl(comparisonJob.edited_image_url)
+    : null;
+  const sourceUrlForComparison = comparisonJob
+    ? comparisonJob.source_file?.thumb_url
+      ? resolveImageUrl(comparisonJob.source_file.thumb_url)
+      : resolveImageUrl(comparisonJob.original_image_url)
+    : null;
+  const comparisonTitle = comparisonJob
+    ? `${editingTypeLabels[comparisonJob.editing_type] || comparisonJob.editing_type} · Job #${comparisonJob.id}`
+    : '';
+  const comparisonSubtitle = comparisonJob?.shoot?.address || '';
+
+  return (
+    <DashboardLayout>
+      <div className="studio-theme min-w-0 max-w-full space-y-4 overflow-x-hidden px-2 pb-32 pt-3 text-foreground sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+        {activeSubtab === 'photo' && photoCapability !== 'batch' && workspaceMode === 'photo' && viewMode !== 'activity' && viewMode !== 'chat' && (
+          <PageHeader
+            title="AI Editing"
+            description="Enhance property photos with Autoenhance — submit, track, and review results in one place."
+            action={
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => loadJobs()} disabled={loadingJobs}>
+                  <RefreshCw className={cn('mr-1.5 h-4 w-4', loadingJobs && 'animate-spin')} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button size="sm" onClick={startNewEdit} disabled={!canUseAutoenhance}>
+                  <Sparkles className="mr-1.5 h-4 w-4" />
+                  <span className="hidden sm:inline">New edit</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
+              </div>
+            }
+          />
+        )}
+
+        {!canUseAutoenhance ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold">Access restricted</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your role does not have access to AI editing. Contact your admin if you need access.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {activeSubtab === 'studio' ? (
+              <StudioDestinationContent
+                routeToCapability={routeToCapability}
+                canUseAutoenhance={canUseAutoenhance}
+                onUpgrade={handleUpgrade}
+              />
+            ) : activeSubtab === 'video' ? (
+              videoCapability === 'reel' ? <ReelGenerator /> : <ListingVideoGenerator />
+            ) : (
+              <>
+                {renderConnectionAlert()}
+
+                {photoCapability === 'batch' ? (
+                  <BatchJobsPanel
+                    initialMode={quickStartMode}
+                    initialShoot={selectedShoot ?? undefined}
+                    onSubmitted={() => {
+                      setJobStatusFilter('all');
+                      void loadJobs(false);
+                    }}
+                  />
+                ) : workspaceMode === 'chat' || viewMode === 'chat' ? (
+                  renderChat()
+                ) : viewMode === 'activity' ? (
+                  <>
+                    {renderHero()}
+                    {renderHeroStats()}
+                    {stats.failed > 0 && (
+                      <Card className="border-red-300/60 bg-red-50/70 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">
+                        <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                            <p className="text-sm">
+                              {stats.failed} job{stats.failed === 1 ? '' : 's'} failed recently. Review and retry to recover.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="self-start sm:self-auto"
+                            onClick={() => setJobStatusFilter('failed')}
+                          >
+                            Show failed jobs
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {renderActivity()}
+                  </>
+                ) : (
+                  renderEditFlow()
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {renderEditFlowFooter()}
+      </div>
+
+      <Dialog open={Boolean(previewFile)} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+          <div className="flex flex-col">
+            <div className="flex items-start justify-between gap-3 border-b bg-background/95 px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold">{previewFile?.filename}</h2>
+                <p className="truncate text-xs text-muted-foreground">
+                  {previewFile?.created_at ? format(new Date(previewFile.created_at), 'MMM d, yyyy h:mm a') : '—'}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setPreviewFile(null)} aria-label="Close preview">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="bg-black">
+              {previewUrl ? (
+                <img src={previewUrl} alt={previewFile?.filename} className="max-h-[80vh] w-full object-contain" />
+              ) : (
+                <div className="flex h-[40vh] w-full items-center justify-center text-sm text-muted-foreground">
+                  Preview unavailable.
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 text-xs text-muted-foreground">
+              <span>File #{previewFile?.id}</span>
+              {previewFile && (
+                <Button
+                  size="sm"
+                  variant={selectedFiles.has(previewFile.id) ? 'default' : 'outline'}
+                  onClick={() => toggleFile(previewFile.id)}
+                >
+                  {selectedFiles.has(previewFile.id) ? 'Selected' : 'Select photo'}
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AiEditingComparisonLightbox
+        open={Boolean(comparisonJob)}
+        onOpenChange={(open) => !open && setComparisonJob(null)}
+        originalUrl={sourceUrlForComparison}
+        enhancedUrl={enhancedUrlForComparison}
+        title={comparisonTitle}
+        subtitle={comparisonSubtitle}
+      />
+
+      {overviewShootId && (
+        <ShootDetailsModal
+          shootId={overviewShootId}
+          isOpen={Boolean(overviewShootId)}
+          onClose={() => setOverviewShootId(null)}
+          initialTab="overview"
+        />
+      )}
+    </DashboardLayout>
+  );
+};
+
+/**
+ * The Studio_Page is wrapped in `StudioShell`, which owns the active
+ * Studio_Destination as URL route state (`?d=...&rec=type:id`) and derives the
+ * page's `activeSubtab`/capability view model from it (Req 1.1, 1.7, 1.10). The
+ * shell renders no chrome, so the existing `DashboardLayout` Application_Sidebar
+ * stays the only sidebar on the page (Req 1.2, 1.6).
+ */
+const AiEditing = () => (
+  <StudioShell>
+    <LiveQueueProvider>
+      <AiEditingStudio />
+    </LiveQueueProvider>
+  </StudioShell>
+);
+
+export default AiEditing;
