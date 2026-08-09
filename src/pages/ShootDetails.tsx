@@ -30,6 +30,7 @@ import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetail
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
+import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 
 // Import tab components
@@ -44,7 +45,7 @@ import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
 import { ShootDetailsModal as ShootOverviewModal } from '@/components/shoots/ShootDetailsModal';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
-import { getLegacyEditedPhotoCount, getShootDetailsErrorMessage, getShootWorkflowLogs } from './shootDetailsPageUtils';
+import { getLegacyEditedPhotoCount, getShootDetailsErrorMessage } from './shootDetailsPageUtils';
 
 const LazyShootDetailsTourTab = React.lazy(() =>
   import('@/components/shoots/tabs/ShootDetailsTourTab').then((module) => ({
@@ -265,58 +266,14 @@ const ShootDetails: React.FC = () => {
     if (!shoot || isFinalising) return;
     try {
       setIsFinalising(true);
-      const headers = getApiHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(buildFinalizeRequestBody(shoot, 'admin_verified')),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
-        throw new Error(errorData.message || 'Failed to finalize shoot');
-      }
-      const isQueued = res.status === 202;
-      if (!isQueued) {
-        toast({
-          title: 'Success',
-          description: 'Shoot finalized and delivered',
-        });
-        loadShoot();
-        return;
-      }
-      const deliveredStatuses = ['delivered', 'ready', 'ready_for_client', 'admin_verified'];
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        const latestShoot = await loadShoot();
-        const latestStatus = String(latestShoot?.workflowStatus || latestShoot?.status || '').toLowerCase();
-        if (deliveredStatuses.includes(latestStatus)) {
-          toast({
-            title: 'Finalize complete',
-            description: 'Shoot is now delivered.',
-          });
-          return;
-        }
-        const workflowLogs = getShootWorkflowLogs(latestShoot);
-        const hasFinalizeFailure = Array.isArray(workflowLogs)
-          && workflowLogs.some((log) => String(log.action || '').toLowerCase() === 'finalize_failed');
-        if (hasFinalizeFailure) {
-          toast({
-            title: 'Finalize failed',
-            description: 'Finalize failed in background. Check Activity Log for details.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 4000));
-      }
-      toast({
-        title: 'Still processing',
-        description: 'Finalize is still running in background. Check back in a moment.',
-      });
-    } catch (error: unknown) {
-      toast({
-        title: 'Error',
-        description: getShootDetailsErrorMessage(error, 'Failed to finalize shoot'),
-        variant: 'destructive',
+      // The shared runner owns the progress toast (live bar + one line per
+      // background process), the polling and every outcome message.
+      await finalizeShootWithProgressToast({
+        shootId: shoot.id,
+        shootLabel: shoot.location?.address,
+        body: buildFinalizeRequestBody(shoot, 'admin_verified'),
+        fetchShoot: loadShoot,
+        onRefresh: loadShoot,
       });
     } finally {
       setIsFinalising(false);

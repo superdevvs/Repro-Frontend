@@ -21,6 +21,7 @@ import { DollarSignIcon, ExternalLink, Sparkles, X } from "lucide-react";
 import { API_BASE_URL } from '@/config/env';
 
 import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/invoices/PaymentDialog";
+import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 import { formatPaymentMethod } from '@/utils/paymentUtils';
 
 interface ShootSettingsTabProps {
@@ -369,18 +370,17 @@ export function ShootSettingsTab({
 
       if (key === 'finalized') {
         if (value === true) {
-          // Finalize the shoot on backend
-          const res = await fetch(`${base}/api/shoots/${shoot.id}/finalize`, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ final_status: 'admin_verified' })
+          // Finalize through the shared runner: it owns the progress toast for
+          // the queued background work and every outcome message.
+          const outcome = await finalizeShootWithProgressToast({
+            shootId: shoot.id,
+            shootLabel: settingsShoot.location?.address,
+            body: { final_status: 'admin_verified' },
           });
-          if (!res.ok) throw new Error(`Finalize failed: ${res.status}`);
-          sonnerToast.success('Shoot finalized');
+          // The runner already reported the failure; don't double-toast it.
+          if (outcome.status === 'error' || outcome.status === 'failed') {
+            return;
+          }
           // Optimistic update
           onUpdate?.({ meta: { ...(settingsShoot.meta || {}), finalized: true } });
         } else {

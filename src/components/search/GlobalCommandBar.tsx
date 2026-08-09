@@ -27,6 +27,8 @@ import { API_BASE_URL } from "@/config/env";
 import type { DashboardClientRequest } from "@/types/dashboard";
 import type { EditingRequest } from "@/services/editingRequestService";
 import type { ShootData } from "@/types/shoots";
+import { buildFinalizeRequestBody } from "@/utils/shootFinalize";
+import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 
 interface GlobalCommandBarProps {
   open: boolean;
@@ -305,33 +307,16 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
         return;
       }
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ final_status: "admin_verified" }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to finalize shoot");
-        }
-
-        toast({
-          title: "Success",
-          description: "Shoot finalized and delivered.",
-        });
-        await fetchShoots?.();
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to finalize shoot.",
-          variant: "destructive",
-        });
-      }
+      // Shared runner: progress toast for the queued background work plus the
+      // success/failure copy every other finalize entry point uses.
+      await finalizeShootWithProgressToast({
+        shootId: shoot.id,
+        shootLabel: shoot.location?.address,
+        body: buildFinalizeRequestBody(shoot, "admin_verified"),
+        onRefresh: () => {
+          void fetchShoots?.();
+        },
+      });
     },
     [fetchShoots, toast],
   );

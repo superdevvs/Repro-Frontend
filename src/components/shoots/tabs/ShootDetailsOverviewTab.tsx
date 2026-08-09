@@ -94,6 +94,7 @@ import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shoot
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
+import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -588,37 +589,16 @@ export function ShootDetailsOverviewTab({
     if (!isAdmin) return;
     setDeliveringServiceItemId(shootServiceItemId);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
+      // Same shared runner as the full finalize: one progress toast covering
+      // the background processes this delivery kicks off.
+      await finalizeShootWithProgressToast({
+        shootId: shoot.id,
+        shootLabel: shoot.location?.address,
+        body: {
           final_status: 'admin_verified',
           shoot_service_id: shootServiceItemId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorJson = await response.json().catch(() => null);
-        throw new Error(errorJson?.message || errorJson?.error || 'Failed to deliver this service item.');
-      }
-
-      toast({
-        title: response.status === 202 ? 'Delivery started' : 'Service delivered',
-        description: response.status === 202
-          ? 'This service item is being finalized in the background.'
-          : 'This service item has been delivered.',
-      });
-      onShootUpdate();
-    } catch (error) {
-      toast({
-        title: 'Unable to deliver service',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
+        },
+        onRefresh: onShootUpdate,
       });
     } finally {
       setDeliveringServiceItemId(null);

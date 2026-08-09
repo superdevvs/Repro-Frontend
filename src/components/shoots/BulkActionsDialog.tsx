@@ -33,6 +33,8 @@ import {
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
+import { finalizeShootsWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
+import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 
 interface BulkActionsDialogProps {
   isOpen: boolean;
@@ -278,13 +280,21 @@ export function BulkActionsDialog({
           description: `${eligibleShoots.length} shoot(s) moved to editing.`,
         });
       } else if (activeAction === 'finalize') {
-        await Promise.all(
-          eligibleShoots.map((shoot) => apiClient.post(`/shoots/${shoot.id}/finalize`)),
+        // Not awaited on purpose: the shared runner keeps one aggregate
+        // progress toast alive while the queued pipelines run, so the dialog
+        // can close instead of blocking on background work.
+        void finalizeShootsWithProgressToast(
+          eligibleShoots.map((shoot) => ({
+            shootId: shoot.id,
+            shootLabel: shoot.location?.address,
+            body: buildFinalizeRequestBody(shoot, 'admin_verified'),
+          })),
+          {
+            onRefresh: () => {
+              void onComplete?.();
+            },
+          },
         );
-        toast({
-          title: 'Finalized shoots',
-          description: `${eligibleShoots.length} shoot(s) finalized successfully.`,
-        });
       }
 
       if (onComplete) {

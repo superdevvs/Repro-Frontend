@@ -9,6 +9,7 @@ import {
 } from '@/services/dropboxMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
+import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 
 type PendingAction = 'hold' | 'cancel' | null;
@@ -123,102 +124,22 @@ export function useShootDetailsModalWorkflow({
     }
   };
 
-  const pollFinalizeCompletion = async (): Promise<{ delivered: boolean; failed: boolean }> => {
-    const deliveredStatuses = [
-      'delivered',
-      'ready_for_client',
-      'admin_verified',
-      'client_delivered',
-      'workflow_completed',
-      'finalized',
-    ];
-
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const latestShoot = await refreshShoot();
-      const latestStatus = String(
-        (latestShoot as any)?.workflowStatus || (latestShoot as any)?.status || '',
-      ).toLowerCase();
-      if (deliveredStatuses.includes(latestStatus)) {
-        return { delivered: true, failed: false };
-      }
-
-      const workflowLogs = (latestShoot as any)?.workflowLogs || (latestShoot as any)?.workflow_logs || [];
-      const hasFinalizeFailure =
-        Array.isArray(workflowLogs) &&
-        workflowLogs.some((log: any) => String(log?.action || '').toLowerCase() === 'finalize_failed');
-
-      if (hasFinalizeFailure) {
-        return { delivered: false, failed: true };
-      }
-
-      await new Promise((resolve) => window.setTimeout(resolve, 4000));
-    }
-
-    return { delivered: false, failed: false };
-  };
-
   const handleFinalise = async () => {
     if (!shoot || isFinalising) return;
 
     try {
       setIsFinalising(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+      // Progress toast, polling and outcome copy all live in the shared
+      // finalize runner so every entry point behaves identically.
+      await finalizeShootWithProgressToast({
+        shootId: shoot.id,
+        shootLabel: shoot.location?.address,
+        body: buildFinalizeRequestBody(shoot, 'admin_verified'),
+        fetchShoot: refreshShoot,
+        onRefresh: () => {
+          void refreshShoot();
+          refreshShootMutations(shoot.id);
         },
-        body: JSON.stringify(buildFinalizeRequestBody(shoot, 'admin_verified')),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
-        throw new Error(errorData.message || 'Failed to finalize shoot');
-      }
-
-      const isQueued = res.status === 202;
-
-      if (!isQueued) {
-        toast({
-          title: 'Success',
-          description: 'Shoot finalized successfully',
-        });
-        await refreshShoot();
-        refreshShootMutations(shoot.id);
-        return;
-      }
-
-      const result = await pollFinalizeCompletion();
-      refreshShootMutations(shoot.id);
-      if (result.failed) {
-        toast({
-          title: 'Finalize failed',
-          description: 'Finalize failed in background. Check Activity Log for details.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      if (result.delivered) {
-        toast({
-          title: 'Finalize complete',
-          description: 'Shoot is now delivered.',
-        });
-        return;
-      }
-
-      toast({
-        title: 'Still processing',
-        description: 'Finalize is still running in background. Check back in a moment.',
-      });
-    } catch (error: any) {
-      console.error('Finalize error:', error);
-      toast({
-        title: 'Error',
-        description: error?.message || 'Failed to finalize shoot',
-        variant: 'destructive',
       });
     } finally {
       setIsFinalising(false);
