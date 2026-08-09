@@ -43,13 +43,72 @@ jobs:
           name: frontend-dist
           path: dist/
 
+      - name: Validate deployment configuration
+        id: deploy_config
+        shell: bash
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in SSH_USER SSH_HOST SSH_PORT SSH_KEY; do
+            if [[ -z "${!name-}" ]]; then
+              echo "::error::Required deployment secret ${name} is empty."
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          # The rsync action interpolates "$user@$host:$path" unquoted inside
+          # `sh -c`, so any whitespace in these values splits the command into
+          # two and silently turns the deploy into a local copy. Strip it here.
+          user_clean="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
+          host_clean="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
+          port_clean="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
+
+          if [[ -z "$user_clean" || -z "$host_clean" || -z "$port_clean" ]]; then
+            echo "::error::SSH_USER, SSH_HOST or SSH_PORT contains only whitespace."
+            exit 1
+          fi
+
+          if [[ ! "$port_clean" =~ ^[0-9]+$ ]]; then
+            echo "::error::SSH_PORT must be numeric."
+            exit 1
+          fi
+
+          if [[ "$SSH_USER" != "$user_clean" ]]; then
+            echo "::warning::SSH_USER contained whitespace or a newline and was trimmed for this deploy. Re-save the secret without trailing whitespace."
+          fi
+          if [[ "$SSH_HOST" != "$host_clean" ]]; then
+            echo "::warning::SSH_HOST contained whitespace or a newline and was trimmed for this deploy."
+          fi
+          if [[ "$SSH_PORT" != "$port_clean" ]]; then
+            echo "::warning::SSH_PORT contained whitespace or a newline and was trimmed for this deploy."
+          fi
+
+          # Re-register the trimmed values so they stay redacted in the log.
+          echo "::add-mask::$user_clean"
+          echo "::add-mask::$host_clean"
+
+          {
+            echo "user=$user_clean"
+            echo "host=$host_clean"
+            echo "port=$port_clean"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Deploy to server (rsync)
         uses: burnett01/rsync-deployments@5.2
         with:
           switches: -avzr --delete
           path: dist/
           remote_path: /var/www/frontend/dist/
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_user: ${{ secrets.SSH_USER }}
+          remote_host: ${{ steps.deploy_config.outputs.host }}
+          remote_user: ${{ steps.deploy_config.outputs.user }}
           remote_key: ${{ secrets.SSH_KEY }}
-          remote_port: ${{ secrets.SSH_PORT }}
+          remote_port: ${{ steps.deploy_config.outputs.port }}
