@@ -130,19 +130,30 @@ if (unexpected.length > 0) {
   throw new Error(`npm audit found unapproved advisories:\n${unexpected.map((item) => `- ${item}`).join('\n')}`);
 }
 
+// The approved packages are an upper bound, not an exact expectation: anything
+// outside this set is unreviewed and must fail, but an empty report means the
+// advisory has cleared upstream and is strictly better than the reviewed state.
+const approvedPackages = new Set(['react-router', 'react-router-dom']);
 const affectedPackages = Object.keys(vulnerabilities).sort();
-if (
-  affectedPackages.length !== 2 ||
-  affectedPackages[0] !== 'react-router' ||
-  affectedPackages[1] !== 'react-router-dom'
-) {
+const unapprovedPackages = affectedPackages.filter((name) => !approvedPackages.has(name));
+
+if (unapprovedPackages.length > 0) {
   throw new Error(
-    `Expected only react-router and react-router-dom to be affected; found: ${affectedPackages.join(', ') || 'none'}`,
+    `Only react-router and react-router-dom are covered by the reviewed exception; ` +
+      `also affected: ${unapprovedPackages.join(', ')}`,
   );
 }
 
-console.log(
-  `Audit policy passed. npm reports only ${allowedAdvisory} for Router ${allowedRouterVersion}; ` +
-    'the app is a React 18 browser SPA and contains no React Router RSC/framework-mode imports. ' +
-    'Use npm run audit:raw to view the non-zero upstream report.',
-);
+if (affectedPackages.length === 0) {
+  console.log(
+    `Audit policy passed. npm reports no vulnerabilities: ${allowedAdvisory} is no longer ` +
+      `flagged for Router ${allowedRouterVersion}. The exception in this script is now dormant ` +
+      'and can be deleted once upstream confirms the advisory no longer applies.',
+  );
+} else {
+  console.log(
+    `Audit policy passed. npm reports only ${allowedAdvisory} for Router ${allowedRouterVersion}; ` +
+      'the app is a React 18 browser SPA and contains no React Router RSC/framework-mode imports. ' +
+      'Use npm run audit:raw to view the non-zero upstream report.',
+  );
+}
