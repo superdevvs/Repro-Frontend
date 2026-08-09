@@ -102,6 +102,64 @@ jobs:
             echo "port=$port_clean"
           } >> "$GITHUB_OUTPUT"
 
+      # TEMPORARY: diagnosing "ssh: connect to host ... : Operation timed out".
+      # Reports classifications rather than addresses so the server is not
+      # revealed in the log. Never fails the job. Remove once the deploy is green.
+      - name: Diagnose deploy connectivity
+        shell: bash
+        env:
+          HOST: ${{ steps.deploy_config.outputs.host }}
+          PORT: ${{ steps.deploy_config.outputs.port }}
+        run: |
+          set -uo pipefail
+
+          echo "Runner public IP (allowlist this range if the server filters by IP):"
+          curl -s --max-time 10 https://api.ipify.org || echo "  (could not determine)"
+          echo
+          echo
+
+          echo "DNS resolution:"
+          mapfile -t addrs < <(getent ahostsv4 "$HOST" 2>/dev/null | awk '{print $1}' | sort -u)
+          if [[ ${#addrs[@]} -eq 0 ]]; then
+            echo "  host does NOT resolve to an IPv4 address"
+          else
+            echo "  resolves to ${#addrs[@]} IPv4 address(es)"
+            for a in "${addrs[@]}"; do
+              echo "::add-mask::$a"
+              case "$a" in
+                10.*|127.*|192.168.*|169.254.*)
+                  echo "  - PRIVATE/loopback address: unreachable from GitHub-hosted runners" ;;
+                172.1[6-9].*|172.2[0-9].*|172.3[01].*)
+                  echo "  - PRIVATE address: unreachable from GitHub-hosted runners" ;;
+                *)
+                  echo "  - public address" ;;
+              esac
+            done
+          fi
+          echo
+
+          probe() {
+            local target="$1" port="$2" label="$3" rc=0
+            timeout 10 bash -c "exec 3<>/dev/tcp/${target}/${port}" 2>/dev/null || rc=$?
+            if [[ $rc -eq 0 ]]; then
+              echo "  $label: OPEN"
+            elif [[ $rc -eq 124 ]]; then
+              echo "  $label: TIMED OUT (packets silently dropped, i.e. a firewall)"
+            else
+              echo "  $label: refused or unreachable (rc=$rc)"
+            fi
+          }
+
+          echo "TCP probes:"
+          probe "$HOST" "$PORT" "deploy host, configured port"
+          if [[ "$PORT" != "22" ]]; then
+            probe "$HOST" 22 "deploy host, port 22 (is SSH on a different port?)"
+          fi
+          probe "$HOST" 443 "deploy host, port 443 (is the host up at all?)"
+          probe github.com 22 "github.com:22 (control: runner outbound SSH works)"
+
+          exit 0
+
       - name: Deploy to server (rsync)
         uses: burnett01/rsync-deployments@5.2
         with:
