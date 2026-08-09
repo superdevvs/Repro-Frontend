@@ -107,7 +107,13 @@ export function resolveStatusPresentation(
   overrides?: { label?: string; tone?: StatusTone },
 ): StatusPresentation {
   const normalized = (status ?? '').trim().toLowerCase();
-  const known = normalized ? STATUS_DEFINITIONS[normalized] : undefined;
+  // Own-property check only: a bare index would resolve inherited keys such as
+  // `constructor` or `toString` to a truthy Object.prototype member, which then
+  // survives the `??` below and yields `icon: undefined`, breaking Req 12.11.
+  const known =
+    normalized && Object.prototype.hasOwnProperty.call(STATUS_DEFINITIONS, normalized)
+      ? STATUS_DEFINITIONS[normalized]
+      : undefined;
   const definition = known ?? STATUS_DEFINITIONS[UNKNOWN_STATUS];
   const label = overrides?.label?.trim() || (known ? definition.label : humanizeStatus(normalized));
   const tone = overrides?.tone ?? definition.tone;
