@@ -26,6 +26,11 @@ dist-ssr
 *.sw?
 .env
 
+# Local package/authentication credentials must never enter a release commit.
+.npmrc
+.netrc
+.pypirc
+
 # Storage files (do not track images)
 public/shoots/**
 !public/shoots/**/.gitkeep

@@ -184,14 +184,29 @@ export interface ShootUserSummary {
 
 export interface ShootServiceObject {
   id: string;
+  invoice_id?: string | number | null;
+  invoiceId?: string | number | null;
+  invoice_item_id?: string | number | null;
+  invoiceItemId?: string | number | null;
+  source?: string;
+  is_invoice_adjustment?: boolean;
+  isInvoiceAdjustment?: boolean;
   service_id?: string | null;
   serviceId?: string | number | null;
   shoot_service_id?: string | null;
   shootServiceId?: string | number | null;
   name: string;
   price: number;
+  unit_amount?: number;
+  unitAmount?: number;
   quantity: number;
   subtotal?: number;
+  total_amount?: number;
+  totalAmount?: number;
+  bills_client?: boolean;
+  billsClient?: boolean;
+  charge_type?: string;
+  chargeType?: string;
   photo_count?: number | null;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: Array<{
@@ -339,6 +354,8 @@ export interface ShootData {
     taxRate: number;
     taxPercent?: number;
     taxAmount: number;
+    invoiceAdjustmentsTotal?: number;
+    orderTotal?: number;
     totalQuote: number;
     totalPaid: number;  // Making this required
     paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;

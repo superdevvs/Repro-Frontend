@@ -147,6 +147,17 @@ const AccountingPage = () => {
     error: clientBillingError,
   } = useClientBilling();
 
+  const commitLoadedInvoices = useCallback((nextInvoices: InvoiceData[]) => {
+    setInvoices(nextInvoices);
+    // Keep an already-open invoice synchronized with realtime/background list
+    // refreshes. Otherwise its row can show the new total while the dialog keeps
+    // an older set of line items until it is closed and reopened.
+    setSelectedInvoice((current) => {
+      if (!current) return current;
+      return nextInvoices.find((candidate) => String(candidate.id) === String(current.id)) ?? current;
+    });
+  }, []);
+
   const loadInvoices = useCallback(async (): Promise<void> => {
     if (accountingMode === 'client' || accountingMode === 'editor') {
       setInvoices([]);
@@ -167,7 +178,7 @@ const AccountingPage = () => {
       
       // If there are more pages, fetch them in parallel (background)
       if (lastPage > 1) {
-        setInvoices(firstPageData); // Show first page immediately
+        commitLoadedInvoices(firstPageData); // Show first page immediately
         
         // Fetch remaining pages in parallel
         const pagePromises = [];
@@ -180,9 +191,9 @@ const AccountingPage = () => {
           ...firstPageData,
           ...remainingResponses.flatMap(r => r.data)
         ];
-        setInvoices(allData);
+        commitLoadedInvoices(allData);
       } else {
-        setInvoices(firstPageData);
+        commitLoadedInvoices(firstPageData);
       }
     } catch (error) {
       console.error('Failed to load invoices:', error);
@@ -195,7 +206,7 @@ const AccountingPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [accountingMode, toast]);
+  }, [accountingMode, commitLoadedInvoices, toast]);
 
   // Fetch invoices from API
   useEffect(() => {

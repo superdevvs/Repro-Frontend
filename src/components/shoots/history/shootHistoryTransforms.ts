@@ -1,6 +1,10 @@
 import { getStateFullName } from '@/utils/stateUtils'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import {
+  getShootInvoiceAdjustmentTotal,
+  isInvoiceAdjustmentServiceItem,
+} from '@/utils/shootServiceItems'
+import {
   BracketMode,
   ShootAction,
   ShootData,
@@ -19,6 +23,11 @@ const toNumberValue = (value: unknown, fallback = 0): number => {
     return Number.isNaN(parsed) ? fallback : parsed
   }
   return fallback
+}
+const toOptionalNumberValue = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 const toBooleanValue = (value: unknown, fallback = false): boolean => {
   if (typeof value === 'boolean') return value
@@ -171,9 +180,18 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     }
   }
 
-  const serviceValues = servicesArray.map((service) => {
-    return getServiceLabel(service)
-  }).filter(Boolean) as string[]
+  const explicitServiceLabels = toArrayValue<unknown>(item.services_list ?? item.servicesList)
+  const rawServiceItems = toArrayValue<Record<string, unknown>>(item.serviceItems ?? item.service_items)
+  const adjustmentLabels = rawServiceItems
+    .filter(isInvoiceAdjustmentServiceItem)
+    .map(getServiceLabel)
+    .filter(Boolean) as string[]
+  const serviceValues = Array.from(new Set([
+    ...(explicitServiceLabels.length > 0 ? explicitServiceLabels : servicesArray)
+      .map(getServiceLabel)
+      .filter(Boolean) as string[],
+    ...adjustmentLabels,
+  ]))
 
   const address = toStringValue(item.address)
   const city = toStringValue(item.city)
@@ -205,7 +223,11 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   })()
   const editorAssignments = normalizeEditorAssignments(item.editor_assignments ?? item.editorAssignments)
   const serviceObjects = servicesArray
-    .filter((service): service is Record<string, unknown> => Boolean(service) && typeof service === 'object')
+    .filter((service): service is Record<string, unknown> => (
+      Boolean(service)
+      && typeof service === 'object'
+      && !isInvoiceAdjustmentServiceItem(service)
+    ))
     .map((service): ShootServiceObject => {
       const category = toObjectValue<{ id?: string | number; name?: string }>(service.category)
       const categoryName =
@@ -305,18 +327,36 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
         category_key: toOptionalString(service.category_key) ?? toOptionalString(service.lane) ?? null,
       }
     })
-  const serviceItems = toArrayValue<Record<string, unknown>>(item.serviceItems ?? item.service_items)
+  const serviceItems = rawServiceItems
     .map((serviceItem): ShootServiceObject => {
-      const shootServiceId =
-        toOptionalIdString(serviceItem.shoot_service_id ?? serviceItem.shootServiceId ?? serviceItem.id) ?? null
-      const serviceId = toOptionalIdString(serviceItem.service_id ?? serviceItem.serviceId)
+      const isInvoiceAdjustment = isInvoiceAdjustmentServiceItem(serviceItem)
+      const shootServiceId = isInvoiceAdjustment
+        ? null
+        : toOptionalIdString(serviceItem.shoot_service_id ?? serviceItem.shootServiceId ?? serviceItem.id) ?? null
+      const serviceId = isInvoiceAdjustment
+        ? undefined
+        : toOptionalIdString(serviceItem.service_id ?? serviceItem.serviceId)
       const matchingService = serviceObjects.find((serviceObject) => serviceId && serviceObject.id === serviceId)
       const quantity = toNumberValue(serviceItem.quantity ?? matchingService?.quantity, 1)
-      const price = toNumberValue(serviceItem.price ?? matchingService?.price, 0)
+      const price = toNumberValue(
+        serviceItem.price ?? serviceItem.unit_amount ?? serviceItem.unitAmount ?? matchingService?.price,
+        0,
+      )
+      const invoiceId = toOptionalIdString(serviceItem.invoice_id ?? serviceItem.invoiceId) ?? null
+      const invoiceItemId = toOptionalIdString(serviceItem.invoice_item_id ?? serviceItem.invoiceItemId) ?? null
+      const stableId = isInvoiceAdjustment
+        ? toOptionalIdString(serviceItem.id) ?? (invoiceItemId ? `invoice-adjustment-${invoiceItemId}` : null)
+        : serviceId ?? matchingService?.id ?? shootServiceId
+      const unitAmount = toNumberValue(serviceItem.unit_amount ?? serviceItem.unitAmount ?? price)
+      const totalAmount = toNumberValue(
+        serviceItem.total_amount ?? serviceItem.totalAmount ?? serviceItem.subtotal,
+        unitAmount * quantity,
+      )
+      const chargeType = toOptionalString(serviceItem.charge_type ?? serviceItem.chargeType)
 
       return {
         ...(matchingService ?? {
-          id: serviceId ?? shootServiceId ?? Math.random().toString(36).slice(2),
+          id: stableId ?? Math.random().toString(36).slice(2),
           name:
             toOptionalString(serviceItem.name) ??
             toOptionalString(serviceItem.serviceName) ??
@@ -325,7 +365,18 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
           price,
           quantity,
         }),
-        id: serviceId ?? matchingService?.id ?? shootServiceId ?? Math.random().toString(36).slice(2),
+        id: stableId ?? Math.random().toString(36).slice(2),
+        invoice_id: invoiceId,
+        invoiceId,
+        invoice_item_id: invoiceItemId,
+        invoiceItemId,
+        source: isInvoiceAdjustment
+          ? 'invoice_adjustment'
+          : toOptionalString(serviceItem.source),
+        is_invoice_adjustment: isInvoiceAdjustment,
+        isInvoiceAdjustment,
+        service_id: serviceId ?? null,
+        serviceId: serviceId ?? null,
         shoot_service_id: shootServiceId,
         shootServiceId: shootServiceId,
         name:
@@ -335,11 +386,23 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
           matchingService?.name ??
           'Service',
         price,
+        unit_amount: unitAmount,
+        unitAmount,
         quantity,
         subtotal:
           serviceItem.subtotal === null || serviceItem.subtotal === undefined
             ? matchingService?.subtotal
             : toNumberValue(serviceItem.subtotal),
+        total_amount: totalAmount,
+        totalAmount,
+        bills_client: isInvoiceAdjustment
+          ? toBooleanValue(serviceItem.bills_client ?? serviceItem.billsClient, true)
+          : undefined,
+        billsClient: isInvoiceAdjustment
+          ? toBooleanValue(serviceItem.billsClient ?? serviceItem.bills_client, true)
+          : undefined,
+        charge_type: chargeType,
+        chargeType,
         photographer_id: toOptionalIdString(serviceItem.photographer_id ?? serviceItem.photographerId) ?? matchingService?.photographer_id ?? null,
         photographer: normalizeServicePerson(serviceItem.photographer) ?? matchingService?.photographer ?? null,
         editor_id: toOptionalIdString(serviceItem.editor_id ?? serviceItem.editorId) ?? matchingService?.editor_id ?? null,
@@ -379,7 +442,16 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const resolvedServiceItems = serviceItems.length
     ? serviceItems
     : serviceObjects.filter((service) => service.shoot_service_id || service.shootServiceId)
-  const paymentDetails = toObjectValue<{ taxRate?: number; totalPaid?: number; lastPaymentDate?: string; lastPaymentType?: string }>(item.payment)
+  const paymentDetails = toObjectValue<{
+    taxRate?: number
+    totalPaid?: number
+    lastPaymentDate?: string
+    lastPaymentType?: string
+    invoice_adjustments_total?: number
+    invoiceAdjustmentsTotal?: number
+    order_total?: number
+    orderTotal?: number
+  }>(item.payment)
   const paymentSummary = normalizeShootPaymentSummary({
     payments: item.payments,
     base_quote: item.base_quote,
@@ -390,6 +462,23 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     payment: paymentDetails,
     payment_type: item.payment_type,
   })
+  const explicitInvoiceAdjustmentsTotal = toOptionalNumberValue(
+    item.invoice_adjustments_total
+      ?? item.invoiceAdjustmentsTotal
+      ?? paymentDetails?.invoice_adjustments_total
+      ?? paymentDetails?.invoiceAdjustmentsTotal,
+  )
+  const invoiceAdjustmentsTotal = getShootInvoiceAdjustmentTotal({
+    serviceItems: resolvedServiceItems,
+    invoiceAdjustmentsTotal: explicitInvoiceAdjustmentsTotal,
+  })
+  const orderTotal = toNumberValue(
+    item.order_total
+      ?? item.orderTotal
+      ?? paymentDetails?.order_total
+      ?? paymentDetails?.orderTotal,
+    paymentSummary.totalQuote,
+  )
   const dropboxPaths = toObjectValue<Record<string, unknown>>(item.dropbox_paths) ?? toObjectValue<Record<string, unknown>>(item.dropboxPaths)
   const primaryAction = toObjectValue<Record<string, unknown> & ShootAction>(item.primary_action)
   const notesValue = item.notes
@@ -476,6 +565,8 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
       baseQuote: paymentSummary.baseQuote,
       taxRate: paymentSummary.taxRate,
       taxAmount: paymentSummary.taxAmount,
+      invoiceAdjustmentsTotal,
+      orderTotal,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
       paymentStatus: paymentSummary.paymentStatus,

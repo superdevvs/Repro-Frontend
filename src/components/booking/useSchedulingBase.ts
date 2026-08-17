@@ -201,13 +201,19 @@ export const useSchedulingBase = ({
     }
     return keys;
   }, [getDateKey]);
-  const normalizeAddressKey = (value: { address?: string; city?: string; state?: string; zip?: string }) => {
+  // Must stay referentially stable: useSchedulingFormController lists this in the
+  // dependency array of the effect that POSTs to photographer availability. As a
+  // bare arrow function it was rebuilt every render, so that effect re-ran every
+  // render, set state, and re-rendered — an unbounded loop that fired one
+  // availability request per iteration (observed: >10k requests in ~2 minutes,
+  // which then saturated the API). The body is pure, so [] is the correct dep.
+  const normalizeAddressKey = useCallback((value: { address?: string; city?: string; state?: string; zip?: string }) => {
     const joined = [value.address, value.city, value.state, value.zip]
       .filter(Boolean)
       .map((part) => String(part).trim().toLowerCase())
       .join(' ');
     return joined.replace(/[^a-z0-9]+/gi, '');
-  };
+  }, []);
   const timeToMinutes = useCallback((value: string) => {
     const normalized = normalizeSlotTime(value);
     const [hours, minutes] = normalized.split(':').map(Number);

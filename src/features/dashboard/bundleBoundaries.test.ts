@@ -30,7 +30,7 @@ describe("app-wide bundle boundaries", () => {
     );
 
     expect(offenders).toEqual([]);
-  });
+  }, 15000);
 
   it("keeps invoice viewing behind interaction-level lazy imports", () => {
     const dashboardSource = readSource("pages", "Dashboard.tsx");

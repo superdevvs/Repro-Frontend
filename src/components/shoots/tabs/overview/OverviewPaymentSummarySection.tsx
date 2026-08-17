@@ -35,6 +35,19 @@ const resolveDiscountAmount = (payment?: ShootData['payment'] | null): number =>
   return calculateDiscountAmount(serviceSubtotal, discountType, discountValue);
 };
 
+const resolveInvoiceAdjustmentsTotal = (payment?: ShootData['payment'] | null): number => {
+  if (!payment) return 0;
+  const raw = payment as unknown as Record<string, unknown>;
+  return Math.max(
+    Number(
+      payment.invoiceAdjustmentsTotal ??
+        (raw.invoice_adjustments_total as number | string | undefined) ??
+        0,
+    ) || 0,
+    0,
+  );
+};
+
 type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
   isAdmin: boolean;
@@ -89,6 +102,12 @@ export function OverviewPaymentSummarySection({
   );
   const hasDiscount = discountAmount > 0.005;
   const hasEditedDiscount = editedDiscountAmount > 0.005;
+  const invoiceAdjustmentsTotal = resolveInvoiceAdjustmentsTotal(shoot.payment);
+  const editedInvoiceAdjustmentsTotal = resolveInvoiceAdjustmentsTotal(
+    (editedShoot.payment as ShootData['payment'] | undefined) ?? shoot.payment,
+  );
+  const hasInvoiceAdjustments = invoiceAdjustmentsTotal > 0.005;
+  const hasEditedInvoiceAdjustments = editedInvoiceAdjustmentsTotal > 0.005;
 
   // Admin and sales reps see the full editable/detailed breakdown.
   const canViewFullBreakdown = isAdmin || isRep;
@@ -112,6 +131,12 @@ export function OverviewPaymentSummarySection({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Discount:</span>
               <span className="text-emerald-600">-${editedDiscountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {hasEditedInvoiceAdjustments && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Invoice adjustments:</span>
+              <span>${editedInvoiceAdjustmentsTotal.toFixed(2)}</span>
             </div>
           )}
           <div className="flex flex-col gap-1">
@@ -179,6 +204,12 @@ export function OverviewPaymentSummarySection({
                   <span className="text-emerald-600">-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
+              {hasInvoiceAdjustments && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Invoice adjustments:</span>
+                  <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax:</span>
                 <span>${(Number(shoot.payment?.taxAmount) || 0).toFixed(2)}</span>
@@ -219,6 +250,12 @@ export function OverviewPaymentSummarySection({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Discount:</span>
                   <span className="text-emerald-600">-${discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {hasInvoiceAdjustments && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Invoice adjustments:</span>
+                  <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between font-medium">

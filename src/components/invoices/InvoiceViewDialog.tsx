@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Plus, Trash2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { Logo } from "@/components/layout/Logo";
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +9,15 @@ import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from '@/services/invoiceService';
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
 import type { InvoiceParty, InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
+import { InvoiceAdjustmentEditor } from './InvoiceAdjustmentEditor';
+import { collectLinkedInvoiceShoots } from './invoiceViewDialogSupport';
+import {
+  triggerDashboardOverviewRefresh,
+  triggerInvoicesRefresh,
+  triggerShootDetailRefresh,
+  triggerShootHistoryRefresh,
+  triggerShootListRefresh,
+} from '@/realtime/realtimeRefreshBus';
 
 import {
   BRAND_ADDRESS_LINES,
@@ -62,6 +68,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const [miscQuantity, setMiscQuantity] = useState('1');
   const [miscBillsClient, setMiscBillsClient] = useState(false);
   const [miscChargeType, setMiscChargeType] = useState('misc');
+  const [miscShootId, setMiscShootId] = useState('');
   const [editingItemId, setEditingItemId] = useState<number | string | null>(null);
 
   useEffect(() => {
@@ -69,6 +76,40 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   }, [invoice]);
 
   const invoiceData = currentInvoice;
+  const linkedShoots = useMemo(
+    () => collectLinkedInvoiceShoots(invoiceData),
+    [invoiceData],
+  );
+  const defaultMiscShootId = linkedShoots.length === 1
+    ? String(linkedShoots[0].id)
+    : (invoiceData.shoot_id ? String(invoiceData.shoot_id) : '');
+
+  useEffect(() => {
+    if (!isOpen || editingItemId != null) return;
+    setMiscShootId(defaultMiscShootId);
+  }, [defaultMiscShootId, editingItemId, isOpen]);
+
+  const refreshAffectedShootViews = useCallback((
+    updatedInvoice: InvoiceViewDialogInvoice,
+    exactAffectedShootIds: string[] = [],
+  ) => {
+    const affectedIds = new Set<string>(exactAffectedShootIds);
+    const collectShoot = (shoot?: { id?: string | number } | null) => {
+      if (shoot?.id != null) affectedIds.add(String(shoot.id));
+    };
+
+    collectShoot(updatedInvoice.shoot);
+    (updatedInvoice.shoots || []).forEach(collectShoot);
+    collectShoot(invoiceData.shoot);
+    (invoiceData.shoots || []).forEach(collectShoot);
+    if (miscShootId) affectedIds.add(miscShootId);
+
+    affectedIds.forEach((shootId) => triggerShootDetailRefresh(shootId));
+    triggerShootListRefresh();
+    triggerShootHistoryRefresh();
+    triggerDashboardOverviewRefresh();
+    triggerInvoicesRefresh();
+  }, [invoiceData.shoot, invoiceData.shoots, miscShootId]);
   const invoiceNumberRaw = invoiceData.invoice_number || invoiceData.number || invoiceData.id;
   const invoiceNumber = invoiceNumberRaw ? String(invoiceNumberRaw).trim() : '';
   const displayInvoiceNumber = invoiceNumber
@@ -230,6 +271,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     setMiscQuantity('1');
     setMiscBillsClient(false);
     setMiscChargeType('misc');
+    setMiscShootId(defaultMiscShootId);
   };
 
   const prefillVirtualStaging = () => {
@@ -238,6 +280,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     setMiscChargeType('virtual_staging');
     // Virtual staging is a billable charge type, so default the payable toggle ON.
     setMiscBillsClient(true);
+    setMiscShootId((current) => current || defaultMiscShootId);
   };
 
   const handleEditMiscItem = (item: InvoiceItem) => {
@@ -248,6 +291,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     setMiscQuantity(String(item.quantity ?? 1));
     setMiscBillsClient(Boolean(item.meta?.bills_client));
     setMiscChargeType(String(item.meta?.charge_type || 'misc'));
+    setMiscShootId(item.shoot_id != null ? String(item.shoot_id) : defaultMiscShootId);
   };
 
   const handleAddMiscItem = async () => {
@@ -273,26 +317,37 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       return;
     }
 
+    if (miscBillsClient && linkedShoots.length > 1 && !miscShootId) {
+      toast({
+        title: 'Choose a shoot',
+        description: 'Select which shoot order should receive this billable adjustment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const normalizedQuantity = Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1;
 
     setIsSavingMisc(true);
     try {
-      let updated;
+      let mutationResult;
       if (editingItemId != null) {
-        updated = await updateInvoiceMiscItem(invoiceData.id, editingItemId, {
+        mutationResult = await updateInvoiceMiscItem(invoiceData.id, editingItemId, {
           description: miscDescription.trim(),
           amount: amountValue,
           quantity: normalizedQuantity,
           bills_client: miscBillsClient,
           charge_type: miscChargeType,
+          ...(miscShootId ? { shoot_id: miscShootId } : {}),
         });
       } else {
-        updated = await addInvoiceMiscItem(invoiceData.id, {
+        mutationResult = await addInvoiceMiscItem(invoiceData.id, {
           description: miscDescription.trim(),
           amount: amountValue,
           quantity: normalizedQuantity,
           bills_client: miscBillsClient,
           charge_type: miscChargeType,
+          ...(miscShootId ? { shoot_id: miscShootId } : {}),
           // Idempotency key prevents duplicate line items on double-click / retry.
           dedupe_key:
             (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
@@ -300,7 +355,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
               : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         });
       }
+      const updated = mutationResult.invoice;
       setCurrentInvoice(updated);
+      refreshAffectedShootViews(updated, mutationResult.affectedShootIds);
       resetMiscForm();
       toast({
         title: editingItemId != null ? 'Adjustment updated' : 'Adjustment added',
@@ -323,8 +380,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     if (!canEditInvoice || !invoiceData.id || !itemId) return;
     setIsSavingMisc(true);
     try {
-      const updated = await removeInvoiceMiscItem(invoiceData.id, itemId);
+      const mutationResult = await removeInvoiceMiscItem(invoiceData.id, itemId);
+      const updated = mutationResult.invoice;
       setCurrentInvoice(updated);
+      refreshAffectedShootViews(updated, mutationResult.affectedShootIds);
       if (editingItemId === itemId) {
         resetMiscForm();
       }
@@ -672,7 +731,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientEmail, clientName, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
+  }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, propertyAddress, resolvePhotographerName, subtotal, tax, total]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -734,110 +793,26 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
           </div>
 
           {canEditInvoice && (
-            <div className="rounded-md border border-dashed border-border bg-muted/20 px-5 py-4 space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {editingItemId != null ? 'Edit adjustment' : 'Add invoice adjustment'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Misc extras and charges. Mark "Bill client" to add it to the amount the client owes.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={miscChargeType === 'misc' ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => setMiscChargeType('misc')}
-                    disabled={isSavingMisc}
-                  >
-                    Misc item
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={miscChargeType === 'virtual_staging' ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={prefillVirtualStaging}
-                    disabled={isSavingMisc}
-                  >
-                    Virtual staging charge
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto]">
-                <div className="space-y-1">
-                  <Label htmlFor="misc-description" className="text-xs">Description</Label>
-                  <Input
-                    id="misc-description"
-                    value={miscDescription}
-                    onChange={(event) => setMiscDescription(event.target.value)}
-                    placeholder="Ex: Rush delivery"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="misc-amount" className="text-xs">Amount</Label>
-                  <Input
-                    id="misc-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={miscAmount}
-                    onChange={(event) => setMiscAmount(event.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="misc-quantity" className="text-xs">Qty</Label>
-                  <Input
-                    id="misc-quantity"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={miscQuantity}
-                    onChange={(event) => setMiscQuantity(event.target.value)}
-                  />
-                </div>
-                <div className="flex items-end gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="gap-2"
-                    onClick={handleAddMiscItem}
-                    disabled={isSavingMisc}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {isSavingMisc ? 'Saving...' : (editingItemId != null ? 'Update' : 'Add')}
-                  </Button>
-                  {editingItemId != null && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={resetMiscForm}
-                      disabled={isSavingMisc}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="misc-bills-client"
-                  checked={miscBillsClient}
-                  onCheckedChange={(checked) => setMiscBillsClient(checked === true)}
-                  disabled={isSavingMisc}
-                />
-                <Label htmlFor="misc-bills-client" className="text-xs font-normal cursor-pointer">
-                  Bill client / include in payable amount
-                  <span className="block text-[11px] text-muted-foreground">
-                    Off = appears on the invoice/PDF only and does not change what the client owes.
-                  </span>
-                </Label>
-              </div>
-            </div>
+            <InvoiceAdjustmentEditor
+              amount={miscAmount}
+              billsClient={miscBillsClient}
+              chargeType={miscChargeType}
+              description={miscDescription}
+              isEditing={editingItemId != null}
+              isSaving={isSavingMisc}
+              linkedShoots={linkedShoots}
+              quantity={miscQuantity}
+              shootId={miscShootId}
+              onAmountChange={setMiscAmount}
+              onBillsClientChange={setMiscBillsClient}
+              onCancel={resetMiscForm}
+              onChargeTypeChange={setMiscChargeType}
+              onDescriptionChange={setMiscDescription}
+              onPrefillVirtualStaging={prefillVirtualStaging}
+              onQuantityChange={setMiscQuantity}
+              onSave={handleAddMiscItem}
+              onShootIdChange={setMiscShootId}
+            />
           )}
 
           {/* Invoice Items Table */}

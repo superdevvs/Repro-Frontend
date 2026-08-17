@@ -8,6 +8,7 @@ import API_ROUTES from '@/lib/api';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { to12Hour } from '@/utils/availabilityUtils';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
+import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import {
   buildWallClockIso,
   formatDateForWallClockInput,
@@ -519,14 +520,18 @@ export function useOverviewLookupData(
           .map(normalizeServiceOption)
           .filter((service): service is ServiceOption => service !== null);
 
-        const rawServiceItems = Array.isArray(shoot.serviceItems)
+        const allRawServiceItems = Array.isArray(shoot.serviceItems)
           ? shoot.serviceItems.map(asRecord)
           : Array.isArray(shoot.service_items)
             ? shoot.service_items.map(asRecord)
             : [];
+        const rawServiceItems = allRawServiceItems
+          .filter((item) => !isInvoiceAdjustmentServiceItem(item));
+        const hasStructuredServiceItems = allRawServiceItems.length > 0;
         const serviceObjectsById = new Map<string, UnknownRecord>();
         (shoot.serviceObjects || []).forEach((value) => {
           const serviceObject = asRecord(value);
+          if (isInvoiceAdjustmentServiceItem(serviceObject)) return;
           const id = serviceObject.service_id ?? serviceObject.serviceId ?? serviceObject.id;
           if (id !== null && id !== undefined) serviceObjectsById.set(String(id), serviceObject);
         });
@@ -535,10 +540,10 @@ export function useOverviewLookupData(
           const serviceObject = id !== null && id !== undefined ? serviceObjectsById.get(String(id)) : undefined;
           return serviceObject ? mergeServiceItemRecords(item, serviceObject) : item;
         });
-        const serviceSource: unknown[] = hydratedServiceItems.length > 0
+        const serviceSource: unknown[] = hasStructuredServiceItems
           ? hydratedServiceItems
           : shoot.serviceObjects && shoot.serviceObjects.length > 0
-            ? shoot.serviceObjects
+            ? shoot.serviceObjects.filter((item) => !isInvoiceAdjustmentServiceItem(item))
             : (Array.isArray(shoot.services) ? shoot.services : []);
         const mergedServicesById = new Map<string, ServiceOption>();
         servicesData.forEach((service: ServiceOption) => {

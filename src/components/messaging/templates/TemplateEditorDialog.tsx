@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/lib/sonner-toast';
-import { createTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
+import { createTemplate, previewTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
 import type { MessageTemplate, TemplateCategory, TemplateScope, MessageChannel } from '@/types/messaging';
 import {
   Dialog,
@@ -27,6 +27,8 @@ import { Eye, Code, Save, X, ChevronDown, Braces, Send } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getStoredTemplateTestEmail, setStoredTemplateTestEmail } from './testSendStorage';
+import { getTemplateOverrideDefaults, PROTECTED_EMAIL_TYPES } from './templateOverrideDefaults';
+import { getPreviewCopy, getPreviewTitleParts, prepareTemplatePreviewHtml } from './templatePreviewSupport';
 import { BRAND_EMAIL, BRAND_NAME, BRAND_PHONE } from '@/config/brand';
 
 interface TemplateEditorDialogProps {
@@ -64,23 +66,9 @@ type TemplateFormState = {
   override_enabled: boolean;
 };
 
-// Protected automated emails are normally rendered from code. Designating a
-// template's email_type and enabling the override makes the system send this
-// DB template instead.
-const PROTECTED_EMAIL_TYPES: { value: string; label: string }[] = [
-  { value: '', label: 'Not an override' },
-  { value: 'ACCOUNT_CREATED', label: 'New Account Created' },
-  { value: 'PASSWORD_RESET', label: 'Password Reset' },
-  { value: 'SHOOT_SCHEDULED', label: 'Shoot Scheduled' },
-  { value: 'SHOOT_UPDATED', label: 'Shoot Updated' },
-  { value: 'SHOOT_REMINDER', label: 'Shoot Reminder' },
-  { value: 'SHOOT_DELIVERED', label: 'Shoot Delivered' },
-  { value: 'PAYMENT_CONFIRMATION', label: 'Payment Confirmation' },
-  { value: 'INVOICE_GENERATED', label: 'Invoice Generated' },
-];
-
 const PREVIEW_EMAIL_STYLES = `
 .preview-shell {
+  color-scheme: light;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
   padding: 16px;
   border-radius: 28px;
@@ -144,10 +132,18 @@ const PREVIEW_EMAIL_STYLES = `
 .preview-body {
   margin-top: 16px;
   background: #ffffff;
+  color: #405875;
   border: 1px solid rgba(222, 230, 241, 0.7);
   border-radius: 28px;
   box-shadow: 0 24px 70px rgba(22, 34, 60, 0.09);
   padding: 26px;
+}
+.preview-plain-text {
+  color: #405875;
+}
+.preview-empty,
+.preview-caption {
+  color: #526b88;
 }
 .preview-footer {
   margin-top: 16px;
@@ -198,23 +194,25 @@ const PREVIEW_EMAIL_STYLES = `
   line-height: 1.6;
   font-weight: 700;
 }
-.email-preview { color: #405875; font-size: 15px; line-height: 1.8; }
+.email-preview,
+.email-preview * { color: #405875 !important; }
+.email-preview { font-size: 15px; line-height: 1.8; }
 .email-preview p,
 .email-preview li,
 .email-preview div,
 .email-preview td,
-.email-preview span { color: #405875; line-height: 1.8; }
+.email-preview span { line-height: 1.8; }
 .email-preview p { margin: 0 0 14px; }
-.email-preview a { color: #1463ff; text-decoration: none; }
+.email-preview a { color: #1463ff !important; text-decoration: none; }
 .email-preview h1,
 .email-preview h2,
 .email-preview h3,
-.email-preview h4 { margin: 0 0 14px; color: #0f1930; line-height: 1.15; }
+.email-preview h4 { margin: 0 0 14px; color: #0f1930 !important; line-height: 1.15; }
 .email-preview h1 { font-size: 42px; font-weight: 300; letter-spacing: -0.05em; }
 .email-preview h2 { font-size: 28px; font-weight: 800; }
 .email-preview h3 { font-size: 22px; font-weight: 800; }
 .email-preview h4 { font-size: 16px; font-weight: 800; }
-.email-preview strong { color: #0f1930; }
+.email-preview strong { color: #0f1930 !important; }
 .email-preview ul,
 .email-preview ol { margin: 0 0 16px; padding-left: 20px; }
 .email-preview hr { border: 0; border-top: 1px solid #edf2f7; margin: 20px 0; }
@@ -237,6 +235,13 @@ const PREVIEW_EMAIL_STYLES = `
   letter-spacing: 0.2px;
   box-shadow: 0 16px 30px rgba(20, 99, 255, 0.22);
 }
+.email-preview .button *,
+.email-preview .button-large,
+.email-preview .button-large *,
+.email-preview [data-email-preview-cta],
+.email-preview [data-email-preview-cta] * {
+  color: #ffffff !important;
+}
 .email-preview .info-box {
   margin: 20px 0;
   padding: 18px 20px;
@@ -253,7 +258,7 @@ const PREVIEW_EMAIL_STYLES = `
 .email-preview .info-label {
   display: inline-block;
   min-width: 150px;
-  color: #93a4bd;
+  color: #93a4bd !important;
   font-weight: 800;
   font-size: 12px;
   line-height: 1.5;
@@ -277,7 +282,7 @@ const PREVIEW_EMAIL_STYLES = `
 }
 .email-preview .change-card-title {
   margin: 0 0 12px;
-  color: #10233b;
+  color: #10233b !important;
   font-size: 18px;
   line-height: 1.4;
   font-weight: 800;
@@ -297,105 +302,6 @@ const PREVIEW_EMAIL_STYLES = `
   margin-bottom: 10px;
 }
 `;
-
-type PreviewTitleParts = {
-  overline?: string;
-  primary: string;
-  accent?: string;
-};
-
-function isDynamicContextSegment(segment: string): boolean {
-  const trimmed = segment.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  if (trimmed.includes('{{') || trimmed.includes('[')) {
-    return true;
-  }
-
-  if (/\d/.test(trimmed) || trimmed.includes(',')) {
-    return true;
-  }
-
-  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-
-  return wordCount >= 4 && trimmed.length >= 20;
-}
-
-function getPreviewTitleParts(title: string): PreviewTitleParts {
-  const trimmed = title.trim();
-  if (!trimmed) {
-    return { primary: 'R/E Pro Photos update.' };
-  }
-
-  const suffixMatch = trimmed.match(/^(.*)\s+(New Account Information|Payment Due Reminder|Shoot Delivered|Summary)$/);
-  if (suffixMatch) {
-    return {
-      overline: suffixMatch[1].trim(),
-      primary: suffixMatch[2],
-    };
-  }
-
-  const placeholderLead = trimmed.match(/^(\{\{[^}]+\}\}|\[[^\]]+\])\s+(.+)$/);
-  if (placeholderLead) {
-    return {
-      overline: placeholderLead[1].trim(),
-      primary: placeholderLead[2].trim(),
-    };
-  }
-
-  const split = trimmed.split(/\s+-\s+|\s+\|\s+|\s*:\s*/, 2);
-  if (split.length === 2) {
-    const [first, second] = split.map((part) => part.trim());
-
-    if (isDynamicContextSegment(first) !== isDynamicContextSegment(second)) {
-      const overline = isDynamicContextSegment(first) ? first : second;
-      const primary = overline === first ? second : first;
-
-      return {
-        overline,
-        primary: primary.replace(/\.$/, ''),
-      };
-    }
-
-    return {
-      primary: `${first.replace(/\.$/, '')}.`,
-      accent: second,
-    };
-  }
-
-  const sentenceSplit = trimmed.split(/(?<=[.!?])\s+/, 2);
-  if (sentenceSplit.length === 2) {
-    return {
-      primary: sentenceSplit[0],
-      accent: sentenceSplit[1],
-    };
-  }
-
-  return { primary: trimmed };
-}
-
-function getPreviewCopy(category: string, description: string): string {
-  if (description.trim()) {
-    return description.trim();
-  }
-
-  switch (category) {
-    case 'ACCOUNT':
-      return 'Everything you need is organized below, including the latest account details and access links.';
-    case 'BOOKING':
-      return 'Your latest schedule details, property notes, and next actions are organized below in one place.';
-    case 'REMINDER':
-      return 'A timely reminder with the key details you need before the next step in the workflow.';
-    case 'PAYMENT':
-      return 'Your transaction status and the next milestones in the workflow are summarized below.';
-    case 'INVOICE':
-      return 'Invoice details, due dates, and follow-up actions are collected below for quick review.';
-    default:
-      return 'The latest update from your R/E Pro Photos workflow is ready below.';
-  }
-}
 
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
   const isMobile = useIsMobile();
@@ -419,6 +325,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
   useEffect(() => {
     if (template) {
+      const overrideDefaults = getTemplateOverrideDefaults(template);
       setFormData({
         name: template.name,
         description: template.description || '',
@@ -428,8 +335,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         body_html: template.body_html || '',
         body_text: template.body_text || '',
         channel: template.channel || 'EMAIL',
-        email_type: template.email_type || '',
-        override_enabled: template.override_enabled ?? false,
+        email_type: overrideDefaults.emailType,
+        override_enabled: overrideDefaults.overrideEnabled,
       });
     } else {
       // Reset form for new template
@@ -449,6 +356,30 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
     setTestEmail(getStoredTemplateTestEmail());
   }, [template, open]);
+
+  const hasUnsavedPreviewChanges = !template || (
+    formData.name !== template.name ||
+    formData.description !== (template.description || '') ||
+    formData.category !== (template.category || 'GENERAL') ||
+    formData.subject !== (template.subject || '') ||
+    formData.body_html !== (template.body_html || '') ||
+    formData.body_text !== (template.body_text || '') ||
+    formData.channel !== (template.channel || 'EMAIL')
+  );
+  const canUseDeliveredPreview = Boolean(template) &&
+    formData.channel === 'EMAIL' &&
+    !hasUnsavedPreviewChanges;
+  const deliveredPreviewQuery = useQuery({
+    queryKey: ['template-editor-delivered-preview', template?.id, template?.updated_at],
+    queryFn: () => {
+      if (!template) {
+        throw new Error('Save this template before requesting a delivered preview.');
+      }
+
+      return previewTemplate(template.id);
+    },
+    enabled: open && activeTab === 'preview' && canUseDeliveredPreview,
+  });
 
   const saveMutation = useMutation({
     mutationFn: (data: TemplateFormState) => {
@@ -606,6 +537,18 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
   const previewTitleParts = getPreviewTitleParts(formData.subject || formData.name || 'R/E Pro Photos update');
   const previewCopy = getPreviewCopy(formData.category, formData.description);
+  const previewHtml = formData.body_html
+    ? prepareTemplatePreviewHtml(resolveBrandShortcodes(stripLegacyEmailWrapper(formData.body_html)))
+    : '';
+  const deliveredPreviewBody = typeof deliveredPreviewQuery.data?.body_html === 'string' && deliveredPreviewQuery.data.body_html
+    ? deliveredPreviewQuery.data.body_html
+    : typeof deliveredPreviewQuery.data?.html === 'string'
+      ? deliveredPreviewQuery.data.html
+      : '';
+  const deliveredPreviewHtml = canUseDeliveredPreview ? deliveredPreviewBody : '';
+  const isDeliveredPreviewLoading = canUseDeliveredPreview &&
+    deliveredPreviewQuery.isFetching &&
+    !deliveredPreviewHtml;
 
   // Settings form fields (shared between mobile and desktop)
   const settingsContent = (
@@ -688,8 +631,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         <div className="space-y-2 rounded-md border border-border p-3">
           <Label htmlFor="email_type">Automated email override</Label>
           <p className="text-xs text-muted-foreground">
-            Protected automated emails normally render from code. Select the email type and enable the override to make
-            the system send this template instead.
+            When enabled, the saved subject and body in this editor will be used for the selected automated email.
+            Canonical system templates are matched and enabled automatically the first time you save them.
           </p>
           <Select
             value={formData.email_type || 'none'}
@@ -720,7 +663,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               disabled={!formData.email_type}
               onChange={(e) => setFormData({ ...formData, override_enabled: e.target.checked })}
             />
-            Use this template for the selected automated email
+            Use the saved subject and body for this automated email
           </label>
         </div>
       )}
@@ -817,63 +760,84 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         <div className="h-full overflow-y-auto overscroll-contain p-3 sm:p-6">
           <style>{PREVIEW_EMAIL_STYLES}</style>
           <div className="max-w-4xl mx-auto">
-            <div className="preview-shell">
-              <div className="preview-hero">
-                <div className="preview-brand">
-                  <div className="preview-brand-logo">
-                    <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="" />
+            {isDeliveredPreviewLoading ? (
+              <div className="flex min-h-[320px] items-center justify-center rounded-3xl border bg-white text-sm text-slate-600 shadow-sm">
+                Rendering the delivered email preview…
+              </div>
+            ) : deliveredPreviewHtml ? (
+              <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
+                <iframe
+                  title="Delivered email preview"
+                  className="block h-[760px] w-full border-0 bg-white"
+                  sandbox=""
+                  srcDoc={deliveredPreviewHtml}
+                />
+              </div>
+            ) : (
+              <div className="preview-shell">
+                <div className="preview-hero">
+                  <div className="preview-brand">
+                    <div className="preview-brand-logo">
+                      <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="" />
+                    </div>
+                  </div>
+                  <h1 className="preview-title">
+                    {previewTitleParts.overline ? (
+                      <span className="preview-overline">{previewTitleParts.overline}</span>
+                    ) : null}
+                    <span className="preview-title-primary">{previewTitleParts.primary}</span>
+                    {previewTitleParts.accent ? (
+                      <>
+                        <br />
+                        <span className="preview-title-accent">{previewTitleParts.accent}</span>
+                      </>
+                    ) : null}
+                  </h1>
+                  <p className="preview-copy">{previewCopy}</p>
+                </div>
+
+                <div className="preview-body">
+                  {formData.body_html ? (
+                    <div
+                      className="email-preview"
+                      style={{ color: '#333333', lineHeight: 1.6 }}
+                      dangerouslySetInnerHTML={{ __html: previewHtml }}
+                    />
+                  ) : formData.body_text ? (
+                    <pre className="preview-plain-text whitespace-pre-wrap font-sans text-sm">{resolveBrandShortcodes(formData.body_text)}</pre>
+                  ) : (
+                    <p className="preview-empty text-center py-8">No content to preview</p>
+                  )}
+                </div>
+
+                <div className="preview-footer">
+                  <h4>Need help with a shoot, invoice, or account question?</h4>
+                  <p>
+                    Our team is here to keep your workflow moving. Reach us at
+                    {' '}{BRAND_EMAIL} or call {BRAND_PHONE}.
+                  </p>
+                  <div className="preview-footer-grid">
+                    <div className="preview-footer-card">
+                      <span className="preview-footer-label">Support</span>
+                      <span className="preview-footer-value">{BRAND_EMAIL}<br />{BRAND_PHONE}</span>
+                    </div>
+                    <div className="preview-footer-card">
+                      <span className="preview-footer-label">Portal</span>
+                      <span className="preview-footer-value">Track shoots, invoices, and delivery updates in one place.</span>
+                    </div>
                   </div>
                 </div>
-                <h1 className="preview-title">
-                  {previewTitleParts.overline ? (
-                    <span className="preview-overline">{previewTitleParts.overline}</span>
-                  ) : null}
-                  <span className="preview-title-primary">{previewTitleParts.primary}</span>
-                  {previewTitleParts.accent ? (
-                    <>
-                      <br />
-                      <span className="preview-title-accent">{previewTitleParts.accent}</span>
-                    </>
-                  ) : null}
-                </h1>
-                <p className="preview-copy">{previewCopy}</p>
               </div>
+            )}
 
-              <div className="preview-body">
-                {formData.body_html ? (
-                  <div
-                    className="email-preview"
-                    style={{ color: '#333333', lineHeight: 1.6 }}
-                    dangerouslySetInnerHTML={{ __html: resolveBrandShortcodes(stripLegacyEmailWrapper(formData.body_html)) }}
-                  />
-                ) : formData.body_text ? (
-                  <pre className="whitespace-pre-wrap font-sans text-sm">{resolveBrandShortcodes(formData.body_text)}</pre>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">No content to preview</p>
-                )}
-              </div>
-
-              <div className="preview-footer">
-                <h4>Need help with a shoot, invoice, or account question?</h4>
-                <p>
-                  Our team is here to keep your workflow moving. Reach us at
-                  {' '}{BRAND_EMAIL} or call {BRAND_PHONE}.
-                </p>
-                <div className="preview-footer-grid">
-                  <div className="preview-footer-card">
-                    <span className="preview-footer-label">Support</span>
-                    <span className="preview-footer-value">{BRAND_EMAIL}<br />{BRAND_PHONE}</span>
-                  </div>
-                  <div className="preview-footer-card">
-                    <span className="preview-footer-label">Portal</span>
-                    <span className="preview-footer-value">Track shoots, invoices, and delivery updates in one place.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              Shortcodes will be replaced with actual values when sent
+            <p className="preview-caption text-center text-xs mt-4">
+              {deliveredPreviewHtml
+                ? 'Rendered by the same server flow used when this saved template is sent'
+                : hasUnsavedPreviewChanges
+                  ? 'Draft preview shown — save changes to see the exact delivered rendering'
+                  : deliveredPreviewQuery.isError
+                    ? 'Delivered preview unavailable — showing a safe local preview'
+                    : 'Shortcodes will be replaced with actual values when sent'}
             </p>
           </div>
         </div>

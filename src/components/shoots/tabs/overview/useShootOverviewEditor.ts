@@ -4,6 +4,10 @@ import type { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
 import {
+  getShootInvoiceAdjustmentTotal,
+  isInvoiceAdjustmentServiceItem,
+} from '@/utils/shootServiceItems';
+import {
   getShootPhotographerAssignmentGroups,
   normalizeShootServiceCategoryKey,
 } from '@/utils/shootPhotographerAssignments';
@@ -36,68 +40,12 @@ import type {
   ServiceScheduleFields,
   UseShootOverviewEditorArgs,
 } from './shootOverviewEditorSupport';
-
-// The API also returns snake_case and alternate aliases for the property and
-// schedule fields that `ShootData` does not declare. Reading them through one
-// alias type keeps every lookup typed instead of casting at each access site.
-type ShootWithLegacyOverviewFields = ShootData & {
-  property_details?: Record<string, unknown> | null;
-  beds?: unknown;
-  bedrooms?: unknown;
-  baths?: unknown;
-  bathrooms?: unknown;
-  sqft?: unknown;
-  squareFeet?: unknown;
-  square_feet?: unknown;
-  livingArea?: unknown;
-  living_area?: unknown;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  zip?: string | null;
-  scheduled_at?: string | null;
-  scheduledAt?: string | null;
-  serviceItems?: unknown[];
-  service_items?: unknown[];
-};
-
-// Service items reach this hook under several payload shapes (`serviceItems`,
-// `service_items`, `serviceObjects`) carrying both snake_case and camelCase keys.
-type LegacyServiceItemRecord = {
-  id?: string | number | null;
-  service_id?: string | number | null;
-  serviceId?: string | number | null;
-  name?: string | null;
-  service_name?: string | null;
-  serviceName?: string | null;
-  scheduled_at?: string | null;
-  scheduledAt?: string | null;
-  [key: string]: unknown;
-};
-
-type OverviewServiceItemPayload = {
-  service_id: number;
-  price: number;
-  quantity: number;
-  scheduled_at: string | null;
-  photographer_pay?: number;
-};
-
-// `onSave` receives the shoot draft plus the service and photographer payload
-// keys the API accepts alongside it. `ShootData` models these for display
-// (`services` as names, `service_items` as saved rows), so the save payload
-// intentionally replaces both with the request shapes the endpoint expects.
-type ShootOverviewUpdatePayload = Omit<Partial<ShootData>, 'service_items' | 'services'> & {
-  service_items?: OverviewServiceItemPayload[];
-  services?: Array<{
-    id: number;
-    price: number;
-    quantity: number;
-    scheduled_at: string | null;
-    photographer_pay?: number;
-  }>;
-  service_photographers?: Array<{ service_id: number; photographer_id: number }>;
-};
+import type {
+  LegacyServiceItemRecord,
+  OverviewServiceItemPayload,
+  ShootOverviewUpdatePayload,
+  ShootWithLegacyOverviewFields,
+} from './shootOverviewUpdateTypes';
 
 export function useShootOverviewEditor({
   shoot,
@@ -135,6 +83,10 @@ export function useShootOverviewEditor({
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [servicePhotographerPays, setServicePhotographerPays] = useState<Record<string, string>>({});
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
+  const invoiceAdjustmentTotal = useMemo(
+    () => getShootInvoiceAdjustmentTotal(shoot),
+    [shoot],
+  );
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [servicePanelCategory, setServicePanelCategory] = useState('all');
   const [serviceModalSearch, setServiceModalSearch] = useState('');
@@ -328,12 +280,16 @@ export function useShootOverviewEditor({
     if (!isEditMode || selectedServiceIds.length > 0) return;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
-    const serviceObjects = (Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : []) as unknown as LegacyServiceItemRecord[];
-    const rawSourceItems: LegacyServiceItemRecord[] = Array.isArray(legacyShoot.serviceItems) && legacyShoot.serviceItems.length > 0
-      ? legacyShoot.serviceItems as LegacyServiceItemRecord[]
-      : Array.isArray(legacyShoot.service_items) && legacyShoot.service_items.length > 0
-        ? legacyShoot.service_items as LegacyServiceItemRecord[]
-        : serviceObjects;
+    const serviceObjects = (
+      (Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : []) as unknown as LegacyServiceItemRecord[]
+    ).filter((item) => !isInvoiceAdjustmentServiceItem(item));
+    const rawSourceItems: LegacyServiceItemRecord[] = (
+      Array.isArray(legacyShoot.serviceItems) && legacyShoot.serviceItems.length > 0
+        ? legacyShoot.serviceItems as LegacyServiceItemRecord[]
+        : Array.isArray(legacyShoot.service_items) && legacyShoot.service_items.length > 0
+          ? legacyShoot.service_items as LegacyServiceItemRecord[]
+          : serviceObjects
+    ).filter((item) => !isInvoiceAdjustmentServiceItem(item));
     const serviceObjectsById = new Map<string, LegacyServiceItemRecord>();
     serviceObjects.forEach((serviceObject) => {
       const id = serviceObject?.service_id ?? serviceObject?.serviceId ?? serviceObject?.id;
@@ -499,7 +455,7 @@ export function useShootOverviewEditor({
       ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
       ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
       ...((shoot.serviceObjects as unknown as LegacyServiceItemRecord[] | undefined) || []),
-    ].forEach((item) => {
+    ].filter((item) => !isInvoiceAdjustmentServiceItem(item)).forEach((item) => {
       if (!item || typeof item !== 'object') return;
       const serviceId = item.service_id ?? item.serviceId ?? item.id;
       if (serviceId === null || serviceId === undefined) return;
@@ -710,11 +666,12 @@ export function useShootOverviewEditor({
     const finalTax = taxAmountDirty ? resolvedManualTax : autoTax;
     updateField('payment.baseQuote', total);
     updateField('payment.taxAmount', finalTax);
-    updateField('payment.totalQuote', total + finalTax);
+    updateField('payment.totalQuote', total + finalTax + invoiceAdjustmentTotal);
   }, [
     editedShoot.payment?.taxAmount,
     editedShoot.payment?.taxRate,
     effectiveSqft,
+    invoiceAdjustmentTotal,
     resolveServicePrice,
     selectedServiceIds,
     servicePrices,

@@ -26,6 +26,13 @@ import {
   formatDateForWallClockInput,
   formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
+import {
+  getShootInvoiceAdjustmentTotal,
+} from '@/utils/shootServiceItems';
+import {
+  calculateAddServiceQuote,
+  getCatalogServiceEntries,
+} from './addServiceInvoiceAdjustments';
 
 interface Service {
   id: number;
@@ -154,17 +161,17 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
       const updatedServices = [...currentServices, newService];
 
-      // Calculate new base quote from all services
-      const newBaseQuote = updatedServices.reduce((sum, s) => {
-        const price = typeof s.price === 'number' ? s.price : parseFloat(s.price) || 0;
-        const qty = s.quantity || 1;
-        return sum + (price * qty);
-      }, 0);
-
       // Calculate tax (use existing tax rate from shoot or default to 0)
       const currentTaxRate = shoot.payment?.taxRate || 0;
-      const newTaxAmount = newBaseQuote * (currentTaxRate / 100);
-      const newTotalQuote = newBaseQuote + newTaxAmount;
+      const {
+        baseQuote: newBaseQuote,
+        taxAmount: newTaxAmount,
+        totalQuote: newTotalQuote,
+      } = calculateAddServiceQuote(
+        updatedServices,
+        currentTaxRate,
+        getShootInvoiceAdjustmentTotal(shoot),
+      );
 
       // Update shoot with new services and recalculated quote
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
@@ -216,12 +223,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   };
 
   // Filter out services already attached to shoot
-  const getExistingServiceEntries = () => {
-    if (Array.isArray(shoot.serviceItems) && shoot.serviceItems.length > 0) return shoot.serviceItems;
-    if (Array.isArray(shoot.service_items) && shoot.service_items.length > 0) return shoot.service_items;
-    if (Array.isArray(shoot.serviceObjects) && shoot.serviceObjects.length > 0) return shoot.serviceObjects;
-    return Array.isArray(shoot.services) ? shoot.services : [];
-  };
+  const getExistingServiceEntries = () => getCatalogServiceEntries(shoot);
 
   const resolveExistingServiceId = (entry: unknown): string | null => {
     if (entry && typeof entry === 'object') {

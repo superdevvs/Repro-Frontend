@@ -44,6 +44,10 @@ export interface ShootDetails {
   discount_amount?: number;
   discounted_subtotal?: number;
   tax_amount: number;
+  invoice_adjustments_total?: number;
+  invoiceAdjustmentsTotal?: number;
+  order_total?: number;
+  orderTotal?: number;
   services: Array<{ name: string; pivot?: { price: number; quantity: number } }>;
   client?: { name: string; email: string };
   payments?: ShootPaymentRecord[];
@@ -99,4 +103,12 @@ export function formatPaymentScheduledAt(dateValue?: string, timeValue?: string)
     year: 'numeric',
   });
   return timeValue ? `${formattedDate} at ${timeValue}` : formattedDate;
+}
+
+export function resolvePaymentInvoiceAdjustmentsTotal(shoot?: ShootDetails | null) {
+  if (!shoot) return 0;
+  return Math.max(
+    Number(shoot.invoice_adjustments_total ?? shoot.invoiceAdjustmentsTotal ?? 0) || 0,
+    0,
+  );
 }

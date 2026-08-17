@@ -4,13 +4,13 @@ import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera, CreditCard, Lock, XCircle, ArrowLeft, Printer, ArrowRight } from 'lucide-react';
-import { HorizontalLoader } from '@/components/ui/horizontal-loader';
+import { Loader2, CheckCircle, MapPin, Calendar, Camera, CreditCard, Lock, XCircle, ArrowLeft, Printer, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
+import { PaymentAlreadyPaidState, PaymentErrorState, PaymentLoadingState } from './PaymentPageStates';
 
 import {
   AUTO_RETURN_DELAY_SECONDS,
@@ -18,6 +18,7 @@ import {
   formatPaymentCurrency as formatCurrency,
   formatPaymentPaidAt as formatPaidAt,
   formatPaymentScheduledAt as formatScheduledAt,
+  resolvePaymentInvoiceAdjustmentsTotal,
   type EmbeddedCheckoutInstance,
   type PaymentConfirmationResult,
   type ShootDetails,
@@ -163,6 +164,7 @@ export default function PaymentPage() {
           ? 'text-emerald-300'
           : 'text-slate-300';
   const subtotalAmount = shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0));
+  const invoiceAdjustmentsTotal = resolvePaymentInvoiceAdjustmentsTotal(shoot);
   const mobileServiceCount = shoot?.services?.length ?? 0;
   const pageMaxWidthClass = showEmbeddedCheckout ? 'max-w-[1480px]' : 'max-w-[1180px]';
   const paymentLayoutClass = showEmbeddedCheckout
@@ -407,27 +409,11 @@ export default function PaymentPage() {
   }, [autoActionSeconds, autoReturnCancelled, canReturn, handleReturn, isPopup, paymentSuccess]);
 
   if (loading || confirmingPayment) {
-    return (
-      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center">
-        <div className="w-full max-w-md">
-          <HorizontalLoader message={confirmingPayment ? "Confirming payment..." : "Loading payment details..."} />
-        </div>
-      </div>
-    );
+    return <PaymentLoadingState confirmingPayment={confirmingPayment} />;
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-[#0a0f1a] border-red-500/30">
-          <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">Unable to Load Payment</h2>
-            <p className="text-gray-400">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <PaymentErrorState message={error} />;
   }
 
   if (paymentSuccess) {
@@ -592,6 +578,13 @@ export default function PaymentPage() {
                       </div>
                     )}
 
+                    {invoiceAdjustmentsTotal > 0.005 && (
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span>Invoice adjustments</span>
+                        <span className="font-medium text-slate-900">{formatCurrency(invoiceAdjustmentsTotal, receiptCurrency)}</span>
+                      </div>
+                    )}
+
                     {(shoot?.tax_amount || 0) > 0 && (
                       <div className="flex items-center justify-between text-sm text-slate-600">
                         <span>Tax</span>
@@ -702,19 +695,7 @@ export default function PaymentPage() {
   }
 
   if (amountDue <= 0) {
-    return (
-      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-[#0a0f1a] border-green-500/30">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-white mb-2">Already Paid</h2>
-            <p className="text-gray-400">
-              This shoot has already been paid in full. Thank you!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <PaymentAlreadyPaidState />;
   }
 
   return (
@@ -785,6 +766,12 @@ export default function PaymentPage() {
                     <div className="flex justify-between text-sm text-emerald-400">
                       <span>Discount</span>
                       <span>-${(shoot?.discount_amount || 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {invoiceAdjustmentsTotal > 0.005 && (
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>Invoice adjustments</span>
+                      <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
                     </div>
                   )}
                   {(shoot?.tax_amount || 0) > 0 && (
@@ -933,6 +920,18 @@ export default function PaymentPage() {
                           <span className="text-gray-500">Subtotal</span>
                           <span>{formatCurrency(subtotalAmount)}</span>
                         </div>
+                        {(shoot?.discount_amount || 0) > 0 && (
+                          <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                            <span className="text-gray-500">Discount</span>
+                            <span className="text-emerald-400">-{formatCurrency(shoot?.discount_amount || 0)}</span>
+                          </div>
+                        )}
+                        {invoiceAdjustmentsTotal > 0.005 && (
+                          <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                            <span className="text-gray-500">Invoice adjustments</span>
+                            <span>{formatCurrency(invoiceAdjustmentsTotal)}</span>
+                          </div>
+                        )}
                         {(shoot?.tax_amount || 0) > 0 && (
                           <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
                             <span className="text-gray-500">Tax</span>

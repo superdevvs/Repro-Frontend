@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mapInvoiceResponse } from './invoiceService';
+import { mapInvoiceMutationResponse, mapInvoiceResponse } from './invoiceService';
 import { isChaseableInvoice } from '@/components/accounting/InvoiceList';
 
 /**
@@ -173,5 +173,26 @@ describe('mapInvoiceResponse — incomplete payloads', () => {
 
     expect(mapped.status).toBe('sent');
     expect(mapped.balance).toBeCloseTo(250, 2);
+  });
+});
+
+describe('mapInvoiceMutationResponse — affected shoot refresh contract', () => {
+  it('preserves unique affected shoot ids from the mutation envelope', () => {
+    const result = mapInvoiceMutationResponse({
+      invoice: record({ id: 88, total_amount: '120.00', status: 'sent', due_date: future }),
+      affected_shoot_ids: [12, '13', 12, null],
+    });
+
+    expect(result.invoice.id).toBe('88');
+    expect(result.affectedShootIds).toEqual(['12', '13']);
+  });
+
+  it('keeps compatibility with an unwrapped invoice payload', () => {
+    const result = mapInvoiceMutationResponse(
+      record({ id: 89, total_amount: '75.00', status: 'sent', due_date: future }) as unknown as Record<string, unknown>,
+    );
+
+    expect(result.invoice.id).toBe('89');
+    expect(result.affectedShootIds).toEqual([]);
   });
 });

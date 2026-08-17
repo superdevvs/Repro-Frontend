@@ -1,6 +1,10 @@
 import { ShootData, ShootEditorAssignment, ShootServiceObject } from '@/types/shoots';
 import { shootsData as mockShootsData } from '@/data/shootsData';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import {
+  getShootInvoiceAdjustmentTotal,
+  isInvoiceAdjustmentServiceItem,
+} from '@/utils/shootServiceItems';
 import type {
   ApiNotePayload,
   ApiServiceRecord,
@@ -13,6 +17,12 @@ export type { ApiShoot } from './shootApiTypes';
 const toNumber = (value: unknown) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+};
+
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
 };
 
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
@@ -268,6 +278,20 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const fullAddress = [address, city, state, zip].filter(Boolean).join(', ');
   const notes = normalizeNotes(shoot);
   const paymentSummary = normalizeShootPaymentSummary(shoot);
+  const rawPayment = shoot.payment as Record<string, unknown> | undefined;
+  const explicitInvoiceAdjustmentsTotal = toOptionalNumber(
+    shoot.invoice_adjustments_total
+      ?? shoot.invoiceAdjustmentsTotal
+      ?? rawPayment?.invoice_adjustments_total
+      ?? rawPayment?.invoiceAdjustmentsTotal,
+  );
+  const orderTotal = toNumber(
+    shoot.order_total
+      ?? shoot.orderTotal
+      ?? rawPayment?.order_total
+      ?? rawPayment?.orderTotal
+      ?? paymentSummary.totalQuote,
+  );
   const completedDate =
     shoot.completed_at ||
     shoot.editing_completed_at ||
@@ -384,7 +408,12 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const serviceObjects = (() => {
     if (Array.isArray(shoot.services)) {
       const objs: ShootServiceObject[] = shoot.services
-        .filter((s): s is ApiServiceRecord => s !== null && typeof s === 'object' && 'id' in s)
+        .filter((s): s is ApiServiceRecord => (
+          s !== null
+          && typeof s === 'object'
+          && 'id' in s
+          && !isInvoiceAdjustmentServiceItem(s)
+        ))
         .map((s) => ({
           id: String(s.id),
           service_id: String(s.id),
@@ -560,27 +589,63 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       .filter((item): item is ApiServiceRecord => item !== null && typeof item === 'object')
       .map((item) => {
         const service = item.service && typeof item.service === 'object' ? item.service : {};
-        const serviceId = item.service_id ?? item.serviceId ?? service.id ?? item.id;
-        const shootServiceId = item.shoot_service_id ?? item.shootServiceId ?? item.id;
+        const isInvoiceAdjustment = isInvoiceAdjustmentServiceItem(item);
+        const serviceId = isInvoiceAdjustment
+          ? null
+          : item.service_id ?? item.serviceId ?? service.id ?? item.id;
+        const shootServiceId = isInvoiceAdjustment
+          ? null
+          : item.shoot_service_id ?? item.shootServiceId ?? item.id;
+        const invoiceId = item.invoice_id ?? item.invoiceId;
+        const invoiceItemId = item.invoice_item_id ?? item.invoiceItemId;
         const scheduledAt = item.scheduledAt ?? item.scheduled_at ?? null;
         const workflowStatus = item.workflowStatus ?? item.workflow_status ?? null;
         const deliveryStatus = item.deliveryStatus ?? item.delivery_status ?? null;
         const readyAt = item.readyAt ?? item.ready_at ?? null;
         const deliveredAt = item.deliveredAt ?? item.delivered_at ?? null;
-        const price = toNumber(item.price ?? item.subtotal ?? service.price);
+        const price = toNumber(item.price ?? item.unit_amount ?? item.unitAmount ?? item.subtotal ?? service.price);
         const quantityValue = Number(item.quantity);
         const quantity = Math.max(1, Number.isFinite(quantityValue) ? quantityValue : 1);
+        const stableId = isInvoiceAdjustment
+          ? item.id ?? (invoiceItemId != null ? `invoice-adjustment-${String(invoiceItemId)}` : null)
+          : serviceId ?? shootServiceId;
+        const unitAmount = toNumber(item.unit_amount ?? item.unitAmount ?? item.price);
+        const totalAmount = toNumber(item.total_amount ?? item.totalAmount ?? item.subtotal ?? unitAmount * quantity);
+        const chargeType = typeof item.charge_type === 'string'
+          ? item.charge_type
+          : typeof item.chargeType === 'string'
+            ? item.chargeType
+            : undefined;
 
         return {
-          id: serviceId != null ? String(serviceId) : String(shootServiceId ?? ''),
+          id: stableId != null ? String(stableId) : '',
+          invoice_id: invoiceId == null ? null : String(invoiceId),
+          invoiceId: invoiceId == null ? null : String(invoiceId),
+          invoice_item_id: invoiceItemId == null ? null : String(invoiceItemId),
+          invoiceItemId: invoiceItemId == null ? null : String(invoiceItemId),
+          source: isInvoiceAdjustment ? 'invoice_adjustment' : (typeof item.source === 'string' ? item.source : undefined),
+          is_invoice_adjustment: isInvoiceAdjustment,
+          isInvoiceAdjustment,
           service_id: serviceId != null ? String(serviceId) : null,
           serviceId: serviceId != null ? String(serviceId) : null,
           shoot_service_id: shootServiceId != null ? String(shootServiceId) : null,
           shootServiceId: shootServiceId != null ? String(shootServiceId) : null,
           name: String(item.name ?? item.service_name ?? item.serviceName ?? service.name ?? ''),
           price,
+          unit_amount: unitAmount,
+          unitAmount,
           quantity,
           subtotal: item.subtotal != null ? toNumber(item.subtotal) : price * quantity,
+          total_amount: totalAmount,
+          totalAmount,
+          bills_client: isInvoiceAdjustment
+            ? Boolean(item.bills_client ?? item.billsClient ?? true)
+            : undefined,
+          billsClient: isInvoiceAdjustment
+            ? Boolean(item.billsClient ?? item.bills_client ?? true)
+            : undefined,
+          charge_type: chargeType,
+          chargeType,
           photo_count: item.photo_count ?? item.photoCount ?? service.photo_count ?? service.photoCount ?? null,
           pricing_type: item.pricing_type ?? service.pricing_type ?? 'fixed',
           category: item.category ?? service.category ?? null,
@@ -635,6 +700,10 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
     return items.length > 0 ? items : serviceObjects;
   })();
+  const invoiceAdjustmentsTotal = getShootInvoiceAdjustmentTotal({
+    serviceItems,
+    invoiceAdjustmentsTotal: explicitInvoiceAdjustmentsTotal,
+  });
   const editorAssignments = normalizeEditorAssignments(shoot);
   const resolvedEditor =
     (shoot.editor || editorId)
@@ -700,6 +769,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       baseQuote: paymentSummary.baseQuote,
       taxRate: paymentSummary.taxRate || toNumber(rawTaxRate),
       taxAmount: paymentSummary.taxAmount,
+      invoiceAdjustmentsTotal,
+      orderTotal,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
       paymentStatus: paymentSummary.paymentStatus,
@@ -804,4 +875,3 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       shoot.external_booking_mapping_status ?? shoot.externalBookingMappingStatus ?? null,
   };
 };
-

@@ -74,6 +74,31 @@ const toOptionalNumber = (value: string | number | undefined | null): number | u
   return Number.isFinite(normalized) ? normalized : undefined;
 };
 
+export type InvoiceMutationResult = {
+  invoice: InvoiceData;
+  affectedShootIds: string[];
+};
+
+export const mapInvoiceMutationResponse = (
+  payload: Record<string, unknown>,
+  fallbackId?: string | number,
+): InvoiceMutationResult => {
+  const invoicePayload = (payload.invoice || payload.data || payload) as InvoiceApiRecord;
+  const rawAffectedShootIds = payload.affected_shoot_ids ?? payload.affectedShootIds;
+  const affectedShootIds = Array.isArray(rawAffectedShootIds)
+    ? Array.from(new Set(
+        rawAffectedShootIds
+          .filter((id) => id !== null && id !== undefined && String(id).trim() !== '')
+          .map((id) => String(id)),
+      ))
+    : [];
+
+  return {
+    invoice: mapInvoiceResponse(invoicePayload, fallbackId),
+    affectedShootIds,
+  };
+};
+
 /**
  * Exported for tests: the status/balance rules here decide whether an invoice can be
  * chased, so they are worth asserting against production-shaped payloads directly.
@@ -335,8 +360,8 @@ export const sendInvoicePaymentReminder = async (
 
 export const addInvoiceMiscItem = async (
   invoiceId: string | number,
-  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string; dedupe_key?: string }
-): Promise<InvoiceData> => {
+  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string; dedupe_key?: string; shoot_id?: string | number }
+): Promise<InvoiceMutationResult> => {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
@@ -357,14 +382,13 @@ export const addInvoiceMiscItem = async (
   }
 
   const json = await response.json();
-  const invoice = json.invoice || json.data || json;
-  return mapInvoiceResponse(invoice, invoiceId);
+  return mapInvoiceMutationResponse(json, invoiceId);
 };
 
 export const removeInvoiceMiscItem = async (
   invoiceId: string | number,
   itemId: string | number
-): Promise<InvoiceData> => {
+): Promise<InvoiceMutationResult> => {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
@@ -387,15 +411,14 @@ export const removeInvoiceMiscItem = async (
   }
 
   const json = await response.json();
-  const invoice = json.invoice || json.data || json;
-  return mapInvoiceResponse(invoice, invoiceId);
+  return mapInvoiceMutationResponse(json, invoiceId);
 };
 
 export const updateInvoiceMiscItem = async (
   invoiceId: string | number,
   itemId: string | number,
-  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string }
-): Promise<InvoiceData> => {
+  payload: { description: string; amount: number; quantity?: number; bills_client?: boolean; charge_type?: string; shoot_id?: string | number }
+): Promise<InvoiceMutationResult> => {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
@@ -419,8 +442,7 @@ export const updateInvoiceMiscItem = async (
   }
 
   const json = await response.json();
-  const invoice = json.invoice || json.data || json;
-  return mapInvoiceResponse(invoice, invoiceId);
+  return mapInvoiceMutationResponse(json, invoiceId);
 };
 
 // ---- Photographer / Sales Rep Invoice Management ----

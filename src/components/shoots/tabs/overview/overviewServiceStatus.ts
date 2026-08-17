@@ -18,6 +18,7 @@ export type ServiceRowStatus = 'delivered' | 'next' | 'unfinished';
  * delivered / ready / cancelled in either the delivery or workflow status.
  */
 const isFinished = (item: NormalizedShootServiceItem): boolean => {
+  if (item.isInvoiceAdjustment) return true;
   const delivery = String(item.deliveryStatus || '').toLowerCase();
   const workflow = String(item.workflowStatus || '').toLowerCase();
   return (

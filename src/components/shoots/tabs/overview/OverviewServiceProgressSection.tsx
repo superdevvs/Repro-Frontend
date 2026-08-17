@@ -147,7 +147,7 @@ const getCheckpointTooltipAlign = (position: number) => {
 export function OverviewServiceProgressSection({
   shoot,
 }: OverviewServiceProgressSectionProps) {
-  const serviceItems = getShootServiceItems(shoot);
+  const serviceItems = getShootServiceItems(shoot).filter((item) => !item.isInvoiceAdjustment);
 
   if (serviceItems.length === 0) {
     return null;

@@ -179,12 +179,16 @@ export interface ShootDetails {
   scheduledAt?: string;
   scheduled_at?: string;
   totalQuote?: number;
+  invoice_adjustments_total?: number | string | null;
+  invoiceAdjustmentsTotal?: number | string | null;
   shoot_notes?: string;
   shootNotes?: string;
   location?: { address?: string; city?: string; state?: string; zip?: string };
   payment?: {
     totalQuote?: number;
     taxRate?: number | string | null;
+    invoice_adjustments_total?: number | string | null;
+    invoiceAdjustmentsTotal?: number | string | null;
     discount_type?: PricingDiscountType;
     discount_value?: number | string | null;
     discount_amount?: number | string | null;
@@ -383,4 +387,3 @@ export const resolveSelectedServiceIds = (serviceSource: SelectedServiceSource[]
 
   return ids;
 };
-

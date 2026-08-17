@@ -14,26 +14,14 @@ import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerA
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import { buildWallClockIso } from '@/utils/wallClockDateTime';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { getShootInvoiceAdjustmentTotal } from '@/utils/shootServiceItems';
+import {
+  addInvoiceAdjustmentToCatalogTotal,
+  getShootEditCatalogServiceEntries,
+  getShootEditCatalogServiceId,
+} from './shootEditInvoiceAdjustments';
+import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
 import { extractLookupPropertyDetails, formatDateForInputValue, formatTimeForInputValue, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type SelectedServiceSource, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
-
-const buildTimeOptions = (ensure?: string | null) => {
-  const options: { value: string; label: string }[] = [];
-  for (let h = 8; h <= 19; h++) {
-    for (let minuteValue = 0; minuteValue < 60; minuteValue += 5) {
-      if (h === 19 && minuteValue !== 0) continue;
-      const value = `${h.toString().padStart(2, '0')}:${minuteValue.toString().padStart(2, '0')}`;
-      options.push({ value, label: formatTimeForDisplay(value) });
-    }
-  }
-  if (ensure && !options.some((option) => option.value === ensure)) {
-    const [hours, minutes] = ensure.split(':').map(Number);
-    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
-      options.push({ value: ensure, label: formatTimeForDisplay(ensure) });
-      options.sort((left, right) => left.value.localeCompare(right.value));
-    }
-  }
-  return options;
-};
 export function useShootEditModalController({
   isOpen,
   onClose,
@@ -203,11 +191,7 @@ export function useShootEditModalController({
           setAlternateTime(normalizeTimeValue(shoot.alternate_time || shoot.alternateTime) || '');
           const rawTaxPercent = shoot.tax_percent ?? shoot.taxPercent ?? shoot.payment?.taxRate ?? 0;
           setTaxPercent(Number(rawTaxPercent) || 0);
-          const serviceSource = Array.isArray(shoot.serviceObjects) && shoot.serviceObjects.length > 0
-            ? shoot.serviceObjects
-            : Array.isArray(shoot.services)
-            ? shoot.services
-            : [];
+          const serviceSource = getShootEditCatalogServiceEntries(shoot);
           if (serviceSource.length > 0) {
             const ids = resolveSelectedServiceIds(serviceSource, mappedServices);
             setSelectedServiceIds(ids);
@@ -218,8 +202,8 @@ export function useShootEditModalController({
                 : [];
             const scheduleByServiceId = new Map<string, ServiceScheduleFields>();
             rawServiceItems.forEach((item: Record<string, unknown>) => {
-              const serviceId = item.service_id ?? item.serviceId;
-              if (serviceId === null || serviceId === undefined) return;
+              const serviceId = getShootEditCatalogServiceId(item);
+              if (!serviceId) return;
               const scheduledAt = item.scheduled_at ?? item.scheduledAt;
               const date = formatDateForInputValue(scheduledAt);
               const time = formatTimeForInputValue(scheduledAt);
@@ -235,9 +219,8 @@ export function useShootEditModalController({
             const nextServiceSchedules: Record<string, ServiceScheduleFields> = {};
             serviceSource.forEach((service: SelectedServiceSource & Record<string, unknown>) => {
               if (!service || typeof service !== 'object') return;
-              const serviceId = service.id ?? service.service_id;
-              if (serviceId === null || serviceId === undefined) return;
-              const normalizedServiceId = String(serviceId);
+              const normalizedServiceId = getShootEditCatalogServiceId(service);
+              if (!normalizedServiceId) return;
               const directScheduledAt = service.scheduled_at ?? service.scheduledAt;
               nextServiceSchedules[normalizedServiceId] =
                 scheduleByServiceId.get(normalizedServiceId) || {
@@ -320,11 +303,7 @@ export function useShootEditModalController({
   }, [selectedServiceIds, availableServices, propertySqft]);
   useEffect(() => {
     if (!shootDetails || selectedServiceIds.size > 0 || availableServices.length === 0) return;
-    const serviceSource = Array.isArray(shootDetails.serviceObjects) && shootDetails.serviceObjects.length > 0
-      ? shootDetails.serviceObjects
-      : Array.isArray(shootDetails.services)
-      ? shootDetails.services
-      : [];
+    const serviceSource = getShootEditCatalogServiceEntries(shootDetails);
     if (!serviceSource.length) return;
     const ids = resolveSelectedServiceIds(serviceSource, availableServices);
     if (ids.size > 0) {
@@ -332,6 +311,10 @@ export function useShootEditModalController({
     }
   }, [availableServices, selectedServiceIds.size, shootDetails]);
   const clientName = shootDetails?.client?.name || 'Unknown Client';
+  const invoiceAdjustmentTotal = useMemo(
+    () => getShootInvoiceAdjustmentTotal(shootDetails),
+    [shootDetails],
+  );
   const clientEmail = shootDetails?.client?.email || '';
   const clientPhone = shootDetails?.client?.phonenumber || shootDetails?.client?.phone || '';
   const clientVerified = Boolean(
@@ -683,7 +666,10 @@ export function useShootEditModalController({
       discount_value: pricing.discountValue,
       discount_amount: pricing.discountAmount,
       tax_amount: pricing.taxAmount,
-      total_quote: pricing.totalQuote,
+      total_quote: addInvoiceAdjustmentToCatalogTotal(
+        pricing.totalQuote,
+        invoiceAdjustmentTotal,
+      ),
     };
     if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
       payload.photographer_id = Number(photographerId);
@@ -818,31 +804,6 @@ export function useShootEditModalController({
       notifyPhotographer: false,
       silent: true,
     });
-  const normalizeTimeValue = (raw?: string | null): string | null => {
-    if (!raw) return null;
-    const value = raw.trim();
-    if (!value) return null;
-    const ampmMatch = value.match(/^(\d{1,2}):(\d{2})\s*([APap][Mm])$/);
-    if (ampmMatch) {
-      let hours = parseInt(ampmMatch[1], 10);
-      const minutes = parseInt(ampmMatch[2], 10);
-      const suffix = ampmMatch[3].toLowerCase();
-      if (suffix === 'pm' && hours !== 12) hours += 12;
-      if (suffix === 'am' && hours === 12) hours = 0;
-      if (minutes >= 0 && minutes < 60 && hours >= 0 && hours < 24) {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      }
-    }
-    const hhmmMatch = value.match(/^(\d{1,2}):(\d{2})(:\d{2})?$/);
-    if (hhmmMatch) {
-      const hours = parseInt(hhmmMatch[1], 10);
-      const minutes = parseInt(hhmmMatch[2], 10);
-      if (minutes >= 0 && minutes < 60 && hours >= 0 && hours < 24) {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      }
-    }
-    return null;
-  };
   const [timeOptions, setTimeOptions] = useState<{ value: string; label: string }[]>(() =>
     buildTimeOptions(scheduledTime),
   );
@@ -956,12 +917,23 @@ export function useShootEditModalController({
     const discountLabel = pricing.discountType === 'fixed'
       ? `Discount ($${pricing.discountValue?.toFixed?.(2) ?? Number(pricing.discountValue || 0).toFixed(2)})`
       : `Discount (${Number(pricing.discountValue || 0)}%)`;
-    return { servicesTotal, pricing, discountLabel };
+    return {
+      servicesTotal,
+      pricing: {
+        ...pricing,
+        totalQuote: addInvoiceAdjustmentToCatalogTotal(
+          pricing.totalQuote,
+          invoiceAdjustmentTotal,
+        ),
+      },
+      discountLabel,
+    };
   }, [
     activeDiscountType,
     activeDiscountValue,
     availableServices,
     hasVariablePricingWithoutSqft,
+    invoiceAdjustmentTotal,
     selectedServiceIds,
     taxPercent,
     getServicePrice,
