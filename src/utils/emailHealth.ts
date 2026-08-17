@@ -236,6 +236,33 @@ export function analyzeEmailInput(email: string): LocalEmailHealthHint {
   };
 }
 
+export function isUserEmailVerified(emailHealth?: EmailHealth | null): boolean {
+  return emailHealth?.status === 'verified';
+}
+
+export function canResendUserVerification(
+  viewerRole: string | undefined,
+  user: { role?: string | null; email?: string | null; email_health?: EmailHealth | null },
+): boolean {
+  const status = user.email_health?.status ?? null;
+  if (!user.email) {
+    return false;
+  }
+  if (['admin', 'superadmin'].includes(String(user.role ?? ''))) {
+    return false;
+  }
+  if (status === 'verified') {
+    return false;
+  }
+  if (!viewerRole) {
+    return status !== 'bounced' && status !== 'invalid';
+  }
+  if (!['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole)) {
+    return status !== 'bounced' && status !== 'invalid';
+  }
+  return status !== 'bounced' && status !== 'invalid';
+}
+
 export function getEmailHealthLabel(status?: EmailHealthStatus): string {
   switch (status) {
     case 'verified':

@@ -14,7 +14,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
-import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight } from "lucide-react";
+import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight, Mail } from "lucide-react";
+import { canResendUserVerification } from "@/utils/emailHealth";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
@@ -30,6 +31,7 @@ interface AccountListProps {
   onManageNotifications: (user: User) => void;
   onLinkClientBranding: (user: User) => void;
   onViewProfile: (user: User) => void;
+  onResendVerification?: (user: User) => void;
   onDeleteUser: (user: User) => void;
   getClientMenuActions?: (user: User) => {
     onBookShoot: (e: React.MouseEvent) => void;
@@ -50,6 +52,7 @@ export function AccountList({
   onManageNotifications,
   onLinkClientBranding,
   onViewProfile,
+  onResendVerification,
   onDeleteUser,
   getClientMenuActions,
 }: AccountListProps) {
@@ -190,6 +193,11 @@ export function AccountList({
                     {canManageAccounts && onConvertType && (
                       <DropdownMenuItem onClick={() => onConvertType(user)}>
                         <ArrowLeftRight className="mr-2 h-4 w-4" /> Convert Account Type
+                      </DropdownMenuItem>
+                    )}
+                    {onResendVerification && canResendUserVerification(viewerRole, user) && (
+                      <DropdownMenuItem onClick={() => onResendVerification(user)}>
+                        <Mail className="mr-2 h-4 w-4" /> Resend verification
                       </DropdownMenuItem>
                     )}
                     {canManageAccounts && (

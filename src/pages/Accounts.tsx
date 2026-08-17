@@ -1440,7 +1440,7 @@ export default function Accounts() {
                     onImpersonate={handleImpersonate}
                     onManageNotifications={handleManageNotifications}
                     onLinkClientBranding={handleLinkClientBranding}
-                    onViewProfile={handleViewProfile}
+                    onViewProfile={handleViewProfile} onResendVerification={handleResendVerification}
                     onDeleteUser={requestDeleteUser}
                     clientMenuActions={getClientMenuHandlers(user)}
                   />
@@ -1475,7 +1475,7 @@ export default function Accounts() {
                 onImpersonate={handleImpersonate}
                 onManageNotifications={handleManageNotifications}
                 onLinkClientBranding={handleLinkClientBranding}
-                onViewProfile={handleViewProfile}
+                onViewProfile={handleViewProfile} onResendVerification={handleResendVerification}
                 onDeleteUser={requestDeleteUser}
                 getClientMenuActions={getClientMenuHandlers}
               />

@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import { canResendUserVerification } from "@/utils/emailHealth";
 
 interface AccountCardProps {
   user: User & { accountRep?: string; lastShootDate?: string };
@@ -45,6 +46,7 @@ interface AccountCardProps {
   onManageNotifications: (user: User) => void;
   onLinkClientBranding: (user: User) => void;
   onViewProfile: (user: User) => void;
+  onResendVerification?: (user: User) => void;
   onDeleteUser?: (user: User) => void;
   isActive?: boolean;
   clientMenuActions?: {
@@ -66,6 +68,7 @@ export function AccountCard({
   onManageNotifications,
   onLinkClientBranding,
   onViewProfile,
+  onResendVerification,
   onDeleteUser,
   clientMenuActions,
 }: AccountCardProps) {
@@ -184,6 +187,14 @@ export function AccountCard({
                   onManageStatus(user);
                 }}>
                   <ShieldCheck className="mr-2 h-4 w-4" /> Account Status
+                </DropdownMenuItem>
+              )}
+              {onResendVerification && canResendUserVerification(viewerRole, user) && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onResendVerification(user);
+                }}>
+                  <Mail className="mr-2 h-4 w-4" /> Resend verification
                 </DropdownMenuItem>
               )}
               {canManageAccounts && (

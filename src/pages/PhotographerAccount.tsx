@@ -37,6 +37,7 @@ import {
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
+import { canResendUserVerification } from '@/utils/emailHealth';
 import { API_BASE_URL } from '@/config/env';
 import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -90,10 +91,7 @@ const PhotographerAccount = () => {
   const { saveProfile } = useSelfProfileSave();
   const { isResendingVerification, resendVerification } = useResendVerificationEmail();
   const pendingAddress = user?.pending_address_change;
-  const canResendVerification =
-    Boolean(user?.email)
-    && user?.email_health?.status !== 'verified'
-    && !user?.email_health?.email_verified_at;
+  const canResendVerification = canResendUserVerification(undefined, user ?? {});
 
   // Pull values previously stored on user.metadata so we can hydrate the form.
   const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};

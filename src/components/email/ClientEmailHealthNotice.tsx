@@ -29,8 +29,8 @@ const normalizeEmailValue = (value: unknown): string => (
 );
 
 const buildNoticeConfig = (email: string, emailHealth?: EmailHealth): NoticeConfig | null => {
-  const status = emailHealth?.status;
-  if (!status || status === 'verified') {
+  const status = emailHealth?.status ?? 'unverified';
+  if (status === 'verified') {
     return null;
   }
 

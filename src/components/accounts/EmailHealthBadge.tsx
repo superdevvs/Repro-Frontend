@@ -8,14 +8,16 @@ interface EmailHealthBadgeProps {
 }
 
 export function EmailHealthBadge({ emailHealth }: EmailHealthBadgeProps) {
-  if (!emailHealth?.status) {
+  if (!emailHealth) {
     return null;
   }
 
+  const status = emailHealth.status ?? 'unverified';
+
   return (
-    <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEmailHealthClasses(emailHealth.status)}`}>
+    <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEmailHealthClasses(status)}`}>
       <Mail className="h-3 w-3 shrink-0" />
-      {getEmailHealthLabel(emailHealth.status)}
+      {getEmailHealthLabel(status)}
     </Badge>
   );
 }

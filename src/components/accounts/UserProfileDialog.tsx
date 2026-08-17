@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { ShootData } from "@/types/shoots";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import { canResendUserVerification } from "@/utils/emailHealth";
 
 interface UserActivity {
   id: string;
@@ -101,14 +102,7 @@ export function UserProfileDialog({
   const profileUser = user as UserProfileDialogUser;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
-  const emailHealthStatus = user.email_health?.status ?? null;
-  const isEmailVerified = emailHealthStatus === 'verified' || Boolean(user.email_health?.email_verified_at);
-  const canResendVerification =
-    ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole)
-    && !['admin', 'superadmin'].includes(user.role)
-    && Boolean(user.email)
-    && !isEmailVerified
-    && !['bounced', 'invalid'].includes(emailHealthStatus ?? '');
+  const canResendVerification = canResendUserVerification(viewerRole, user);
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
