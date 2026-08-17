@@ -136,6 +136,9 @@ export function AccountCard({
                   <span>{user.email}</span>
                 </span>
                 <EmailHealthBadge emailHealth={user.email_health} />
+                {user.pending_address_change?.status === 'pending' && (
+                  <Badge variant="outline" className="border-amber-300 text-amber-800">Pending address</Badge>
+                )}
               </div>
             </div>
           </div>

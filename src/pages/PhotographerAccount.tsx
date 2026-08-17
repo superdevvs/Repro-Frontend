@@ -37,6 +37,7 @@ import {
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
+import { approvedAddressFromUser } from '@/pages/applyApprovedPhotographerAddress';
 import { canResendUserVerification } from '@/utils/emailHealth';
 import { API_BASE_URL } from '@/config/env';
 import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
@@ -92,15 +93,11 @@ const PhotographerAccount = () => {
   const { isResendingVerification, resendVerification, resendFeedback } = useResendVerificationEmail();
   const pendingAddress = user?.pending_address_change;
   const canResendVerification = canResendUserVerification(undefined, user ?? {});
-
-  // Pull values previously stored on user.metadata so we can hydrate the form.
   const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
   const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
   const taxInfoSubmitted = Boolean(userMetadata.tax_document_submitted_at || userMetadata.tax_document_url);
   const taxDocumentName = String(userMetadata.tax_document_name ?? '');
   const taxSubmittedAt = String(userMetadata.tax_document_submitted_at ?? '');
-
-  // Tax / license document upload state.
   const [taxDialogOpen, setTaxDialogOpen] = useState(false);
   const [selectedTaxDocument, setSelectedTaxDocument] = useState<File | null>(null);
   const [taxNotes, setTaxNotes] = useState('');
@@ -242,11 +239,14 @@ const PhotographerAccount = () => {
         },
       });
       personalInfoForm.setValue('currentPassword', '');
+      const approved = approvedAddressFromUser(result.user);
+      personalInfoForm.setValue('address', approved.address);
+      personalInfoForm.setValue('city', approved.city);
+      personalInfoForm.setValue('state', approved.state);
+      personalInfoForm.setValue('zip', approved.zip);
       if (!result.reauthRequired) {
         toast({
-          title: result.user && (result.user as { pending_address_change?: unknown }).pending_address_change
-            ? 'Address submitted for approval'
-            : 'Profile updated',
+          title: approved.pending ? 'Address submitted for approval' : 'Profile updated',
           description: result.message || 'Your personal information has been updated successfully.',
         });
       }

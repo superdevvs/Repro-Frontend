@@ -141,6 +141,9 @@ export function AccountList({
                     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span>{user.email}</span>
                       <EmailHealthBadge emailHealth={user.email_health} />
+                      {user.pending_address_change?.status === 'pending' && (
+                        <Badge variant="outline" className="border-amber-300 text-amber-800">Pending address</Badge>
+                      )}
                     </div>
                   </div>
                 </div>

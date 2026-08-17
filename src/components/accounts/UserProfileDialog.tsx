@@ -243,6 +243,20 @@ export function UserProfileDialog({
                     </div>
                   )}
 
+                  {user.role === 'photographer' && (user.address || user.city || user.state || user.zipcode) && (
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-muted-foreground">Location</p>
+                      <p className="font-medium">
+                        {[
+                          user.address,
+                          user.city,
+                          user.state,
+                          user.zipcode,
+                        ].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                  )}
+
                   {user.role === 'photographer' && user.pending_address_change?.status === 'pending' && (
                     <div className="md:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50 p-3">
                       <p className="text-sm font-medium">Pending address change</p>
