@@ -201,6 +201,7 @@ const Dashboard = () => {
   } = useClientDashboardLayoutMeasure(role, isMobile);
   const {
     clientEmailActionPending,
+    clientEmailResendFeedback,
     handleManageClientEmail,
     handleResendClientVerification,
   } = useClientDashboardActions({
@@ -593,6 +594,7 @@ const Dashboard = () => {
             clientDesktopShootsContainerRef={clientDesktopShootsContainerRef}
             clientDesktopShootsHeight={clientDesktopShootsHeight}
             clientEmailActionPending={clientEmailActionPending}
+            clientEmailResendFeedback={clientEmailResendFeedback}
             clientOnHoldRecords={clientOnHoldRecords}
             clientShoots={clientShoots}
             clientUpcomingRecords={clientUpcomingRecords}

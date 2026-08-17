@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import type { NavigateFunction } from "react-router-dom";
 
 import { API_BASE_URL } from "@/config/env";
 import type { useToast } from "@/hooks/use-toast";
+import { useResendVerificationEmail } from "@/hooks/useResendVerificationEmail";
 import { getAuthToken } from "@/utils/authToken";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
@@ -21,10 +22,9 @@ export const useClientDashboardActions = ({
   navigate,
   role,
   setUser,
-  toast,
   userId,
 }: UseClientDashboardActionsParams) => {
-  const [clientEmailActionPending, setClientEmailActionPending] = useState(false);
+  const { resendVerification, isResendingVerification, resendFeedback } = useResendVerificationEmail();
 
   useEffect(() => {
     if (role !== "client" || !userId) {
@@ -72,54 +72,12 @@ export const useClientDashboardActions = ({
   }, [navigate]);
 
   const handleResendClientVerification = useCallback(async () => {
-    const token = getAuthToken(accessToken);
-    if (!token) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in again to resend verification.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setClientEmailActionPending(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/profile/email-verification/resend`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.message || "Unable to send a verification email right now.");
-      }
-
-      if (payload?.user) {
-        setUser(payload.user as any);
-      }
-
-      toast({
-        title: "Verification email sent",
-        description: payload?.message || "Check your inbox to verify your email address.",
-      });
-    } catch (error) {
-      toast({
-        title: "Unable to send verification",
-        description:
-          error instanceof Error ? error.message : "Unable to send a verification email right now.",
-        variant: "destructive",
-      });
-    } finally {
-      setClientEmailActionPending(false);
-    }
-  }, [accessToken, setUser, toast]);
+    await resendVerification();
+  }, [resendVerification]);
 
   return {
-    clientEmailActionPending,
+    clientEmailActionPending: isResendingVerification,
+    clientEmailResendFeedback: resendFeedback,
     handleManageClientEmail,
     handleResendClientVerification,
   };

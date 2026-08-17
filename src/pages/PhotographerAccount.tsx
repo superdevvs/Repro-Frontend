@@ -89,7 +89,7 @@ const PhotographerAccount = () => {
     setTimeFormat,
   } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
-  const { isResendingVerification, resendVerification } = useResendVerificationEmail();
+  const { isResendingVerification, resendVerification, resendFeedback } = useResendVerificationEmail();
   const pendingAddress = user?.pending_address_change;
   const canResendVerification = canResendUserVerification(undefined, user ?? {});
 
@@ -430,16 +430,22 @@ const PhotographerAccount = () => {
                                   <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
                                   <FormDescription>Changing this requires your current password.</FormDescription>
                                   {canResendVerification && (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="mt-2"
-                                      onClick={() => void resendVerification()}
-                                      disabled={isResendingVerification}
-                                    >
-                                      {isResendingVerification ? 'Sending...' : 'Resend verification email'}
-                                    </Button>
+                                    <div className="mt-2 space-y-1.5">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void resendVerification()}
+                                        disabled={isResendingVerification}
+                                      >
+                                        {isResendingVerification ? 'Sending...' : 'Resend verification email'}
+                                      </Button>
+                                      {resendFeedback && (
+                                        <p className={`text-sm ${resendFeedback.ok ? 'text-emerald-700' : 'text-destructive'}`}>
+                                          {resendFeedback.message}
+                                        </p>
+                                      )}
+                                    </div>
                                   )}
                                   <FormMessage />
                                 </FormItem>

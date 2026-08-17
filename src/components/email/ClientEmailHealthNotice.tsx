@@ -11,6 +11,7 @@ interface ClientEmailHealthNoticeProps {
   onManageEmail?: () => void;
   onResendVerification?: () => void;
   resendPending?: boolean;
+  resendFeedback?: { ok: boolean; message: string } | null;
   className?: string;
   variant?: 'card' | 'banner';
 }
@@ -81,6 +82,7 @@ export function ClientEmailHealthNotice({
   onManageEmail,
   onResendVerification,
   resendPending = false,
+  resendFeedback = null,
   className,
   variant = 'card',
 }: ClientEmailHealthNoticeProps) {
@@ -147,6 +149,11 @@ export function ClientEmailHealthNotice({
             </Button>
           </div>
         </div>
+        {resendFeedback && (
+          <p className={`mt-2 text-xs ${resendFeedback.ok ? 'text-emerald-700' : 'text-destructive'}`}>
+            {resendFeedback.message}
+          </p>
+        )}
       </section>
     );
   }
@@ -190,6 +197,11 @@ export function ClientEmailHealthNotice({
           </Button>
         </div>
       </div>
+      {resendFeedback && (
+        <p className={`mt-3 text-sm ${resendFeedback.ok ? 'text-emerald-700' : 'text-destructive'}`}>
+          {resendFeedback.message}
+        </p>
+      )}
     </section>
   );
 }

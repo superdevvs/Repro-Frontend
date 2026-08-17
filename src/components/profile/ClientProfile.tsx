@@ -19,13 +19,12 @@ import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
 import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
-import { API_BASE_URL } from "@/config/env";
-import { getAuthToken } from "@/utils/authToken";
+import { useResendVerificationEmail } from "@/hooks/useResendVerificationEmail";
 
 export function ClientProfile() {
   const { user, setUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const { isResendingVerification, resendVerification, resendFeedback } = useResendVerificationEmail();
   const [serverEmailHealth, setServerEmailHealth] = useState(normalizeEmailHealth(user?.email_health));
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
@@ -142,38 +141,7 @@ export function ClientProfile() {
   };
 
   const handleResendVerification = async () => {
-    const token = getAuthToken();
-
-    if (!token) {
-      toast.error('Please sign in again to resend verification.');
-      return;
-    }
-
-    setIsResendingVerification(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/profile/email-verification/resend`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.message || 'Unable to send a verification email right now.');
-      }
-
-      if (payload?.user) {
-        setUser(payload.user as any);
-      }
-
-      toast.success(payload?.message || 'Verification email sent. Check your inbox.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to send a verification email right now.');
-    } finally {
-      setIsResendingVerification(false);
-    }
+    await resendVerification();
   };
 
   const mockPhotographers = [
@@ -212,6 +180,7 @@ export function ClientProfile() {
         }}
         onResendVerification={handleResendVerification}
         resendPending={isResendingVerification}
+        resendFeedback={resendFeedback}
       />
 
       <form onSubmit={handleSubmit} className="space-y-8">

@@ -24,6 +24,7 @@ import { ShootData } from "@/types/shoots";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 import { canResendUserVerification } from "@/utils/emailHealth";
+import type { ResendVerificationResult } from "@/hooks/useResendVerificationEmail";
 
 interface UserActivity {
   id: string;
@@ -66,9 +67,10 @@ interface UserProfileDialogProps {
   onOpenChange: (open: boolean) => void;
   user: User | null;
   onEdit?: () => void;
-  onResendVerification?: (user: UserProfileDialogUser) => Promise<void> | void;
+  onResendVerification?: (user: UserProfileDialogUser) => Promise<unknown> | void;
   onReviewAddressChange?: (user: UserProfileDialogUser, decision: 'approve' | 'reject') => Promise<void> | void;
   isResendingVerification?: boolean;
+  resendFeedback?: ResendVerificationResult | null;
   isReviewingAddress?: boolean;
   accountRep?: string;
   lastShootDate?: string;
@@ -90,6 +92,7 @@ export function UserProfileDialog({
   onResendVerification,
   onReviewAddressChange,
   isResendingVerification = false,
+  resendFeedback = null,
   isReviewingAddress = false,
   accountRep = 'Unassigned',
   lastShootDate,
@@ -220,10 +223,15 @@ export function UserProfileDialog({
                             disabled={isResendingVerification}
                           >
                             {isResendingVerification && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Resend verification
+                            {isResendingVerification ? 'Sending...' : 'Resend verification'}
                           </Button>
                         )}
                       </div>
+                      {resendFeedback && (
+                        <p className={`mt-2 text-sm ${resendFeedback.ok ? 'text-emerald-700' : 'text-destructive'}`}>
+                          {resendFeedback.message}
+                        </p>
+                      )}
                       {user.email_health?.warning_message && (
                         <p className="mt-2 text-sm">{user.email_health.warning_message}</p>
                       )}

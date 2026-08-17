@@ -54,6 +54,7 @@ interface ClientDashboardViewProps {
   clientDesktopShootsContainerRef: React.RefObject<HTMLDivElement | null>;
   clientDesktopShootsHeight: number | null;
   clientEmailActionPending: boolean;
+  clientEmailResendFeedback?: { ok: boolean; message: string } | null;
   clientOnHoldRecords: ClientShootRecord[];
   clientShoots: ShootData[];
   clientUpcomingRecords: ClientShootRecord[];
@@ -81,6 +82,7 @@ export const ClientDashboardView = ({
   clientDesktopShootsContainerRef,
   clientDesktopShootsHeight,
   clientEmailActionPending,
+  clientEmailResendFeedback,
   clientOnHoldRecords,
   clientShoots,
   clientUpcomingRecords,
@@ -228,6 +230,7 @@ export const ClientDashboardView = ({
         onManageEmail={onManageClientEmail}
         onResendVerification={onResendClientVerification}
         resendPending={clientEmailActionPending}
+        resendFeedback={clientEmailResendFeedback}
         variant="banner"
       />
       <DashboardOnboarding

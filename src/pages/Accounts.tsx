@@ -49,6 +49,7 @@ import { InactiveClientsPanel } from '@/components/accounts/InactiveClientsPanel
 import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { usePermission } from '@/hooks/usePermission';
+import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
 
 type InsightRole = Extract<Role, 'client' | 'photographer' | 'editor' | 'salesRep'>;
 
@@ -188,7 +189,7 @@ export default function Accounts() {
   const [linkClientBrandingDialogOpen, setLinkClientBrandingDialogOpen] = useState(false);
   const [userProfileDialogOpen, setUserProfileDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
-  const [resendingVerificationUserId, setResendingVerificationUserId] = useState<string | null>(null);
+  const { resendForAccount, resendingUserId, resendFeedback } = useResendVerificationEmail();
   const [userPendingDelete, setUserPendingDelete] = useState<UserType | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
@@ -1076,57 +1077,21 @@ export default function Accounts() {
   };
 
   const handleResendVerification = async (user: UserType) => {
-    try {
-      setResendingVerificationUserId(user.id);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) {
-        handleSessionExpired();
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${user.id}/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401 || response.status === 419) {
-        handleSessionExpired();
-        return;
-      }
-
-      const responseData = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to resend verification email');
-      }
-
-      const refreshedUser = responseData.user ?? user;
+    const result = await resendForAccount(user);
+    if (result.message.includes('sign in again')) {
+      handleSessionExpired();
+      return result;
+    }
+    if (result.ok && result.user) {
+      const refreshedUser = result.user as UserType;
       setUsers((previousUsers) => previousUsers.map((entry) => (
         entry.id === user.id ? { ...entry, ...refreshedUser } : entry
       )));
       setSelectedUser((currentSelectedUser) => (
         currentSelectedUser?.id === user.id ? { ...currentSelectedUser, ...refreshedUser } : currentSelectedUser
       ));
-
-      toast({
-        title: 'Verification email sent',
-        description: `A fresh verification email was sent to ${refreshedUser.email ?? user.email}.`,
-      });
-    } catch (error) {
-      console.error('Error resending verification email:', error);
-      if (sessionExpiredRef.current) {
-        return;
-      }
-      toast({
-        title: 'Unable to resend verification',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setResendingVerificationUserId(null);
     }
+    return result;
   };
 
   const handleUpdatePassword = async (userId: string, password: string) => {
@@ -1596,7 +1561,8 @@ export default function Accounts() {
               onEdit={() => handleEditUser(selectedUser)}
               onResendVerification={selectedUser ? handleResendVerification : undefined}
               onReviewAddressChange={selectedUser ? reviewAddressChange : undefined}
-              isResendingVerification={selectedUser?.id === resendingVerificationUserId}
+              isResendingVerification={selectedUser?.id === resendingUserId}
+              resendFeedback={String(resendFeedback?.user?.id ?? '') === String(selectedUser?.id) ? resendFeedback : null}
               isReviewingAddress={selectedUser?.id === reviewingAddressUserId}
               accountRep={selectedUserAccountRep}
               lastShootDate={selectedUserLastShootDate}
