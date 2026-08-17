@@ -90,7 +90,8 @@ while IFS= read -r vite_variable; do
 done < <(compgen -A variable VITE_ || true)
 echo "Cleared $CLEARED_VITE_VARIABLES inherited VITE_* variable(s) before the production build."
 
-API_ENV_VALUE="$(sed -n 's/^[[:space:]]*VITE_API_URL[[:space:]]*=[[:space:]]*//p' .env | tail -n 1 | tr -d '\r' | sed -e 's/^['\"'\"']//' -e 's/['\"'\"']$//' -e 's:/*$::')"
+API_ENV_VALUE="$(sed -n 's/^[[:space:]]*VITE_API_URL[[:space:]]*=[[:space:]]*//p' .env | tail -n 1 | tr -d '')"
+API_ENV_VALUE="${API_ENV_VALUE%/}"
 if [ "$API_ENV_VALUE" != "https://api.reprodashboard.com" ]; then
   echo "Production VITE_API_URL is missing or invalid; expected https://api.reprodashboard.com." >&2
   exit 1
