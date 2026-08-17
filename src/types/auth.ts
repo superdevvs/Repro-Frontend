@@ -81,6 +81,7 @@ export interface UserData {
   address?: string;
   city?: string;
   state?: string;
+  zip?: string;
   zipcode?: string;
   timezone?: string;
   company?: string;

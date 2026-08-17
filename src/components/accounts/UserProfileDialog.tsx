@@ -245,7 +245,7 @@ export function UserProfileDialog({
                     </div>
                   )}
 
-                  {user.role === 'photographer' && addressVisibility !== 'hidden' && (user.address || user.city || user.state || user.zipcode) && (
+                  {user.role === 'photographer' && addressVisibility !== 'hidden' && (user.address || user.city || user.state || user.zipcode || user.zip) && (
                     <div className="md:col-span-2">
                       <p className="text-sm text-muted-foreground">
                         {addressVisibility === 'full' ? 'Location' : 'Location (city / state / ZIP)'}
@@ -255,7 +255,7 @@ export function UserProfileDialog({
                           addressVisibility === 'full' ? user.address : null,
                           user.city,
                           user.state,
-                          user.zipcode,
+                          user.zipcode || user.zip,
                         ].filter(Boolean).join(', ')}
                       </p>
                     </div>
