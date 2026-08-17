@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
+import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
 import { API_BASE_URL } from '@/config/env';
 import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -87,6 +88,12 @@ const PhotographerAccount = () => {
     setTimeFormat,
   } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
+  const { isResendingVerification, resendVerification } = useResendVerificationEmail();
+  const pendingAddress = user?.pending_address_change;
+  const canResendVerification =
+    Boolean(user?.email)
+    && user?.email_health?.status !== 'verified'
+    && !user?.email_health?.email_verified_at;
 
   // Pull values previously stored on user.metadata so we can hydrate the form.
   const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
@@ -239,7 +246,9 @@ const PhotographerAccount = () => {
       personalInfoForm.setValue('currentPassword', '');
       if (!result.reauthRequired) {
         toast({
-          title: 'Profile updated',
+          title: result.user && (result.user as { pending_address_change?: unknown }).pending_address_change
+            ? 'Address submitted for approval'
+            : 'Profile updated',
           description: result.message || 'Your personal information has been updated successfully.',
         });
       }
@@ -422,6 +431,18 @@ const PhotographerAccount = () => {
                                   <FormLabel>Email</FormLabel>
                                   <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
                                   <FormDescription>Changing this requires your current password.</FormDescription>
+                                  {canResendVerification && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={() => void resendVerification()}
+                                      disabled={isResendingVerification}
+                                    >
+                                      {isResendingVerification ? 'Sending...' : 'Resend verification email'}
+                                    </Button>
+                                  )}
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -500,6 +521,12 @@ const PhotographerAccount = () => {
                     <CardDescription>Used to assign you nearby shoots</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                          {pendingAddress?.status === 'pending' && (
+                            <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                              Address change pending admin approval
+                              {pendingAddress.city ? `: ${[pendingAddress.street_address, pendingAddress.city, pendingAddress.state, pendingAddress.zip].filter(Boolean).join(', ')}` : '.'}
+                            </div>
+                          )}
                           <FormField
                             control={personalInfoForm.control}
                             name="address"

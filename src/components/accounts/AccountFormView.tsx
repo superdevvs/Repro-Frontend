@@ -423,6 +423,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
               />
               {!isSalesRep && (
                 <>
+                  {!(isSalesRepViewer && currentRole === 'photographer') && (
                   <FormField
                     control={form.control}
                     name="address"
@@ -436,6 +437,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                       </FormItem>
                     )}
                   />
+                  )}
                   <FormField
                     control={form.control}
                     name="city"

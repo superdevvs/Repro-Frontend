@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AccountCard } from "@/components/accounts/AccountCard";
@@ -20,6 +19,7 @@ import { AccountsPagination } from '@/components/accounts/AccountsPagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Role } from '@/components/auth/AuthProvider';
 import { useToast } from "@/hooks/use-toast";
+import { useListedUserAddressReview } from "@/hooks/usePhotographerAddressReview";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -271,11 +271,9 @@ export default function Accounts() {
     },
     [logout, navigate, toast, currentUser],
   );
-
-
+  const { reviewingAddressUserId, reviewAddressChange } = useListedUserAddressReview<UserType>({ onSessionExpired: handleSessionExpired, setUsers, setSelectedUser });
   const handleSessionExpiredRef = useRef(handleSessionExpired);
   handleSessionExpiredRef.current = handleSessionExpired;
-
   useEffect(() => {
     let cancelled = false;
     const fetchUsers = async () => {
@@ -1597,7 +1595,9 @@ export default function Accounts() {
               user={selectedUser}
               onEdit={() => handleEditUser(selectedUser)}
               onResendVerification={selectedUser ? handleResendVerification : undefined}
+              onReviewAddressChange={selectedUser ? reviewAddressChange : undefined}
               isResendingVerification={selectedUser?.id === resendingVerificationUserId}
+              isReviewingAddress={selectedUser?.id === reviewingAddressUserId}
               accountRep={selectedUserAccountRep}
               lastShootDate={selectedUserLastShootDate}
               shootStats={selectedUserStats}

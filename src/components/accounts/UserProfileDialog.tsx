@@ -66,7 +66,9 @@ interface UserProfileDialogProps {
   user: User | null;
   onEdit?: () => void;
   onResendVerification?: (user: UserProfileDialogUser) => Promise<void> | void;
+  onReviewAddressChange?: (user: UserProfileDialogUser, decision: 'approve' | 'reject') => Promise<void> | void;
   isResendingVerification?: boolean;
+  isReviewingAddress?: boolean;
   accountRep?: string;
   lastShootDate?: string;
   shootStats?: {
@@ -85,7 +87,9 @@ export function UserProfileDialog({
   user,
   onEdit = () => {},
   onResendVerification,
+  onReviewAddressChange,
   isResendingVerification = false,
+  isReviewingAddress = false,
   accountRep = 'Unassigned',
   lastShootDate,
   shootStats,
@@ -226,13 +230,48 @@ export function UserProfileDialog({
                           </Button>
                         )}
                       </div>
-                      {user.email_health.warning_message && (
+                      {user.email_health?.warning_message && (
                         <p className="mt-2 text-sm">{user.email_health.warning_message}</p>
                       )}
-                      {user.email_health.bounce_reason && (
+                      {user.email_health?.bounce_reason && (
                         <p className="mt-2 text-sm text-muted-foreground">
                           Last bounce: {user.email_health.bounce_reason}
                         </p>
+                      )}
+                    </div>
+                  )}
+
+                  {user.role === 'photographer' && user.pending_address_change?.status === 'pending' && (
+                    <div className="md:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50 p-3">
+                      <p className="text-sm font-medium">Pending address change</p>
+                      <p className="mt-1 text-sm">
+                        {[
+                          user.pending_address_change.street_address,
+                          user.pending_address_change.city,
+                          user.pending_address_change.state,
+                          user.pending_address_change.zip,
+                        ].filter(Boolean).join(', ') || 'City / state / ZIP only'}
+                      </p>
+                      {onReviewAddressChange && ['admin', 'superadmin'].includes(viewerRole) && (
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={isReviewingAddress}
+                            onClick={() => void onReviewAddressChange(profileUser, 'approve')}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isReviewingAddress}
+                            onClick={() => void onReviewAddressChange(profileUser, 'reject')}
+                          >
+                            Reject
+                          </Button>
+                        </div>
                       )}
                     </div>
                   )}

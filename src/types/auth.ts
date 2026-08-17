@@ -97,6 +97,17 @@ export interface UserData {
   isActive?: boolean;
   metadata?: UserMetadata;
   email_health?: EmailHealth;
+  pending_address_change?: {
+    id?: number;
+    street_address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    status?: string;
+    submitted_at?: string | null;
+    review_note?: string | null;
+  } | null;
+  address_change_pending?: boolean;
   session?: AuthSession;
   // Account linking properties
   linkedAccounts?: LinkedAccountSummary[];
