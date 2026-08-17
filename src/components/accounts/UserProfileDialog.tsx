@@ -24,6 +24,7 @@ import { ShootData } from "@/types/shoots";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 import { canResendUserVerification } from "@/utils/emailHealth";
+import { photographerAddressVisibility } from "@/utils/photographerAddressVisibility";
 import type { ResendVerificationResult } from "@/hooks/useResendVerificationEmail";
 
 interface UserActivity {
@@ -106,6 +107,7 @@ export function UserProfileDialog({
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
   const canResendVerification = canResendUserVerification(viewerRole, user);
+  const addressVisibility = photographerAddressVisibility(user, viewerRole);
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
@@ -243,12 +245,14 @@ export function UserProfileDialog({
                     </div>
                   )}
 
-                  {user.role === 'photographer' && (user.address || user.city || user.state || user.zipcode) && (
+                  {user.role === 'photographer' && addressVisibility !== 'hidden' && (user.address || user.city || user.state || user.zipcode) && (
                     <div className="md:col-span-2">
-                      <p className="text-sm text-muted-foreground">Location</p>
+                      <p className="text-sm text-muted-foreground">
+                        {addressVisibility === 'full' ? 'Location' : 'Location (city / state / ZIP)'}
+                      </p>
                       <p className="font-medium">
                         {[
-                          user.address,
+                          addressVisibility === 'full' ? user.address : null,
                           user.city,
                           user.state,
                           user.zipcode,

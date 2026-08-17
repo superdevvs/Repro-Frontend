@@ -108,6 +108,7 @@ export interface UserData {
     review_note?: string | null;
   } | null;
   address_change_pending?: boolean;
+  address_visibility?: 'full' | 'region' | 'hidden';
   session?: AuthSession;
   // Account linking properties
   linkedAccounts?: LinkedAccountSummary[];

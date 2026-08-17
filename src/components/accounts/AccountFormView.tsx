@@ -27,6 +27,7 @@ import {
   repCategoryOptions,
 } from './accountFormModel';
 import type { AccountFormController } from './useAccountFormController';
+import { canViewPhotographerRegion, canViewPhotographerStreet } from '@/utils/photographerAddressVisibility';
 import { AccountEquipmentFields } from './AccountEquipmentFields';
 import { AccountInsuranceFields } from './AccountInsuranceFields';
 import { AccountRoleSettings } from './AccountRoleSettings';
@@ -49,6 +50,15 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
     canEditSensitiveRepFields, canEditClientRep, showRepSelector, repLabel,
     useDesktopAvatarPicker,
   } = controller;
+  const photographerSubject = {
+    id: initialData?.id,
+    role: currentRole,
+    address_visibility: initialData?.address_visibility,
+  };
+  const showPhotographerStreet = currentRole !== 'photographer' || canViewPhotographerStreet(photographerSubject, viewerRole);
+  const showPhotographerRegion = currentRole !== 'photographer' || canViewPhotographerRegion(photographerSubject, viewerRole);
+  const photographerLocationReadOnly = currentRole === 'photographer'
+    && !['admin', 'superadmin'].includes(String(viewerRole ?? ''));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[calc(100dvh-0.5rem)] w-[calc(100vw-0.5rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-auto sm:max-h-[90vh] sm:w-full sm:gap-4 sm:rounded-lg sm:px-6 sm:py-8">
@@ -423,7 +433,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
               />
               {!isSalesRep && (
                 <>
-                  {!(isSalesRepViewer && currentRole === 'photographer') && (
+                  {showPhotographerStreet && (
                   <FormField
                     control={form.control}
                     name="address"
@@ -438,6 +448,8 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                     )}
                   />
                   )}
+                  {showPhotographerRegion && (
+                  <>
                   <FormField
                     control={form.control}
                     name="city"
@@ -445,7 +457,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                       <FormItem>
                         <FormLabel>City</FormLabel>
                         <FormControl>
-                          <Input placeholder="City" {...field} />
+                          <Input placeholder="City" {...field} disabled={photographerLocationReadOnly} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -458,7 +470,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                       <FormItem>
                         <FormLabel>State</FormLabel>
                         <FormControl>
-                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                          <Select value={field.value || ''} onValueChange={field.onChange} disabled={photographerLocationReadOnly}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select state" />
                             </SelectTrigger>
@@ -482,12 +494,14 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                       <FormItem>
                         <FormLabel>Zip Code</FormLabel>
                         <FormControl>
-                          <Input placeholder="Zip Code" {...field} />
+                          <Input placeholder="Zip Code" {...field} disabled={photographerLocationReadOnly} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  </>
+                  )}
                 </>
               )}
             </div>
