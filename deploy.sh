@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/frontend}"
 FRONTEND_URL="${FRONTEND_URL:-https://reprodashboard.com}"
-API_HEALTH_URL="${API_HEALTH_URL:-https://api.reprodashboard.com/api/ip-location}"
+API_HEALTH_URL="${API_HEALTH_URL:-https://api.reprodashboard.com/up}"
 BUILD_DIR="/tmp/repro-frontend-build-$$"
 RELEASE_ID="$(date +%Y%m%d%H%M%S)"
 RELEASE_DIR="$APP_DIR/releases/$RELEASE_ID"
@@ -138,10 +138,7 @@ verify_deployment() {
         -H 'Cache-Control: no-cache' \
         "$FRONTEND_URL/?release=$RELEASE_ID" \
       && curl --fail --silent --show-error --output /dev/null \
-        --connect-timeout 5 --max-time 20 \
-        "$FRONTEND_URL/$HASHED_JS_RELATIVE" \
-      && curl --fail --silent --show-error --output /dev/null \
-        --connect-timeout 5 --max-time 20 "$API_HEALTH_URL"; then
+        --connect-timeout 5 --max-time 20 "$FRONTEND_URL/$HASHED_JS_RELATIVE"; then
       return 0
     fi
     echo "Deployment verification attempt $attempt/5 did not pass yet." >&2
