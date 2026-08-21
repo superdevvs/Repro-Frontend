@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, MapPin, Calendar, Camera, CreditCard, Lock, XCircle, ArrowLeft, Printer, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js/pure';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
 import { PaymentAlreadyPaidState, PaymentErrorState, PaymentLoadingState } from './PaymentPageStates';

@@ -10,7 +10,7 @@ export interface ShootUpload {
   fileCount: number;
   fileNames: string[];
   uploadType: 'raw' | 'edited';
-  status: 'uploading' | 'completed' | 'failed';
+  status: 'queued' | 'uploading' | 'succeeded' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
   startedAt: Date;
@@ -66,15 +66,17 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [uploads, setUploads] = useState<ShootUpload[]>([]);
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const completionCallbacks = useRef<Map<string, () => void>>(new Map());
+  const cancelledUploads = useRef<Set<string>>(new Set());
 
-  const activeUploadCount = uploads.filter(u => u.status === 'uploading').length;
-  const completedUploadCount = uploads.filter(u => u.status === 'completed').length;
+  const activeUploadCount = uploads.filter(u => u.status === 'queued' || u.status === 'uploading').length;
+  // Keep the existing counter name as a compatibility shim for dashboard consumers.
+  const completedUploadCount = uploads.filter(u => u.status === 'succeeded').length;
   const failedUploadCount = uploads.filter(u => u.status === 'failed').length;
 
   // Warn user before leaving page if uploads are active
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (uploads.some(u => u.status === 'uploading')) {
+      if (uploads.some(u => u.status === 'queued' || u.status === 'uploading')) {
         e.preventDefault();
         e.returnValue = 'You have uploads in progress. Are you sure you want to leave?';
       }
@@ -106,7 +108,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fileCount: params.files.length,
       fileNames: params.files.map(f => f.name),
       uploadType: params.uploadType,
-      status: 'uploading',
+      status: 'queued',
       progress: 0,
       startedAt: new Date(),
     };
@@ -199,17 +201,24 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    void runUpload()
+    void Promise.resolve()
+      .then(async () => {
+        if (cancelledUploads.current.has(uploadId)) return;
+        setUploads(prev => prev.map(u => u.id === uploadId ? { ...u, status: 'uploading' } : u));
+        await runUpload();
+      })
       .then(() => {
+        if (cancelledUploads.current.has(uploadId)) return;
         setUploads(prev =>
-          prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
+          prev.map(u => u.id === uploadId ? { ...u, status: 'succeeded', progress: 100 } : u)
         );
         const cb = completionCallbacks.current.get(uploadId);
         if (cb) { cb(); completionCallbacks.current.delete(uploadId); }
         autoCleanup(uploadId);
       }).catch((error) => {
-        if (axios.isCancel(error)) {
-          setUploads(prev => prev.filter(u => u.id !== uploadId));
+        if (axios.isCancel(error) || cancelledUploads.current.has(uploadId)) {
+          setUploads(prev => prev.map(u => u.id === uploadId ? { ...u, status: 'cancelled' } : u));
+          autoCleanup(uploadId);
         } else {
           const message = (error as UploadRequestError)?.response?.data?.message || (error as UploadRequestError)?.message || 'Upload failed';
           setUploads(prev =>
@@ -238,7 +247,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fileCount: params.fileCount,
       fileNames: params.fileNames,
       uploadType: params.uploadType,
-      status: 'uploading',
+      status: 'queued',
       progress: 0,
       startedAt: new Date(),
     };
@@ -252,15 +261,22 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
     };
 
-    params.uploadFn(onProgress)
+    void Promise.resolve()
+      .then(async () => {
+        if (cancelledUploads.current.has(uploadId)) return;
+        setUploads(prev => prev.map(u => u.id === uploadId ? { ...u, status: 'uploading' } : u));
+        await params.uploadFn(onProgress);
+      })
       .then(() => {
+        if (cancelledUploads.current.has(uploadId)) return;
         setUploads(prev =>
-          prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
+          prev.map(u => u.id === uploadId ? { ...u, status: 'succeeded', progress: 100 } : u)
         );
         params.onComplete?.();
         autoCleanup(uploadId);
       })
       .catch((error: unknown) => {
+        if (cancelledUploads.current.has(uploadId)) return;
         setUploads(prev =>
           prev.map(u => u.id === uploadId
             ? { ...u, status: 'failed', error: (error as UploadRequestError)?.message || 'Upload failed' }
@@ -274,12 +290,15 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [autoCleanup]);
 
   const cancelUpload = useCallback((uploadId: string) => {
+    cancelledUploads.current.add(uploadId);
     const controller = abortControllers.current.get(uploadId);
     if (controller) {
       controller.abort();
     }
     completionCallbacks.current.delete(uploadId);
-  }, []);
+    setUploads(prev => prev.map(u => u.id === uploadId ? { ...u, status: 'cancelled' } : u));
+    autoCleanup(uploadId);
+  }, [autoCleanup]);
 
   const dismissUpload = useCallback((uploadId: string) => {
     const controller = abortControllers.current.get(uploadId);
@@ -288,11 +307,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       abortControllers.current.delete(uploadId);
     }
     completionCallbacks.current.delete(uploadId);
+    cancelledUploads.current.delete(uploadId);
     setUploads(prev => prev.filter(u => u.id !== uploadId));
   }, []);
 
   const clearCompleted = useCallback(() => {
-    setUploads(prev => prev.filter(u => u.status === 'uploading'));
+    setUploads(prev => prev.filter(u => u.status === 'queued' || u.status === 'uploading'));
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -16,12 +16,6 @@ import {
   getGreetingPrefix,
   PENDING_REVIEW_KEYWORDS,
 } from "@/utils/dashboardDerivedUtils";
-import {
-  isClientDeliveredShootDownloaded,
-  isClientDeliveredShootViewed,
-  markClientDeliveredShootDownloaded,
-  markClientDeliveredShootViewed,
-} from "@/utils/clientDeliveredShootTracker";
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import { useDashboardDerivedData } from "@/hooks/useDashboardDerivedData";
 import {
@@ -155,7 +149,7 @@ const LazyCancellationRequestsDialog = lazy(() =>
 );
 
 const Dashboard = () => {
-  const { role, session, user, setUser, isLoading: authLoading } = useAuth();
+  const { role, session, user, isLoading: authLoading } = useAuth();
   const { can, isLoading: permissionsLoading } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
@@ -205,12 +199,7 @@ const Dashboard = () => {
     handleManageClientEmail,
     handleResendClientVerification,
   } = useClientDashboardActions({
-    accessToken: session?.accessToken,
     navigate,
-    role,
-    setUser,
-    toast,
-    userId: user?.id,
   });
 
   // Invoice dialog state - must be defined before shootDetailsModal
@@ -309,6 +298,22 @@ const Dashboard = () => {
     summaryMap,
     toast,
   });
+
+  useEffect(() => {
+    const openRawSubmission = (event: Event) => {
+      const shootId = (event as CustomEvent<{ shootId?: string | number }>).detail?.shootId;
+      if (!shootId) return;
+      void openShootInModalById(shootId, { initialTab: 'overview' }).then(() => {
+        window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('shoot-media-open-upload', {
+            detail: { shootId, displayTab: 'uploaded' },
+          }));
+        }, 0);
+      });
+    };
+    window.addEventListener('dashboard-open-raw-submission', openRawSubmission);
+    return () => window.removeEventListener('dashboard-open-raw-submission', openRawSubmission);
+  }, [openShootInModalById]);
 
   const shootDetailsModal = (
     <>
@@ -609,6 +614,9 @@ const Dashboard = () => {
             onOpenSupportEmail={openSupportEmail}
             onResendClientVerification={handleResendClientVerification}
             onOpenClientRequests={openClientRequestManager}
+          onOpenDeliveredShoot={async (shootId) => {
+            await openShootInModalById(shootId, { initialTab: 'overview' })
+          }}
             onSetMobileClientTab={setMobileClientTab}
             onSetOpenDownloadOnSelect={setOpenDownloadOnSelect}
             onSetSelectedShoot={setSelectedShoot}

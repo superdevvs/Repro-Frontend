@@ -199,59 +199,10 @@ const fetchBackendIpLocation = async (signal?: AbortSignal): Promise<IpLocation 
 };
 
 const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
-  const backendLocation = await fetchBackendIpLocation(signal);
-  if (backendLocation) {
-    return backendLocation;
-  }
-
-  try {
-    const res = await fetch('https://ipapi.co/json/', { signal });
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        return await refineLocationHint({
-          lat: data.latitude,
-          lon: data.longitude,
-          label: buildIpLocationLabel(
-            typeof data.city === 'string' ? data.city : null,
-            typeof data.region_code === 'string'
-              ? data.region_code
-              : (typeof data.region === 'string' ? data.region : null),
-          ),
-          postalCode: typeof data.postal === 'string' ? data.postal : null,
-          countryCode: typeof data.country_code === 'string' ? data.country_code : null,
-        });
-      }
-    }
-  } catch {
-    // ignore and try fallback
-  }
-
-  // Fallback: ipwho.is (HTTPS)
-  try {
-    const res = await fetch('https://ipwho.is/', { signal });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        return await refineLocationHint({
-          lat: data.latitude,
-          lon: data.longitude,
-          label: buildIpLocationLabel(
-            typeof data.city === 'string' ? data.city : null,
-            typeof data.region === 'string'
-              ? data.region
-              : null,
-          ),
-          postalCode: typeof data.postal === 'string' ? data.postal : null,
-          countryCode: typeof data.country_code === 'string' ? data.country_code : null,
-        });
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+  // Keep geolocation behind the application boundary. Browser-side fallbacks
+  // leaked visitor IP data to third parties and produced noisy CSP/network
+  // failures whenever either public service was unavailable.
+  return fetchBackendIpLocation(signal);
 };
 
 const resolveInitialWeatherState = () => {

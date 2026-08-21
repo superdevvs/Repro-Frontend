@@ -258,6 +258,7 @@ export function SquarePaymentDialog({
                 onPaymentError={onPaymentError}
                 onCheckoutActiveChange={handleCheckoutActiveChange}
                 onCheckoutMounted={handleCheckoutMounted}
+                requireAllocatedPartial={canSubmitOfflineIntent}
               />
             )}
           </div>

@@ -1,29 +1,46 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { privacySections, PRIVACY_EFFECTIVE_DATE as PRIVACY_POLICY_EFFECTIVE_DATE } from '@/content/privacyPolicy';
-import { TERMS_EFFECTIVE_DATE, termsSections } from '@/components/auth/registerFormModel';
-import { toast } from '@/lib/sonner-toast';
+} from "@/components/ui/dialog";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  privacySections,
+  PRIVACY_EFFECTIVE_DATE as PRIVACY_POLICY_EFFECTIVE_DATE,
+} from "@/content/privacyPolicy";
+import {
+  TERMS_EFFECTIVE_DATE,
+  termsSections,
+} from "@/components/auth/registerFormModel";
+import { toast } from "@/lib/sonner-toast";
+import { withApiBase } from "@/config/env";
 
-const requiresFirstUseAgreement = (metadata: Record<string, unknown> | undefined | null) => {
+interface ServerLegalDocument {
+  document_key: string;
+  title: string;
+  version: string;
+  effective_date?: string | null;
+  content: string;
+}
+
+const requiresFirstUseAgreement = (
+  metadata: Record<string, unknown> | undefined | null,
+) => {
   if (!metadata) return false;
   if (metadata.terms_accepted_at || metadata.termsAcceptedAt) return false;
   return metadata.first_use_legal_agreement_required === true;
 };
 
 export function FirstLoginLegalAgreementPrompt() {
-  const { user, isAuthenticated, isImpersonating } = useAuth();
+  const { user, setUser, isAuthenticated, isImpersonating } = useAuth();
   const { saveProfile } = useSelfProfileSave();
   const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -31,12 +48,22 @@ export function FirstLoginLegalAgreementPrompt() {
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [serverDocuments, setServerDocuments] = useState<ServerLegalDocument[]>(
+    [],
+  );
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  const photographerPendingDocuments = user?.legal_status?.pending ?? [];
+  const requiresPhotographerAgreement =
+    user?.role === "photographer" &&
+    user?.legal_status?.enforcement_active === true &&
+    photographerPendingDocuments.length > 0;
 
   const shouldRequireAgreement =
     isAuthenticated &&
     !isImpersonating &&
-    (user?.role === 'client' || user?.role === 'photographer') &&
-    requiresFirstUseAgreement(user?.metadata);
+    ((user?.role === "client" && requiresFirstUseAgreement(user?.metadata)) ||
+      requiresPhotographerAgreement);
 
   useEffect(() => {
     if (shouldRequireAgreement) {
@@ -48,6 +75,50 @@ export function FirstLoginLegalAgreementPrompt() {
   }, [shouldRequireAgreement]);
 
   useEffect(() => {
+    if (!open || !requiresPhotographerAgreement) {
+      setServerDocuments([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const token =
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("access_token");
+
+    setIsLoadingDocuments(true);
+    fetch(withApiBase("/api/legal-documents/current"), {
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("Unable to load the current legal documents.");
+        return response.json() as Promise<{
+          documents?: ServerLegalDocument[];
+        }>;
+      })
+      .then((payload) => setServerDocuments(payload.documents ?? []))
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load legal documents.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingDocuments(false);
+      });
+
+    return () => controller.abort();
+  }, [open, requiresPhotographerAgreement]);
+
+  useEffect(() => {
     if (!open) return;
 
     requestAnimationFrame(() => {
@@ -55,7 +126,9 @@ export function FirstLoginLegalAgreementPrompt() {
       if (!element) return;
       const maxScroll = element.scrollHeight - element.clientHeight;
       const isComplete = maxScroll <= 8 || element.scrollTop >= maxScroll - 8;
-      setScrollProgress(maxScroll <= 0 ? 1 : Math.min(1, element.scrollTop / maxScroll));
+      setScrollProgress(
+        maxScroll <= 0 ? 1 : Math.min(1, element.scrollTop / maxScroll),
+      );
       setScrolledToEnd(isComplete);
     });
   }, [open]);
@@ -65,7 +138,9 @@ export function FirstLoginLegalAgreementPrompt() {
     if (!element) return;
     const maxScroll = element.scrollHeight - element.clientHeight;
     const isComplete = maxScroll <= 8 || element.scrollTop >= maxScroll - 8;
-    setScrollProgress(maxScroll <= 0 ? 1 : Math.min(1, element.scrollTop / maxScroll));
+    setScrollProgress(
+      maxScroll <= 0 ? 1 : Math.min(1, element.scrollTop / maxScroll),
+    );
     setScrolledToEnd(isComplete);
   };
 
@@ -74,11 +149,59 @@ export function FirstLoginLegalAgreementPrompt() {
 
     setIsSaving(true);
     try {
-      await saveProfile({ terms_accepted: true });
+      if (requiresPhotographerAgreement) {
+        const token =
+          localStorage.getItem("authToken") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("access_token");
+        let latestStatus = user?.legal_status;
+
+        for (const document of serverDocuments) {
+          const response = await fetch(withApiBase("/api/legal-acceptances"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              document_key: document.document_key,
+              version: document.version,
+            }),
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => ({}))) as {
+              message?: string;
+            };
+            throw new Error(
+              payload.message || "Unable to record legal acceptance.",
+            );
+          }
+
+          const payload = (await response.json()) as {
+            status?: typeof latestStatus;
+          };
+          latestStatus = payload.status ?? latestStatus;
+        }
+
+        if (user && latestStatus)
+          setUser({ ...user, legal_status: latestStatus });
+      } else {
+        await saveProfile({ terms_accepted: true });
+      }
       setOpen(false);
-      toast.success('Terms and privacy policy accepted.');
+      toast.success(
+        requiresPhotographerAgreement
+          ? "Photographer documents accepted."
+          : "Terms and privacy policy accepted.",
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to save agreement. Please try again.');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save agreement. Please try again.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -100,15 +223,21 @@ export function FirstLoginLegalAgreementPrompt() {
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         className={`border-white/10 bg-[#060a0e] text-white [&>button]:hidden ${
-          isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'
+          isMobile
+            ? "w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4"
+            : "max-w-3xl p-6"
         } max-h-[85vh] flex flex-col`}
       >
         <DialogHeader className="space-y-2 pr-8">
           <DialogTitle className="text-left text-xl font-semibold text-white">
-            Terms and Privacy Policy
+            {requiresPhotographerAgreement
+              ? "Photographer Terms and Privacy"
+              : "Terms and Privacy Policy"}
           </DialogTitle>
           <DialogDescription className="text-left text-sm text-slate-400">
-            Please review and accept the R/E Pro Photos Terms and Conditions and Privacy Policy before continuing.
+            {requiresPhotographerAgreement
+              ? "Please review and accept the current photographer documents before continuing."
+              : "Please review and accept the R/E Pro Photos Terms and Conditions and Privacy Policy before continuing."}
           </DialogDescription>
         </DialogHeader>
 
@@ -117,153 +246,212 @@ export function FirstLoginLegalAgreementPrompt() {
           onScroll={updateScrollState}
           className="min-h-0 flex-1 space-y-10 overflow-y-auto pr-2 text-sm leading-6 text-slate-200"
         >
-          <section className="space-y-8">
-            {termsSections.map((document) => (
-              <section key={document.title} className="space-y-4">
-                <div className="space-y-2 border-b border-white/10 pb-4">
-                  <h2 className="text-lg font-semibold text-white">{document.title}</h2>
-                  {'effectiveDate' in document ? (
-                    <p className="text-sm text-slate-400">Effective Date: {document.effectiveDate}</p>
-                  ) : null}
-                  {'intro' in document ? <p>{document.intro}</p> : null}
+          {requiresPhotographerAgreement ? (
+            <section className="space-y-8">
+              {isLoadingDocuments ? (
+                <div className="flex min-h-48 items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading
+                  documents...
                 </div>
-
-                <div className="space-y-6">
-                  {document.sections.map((section) => (
-                    <div key={section.heading} className="space-y-3">
-                      <h3 className="text-base font-semibold text-white">{section.heading}</h3>
-
-                      {section.paragraphs?.map((paragraph) => (
-                        <p key={paragraph}>{paragraph}</p>
-                      ))}
-
-                      {section.quote ? (
-                        <blockquote className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 italic text-slate-200">
-                          {section.quote}
-                        </blockquote>
-                      ) : null}
-
-                      {section.bullets?.length ? (
-                        <ul className="space-y-2 pl-5">
-                          {section.bullets.map((bullet) => (
-                            <li key={bullet} className="list-disc">
-                              {bullet}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-
-                      {section.subSections?.length ? (
-                        <div className="space-y-4">
-                          {section.subSections.map((subSection) => (
-                            <div key={subSection.title} className="space-y-2">
-                              <h4 className="font-medium text-white">{subSection.title}</h4>
-
-                              {subSection.paragraphs?.map((paragraph) => (
-                                <p key={paragraph}>{paragraph}</p>
-                              ))}
-
-                              {subSection.bullets?.length ? (
-                                <ul className="space-y-2 pl-5">
-                                  {subSection.bullets.map((bullet) => (
-                                    <li key={bullet} className="list-disc">
-                                      {bullet}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </section>
-
-          <section className="space-y-4 border-t border-white/10 pt-8">
-            <div className="space-y-2 border-b border-white/10 pb-4">
-              <h2 className="text-lg font-semibold text-white">R/E Pro Photos Privacy Policy</h2>
-              <p className="text-sm text-slate-400">Effective Date: {PRIVACY_POLICY_EFFECTIVE_DATE}</p>
-              <p>
-                R/E Pro Photos (&ldquo;R/E Pro Photos,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) respects your privacy and is committed to protecting your personal information. This Privacy Policy applies to our website, booking experience, dashboard, client portal, messaging tools, and related services (collectively, the &ldquo;Platform&rdquo;).
-              </p>
-              <p>By using the Platform, you agree to the terms of this Privacy Policy.</p>
-            </div>
-
-            <div className="space-y-6">
-              {privacySections.map((section) => (
-                <div key={section.heading} className="space-y-3">
-                  <h3 className="text-base font-semibold text-white">{section.heading}</h3>
-
-                  {section.paragraphs?.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
-
-                  {section.bullets?.length ? (
-                    <ul className="space-y-2 pl-5">
-                      {section.bullets.map((bullet) => (
-                        <li key={bullet} className="list-disc">
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-
-                  {section.subSections?.length ? (
-                    <div className="space-y-4 rounded-2xl border border-white/10 bg-black/10 p-4">
-                      {section.subSections.map((subSection) => (
-                        <div key={subSection.title} className="space-y-2">
-                          <h4 className="font-medium text-white">{subSection.title}</h4>
-
-                          {subSection.paragraphs?.map((paragraph) => (
-                            <p key={paragraph}>{paragraph}</p>
-                          ))}
-
-                          {subSection.bullets?.length ? (
-                            <ul className="space-y-2 pl-5">
-                              {subSection.bullets.map((bullet) => (
-                                <li key={bullet} className="list-disc">
-                                  {bullet}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {section.calloutTitle && section.calloutBody ? (
-                    <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-slate-100">
-                      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                        {section.calloutTitle}
+              ) : (
+                serverDocuments.map((document) => (
+                  <section
+                    key={`${document.document_key}:${document.version}`}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-2 border-b border-white/10 pb-4">
+                      <h2 className="text-lg font-semibold text-white">
+                        {document.title}
+                      </h2>
+                      <p className="text-sm text-slate-400">
+                        Version: {document.version}
                       </p>
-                      <p className="mt-2">{section.calloutBody}</p>
                     </div>
-                  ) : null}
+                    <div className="whitespace-pre-wrap">
+                      {document.content}
+                    </div>
+                  </section>
+                ))
+              )}
+            </section>
+          ) : (
+            <section className="space-y-8">
+              {termsSections.map((document) => (
+                <section key={document.title} className="space-y-4">
+                  <div className="space-y-2 border-b border-white/10 pb-4">
+                    <h2 className="text-lg font-semibold text-white">
+                      {document.title}
+                    </h2>
+                    {"effectiveDate" in document ? (
+                      <p className="text-sm text-slate-400">
+                        Effective Date: {document.effectiveDate}
+                      </p>
+                    ) : null}
+                    {"intro" in document ? <p>{document.intro}</p> : null}
+                  </div>
 
-                  {section.contactItems?.length ? (
-                    <div className="space-y-2">
-                      {section.contactItems.map((item) => (
-                        <p key={item.label}>
-                          <span className="font-medium text-white">{item.label}: </span>
-                          <a
-                            href={item.href}
-                            className="text-cyan-300 underline underline-offset-4 transition-colors hover:text-cyan-200"
-                          >
-                            {item.value}
-                          </a>
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                  <div className="space-y-6">
+                    {document.sections.map((section) => (
+                      <div key={section.heading} className="space-y-3">
+                        <h3 className="text-base font-semibold text-white">
+                          {section.heading}
+                        </h3>
+
+                        {section.paragraphs?.map((paragraph) => (
+                          <p key={paragraph}>{paragraph}</p>
+                        ))}
+
+                        {section.quote ? (
+                          <blockquote className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 italic text-slate-200">
+                            {section.quote}
+                          </blockquote>
+                        ) : null}
+
+                        {section.bullets?.length ? (
+                          <ul className="space-y-2 pl-5">
+                            {section.bullets.map((bullet) => (
+                              <li key={bullet} className="list-disc">
+                                {bullet}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+
+                        {section.subSections?.length ? (
+                          <div className="space-y-4">
+                            {section.subSections.map((subSection) => (
+                              <div key={subSection.title} className="space-y-2">
+                                <h4 className="font-medium text-white">
+                                  {subSection.title}
+                                </h4>
+
+                                {subSection.paragraphs?.map((paragraph) => (
+                                  <p key={paragraph}>{paragraph}</p>
+                                ))}
+
+                                {subSection.bullets?.length ? (
+                                  <ul className="space-y-2 pl-5">
+                                    {subSection.bullets.map((bullet) => (
+                                      <li key={bullet} className="list-disc">
+                                        {bullet}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
-            </div>
-          </section>
+            </section>
+          )}
+
+          {!requiresPhotographerAgreement ? (
+            <section className="space-y-4 border-t border-white/10 pt-8">
+              <div className="space-y-2 border-b border-white/10 pb-4">
+                <h2 className="text-lg font-semibold text-white">
+                  R/E Pro Photos Privacy Policy
+                </h2>
+                <p className="text-sm text-slate-400">
+                  Effective Date: {PRIVACY_POLICY_EFFECTIVE_DATE}
+                </p>
+                <p>
+                  R/E Pro Photos (&ldquo;R/E Pro Photos,&rdquo;
+                  &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;)
+                  respects your privacy and is committed to protecting your
+                  personal information. This Privacy Policy applies to our
+                  website, booking experience, dashboard, client portal,
+                  messaging tools, and related services (collectively, the
+                  &ldquo;Platform&rdquo;).
+                </p>
+                <p>
+                  By using the Platform, you agree to the terms of this Privacy
+                  Policy.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {privacySections.map((section) => (
+                  <div key={section.heading} className="space-y-3">
+                    <h3 className="text-base font-semibold text-white">
+                      {section.heading}
+                    </h3>
+
+                    {section.paragraphs?.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+
+                    {section.bullets?.length ? (
+                      <ul className="space-y-2 pl-5">
+                        {section.bullets.map((bullet) => (
+                          <li key={bullet} className="list-disc">
+                            {bullet}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
+                    {section.subSections?.length ? (
+                      <div className="space-y-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                        {section.subSections.map((subSection) => (
+                          <div key={subSection.title} className="space-y-2">
+                            <h4 className="font-medium text-white">
+                              {subSection.title}
+                            </h4>
+
+                            {subSection.paragraphs?.map((paragraph) => (
+                              <p key={paragraph}>{paragraph}</p>
+                            ))}
+
+                            {subSection.bullets?.length ? (
+                              <ul className="space-y-2 pl-5">
+                                {subSection.bullets.map((bullet) => (
+                                  <li key={bullet} className="list-disc">
+                                    {bullet}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {section.calloutTitle && section.calloutBody ? (
+                      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-slate-100">
+                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                          {section.calloutTitle}
+                        </p>
+                        <p className="mt-2">{section.calloutBody}</p>
+                      </div>
+                    ) : null}
+
+                    {section.contactItems?.length ? (
+                      <div className="space-y-2">
+                        {section.contactItems.map((item) => (
+                          <p key={item.label}>
+                            <span className="font-medium text-white">
+                              {item.label}:{" "}
+                            </span>
+                            <a
+                              href={item.href}
+                              className="text-cyan-300 underline underline-offset-4 transition-colors hover:text-cyan-200"
+                            >
+                              {item.value}
+                            </a>
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
@@ -274,14 +462,21 @@ export function FirstLoginLegalAgreementPrompt() {
           ) : null}
           <Button
             type="button"
-            disabled={!scrolledToEnd || isSaving}
+            disabled={
+              !scrolledToEnd ||
+              isSaving ||
+              (requiresPhotographerAgreement &&
+                (isLoadingDocuments || serverDocuments.length === 0))
+            }
             onClick={handleAccept}
             className="w-full rounded-full text-white transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:text-slate-300 disabled:opacity-100"
             style={{
               background: scrolledToEnd
-                ? 'linear-gradient(90deg, rgb(59 130 246), rgb(34 211 238))'
+                ? "linear-gradient(90deg, rgb(59 130 246), rgb(34 211 238))"
                 : `linear-gradient(90deg, rgba(59, 130, 246, 0.9) 0%, rgba(34, 211, 238, 0.9) ${Math.max(scrollProgress * 100, 4)}%, rgba(71, 85, 105, 0.55) ${Math.max(scrollProgress * 100, 4)}%, rgba(71, 85, 105, 0.55) 100%)`,
-              boxShadow: scrolledToEnd ? '0 10px 30px rgba(37, 99, 235, 0.28)' : 'none',
+              boxShadow: scrolledToEnd
+                ? "0 10px 30px rgba(37, 99, 235, 0.28)"
+                : "none",
             }}
           >
             {isSaving ? (
@@ -290,7 +485,7 @@ export function FirstLoginLegalAgreementPrompt() {
                 Saving Agreement...
               </span>
             ) : (
-              'Agree and Continue'
+              "Agree and Continue"
             )}
           </Button>
         </div>

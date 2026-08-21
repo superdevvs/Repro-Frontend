@@ -39,9 +39,11 @@ import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
 import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
+import { ClientDeliveryBanner } from "../components/ClientDeliveryBanner";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useClientDashboardMetrics } from "../hooks/useDashboardMetrics";
+import { useClientDeliveryNotifications } from "../hooks/useClientDeliveryNotifications";
 import type { MobileClientDashboardTab } from "../types";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
@@ -69,6 +71,7 @@ interface ClientDashboardViewProps {
   onOpenSupportEmail: (subject: string, body?: string) => void;
   onResendClientVerification: () => void | Promise<void>;
   onOpenClientRequests: () => void;
+  onOpenDeliveredShoot: (shootId: number) => void | Promise<void>;
   onSetMobileClientTab: (tab: MobileClientDashboardTab) => void;
   onSetOpenDownloadOnSelect: (open: boolean) => void;
   onSetSelectedShoot: (shoot: DashboardShootSummary | null) => void;
@@ -97,6 +100,7 @@ export const ClientDashboardView = ({
   onOpenSupportEmail,
   onResendClientVerification,
   onOpenClientRequests,
+  onOpenDeliveredShoot,
   onSetMobileClientTab,
   onSetOpenDownloadOnSelect,
   onSetSelectedShoot,
@@ -125,6 +129,8 @@ export const ClientDashboardView = ({
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
   const [accessInfoOpen, setAccessInfoOpen] = useState(false);
   const [accessInfoRecord, setAccessInfoRecord] = useState<ClientShootRecord | null>(null);
+  const [clientShootsTab, setClientShootsTab] = useState<'upcoming' | 'completed' | 'hold'>('upcoming');
+  const deliveryNotifications = useClientDeliveryNotifications();
   const clientOnboarding = useDashboardOnboarding(user, "client");
   const shootToPayServiceItems = shootToPay
     ? getShootServiceItems(shootToPay.data).filter((item) => item.balanceDue > 0.01)
@@ -279,6 +285,9 @@ export const ClientDashboardView = ({
         activeRequestCount={activeClientRequestCount}
         requestsLoading={clientRequestsLoading}
         onOpenRequests={onOpenClientRequests}
+        activeTab={clientShootsTab}
+        onActiveTabChange={setClientShootsTab}
+        deliveredUnseenCount={deliveryNotifications.unseenCount}
       />
     </div>
   );
@@ -384,6 +393,20 @@ export const ClientDashboardView = ({
             description={DASHBOARD_DESCRIPTION}
             action={clientEmailNotice}
           />
+          {deliveryNotifications.latestUnseen ? (
+            <ClientDeliveryBanner
+              latest={deliveryNotifications.latestUnseen}
+              unseenCount={deliveryNotifications.unseenCount}
+              onOpen={async () => {
+                const notification = deliveryNotifications.latestUnseen;
+                if (!notification) return;
+                setClientShootsTab('completed');
+                onSetMobileClientTab('shoots');
+                await deliveryNotifications.markSeen(notification.id);
+                await onOpenDeliveredShoot(notification.shootId);
+              }}
+            />
+          ) : null}
           {isMobile ? clientMobileContent : clientDesktopContent}
         </div>
       </DashboardLayout>

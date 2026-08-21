@@ -79,7 +79,7 @@ const TIMELINE_ENTRIES = [
 ];
 
 export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onClose, onViewInvoice }) => {
-  const { session } = useAuth();
+  const { role, session } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
@@ -88,6 +88,13 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [mediaTab, setMediaTab] = useState<'raw' | 'edited'>('raw');
+  const invoiceStatus = String(shoot?.workflowStatus || shoot?.status || '').toLowerCase();
+  const isClientDeliveredInvoice = role !== 'client' || [
+    'delivered',
+    'delivered_to_client',
+    'ready_for_client',
+    'admin_verified',
+  ].includes(invoiceStatus);
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() =>
@@ -317,7 +324,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                       <CheckCircle2 size={14} /> Mark complete
                     </button>
                   </div>
-                  {onViewInvoice && shoot && (
+                  {onViewInvoice && shoot && shoot.canViewInvoice !== false && isClientDeliveredInvoice && (
                     <button
                       onClick={() => onViewInvoice(shoot)}
                       className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors w-full mt-3"

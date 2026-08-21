@@ -61,6 +61,9 @@ export interface DashboardShootSummaryResponse {
   city_state_zip?: string | null;
   status?: string | null;
   workflow_status?: string | null;
+  can_view_invoice?: boolean;
+  can_submit_raw?: boolean;
+  canSubmitRaw?: boolean;
   client_name?: string | null;
   client_id?: number | null;
   client_phone?: string | null;
@@ -209,6 +212,8 @@ export interface DashboardShootSummary {
   cityStateZip: string;
   status: string | null;
   workflowStatus: string | null;
+  canViewInvoice?: boolean;
+  canSubmitRaw?: boolean;
   clientName: string | null;
   clientId?: string | number | null;
   clientPhone?: string | null;

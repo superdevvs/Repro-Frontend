@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { blurActiveElement } from '../dialogFocusUtils';
 import {
   Check,
@@ -21,6 +21,7 @@ import {
   Send,
   Share2,
   Settings,
+  Upload,
   X,
   XCircle,
 } from 'lucide-react';
@@ -82,7 +83,6 @@ interface ShootDetailsModalActionRailProps {
   isEditor: boolean;
   isPhotographer: boolean;
   canClientDownload: boolean;
-  isDownloading: boolean;
   isGeneratingShareLink: boolean;
   isStartingMmmPunchout: boolean;
   isSendingToEditing?: boolean;
@@ -110,12 +110,12 @@ interface ShootDetailsModalActionRailProps {
   handleSendToEditing: () => void;
   handleApproveEditingReview?: () => void;
   handleFinalise: () => void;
-  handleDownloadMedia: (size: 'original' | 'small') => void;
+  handleDownloadMedia: (size: 'original' | 'small') => void | Promise<void>;
   handleSendToBrightMls: () => void;
   handleOpenMmm: () => void;
   handleStartMmmPunchout: () => Promise<void>;
-  handleEditorDownloadRaw: () => void;
-  handleProgressMediaDownload: () => void;
+  handleEditorDownloadRaw: () => void | Promise<void>;
+  handleUploadEdits: () => void;
   handleGenerateShareLink: () => void;
   onClose: () => void;
 }
@@ -147,7 +147,6 @@ export function ShootDetailsModalActionRail({
   isEditor,
   isPhotographer,
   canClientDownload,
-  isDownloading,
   isGeneratingShareLink,
   isStartingMmmPunchout,
   isSendingToEditing = false,
@@ -180,10 +179,26 @@ export function ShootDetailsModalActionRail({
   handleOpenMmm,
   handleStartMmmPunchout,
   handleEditorDownloadRaw,
-  handleProgressMediaDownload,
+  handleUploadEdits,
   handleGenerateShareLink,
   onClose,
 }: ShootDetailsModalActionRailProps) {
+  const [activeDownloadControl, setActiveDownloadControl] = React.useState<
+    'photographer_raw' | 'editor_raw' | 'progress' | null
+  >(null);
+  const runDownloadControl = React.useCallback(
+    (control: 'photographer_raw' | 'editor_raw' | 'progress', action: () => void | Promise<void>) => {
+      if (activeDownloadControl === control) return;
+      setActiveDownloadControl(control);
+      void Promise.resolve(action()).finally(() => {
+        setActiveDownloadControl((current) => current === control ? null : current);
+      });
+    },
+    [activeDownloadControl],
+  );
+  const handleProgressMediaDownload = () => activeMediaDisplayTab === 'edited'
+    ? handleDownloadMedia('original')
+    : handleEditorDownloadRaw();
   const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
   const canOpenDeliveredDownloadDialog =
     !isEditor &&
@@ -202,12 +217,12 @@ export function ShootDetailsModalActionRail({
       (activeMediaDisplayTab === 'edited' && editedMediaCount > 0)
     );
   const isProgressDownloadDisabled =
-    isDownloading ||
+    activeDownloadControl === 'progress' ||
     (activeMediaDisplayTab === 'uploaded'
       ? !hasRawDownloadSelection
       : editedMediaCount === 0);
   const isEditorDownloadDisabled =
-    isDownloading || (rawFileCount === 0 && selectedFileIds.length === 0);
+    activeDownloadControl === 'editor_raw' || (rawFileCount === 0 && selectedFileIds.length === 0);
   const isEditorShareDisabled =
     isGeneratingShareLink || (rawFileCount === 0 && selectedFileIds.length === 0);
 
@@ -337,11 +352,15 @@ export function ShootDetailsModalActionRail({
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                  onClick={() => handleDownloadMedia('original')}
-                  disabled={isDownloading}
+                  onClick={() => runDownloadControl('photographer_raw', () => handleDownloadMedia('original'))}
+                  disabled={activeDownloadControl === 'photographer_raw'}
                 >
-                  <Download className="h-3 w-3 mr-1" />
-                  <span>{isDownloading ? 'Downloading...' : 'Download RAW'}</span>
+                  {activeDownloadControl === 'photographer_raw' ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3 mr-1" />
+                  )}
+                  <span>{activeDownloadControl === 'photographer_raw' ? 'Preparing…' : 'Download RAW'}</span>
                 </Button>
               )}
               {showMmmPunchoutButtons && (
@@ -376,12 +395,25 @@ export function ShootDetailsModalActionRail({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-7 px-3 text-xs"
+                    onClick={handleUploadEdits}
+                  >
+                    <Upload className="mr-1 h-3 w-3" />
+                    <span>Upload edits</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={handleEditorDownloadRaw}
+                    onClick={() => runDownloadControl('editor_raw', handleEditorDownloadRaw)}
                     disabled={isEditorDownloadDisabled}
                   >
-                    <Download className="h-3 w-3 mr-1" />
-                    <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                    {activeDownloadControl === 'editor_raw' ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-3 w-3 mr-1" />
+                    )}
+                    <span>{activeDownloadControl === 'editor_raw' ? 'Preparing…' : 'Download'}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -415,12 +447,15 @@ export function ShootDetailsModalActionRail({
 
       <Dialog open={isMobileActionsOpen} onOpenChange={setIsMobileActionsOpen}>
         <DialogContent className="sm:hidden max-w-[90vw] rounded-2xl p-0 gap-0 [&>button]:hidden">
-          <div className="px-5 pt-5 pb-3">
-            <h3 className="text-base font-semibold">Actions</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {shootAddress || 'Shoot'} &middot; {statusBadge}
-            </p>
-          </div>
+          <DialogHeader className="px-5 pt-5 pb-3 text-left">
+            <DialogTitle className="text-base font-semibold">Actions</DialogTitle>
+            <DialogDescription asChild>
+              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span>{shootAddress || 'Shoot'} &middot;</span>
+                {statusBadge}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
           <div className="px-3 pb-3 space-y-1">
             {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
               <button
@@ -557,12 +592,11 @@ export function ShootDetailsModalActionRail({
                   blurActiveElement();
                   setIsDownloadDialogOpen(true);
                 }}
-                disabled={isDownloading}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
-                {isDownloading ? 'Downloading...' : 'Downloads'}
+                Downloads
               </button>
             )}
             {canPrivilegedProgressDownload && !isEditMode && (
@@ -570,14 +604,18 @@ export function ShootDetailsModalActionRail({
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
                 onClick={() => {
                   setIsMobileActionsOpen(false);
-                  handleProgressMediaDownload();
+                  runDownloadControl('progress', handleProgressMediaDownload);
                 }}
                 disabled={isProgressDownloadDisabled}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
-                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  {activeDownloadControl === 'progress' ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  )}
                 </div>
-                {isDownloading ? 'Downloading...' : 'Downloads'}
+                {activeDownloadControl === 'progress' ? 'Preparing…' : 'Downloads'}
               </button>
             )}
             {showMmmPunchoutButtons && !isEditMode && canStartMmmPunchout && (
@@ -601,17 +639,35 @@ export function ShootDetailsModalActionRail({
             )}
             {isEditor && !isEditMode && (
               <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-muted"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleUploadEdits();
+                }}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                  <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                Upload edits
+              </button>
+            )}
+            {isEditor && !isEditMode && (
+              <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {
                   setIsMobileActionsOpen(false);
-                  handleEditorDownloadRaw();
+                  runDownloadControl('editor_raw', handleEditorDownloadRaw);
                 }}
                 disabled={isEditorDownloadDisabled}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
-                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  {activeDownloadControl === 'editor_raw' ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  )}
                 </div>
-                {isDownloading ? 'Downloading...' : 'Download'}
+                {activeDownloadControl === 'editor_raw' ? 'Preparing…' : 'Download'}
               </button>
             )}
             {isEditor && !isEditMode && (
@@ -646,6 +702,8 @@ interface ShootDetailsModalHeaderProps {
   createdByLabel: string | null;
   statusBadge: React.ReactNode;
   paymentBadge?: React.ReactNode;
+  needsRawSubmission?: boolean;
+  onOpenRawSubmission?: () => void;
   activeTab: VisibleTabId;
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   handleTabChange: (value: string) => void;
@@ -658,6 +716,8 @@ export function ShootDetailsModalHeader({
   createdByLabel,
   statusBadge,
   paymentBadge,
+  needsRawSubmission = false,
+  onOpenRawSubmission,
   activeTab,
   visibleTabs,
   handleTabChange,
@@ -702,6 +762,16 @@ export function ShootDetailsModalHeader({
                 </Button>
                 <div className="hidden sm:flex flex-shrink-0">{statusBadge}</div>
                 {paymentBadge ? <div className="hidden sm:flex flex-shrink-0">{paymentBadge}</div> : null}
+                {needsRawSubmission && onOpenRawSubmission ? (
+                  <button
+                    type="button"
+                    onClick={onOpenRawSubmission}
+                    className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
+                  >
+                    <Upload className="h-3 w-3" />
+                    Needs submission
+                  </button>
+                ) : null}
               </div>
               <div className="sm:hidden flex-shrink-0">{statusBadge}</div>
               {paymentBadge ? <div className="sm:hidden flex-shrink-0">{paymentBadge}</div> : null}
@@ -712,6 +782,16 @@ export function ShootDetailsModalHeader({
                 <span>Created by: {createdByLabel}</span>
               </div>
             )}
+            {needsRawSubmission && onOpenRawSubmission ? (
+              <button
+                type="button"
+                onClick={onOpenRawSubmission}
+                className="sm:hidden inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
+              >
+                <Upload className="h-3 w-3" />
+                Needs submission
+              </button>
+            ) : null}
           </div>
 
           <div className="sm:hidden flex items-center gap-1.5">

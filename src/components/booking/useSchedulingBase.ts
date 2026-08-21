@@ -5,6 +5,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import API_ROUTES from '@/lib/api';
 import {
   isAbortError,
+  canUseProtectedAvailabilityRoutes,
   readAvailabilityMap,
   type SchedulingFormProps,
   type SchedulingPhotographerView,
@@ -12,6 +13,7 @@ import {
 import { to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import type { DayAvailability } from '@/utils/availabilityProvider';
 import type { AvailabilityPanelState } from '@/utils/availabilityPanelState';
+import { useAuth } from '@/components/auth';
 
 type SchedulingBaseOptions = Pick<
   SchedulingFormProps,
@@ -42,6 +44,8 @@ export const useSchedulingBase = ({
   };
   const today = React.useMemo(() => new Date(), []);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canUseProtectedAvailability = canUseProtectedAvailabilityRoutes(user);
   const isMobile = useIsMobile();
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [timeDialogOpen, setTimeDialogOpen] = useState(false);
@@ -257,7 +261,7 @@ export const useSchedulingBase = ({
   useEffect(() => {
     const abortController = new AbortController();
     const fetchCalendarAvailability = async () => {
-      if (photographers.length === 0) {
+      if (!canUseProtectedAvailability || photographers.length === 0) {
         setCalendarAvailability({
           availableDates: new Set(),
           unavailableDates: new Set(),
@@ -338,7 +342,7 @@ export const useSchedulingBase = ({
     };
     fetchCalendarAvailability();
     return () => abortController.abort();
-  }, [buildDateKeysInRange, calendarMonth, getDateKey, getMonthBounds, normalizeDayOfWeek, photographers, today]);
+  }, [buildDateKeysInRange, calendarMonth, canUseProtectedAvailability, getDateKey, getMonthBounds, normalizeDayOfWeek, photographers, today]);
   const calendarAvailableDays = useMemo(
     () => Array.from(calendarAvailability.availableDates).map(dateKey => new Date(`${dateKey}T12:00:00`)),
     [calendarAvailability.availableDates],

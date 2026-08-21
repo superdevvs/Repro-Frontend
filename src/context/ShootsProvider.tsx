@@ -108,7 +108,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sessionExpiredRef = useRef(false);
   const locationRef = useRef(location.pathname);
   const fetchInFlightRef = useRef(false);
+  const autoFetchKeyRef = useRef<string | null>(null);
+  const autoFetchControllerRef = useRef<AbortController | null>(null);
   const clientRole = user?.role;
+  const clientUserId = user?.id ? String(user.id) : null;
   const clientName = user?.name;
   const clientCompany = user?.company;
   const clientEmail = user?.email;
@@ -130,7 +133,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (description?: string) => {
       if (sessionExpiredRef.current) return;
       // Don't show session expired on login page or if user never logged in
-      if (locationRef.current === '/' || !user) return;
+      if (locationRef.current === '/' || !clientUserId) return;
       // During impersonation, 401s can happen transiently when the user
       // context is switching.  Never log the admin out because of them.
       if (isImpersonating || localStorage.getItem('originalUser')) return;
@@ -142,7 +145,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       logout();
     },
-    [logout, user, isImpersonating],
+    [clientUserId, isImpersonating, logout],
   );
 
   const persistShoots = useCallback((items: ShootData[]) => {
@@ -500,16 +503,31 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await fetchShoots(undefined, 1, 25, { includeFiles: false });
   }, [fetchShoots]);
 
-  // Fetch shoots once on mount and when user/role changes — NOT on every route change
+  // Hydrate each authenticated user/role once. The key is set before starting
+  // the request so React StrictMode's development effect replay cannot launch
+  // a second scheduled/completed/delivered request set.
   useEffect(() => {
+    if (!clientUserId || !clientRole) {
+      autoFetchControllerRef.current?.abort();
+      autoFetchControllerRef.current = null;
+      autoFetchKeyRef.current = null;
+      return;
+    }
     if (!shouldAutoFetchShootsForPath(location.pathname)) {
       return;
     }
-    const controller = new AbortController();
-    fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);
 
-    return () => controller.abort();
-  }, [fetchShoots, location.pathname]);
+    const autoFetchKey = `${clientUserId}:${clientRole}`;
+    if (autoFetchKeyRef.current === autoFetchKey) {
+      return;
+    }
+
+    autoFetchControllerRef.current?.abort();
+    const controller = new AbortController();
+    autoFetchControllerRef.current = controller;
+    autoFetchKeyRef.current = autoFetchKey;
+    fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);
+  }, [clientRole, clientUserId, fetchShoots, location.pathname]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -798,7 +816,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [uniqueClients],
   );
 
-  const createNewShoot = (shootData: Partial<ShootData>) => {
+  const createNewShoot = useCallback((shootData: Partial<ShootData>) => {
     const newShoot: ShootData = {
       id: uuidv4(),
       scheduledDate: shootData.scheduledDate || format(new Date(), 'yyyy-MM-dd'),
@@ -847,9 +865,9 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     addShoot(newShoot);
-  };
+  }, [addShoot]);
 
-  const seedUpcomingShoots = (count: number) => {
+  const seedUpcomingShoots = useCallback((count: number) => {
     const newShoots = Array.from({ length: count }).map((_, index) => {
       const baseDate = addDays(new Date(), index);
       return {
@@ -872,21 +890,33 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newShoots.forEach(shoot => createNewShoot(shoot));
-  };
+  }, [createNewShoot]);
 
-  const contextValue: ShootsContextType = {
-    shoots,
-    addShoot,
-    updateShoot,
-    applyAlternateDate,
-    deleteShoot,
-    getClientShootsByStatus,
-    getUniquePhotographers,
-    getUniqueEditors,
-    getUniqueClients,
-    fetchShoots,
-    paginationMeta,
-  };
+  const contextValue = useMemo<ShootsContextType>(() => ({
+      shoots,
+      addShoot,
+      updateShoot,
+      applyAlternateDate,
+      deleteShoot,
+      getClientShootsByStatus,
+      getUniquePhotographers,
+      getUniqueEditors,
+      getUniqueClients,
+      fetchShoots,
+      paginationMeta,
+    }), [
+      addShoot,
+      applyAlternateDate,
+      deleteShoot,
+      fetchShoots,
+      getClientShootsByStatus,
+      getUniqueClients,
+      getUniqueEditors,
+      getUniquePhotographers,
+      paginationMeta,
+      shoots,
+      updateShoot,
+    ]);
 
   return <ShootsContext.Provider value={contextValue}>{children}</ShootsContext.Provider>;
 };

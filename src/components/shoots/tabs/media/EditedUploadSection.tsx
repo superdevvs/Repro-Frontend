@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Upload, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import type { ShootData } from '@/types/shoots';
-import type { MediaFile } from '@/hooks/useShootFiles';
+import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { useUpload } from '@/context/UploadContext';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { finalizeEditedUploadQueue, getMediaUploadErrorMessage } from '@/services/dropboxMediaService';
 import {
   UploadDropzone,
@@ -28,6 +30,7 @@ import {
   buildUploadLimitDescription,
   buildUploadSummary,
   createUploadBatchId,
+  ensureUploadAttemptIdentity,
   createEmptyMediaTypeCounts,
   getExistingMediaTypeCounts,
   getMediaTypeCards,
@@ -39,8 +42,11 @@ import {
   mergeUploadIssueLists,
   parseUploadLimitsResponse,
   parseUploadIssues,
+  parseCanonicalUploadResponse,
   reindexClassificationMap,
   resolveExpectedFinalCount,
+  resolveEligibleUploadServices,
+  rotateUploadAttemptKey,
   setQueueClassification,
   triggerUploadRefreshes,
   validateFilesAgainstUploadLimits,
@@ -62,6 +68,8 @@ export function EditedUploadSection({
   showInlineProgress?: boolean;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { trackUpload } = useUpload();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
@@ -75,7 +83,14 @@ export function EditedUploadSection({
   const [isSubmittingAfterUpload, setIsSubmittingAfterUpload] = useState(false);
   const [pendingSubmitAfterUpload, setPendingSubmitAfterUpload] = useState(false);
   const [notes, setNotes] = useState('');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const inputId = `edited-upload-input-${shoot.id}`;
+  const eligibleServices = useMemo(
+    () => resolveEligibleUploadServices(shoot, user, 'edited'),
+    [shoot, user],
+  );
+  const normalizedRole = String(user?.role || '').toLowerCase();
+  const requiresServiceSelection = normalizedRole === 'editor' && eligibleServices.length > 1;
 
   const expectedCount = useMemo(() => resolveExpectedFinalCount(shoot), [shoot]);
   const existingCounts = useMemo(() => getExistingMediaTypeCounts(editedFiles), [editedFiles]);
@@ -93,11 +108,20 @@ export function EditedUploadSection({
     setIsSubmittingAfterUpload(false);
     setPendingSubmitAfterUpload(false);
     setNotes('');
+    setSelectedServiceId('');
     setUploadLimitHint(buildUploadLimitDescription({
       per_file: '2GB',
       total_request: '2.2GB',
     }));
-  }, [shoot.id]);
+  }, [shoot.id, user?.id]);
+
+  useEffect(() => {
+    if (eligibleServices.length === 1) {
+      setSelectedServiceId(eligibleServices[0].id);
+    } else if (!eligibleServices.some((service) => service.id === selectedServiceId)) {
+      setSelectedServiceId('');
+    }
+  }, [eligibleServices, selectedServiceId]);
 
   const combinedCounts = useMemo(() => {
     const nextCounts = createEmptyMediaTypeCounts();
@@ -148,11 +172,21 @@ export function EditedUploadSection({
   const startUpload = (
     overrideFiles?: File[],
     overrideClassifications?: QueueClassificationMap,
-    options?: { submitAfter?: boolean },
+    options?: { submitAfter?: boolean; retryOnly?: boolean },
   ) => {
     const submitAfter = Boolean(options?.submitAfter) && Boolean(isEditor);
+    const retryOnly = Boolean(options?.retryOnly);
     const nextFiles = overrideFiles ?? selectedFiles;
     if (nextFiles.length === 0 || isUploading) {
+      return;
+    }
+
+    if (requiresServiceSelection && !selectedServiceId) {
+      toast({
+        title: 'Choose a service',
+        description: 'Select the editing service item for this upload batch.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -189,7 +223,9 @@ export function EditedUploadSection({
     setIsUploading(true);
     setPendingSubmitAfterUpload(submitAfter);
     setUploadProgress(0);
-    setUploadIssues([]);
+    if (!retryOnly) {
+      setUploadIssues([]);
+    }
 
     const filesForUpload = [...preflightValidation.acceptedFiles];
     const classificationsForUpload = reindexClassificationMap(
@@ -198,7 +234,7 @@ export function EditedUploadSection({
     );
     const uploadNote = notes.trim();
 
-    const uploadBatchId = filesForUpload.length > 1 ? createUploadBatchId() : null;
+    const uploadBatchId = createUploadBatchId();
 
     trackUpload({
       shootId: String(shoot.id),
@@ -208,16 +244,26 @@ export function EditedUploadSection({
       uploadType: 'edited',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; issues: UploadIssue[]; file: File; originalIndex: number; uploadLimits?: UploadLimitsPayload }> =>
+          const uploadOne = (file: File, index: number): Promise<{
+            success: boolean;
+            issues: UploadIssue[];
+            file: File;
+            originalIndex: number;
+            uploadLimits?: UploadLimitsPayload;
+            acceptedFiles: ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
+          }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
+              const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length);
               formData.append('files[]', file);
               formData.append('upload_type', 'edited');
-              if (uploadBatchId) {
-                formData.append('upload_batch_id', uploadBatchId);
-                formData.append('upload_batch_total', String(filesForUpload.length));
-                formData.append('upload_batch_index', String(index));
+              formData.append('idempotency_key', identity.idempotencyKey);
+              formData.append('upload_batch_id', identity.batchId);
+              formData.append('upload_batch_total', String(identity.batchTotal));
+              formData.append('upload_batch_index', String(identity.batchIndex));
+              if (selectedServiceId) {
+                formData.append('shoot_service_id', selectedServiceId);
               }
               if (uploadNote) {
                 formData.append('editor_notes', uploadNote);
@@ -234,16 +280,34 @@ export function EditedUploadSection({
 
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
+                const uploadResult = parseCanonicalUploadResponse(xhr.responseText);
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  const uploadLimits = parseUploadLimitsResponse(xhr.responseText);
+                  const uploadLimits = uploadResult.uploadLimits ?? parseUploadLimitsResponse(xhr.responseText);
                   setUploadLimitHint((currentHint) => buildUploadLimitDescription(uploadLimits) || currentHint);
-                  resolve({ success: true, issues: [], file, originalIndex: index, uploadLimits });
+                  if (uploadResult.successCount > 0) {
+                    mergeAcceptedShootFiles(queryClient, shoot.id, 'edited', uploadResult.uploadedFiles);
+                    const parsed = uploadResult.errorCount > 0
+                      ? parseUploadIssues(file, index, xhr.responseText, 'Upload partially failed')
+                      : { issues: [] as UploadIssue[] };
+                    resolve({
+                      success: true,
+                      issues: parsed.issues,
+                      file,
+                      originalIndex: index,
+                      uploadLimits,
+                      acceptedFiles: uploadResult.uploadedFiles,
+                    });
+                    return;
+                  }
+
+                  const parsed = parseUploadIssues(file, index, xhr.responseText, uploadResult.message || 'Upload failed');
+                  resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] });
                   return;
                 }
 
 
                 const parsed = parseUploadIssues(file, index, xhr.responseText, 'Upload failed');
-                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits });
+                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] });
               });
               xhr.addEventListener('error', () => resolve({
                 success: false,
@@ -259,6 +323,7 @@ export function EditedUploadSection({
                 ],
                 file,
                 originalIndex: index,
+                acceptedFiles: [],
               }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
@@ -270,6 +335,7 @@ export function EditedUploadSection({
           let completed = 0;
           const issues: UploadIssue[] = [];
           const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
+          const acceptedFiles = [] as ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
@@ -280,8 +346,11 @@ export function EditedUploadSection({
               if (result.uploadLimits) {
                 latestUploadLimits = result.uploadLimits;
               }
-              if (!result.success && result.issues.length > 0) {
+              acceptedFiles.push(...result.acceptedFiles);
+              if (result.issues.length > 0) {
                 issues.push(...result.issues);
+              }
+              if (!result.success && result.issues.length > 0) {
                 failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
@@ -294,8 +363,18 @@ export function EditedUploadSection({
           const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
           setUploadLimitHint(limitHint);
 
+          await queryClient.invalidateQueries({
+            predicate: (query) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id),
+          });
+          if (acceptedFiles.length > 0) {
+            triggerUploadRefreshes(shoot.id);
+            onUploadComplete();
+          }
+
           if (failedFileEntries.length === filesForUpload.length) {
-            setUploadIssues(issues);
+            setUploadIssues((currentIssues) => retryOnly
+              ? mergeUploadIssueLists(currentIssues, issues)
+              : issues);
             toast({
               title: 'Upload failed',
               description: buildUploadSummary(issues),
@@ -304,9 +383,10 @@ export function EditedUploadSection({
             throw new Error(issues[0]?.message || 'All files failed to upload');
           }
 
-          triggerUploadRefreshes(shoot.id);
           if (failedFileEntries.length > 0) {
-            setUploadIssues(issues);
+            setUploadIssues((currentIssues) => retryOnly
+              ? mergeUploadIssueLists(currentIssues, issues)
+              : issues);
             toast({
               title: 'Upload needs attention',
               description: buildUploadSummary(issues),
@@ -325,17 +405,30 @@ export function EditedUploadSection({
 
               return map;
             }, {});
-            setSelectedFiles(failedFiles);
-            setQueueClassifications(failedClassificationMap);
+            if (!retryOnly) {
+              setSelectedFiles(failedFiles);
+              setQueueClassifications(failedClassificationMap);
+            }
             setPendingSubmitAfterUpload(false);
             return;
           }
 
-          setSelectedFiles([]);
-          setQueueClassifications({});
-          setUploadIssues([]);
-          setNotes('');
-          onUploadComplete();
+          if (retryOnly) {
+            const retried = new Set(filesForUpload);
+            setSelectedFiles((currentFiles) => {
+              const remaining = currentFiles.filter((file) => !retried.has(file));
+              setQueueClassifications((currentMap) => reindexClassificationMap(remaining, currentMap));
+              return remaining;
+            });
+            setUploadIssues((currentIssues) => currentIssues.filter((issue) =>
+              !filesForUpload.some((file) => issue.fileName === file.name),
+            ));
+          } else {
+            setSelectedFiles([]);
+            setQueueClassifications({});
+            setUploadIssues([]);
+            setNotes('');
+          }
 
           if (submitAfter) {
             try {
@@ -380,7 +473,25 @@ export function EditedUploadSection({
   const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-full flex-col space-y-4">
+      {eligibleServices.length > 0 && (
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-foreground">Service for this batch</span>
+          <select
+            value={selectedServiceId}
+            onChange={(event) => setSelectedServiceId(event.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            aria-label="Service for edited upload batch"
+          >
+            <option value="">
+              {normalizedRole === 'editor' ? 'Select editing service' : 'General / Unassigned'}
+            </option>
+            {eligibleServices.map((service) => (
+              <option key={service.id} value={service.id}>{service.label}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="space-y-3 md:space-y-0 md:flex md:items-stretch md:gap-3">
         <SummaryCard label="Expected" value={expectedCount} className="md:w-[170px] md:shrink-0" />
         <SummaryCard label="Uploaded" value={uploadedCount} tone="info" className="md:w-[170px] md:shrink-0" />
@@ -430,10 +541,11 @@ export function EditedUploadSection({
           shootId: shoot.id,
           uploadType: 'edited',
           getPayload: () => ({
+            shoot_service_id: selectedServiceId || undefined,
             editor_notes: notes.trim() || undefined,
           }),
           onImported: onUploadComplete,
-          disabled: isUploading || isSubmittingAfterUpload,
+          disabled: isUploading || isSubmittingAfterUpload || (requiresServiceSelection && !selectedServiceId),
         }}
       />
 
@@ -443,9 +555,10 @@ export function EditedUploadSection({
 
         onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
         onRetryIssue={(issueId) => {
+          const selectedIssue = uploadIssues.find((candidate) => candidate.id === issueId);
           const matchingEntry = selectedFiles
             .map((file, index) => ({ file, index, key: getQueueFileKey(file, index) }))
-            .find((entry) => issueId.startsWith(entry.key));
+            .find((entry) => issueId.startsWith(entry.key) || selectedIssue?.fileName === entry.file.name);
 
           if (!matchingEntry) {
             return;
@@ -462,17 +575,17 @@ export function EditedUploadSection({
             nextMap[getQueueFileKey(matchingEntry.file, 0)] = existingClassification;
           }
 
-          setSelectedFiles(singleFile);
-          setQueueClassifications(nextMap);
-          setUploadIssues((currentIssues) => currentIssues.filter((issue) => !issue.id.startsWith(matchingEntry.key)));
-          startUpload(singleFile, nextMap);
+          if (selectedIssue && !['network_failure', 'upload_in_progress'].includes(selectedIssue.errorType)) {
+            rotateUploadAttemptKey(matchingEntry.file);
+          }
+          startUpload(singleFile, nextMap, { retryOnly: true });
         }}
       />
 
       {selectedFiles.length > 0 && (
         <div className="space-y-4 rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">Selected Files ({selectedFiles.length})</div>
-          <div className="max-h-72 space-y-2 overflow-y-auto">
+          <div className="space-y-2">
             {selectedFiles.map((file, index) => (
               <div key={getQueueFileKey(file, index)} className="rounded-lg border bg-background px-3 py-2">
                 <div className="flex items-start gap-3">
@@ -517,13 +630,13 @@ export function EditedUploadSection({
           </div>
 
           {isEditor ? (
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="sticky bottom-0 z-10 flex flex-col gap-2 bg-card pt-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
                 className="w-full sm:flex-1"
                 onClick={handleUpload}
-                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0}
+                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}
               >
                 {isUploading && !pendingSubmitAfterUpload ? (
                   <>
@@ -541,7 +654,7 @@ export function EditedUploadSection({
                 type="button"
                 className="w-full sm:flex-1"
                 onClick={handleUploadAndSubmit}
-                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0}
+                disabled={isUploading || isSubmittingAfterUpload || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}
               >
                 {isSubmittingAfterUpload ? (
                   <>
@@ -562,7 +675,7 @@ export function EditedUploadSection({
               </Button>
             </div>
           ) : (
-            <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
+            <Button type="button" className="sticky bottom-0 z-10 w-full shadow-lg" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}>
               {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

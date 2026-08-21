@@ -497,6 +497,14 @@ export const useBookShootWorkflow = ({
   useEffect(() => {
     const fetchAvailable = async () => {
       setAvailabilityChecked(false);
+      if (isClientAccount || String(user?.role ?? '').toLowerCase() === 'client') {
+        // The client picker is hydrated by the privacy-safe `/for-booking` request in
+        // `useSchedulingFormController`. Do not probe the protected per-photographer
+        // availability endpoint here; keep the base list available for that picker.
+        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
+        setAvailabilityChecked(true);
+        return;
+      }
       if (!date || !time) { setAvailablePhotographerIds([]); setAvailabilityChecked(true); return; }
       const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
       if (!match) { setAvailablePhotographerIds([]); setAvailabilityChecked(true); return; }
@@ -574,7 +582,7 @@ export const useBookShootWorkflow = ({
       }
     };
     fetchAvailable();
-  }, [date, time, photographers, toast, user?.role]);
+  }, [date, time, photographers, toast, user?.role, isClientAccount]);
   useEffect(() => {
     if (clientIdFromUrl && clientNameFromUrl) {
       setClient(clientIdFromUrl);

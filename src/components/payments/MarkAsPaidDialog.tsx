@@ -234,13 +234,13 @@ export function MarkAsPaidDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[88vh] w-[calc(100vw-1.5rem)] flex-col overflow-hidden p-0 sm:max-w-[900px]">
+        <DialogHeader className="shrink-0 border-b px-6 py-5">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-5 md:grid-cols-2 md:items-start">
           <div className="space-y-3">
             <Label className="text-sm">Payment Method</Label>
             <RadioGroup
@@ -455,13 +455,13 @@ export function MarkAsPaidDialog({
           )}
 
           {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive md:col-span-2">
               {error}
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

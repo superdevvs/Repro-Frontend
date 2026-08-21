@@ -12,7 +12,14 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import type { ShootData } from '@/types/shoots';
-import type { MediaFile } from '@/hooks/useShootFiles';
+import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
+import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  createUploadBatchId,
+  ensureUploadAttemptIdentity,
+  parseCanonicalUploadResponse,
+  resolveEligibleUploadServices,
+} from './mediaUploadUtils';
 import {
   downloadShootMediaFile,
   downloadShootRawFiles,
@@ -132,6 +139,7 @@ export function useShootMediaActions({
   dragCounterRef,
   setDragOverTab,
 }: UseShootMediaActionsParams) {
+  const { user } = useAuth();
   const normalizedRole = String(role || '').trim().toLowerCase();
   const isEditorRole = normalizedRole === 'editor';
   const canSubmitAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(normalizedRole);
@@ -145,6 +153,19 @@ export function useShootMediaActions({
     if (!showUploadTab) return;
     const files = Array.from(event.dataTransfer.files || []);
     if (files.length === 0) return;
+
+    const eligibleServices = resolveEligibleUploadServices(shoot, user, uploadType);
+    const assignedRole = (normalizedRole === 'photographer' && uploadType === 'raw')
+      || (normalizedRole === 'editor' && uploadType === 'edited');
+    if (assignedRole && eligibleServices.length > 1) {
+      toast({
+        title: 'Choose a service first',
+        description: 'This shoot has multiple assigned services. Open the upload panel and choose one service for the batch.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const selectedServiceId = eligibleServices.length === 1 ? eligibleServices[0].id : '';
 
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
@@ -165,20 +186,34 @@ export function useShootMediaActions({
         const concurrentUploads = 1;
         let completed = 0;
         const errors: string[] = [];
+        const uploadBatchId = createUploadBatchId();
 
-        const uploadOne = (file: File): Promise<{ success: boolean; error?: string }> =>
+        const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
           new Promise((resolve) => {
             const formData = new FormData();
             const isVideo = isVideoUpload(file);
+            const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, files.length);
             formData.append('files[]', file);
             formData.append('upload_type', uploadType);
+            formData.append('idempotency_key', identity.idempotencyKey);
+            formData.append('upload_batch_id', identity.batchId);
+            formData.append('upload_batch_index', String(identity.batchIndex));
+            formData.append('upload_batch_total', String(identity.batchTotal));
+            if (selectedServiceId) formData.append('shoot_service_id', selectedServiceId);
             if (isVideo) formData.append('service_category', 'video');
             if (!isVideo && isFloorplanUpload(file)) formData.append('media_type', 'floorplan');
 
             const xhr = new XMLHttpRequest();
             xhr.addEventListener('load', () => {
+              const result = parseCanonicalUploadResponse(xhr.responseText);
               if (xhr.status >= 200 && xhr.status < 300) {
-                resolve({ success: true });
+                if (result.successCount > 0) {
+                  mergeAcceptedShootFiles(queryClient, shoot.id, uploadType, result.uploadedFiles);
+                  resolve({ success: true });
+                  return;
+                }
+
+                resolve({ success: false, error: `${file.name}: ${result.message || 'Upload failed'}` });
                 return;
               }
 
@@ -199,7 +234,7 @@ export function useShootMediaActions({
 
         for (let index = 0; index < files.length; index += concurrentUploads) {
           const batch = files.slice(index, Math.min(index + concurrentUploads, files.length));
-          const results = await Promise.all(batch.map(uploadOne));
+          const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
           results.forEach((result) => {
             completed += 1;
             if (!result.success && result.error) errors.push(result.error);
@@ -227,8 +262,9 @@ export function useShootMediaActions({
         // Auto-finalize-raw removed: shoot status transitions are now owned exclusively
         // by the user pressing "Submit Raw Files" / "Submit Edits". Uploads only place files.
 
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id),
+        });
         triggerShootDetailRefresh(shoot.id);
         triggerShootHistoryRefresh();
         triggerShootListRefresh();

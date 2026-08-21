@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { useUpload } from '@/context/UploadContext';
+import { useOptionalShoots } from '@/context/shootsContextState';
 import { UploadStatusDialog } from './UploadStatusDialog';
 
 export const UploadStatusWidget: React.FC = () => {
   const { uploads, activeUploadCount, completedUploadCount, failedUploadCount } = useUpload();
+  const shootsContext = useOptionalShoots();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const pendingSubmissions = (shootsContext?.shoots ?? []).filter((shoot) =>
+    Boolean(shoot.canSubmitRaw ?? shoot.can_submit_raw),
+  );
 
-  // Only show when there are uploads (active, completed, or failed)
-  if (uploads.length === 0) return null;
+  // Transfer state is temporary; server-derived submission work survives modal
+  // closes, refreshes, and sign-in on another device.
+  if (uploads.length === 0 && pendingSubmissions.length === 0) return null;
 
   const hasActive = activeUploadCount > 0;
   const totalProgress = hasActive
@@ -18,10 +24,12 @@ export const UploadStatusWidget: React.FC = () => {
           .reduce((sum, u) => sum + u.progress, 0) / activeUploadCount
       )
     : 100;
-  const finishedCount = completedUploadCount + failedUploadCount;
+  const finishedCount = pendingSubmissions.length || completedUploadCount + failedUploadCount;
   const summaryText = hasActive
     ? `${activeUploadCount} upload${activeUploadCount !== 1 ? 's' : ''} in progress`
-    : failedUploadCount > 0 && completedUploadCount > 0
+    : pendingSubmissions.length > 0
+      ? `${pendingSubmissions.length} need${pendingSubmissions.length === 1 ? 's' : ''} submission`
+      : failedUploadCount > 0 && completedUploadCount > 0
       ? `${completedUploadCount} completed, ${failedUploadCount} failed`
       : failedUploadCount > 0
         ? `${failedUploadCount} upload${failedUploadCount !== 1 ? 's' : ''} failed`
@@ -55,7 +63,11 @@ export const UploadStatusWidget: React.FC = () => {
         </div>
       </button>
 
-      <UploadStatusDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <UploadStatusDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        pendingSubmissions={pendingSubmissions}
+      />
     </>
   );
 };

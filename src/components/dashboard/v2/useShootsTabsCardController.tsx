@@ -5,7 +5,7 @@ import { Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Camera, Check, Cloud, CloudRain, Edit, Eye, Flag, MapPin, Snowflake, Sun, X } from 'lucide-react';
+import { Camera, Check, Cloud, CloudRain, Edit, Eye, Flag, MapPin, Snowflake, Sun, Upload, X } from 'lucide-react';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { getWeatherForLocation, type WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
@@ -537,6 +537,15 @@ export function useShootsTabsCardController({
     });
     const weather = weatherMap[shoot.id];
     const dateParts = getShootDateParts(shoot);
+    const openRawSubmission = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      onSelect(shoot, weather);
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('shoot-media-open-upload', {
+          detail: { shootId: shoot.id, displayTab: 'uploaded' },
+        }));
+      }, 0);
+    };
     return (
       <div
         key={shoot.id}
@@ -811,6 +820,16 @@ export function useShootsTabsCardController({
             </div>
           </div>
         </div>
+        {isPhotographerRole && shoot.canSubmitRaw && (
+          <button
+            type="button"
+            onClick={openRawSubmission}
+            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Needs submission
+          </button>
+        )}
         {/* Action buttons for requested shoots */}
         {isRequested && (onApprove || onDecline || onModify) && (
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">

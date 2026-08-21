@@ -13,12 +13,15 @@ import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePick
 import { useSchedulingBase } from './useSchedulingBase';
 import {
   isAbortError,
+  canUseProtectedAvailabilityRoutes,
   readAvailabilityMap,
   readBookingPhotographers,
   type AvailabilityByPhotographer,
   type SchedulingFormProps,
   type SchedulingPhotographerView,
 } from './schedulingModel';
+import { useAuth } from '@/components/auth';
+import { CANONICAL_TIMEZONE } from '@/utils/timezone';
 
 export const useSchedulingFormController = ({
   date,
@@ -50,6 +53,8 @@ export const useSchedulingFormController = ({
   selectedServices = [],
   sameDayAddressWarningMessage = '',
 }: SchedulingFormProps) => {
+  const { user } = useAuth();
+  const canUseProtectedAvailability = canUseProtectedAvailabilityRoutes(user);
   const {
     disabledDates, today, toast, isMobile, isLocationLoading, timeDialogOpen,
     setTimeDialogOpen, tempTime, setTempTime, photographerDialogOpen,
@@ -200,23 +205,34 @@ export const useSchedulingFormController = ({
   }, [activeServiceForPicker, selectedServices]);
   const photographerOptions = useMemo(() => {
     const byId = new Map<string, SchedulingPhotographerView>();
+    const makePickerSafe = (photographerItem: SchedulingPhotographerView) => canUseProtectedAvailability
+      ? photographerItem
+      : {
+          ...photographerItem,
+          address: undefined,
+          city: undefined,
+          state: undefined,
+          zip: undefined,
+        };
     for (const photographerItem of photographersWithDistance) {
+      const pickerSafePhotographer = makePickerSafe(photographerItem);
       byId.set(String(photographerItem.id), {
-        ...photographerItem,
+        ...pickerSafePhotographer,
         id: String(photographerItem.id),
       });
     }
     for (const photographerItem of photographers) {
       const id = String(photographerItem.id);
       const enriched = byId.get(id);
+      const pickerSafePhotographer = makePickerSafe(photographerItem);
       byId.set(id, {
-        ...photographerItem,
+        ...pickerSafePhotographer,
         ...enriched,
         id,
       });
     }
     return Array.from(byId.values());
-  }, [photographers, photographersWithDistance]);
+  }, [canUseProtectedAvailability, photographers, photographersWithDistance]);
   useEffect(() => {
     if (!photographer || !date) {
       setDayAvailability(null);
@@ -226,6 +242,30 @@ export const useSchedulingFormController = ({
     const controller = new AbortController();
     const requestId = ++latestRequestRef.current;
     setAvailabilityPanel(derivePanelState({ loading: true, aborted: false, error: null, result: null }));
+    if (!canUseProtectedAvailability) {
+      const selected = photographerOptions.find((item) => String(item.id) === String(photographer));
+      const bookable = selected?.availabilitySlots ?? [];
+      const blocked = [...(selected?.bookedSlots ?? []), ...(selected?.unavailableSlots ?? [])]
+        .filter((slot) => Boolean(slot.start_time && slot.end_time))
+        .map((slot) => ({ start: slot.start_time, end: slot.end_time }));
+      const starts = bookable.map((slot) => slot.start_time).filter(Boolean).sort();
+      const ends = bookable.map((slot) => slot.end_time).filter(Boolean).sort();
+      const workingHours = starts.length > 0 && ends.length > 0
+        ? { start: starts[0], end: ends[ends.length - 1] }
+        : null;
+      const result = {
+        status: workingHours ? 'success' as const : blocked.length > 0 ? 'empty' as const : 'not-configured' as const,
+        day: {
+          workingHours,
+          blocked,
+          fromConfig: workingHours !== null,
+          timezone: CANONICAL_TIMEZONE,
+        },
+      };
+      setDayAvailability(result.day);
+      setAvailabilityPanel(derivePanelState({ loading: false, aborted: false, error: null, result }));
+      return;
+    }
     (async () => {
       try {
         const result = await getDayAvailability(photographer, date, controller.signal);
@@ -246,7 +286,7 @@ export const useSchedulingFormController = ({
     return () => {
       controller.abort();
     };
-  }, [date, latestRequestRef, photographer, setAvailabilityPanel, setDayAvailability]);
+  }, [canUseProtectedAvailability, date, latestRequestRef, photographer, photographerOptions, setAvailabilityPanel, setDayAvailability]);
   const isTimeWithinSlots = useCallback((value: string, slots: Array<{ start_time?: string; end_time?: string }> = []) => {
     const minutes = timeToMinutes(value);
     return slots.some((slot) => {
@@ -452,6 +492,7 @@ export const useSchedulingFormController = ({
     let isCancelled = false;
     const abortController = new AbortController();
     const computeDistancesFromProfiles = async () => {
+      if (!canUseProtectedAvailability) return;
       const hasBookingAddress = [address, city, state, zip].some(value => Boolean(value && String(value).trim()));
       if (!hasBookingAddress || photographers.length === 0) return;
       setIsCalculatingDistances(true);
@@ -530,6 +571,10 @@ export const useSchedulingFormController = ({
         setIsCalculatingDistances(false);
         setPhotographerAvailability(new Map());
         setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+        if (!canUseProtectedAvailability) {
+          setIsLoadingAvailability(false);
+          return;
+        }
         try {
           const token = localStorage.getItem('authToken');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -619,6 +664,7 @@ export const useSchedulingFormController = ({
             shoot_state: state,
             shoot_zip: zip || '',
             photographer_ids: photographers.map(p => Number(p.id)),
+            service_ids: selectedServices.map(service => Number(service.id)).filter(Number.isFinite),
           }),
         });
         if (isCancelled) return;
@@ -639,10 +685,11 @@ export const useSchedulingFormController = ({
             name: p.name || photographer?.name || '',
             avatar: p.avatar || p.profile_image || p.photo || photographer?.avatar,
             distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
-            address: photographer?.address,
-            city: photographer?.city,
-            state: photographer?.state,
-            zip: photographer?.zip,
+            address: canUseProtectedAvailability ? photographer?.address : undefined,
+            city: canUseProtectedAvailability ? photographer?.city : undefined,
+            state: canUseProtectedAvailability ? photographer?.state : undefined,
+            zip: canUseProtectedAvailability ? photographer?.zip : undefined,
+            serviceAreaLabel: p.service_area_label,
             availabilitySlots: p.availability_slots,
             unavailableSlots: p.unavailable_slots,
             bookedSlots: p.booked_slots,
@@ -651,13 +698,13 @@ export const useSchedulingFormController = ({
             hasAvailability: p.has_availability,
             shootsCountToday: p.shoots_count_today,
             distanceFrom: p.distance_from,
-            previousShootId: p.previous_shoot_id,
+            previousShootId: canUseProtectedAvailability ? p.previous_shoot_id : undefined,
             travel_range: photographer?.travel_range,
             travel_range_unit: photographer?.travel_range_unit ?? 'miles',
           };
         });
         let rawAvailabilityByPhotographer: AvailabilityByPhotographer = {};
-        try {
+        if (canUseProtectedAvailability) try {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
             method: 'POST',
             headers,
@@ -742,6 +789,7 @@ export const useSchedulingFormController = ({
         });
         setPhotographerAvailability(availabilityMap);
         setIsLoadingAvailability(false);
+        if (!canUseProtectedAvailability) return;
         const bookingCoords = await getCoordinatesFromAddress(address, city, state, zip || '');
         if (!bookingCoords || isCancelled) return;
         for (const p of photographerData) {
@@ -796,15 +844,18 @@ export const useSchedulingFormController = ({
     };
   }, [
     address, city, state, zip, photographers, date, normalizeAddressKey,
-    normalizeDayOfWeek, time,
+    normalizeDayOfWeek, time, canUseProtectedAvailability, selectedServices,
     setIsCalculatingDistances, setIsLoadingAvailability, setPhotographerAvailability,
     setPhotographersWithDistance,
   ]);
   const filteredAndSortedPhotographers = useMemo(() => {
+    const enrichedPhotographerIds = new Set(
+      photographersWithDistance.map((photographerItem) => String(photographerItem.id)),
+    );
     let filtered = showAllPhotographers
       ? photographerOptions
       : photographersWithDistance.length > 0
-        ? photographersWithDistance
+        ? photographerOptions.filter((photographerItem) => enrichedPhotographerIds.has(String(photographerItem.id)))
         : photographerOptions;
     const selectedTimeMinutes = time ? timeToMinutes(time) : null;
     const getAvailabilityMetrics = (photographerItem: SchedulingPhotographerView) => {
@@ -852,6 +903,7 @@ export const useSchedulingFormController = ({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(query) ||
+        p.serviceAreaLabel?.toLowerCase().includes(query) ||
         p.city?.toLowerCase().includes(query) ||
         p.state?.toLowerCase().includes(query)
       );

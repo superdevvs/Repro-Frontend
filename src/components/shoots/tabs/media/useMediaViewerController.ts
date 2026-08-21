@@ -118,6 +118,22 @@ export function useMediaViewerController({
   const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const handleDownloadSingle = useCallback(async (fileId: string) => {
+    const normalizedFileId = String(fileId);
+    if (!onDownloadSingle || downloadingFileId === normalizedFileId) return;
+    const startedAt = Date.now();
+    setDownloadingFileId(normalizedFileId);
+    try {
+      await onDownloadSingle(normalizedFileId);
+    } finally {
+      const remainingFeedbackMs = Math.max(0, 400 - (Date.now() - startedAt));
+      if (remainingFeedbackMs > 0) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, remainingFeedbackMs));
+      }
+      setDownloadingFileId((current) => current === normalizedFileId ? null : current);
+    }
+  }, [downloadingFileId, onDownloadSingle]);
   const [commentDraft, setCommentDraft] = useState('');
   const [showFileDetails, setShowFileDetails] = useState(true);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
@@ -781,6 +797,10 @@ export function useMediaViewerController({
       value: currentFile.workflowStage ? String(currentFile.workflowStage).replace(/_/g, ' ') : '—',
     },
     {
+      label: 'Edited with AI',
+      value: currentFile.is_ai_edited || currentFile.isAiEdited ? 'Yes' : 'No',
+    },
+    {
       label: 'Resolution',
       value: currentFile.width && currentFile.height ? `${currentFile.width} × ${currentFile.height}` : '—',
     },
@@ -858,6 +878,8 @@ export function useMediaViewerController({
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    downloadingFileId,
+    handleDownloadSingle,
     onShootUpdate,
     toast,
     prefersReducedMotion,

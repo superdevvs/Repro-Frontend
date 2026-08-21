@@ -111,6 +111,8 @@ export type ApiShoot = {
     id?: string | number;
     name?: string;
     email?: string;
+    email_verified?: boolean;
+    emailVerified?: boolean;
     company_name?: string;
     phone?: string;
     phonenumber?: string;
@@ -173,8 +175,10 @@ export type ApiShoot = {
   workflowStatus?: string;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
+  canViewInvoice?: boolean;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
+  can_view_invoice?: boolean;
   notes?: string | ApiNotePayload | null;
   shoot_notes?: string;
   approval_notes?: string;

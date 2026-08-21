@@ -1,4 +1,12 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -220,6 +228,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [originalUser, setOriginalUser] = useState<UserData | null>(null);
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
+  const userRef = useRef<UserData | null>(user);
+  const originalUserRef = useRef<UserData | null>(originalUser);
+  const isImpersonatingRef = useRef(isImpersonating);
+
+  userRef.current = user;
+  originalUserRef.current = originalUser;
+  isImpersonatingRef.current = isImpersonating;
 
   // Monotonically increasing counter bumped every time impersonate() or
   // stopImpersonating() writes new user state.  Any async operation that
@@ -230,9 +245,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // AbortController for the initial /api/user refresh — impersonate() cancels it
   // so a stale response can never overwrite the impersonated user.
   const refreshAbortRef = React.useRef<AbortController | null>(null);
+  const hydratedProfileUserIdRef = useRef<string | null>(null);
 
-  const clearStoredAuth = () => {
+  const clearStoredAuth = useCallback(() => {
     if (typeof window === 'undefined') return;
+    refreshAbortRef.current?.abort();
+    refreshAbortRef.current = null;
+    hydratedProfileUserIdRef.current = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('token');
     localStorage.removeItem('access_token');
@@ -240,12 +259,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('originalUser');
     sessionStorage.removeItem(AUTH_SESSION_FINGERPRINT_KEY);
     clearSessionScopedCaches();
-  };
+  }, []);
 
-  const syncSessionForUser = (nextUser: UserData, nextRole: Role) => {
+  const syncSessionForUser = useCallback((nextUser: UserData, nextRole: Role) => {
     const token = getStoredAuthToken();
     setSession(token ? buildSession(token, nextUser, nextRole) : null);
-  };
+  }, []);
 
   // Initialize auth state from localStorage on component mount
   useEffect(() => {
@@ -297,6 +316,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // user.  We already loaded the impersonated user from localStorage above.
       const isCurrentlyImpersonating = !!localStorage.getItem('originalUser');
       if (isCurrentlyImpersonating) return;
+
+      const hydrationUserId = initialUser?.id ? String(initialUser.id) : null;
+      if (!hydrationUserId || hydratedProfileUserIdRef.current === hydrationUserId) return;
+      hydratedProfileUserIdRef.current = hydrationUserId;
 
       // Snapshot the epoch BEFORE the async work begins.
       const epochAtStart = impersonationEpochRef.current;
@@ -358,10 +381,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     refreshUser();
     setIsLoading(false);
-  }, []);
+  }, [clearStoredAuth]);
 
   // Login function
-  const login = (userData: UserData, authToken?: string) => {
+  const login = useCallback((userData: UserData, authToken?: string) => {
     // Persist the auth token FIRST so any subsequent fetches (including the
     // post-login refresh below) carry the correct Authorization header.
     if (authToken) {
@@ -402,7 +425,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // server-managed fields (metadata.specialties, email_health details,
     // discount config, timezone, etc.) are populated immediately after login
     // instead of only after the next page reload.
-    if (tokenToUse && typeof window !== 'undefined') {
+    if (
+      tokenToUse
+      && typeof window !== 'undefined'
+      && hydratedProfileUserIdRef.current !== String(normalizedUser.id)
+    ) {
+      hydratedProfileUserIdRef.current = String(normalizedUser.id);
       // Abort any in-flight refresh from the init effect.
       refreshAbortRef.current?.abort();
 
@@ -447,10 +475,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         });
     }
-  };
+  }, [syncSessionForUser]);
 
   // Logout function
-  const logout = () => {
+  const logout = useCallback(() => {
     clearStoredAuth();
     setUser(null);
     setOriginalUser(null);
@@ -459,10 +487,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setRole('client');
     setSession(null);
     console.log('User logged out');
-  };
+  }, [clearStoredAuth]);
 
-  const impersonate = (targetUser: UserData) => {
-    if (!user) return;
+  const impersonate = useCallback((targetUser: UserData) => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
 
     // Bump the epoch so any in-flight async work (refreshUser, fetches, etc.)
     // that captured an earlier epoch will silently discard its result.
@@ -474,8 +503,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     refreshAbortRef.current = null;
 
     // Store current (admin) user as original BEFORE anything else
-    if (!isImpersonating) {
-      const adminSnapshot = { ...user };
+    if (!isImpersonatingRef.current) {
+      const adminSnapshot = { ...currentUser };
       localStorage.setItem('originalUser', JSON.stringify(adminSnapshot));
       setOriginalUser(adminSnapshot);
       setIsImpersonating(true);
@@ -508,10 +537,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     syncSessionForUser(updatedUserData, roleToUse);
     
     console.log(`Impersonating user: ${targetUser.name} (${targetUser.email}), id=${updatedUserData.id}, epoch=${impersonationEpochRef.current}`);
-  };
+  }, [syncSessionForUser]);
 
-  const stopImpersonating = () => {
-    if (!originalUser) return;
+  const stopImpersonating = useCallback(() => {
+    const userToRestore = originalUserRef.current;
+    if (!userToRestore) return;
 
     // Bump the epoch so any in-flight async work from the impersonated
     // session silently discards its result.
@@ -520,27 +550,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Write localStorage FIRST so any in-flight or subsequent API calls
     // immediately stop sending the impersonation header.
     localStorage.removeItem('originalUser');
-    localStorage.setItem('user', JSON.stringify(originalUser));
+    localStorage.setItem('user', JSON.stringify(userToRestore));
     // Clear cached shoots so dashboard re-fetches for the admin context
     localStorage.removeItem('shoots');
     clearSessionScopedCaches();
     
-    const restoredRole = normalizeRole(originalUser.role);
-    setUser(originalUser);
+    const restoredRole = normalizeRole(userToRestore.role);
+    setUser(userToRestore);
     setRole(restoredRole);
     setIsImpersonating(false);
     setOriginalUser(null);
 
     // Restore session
-    syncSessionForUser(originalUser, restoredRole);
+    syncSessionForUser(userToRestore, restoredRole);
     
-    console.log('Stopped impersonating, restored original user:', originalUser.name);
-  };
+    console.log('Stopped impersonating, restored original user:', userToRestore.name);
+  }, [syncSessionForUser]);
 
-  const setUserRole = (newRole: Role) => {
-    if (user) {
+  const setUserRole = useCallback((newRole: Role) => {
+    const currentUser = userRef.current;
+    if (currentUser) {
       const normalizedRole = normalizeRole(newRole);
-      const updatedUser = { ...user, role: normalizedRole };
+      const updatedUser = { ...currentUser, role: normalizedRole };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setRole(normalizedRole);
@@ -550,15 +581,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     setRole(normalizeRole(newRole));
-  };
+  }, [syncSessionForUser]);
 
   // Update user data function
-  const updateUser = (userData: UserData) => {
-    if (user) {
-      const normalizedUser = normalizeApiUser(userData, user);
+  const updateUser = useCallback((userData: UserData) => {
+    const currentUser = userRef.current;
+    if (currentUser) {
+      const normalizedUser = normalizeApiUser(userData, currentUser);
       // Keep the role if not provided in userData
       if (!userData.role) {
-        normalizedUser.role = user.role;
+        normalizedUser.role = currentUser.role;
       }
       const normalizedRole = normalizeRole(normalizedUser.role);
       normalizedUser.role = normalizedRole;
@@ -570,7 +602,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       syncSessionForUser(normalizedUser, normalizedRole);
       console.log('User data updated');
     }
-  };
+  }, [syncSessionForUser]);
 
   // Context value
   useEffect(() => {
@@ -627,21 +659,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, [isAuthenticated, isImpersonating, originalUser?.id, role, user]);
 
-  const contextValue: AuthContextType = {
-    user,
-    isAuthenticated,
-    isLoading,
-    role,
-    session,
-    login,
-    logout,
-    setUserRole,
-    setUser: updateUser,
-    impersonate,
-    stopImpersonating,
-    isImpersonating,
-    originalUser,
-  };
+  const contextValue = useMemo<AuthContextType>(() => ({
+      user,
+      isAuthenticated,
+      isLoading,
+      role,
+      session,
+      login,
+      logout,
+      setUserRole,
+      setUser: updateUser,
+      impersonate,
+      stopImpersonating,
+      isImpersonating,
+      originalUser,
+    }), [
+      impersonate,
+      isAuthenticated,
+      isImpersonating,
+      isLoading,
+      login,
+      logout,
+      originalUser,
+      role,
+      session,
+      setUserRole,
+      stopImpersonating,
+      updateUser,
+      user,
+    ]);
 
   return (
     <AuthContext.Provider value={contextValue}>

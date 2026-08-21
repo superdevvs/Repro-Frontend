@@ -78,7 +78,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
   );
 
   return (
-    <Card className="flex flex-col h-full flex-1 relative">
+    <Card className={cn(
+      'relative flex flex-col',
+      activeTab === 'requested' ? 'h-auto flex-none' : 'h-full flex-1',
+    )}>
       {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
       <button
         onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -525,8 +528,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
 
       <div ref={filterPanelHostRef} />
 
-      {/* Content based on active tab - flex-1 to fill remaining space */}
-      <div className="flex-1 flex flex-col">
+      {/* Requested lists size to their content; only long lists own a bounded scroll area. */}
+      <div className={cn('flex flex-col', activeTab === 'upcoming' && 'flex-1')}>
         {activeTab === 'upcoming' ? (
           paginatedGroups.length === 0 ? (
             <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
@@ -578,12 +581,13 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           )
         ) : (
           filteredRequestedShoots.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
+            <div className="min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
               No pending requests.
             </div>
           ) : (
             <div 
-              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              className="overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+              style={{ maxHeight: listMaxHeight }}
             >
               <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
                 {renderStickyCompactToggle()}

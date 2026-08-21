@@ -30,6 +30,8 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    downloadingFileId,
+    handleDownloadSingle,
     isImageFile,
     isVideoFile,
     zoom,
@@ -92,6 +94,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     showMobileActionMenu,
     fitMediaClassName,
   } = model;
+  const isDownloadingCurrentFile = downloadingFileId === String(currentFile.id);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -279,10 +282,11 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                 {canDownloadSingleMedia && onDownloadSingle && (
                   <DropdownMenuItem
                     className={mobileActionMenuItemClassName}
-                    onSelect={() => onDownloadSingle(currentFile.id)}
+                    disabled={isDownloadingCurrentFile}
+                    onSelect={() => handleDownloadSingle(currentFile.id)}
                   >
-                    <Download className="h-4 w-4" />
-                    Download
+                    {isDownloadingCurrentFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    {isDownloadingCurrentFile ? 'Preparing…' : 'Download'}
                   </DropdownMenuItem>
                 )}
                 {onToggleHidden && (
@@ -596,10 +600,11 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             variant="outline"
                             size="icon"
                             className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
-                            onClick={() => onDownloadSingle(currentFile.id)}
+                            disabled={isDownloadingCurrentFile}
+                            onClick={() => handleDownloadSingle(currentFile.id)}
                             title="Download image"
                           >
-                            <Download className="h-4 w-4" />
+                            {isDownloadingCurrentFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                           </Button>
                         )}
                         {onToggleHidden && (
@@ -708,10 +713,11 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                         <Button
                           variant="outline"
                           className={sidebarActionButtonClassName}
-                          onClick={() => onDownloadSingle(currentFile.id)}
+                          disabled={isDownloadingCurrentFile}
+                          onClick={() => handleDownloadSingle(currentFile.id)}
                         >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
+                          {isDownloadingCurrentFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                          {isDownloadingCurrentFile ? 'Preparing…' : 'Download'}
                         </Button>
                       )}
                       {onToggleHidden && (

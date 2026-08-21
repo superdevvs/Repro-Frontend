@@ -143,6 +143,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             state: photographerItem.state,
             zip: photographerItem.zip,
           });
+          const publicLocationLabel = photographerItem.serviceAreaLabel || locationLabel;
           const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
             ? photographerItem.netAvailableSlots
             : photographerItem.availabilitySlots || [];
@@ -295,7 +296,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                     })()}
                   </div>
                   <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
-                    {locationLabel || 'Location unavailable'}
+                    {publicLocationLabel || 'Service area unavailable'}
                   </p>
                   <TooltipProvider delayDuration={100}>
                     <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>

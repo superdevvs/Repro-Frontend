@@ -90,6 +90,9 @@ export interface ClientMyShootsProps {
   activeRequestCount?: number;
   requestsLoading?: boolean;
   onOpenRequests?: () => void;
+  activeTab?: 'upcoming' | 'completed' | 'hold';
+  onActiveTabChange?: (tab: 'upcoming' | 'completed' | 'hold') => void;
+  deliveredUnseenCount?: number;
 }
 
 export interface ClientShootTileProps {

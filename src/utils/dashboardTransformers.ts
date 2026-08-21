@@ -35,6 +35,8 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   cityStateZip: shoot.city_state_zip ?? '',
   status: shoot.status ?? null,
   workflowStatus: shoot.workflow_status ?? null,
+  canViewInvoice: shoot.can_view_invoice,
+  canSubmitRaw: Boolean(shoot.can_submit_raw ?? shoot.canSubmitRaw),
   clientName: shoot.client_name ?? null,
   clientId: shoot.client_id ?? null,
   clientPhone: shoot.client_phone ?? null,
@@ -207,4 +209,3 @@ export const transformDashboardOverview = (
     };
   }
 };
-

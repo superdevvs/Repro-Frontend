@@ -67,7 +67,12 @@ export const getShootDetailsCapabilities = ({
   const isCancelledOrDeclined = ['cancelled', 'canceled', 'declined'].includes(
     normalizedStatus,
   );
-  const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
+  const explicitInvoiceCapability = shoot?.canViewInvoice ?? shoot?.can_view_invoice;
+  const canShowInvoiceButton = typeof explicitInvoiceCapability === 'boolean'
+    ? explicitInvoiceCapability && (!isClient || isDelivered)
+    : isClient
+      ? isDelivered
+      : isUploadedStatus || isEditingStatus;
   // Fast-forward finalize: an admin can move a still-unstarted shoot (scheduled
   // or on hold, with no raw/edited media) straight to Delivered. This is the
   // explicit "Finalize (fast-forward)" path; the backend honours it via the

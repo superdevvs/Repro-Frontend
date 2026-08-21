@@ -21,7 +21,7 @@ export interface MediaViewerProps {
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
-  onDownloadSingle?: (fileId: string) => void;
+  onDownloadSingle?: (fileId: string) => void | Promise<void>;
   onShootUpdate?: () => void;
 }
 
@@ -74,5 +74,4 @@ export const getRequestStatusClassName = (status?: string) => {
 
 export const SLIDESHOW_INTERVAL_OPTIONS = [5, 7, 10, 3] as const;
 export const MAX_MEDIA_VIEWER_ZOOM = 10;
-
 

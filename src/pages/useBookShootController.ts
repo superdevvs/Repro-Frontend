@@ -397,6 +397,7 @@ export const useBookShootController = () => {
           shootServices: selectedServices.map((service) => service.name),
           clientName: user?.name,
           clientEmail: user?.email,
+          shoot: shootData,
         };
         if (shootData?.id) {
           setCreatedShootId(shootData.id);

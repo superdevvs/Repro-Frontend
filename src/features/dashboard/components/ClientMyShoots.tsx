@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   isClientDeliveredShootDownloaded,
-  isClientDeliveredShootViewed,
   markClientDeliveredShootDownloaded,
-  markClientDeliveredShootViewed,
 } from "@/utils/clientDeliveredShootTracker";
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import { shootDataToSummary } from "@/utils/dashboardDerivedUtils";
@@ -40,6 +38,9 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   activeRequestCount = 0,
   requestsLoading = false,
   onOpenRequests,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  deliveredUnseenCount = 0,
 }) => {
   const tabs: Array<{ key: "upcoming" | "completed" | "hold"; label: string; count: number }> = [
     { key: "upcoming", label: "Scheduled", count: upcoming.length },
@@ -47,7 +48,12 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
     // Only show On hold tab if there are items
     ...(onHold.length > 0 ? [{ key: "hold" as const, label: "On hold", count: onHold.length }] : []),
   ];
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("upcoming");
+  const [internalActiveTab, setInternalActiveTab] = useState<(typeof tabs)[number]["key"]>("upcoming");
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = (tab: (typeof tabs)[number]["key"]) => {
+    setInternalActiveTab(tab);
+    onActiveTabChange?.(tab);
+  };
   const [deliveredViewMode, setDeliveredViewMode] = useState<'grid' | 'list'>(() => {
     try { return (localStorage.getItem('client-delivered-view') as 'grid' | 'list') || 'grid'; } catch { return 'grid'; }
   });
@@ -99,51 +105,32 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
     };
   }, [completed, normalizedCurrentUserId]);
 
-  const markDeliveredShootViewed = useCallback((record: ClientShootRecord) => {
-    if (!normalizedCurrentUserId) {
-      return;
-    }
-
-    if (markClientDeliveredShootViewed(normalizedCurrentUserId, record.data.id)) {
-      setDeliveredTrackerVersion((version) => version + 1);
-    }
-  }, [normalizedCurrentUserId]);
-
   const deliveredBadgeState = !normalizedCurrentUserId
     ? {
         remainingCount: completed.length,
-        unseenCount: completed.length,
+        unseenCount: deliveredUnseenCount,
       }
     : completed.reduce(
         (accumulator, record) => {
           const shootId = record.data.id;
           const isDownloaded = isClientDeliveredShootDownloaded(normalizedCurrentUserId, shootId);
-          const isViewed = isClientDeliveredShootViewed(normalizedCurrentUserId, shootId);
 
           if (!isDownloaded) {
             accumulator.remainingCount += 1;
           }
 
-          if (!isDownloaded && !isViewed) {
-            accumulator.unseenCount += 1;
-          }
-
           return accumulator;
         },
-        { remainingCount: 0, unseenCount: 0 },
+        { remainingCount: 0, unseenCount: deliveredUnseenCount },
       );
 
   const handleSelectRecord = useCallback((record: ClientShootRecord) => {
-    if (activeTab === "completed") {
-      markDeliveredShootViewed(record);
-    }
     onSelect(record);
-  }, [activeTab, markDeliveredShootViewed, onSelect]);
+  }, [onSelect]);
 
   const handleDownloadRecord = useCallback((record: ClientShootRecord) => {
-    markDeliveredShootViewed(record);
     onDownload(record);
-  }, [markDeliveredShootViewed, onDownload]);
+  }, [onDownload]);
 
   const list =
     activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold;
@@ -176,7 +163,9 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                             : "text-slate-700 bg-slate-300",
                         )}
                       >
-                        {deliveredBadgeState.remainingCount}
+                        {deliveredBadgeState.unseenCount > 0
+                          ? deliveredBadgeState.unseenCount
+                          : deliveredBadgeState.remainingCount}
                       </span>
                     ) : (
                       <span>({tab.count})</span>
@@ -359,7 +348,10 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
       prevProps.onBookNewShoot === nextProps.onBookNewShoot &&
       prevProps.activeRequestCount === nextProps.activeRequestCount &&
       prevProps.requestsLoading === nextProps.requestsLoading &&
-      prevProps.onOpenRequests === nextProps.onOpenRequests
+      prevProps.onOpenRequests === nextProps.onOpenRequests &&
+      prevProps.activeTab === nextProps.activeTab &&
+      prevProps.onActiveTabChange === nextProps.onActiveTabChange &&
+      prevProps.deliveredUnseenCount === nextProps.deliveredUnseenCount
     );
   }
 );

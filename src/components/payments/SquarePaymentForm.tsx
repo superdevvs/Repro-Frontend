@@ -17,7 +17,7 @@ import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar,
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js/pure';
 import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
 import type { PricingBreakdown } from '@/utils/pricing';
 import {
@@ -29,32 +29,16 @@ import {
 import { getCurrentReturnTo, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { formatServiceItemStatus } from '@/utils/shootServiceItems';
+import { getPaymentErrorMessage } from './paymentErrorMessage';
+import {
+  getCompletedPaymentTotal,
+  type CouponValidationResponse,
+  type PaymentSessionConfirmationResponse,
+  type ShootPaymentStatusResponse,
+} from './squarePaymentModel';
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
   destroy: () => void;
-};
-
-type PaymentRecord = {
-  status?: string;
-  amount?: number | string;
-};
-
-type ShootPaymentStatusResponse = {
-  total_quote?: number | string;
-  payments?: PaymentRecord[];
-};
-
-type PaymentSessionConfirmationResponse = {
-  last_payment_amount?: number | string | null;
-  return_to?: string | null;
-};
-
-type CouponValidationResponse = {
-  valid?: boolean;
-  discount?: number;
-  discount_amount?: number;
-  discount_type?: 'percentage' | 'fixed';
-  message?: string;
 };
 
 export interface SquarePaymentSuccessPayload {
@@ -70,27 +54,6 @@ export interface SquarePaymentFormHandle {
    */
   chargeOutstandingViaStripe: () => void;
 }
-
-const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
-    const responseData = error.response?.data;
-    if (typeof responseData === 'object' && responseData && 'error' in responseData && typeof responseData.error === 'string') {
-      return responseData.error;
-    }
-    if (typeof responseData === 'object' && responseData && 'message' in responseData && typeof responseData.message === 'string') {
-      return responseData.message;
-    }
-    return error.message || fallback;
-  }
-
-  return error instanceof Error ? error.message : fallback;
-};
-
-const getCompletedPaymentTotal = (payments?: PaymentRecord[]): number => {
-  return payments
-    ?.filter((payment) => payment.status === 'completed')
-    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
-};
 
 interface SquarePaymentFormProps {
   amount: number;
@@ -118,6 +81,8 @@ interface SquarePaymentFormProps {
   isPartialOpen?: boolean;
   onCheckoutActiveChange?: (active: boolean) => void;
   onCheckoutMounted?: () => void;
+  /** Clients may pay the full balance or select service rows; arbitrary partials are not allocated. */
+  requireAllocatedPartial?: boolean;
 }
 
 export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePaymentFormProps>(function SquarePaymentForm({
@@ -146,6 +111,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
   isPartialOpen = false,
   onCheckoutActiveChange,
   onCheckoutMounted,
+  requireAllocatedPartial = false,
 }: SquarePaymentFormProps, ref) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -278,6 +244,19 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
       return;
     }
 
+    if (
+      requireAllocatedPartial
+      && !isSelectedServicePayment
+      && Math.abs(effectivePaymentAmount - amount) > 0.009
+    ) {
+      toast({
+        title: 'Choose Payment Scope',
+        description: 'Pay the full order balance or select the service items you want to pay.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (isProcessing || disabled) {
       return;
     }
@@ -364,7 +343,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
       startPaymentPolling();
     } catch (error) {
       setStripeLoading(false);
-      const errorMessage = getErrorMessage(error, 'Failed to create Stripe checkout session.');
+      const errorMessage = getPaymentErrorMessage(error, 'Failed to create Stripe checkout session.');
 
       setStripeError(errorMessage);
       toast({
@@ -699,8 +678,13 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
                 <div className="flex-1">
                   <Label htmlFor="paymentAmount" className="text-xs text-muted-foreground">Amount</Label>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">$</span>
-                    <Input
+                    {requireAllocatedPartial ? (
+                      <span className="text-lg font-bold" data-testid="allocated-payment-amount">
+                        ${effectivePaymentAmount.toFixed(2)}
+                      </span>
+                    ) : (<>
+                      <span className="text-lg font-bold">$</span>
+                      <Input
                       ref={paymentAmountInputRef}
                       id="paymentAmount"
                       type="text"
@@ -735,10 +719,11 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
                         setIsPartialPaymentMode(false);
                       }}
                       className="text-lg font-bold h-9 w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
+                      />
+                    </>)}
                   </div>
                 </div>
-                <div className="flex gap-1">
+                {!requireAllocatedPartial && <div className="flex gap-1">
                   <Button
                     type="button"
                     variant={!isPartialPaymentMode ? "default" : "outline"}
@@ -767,7 +752,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
                   >
                     Partial
                   </Button>
-                </div>
+                </div>}
               </div>
               {remainingBalanceAfterPayment > 0 && effectivePaymentAmount > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
@@ -850,7 +835,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
                         setCouponError(res.data.message || 'Invalid discount code');
                       }
                     } catch (err) {
-                      setCouponError(getErrorMessage(err, 'Failed to validate discount code'));
+                      setCouponError(getPaymentErrorMessage(err, 'Failed to validate discount code'));
                     } finally {
                       setCouponLoading(false);
                     }

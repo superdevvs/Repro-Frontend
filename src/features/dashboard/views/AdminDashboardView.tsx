@@ -131,7 +131,7 @@ export const AdminDashboardView = ({
         <motion.div
           style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
           className={cn(
-            "relative flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+            "relative flex flex-col gap-4 sm:gap-6 order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
             effectiveLeftColumnHidden && effectiveRightColumnHidden
               ? "md:col-span-12 min-[1025px]:col-span-1"
               : effectiveLeftColumnHidden || effectiveRightColumnHidden

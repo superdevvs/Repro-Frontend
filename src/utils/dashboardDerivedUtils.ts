@@ -420,6 +420,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),
     status: shoot.status || null,
     workflowStatus: shoot.workflowStatus || shoot.status || null,
+    canViewInvoice: shoot.canViewInvoice ?? shoot.can_view_invoice,
     clientName: shoot.client?.name || null,
     clientId: shoot.client?.id,
     clientPhone: getClientPhone(shoot.client),

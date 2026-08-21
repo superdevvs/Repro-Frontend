@@ -309,8 +309,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         )}
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
-          <div className="flex-1 flex flex-col min-h-0 p-2.5">
-            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5" data-testid="media-upload-scroll-owner">
+            <div className="border rounded-lg bg-card p-3 pb-6 flex min-h-full flex-col">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */
                 <AdminUploadSection
@@ -362,6 +362,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
               ) : (
                 <RawUploadSection
                   shoot={shoot}
+                  rawFiles={rawFiles}
                   showInlineProgress={false}
                     onUploadComplete={() => {
                       toast({

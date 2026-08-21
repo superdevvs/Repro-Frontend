@@ -496,14 +496,21 @@ export function ShootDetailsModal({
     toast,
   });
 
-  const handleProgressMediaDownload = useCallback(() => {
-    if (activeMediaDisplayTab === 'edited') {
-      void handleDownloadMedia('original');
-      return;
-    }
-
-    void handleEditorDownloadRaw();
-  }, [activeMediaDisplayTab, handleDownloadMedia, handleEditorDownloadRaw]);
+  const handleOpenUpload = useCallback((displayTab: 'uploaded' | 'edited') => {
+    if (!shoot?.id) return;
+    setActiveTab('media');
+    setActiveMediaDisplayTab(displayTab);
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('shoot-media-open-upload', {
+        detail: { shootId: shoot.id, displayTab },
+      }));
+    }, 0);
+  }, [shoot?.id]);
+  const handleUploadEdits = useCallback(() => handleOpenUpload('edited'), [handleOpenUpload]);
+  const handleOpenRawSubmission = useCallback(() => handleOpenUpload('uploaded'), [handleOpenUpload]);
+  const handleProgressMediaDownload = useCallback(() => activeMediaDisplayTab === 'edited'
+    ? handleDownloadMedia('original') : handleEditorDownloadRaw(),
+  [activeMediaDisplayTab, handleDownloadMedia, handleEditorDownloadRaw]);
   const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
   const canOpenDeliveredDownloadDialog =
     !isEditor &&
@@ -758,7 +765,6 @@ export function ShootDetailsModal({
           isEditor={isEditor}
           isPhotographer={isPhotographer}
           canClientDownload={clientReleaseAccess.canClientDownload}
-          isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
           isStartingMmmPunchout={isStartingMmmPunchout}
           isSendingToEditing={isSendingToEditing}
@@ -791,7 +797,7 @@ export function ShootDetailsModal({
           handleOpenMmm={handleOpenMmm}
           handleStartMmmPunchout={handleStartMmmPunchout}
           handleEditorDownloadRaw={handleEditorDownloadRaw}
-          handleProgressMediaDownload={handleProgressMediaDownload}
+          handleUploadEdits={handleUploadEdits}
           handleGenerateShareLink={handleGenerateShareLink}
           onClose={onClose}
         />
@@ -801,6 +807,8 @@ export function ShootDetailsModal({
           createdByLabel={createdByLabel}
           statusBadge={statusBadge}
           paymentBadge={paymentBadge}
+          needsRawSubmission={isPhotographer && canSubmitRawAction}
+          onOpenRawSubmission={handleOpenRawSubmission}
           activeTab={activeTab}
           visibleTabs={visibleTabs}
           handleTabChange={handleTabChange}

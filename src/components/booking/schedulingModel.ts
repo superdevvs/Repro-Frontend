@@ -32,6 +32,7 @@ export interface SchedulingSlot {
 }
 
 export interface SchedulingPhotographerView extends SchedulingPhotographer {
+  serviceAreaLabel?: string;
   distance?: number;
   distanceFrom?: 'home' | 'previous_shoot';
   previousShootId?: number;
@@ -61,6 +62,7 @@ export type BookingPhotographerPayload = Omit<SchedulingPhotographerView, 'id' |
   shoots_count_today?: number;
   distance_from?: 'home' | 'previous_shoot';
   previous_shoot_id?: number;
+  service_area_label?: string;
 };
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -87,6 +89,10 @@ export const readBookingPhotographers = (payload: unknown): BookingPhotographerP
 
 export const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === 'AbortError';
+
+export const canUseProtectedAvailabilityRoutes = (
+  user?: { role?: unknown } | null,
+): boolean => Boolean(user && String(user.role ?? '').toLowerCase() !== 'client');
 
 export interface SchedulingFormProps {
   date: Date | undefined;
@@ -118,4 +124,3 @@ export interface SchedulingFormProps {
   selectedServices?: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
   sameDayAddressWarningMessage?: string;
 }
-

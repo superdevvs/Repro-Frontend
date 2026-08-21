@@ -50,6 +50,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 shootServices={completedBooking?.shootServices ?? selectedServices.map(s => s.name)}
                 clientName={completedBooking?.clientName ?? user?.name}
                 clientEmail={completedBooking?.clientEmail ?? user?.email}
+                shoot={completedBooking?.shoot}
               />
             ) : (
               <div className="space-y-4">

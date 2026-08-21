@@ -83,31 +83,41 @@ export function ShootNotesTab({
     };
   } | null>(null);
 
-  // Fetch canonical shoot notes from backend API so we can display new top-level fields even if context lacks them
+  // Fetch the canonical relational note collection. The endpoint applies shoot
+  // ownership/assignment checks and role visibility before returning anything.
   useEffect(() => {
+    const controller = new AbortController();
     const loadServerNotes = async () => {
       try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (!token || !shoot?.id) return;
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
         if (!res.ok) return;
         const json = await res.json();
-        const s = json?.data || {};
+        const notes = Array.isArray(json?.data) ? json.data : [];
+        const latestByType = new Map<string, string>();
+        notes.forEach((note: { type?: unknown; content?: unknown }) => {
+          const type = typeof note.type === 'string' ? note.type : '';
+          if (type && !latestByType.has(type) && typeof note.content === 'string') {
+            latestByType.set(type, note.content);
+          }
+        });
         setServerNotes({
-          shoot_notes: s.shoot_notes ?? undefined,
-          approval_notes: s.approval_notes ?? s.approvalNotes ?? undefined,
-          company_notes: s.company_notes ?? undefined,
-          photographer_notes: s.photographer_notes ?? undefined,
-          editor_notes: s.editor_notes ?? undefined,
-          notes: s.notes ?? undefined,
+          shoot_notes: latestByType.get('shoot'),
+          company_notes: latestByType.get('company'),
+          photographer_notes: latestByType.get('photographer'),
+          editor_notes: latestByType.get('editing'),
         });
       } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
         console.warn('Failed to load server notes', e);
       }
     };
-    loadServerNotes();
+    void loadServerNotes();
+    return () => controller.abort();
   }, [shoot?.id]);
 
   const getNotes = useCallback((key: NoteType): string => {
@@ -254,20 +264,30 @@ export function ShootNotesTab({
     try {
       // Save to Laravel backend
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      const apiKeyMap: Partial<Record<NoteType, string>> = {
-        shootNotes: 'shoot_notes',
-        photographerNotes: 'photographer_notes',
-        companyNotes: 'company_notes',
-        editingNotes: 'editor_notes'
+      const noteRequestMap: Partial<Record<NoteType, {
+        field: string;
+        type: 'shoot' | 'company' | 'photographer' | 'editing';
+        visibility: 'internal' | 'photographer_only' | 'client_visible';
+      }>> = {
+        shootNotes: { field: 'shoot_notes', type: 'shoot', visibility: 'client_visible' },
+        photographerNotes: { field: 'photographer_notes', type: 'photographer', visibility: 'photographer_only' },
+        companyNotes: { field: 'company_notes', type: 'company', visibility: 'internal' },
+        editingNotes: { field: 'editor_notes', type: 'editing', visibility: 'internal' },
       };
-      const apiKey = apiKeyMap[noteType];
-      if (!apiKey) return;
+      const requestConfig = noteRequestMap[noteType];
+      if (!requestConfig) return;
 
-      const payload: Record<string, string> = {};
-      payload[apiKey] = String(editableNotes[noteType] || '');
+      const content = String(editableNotes[noteType] || '').trim();
+      const payload = content
+        ? {
+            type: requestConfig.type,
+            visibility: requestConfig.visibility,
+            content,
+          }
+        : { [requestConfig.field]: '' };
 
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
-        method: 'PATCH',
+        method: content ? 'POST' : 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -281,11 +301,11 @@ export function ShootNotesTab({
       const json = await res.json();
       const d = json?.data || {};
       setServerNotes({
-        shoot_notes: d.shoot_notes ?? serverNotes?.shoot_notes,
+        shoot_notes: noteType === 'shootNotes' ? content : (d.shoot_notes ?? serverNotes?.shoot_notes),
         approval_notes: d.approval_notes ?? serverNotes?.approval_notes,
-        company_notes: d.company_notes ?? serverNotes?.company_notes,
-        photographer_notes: d.photographer_notes ?? serverNotes?.photographer_notes,
-        editor_notes: d.editor_notes ?? serverNotes?.editor_notes,
+        company_notes: noteType === 'companyNotes' ? content : (d.company_notes ?? serverNotes?.company_notes),
+        photographer_notes: noteType === 'photographerNotes' ? content : (d.photographer_notes ?? serverNotes?.photographer_notes),
+        editor_notes: noteType === 'editingNotes' ? content : (d.editor_notes ?? serverNotes?.editor_notes),
         notes: d.notes ?? serverNotes?.notes,
       });
       
@@ -312,10 +332,12 @@ export function ShootNotesTab({
   // Only real admins can edit all note types. Editing managers are read-only here.
   function canEdit(noteType: NoteType): boolean {
     if (isRealAdmin) {
-      return true;
+      return noteType !== 'approvalNotes';
     }
 
     switch (noteType) {
+      case 'shootNotes':
+        return role === 'client';
       case 'photographerNotes': 
         return role === 'photographer';
       default: 

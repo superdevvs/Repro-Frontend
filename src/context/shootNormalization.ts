@@ -728,6 +728,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       id: client.id ? String(client.id) : undefined,
       name: client.name || 'Client',
       email: client.email || '',
+      emailVerified: Boolean(client.emailVerified ?? client.email_verified),
+      email_verified: Boolean(client.email_verified ?? client.emailVerified),
       company: client.company_name || undefined,
       phone: client.phone || client.phonenumber || undefined,
       totalShoots: client.total_shoots ?? shoot.client_shoots_count ?? 0,
@@ -802,8 +804,14 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     extraPhotoCount: toNumber(shoot.extra_photo_count ?? shoot.extraPhotoCount),
     canSubmitRaw: Boolean(shoot.canSubmitRaw ?? shoot.can_submit_raw),
     canSubmitEdits: Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits),
+    canViewInvoice: typeof (shoot.canViewInvoice ?? shoot.can_view_invoice) === 'boolean'
+      ? Boolean(shoot.canViewInvoice ?? shoot.can_view_invoice)
+      : undefined,
     can_submit_raw: Boolean(shoot.can_submit_raw ?? shoot.canSubmitRaw),
     can_submit_edits: Boolean(shoot.can_submit_edits ?? shoot.canSubmitEdits),
+    can_view_invoice: typeof (shoot.can_view_invoice ?? shoot.canViewInvoice) === 'boolean'
+      ? Boolean(shoot.can_view_invoice ?? shoot.canViewInvoice)
+      : undefined,
     heroImage: shoot.hero_image || shoot.heroImage || undefined,
     media: shoot.media || undefined,
     tourLinks: shoot.tour_links || undefined,

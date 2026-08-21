@@ -74,6 +74,7 @@ import {
   getDisplayMediaFilename,
   getMediaViewerImageUrl,
   isPreviewableImage,
+  buildMediaFilesFingerprint,
 } from './mediaPreviewUtils';
 import VideoThumbnail from '../../VideoThumbnail';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
@@ -461,6 +462,19 @@ export function useShootDetailsMediaTab({
   }, [shoot.id]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOpenUpload = (event: Event) => {
+      const detail = (event as CustomEvent<{ shootId?: string | number; displayTab?: 'uploaded' | 'edited' }>).detail;
+      if (String(detail?.shootId ?? '') !== String(shoot.id)) return;
+      const target = detail?.displayTab === 'uploaded' ? 'uploaded' : 'edited';
+      setDisplayTab(target);
+      setActiveSubTab('upload');
+    };
+    window.addEventListener('shoot-media-open-upload', handleOpenUpload);
+    return () => window.removeEventListener('shoot-media-open-upload', handleOpenUpload);
+  }, [setDisplayTab, shoot.id]);
+
+  useEffect(() => {
     if (!isClient) {
       return;
     }
@@ -511,28 +525,6 @@ export function useShootDetailsMediaTab({
     cacheKey: shootFilesCacheKey,
   });
 
-  const buildFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
-    files.map((f) => ({
-      id: f.id,
-      shootServiceId: f.shoot_service_id ?? f.shootServiceId,
-      url: f.url,
-      path: f.path,
-      mt: f.media_type,
-      workflowStage: f.workflowStage,
-      thumb: f.thumb,
-      medium: f.medium,
-      large: f.large,
-      original: f.original,
-      web_url: f.web_url,
-      thumbnail_path: f.thumbnail_path,
-      web_path: f.web_path,
-      watermarked_thumbnail_path: f.watermarked_thumbnail_path,
-      watermarked_web_path: f.watermarked_web_path,
-      placeholder_path: f.placeholder_path,
-      processed_at: f.processed_at,
-    }))
-  );
-
   const mergeUniqueFiles = (baseFiles: MediaFile[], extraFiles: MediaFile[]): MediaFile[] => {
     if (extraFiles.length === 0) return baseFiles;
     const seen = new Set(baseFiles.map((file) => String(file.id)));
@@ -559,7 +551,7 @@ export function useShootDetailsMediaTab({
   // This prevents infinite loops from new array references with same content
   const rawFilesRef = useRef<string>('');
   useEffect(() => {
-    const newRawFilesJson = buildFilesFingerprint(uploadedFilesData);
+    const newRawFilesJson = buildMediaFilesFingerprint(uploadedFilesData);
     if (rawFilesRef.current !== newRawFilesJson) {
       rawFilesRef.current = newRawFilesJson;
       setRawFiles(uploadedFilesData);
@@ -568,7 +560,7 @@ export function useShootDetailsMediaTab({
 
   const editedFilesRef = useRef<string>('');
   useEffect(() => {
-    const newEditedFilesJson = buildFilesFingerprint(editedFilesData);
+    const newEditedFilesJson = buildMediaFilesFingerprint(editedFilesData);
     if (editedFilesRef.current !== newEditedFilesJson) {
       editedFilesRef.current = newEditedFilesJson;
       setEditedFiles(editedFilesData);
@@ -1253,7 +1245,7 @@ export function useShootDetailsMediaTab({
 
     return (
       <div className="space-y-4 flex-1 flex flex-col min-h-0">
-        <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} showInlineProgress={false} />
+        <RawUploadSection shoot={shoot} rawFiles={rawFiles} onUploadComplete={onUploadComplete} showInlineProgress={false} />
       </div>
     );
   };

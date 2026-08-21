@@ -93,6 +93,7 @@ import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { buildShootPaymentDialogModel } from '@/utils/shootPaymentDialogModel';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 
@@ -775,24 +776,13 @@ export function ShootDetailsOverviewTab({
   };
 
   const services = getServices();
-  const paymentShootServices = services
-    .map((service) => {
-      if (typeof service === 'string') {
-        return service;
-      }
-
-      if (service && typeof service === 'object') {
-        return service.name || service.label || String(service);
-      }
-
-      return String(service);
-    })
-    .filter((service): service is string => Boolean(service));
-  const serviceItems = useMemo(() => getShootServiceItems(shoot), [shoot]);
-  const paymentServiceItems = useMemo(
-    () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),
+  const paymentDialogModel = useMemo(
+    () => buildShootPaymentDialogModel(shoot),
     [shoot],
   );
+  const paymentShootServices = paymentDialogModel?.shootServices ?? [];
+  const serviceItems = useMemo(() => getShootServiceItems(shoot), [shoot]);
+  const paymentServiceItems = paymentDialogModel?.serviceItems ?? [];
   const visibleClient = getVisibleClientContact({
     client: shoot.client,
     role,
@@ -898,8 +888,8 @@ export function ShootDetailsOverviewTab({
     },
   ];
 
-  const paymentTotalPaid = Number(shoot.payment?.totalPaid) || 0;
-  const paymentTotalQuote = Number(shoot.payment?.totalQuote) || 0;
+  const paymentTotalPaid = paymentDialogModel?.totalPaid ?? (Number(shoot.payment?.totalPaid) || 0);
+  const paymentTotalQuote = paymentDialogModel?.totalQuote ?? (Number(shoot.payment?.totalQuote) || 0);
   const editedPaymentTotalQuote = Number(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote) || 0;
   const paymentBalance = Math.max(paymentTotalQuote - paymentTotalPaid, 0);
   const editedPaymentBalance = Math.max(editedPaymentTotalQuote - paymentTotalPaid, 0);
@@ -1094,6 +1084,21 @@ export function ShootDetailsOverviewTab({
         />
       )}
 
+      {/* Client-visible notes precede payment details; internal note types are
+          filtered by the notes API before they reach this component. */}
+      {(isClient || isPhotographer || isEditor || role === 'editing_manager') && (
+        <div className="p-2.5 border rounded-lg bg-card">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Notes</span>
+          <ShootNotesTab
+            shoot={shoot}
+            isAdmin={isAdmin}
+            isPhotographer={isPhotographer}
+            role={role}
+            hideEmptySections
+          />
+        </div>
+      )}
+
       {/* Payment Summary Card - Hidden from photographers and editors */}
       {!isPhotographer && !isEditor && (
         <OverviewPaymentSummarySection
@@ -1118,35 +1123,21 @@ export function ShootDetailsOverviewTab({
       <StripePaymentDialog
         isOpen={isPaymentDialogOpen}
         onClose={() => setIsPaymentDialogOpen(false)}
-        amount={paymentBalance}
-        shootId={shoot.id}
-        shootAddress={shoot.location?.fullAddress || shoot.location?.address}
+        amount={paymentDialogModel?.amount ?? paymentBalance}
+        shootId={paymentDialogModel?.shootId ?? shoot.id}
+        shootAddress={paymentDialogModel?.shootAddress ?? shoot.location?.fullAddress ?? shoot.location?.address}
         shootServices={paymentShootServices}
         serviceItems={paymentServiceItems}
-        shootDate={shoot.scheduledDate}
-        shootTime={shoot.time ? formatTime(shoot.time) : undefined}
-        clientName={visibleClient.name || undefined}
-        clientEmail={visibleClient.email || undefined}
-        totalQuote={shoot.payment?.totalQuote}
-        totalPaid={shoot.payment?.totalPaid}
+        shootDate={paymentDialogModel?.shootDate ?? shoot.scheduledDate}
+        shootTime={paymentDialogModel?.shootTime ? formatTime(paymentDialogModel.shootTime) : undefined}
+        clientName={paymentDialogModel?.clientName ?? visibleClient.name ?? undefined}
+        clientEmail={paymentDialogModel?.clientEmail ?? visibleClient.email ?? undefined}
+        totalQuote={paymentDialogModel?.totalQuote ?? shoot.payment?.totalQuote}
+        totalPaid={paymentDialogModel?.totalPaid ?? shoot.payment?.totalPaid}
         onPaymentSuccess={handlePaymentSuccess}
         clientCanSubmitOfflineIntent={isClient}
         onOfflineIntentSubmitted={handlePaymentSuccess}
       />
-
-      {/* Notes section - visible in overview for photographer and editing manager */}
-      {(isPhotographer || isEditor || role === 'editing_manager') && (
-        <div className="p-2.5 border rounded-lg bg-card">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Notes</span>
-          <ShootNotesTab
-            shoot={shoot}
-            isAdmin={isAdmin}
-            isPhotographer={isPhotographer}
-            role={role}
-            hideEmptySections
-          />
-        </div>
-      )}
 
       <OverviewPhotographerPickerDialog
         open={assignPhotographerOpen}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Upload, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { useUpload } from '@/context/UploadContext';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import {
   UploadDropzone,
   UploadProgressCard,
@@ -25,7 +28,9 @@ import {
   buildUploadLimitDescription,
   buildUploadSummary,
   createUploadBatchId,
+  ensureUploadAttemptIdentity,
   createEmptyMediaTypeCounts,
+  getExistingMediaTypeCounts,
   extractPhotoServicesFromServiceObjects,
   extractPhotoServicesFromServices,
   getMediaTypeCards,
@@ -38,9 +43,12 @@ import {
   mergeUploadIssueLists,
   parseUploadLimitsResponse,
   parseUploadIssues,
+  parseCanonicalUploadResponse,
   reindexClassificationMap,
   resolveExpectedRawCount,
   resolveExpectedFinalCount,
+  resolveEligibleUploadServices,
+  rotateUploadAttemptKey,
   setQueueClassification,
   toPositiveCount,
   triggerUploadRefreshes,
@@ -52,13 +60,17 @@ import {
 export function RawUploadSection({
   shoot,
   onUploadComplete,
+  rawFiles = [],
   showInlineProgress = true,
 }: {
   shoot: ShootData;
   onUploadComplete: () => void;
+  rawFiles?: MediaFile[];
   showInlineProgress?: boolean;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { trackUpload, uploads } = useUpload();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
@@ -70,6 +82,7 @@ export function RawUploadSection({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const inputId = `raw-upload-input-${shoot.id}`;
   const shootServices = useMemo(() => (Array.isArray(shoot.services) ? shoot.services : []), [shoot.services]);
   const shootRequiresBrackets = isHdrShoot(shootServices);
@@ -77,6 +90,12 @@ export function RawUploadSection({
     () => shootServices.some((service) => /video/i.test(String(service))),
     [shootServices],
   );
+  const eligibleServices = useMemo(
+    () => resolveEligibleUploadServices(shoot, user, 'raw'),
+    [shoot, user],
+  );
+  const normalizedRole = String(user?.role || '').toLowerCase();
+  const requiresServiceSelection = normalizedRole === 'photographer' && eligibleServices.length > 1;
 
   const serviceObjects = useMemo(() => extractPhotoServicesFromServiceObjects(shoot), [shoot]);
   const photoServices = useMemo(() => {
@@ -94,7 +113,7 @@ export function RawUploadSection({
   defaultBracketMultiplierRef.current = defaultBracketMultiplier;
   const [bracketMultiplier, setBracketMultiplier] = useState<number>(Math.max(1, defaultBracketMultiplier));
 
-  const existingCounts = useMemo(() => createEmptyMediaTypeCounts(), []);
+  const existingCounts = useMemo(() => getExistingMediaTypeCounts(rawFiles), [rawFiles]);
   const queueCounts = useMemo(
     () => getQueueMediaTypeCounts(selectedFiles, queueClassifications),
     [queueClassifications, selectedFiles],
@@ -104,7 +123,7 @@ export function RawUploadSection({
     [bracketMultiplier, shoot],
   );
   const uploadedCount = selectedFiles.length;
-  const existingRawCount = toPositiveCount(shoot.rawPhotoCount) ?? 0;
+  const existingRawCount = rawFiles.length;
   const totalRawCount = existingRawCount + uploadedCount;
   const missingCount = expectedCount > 0 ? Math.max(0, expectedCount - totalRawCount) : 0;
   const combinedCounts = useMemo(() => {
@@ -127,6 +146,7 @@ export function RawUploadSection({
     setUploadProgress(0);
     setIsUploading(false);
     setNotes('');
+    setSelectedServiceId('');
     setUploadLimitHint(buildUploadLimitDescription({
       per_file: '2GB',
       total_request: '2.2GB',
@@ -136,7 +156,15 @@ export function RawUploadSection({
     // Re-fetches of the same shoot (background refreshes) must NOT wipe the
     // in-progress upload queue – that was causing the "first drag/drop does
     // nothing, second time works" bug when bracketMode/services flipped.
-  }, [shoot.id]);
+  }, [shoot.id, user?.id]);
+
+  useEffect(() => {
+    if (eligibleServices.length === 1) {
+      setSelectedServiceId(eligibleServices[0].id);
+    } else if (!eligibleServices.some((service) => service.id === selectedServiceId)) {
+      setSelectedServiceId('');
+    }
+  }, [eligibleServices, selectedServiceId]);
 
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
@@ -173,9 +201,23 @@ export function RawUploadSection({
     });
   };
 
-  const startUpload = (overrideFiles?: File[], overrideClassifications?: QueueClassificationMap) => {
+  const startUpload = (
+    overrideFiles?: File[],
+    overrideClassifications?: QueueClassificationMap,
+    options?: { retryOnly?: boolean },
+  ) => {
+    const retryOnly = Boolean(options?.retryOnly);
     const nextFiles = overrideFiles ?? selectedFiles;
     if (nextFiles.length === 0 || isUploading) {
+      return;
+    }
+
+    if (requiresServiceSelection && !selectedServiceId) {
+      toast({
+        title: 'Choose a service',
+        description: 'Select the assigned service item for this upload batch.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -214,7 +256,9 @@ export function RawUploadSection({
 
     setIsUploading(true);
     setUploadProgress(0);
-    setUploadIssues([]);
+    if (!retryOnly) {
+      setUploadIssues([]);
+    }
 
     // Always allocate a batch id for raw uploads. The backend uses (batch_offset +
     // batch_index) to assign deterministic bracket_group/sequence values across
@@ -230,16 +274,21 @@ export function RawUploadSection({
       uploadType: 'raw',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; issues: UploadIssue[]; file: File; originalIndex: number; uploadLimits?: UploadLimitsPayload }> =>
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; issues: UploadIssue[]; file: File; originalIndex: number; uploadLimits?: UploadLimitsPayload; acceptedFiles: ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'] }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
+              const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length);
               formData.append('files[]', file);
               formData.append('upload_type', 'raw');
               formData.append('bracket_mode', String(bracketMultiplier));
-              formData.append('upload_batch_id', uploadBatchId);
-              formData.append('upload_batch_total', String(filesForUpload.length));
-              formData.append('upload_batch_index', String(index));
+              formData.append('idempotency_key', identity.idempotencyKey);
+              formData.append('upload_batch_id', identity.batchId);
+              formData.append('upload_batch_total', String(identity.batchTotal));
+              formData.append('upload_batch_index', String(identity.batchIndex));
+              if (selectedServiceId) {
+                formData.append('shoot_service_id', selectedServiceId);
+              }
               if (noteValue) {
                 formData.append('photographer_notes', noteValue);
               }
@@ -256,15 +305,33 @@ export function RawUploadSection({
 
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
+                const uploadResult = parseCanonicalUploadResponse(xhr.responseText);
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  const uploadLimits = parseUploadLimitsResponse(xhr.responseText);
+                  const uploadLimits = uploadResult.uploadLimits ?? parseUploadLimitsResponse(xhr.responseText);
                   setUploadLimitHint((currentHint) => buildUploadLimitDescription(uploadLimits) || currentHint);
-                  resolve({ success: true, issues: [], file, originalIndex: index, uploadLimits });
+                  if (uploadResult.successCount > 0) {
+                    mergeAcceptedShootFiles(queryClient, shoot.id, 'raw', uploadResult.uploadedFiles);
+                    const parsed = uploadResult.errorCount > 0
+                      ? parseUploadIssues(file, index, xhr.responseText, 'Upload partially failed')
+                      : { issues: [] as UploadIssue[] };
+                    resolve({
+                      success: true,
+                      issues: parsed.issues,
+                      file,
+                      originalIndex: index,
+                      uploadLimits,
+                      acceptedFiles: uploadResult.uploadedFiles,
+                    });
+                    return;
+                  }
+
+                  const parsed = parseUploadIssues(file, index, xhr.responseText, uploadResult.message || 'Upload failed');
+                  resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] });
                   return;
                 }
 
                 const parsed = parseUploadIssues(file, index, xhr.responseText, 'Upload failed');
-                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits });
+                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] });
               });
               xhr.addEventListener('error', () => resolve({
                 success: false,
@@ -280,6 +347,7 @@ export function RawUploadSection({
                 ],
                 file,
                 originalIndex: index,
+                acceptedFiles: [],
               }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
@@ -291,6 +359,7 @@ export function RawUploadSection({
           let completed = 0;
           const issues: UploadIssue[] = [];
           const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
+          const acceptedFiles = [] as ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
@@ -301,8 +370,11 @@ export function RawUploadSection({
               if (result.uploadLimits) {
                 latestUploadLimits = result.uploadLimits;
               }
-              if (!result.success && result.issues.length > 0) {
+              acceptedFiles.push(...result.acceptedFiles);
+              if (result.issues.length > 0) {
                 issues.push(...result.issues);
+              }
+              if (!result.success && result.issues.length > 0) {
                 failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
@@ -315,8 +387,18 @@ export function RawUploadSection({
           const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
           setUploadLimitHint(limitHint);
 
+          await queryClient.invalidateQueries({
+            predicate: (query) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id),
+          });
+          if (acceptedFiles.length > 0) {
+            triggerUploadRefreshes(shoot.id);
+            onUploadComplete();
+          }
+
           if (failedFileEntries.length === filesForUpload.length) {
-            setUploadIssues(issues);
+            setUploadIssues((currentIssues) => retryOnly
+              ? mergeUploadIssueLists(currentIssues, issues)
+              : issues);
             toast({
               title: 'Upload failed',
               description: buildUploadSummary(issues),
@@ -325,9 +407,10 @@ export function RawUploadSection({
             throw new Error(issues[0]?.message || 'All files failed to upload');
           }
 
-          triggerUploadRefreshes(shoot.id);
           if (failedFileEntries.length > 0) {
-            setUploadIssues(issues);
+            setUploadIssues((currentIssues) => retryOnly
+              ? mergeUploadIssueLists(currentIssues, issues)
+              : issues);
             toast({
               title: 'Upload needs attention',
               description: buildUploadSummary(issues),
@@ -346,16 +429,29 @@ export function RawUploadSection({
 
               return map;
             }, {});
-            setSelectedFiles(failedFiles);
-            setQueueClassifications(failedClassificationMap);
+            if (!retryOnly) {
+              setSelectedFiles(failedFiles);
+              setQueueClassifications(failedClassificationMap);
+            }
             return;
           }
 
-          setSelectedFiles([]);
-          setQueueClassifications({});
-          setUploadIssues([]);
-          setNotes('');
-          onUploadComplete();
+          if (retryOnly) {
+            const retried = new Set(filesForUpload);
+            setSelectedFiles((currentFiles) => {
+              const remaining = currentFiles.filter((file) => !retried.has(file));
+              setQueueClassifications((currentMap) => reindexClassificationMap(remaining, currentMap));
+              return remaining;
+            });
+            setUploadIssues((currentIssues) => currentIssues.filter((issue) =>
+              !filesForUpload.some((file) => issue.fileName === file.name),
+            ));
+          } else {
+            setSelectedFiles([]);
+            setQueueClassifications({});
+            setUploadIssues([]);
+            setNotes('');
+          }
         } finally {
           setIsUploading(false);
         }
@@ -369,6 +465,24 @@ export function RawUploadSection({
 
   return (
     <div className="flex flex-1 min-h-0 flex-col space-y-3">
+      {eligibleServices.length > 0 && (
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium text-foreground">Service for this batch</span>
+          <select
+            value={selectedServiceId}
+            onChange={(event) => setSelectedServiceId(event.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            aria-label="Service for raw upload batch"
+          >
+            <option value="">
+              {normalizedRole === 'photographer' ? 'Select assigned service' : 'General / Unassigned'}
+            </option>
+            {eligibleServices.map((service) => (
+              <option key={service.id} value={service.id}>{service.label}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {shootRequiresBrackets && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm font-medium text-foreground">Bracket Type</div>
@@ -494,10 +608,11 @@ export function RawUploadSection({
           uploadType: 'raw',
           getPayload: () => ({
             bracket_mode: bracketMultiplier,
+            shoot_service_id: selectedServiceId || undefined,
             photographer_notes: notes.trim() || undefined,
           }),
           onImported: onUploadComplete,
-          disabled: isUploading,
+          disabled: isUploading || (requiresServiceSelection && !selectedServiceId),
         }}
       />
 
@@ -506,9 +621,10 @@ export function RawUploadSection({
         issues={uploadIssues}
         onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
         onRetryIssue={(issueId) => {
+          const selectedIssue = uploadIssues.find((candidate) => candidate.id === issueId);
           const matchingEntry = selectedFiles
             .map((file, index) => ({ file, index, key: getQueueFileKey(file, index) }))
-            .find((entry) => issueId.startsWith(entry.key));
+            .find((entry) => issueId.startsWith(entry.key) || selectedIssue?.fileName === entry.file.name);
 
           if (!matchingEntry) {
             return;
@@ -525,10 +641,10 @@ export function RawUploadSection({
             nextMap[getQueueFileKey(matchingEntry.file, 0)] = existingClassification;
           }
 
-          setSelectedFiles(singleFile);
-          setQueueClassifications(nextMap);
-          setUploadIssues((currentIssues) => currentIssues.filter((issue) => !issue.id.startsWith(matchingEntry.key)));
-          startUpload(singleFile, nextMap);
+          if (selectedIssue && !['network_failure', 'upload_in_progress'].includes(selectedIssue.errorType)) {
+            rotateUploadAttemptKey(matchingEntry.file);
+          }
+          startUpload(singleFile, nextMap, { retryOnly: true });
         }}
       />
 
@@ -546,7 +662,7 @@ export function RawUploadSection({
               (FP = floorplan, VS = virtual staging, GG = green grass, TW = twilight, DR = drone, EX = extra)
             </span>
           </div>
-          <div className="flex-1 min-h-0 space-y-1 overflow-y-auto rounded-md border p-2">
+          <div className="space-y-1 rounded-md border p-2">
             {selectedFiles.map((file, index) => (
               <div key={getQueueFileKey(file, index)} className="rounded-md p-2 transition-colors hover:bg-muted/40">
                 <div className="flex items-start gap-2">
@@ -590,9 +706,9 @@ export function RawUploadSection({
 
           <Button
             type="button"
-            className="flex-shrink-0 w-full"
+            className="sticky bottom-0 z-10 flex-shrink-0 w-full shadow-lg"
             onClick={handleUpload}
-            disabled={isUploading || selectedFiles.length === 0}
+            disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}
           >
             {isUploading ? (
               <>

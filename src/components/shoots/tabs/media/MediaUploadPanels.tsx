@@ -7,6 +7,9 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { createUploadBatchId } from './mediaUploadUtils';
+import { mergeAcceptedShootFiles, normalizeShootMediaFile } from '@/hooks/useShootFiles';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -257,12 +260,14 @@ function UploadSourceActions({
   sourceImport: UploadSourceImportConfig;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [cameraOpen, setCameraOpen] = React.useState(false);
   const [browserProvider, setBrowserProvider] = React.useState<UploadSourceProvider | null>(null);
   const [statuses, setStatuses] = React.useState<Record<string, UploadSourceStatus>>({});
   const [loadingStatuses, setLoadingStatuses] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  const sourceAttemptKeysRef = React.useRef(new Map<string, string>());
 
   const refreshStatuses = React.useCallback(async () => {
     if (!EXTERNAL_UPLOAD_SOURCES_ENABLED) return;
@@ -296,29 +301,55 @@ function UploadSourceActions({
 
   const importSource = React.useCallback(async (payload: Record<string, unknown>) => {
     setImporting(true);
+    const sourcePayload = sourceImport.getPayload?.() || {};
+    const fingerprint = JSON.stringify({ uploadType: sourceImport.uploadType, sourcePayload, payload });
+    const idempotencyKey = sourceAttemptKeysRef.current.get(fingerprint) || createUploadBatchId();
+    sourceAttemptKeysRef.current.set(fingerprint, idempotencyKey);
+    let responseReceived = false;
     try {
       const response = await fetch(`${API_BASE_URL}/api/shoots/${sourceImport.shootId}/upload-from-source`, {
         method: 'POST',
         headers: getApiHeaders(),
         body: JSON.stringify({
           upload_type: sourceImport.uploadType,
-          ...(sourceImport.getPayload?.() || {}),
+          ...sourcePayload,
+          idempotency_key: idempotencyKey,
           ...payload,
         }),
       });
+      responseReceived = true;
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.message || data?.errors?.[0]?.message || 'Source import failed.');
       }
+      if (Number(data.success_count || 0) <= 0) {
+        throw new Error(data?.message || data?.errors?.[0]?.message || 'No source files were accepted.');
+      }
+      const acceptedFiles = Array.isArray(data.uploaded_files)
+        ? data.uploaded_files
+            .filter((file: unknown): file is Record<string, unknown> => typeof file === 'object' && file !== null)
+            .map(normalizeShootMediaFile)
+        : [];
+      mergeAcceptedShootFiles(queryClient, sourceImport.shootId, sourceImport.uploadType, acceptedFiles);
+      await queryClient.refetchQueries({
+        predicate: (query) => query.queryKey[0] === 'shootFiles'
+          && String(query.queryKey[1]) === String(sourceImport.shootId),
+      });
       toast({
         title: data.error_count > 0 ? 'Imported with issues' : 'Source import complete',
         description: `${data.success_count || 0} file${data.success_count === 1 ? '' : 's'} imported${data.error_count ? `, ${data.error_count} failed` : ''}.`,
         variant: data.error_count > 0 ? 'destructive' : undefined,
       });
       sourceImport.onImported?.();
+      sourceAttemptKeysRef.current.delete(fingerprint);
       setLinkOpen(false);
       setBrowserProvider(null);
     } catch (error) {
+      // A typed server result is a confirmed outcome, so a later retry gets a
+      // fresh attempt key. An unknown network failure keeps the same key.
+      if (responseReceived) {
+        sourceAttemptKeysRef.current.delete(fingerprint);
+      }
       toast({
         title: 'Source import failed',
         description: getUploadSourceErrorMessage(error, 'Could not import from this source.'),
@@ -327,7 +358,7 @@ function UploadSourceActions({
     } finally {
       setImporting(false);
     }
-  }, [sourceImport, toast]);
+  }, [queryClient, sourceImport, toast]);
 
   const sources = [
     { id: 'device', label: 'From device', icon: Folder, onClick: onBrowse },

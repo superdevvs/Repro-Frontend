@@ -226,6 +226,8 @@ export interface ShootServiceObject {
   editor_id?: string | null;
   resolved_editor_id?: string | null;
   editor?: ShootServiceEditor | null;
+  requires_editing?: boolean | null;
+  requiresEditing?: boolean | null;
   editing_completed_at?: string | null;
   scheduled_at?: string | null;
   scheduledAt?: string | null;
@@ -304,6 +306,8 @@ export interface ShootData {
   client: {
     name: string;
     email: string;
+    emailVerified?: boolean;
+    email_verified?: boolean;
     company?: string;
     phone?: string;
     totalShoots: number;
@@ -460,9 +464,11 @@ export interface ShootData {
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   canApproveEditingReview?: boolean;
+  canViewInvoice?: boolean;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
   can_approve_editing_review?: boolean;
+  can_view_invoice?: boolean;
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;
   heroImage?: string;

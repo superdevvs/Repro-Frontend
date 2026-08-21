@@ -1,19 +1,19 @@
-
-import type { ServiceGroupSummary } from '@/types/serviceGroups';
+import type { ServiceGroupSummary } from "@/types/serviceGroups";
 
 export type UserRole =
-  | 'superadmin'
-  | 'admin'
-  | 'editing_manager'
-  | 'salesRep'
-  | 'photographer'
-  | 'editor'
-  | 'client';
+  | "superadmin"
+  | "admin"
+  | "editing_manager"
+  | "salesRep"
+  | "photographer"
+  | "editor"
+  | "client";
 
-export type RepPayoutFrequency = 'weekly' | 'biweekly' | 'monthly';
-export type ClientDiscountType = 'fixed' | 'percent' | null;
-export type AccountLinkStatus = 'active' | 'inactive' | 'suspended';
-export type EmailHealthStatus = 'verified' | 'unverified' | 'risky' | 'bounced' | 'invalid' | null;
+export type RepPayoutFrequency = "weekly" | "biweekly" | "monthly";
+export type ClientDiscountType = "fixed" | "percent" | null;
+export type AccountLinkStatus = "active" | "inactive" | "suspended";
+export type EmailHealthStatus =
+  "verified" | "unverified" | "risky" | "bounced" | "invalid" | null;
 
 export interface EmailHealth {
   status: EmailHealthStatus;
@@ -68,6 +68,22 @@ export interface UserMetadata {
   [key: string]: any;
 }
 
+export interface LegalDocumentVersion {
+  document_key: string;
+  version: string;
+  accepted_at?: string;
+}
+
+export interface LegalStatus {
+  state: "current" | "legal_pending";
+  enforcement_active: boolean;
+  activation_pending: boolean;
+  required: LegalDocumentVersion[];
+  accepted: LegalDocumentVersion[];
+  pending: LegalDocumentVersion[];
+  legacy_terms_accepted: boolean;
+}
+
 export interface UserData {
   id: string;
   name: string;
@@ -76,7 +92,7 @@ export interface UserData {
   email: string;
   role: UserRole;
   avatar?: string;
-  gender?: 'male' | 'female' | 'unknown';
+  gender?: "male" | "female" | "unknown";
   phone?: string;
   address?: string;
   city?: string;
@@ -98,6 +114,7 @@ export interface UserData {
   isActive?: boolean;
   metadata?: UserMetadata;
   email_health?: EmailHealth;
+  legal_status?: LegalStatus;
   pending_address_change?: {
     id?: number;
     street_address?: string | null;
@@ -109,7 +126,7 @@ export interface UserData {
     review_note?: string | null;
   } | null;
   address_change_pending?: boolean;
-  address_visibility?: 'full' | 'region' | 'hidden';
+  address_visibility?: "full" | "region" | "hidden";
   session?: AuthSession;
   // Account linking properties
   linkedAccounts?: LinkedAccountSummary[];
@@ -171,7 +188,7 @@ export interface LinkedClientSummary {
   sharedDetails: SharedDetails;
   linkedAt?: string | null;
   linkId?: string | number;
-  linkDirection?: 'incoming' | 'outgoing';
+  linkDirection?: "incoming" | "outgoing";
 }
 
 export type LinkedOwnerSummary = LinkedClientSummary;

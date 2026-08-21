@@ -1,5 +1,5 @@
 import type { ShootData } from '@/types/shoots';
-import type { MediaFile } from '@/hooks/useShootFiles';
+import { normalizeShootMediaFile, type MediaFile } from '@/hooks/useShootFiles';
 import {
   triggerDashboardOverviewRefresh,
   triggerShootDetailRefresh,
@@ -45,6 +45,36 @@ export interface UploadLimitsPayload {
 
 type UnknownRecord = Record<string, unknown>;
 
+export interface CanonicalUploadResult {
+  uploadedFiles: MediaFile[];
+  errors: UnknownRecord[];
+  successCount: number;
+  errorCount: number;
+  partialSuccess: boolean;
+  errorType?: string;
+  message?: string;
+  uploadLimits?: UploadLimitsPayload;
+}
+
+export interface UploadServiceOption {
+  id: string;
+  label: string;
+}
+
+export interface UploadActor {
+  id?: string | number | null;
+  role?: string | null;
+}
+
+interface UploadAttemptIdentity {
+  idempotencyKey: string;
+  batchId: string;
+  batchIndex: number;
+  batchTotal: number;
+}
+
+const uploadAttemptIdentities = new WeakMap<File, UploadAttemptIdentity>();
+
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -52,6 +82,114 @@ const readText = (record: UnknownRecord | null, key: string): string | undefined
   const value = record?.[key];
   return typeof value === 'string' && value.trim() ? value : undefined;
 };
+
+export function parseCanonicalUploadResponse(responseText?: string): CanonicalUploadResult {
+  let payload: UnknownRecord = {};
+  if (responseText) {
+    try {
+      const parsed: unknown = JSON.parse(responseText);
+      payload = isRecord(parsed) ? parsed : {};
+    } catch {
+      payload = {};
+    }
+  }
+
+  const uploadedFiles = Array.isArray(payload.uploaded_files)
+    ? payload.uploaded_files
+        .filter(isRecord)
+        .map((file) => normalizeShootMediaFile(file))
+        .filter((file) => Boolean(file.id))
+    : [];
+  const errors = Array.isArray(payload.errors) ? payload.errors.filter(isRecord) : [];
+  const successCount = Number(payload.success_count ?? uploadedFiles.length);
+  const errorCount = Number(payload.error_count ?? errors.length);
+
+  return {
+    uploadedFiles,
+    errors,
+    successCount: Number.isFinite(successCount) ? successCount : uploadedFiles.length,
+    errorCount: Number.isFinite(errorCount) ? errorCount : errors.length,
+    partialSuccess: Boolean(payload.partial_success),
+    errorType: readText(payload, 'error_type'),
+    message: readText(payload, 'message'),
+    uploadLimits: toUploadLimits(payload.upload_limits),
+  };
+}
+
+export function ensureUploadAttemptIdentity(
+  file: File,
+  batchId: string,
+  batchIndex: number,
+  batchTotal: number,
+): UploadAttemptIdentity {
+  const existing = uploadAttemptIdentities.get(file);
+  if (existing) return existing;
+
+  const identity = {
+    idempotencyKey: createUploadBatchId(),
+    batchId,
+    batchIndex,
+    batchTotal,
+  };
+  uploadAttemptIdentities.set(file, identity);
+  return identity;
+}
+
+export function rotateUploadAttemptKey(file: File): void {
+  const existing = uploadAttemptIdentities.get(file);
+  if (!existing) return;
+  uploadAttemptIdentities.set(file, {
+    ...existing,
+    idempotencyKey: createUploadBatchId(),
+  });
+}
+
+export function resolveEligibleUploadServices(
+  shoot: ShootData,
+  actor: UploadActor | null | undefined,
+  uploadType: 'raw' | 'edited',
+): UploadServiceOption[] {
+  const shootWithAssignmentAliases = shoot as ShootData & {
+    photographerId?: string | number | null;
+    photographer_id?: string | number | null;
+  };
+  const items = (shoot.serviceItems ?? shoot.service_items ?? shoot.serviceObjects ?? [])
+    .filter((item) => Boolean(item?.id));
+  const role = String(actor?.role || '').trim().toLowerCase();
+  const actorId = String(actor?.id ?? '');
+  const adminLike = ['admin', 'superadmin', 'editing_manager'].includes(role);
+
+  return items
+    .filter((item) => {
+      if (adminLike) return true;
+      if (role === 'photographer' && uploadType === 'raw') {
+        const assignedId = item.photographer_id
+          ?? item.resolved_photographer_id
+          ?? item.photographer?.id;
+        const topLevelPhotographerId = String(
+          shoot.photographer?.id
+          ?? shootWithAssignmentAliases.photographerId
+          ?? shootWithAssignmentAliases.photographer_id
+          ?? '',
+        );
+        return Boolean(actorId) && (
+          String(assignedId ?? '') === actorId
+          || (!assignedId && topLevelPhotographerId === actorId)
+        );
+      }
+      if (role === 'editor' && uploadType === 'edited') {
+        if ((item.requires_editing ?? item.requiresEditing) === false) return false;
+        if (String(shoot.editor?.id ?? shoot.editorId ?? '') === actorId) return true;
+        const assignedId = item.editor_id ?? item.resolved_editor_id ?? item.editor?.id;
+        return Boolean(actorId) && String(assignedId ?? '') === actorId;
+      }
+      return false;
+    })
+    .map((item) => ({
+      id: String(item.id),
+      label: item.name || `Service #${item.id}`,
+    }));
+}
 
 const toUploadLimits = (value: unknown): UploadLimitsPayload | undefined => {
   if (!isRecord(value)) return undefined;
@@ -583,4 +721,3 @@ export function getMediaTypeCards(counts: Record<UploadQueueMediaType, number>) 
       count: counts[mediaType],
     }));
 }
-

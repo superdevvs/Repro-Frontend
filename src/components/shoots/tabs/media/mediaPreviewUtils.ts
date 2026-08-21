@@ -3,6 +3,33 @@ import { isPlaceholderImageUrl, normalizeImageUrl } from '@/utils/imageUrl';
 
 export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
 
+export const buildMediaFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
+  files.map((file) => ({
+    id: file.id,
+    shootServiceId: file.shoot_service_id ?? file.shootServiceId,
+    url: file.url,
+    path: file.path,
+    mediaType: file.media_type,
+    workflowStage: file.workflowStage,
+    thumb: file.thumb,
+    medium: file.medium,
+    large: file.large,
+    original: file.original,
+    webUrl: file.web_url,
+    thumbnailPath: file.thumbnail_path,
+    webPath: file.web_path,
+    watermarkedThumbnailPath: file.watermarked_thumbnail_path,
+    watermarkedWebPath: file.watermarked_web_path,
+    placeholderPath: file.placeholder_path,
+    processedAt: file.processed_at,
+    isAiEdited: file.is_ai_edited ?? file.isAiEdited,
+    aiEditingJobId: file.ai_editing_job_id ?? file.aiEditingJobId,
+    aiEditingMetadata: file.ai_editing_metadata ?? file.aiEditingMetadata,
+    mediaState: file.media_state,
+    mediaError: file.media_error,
+  })),
+);
+
 const RAW_EXTENSIONS = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/;
 const DERIVATIVE_SUFFIX_REGEX = /([._-](thumb|thumbnail|web|medium|large|full|placeholder))+$/i;
 

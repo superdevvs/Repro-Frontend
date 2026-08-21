@@ -258,4 +258,6 @@ export type CompletedBookingSnapshot = {
   shootServices: string[];
   clientName?: string;
   clientEmail?: string;
+  /** Canonical ShootResource payload returned by POST /api/shoots. */
+  shoot?: unknown;
 };
