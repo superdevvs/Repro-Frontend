@@ -6,6 +6,12 @@ export interface ImageUrlFields {
   web_url?: string;
   thumb_url?: string;
   thumb?: string;
+  /**
+   * The 600px "grid" rendition (600x400 on a 3:2 frame, Q85, Lanczos + unsharp).
+   * Sized for the cards and tiles the product shows: big enough for a 2x display
+   * without pulling the 1500px web file into a small slot.
+   */
+  grid_url?: string;
   medium_url?: string;
   medium?: string;
   large_url?: string;
@@ -156,20 +162,22 @@ const firstResolvedUrl = (
 const shouldUseWatermarkedFallbacks = (file: ImageUrlFields): boolean =>
   Boolean(file.uses_watermark ?? file.usesWatermark);
 
+export type ImageUrlSize = 'thumb' | 'grid' | 'web' | 'medium' | 'large' | 'original';
+
 /**
  * Resolve an image URL from a media file object with proper fallback chain.
  * Extracted from AiEditing.tsx for reuse across components.
  */
 export function getImageUrl(
   file: ImageUrlFields,
-  size: 'thumb' | 'web' | 'medium' | 'large' | 'original' = 'medium'
+  size: ImageUrlSize = 'medium'
 ): string {
   return getImageUrlCandidates(file, size)[0] || '';
 }
 
 export function getImageUrlCandidates(
   file: ImageUrlFields,
-  size: 'thumb' | 'web' | 'medium' | 'large' | 'original' = 'medium'
+  size: ImageUrlSize = 'medium'
 ): string[] {
   const watermarkThumbKeys: Array<keyof ImageUrlFields> = shouldUseWatermarkedFallbacks(file)
     ? ['watermarked_thumbnail_path', 'watermarked_web_path', 'watermarked_placeholder_path']
@@ -190,6 +198,34 @@ export function getImageUrlCandidates(
       ...watermarkMediumKeys,
       'medium_url',
       'medium',
+      'placeholder_url',
+      'placeholder_path',
+    ], [
+      'original_url',
+      'original',
+      'url',
+      'path',
+      'large_url',
+      'large',
+    ]);
+  }
+
+  // Cards and tiles: the 600px rendition, then the web file for media processed
+  // before it existed (heavier than needed, but never soft), and only then the
+  // 300px thumbnail. Originals stay excluded — a tile must never pull one.
+  if (size === 'grid') {
+    return resolvedUrlList(file, [
+      'grid_url',
+      'web_url',
+      'web_path',
+      ...watermarkMediumKeys,
+      'medium_url',
+      'medium',
+      'thumb_url',
+      'thumb',
+      'thumbnail_url',
+      'thumbnail_path',
+      ...watermarkThumbKeys,
       'placeholder_url',
       'placeholder_path',
     ], [

@@ -149,7 +149,10 @@ export function MediaGrid({
     const isImg = isImage(file);
     const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
-    const thumbUrl = getImageUrl(file, 'thumb');
+    // Tiles are 4:3 and render well above 300px, so they take the tuned 600px
+    // grid rendition. `srcSet` still offers the 300px file to low-density
+    // screens; this is the src a browser without srcSet support falls back to.
+    const thumbUrl = getImageUrl(file, 'grid');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
     const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
@@ -425,7 +428,8 @@ export function MediaGrid({
     const isImg = isImage(file);
     const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
-    const thumbUrl = getImageUrl(file, 'thumb');
+    // Same tile geometry as renderFileCard: 600px rendition, 300px via srcSet.
+    const thumbUrl = getImageUrl(file, 'grid');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
     const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';

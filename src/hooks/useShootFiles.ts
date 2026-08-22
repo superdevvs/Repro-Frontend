@@ -25,7 +25,7 @@ export interface MediaFile {
   thumb?: string;
   thumb_url?: string;
   thumbnail_url?: string;
-  /** ~1000px rendition used for desktop grid tiles. */
+  /** Tuned 600px rendition (600x400 on a 3:2 frame, Q85, Lanczos + unsharp) used by every grid tile and card. */
   grid_url?: string;
   medium?: string;
   medium_url?: string;

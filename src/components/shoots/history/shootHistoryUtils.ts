@@ -309,12 +309,21 @@ export const isPlaceholderLikeValue = (value: string | null | undefined): boolea
   return isPlaceholderImageUrl(value)
 }
 
+/**
+ * `'thumb'` resolves the tuned 600px grid rendition, not the 300px thumbnail.
+ *
+ * Every caller of this preference is a card or row that renders the image far
+ * larger than 300px — the history grid card is a full-width 256px-tall cover —
+ * so the thumbnail was being upscaled and looked blurry. The grid rendition is
+ * the same file the media grid uses, and falls back to the web image for media
+ * processed before it existed.
+ */
 export const getFilePreviewUrl = (
   file?: ShootFileData | null,
   preference: ShootThumbnailPreference = 'default',
 ): string | null => {
   if (!file) return null
-  const resolved = getImageUrl(file, preference === 'thumb' ? 'thumb' : 'medium')
+  const resolved = getImageUrl(file, preference === 'thumb' ? 'grid' : 'medium')
   return resolved || null
 }
 

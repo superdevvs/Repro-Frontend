@@ -6,13 +6,16 @@ import { type MediaFile } from '@/hooks/useShootFiles';
 /**
  * Media tiles used to be served the 300px thumbnail while rendering far larger,
  * so the browser upscaled it and the grid looked soft (A1 item 8, meeting
- * complaint about blurry tiles). The fix adds a ~1000px `grid` rendition and
- * offers it through `srcSet`/`sizes`.
+ * complaint about blurry tiles). The fix is a tuned 600px `grid` rendition
+ * (600x400 on a 3:2 frame, Q85, Lanczos + unsharp) offered through
+ * `srcSet`/`sizes`.
  *
  * These cover the selection rules rather than the image pipeline: that the grid
- * rendition is offered at 1000w, that older files without one still get a usable
- * candidate list, and that no duplicate URL is emitted at two widths (which
- * would let the browser pick the small file for a large slot).
+ * rendition is offered at 600w, that the 1500px preview is *not* offered (a 2x
+ * tile would take it and pull ~400KB into a ~320px slot), that older files
+ * without a grid rendition still get a usable candidate list, and that no
+ * duplicate URL is emitted at two widths (which would let the browser pick the
+ * small file for a large slot).
  */
 const buildFile = (overrides: Partial<MediaFile> = {}): MediaFile =>
   ({
@@ -32,7 +35,7 @@ const parseSrcSet = (srcSet: string): Array<{ url: string; width: string }> =>
     });
 
 describe('getMediaSrcSet', () => {
-  it('offers the grid rendition at 1000w alongside the thumbnail and preview', () => {
+  it('offers the tuned grid rendition at 600w alongside the thumbnail', () => {
     const srcSet = getMediaSrcSet(
       buildFile({
         thumb_url: 'https://cdn.test/thumb/shot-001.jpg',
@@ -43,9 +46,23 @@ describe('getMediaSrcSet', () => {
 
     expect(parseSrcSet(srcSet)).toEqual([
       { url: 'https://cdn.test/thumb/shot-001.jpg', width: '300w' },
-      { url: 'https://cdn.test/grid/shot-001.jpg', width: '1000w' },
-      { url: 'https://cdn.test/web/shot-001.jpg', width: '1600w' },
+      { url: 'https://cdn.test/grid/shot-001.jpg', width: '600w' },
     ]);
+  });
+
+  it('never offers the full web preview to a tile', () => {
+    // A 320px slot on a 2x display asks for ~640w. Listing the 1500px preview
+    // made that the winning candidate, which is the "thumbnails are too heavy"
+    // half of the problem.
+    const srcSet = getMediaSrcSet(
+      buildFile({
+        thumb_url: 'https://cdn.test/thumb/shot-001.jpg',
+        grid_url: 'https://cdn.test/grid/shot-001.jpg',
+        web_url: 'https://cdn.test/web/shot-001.jpg',
+      } as Partial<MediaFile>),
+    );
+
+    expect(srcSet).not.toContain('https://cdn.test/web/shot-001.jpg');
   });
 
   it('falls back to the web rendition for files processed before grid existed', () => {
@@ -56,13 +73,11 @@ describe('getMediaSrcSet', () => {
       } as Partial<MediaFile>),
     );
 
-    const entries = parseSrcSet(srcSet);
-
-    // The web rendition stands in for grid at 1000w, and is not repeated at
-    // 1600w — a browser given the same URL twice cannot make a useful choice.
-    expect(entries).toEqual([
+    // The web rendition stands in for grid: heavier than the tile needs, but
+    // sharp, which is the right way round for legacy media.
+    expect(parseSrcSet(srcSet)).toEqual([
       { url: 'https://cdn.test/thumb/legacy.jpg', width: '300w' },
-      { url: 'https://cdn.test/web/legacy.jpg', width: '1000w' },
+      { url: 'https://cdn.test/web/legacy.jpg', width: '600w' },
     ]);
   });
 

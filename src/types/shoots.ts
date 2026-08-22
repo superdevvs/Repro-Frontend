@@ -76,6 +76,9 @@ export interface ShootFileData {
   thumb?: string;
   thumb_url?: string;
   thumbnail_url?: string;
+  /** Tuned 600px rendition (600x400 on a 3:2 frame, Q85, Lanczos + unsharp) used by cards and grids. */
+  grid_url?: string;
+  grid_path?: string;
   medium?: string;
   medium_url?: string;
   web_url?: string;

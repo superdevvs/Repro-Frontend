@@ -1,7 +1,7 @@
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isPlaceholderImageUrl, normalizeImageUrl } from '@/utils/imageUrl';
 
-export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
+export type MediaImageSize = 'thumb' | 'grid' | 'web' | 'medium' | 'large' | 'original';
 
 export const buildMediaFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
   files.map((file) => ({
@@ -146,7 +146,8 @@ const getStrictThumbCandidates = (file: MediaFile): string[] =>
   ];
 
 /**
- * The ~1000px grid rendition, used for desktop media tiles.
+ * The 600px grid rendition (600x400 on a 3:2 frame, Q85, Lanczos + unsharp) —
+ * the tuned tile size, and the one every other grid in the product now shares.
  *
  * Tiles render far larger than the 300px thumbnail, so serving the thumbnail
  * left the browser upscaling it and the result looked soft. Falls back to the
@@ -235,6 +236,14 @@ export const getMediaImageUrlCandidates = (
 ): string[] => {
   if (size === 'thumb') {
     return getStrictThumbCandidates(file);
+  }
+
+  if (size === 'grid') {
+    return [
+      ...getStrictGridCandidates(file),
+      ...getStrictThumbCandidates(file),
+      ...getStrictPlaceholderCandidates(file),
+    ];
   }
 
   if (size === 'web' || size === 'medium' || size === 'large') {
@@ -359,21 +368,23 @@ export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): stri
 };
 
 /**
- * Candidate renditions for a media tile, smallest first.
+ * Candidate renditions for a media tile, smallest first: 300w for a low-density
+ * phone, 600w for everything else.
  *
- * Offering 300w / 1000w (and only then the 1600w preview) lets the browser pick
- * per device: a phone keeps the small file, a desktop grid gets the sharp grid
- * rendition, and nothing pulls the full preview for a tile.
+ * The 1500px preview is deliberately not offered. A tile occupies ~320 CSS px,
+ * so a 2x display asks for ~640w; with a 1600w candidate in the list the browser
+ * picked it and pulled a ~400KB image into a thumbnail slot. Capping the list at
+ * 600w means that same display takes the largest thing on offer — the tuned
+ * 600px grid rendition — which covers the slot at roughly a quarter of the
+ * bytes. The full preview is still what the viewer/lightbox loads.
  */
 export const getMediaSrcSet = (file: MediaFile): string => {
   const sizes: string[] = [];
   const thumbUrl = getStrictThumbCandidates(file)[0] || '';
   const gridUrl = getStrictGridCandidates(file)[0] || '';
-  const previewUrl = getStrictPreviewCandidates(file)[0] || '';
 
   if (thumbUrl && thumbUrl !== gridUrl) sizes.push(`${thumbUrl} 300w`);
-  if (gridUrl) sizes.push(`${gridUrl} 1000w`);
-  if (previewUrl && previewUrl !== gridUrl) sizes.push(`${previewUrl} 1600w`);
+  if (gridUrl) sizes.push(`${gridUrl} 600w`);
   return sizes.join(', ');
 };
 

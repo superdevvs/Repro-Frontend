@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { MediaFile } from '@/hooks/useShootFiles';
+import type { MediaImageSize } from './mediaPreviewUtils';
 import type { MediaSortOrder } from './mediaSort';
 
 export interface MediaGridProps {
@@ -13,7 +14,7 @@ export interface MediaGridProps {
   manualSortActive?: boolean;
   manualOrder?: string[];
   onManualOrderChange?: (newOrder: string[]) => void;
-  getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
+  getImageUrl: (file: MediaFile, size?: MediaImageSize) => string;
   getSrcSet: (file: MediaFile) => string;
   isImage: (file: MediaFile) => boolean;
   isVideo?: (file: MediaFile) => boolean;

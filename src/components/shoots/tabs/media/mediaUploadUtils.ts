@@ -186,7 +186,13 @@ export function resolveEligibleUploadServices(
       return false;
     })
     .map((item) => ({
-      id: String(item.id),
+      // The upload endpoint validates `shoot_service_id` against the shoot's
+      // service-item primary keys, so the option value must be the pivot id.
+      // `item.id` is only the same thing for the `serviceItems` shape; on the
+      // `services`/`serviceObjects` shape `id` is the catalogue service id, and
+      // sending that returned 422 invalid_service_item for every shoot whose
+      // pivot id differs from its service id.
+      id: String(item.shoot_service_id ?? item.shootServiceId ?? item.id),
       label: item.name || `Service #${item.id}`,
     }));
 }

@@ -36,8 +36,24 @@ const getClientPhone = (client: ShootData["client"] | null | undefined): string 
   return null;
 };
 
+/**
+ * Preview frames for the dashboard completed/delivered cards.
+ *
+ * Those cards render full-width at 192-224px tall, so they take the tuned 600px
+ * grid rendition. They used to reach for `thumbnail_path` first, which is the
+ * 300px file, and upscaling it is what made those cards look blurry.
+ */
 const getPreviewImageUrl = (file: NonNullable<ShootData["files"]>[number]): string | null => {
-  return file.thumbnail_path || file.web_path || file.url || file.path || null;
+  return (
+    file.grid_url ||
+    file.grid_path ||
+    file.web_url ||
+    file.web_path ||
+    file.thumbnail_path ||
+    file.url ||
+    file.path ||
+    null
+  );
 };
 
 // Only exclude delivered/finalized shoots from dashboard

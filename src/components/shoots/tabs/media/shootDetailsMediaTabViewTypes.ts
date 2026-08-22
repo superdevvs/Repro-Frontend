@@ -7,6 +7,7 @@ import type { ShootData } from '@/types/shoots';
 import type { useToast } from '@/hooks/use-toast';
 import type { NormalizedIguideFloorplan, NormalizedIguideSync } from '@/utils/shootTourData';
 import type { DownloadPopupState, ReclassifyMediaType } from './useShootMediaActions';
+import type { MediaImageSize } from './mediaPreviewUtils';
 import type { MediaSortOrder } from './mediaSort';
 
 export type MediaSubTab =
@@ -113,7 +114,7 @@ export interface ShootDetailsMediaTabViewProps {
   setSelectedFiles: Dispatch<SetStateAction<Set<string>>>;
   manualOrder: string[];
   handleManualOrderChange: (files: MediaFile[], order: string[], separateExtras?: boolean) => void;
-  getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
+  getImageUrl: (file: MediaFile, size?: MediaImageSize) => string;
   getSrcSet: (file: MediaFile) => string;
   isPreviewableImage: (file: MediaFile) => boolean;
   isVideoFile: (file: MediaFile) => boolean;
