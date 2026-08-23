@@ -251,5 +251,23 @@
         }
       }
     }
+  },
+  "bundleSizes": {
+    "description": "Bundle sizes at the last accepted state. Reported as a delta on every build so growth is visible; the hard caps in scripts/check-bundle-sizes.mjs are what fail a build. Re-record with npm run check:bundle-sizes:update once growth is understood and accepted.",
+    "updatedAt": "2026-08-23",
+    "recorded": {
+      "css": {
+        "largestRaw": 321445,
+        "largestGzip": 48957,
+        "largestBrotli": 36307,
+        "totalRaw": 356286
+      },
+      "js": {
+        "largestRaw": 421808,
+        "largestGzip": 110460,
+        "largestBrotli": 92529,
+        "totalRaw": 6735343
+      }
+    }
   }
 }

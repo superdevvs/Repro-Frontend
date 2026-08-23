@@ -27,7 +27,8 @@
     "audit": "node scripts/audit-with-policy.mjs",
     "audit:raw": "npm audit --audit-level=low",
     "quality": "npm run lint:ci && npm run typecheck && npm run test:run && npm run build && npm run check:file-sizes && npm run check:bundle-sizes && npm run audit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:bundle-sizes:update": "node scripts/check-bundle-sizes.mjs --update"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
