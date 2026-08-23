@@ -202,3 +202,35 @@ The asset merge and this reload net are complementary. The merge stops the error
 happening for any release still in the retention window; the reload net covers
 what the merge cannot, such as a session older than five releases or a genuinely
 removed asset.
+## Backlog
+
+### Add release immutability / integrity assertion to `deploy.sh`
+
+**Why.** The corruption above went unnoticed across at least four deploys. Every
+signal needed to catch it was already on disk — `deploy-meta.json` recorded a
+release id that no longer matched its own directory name — but nothing ever
+compared them, so a silently broken rollback candidate looked healthy. The fix
+stops that specific cause; an assertion would catch the next one, whatever it is.
+
+**Shape.** After activation and verification, before pruning, assert that each
+retained release is still the build it claims to be, and fail the deploy loudly
+if not. Cheap checks that would have caught this exact bug:
+
+- `deploy-meta.json`'s `release` field equals its own directory name.
+- No file inside a non-active release is newer than that release's own directory,
+  which is what betrayed the write-through. Note adopted hardlinks legitimately
+  carry an older mtime, so the check is one-directional: newer is suspicious,
+  older is fine.
+- The active release's `index.html` references only asset filenames present in
+  its own `own-assets.txt`.
+
+A stronger version records a manifest of `sha256` sums per release at build time
+and re-verifies the active release's own files on each deploy. That also turns
+"is this rollback candidate safe?" into a question with an answer, which it
+currently is not.
+
+**Worth noting for whoever picks this up.** Releases `20260823035351`,
+`20260822160356` and `20260821072604` still carry shifted metadata from before
+the fix, so a naive assertion added today would fail on them. Either scope the
+assertion to releases created after the fix, or wait until those three age out of
+the retention window (four more deploys).
