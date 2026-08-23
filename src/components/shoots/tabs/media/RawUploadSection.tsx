@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Upload, X } from 'lucide-react';
+import { ArrowRight, Camera, ChevronDown, Loader2, Upload, Video, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import type { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -25,8 +26,10 @@ import {
   FULL_UPLOAD_ACCEPT,
   TRACKED_MEDIA_TYPES,
   addFilesToClassificationMap,
+  bracketAppliesToUploadService,
   buildUploadLimitDescription,
   buildUploadSummary,
+  countUploadedFilesByServiceId,
   createUploadBatchId,
   ensureUploadAttemptIdentity,
   createEmptyMediaTypeCounts,
@@ -44,10 +47,11 @@ import {
   parseUploadLimitsResponse,
   parseUploadIssues,
   parseCanonicalUploadResponse,
+  pickNextUploadServiceId,
   reindexClassificationMap,
   resolveExpectedRawCount,
   resolveExpectedFinalCount,
-  resolveEligibleUploadServices,
+  resolveUploadServiceTargets,
   rotateUploadAttemptKey,
   setQueueClassification,
   toPositiveCount,
@@ -83,6 +87,8 @@ export function RawUploadSection({
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  /** Set once the user picks a service by hand, which stops the auto-selection. */
+  const serviceSelectionTouchedRef = useRef(false);
   const inputId = `raw-upload-input-${shoot.id}`;
   const shootServices = useMemo(() => (Array.isArray(shoot.services) ? shoot.services : []), [shoot.services]);
   const shootRequiresBrackets = isHdrShoot(shootServices);
@@ -90,12 +96,34 @@ export function RawUploadSection({
     () => shootServices.some((service) => /video/i.test(String(service))),
     [shootServices],
   );
-  const eligibleServices = useMemo(
-    () => resolveEligibleUploadServices(shoot, user, 'raw'),
+  const serviceTargets = useMemo(
+    () => resolveUploadServiceTargets(shoot, user, 'raw'),
     [shoot, user],
   );
   const normalizedRole = String(user?.role || '').toLowerCase();
-  const requiresServiceSelection = normalizedRole === 'photographer' && eligibleServices.length > 1;
+  const requiresServiceSelection = normalizedRole === 'photographer' && serviceTargets.length > 1;
+  const selectedTarget = useMemo(
+    () => serviceTargets.find((target) => target.id === selectedServiceId) ?? null,
+    [selectedServiceId, serviceTargets],
+  );
+  /** Files already on the shoot, per service item — the "what is already shot" signal. */
+  const uploadedCountsByServiceId = useMemo(
+    () => countUploadedFilesByServiceId(rawFiles),
+    [rawFiles],
+  );
+  /**
+   * Brackets are a photo concept. On a shoot that mixes HDR photos with video or
+   * a floor plan, the picker is only relevant while a photo-delivering service is
+   * the upload target. With no service selected at all (admin uploading against
+   * the shoot as a whole) fall back to the shoot's own HDR flag.
+   *
+   * This controls *visibility only*: `bracketMultiplier` is still submitted
+   * unchanged, because the upload endpoint writes `bracket_mode` straight onto
+   * the shoot and recomputes `expected_raw_count` from it — sending 1 for a video
+   * batch would wipe a real HDR setting.
+   */
+  const bracketApplies = shootRequiresBrackets
+    && (selectedTarget ? bracketAppliesToUploadService(selectedTarget) : true);
 
   const serviceObjects = useMemo(() => extractPhotoServicesFromServiceObjects(shoot), [shoot]);
   const photoServices = useMemo(() => {
@@ -134,6 +162,72 @@ export function RawUploadSection({
     return nextCounts;
   }, [existingCounts, queueCounts]);
   const specialCountCards = useMemo(() => getMediaTypeCards(combinedCounts), [combinedCounts]);
+
+  /**
+   * Batch progress: the four numbers that describe "how far along is this
+   * upload", kept together as one block. Missing is one of them rather than a
+   * separate banner, because it is just Expected minus what is here.
+   */
+  const primaryStats = useMemo(
+    () => [
+      { key: 'expected', label: 'Expected', value: expectedCount },
+      { key: 'existing', label: 'Existing', value: totalRawCount },
+      { key: 'selected', label: 'Selected', value: uploadedCount },
+      // Extras sits with the progress counters rather than the per-service tags:
+      // it is a property of the batch, not a purchased service. Counted the same
+      // way as Existing (already on the shoot plus newly tagged) so the two
+      // numbers are read on the same basis.
+      { key: 'extras', label: 'Extras', value: combinedCounts.extra },
+      { key: 'missing', label: 'Missing', value: missingCount, alert: missingCount > 0 },
+    ],
+    [combinedCounts.extra, expectedCount, missingCount, totalRawCount, uploadedCount],
+  );
+
+  /**
+   * Per-service tallies (Virtual Staging / Green Grass / Twilight / Drone /
+   * Floorplan) in their own row, since they answer a different question than the
+   * progress counters: which services were tagged, not how much is left.
+   * `getMediaTypeCards` already drops zero counts, so the row disappears
+   * entirely on a shoot with nothing tagged instead of rendering lone zeros.
+   */
+  const tagStats = useMemo(
+    () => specialCountCards
+      .filter((card) => card.type !== 'extra')
+      .map((card) => ({ key: card.type, label: card.summaryLabel, value: card.count })),
+    [specialCountCards],
+  );
+
+  /**
+   * Bracket options with the total each one implies, so the choice shows its
+   * consequence instead of being an abstract multiplier.
+   */
+  const bracketOptions = useMemo(
+    () => [3, 5].map((value) => ({ value, expected: resolveExpectedRawCount(shoot, value) })),
+    [shoot],
+  );
+
+  /**
+   * The per-service make-up of `Expected` on one line instead of one line per
+   * service. Full text stays available via the title attribute when it has to
+   * truncate.
+   */
+  const expectedBreakdown = useMemo(() => {
+    if (photoServices.length === 0) {
+      return '';
+    }
+
+    const parts = photoServices.map((service) => {
+      const count = shootRequiresBrackets ? service.count * bracketMultiplier : service.count;
+      return `${service.name} ${count}`;
+    });
+
+    if (shootRequiresBrackets) {
+      parts.push(`${resolveExpectedFinalCount(shoot)} final x ${bracketMultiplier} brackets`);
+    }
+
+    return parts.join(' · ');
+  }, [bracketMultiplier, photoServices, shoot, shootRequiresBrackets]);
+
   const activeUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.uploadType === 'raw' && upload.status === 'uploading'),
     [shoot.id, uploads],
@@ -147,6 +241,7 @@ export function RawUploadSection({
     setIsUploading(false);
     setNotes('');
     setSelectedServiceId('');
+    serviceSelectionTouchedRef.current = false;
     setUploadLimitHint(buildUploadLimitDescription({
       per_file: '2GB',
       total_request: '2.2GB',
@@ -158,13 +253,37 @@ export function RawUploadSection({
     // nothing, second time works" bug when bracketMode/services flipped.
   }, [shoot.id, user?.id]);
 
+  /**
+   * Keep the service picker on the next service that still owes files, until the
+   * user overrides it. One service means no decision to make. Several means the
+   * photographer works them in schedule order, so the picker follows that order
+   * and steps forward on its own as each service fills up — an HDR shoot today
+   * and vertical video tomorrow lands on HDR first, then on video once the HDR
+   * files are in.
+   *
+   * A manual pick wins from then on (tracked by the ref rather than by comparing
+   * against the auto value, so deliberately choosing "General / Unassigned" is
+   * not instantly undone). Frozen while uploading so the label cannot change
+   * under a batch that is already in flight.
+   */
   useEffect(() => {
-    if (eligibleServices.length === 1) {
-      setSelectedServiceId(eligibleServices[0].id);
-    } else if (!eligibleServices.some((service) => service.id === selectedServiceId)) {
-      setSelectedServiceId('');
+    if (isUploading) return;
+
+    if (serviceSelectionTouchedRef.current) {
+      const stillValid = selectedServiceId === ''
+        || serviceTargets.some((target) => target.id === selectedServiceId);
+      if (stillValid) return;
     }
-  }, [eligibleServices, selectedServiceId]);
+
+    const nextServiceId = pickNextUploadServiceId(
+      serviceTargets,
+      uploadedCountsByServiceId,
+      bracketMultiplier,
+    );
+    setSelectedServiceId((currentServiceId) => (
+      currentServiceId === nextServiceId ? currentServiceId : nextServiceId
+    ));
+  }, [bracketMultiplier, isUploading, selectedServiceId, serviceTargets, uploadedCountsByServiceId]);
 
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
@@ -243,6 +362,10 @@ export function RawUploadSection({
     const authHeader = apiHeaders.Authorization;
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
     const filesForUpload = [...preflightValidation.acceptedFiles];
+    // Pinned for the whole batch. The picker can advance to the next service as
+    // soon as these files land, and every file in this batch must still carry the
+    // service that was on screen when the user pressed upload.
+    const serviceIdForUpload = selectedServiceId;
     const classificationsForUpload = reindexClassificationMap(
       filesForUpload,
       { ...(overrideClassifications ?? queueClassifications) },
@@ -286,8 +409,8 @@ export function RawUploadSection({
               formData.append('upload_batch_id', identity.batchId);
               formData.append('upload_batch_total', String(identity.batchTotal));
               formData.append('upload_batch_index', String(identity.batchIndex));
-              if (selectedServiceId) {
-                formData.append('shoot_service_id', selectedServiceId);
+              if (serviceIdForUpload) {
+                formData.append('shoot_service_id', serviceIdForUpload);
               }
               if (noteValue) {
                 formData.append('photographer_notes', noteValue);
@@ -465,102 +588,87 @@ export function RawUploadSection({
 
   return (
     <div className="flex flex-1 min-h-0 flex-col space-y-3">
-      {eligibleServices.length > 0 && (
-        <label className="space-y-1.5">
-          <span className="text-sm font-medium text-foreground">Service for this batch</span>
-          <select
-            value={selectedServiceId}
-            onChange={(event) => setSelectedServiceId(event.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            aria-label="Service for raw upload batch"
-          >
-            <option value="">
-              {normalizedRole === 'photographer' ? 'Select assigned service' : 'General / Unassigned'}
-            </option>
-            {eligibleServices.map((service) => (
-              <option key={service.id} value={service.id}>{service.label}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      {shootRequiresBrackets && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-sm font-medium text-foreground">Bracket Type</div>
-          <div className="flex flex-wrap gap-2">
-            {[3, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                  bracketMultiplier === value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+      {/* One counter strip for the whole batch.
+          Every counter — Expected / Existing / Selected / Extras, any tagged
+          media type, and the shortfall — shares a single divided row with its
+          label and value on the same baseline, and the per-service make-up of
+          Expected sits underneath on one line.
+          This replaced two stacked full-width rows (label above value) plus a
+          separate warning banner, where the Expected tile also printed one line
+          per service. A routine two-service shoot spent 165px to show four
+          numbers, and a shoot with no tagged media still paid for an entire
+          second row just to render "Extras 0". */}
+      {/* Pinned to the top of the panel. These are the numbers the user checks
+          while working through the batch, so they stay put and the file list
+          scrolls underneath instead of carrying them off screen. `bg-card`
+          matches the panel this renders inside, so scrolled rows disappear
+          behind it cleanly. The negative top with matching top padding pins it
+          slightly above the scroll edge, so the band of card padding above it
+          is covered too — otherwise a sliver of the list showed through there. */}
+      <div
+        className="sticky -top-3 z-10 -mt-3 flex-shrink-0 space-y-1 bg-card pb-2 pt-3"
+        data-testid="raw-upload-summary"
+      >
+        {/* Progress counters. auto-fit tracks rather than flex-wrap: a wrapping
+            flex row grows each line independently, which produced ragged
+            columns (125px on the first line, 187px on the second) and truncated
+            the longer labels. auto-fit keeps every column the same width, and
+            because it measures the container it stays correct inside the narrow
+            dialog column where viewport breakpoints would misjudge the space. */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] overflow-hidden rounded-md border bg-muted/50 text-xs">
+          {primaryStats.map((stat) => (
+            <div
+              key={stat.key}
+              className={`flex min-w-0 items-baseline justify-between gap-2 border-b border-r border-border/60 px-3 py-1.5 ${
+                stat.alert ? 'bg-orange-500/10' : ''
+              }`}
+            >
+              <span
+                className={`truncate text-[11px] uppercase tracking-wide ${
+                  stat.alert ? 'text-orange-700 dark:text-orange-300' : 'text-muted-foreground'
                 }`}
-                onClick={() => setBracketMultiplier(value)}
+                title={stat.label}
               >
-                {value}-Bracket
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Summary tiles split into two grouped rows so each fits on a single line
-          on typical desktop widths:
-            1. Counters (Expected / Existing / Selected) with subtle separators.
-            2. Tagged media types (Extras + Virtual Staging / Green Grass / Twilight /
-               Drone / Floorplan) with separators. */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-stretch divide-x divide-border/60 overflow-hidden rounded-md border bg-muted/40 text-xs">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
-            <div className="text-muted-foreground truncate">Expected</div>
-            <div className="text-base font-semibold text-foreground">{expectedCount}</div>
-            {photoServices.length > 0 && (
-              <div className="mt-0.5 space-y-0.5 text-[10px] text-muted-foreground">
-                {photoServices.map((service) => (
-                  <div key={`${service.name}-${service.count}`} className="truncate">
-                    {service.name}: {shootRequiresBrackets ? service.count * bracketMultiplier : service.count}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
-            <div className="text-muted-foreground truncate">Existing</div>
-            <div className="text-base font-semibold text-foreground">{totalRawCount}</div>
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
-            <div className="text-muted-foreground truncate">Selected</div>
-            <div className="text-base font-semibold text-foreground">{uploadedCount}</div>
-          </div>
+                {stat.label}
+              </span>
+              <span
+                className={`shrink-0 text-sm font-semibold tabular-nums ${
+                  stat.alert ? 'text-orange-700 dark:text-orange-200' : 'text-foreground'
+                }`}
+              >
+                {stat.value}
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-wrap items-stretch divide-x divide-border/60 overflow-hidden rounded-md border bg-muted/40 text-xs">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
-            <div className="text-muted-foreground truncate">Extras</div>
-            <div className="text-base font-semibold text-foreground">{queueCounts.extra}</div>
-          </div>
-          {specialCountCards
-            .filter((card) => card.type !== 'extra')
-            .map((card) => (
-              <div key={card.type} className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
-                <div className="text-muted-foreground truncate" title={card.summaryLabel}>
-                  {card.summaryLabel}
-                </div>
-                <div className="text-base font-semibold text-foreground">{card.count}</div>
+        {/* Per-service tags on their own row, tinted to separate them from the
+            progress block above. Emerald is already this codebase's colour for
+            tagged media counts (see EditedUploadSection). */}
+        {tagStats.length > 0 && (
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] overflow-hidden rounded-md border border-emerald-500/25 bg-emerald-500/[0.06] text-xs">
+            {tagStats.map((stat) => (
+              <div
+                key={stat.key}
+                className="flex min-w-0 items-baseline justify-between gap-2 border-b border-r border-emerald-500/20 px-3 py-1.5"
+              >
+                <span className="truncate text-emerald-700 dark:text-emerald-300" title={stat.label}>
+                  {stat.label}
+                </span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-800 dark:text-emerald-200">
+                  {stat.value}
+                </span>
               </div>
             ))}
-        </div>
+          </div>
+        )}
+
+        {expectedBreakdown && (
+          <p className="truncate px-1 text-[11px] leading-4 text-muted-foreground" title={expectedBreakdown}>
+            {expectedBreakdown}
+          </p>
+        )}
       </div>
-
-      {missingCount > 0 && totalRawCount > 0 && (
-        <div className="rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-200">
-          {missingCount} photo(s) missing. Expected {expectedCount}
-
-          {shootRequiresBrackets ? ` (${resolveExpectedFinalCount(shoot)} final x ${bracketMultiplier} brackets)` : ''}
-          , but only {totalRawCount} selected or uploaded so far.
-        </div>
-      )}
 
       {showInlineProgress && (activeUploads.length > 0
         ? activeUploads.map((activeUpload) => (
@@ -650,11 +758,9 @@ export function RawUploadSection({
 
       {selectedFiles.length > 0 && (
         // Flex column that fills the remaining vertical space inside the upload tab.
-        // The selected-files list takes flex-1 (uses every available pixel and scrolls
-        // internally) so the user sees as many files as possible without the page
-        // expanding. Notes textarea sits at fixed height directly below, and the
-        // primary "Upload Raw Files" action button is anchored at the bottom — sitting
-        // just above the modal footer instead of floating mid-page.
+        // The selected-files list is free to grow and scroll with the dialog body,
+        // while everything the user touches right before committing the batch — the
+        // editor note and the action bar — is pinned to the bottom.
         <div className="flex flex-1 min-h-0 flex-col space-y-2">
           <div className="flex-shrink-0 flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
             <span>Selected Files ({selectedFiles.length})</span>
@@ -662,7 +768,15 @@ export function RawUploadSection({
               (FP = floorplan, VS = virtual staging, GG = green grass, TW = twilight, DR = drone, EX = extra)
             </span>
           </div>
-          <div className="space-y-1 rounded-md border p-2">
+          {/* The list is the only part of the panel that scrolls: it takes every
+              pixel left between the pinned summary above and the pinned footer
+              below. `flex-1` is what keeps the footer at the bottom on a short
+              batch — without it the leftover height collected under the footer
+              and left it floating mid-panel with two files staged. The explicit
+              `min-h-0` lets it shrink past its content instead of forcing the
+              column taller; when the panel is too short for everything, the
+              outer scroll and the sticky edges take over. */}
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-md border p-2">
             {selectedFiles.map((file, index) => (
               <div key={getQueueFileKey(file, index)} className="rounded-md p-2 transition-colors hover:bg-muted/40">
                 <div className="flex items-start gap-2">
@@ -694,34 +808,165 @@ export function RawUploadSection({
             ))}
           </div>
 
-          <div className="flex-shrink-0 space-y-1.5">
-            <div className="text-sm font-medium text-foreground">Notes for Editor (Optional)</div>
-            <Textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Add any notes for the editor..."
-              className="min-h-[60px] max-h-[84px] resize-none"
-            />
-          </div>
+          {/* Pinned footer. The editor note and the action bar are one unit: both
+              belong to the moment of committing the batch, so they stay on screen
+              together while the file list scrolls behind them. The note used to
+              scroll away with the list, so adding a note to a large batch meant
+              scrolling back up past every file to find the box. Opaque background
+              because sticky content sits over the list. */}
+          <div className="sticky bottom-0 z-10 flex-shrink-0 space-y-2 bg-card pt-2">
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-foreground">Notes for Editor (Optional)</div>
+              <Textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Add any notes for the editor..."
+                className="min-h-[60px] max-h-[84px] resize-none"
+              />
+            </div>
 
-          <Button
-            type="button"
-            className="sticky bottom-0 z-10 flex-shrink-0 w-full shadow-lg"
-            onClick={handleUpload}
-            disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading Raw Files
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Raw Files
-              </>
-            )}
-          </Button>
+            {/* Bottom action bar: what is being sent, where it is going, and the
+                commit action, all on one line at the point of decision.
+                The service picker used to sit at the very top of the panel, a full
+                scroll away from the button that acts on it, and the bracket picker
+                took a whole bordered row of its own. Both now live next to the
+                action they qualify.
+                Slots wrap on a minimum width rather than on viewport breakpoints:
+                this panel renders inside a narrow dialog column, so the reflow has
+                to follow the container's own width. Each slot keeps a floor of
+                190px and grows to share whatever is left, so a wide bar puts all
+                three side by side and a narrow one stacks them full width — and
+                the primary action never has to truncate its label to fit. */}
+            <div className="flex flex-wrap items-end gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2 shadow-lg">
+              <div className="flex min-w-[190px] flex-1 flex-col gap-1">
+                <span className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <span className="font-semibold tabular-nums text-foreground">{selectedFiles.length}</span>
+                  {selectedFiles.length === 1 ? 'file' : 'files'}
+                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                </span>
+                {serviceTargets.length > 0 ? (
+                  <div className="relative">
+                    {selectedTarget && !selectedTarget.isPhotoService ? (
+                      <Video className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    ) : (
+                      <Camera className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    )}
+                    <select
+                      value={selectedServiceId}
+                      onChange={(event) => {
+                        serviceSelectionTouchedRef.current = true;
+                        setSelectedServiceId(event.target.value);
+                      }}
+                      className="h-9 w-full appearance-none truncate rounded-md border border-input bg-background pl-8 pr-9 text-sm font-medium text-foreground"
+                      aria-label="Service for raw upload batch"
+                    >
+                      <option value="">
+                        {normalizedRole === 'photographer' ? 'Select assigned service' : 'General / Unassigned'}
+                      </option>
+                      {serviceTargets.map((target) => (
+                        <option key={target.id} value={target.id}>{target.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  </div>
+                ) : (
+                  <span className="flex h-9 items-center text-sm text-muted-foreground">
+                    Ready to upload
+                  </span>
+                )}
+              </div>
+
+              {/* Middle slot. Brackets take priority over the progress read-out
+                  because they are an input the user can still change, while the
+                  counters are also printed in the summary strip at the top of the
+                  panel — nothing is lost by handing this space to the picker. */}
+              {bracketApplies ? (
+                <div className="flex min-w-[190px] flex-1 flex-col gap-1">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Bracket
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-label="Bracket type"
+                    className="flex h-9 items-center gap-1 rounded-md border bg-muted/40 p-1"
+                  >
+                    {bracketOptions.map((option) => {
+                      const isSelected = bracketMultiplier === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          title={`${option.value} exposures per final photo · ${option.expected} raw files expected`}
+                          className={`flex min-w-0 flex-1 items-baseline justify-center gap-1 rounded px-1.5 py-1 text-xs transition-colors ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          }`}
+                          onClick={() => setBracketMultiplier(option.value)}
+                        >
+                          <span className="font-medium">{option.value}x</span>
+                          <span
+                            className={`tabular-nums ${
+                              isSelected ? 'text-primary-foreground/75' : 'text-muted-foreground/70'
+                            }`}
+                          >
+                            {option.expected}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : expectedCount > 0 && (
+                <div className="flex min-w-[190px] flex-1 flex-col gap-1">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Progress
+                  </span>
+                  <div className="flex h-9 flex-col justify-center gap-1">
+                    <Progress
+                      value={Math.min(100, Math.round((totalRawCount / expectedCount) * 100))}
+                      className="h-1.5"
+                    />
+                    <span className="truncate text-[11px] leading-none text-muted-foreground">
+                      <span className="font-medium tabular-nums text-foreground">
+                        {totalRawCount} / {expectedCount}
+                      </span>
+                      {missingCount > 0 && (
+                        <>
+                          {' · '}
+                          <span className="tabular-nums text-orange-700 dark:text-orange-300">
+                            {missingCount} missing
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                className="h-9 min-w-[190px] flex-1 shadow-sm"
+                onClick={handleUpload}
+                disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="truncate">Uploading</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">Confirm &amp; upload</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

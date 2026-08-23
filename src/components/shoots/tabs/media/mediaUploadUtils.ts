@@ -1,4 +1,4 @@
-import type { ShootData } from '@/types/shoots';
+import type { ShootData, ShootServiceObject } from '@/types/shoots';
 import { normalizeShootMediaFile, type MediaFile } from '@/hooks/useShootFiles';
 import {
   triggerDashboardOverviewRefresh,
@@ -59,6 +59,23 @@ export interface CanonicalUploadResult {
 export interface UploadServiceOption {
   id: string;
   label: string;
+}
+
+/**
+ * A selectable service for one upload batch, carrying everything the picker
+ * needs to decide *which* service should be selected by default: how many
+ * photos it owes, whether brackets apply to it, and where it sits in the
+ * shoot's schedule.
+ */
+export interface UploadServiceTarget extends UploadServiceOption {
+  /** Expected final photo count for this service. 0 when the payload has none. */
+  photoCount: number;
+  /** Brackets multiply raw counts for photo work only, never for video. */
+  isPhotoService: boolean;
+  /** Per-service schedule time. Drives "HDR today, vertical video tomorrow". */
+  scheduledAt: string | null;
+  /** Payload position, used as the tie-break when nothing is scheduled. */
+  order: number;
 }
 
 export interface UploadActor {
@@ -144,11 +161,55 @@ export function rotateUploadAttemptKey(file: File): void {
   });
 }
 
-export function resolveEligibleUploadServices(
+const PHOTO_SERVICE_LANE = 'photo';
+const VIDEO_SERVICE_LANE = 'video';
+
+/**
+ * `serviceItems` is the authoritative list of pivot rows, but the API does not
+ * always populate `photo_count` / `lane` / `scheduled_at` on it — those live on
+ * the `services` payload, which normalizes into `serviceObjects`. Index that
+ * shape by pivot id so a target can be enriched from whichever side has the
+ * field.
+ */
+const indexServiceObjectsByShootServiceId = (shoot: ShootData): Map<string, ShootServiceObject> => {
+  const legacyShoot = shoot as ShootData & { service_objects?: ShootServiceObject[] };
+  const objects = Array.isArray(shoot.serviceObjects)
+    ? shoot.serviceObjects
+    : Array.isArray(legacyShoot.service_objects)
+      ? legacyShoot.service_objects
+      : [];
+
+  const index = new Map<string, ShootServiceObject>();
+  objects.forEach((object) => {
+    const key = String(object?.shoot_service_id ?? object?.shootServiceId ?? '');
+    if (key && !index.has(key)) {
+      index.set(key, object);
+    }
+  });
+
+  return index;
+};
+
+/**
+ * Prefer the backend's own lane over guessing from the name: `normalizeLane`
+ * already resolved every catalogue category to `photo` or `video`. Only when no
+ * lane reached the client (older payloads) fall back to the name.
+ */
+const resolveIsPhotoService = (name: string, laneCandidates: Array<string | null | undefined>): boolean => {
+  for (const candidate of laneCandidates) {
+    const lane = String(candidate ?? '').trim().toLowerCase();
+    if (lane === PHOTO_SERVICE_LANE) return true;
+    if (lane === VIDEO_SERVICE_LANE) return false;
+  }
+
+  return !/video/i.test(name);
+};
+
+export function resolveUploadServiceTargets(
   shoot: ShootData,
   actor: UploadActor | null | undefined,
   uploadType: 'raw' | 'edited',
-): UploadServiceOption[] {
+): UploadServiceTarget[] {
   const shootWithAssignmentAliases = shoot as ShootData & {
     photographerId?: string | number | null;
     photographer_id?: string | number | null;
@@ -158,6 +219,7 @@ export function resolveEligibleUploadServices(
   const role = String(actor?.role || '').trim().toLowerCase();
   const actorId = String(actor?.id ?? '');
   const adminLike = ['admin', 'superadmin', 'editing_manager'].includes(role);
+  const serviceObjectIndex = indexServiceObjectsByShootServiceId(shoot);
 
   return items
     .filter((item) => {
@@ -185,16 +247,137 @@ export function resolveEligibleUploadServices(
       }
       return false;
     })
-    .map((item) => ({
+    .map((item, index) => {
       // The upload endpoint validates `shoot_service_id` against the shoot's
       // service-item primary keys, so the option value must be the pivot id.
       // `item.id` is only the same thing for the `serviceItems` shape; on the
       // `services`/`serviceObjects` shape `id` is the catalogue service id, and
       // sending that returned 422 invalid_service_item for every shoot whose
       // pivot id differs from its service id.
-      id: String(item.shoot_service_id ?? item.shootServiceId ?? item.id),
-      label: item.name || `Service #${item.id}`,
-    }));
+      const id = String(item.shoot_service_id ?? item.shootServiceId ?? item.id);
+      const label = item.name || `Service #${item.id}`;
+      const enriched = serviceObjectIndex.get(id);
+
+      return {
+        id,
+        label,
+        photoCount: toPositiveCount(item.photo_count)
+          ?? toPositiveCount(enriched?.photo_count)
+          ?? toPositiveCount(item.quantity)
+          ?? toPositiveCount(enriched?.quantity)
+          ?? 0,
+        isPhotoService: resolveIsPhotoService(label, [
+          item.lane,
+          item.category_key,
+          enriched?.lane,
+          enriched?.category_key,
+        ]),
+        scheduledAt: item.scheduled_at
+          ?? item.scheduledAt
+          ?? enriched?.scheduled_at
+          ?? enriched?.scheduledAt
+          ?? null,
+        order: index,
+      };
+    });
+}
+
+export function resolveEligibleUploadServices(
+  shoot: ShootData,
+  actor: UploadActor | null | undefined,
+  uploadType: 'raw' | 'edited',
+): UploadServiceOption[] {
+  return resolveUploadServiceTargets(shoot, actor, uploadType)
+    .map(({ id, label }) => ({ id, label }));
+}
+
+const toScheduleTimestamp = (value: string | null): number | null => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
+ * Schedule order: earliest scheduled service first, unscheduled services last,
+ * payload order as the tie-break. This is the order the photographer actually
+ * works in, so it is also the order uploads should default to.
+ */
+export function compareUploadServiceTargets(a: UploadServiceTarget, b: UploadServiceTarget): number {
+  const aTime = toScheduleTimestamp(a.scheduledAt);
+  const bTime = toScheduleTimestamp(b.scheduledAt);
+
+  if (aTime !== null && bTime !== null && aTime !== bTime) return aTime - bTime;
+  if (aTime !== null && bTime === null) return -1;
+  if (aTime === null && bTime !== null) return 1;
+
+  return a.order - b.order;
+}
+
+/** Raw files this one service owes. Brackets only multiply photo services. */
+export function resolveUploadServiceExpectedCount(
+  target: UploadServiceTarget,
+  bracketMultiplier: number,
+): number {
+  if (target.photoCount <= 0) return 0;
+  return target.photoCount * (target.isPhotoService ? Math.max(1, bracketMultiplier) : 1);
+}
+
+/**
+ * Brackets are exposures per final photo, so the picker only means something for
+ * a service that actually delivers photos. A video service never brackets, and
+ * neither does a deliverable with no photo count of its own — a 2D floor plan or
+ * a 3D tour sits in the same shoot as the HDR set but has nothing to stack.
+ */
+export function bracketAppliesToUploadService(target: UploadServiceTarget): boolean {
+  return target.isPhotoService && target.photoCount > 0;
+}
+
+export function isUploadServiceFulfilled(
+  target: UploadServiceTarget,
+  uploadedCount: number,
+  bracketMultiplier: number,
+): boolean {
+  const expected = resolveUploadServiceExpectedCount(target, bracketMultiplier);
+  // With no expected count to compare against, "has any file at all" is the only
+  // signal available for whether this service has been shot yet.
+  return expected > 0 ? uploadedCount >= expected : uploadedCount > 0;
+}
+
+/**
+ * The service an upload batch should default to: the only one when there is a
+ * single option, otherwise the first service in schedule order that still owes
+ * files. When every service already has its files, stay on the last one instead
+ * of snapping back to the first, so top-ups and re-uploads land where the
+ * photographer left off.
+ */
+export function pickNextUploadServiceId(
+  targets: UploadServiceTarget[],
+  uploadedCountsByServiceId: Record<string, number>,
+  bracketMultiplier: number,
+): string {
+  if (targets.length === 0) return '';
+  if (targets.length === 1) return targets[0].id;
+
+  const ordered = [...targets].sort(compareUploadServiceTargets);
+  const nextUnfulfilled = ordered.find((target) => !isUploadServiceFulfilled(
+    target,
+    uploadedCountsByServiceId[target.id] ?? 0,
+    bracketMultiplier,
+  ));
+
+  return (nextUnfulfilled ?? ordered[ordered.length - 1]).id;
+}
+
+/** How many already-uploaded files each service item holds. */
+export function countUploadedFilesByServiceId(files: MediaFile[]): Record<string, number> {
+  return files.reduce<Record<string, number>>((counts, file) => {
+    const rawKey = file.shoot_service_id ?? file.shootServiceId;
+    if (rawKey === null || rawKey === undefined || rawKey === '') return counts;
+
+    const key = String(rawKey);
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 const toUploadLimits = (value: unknown): UploadLimitsPayload | undefined => {
