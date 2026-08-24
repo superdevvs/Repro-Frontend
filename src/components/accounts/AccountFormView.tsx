@@ -31,6 +31,7 @@ import { canViewPhotographerRegion, canViewPhotographerStreet } from '@/utils/ph
 import { AccountEquipmentFields } from './AccountEquipmentFields';
 import { AccountInsuranceFields } from './AccountInsuranceFields';
 import { AccountRoleSettings } from './AccountRoleSettings';
+import { AdminDefaultBracketModeField } from './AdminDefaultBracketModeField';
 export function AccountFormView({ controller }: { controller: AccountFormController }) {
   const {
     open, onOpenChange, initialData, avatarUrl, setAvatarUrl, adminsAndReps,
@@ -770,6 +771,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
             )}
             {currentRole === "photographer" && (
               <>
+                <AdminDefaultBracketModeField control={form.control} />
                 <FormField
                   control={form.control}
                   name="specialties"

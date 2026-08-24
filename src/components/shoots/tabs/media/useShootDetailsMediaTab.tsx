@@ -31,8 +31,7 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
-  Sparkles,
-  Loader2,
+
   Check,
   ArrowUpDown,
   Trash2,
@@ -65,6 +64,8 @@ import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
+import { MediaServiceSections } from './MediaServiceSections';
+import { ClientWorkInProgressPanel } from './ClientWorkInProgressPanel';
 import { MediaViewer } from './MediaViewer';
 import { ScanStatusBadge } from './ScanStatusBadge';
 import { useRescanFile } from '@/hooks/useRescanFile';
@@ -1152,11 +1153,9 @@ export function useShootDetailsMediaTab({
 
     const rawStackSize = Number(shoot.bracketMode ?? shoot.package?.bracketMode ?? 0);
 
-    return (
-      <div className="relative h-full m-0 sm:mx-0 sm:my-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
-        <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
+    const renderGrid = (paneFiles: MediaFile[]) => (
           <MediaGrid
-            files={files}
+            files={paneFiles}
             onFileClick={(index, sorted) => openViewerWithSource(index, sorted, displayTab)}
             selectedFiles={selectedFiles}
             onSelectionChange={toggleSelection}
@@ -1165,17 +1164,27 @@ export function useShootDetailsMediaTab({
                 return;
               }
 
-              if (selectedFiles.size === files.length) {
-                setSelectedFiles(new Set());
-              } else {
-                setSelectedFiles(new Set(files.map((f) => f.id)));
-              }
+              // Scoped to the section that was clicked, so "select all" inside Drone does
+              // not sweep up the HDR sets sitting above it.
+              const paneIds = paneFiles.map((f) => f.id);
+              const allSelected = paneIds.every((id) => selectedFiles.has(id));
+              setSelectedFiles((current) => {
+                const next = new Set(current);
+                paneIds.forEach((id) => {
+                  if (allSelected) {
+                    next.delete(id);
+                  } else {
+                    next.add(id);
+                  }
+                });
+                return next;
+              });
             }}
             canSelect={canSelectInDisplayTab}
             sortOrder={sortOrder}
             manualSortActive={isDragMode}
             manualOrder={manualOrder}
-            onManualOrderChange={(nextOrder) => handleManualOrderChange(files, nextOrder, separateExtras)}
+            onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder, separateExtras)}
             getImageUrl={getImageUrl}
             getSrcSet={getSrcSet}
             isImage={isPreviewableImage}
@@ -1193,6 +1202,12 @@ export function useShootDetailsMediaTab({
             rawStackSize={Number.isFinite(rawStackSize) && rawStackSize > 1 ? rawStackSize : null}
             renderScanStatus={renderScanStatus}
           />
+    );
+
+    return (
+      <div className="relative h-full m-0 sm:mx-0 sm:my-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
+        <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
+          <MediaServiceSections files={files} shoot={shoot} renderGrid={renderGrid} />
         </div>
         {canUploadInDisplayTab && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-3 pt-8 sm:hidden">
@@ -1251,53 +1266,7 @@ export function useShootDetailsMediaTab({
   };
   // Show "Work in Progress" UI for clients when shoot is not finalized
   if (isClient && !isShootFinalized && !hasClientUnlockedServiceDelivery) {
-    const progress = clientProgress.percent;
-    const progressLabel = clientProgress.label;
-    
-    return (
-      <div className="flex flex-col h-full min-h-0 bg-background px-3 sm:px-4 lg:px-6 items-center justify-center" style={{ height: '100%', minHeight: '300px' }}>
-        <div className="flex flex-col items-center justify-center max-w-md text-center space-y-6 py-12">
-          {/* Animated icon */}
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-              <Loader2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
-            </div>
-          </div>
-          
-          {/* Title and description */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">Work in Progress</h3>
-            <p className="text-sm text-muted-foreground">
-              {clientProgress.description}
-            </p>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="w-full max-w-xs space-y-2">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{progressLabel}</span>
-              <span>{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
-          
-          {/* Status steps */}
-          <div className="w-full max-w-xs">
-            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-              {clientProgress.steps.map((step) => (
-                <div key={step.key} className={`flex flex-col items-center gap-1 ${progress >= step.percent ? 'text-primary' : ''}`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${progress >= step.percent ? 'bg-primary' : 'bg-muted'}`} />
-                  <span>{step.stageLabel}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <ClientWorkInProgressPanel clientProgress={clientProgress} />;
   }
 
   return (
@@ -1361,7 +1330,7 @@ export function useShootDetailsMediaTab({
         uploadedDrone={uploadedDrone}
         uploadedExtras={uploadedExtras}
         renderMediaGridPane={renderMediaGridPane}
-        AdminUploadSection={AdminUploadSection}
+        renderAdminUploadSection={AdminUploadSection}
         shoot={shoot}
         toast={toast}
         queryClient={queryClient}

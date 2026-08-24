@@ -211,6 +211,39 @@ export interface ShootServiceObject {
   charge_type?: string;
   chargeType?: string;
   photo_count?: number | null;
+  /**
+   * Which upload lane this service can receive (`services.upload_intake_type`):
+   * `photo`, `video`, `photo_video`, or `none`. Capability data — a bookable
+   * service is not automatically an upload target, and this is never inferred
+   * from the service name or category.
+   */
+  upload_intake_type?: string | null;
+  uploadIntakeType?: string | null;
+  supports_photo_intake?: boolean | number | string | null;
+  supportsPhotoIntake?: boolean | number | string | null;
+  supports_video_intake?: boolean | number | string | null;
+  supportsVideoIntake?: boolean | number | string | null;
+  /**
+   * True when this item owes photos but no contracted count is configured. The UI
+   * must render that as unset rather than fabricating a denominator.
+   */
+  expected_raw_unspecified?: boolean | number | string | null;
+  expectedRawUnspecified?: boolean | number | string | null;
+  /**
+   * Whether this deliverable is captured as multi-exposure bracket stacks
+   * (`services.uses_hdr_brackets`). Catalogue data, not inferred from the name.
+   */
+  uses_hdr_brackets?: boolean | number | string | null;
+  usesHdrBrackets?: boolean | number | string | null;
+  /** The size recorded for this service on this shoot, if any. */
+  bracket_mode?: number | string | null;
+  bracketMode?: number | string | null;
+  /**
+   * The size stacking will actually use: the recorded value, else the assigned
+   * photographer's preference, else 5. Null when the service does not bracket.
+   */
+  effective_bracket_mode?: number | string | null;
+  effectiveBracketMode?: number | string | null;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: Array<{
     id?: number;

@@ -26,6 +26,7 @@ import {
   type AccountFormValues,
   type FormRole,
 } from './accountFormModel';
+import { applyPhotographerAccountPayload } from './photographerAccountPayload';
 
 export function useAccountFormController({
   open,
@@ -77,6 +78,8 @@ export function useAccountFormController({
           editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
+          // 5x is the product default until a photographer states otherwise.
+          defaultBracketMode: 5 as const,
           pilotLicenseFile: "",
           pilotLicenseFileName: "",
           insuranceNumber: "",
@@ -177,6 +180,11 @@ export function useAccountFormController({
             ?? (role === 'editor' ? ['photo', 'video'] : []),
           travelRange: Number(initialData.metadata?.travel_range) || 25,
           travelRangeUnit: (initialData.metadata?.travel_range_unit as 'miles' | 'km') || 'miles',
+          // A real column rather than metadata: the bracket resolver reads it directly.
+          // 5x is the product default when the photographer has stated no preference.
+          defaultBracketMode: Number(
+            (initialData as { default_bracket_mode?: number | null }).default_bracket_mode ?? 5,
+          ) === 3 ? 3 : 5,
           pilotLicenseFile: initialData.metadata?.pilotLicenseFile || "",
           pilotLicenseFileName: initialData.metadata?.pilotLicenseFileName || "",
           insuranceNumber: initialData.metadata?.insuranceNumber || "",
@@ -235,6 +243,8 @@ export function useAccountFormController({
           editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
+          // 5x is the product default until a photographer states otherwise.
+          defaultBracketMode: 5 as const,
           pilotLicenseFile: "",
           pilotLicenseFileName: "",
           insuranceNumber: "",
@@ -492,7 +502,9 @@ export function useAccountFormController({
           .map((option) => option.id)
           .filter((capability) => Array.isArray(values.editingCapabilities) && values.editingCapabilities.includes(capability))
       : [];
-    const payload: AccountFormValues = {
+    // `default_bracket_mode` is a real user column rather than a form field name, so the
+    // payload carries it alongside the camelCase form values.
+    const payload: AccountFormValues & { default_bracket_mode?: 3 | 5 } = {
       ...values,
       name: fullName,
     };
@@ -525,30 +537,7 @@ export function useAccountFormController({
       }
     }
     if (values.role === 'photographer') {
-      if (values.pilotLicenseFile) {
-        metadataPayload.pilotLicenseFile = values.pilotLicenseFile;
-      }
-      if (values.pilotLicenseFileName) {
-        metadataPayload.pilotLicenseFileName = values.pilotLicenseFileName;
-      }
-      if (values.insuranceNumber) {
-        metadataPayload.insuranceNumber = values.insuranceNumber;
-      }
-      if (values.insuranceFile) {
-        metadataPayload.insuranceFile = values.insuranceFile;
-      }
-      if (values.insuranceFileName) {
-        metadataPayload.insuranceFileName = values.insuranceFileName;
-      }
-      if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
-        metadataPayload.specialties = values.specialties;
-      }
-      if (values.travelRange !== undefined) {
-        metadataPayload.travel_range = values.travelRange;
-      }
-      if (values.travelRangeUnit) {
-        metadataPayload.travel_range_unit = values.travelRangeUnit;
-      }
+      applyPhotographerAccountPayload(values, metadataPayload, payload);
     }
     if (Object.keys(metadataPayload).length) {
       payload.metadata = metadataPayload;
@@ -597,6 +586,9 @@ export function useAccountFormController({
         }
         if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
           formData.append('specialties', JSON.stringify(values.specialties));
+        }
+        if (values.role === 'photographer' && values.defaultBracketMode) {
+          formData.append('default_bracket_mode', String(values.defaultBracketMode));
         }
         if (values.role === 'editor') {
           formData.append('editing_capabilities', JSON.stringify(normalizedEditingCapabilities));
@@ -733,6 +725,9 @@ export function useAccountFormController({
         if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
           formData.append('specialties', JSON.stringify(values.specialties));
         }
+      if (values.role === 'photographer' && values.defaultBracketMode) {
+        formData.append('default_bracket_mode', String(values.defaultBracketMode));
+      }
       if (values.role === 'editor') {
         formData.append('editing_capabilities', JSON.stringify(normalizedEditingCapabilities));
       }

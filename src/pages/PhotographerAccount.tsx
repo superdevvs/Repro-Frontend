@@ -50,37 +50,15 @@ import {
   type PhotographerEquipment,
   uploadPhotographerVerificationPhotos,
 } from '@/services/photographerEquipmentService';
-
-// Define form schemas
-const personalInfoSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
-  phone: z.string().min(10, { message: 'Please enter a valid phone number.' }),
-  bio: z.string().optional(),
-  portfolioWebsite: z.string().optional().or(z.literal('')),
-  currentPassword: z.string().optional().or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
-  city: z.string().optional().or(z.literal('')),
-  state: z.string().optional().or(z.literal('')),
-  zip: z.string().optional().or(z.literal('')),
-  travelRange: z.number().min(1).max(500),
-  travelRangeUnit: z.enum(['miles', 'km']),
-  weeklyInvoice: z.boolean(),
-});
-
-const specialtiesSchema = z.object({
-  specialties: z.array(z.string()).min(1, { message: 'Please select at least one specialty.' }),
-});
-
-const notificationsSchema = z.object({
-  email_notifications: z.boolean().default(true),
-  sms_notifications: z.boolean().default(true),
-});
-
-type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
-type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
-type NotificationsFormValues = z.infer<typeof notificationsSchema>;
-
+import { DefaultBracketModeField } from '@/components/accounts/DefaultBracketModeField';
+import {
+  notificationsSchema,
+  personalInfoSchema,
+  specialtiesSchema,
+  type NotificationsFormValues,
+  type PersonalInfoFormValues,
+  type SpecialtiesFormValues,
+} from '@/pages/photographerAccountSchemas';
 const PhotographerAccount = () => {
   const { user, setUser, logout } = useAuth();
   const { toast } = useToast();
@@ -199,6 +177,10 @@ const PhotographerAccount = () => {
       travelRange: Number(userMetadata.travel_range ?? 25),
       travelRangeUnit: (userMetadata.travel_range_unit as 'miles' | 'km') ?? 'miles',
       weeklyInvoice: savedPreferences.weeklyInvoice ?? true,
+      // 5x remains the product default when the photographer has stated no preference.
+      defaultBracketMode: Number(
+        (user as { default_bracket_mode?: number | null } | undefined)?.default_bracket_mode ?? 5,
+      ) === 3 ? 3 : 5,
     },
   });
 
@@ -232,6 +214,9 @@ const PhotographerAccount = () => {
         zip: data.zip,
         travel_range: data.travelRange,
         travel_range_unit: data.travelRangeUnit,
+        // A real column rather than a metadata preference, because the bracket resolver
+        // reads it directly when seeding a new assignment.
+        default_bracket_mode: data.defaultBracketMode,
         preferences: {
           bio: data.bio || null,
           portfolioWebsite: data.portfolioWebsite || null,
@@ -817,6 +802,7 @@ const PhotographerAccount = () => {
                     </div>
                   )}
                 />
+                <DefaultBracketModeField control={personalInfoForm.control} />
                 <div className="flex items-start justify-between gap-4 rounded-md border p-4">
                   <div className="space-y-0.5">
                     <Label htmlFor="taxInfo" className="flex items-center gap-1.5">

@@ -427,9 +427,21 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           name: String(s.name || ''),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
-          photo_count: (s.pivot?.photo_count ?? s.photo_count ?? s.photoCount) != null
-            ? Number(s.pivot?.photo_count ?? s.photo_count ?? s.photoCount)
-            : null,
+          // Only a positive count is a count; 0 and null both mean unspecified. This
+          // shape enriches upload targets, so a fabricated count here would reach the
+          // Expected figure.
+          photo_count: (() => {
+            const raw = s.pivot?.photo_count ?? s.photo_count ?? s.photoCount;
+            if (raw === null || raw === undefined) return null;
+            const parsed = Number(raw);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+          })(),
+          // Capability travels with this shape too, since upload targets can be
+          // enriched from whichever side carries the field.
+          upload_intake_type: (() => {
+            const candidate = String(s.upload_intake_type ?? s.uploadIntakeType ?? '').trim().toLowerCase();
+            return ['photo', 'video', 'photo_video', 'none'].includes(candidate) ? candidate : 'none';
+          })(),
           pricing_type: s.pricing_type || 'fixed',
           sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((range) => ({
             id: range.id != null ? Number(range.id) : undefined,
@@ -617,6 +629,48 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             ? item.chargeType
             : undefined;
 
+        // Per-service bracket state. Normalisation rebuilds each item from an
+        // explicit list of fields, so anything not named here is dropped before the
+        // upload panel ever sees it, which silently left every service looking like
+        // it does not bracket. Booleans arrive as true, 1 or "1" depending on the
+        // serializer, so an explicit false has to survive the coercion.
+        const rawUsesHdrBrackets = item.uses_hdr_brackets ?? item.usesHdrBrackets
+          ?? service.uses_hdr_brackets ?? service.usesHdrBrackets;
+        const usesHdrBrackets = rawUsesHdrBrackets === true
+          || rawUsesHdrBrackets === 1
+          || rawUsesHdrBrackets === '1'
+          || (typeof rawUsesHdrBrackets === 'string' && rawUsesHdrBrackets.toLowerCase() === 'true');
+        const toBracketMode = (value: unknown): number | null => {
+          if (value === null || value === undefined || value === '') return null;
+          const parsed = Number(value);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        };
+        const bracketModeSnapshot = toBracketMode(item.bracket_mode ?? item.bracketMode);
+        const effectiveBracketMode = toBracketMode(item.effective_bracket_mode ?? item.effectiveBracketMode);
+
+        // Upload capability, for the same reason as the bracket fields above: this
+        // rebuild drops anything not named here, and losing the capability would make
+        // every service look non-selectable. An unrecognised value normalises to
+        // `none`, because unknown capability must mean "not selectable".
+        const rawIntakeType = item.upload_intake_type ?? item.uploadIntakeType
+          ?? service.upload_intake_type ?? service.uploadIntakeType;
+        const uploadIntakeType = (() => {
+          const candidate = String(rawIntakeType ?? '').trim().toLowerCase();
+          return ['photo', 'video', 'photo_video', 'none'].includes(candidate) ? candidate : 'none';
+        })();
+        const supportsPhotoIntake = uploadIntakeType === 'photo' || uploadIntakeType === 'photo_video';
+        const supportsVideoIntake = uploadIntakeType === 'video' || uploadIntakeType === 'photo_video';
+
+        // Only a positive contracted count is a count. Zero and null both mean
+        // unspecified, and booking quantity is never substituted.
+        const rawPhotoCount = item.photo_count ?? item.photoCount
+          ?? service.photo_count ?? service.photoCount;
+        const contractedPhotoCount = (() => {
+          if (rawPhotoCount === null || rawPhotoCount === undefined) return null;
+          const parsed = Number(rawPhotoCount);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        })();
+
         return {
           id: stableId != null ? String(stableId) : '',
           invoice_id: invoiceId == null ? null : String(invoiceId),
@@ -646,7 +700,20 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             : undefined,
           charge_type: chargeType,
           chargeType,
-          photo_count: item.photo_count ?? item.photoCount ?? service.photo_count ?? service.photoCount ?? null,
+          photo_count: contractedPhotoCount,
+          photoCount: contractedPhotoCount,
+          upload_intake_type: uploadIntakeType,
+          uploadIntakeType,
+          supports_photo_intake: supportsPhotoIntake,
+          supportsPhotoIntake,
+          supports_video_intake: supportsVideoIntake,
+          supportsVideoIntake,
+          uses_hdr_brackets: usesHdrBrackets,
+          usesHdrBrackets,
+          bracket_mode: bracketModeSnapshot,
+          bracketMode: bracketModeSnapshot,
+          effective_bracket_mode: effectiveBracketMode,
+          effectiveBracketMode,
           pricing_type: item.pricing_type ?? service.pricing_type ?? 'fixed',
           category: item.category ?? service.category ?? null,
           photographer_pay: item.photographer_pay != null || item.photographerPay != null

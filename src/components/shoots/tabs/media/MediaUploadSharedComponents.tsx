@@ -84,19 +84,28 @@ export function UploadClassificationButtons({
   classifications,
   onToggle,
   compact = false,
+  options = UPLOAD_CLASSIFICATION_OPTIONS,
 }: {
   file: File;
   index: number;
   classifications: QueueClassificationMap;
   onToggle: (file: File, index: number, mediaType: UploadQueueMediaType) => void;
   compact?: boolean;
+  /**
+   * Which per-file controls to offer.
+   *
+   * Raw staging passes the Extra-only set. Service ownership is decided by the
+   * group's booked-service selector, so per-file service shortcuts there both
+   * duplicated that model and offered services the shoot had never booked.
+   */
+  options?: typeof UPLOAD_CLASSIFICATION_OPTIONS;
 }) {
   const isVideo = isVideoUpload(file);
   const buttonClassName = compact ? 'rounded px-1.5 py-0.5 text-[9px]' : 'rounded px-2 py-1 text-[10px]';
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1">
-      {UPLOAD_CLASSIFICATION_OPTIONS.map((option) => {
+      {options.map((option) => {
         const isActive = getQueueClassification(file, index, classifications) === option.type;
         const isDisabled = Boolean(isVideo && option.photoOnly);
 

@@ -73,7 +73,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     uploadedDrone,
     uploadedExtras,
     renderMediaGridPane,
-    AdminUploadSection,
+    renderAdminUploadSection,
     shoot,
     toast,
     queryClient,
@@ -313,10 +313,13 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
             <div className="border rounded-lg bg-card p-3 pb-6 flex min-h-full flex-col">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */
-                <AdminUploadSection
-                  shoot={shoot}
-                  uploadContext={displayTab === 'edited' ? 'edited' : 'raw'}
-                  onUploadComplete={() => {
+                /* Invoked, not mounted: see renderAdminUploadSection's note. As a
+                   component its identity changed every parent render and React
+                   remounted the upload panel, wiping the staged queue. */
+                renderAdminUploadSection({
+                  shoot,
+                  uploadContext: displayTab === 'edited' ? 'edited' : 'raw',
+                  onUploadComplete: () => {
                     toast({
                       title: 'Upload complete',
                       description: 'Files uploaded successfully',
@@ -327,8 +330,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     onShootUpdate();
                     setActiveSubTab('uploaded');
                     setDisplayTab('uploaded');
-                  }}
-                  onEditedUploadComplete={() => {
+                  },
+                  onEditedUploadComplete: () => {
                     toast({
                       title: 'Upload complete',
                       description: 'Edited files uploaded successfully',
@@ -339,8 +342,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     onShootUpdate();
                     setActiveSubTab('edited');
                     setDisplayTab('edited');
-                  }}
-                />
+                  },
+                })
               ) : isEditor ? (
                 <EditedUploadSection
                   shoot={shoot}

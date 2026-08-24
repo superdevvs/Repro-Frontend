@@ -88,6 +88,11 @@ export const createAccountFormSchema = (viewerRole?: string, isEditing = false) 
   editingCapabilities: z.array(z.string()).optional(),
   travelRange: z.number().optional(),
   travelRangeUnit: z.enum(['miles', 'km']).optional(),
+  /**
+   * Photographer default exposures per HDR stack. Seeds a newly assigned
+   * bracket-capable service; assignments that already recorded a size keep it.
+   */
+  defaultBracketMode: z.union([z.literal(3), z.literal(5)]).optional(),
   pilotLicenseFile: z.string().optional(),
   pilotLicenseFileName: z.string().optional(),
   insuranceNumber: z.string().optional(),

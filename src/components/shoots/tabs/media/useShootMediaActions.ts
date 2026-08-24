@@ -19,6 +19,8 @@ import {
   ensureUploadAttemptIdentity,
   parseCanonicalUploadResponse,
   resolveEligibleUploadServices,
+  resolveUploadLaneForFile,
+  resolveUploadLanesForFiles,
 } from './mediaUploadUtils';
 import {
   downloadShootMediaFile,
@@ -154,13 +156,28 @@ export function useShootMediaActions({
     const files = Array.from(event.dataTransfer.files || []);
     if (files.length === 0) return;
 
-    const eligibleServices = resolveEligibleUploadServices(shoot, user, uploadType);
+    // Gate the drop by the lanes these specific files need, so a drag-and-drop cannot
+    // reach a service the upload panel would never have offered.
+    const eligibleServices = resolveEligibleUploadServices(
+      shoot,
+      user,
+      uploadType,
+      resolveUploadLanesForFiles(files),
+    );
     const assignedRole = (normalizedRole === 'photographer' && uploadType === 'raw')
       || (normalizedRole === 'editor' && uploadType === 'edited');
     if (assignedRole && eligibleServices.length > 1) {
       toast({
         title: 'Choose a service first',
         description: 'This shoot has multiple assigned services. Open the upload panel and choose one service for the batch.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (uploadType === 'raw' && eligibleServices.length === 0) {
+      toast({
+        title: 'No service accepts these files',
+        description: 'None of this shoot\'s booked services accept this kind of raw media. Open the upload panel to review the booked services.',
         variant: 'destructive',
       });
       return;
@@ -200,6 +217,12 @@ export function useShootMediaActions({
             formData.append('upload_batch_index', String(identity.batchIndex));
             formData.append('upload_batch_total', String(identity.batchTotal));
             if (selectedServiceId) formData.append('shoot_service_id', selectedServiceId);
+            // Declare the lane so the backend gates on the same rule the selector
+            // used. It still re-derives the lane from the file itself, so this is a
+            // statement of intent rather than something the server trusts blindly.
+            if (uploadType === 'raw') {
+              formData.append('upload_lane', resolveUploadLaneForFile(file));
+            }
             if (isVideo) formData.append('service_category', 'video');
             if (!isVideo && isFloorplanUpload(file)) formData.append('media_type', 'floorplan');
 

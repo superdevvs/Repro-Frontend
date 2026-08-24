@@ -1,4 +1,4 @@
-import type { ComponentType, Dispatch, DragEvent, ReactNode, SetStateAction } from 'react';
+import type { Dispatch, DragEvent, ReactNode, SetStateAction } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 
 import type { ShootUpload } from '@/context/UploadContext';
@@ -93,7 +93,18 @@ export interface ShootDetailsMediaTabViewProps {
     uploadLabel?: string,
     separateExtras?: boolean,
   ) => ReactNode;
-  AdminUploadSection: ComponentType<AdminUploadSectionProps>;
+  /**
+   * A render function, deliberately not a `ComponentType`.
+   *
+   * It is defined inside `useShootDetailsMediaTab`, so as a component it received
+   * a new function identity on every render of that hook. React treats a new
+   * component type as a different component and remounts the whole subtree, which
+   * destroyed the upload panel's staged queue on any parent re-render — including
+   * the one that starting an upload itself triggers. Calling it instead of
+   * mounting it removes the component boundary, so the panel below keeps its
+   * identity and its state.
+   */
+  renderAdminUploadSection: (props: AdminUploadSectionProps) => ReactNode;
   shoot: ShootData;
   toast: ReturnType<typeof useToast>['toast'];
   queryClient: QueryClient;

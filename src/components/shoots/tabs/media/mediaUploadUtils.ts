@@ -7,6 +7,27 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import type { UploadIssue } from './MediaUploadPanels';
+import type {
+  QueueClassificationMap,
+  UploadQueueMediaType,
+} from './uploadClassificationOptions';
+import {
+  DEFAULT_UPLOAD_LIMITS,
+  MEDIA_TYPE_CARD_LABELS,
+  MEDIA_TYPE_SUMMARY_LABELS,
+  TRACKED_MEDIA_TYPES,
+} from './uploadClassificationOptions';
+import type { UploadIntakeType, UploadLane } from './uploadIntakeLanes';
+import {
+  UPLOAD_LANE_PHOTO,
+  UPLOAD_LANE_VIDEO,
+  intakeTypeSupportsLane,
+  readUploadIntakeType,
+} from './uploadIntakeLanes';
+
+// Re-exported so existing import paths and the public API of this module are unchanged.
+export * from './uploadIntakeLanes';
+export * from './uploadClassificationOptions';
 
 export type ShootMediaServiceObject = {
   name?: string;
@@ -27,16 +48,6 @@ export type ShootWithMediaServiceObjects = ShootData & {
   expected_raw_count?: number | string;
   expected_final_count?: number | string;
 };
-
-export type UploadQueueMediaType =
-  | 'floorplan'
-  | 'extra'
-  | 'virtual_staging'
-  | 'green_grass'
-  | 'twilight'
-  | 'drone';
-
-export type QueueClassificationMap = Record<string, UploadQueueMediaType | undefined>;
 
 export interface UploadLimitsPayload {
   per_file?: string | number;
@@ -68,10 +79,37 @@ export interface UploadServiceOption {
  * shoot's schedule.
  */
 export interface UploadServiceTarget extends UploadServiceOption {
-  /** Expected final photo count for this service. 0 when the payload has none. */
-  photoCount: number;
+  /**
+   * Contracted final photo count, or null when the product does not fix one.
+   *
+   * Null is not zero. Booking `quantity` is deliberately never substituted here:
+   * it is 1 on effectively every booked row, so reading it as a count is what
+   * produced the fictional "5 raw files" expectation for floor plans, virtual
+   * staging and drone. A null count must be surfaced as unset.
+   */
+  photoCount: number | null;
+  /** Declared upload capability from the catalogue. */
+  intakeType: UploadIntakeType;
+  /** Whether the photo raw lane may select this service. */
+  supportsPhotoIntake: boolean;
+  /** Whether the video raw lane may select this service. */
+  supportsVideoIntake: boolean;
   /** Brackets multiply raw counts for photo work only, never for video. */
   isPhotoService: boolean;
+  /**
+   * Whether this deliverable is captured as multi-exposure bracket stacks, from
+   * `services.uses_hdr_brackets`. This is catalogue data, not a guess from the
+   * name or photo count: drone photography sits in the Photography category with
+   * a positive photo count and does not bracket.
+   */
+  usesHdrBrackets: boolean;
+  /**
+   * Exposures per stack for this service on this shoot, or null when it does not
+   * bracket. Resolved by the backend from the service item's own recorded value,
+   * then the assigned photographer's preference, then 5 — so two services on one
+   * shoot can legitimately differ.
+   */
+  bracketMode: number | null;
   /** Per-service schedule time. Drives "HDR today, vertical video tomorrow". */
   scheduledAt: string | null;
   /** Payload position, used as the tie-break when nothing is scheduled. */
@@ -95,9 +133,32 @@ const uploadAttemptIdentities = new WeakMap<File, UploadAttemptIdentity>();
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+// Imported for use inside this module; also re-exported below for existing callers.
+import {
+  DEFAULT_BRACKET_MODE,
+  isUploadServiceFulfilled,
+  resolveUploadServiceExpectedCount,
+} from './uploadBrackets';
+
 const readText = (record: UnknownRecord | null, key: string): string | undefined => {
   const value = record?.[key];
   return typeof value === 'string' && value.trim() ? value : undefined;
+};
+
+/**
+ * Booleans arrive as real booleans, as 0/1 from MySQL, or as "0"/"1" strings
+ * depending on the serializer. `undefined` is returned for an absent value so a
+ * caller can fall through to another source rather than defaulting too early.
+ */
+const readBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes'].includes(normalized)) return true;
+    if (['0', 'false', 'no'].includes(normalized)) return false;
+  }
+  return undefined;
 };
 
 export function parseCanonicalUploadResponse(responseText?: string): CanonicalUploadResult {
@@ -191,24 +252,63 @@ const indexServiceObjectsByShootServiceId = (shoot: ShootData): Map<string, Shoo
 };
 
 /**
- * Prefer the backend's own lane over guessing from the name: `normalizeLane`
- * already resolved every catalogue category to `photo` or `video`. Only when no
- * lane reached the client (older payloads) fall back to the name.
+ * The execution row id the upload endpoint requires.
+ *
+ * Returns null rather than falling back to `item.id`. On the `serviceItems` shape
+ * `id` is the pivot id, but on the `services`/`serviceObjects` shape it is the
+ * *catalogue* id, and submitting that silently addressed the wrong row — or a row on
+ * another shoot entirely. An unresolvable pivot is a real problem and has to surface
+ * as one, not be guessed at.
  */
-const resolveIsPhotoService = (name: string, laneCandidates: Array<string | null | undefined>): boolean => {
-  for (const candidate of laneCandidates) {
-    const lane = String(candidate ?? '').trim().toLowerCase();
-    if (lane === PHOTO_SERVICE_LANE) return true;
-    if (lane === VIDEO_SERVICE_LANE) return false;
-  }
-
-  return !/video/i.test(name);
+/**
+ * A contracted count, or null when none is configured.
+ *
+ * Only a strictly positive value counts. Zero is how the catalogue records "variable
+ * or not yet configured", and treating it as a real count would present an exact
+ * denominator of nothing.
+ */
+const readContractedCount = (value: unknown): number | null => {
+  const parsed = toPositiveCount(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 };
 
+const readPivotId = (item: {
+  shoot_service_id?: string | number | null;
+  shootServiceId?: string | number | null;
+}): string | null => {
+  const candidate = item.shoot_service_id ?? item.shootServiceId;
+  if (candidate === null || candidate === undefined || candidate === '') return null;
+
+  const asString = String(candidate).trim();
+  return asString === '' ? null : asString;
+};
+
+/**
+ * Selectable services for one upload batch.
+ *
+ * Eligibility has two independent halves and both must hold:
+ *
+ *   1. assignment — is this actor allowed to upload for this execution row
+ *   2. capability — does the row's catalogue service declare the lane(s) in play
+ *
+ * The second half is new. Previously an admin-like actor received every booked row
+ * and a photographer received everything assigned to them, so fees, travel, digital
+ * enhancements, floor plans, virtual staging and dedicated 3D tour products all
+ * appeared as raw upload targets and invented raw expectations. Capability now comes
+ * from `services.upload_intake_type` and nothing here inspects a service name.
+ *
+ * `lanes` is the set of lanes the batch actually needs. A target must support *every*
+ * one of them, matching the backend's own check, so a mixed photo+video batch only
+ * offers services that genuinely cover both.
+ *
+ * Lane capability is applied to raw capture only. Edited uploads are gated by the
+ * separate requires-editing capability, which is a different question.
+ */
 export function resolveUploadServiceTargets(
   shoot: ShootData,
   actor: UploadActor | null | undefined,
   uploadType: 'raw' | 'edited',
+  lanes: UploadLane[] = [UPLOAD_LANE_PHOTO],
 ): UploadServiceTarget[] {
   const shootWithAssignmentAliases = shoot as ShootData & {
     photographerId?: string | number | null;
@@ -220,9 +320,39 @@ export function resolveUploadServiceTargets(
   const actorId = String(actor?.id ?? '');
   const adminLike = ['admin', 'superadmin', 'editing_manager'].includes(role);
   const serviceObjectIndex = indexServiceObjectsByShootServiceId(shoot);
+  const requiredLanes = lanes.length > 0 ? lanes : [UPLOAD_LANE_PHOTO];
+
+  const readIntakeTypeFor = (
+    item: { upload_intake_type?: string | null; uploadIntakeType?: string | null },
+    pivotId: string,
+  ): UploadIntakeType => {
+    const enriched = serviceObjectIndex.get(pivotId);
+    const declared = item.upload_intake_type
+      ?? item.uploadIntakeType
+      ?? enriched?.upload_intake_type
+      ?? enriched?.uploadIntakeType;
+
+    return readUploadIntakeType(declared);
+  };
 
   return items
     .filter((item) => {
+      // An option with no execution row id is unusable, because that id is the value
+      // the upload endpoint validates. Dropping it is deliberate: the alternative was
+      // falling back to the catalogue id, which addressed the wrong row.
+      const pivotId = readPivotId(item);
+      if (!pivotId) return false;
+
+      // Capability next, and it applies to every role. An admin is not exempt: the
+      // question is whether the service can receive this media at all, not who is
+      // asking. Invoice-adjustment rows have no catalogue service and so are `none`.
+      if (uploadType === 'raw') {
+        const intakeType = readIntakeTypeFor(item, pivotId);
+        if (!requiredLanes.every((lane) => intakeTypeSupportsLane(intakeType, lane))) {
+          return false;
+        }
+      }
+
       if (adminLike) return true;
       if (role === 'photographer' && uploadType === 'raw') {
         const assignedId = item.photographer_id
@@ -249,29 +379,43 @@ export function resolveUploadServiceTargets(
     })
     .map((item, index) => {
       // The upload endpoint validates `shoot_service_id` against the shoot's
-      // service-item primary keys, so the option value must be the pivot id.
-      // `item.id` is only the same thing for the `serviceItems` shape; on the
-      // `services`/`serviceObjects` shape `id` is the catalogue service id, and
-      // sending that returned 422 invalid_service_item for every shoot whose
-      // pivot id differs from its service id.
-      const id = String(item.shoot_service_id ?? item.shootServiceId ?? item.id);
+      // execution-row primary keys, so the option value must be the pivot id and
+      // never the catalogue service id.
+      const id = readPivotId(item) ?? '';
       const label = item.name || `Service #${item.id}`;
       const enriched = serviceObjectIndex.get(id);
+      const intakeType = readUploadIntakeType(
+        item.upload_intake_type
+        ?? item.uploadIntakeType
+        ?? enriched?.upload_intake_type
+        ?? enriched?.uploadIntakeType,
+      );
 
       return {
         id,
         label,
-        photoCount: toPositiveCount(item.photo_count)
-          ?? toPositiveCount(enriched?.photo_count)
-          ?? toPositiveCount(item.quantity)
-          ?? toPositiveCount(enriched?.quantity)
-          ?? 0,
-        isPhotoService: resolveIsPhotoService(label, [
-          item.lane,
-          item.category_key,
-          enriched?.lane,
-          enriched?.category_key,
-        ]),
+        intakeType,
+        supportsPhotoIntake: intakeTypeSupportsLane(intakeType, UPLOAD_LANE_PHOTO),
+        supportsVideoIntake: intakeTypeSupportsLane(intakeType, UPLOAD_LANE_VIDEO),
+        // Only the contracted photo count, and only when it is genuinely positive.
+        // Booking quantity is not a fallback: it is 1 on essentially every row, and
+        // using it invented a raw expectation for services that owe no photos at all.
+        // Zero is treated as unspecified, not as "owes nothing" — the difference is
+        // carried by capability instead.
+        photoCount: readContractedCount(item.photo_count)
+          ?? readContractedCount(enriched?.photo_count)
+          ?? null,
+        // Derived from declared capability, not from the label. A photo-capable
+        // service is treated as photo work; video-only is not.
+        isPhotoService: intakeTypeSupportsLane(intakeType, UPLOAD_LANE_PHOTO),
+        usesHdrBrackets: readBoolean(item.uses_hdr_brackets ?? item.usesHdrBrackets)
+          ?? readBoolean(enriched?.uses_hdr_brackets ?? enriched?.usesHdrBrackets)
+          ?? false,
+        bracketMode: toPositiveCount(item.effective_bracket_mode ?? item.effectiveBracketMode)
+          ?? toPositiveCount(enriched?.effective_bracket_mode ?? enriched?.effectiveBracketMode)
+          ?? toPositiveCount(item.bracket_mode ?? item.bracketMode)
+          ?? toPositiveCount(enriched?.bracket_mode ?? enriched?.bracketMode)
+          ?? null,
         scheduledAt: item.scheduled_at
           ?? item.scheduledAt
           ?? enriched?.scheduled_at
@@ -286,8 +430,9 @@ export function resolveEligibleUploadServices(
   shoot: ShootData,
   actor: UploadActor | null | undefined,
   uploadType: 'raw' | 'edited',
+  lanes: UploadLane[] = [UPLOAD_LANE_PHOTO],
 ): UploadServiceOption[] {
-  return resolveUploadServiceTargets(shoot, actor, uploadType)
+  return resolveUploadServiceTargets(shoot, actor, uploadType, lanes)
     .map(({ id, label }) => ({ id, label }));
 }
 
@@ -313,35 +458,16 @@ export function compareUploadServiceTargets(a: UploadServiceTarget, b: UploadSer
   return a.order - b.order;
 }
 
-/** Raw files this one service owes. Brackets only multiply photo services. */
-export function resolveUploadServiceExpectedCount(
-  target: UploadServiceTarget,
-  bracketMultiplier: number,
-): number {
-  if (target.photoCount <= 0) return 0;
-  return target.photoCount * (target.isPhotoService ? Math.max(1, bracketMultiplier) : 1);
-}
-
-/**
- * Brackets are exposures per final photo, so the picker only means something for
- * a service that actually delivers photos. A video service never brackets, and
- * neither does a deliverable with no photo count of its own — a 2D floor plan or
- * a 3D tour sits in the same shoot as the HDR set but has nothing to stack.
- */
-export function bracketAppliesToUploadService(target: UploadServiceTarget): boolean {
-  return target.isPhotoService && target.photoCount > 0;
-}
-
-export function isUploadServiceFulfilled(
-  target: UploadServiceTarget,
-  uploadedCount: number,
-  bracketMultiplier: number,
-): boolean {
-  const expected = resolveUploadServiceExpectedCount(target, bracketMultiplier);
-  // With no expected count to compare against, "has any file at all" is the only
-  // signal available for whether this service has been shot yet.
-  return expected > 0 ? uploadedCount >= expected : uploadedCount > 0;
-}
+// Bracket arithmetic lives in ./uploadBrackets. Re-exported here so the many
+// existing import sites keep working while the helpers stay in one cohesive place.
+export {
+  BRACKET_MODE_OPTIONS,
+  DEFAULT_BRACKET_MODE,
+  bracketAppliesToUploadService,
+  isUploadServiceFulfilled,
+  resolveUploadServiceBracketMode,
+  resolveUploadServiceExpectedCount,
+} from './uploadBrackets';
 
 /**
  * The service an upload batch should default to: the only one when there is a
@@ -353,7 +479,8 @@ export function isUploadServiceFulfilled(
 export function pickNextUploadServiceId(
   targets: UploadServiceTarget[],
   uploadedCountsByServiceId: Record<string, number>,
-  bracketMultiplier: number,
+  /** Per-service overrides, keyed by service id. Falls back to each target's own size. */
+  bracketOverrides?: Record<string, number | null>,
 ): string {
   if (targets.length === 0) return '';
   if (targets.length === 1) return targets[0].id;
@@ -362,7 +489,7 @@ export function pickNextUploadServiceId(
   const nextUnfulfilled = ordered.find((target) => !isUploadServiceFulfilled(
     target,
     uploadedCountsByServiceId[target.id] ?? 0,
-    bracketMultiplier,
+    bracketOverrides?.[target.id] ?? target.bracketMode,
   ));
 
   return (nextUnfulfilled ?? ordered[ordered.length - 1]).id;
@@ -399,100 +526,6 @@ export function parseUploadLimitsResponse(responseText?: string): UploadLimitsPa
     return undefined;
   }
 }
-
-export type UploadClassificationOption = {
-  type: UploadQueueMediaType;
-  label: string;
-  title: string;
-  activeClassName: string;
-  inactiveClassName: string;
-  photoOnly?: boolean;
-};
-
-export const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
-
-export const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
-  'extra',
-  'virtual_staging',
-  'green_grass',
-  'twilight',
-  'drone',
-  'floorplan',
-];
-
-export const DEFAULT_UPLOAD_LIMITS = {
-  perFileBytes: 2000 * 1024 * 1024,
-  totalRequestBytes: 2200 * 1024 * 1024,
-  perFileLabel: '2GB',
-  totalRequestLabel: '2.2GB',
-} as const;
-
-export const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [
-  {
-    type: 'floorplan',
-    label: 'FP',
-    title: 'Floorplan',
-    activeClassName: 'bg-blue-600 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-    photoOnly: true,
-  },
-  {
-    type: 'virtual_staging',
-    label: 'VS',
-    title: 'Virtual Staging',
-    activeClassName: 'bg-violet-600 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-    photoOnly: true,
-  },
-  {
-    type: 'green_grass',
-    label: 'GG',
-    title: 'Green Grass',
-    activeClassName: 'bg-emerald-600 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-    photoOnly: true,
-  },
-  {
-    type: 'twilight',
-    label: 'TW',
-    title: 'Twilight',
-    activeClassName: 'bg-indigo-600 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-    photoOnly: true,
-  },
-  {
-    type: 'drone',
-    label: 'DR',
-    title: 'Drone',
-    activeClassName: 'bg-sky-600 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  },
-  {
-    type: 'extra',
-    label: 'EX',
-    title: 'Extra',
-    activeClassName: 'bg-amber-500 text-white',
-    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  },
-];
-
-export const MEDIA_TYPE_CARD_LABELS: Record<UploadQueueMediaType, string> = {
-  extra: 'EX',
-  virtual_staging: 'VS',
-  green_grass: 'GG',
-  twilight: 'TW',
-  drone: 'DR',
-  floorplan: 'FP',
-};
-
-export const MEDIA_TYPE_SUMMARY_LABELS: Record<UploadQueueMediaType, string> = {
-  extra: 'Extra',
-  virtual_staging: 'Virtual Staging',
-  green_grass: 'Green Grass',
-  twilight: 'Twilight',
-  drone: 'Drone',
-  floorplan: 'Floorplan',
-};
 
 export const createUploadBatchId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -751,7 +784,33 @@ export function resolveExpectedFinalCount(shoot: ShootData): number {
   return serviceCount > 0 ? serviceCount : 0;
 }
 
-export function resolveExpectedRawCount(shoot: ShootData, bracketMultiplier: number): number {
+/**
+ * Raw files a whole shoot owes, as the sum over its services.
+ *
+ * `targets` carries each service's own bracket size, so a shoot running Exterior
+ * at 5x and Interior at 3x resolves to 30x5 + 12x3 = 186. The previous form
+ * multiplied one shoot-wide final count by one multiplier, which cannot express
+ * that and also inflated non-bracket work like drone photography.
+ *
+ * The shoot-level `expected_raw_count` is now derived server-side from the same
+ * per-service arithmetic, so preferring it when present stays consistent; it is
+ * only ignored when it is absent or zero, which is what un-migrated payloads send.
+ */
+export function resolveExpectedRawCount(
+  shoot: ShootData,
+  targets?: UploadServiceTarget[],
+  bracketOverrides?: Record<string, number | null>,
+): number {
+  if (targets && targets.length > 0) {
+    return targets.reduce(
+      (sum, target) => sum + (resolveUploadServiceExpectedCount(
+        target,
+        bracketOverrides?.[target.id] ?? target.bracketMode,
+      ) ?? 0),
+      0,
+    );
+  }
+
   const legacyShoot = shoot as ShootWithMediaServiceObjects;
   const directCandidates = [legacyShoot.expectedRawCount, legacyShoot.expected_raw_count];
 
@@ -760,7 +819,23 @@ export function resolveExpectedRawCount(shoot: ShootData, bracketMultiplier: num
     if (parsed !== null && parsed > 0) return parsed;
   }
 
-  return resolveExpectedFinalCount(shoot) * bracketMultiplier;
+  // Deliberately 0, not `expectedFinalCount x 5`. That fallback multiplied a
+  // shoot-wide final count by a shoot-wide bracket size, which cannot express a shoot
+  // running two different sizes and inflated every non-bracket service. With no
+  // per-service data there is no honest number to report, so report none.
+  return 0;
+}
+
+/**
+ * Whether every eligible target contributes a known quantity.
+ *
+ * False means the aggregate is a floor, not an exact figure, and must be presented
+ * that way rather than implying precision the data does not support.
+ */
+export function isExpectedRawCountExact(targets?: UploadServiceTarget[]): boolean {
+  if (!targets || targets.length === 0) return false;
+
+  return targets.every((target) => resolveUploadServiceExpectedCount(target) !== null);
 }
 
 export function extractPhotoServicesFromServiceObjects(shoot: ShootData): Array<{ name: string; count: number }> {

@@ -81,12 +81,24 @@ describe('upload attempt identity', () => {
 });
 
 describe('service provenance', () => {
+  // Every row carries its execution-row id and its declared upload capability. Both
+  // are required now: the id because it is the value the endpoint validates, and the
+  // capability because a bookable service is not automatically an upload target.
   const shoot = {
     editor: { id: 9 },
     serviceItems: [
-      { id: 1, name: 'Photos', photographer_id: 7, editor_id: 8, requires_editing: true },
-      { id: 2, name: 'Video', photographer_id: 6, editor_id: 9, requires_editing: true },
-      { id: 3, name: 'Delivery only', photographer_id: 7, editor_id: 9, requires_editing: false },
+      {
+        id: 1, shoot_service_id: 1, name: 'Photos', upload_intake_type: 'photo',
+        photographer_id: 7, editor_id: 8, requires_editing: true,
+      },
+      {
+        id: 2, shoot_service_id: 2, name: 'Video', upload_intake_type: 'video',
+        photographer_id: 6, editor_id: 9, requires_editing: true,
+      },
+      {
+        id: 3, shoot_service_id: 3, name: 'Delivery only', upload_intake_type: 'photo',
+        photographer_id: 7, editor_id: 9, requires_editing: false,
+      },
     ],
   } as unknown as ShootData;
 
@@ -98,7 +110,16 @@ describe('service provenance', () => {
       ]);
   });
 
+  it('keeps the video-only service out of the photo lane and in the video lane', () => {
+    expect(resolveEligibleUploadServices(shoot, { id: 6, role: 'photographer' }, 'raw'))
+      .toEqual([]);
+    expect(resolveEligibleUploadServices(shoot, { id: 6, role: 'photographer' }, 'raw', ['video']))
+      .toEqual([{ id: '2', label: 'Video' }]);
+  });
+
   it('lets the legacy top-level editor choose editing-required items only', () => {
+    // Edited uploads are gated by the requires-editing capability, not by raw lanes,
+    // so the video service is still a valid destination for finished edits.
     expect(resolveEligibleUploadServices(shoot, { id: 9, role: 'editor' }, 'edited'))
       .toEqual([
         { id: '1', label: 'Photos' },
