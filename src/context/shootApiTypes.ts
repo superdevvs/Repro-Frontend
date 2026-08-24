@@ -155,6 +155,9 @@ export type ApiShoot = {
   services?: Array<string | ApiServiceRecord>;
   serviceItems?: ApiServiceRecord[];
   service_items?: ApiServiceRecord[];
+  /** Display-only names for every booked service; never role-filtered. */
+  servicePresentation?: Array<Record<string, unknown>>;
+  service_presentation?: Array<Record<string, unknown>>;
   services_list?: string[];
   address?: string;
   address2?: string;

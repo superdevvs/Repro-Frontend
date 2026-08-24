@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
+import { MediaServiceSections } from './MediaServiceSections';
 import { IguideMediaPanel } from './IguideMediaPanel';
 import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
@@ -447,7 +448,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           onClick={() => setUploadedMediaTab('floorplans')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
-                          Floorplans ({uploadedFloorplans.length + iguideFloorplans.length})
+                          Floor Plans ({uploadedFloorplans.length + iguideFloorplans.length})
                         </button>
                       )}
                       {uploadedVirtualStaging.length > 0 && (
@@ -520,36 +521,49 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       {/* Uploaded floorplan images */}
                       {uploadedFloorplans.length > 0 && (
                         <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
-                          <MediaGrid
+                          {/* Subgrouped by booked service, same as Photos: a shoot can
+                              carry 2D Floor Plans alongside provider-delivered plans. */}
+                          <MediaServiceSections
                             files={uploadedFloorplans}
-                            onFileClick={(index, sorted) => openViewer(index, sorted, 'uploaded')}
-                            selectedFiles={selectedFiles}
-                            onSelectionChange={toggleSelection}
-                            onSelectAll={() => {
-                              if (selectedFiles.size === uploadedFloorplans.length) {
-                                setSelectedFiles(new Set());
-                              } else {
-                                setSelectedFiles(new Set(uploadedFloorplans.map(f => f.id)));
-                              }
-                            }}
-                            canSelect={canDownload}
-                            sortOrder={sortOrder}
-                            manualOrder={manualOrder}
-                            onManualOrderChange={(nextOrder) => handleManualOrderChange(uploadedFloorplans, nextOrder)}
-                            getImageUrl={getImageUrl}
-                            getSrcSet={getSrcSet}
-                            isImage={isPreviewableImage}
-                            isVideo={isVideoFile}
-                            viewMode={mediaViewMode}
-                            isClient={isClient}
-                            toggleFileHidden={toggleFileHidden}
+                            shoot={shoot}
+                            renderGrid={(paneFiles) => (
+                              <MediaGrid
+                                files={paneFiles}
+                                onFileClick={(index, sorted) => openViewer(index, sorted, 'uploaded')}
+                                selectedFiles={selectedFiles}
+                                onSelectionChange={toggleSelection}
+                                onSelectAll={() => {
+                                  const ids = paneFiles.map(f => f.id);
+                                  const allSelected = ids.every(id => selectedFiles.has(id));
+                                  setSelectedFiles(prev => {
+                                    const next = new Set(prev);
+                                    ids.forEach(id => {
+                                      if (allSelected) next.delete(id);
+                                      else next.add(id);
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                canSelect={canDownload}
+                                sortOrder={sortOrder}
+                                manualOrder={manualOrder}
+                                onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder)}
+                                getImageUrl={getImageUrl}
+                                getSrcSet={getSrcSet}
+                                isImage={isPreviewableImage}
+                                isVideo={isVideoFile}
+                                viewMode={mediaViewMode}
+                                isClient={isClient}
+                                toggleFileHidden={toggleFileHidden}
+                              />
+                            )}
                           />
                         </div>
                       )}
                       {/* iGuide floorplan links */}
                       {iguideFloorplans.length > 0 && (
                         <div className="m-2.5 border rounded-lg bg-card p-4">
-                          <h4 className="font-medium mb-3 text-sm">iGuide Floorplans ({iguideFloorplans.length})</h4>
+                          <h4 className="font-medium mb-3 text-sm">iGuide Floor Plans ({iguideFloorplans.length})</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {iguideFloorplans.map((fp, idx) => (
                               <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
@@ -673,7 +687,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             onClick={() => setEditedMediaTab('floorplans')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                           >
-                            Floorplans ({editedFloorplans.length + iguideFloorplans.length})
+                            Floor Plans ({editedFloorplans.length + iguideFloorplans.length})
                           </button>
                         )}
                         {editedVirtualStaging.length > 0 && (
@@ -747,36 +761,48 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       {/* Edited floorplan images */}
                       {editedFloorplans.length > 0 && (
                         <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
-                          <MediaGrid
+                          {/* Subgrouped by booked service, same as Photos. */}
+                          <MediaServiceSections
                             files={editedFloorplans}
-                            onFileClick={(index, sorted) => openViewer(index, sorted, 'edited')}
-                            selectedFiles={selectedFiles}
-                            onSelectionChange={toggleSelection}
-                            onSelectAll={() => {
-                              if (selectedFiles.size === editedFloorplans.length) {
-                                setSelectedFiles(new Set());
-                              } else {
-                                setSelectedFiles(new Set(editedFloorplans.map(f => f.id)));
-                              }
-                            }}
-                            canSelect={canDownload}
-                            sortOrder={sortOrder}
-                            manualOrder={manualOrder}
-                            onManualOrderChange={(nextOrder) => handleManualOrderChange(editedFloorplans, nextOrder)}
-                            getImageUrl={getImageUrl}
-                            getSrcSet={getSrcSet}
-                            isImage={isPreviewableImage}
-                            isVideo={isVideoFile}
-                            viewMode={mediaViewMode}
-                            isClient={isClient}
-                            toggleFileHidden={toggleFileHidden}
+                            shoot={shoot}
+                            renderGrid={(paneFiles) => (
+                              <MediaGrid
+                                files={paneFiles}
+                                onFileClick={(index, sorted) => openViewer(index, sorted, 'edited')}
+                                selectedFiles={selectedFiles}
+                                onSelectionChange={toggleSelection}
+                                onSelectAll={() => {
+                                  const ids = paneFiles.map(f => f.id);
+                                  const allSelected = ids.every(id => selectedFiles.has(id));
+                                  setSelectedFiles(prev => {
+                                    const next = new Set(prev);
+                                    ids.forEach(id => {
+                                      if (allSelected) next.delete(id);
+                                      else next.add(id);
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                canSelect={canDownload}
+                                sortOrder={sortOrder}
+                                manualOrder={manualOrder}
+                                onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder)}
+                                getImageUrl={getImageUrl}
+                                getSrcSet={getSrcSet}
+                                isImage={isPreviewableImage}
+                                isVideo={isVideoFile}
+                                viewMode={mediaViewMode}
+                                isClient={isClient}
+                                toggleFileHidden={toggleFileHidden}
+                              />
+                            )}
                           />
                         </div>
                       )}
                       {/* iGuide floorplan links */}
                       {iguideFloorplans.length > 0 && (
                         <div className="m-2.5 border rounded-lg bg-card p-4">
-                          <h4 className="font-medium mb-3 text-sm">iGuide Floorplans ({iguideFloorplans.length})</h4>
+                          <h4 className="font-medium mb-3 text-sm">iGuide Floor Plans ({iguideFloorplans.length})</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {iguideFloorplans.map((fp, idx) => (
                               <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">

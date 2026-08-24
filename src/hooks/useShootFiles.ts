@@ -56,6 +56,18 @@ export interface MediaFile {
    * its booked service, so this only ever adds a visible marker.
    */
   treatment?: string | null;
+  /**
+   * Which provider ingested this file (`iguide` / `cubicasa`), or null when a
+   * person uploaded it. Provider deliverables have no `shoot_service_id`, so this
+   * is the only attribution available for grouping them.
+   */
+  media_source?: string | null;
+  /** Provider-side id for an ingested deliverable, used to de-duplicate against
+   * the provider's raw asset list on the shoot. */
+  provider_asset_key?: string | null;
+  /** The provider URL this file was ingested from. Distinct from `original_url`,
+   * which is this system's resolved URL for the stored file. */
+  provider_source_url?: string | null;
   // Size info
   width?: number;
   height?: number;
@@ -125,6 +137,9 @@ type ShootMediaPayload = Omit<Partial<MediaFile>, 'id' | 'filename'> & {
   is_extra?: boolean | number;
   usesWatermark?: boolean;
   file_size?: number;
+  mediaSource?: string | null;
+  providerAssetKey?: string | null;
+  providerSourceUrl?: string | null;
 };
 
 const isMediaPayloadRecord = (value: unknown): value is Record<string, unknown> =>
@@ -175,6 +190,9 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   processed_at: value.processed_at,
   media_type: value.media_type,
   treatment: value.treatment ?? null,
+  media_source: value.media_source ?? value.mediaSource ?? null,
+  provider_asset_key: value.provider_asset_key ?? value.providerAssetKey ?? null,
+  provider_source_url: value.provider_source_url ?? value.providerSourceUrl ?? null,
   width: value.width,
   height: value.height,
   fileSize: value.file_size ?? value.fileSize,

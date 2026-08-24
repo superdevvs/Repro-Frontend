@@ -171,3 +171,161 @@ describe('every file is accounted for exactly once', () => {
     assertExhaustiveAndDisjoint(files);
   });
 });
+
+describe('naming is independent of editing eligibility', () => {
+  /**
+   * `serviceItems` is the operational payload and is narrowed by workflow
+   * eligibility: an editor does not receive rows for services they may not edit
+   * (anything with requires_editing = false, such as a drone package). Files for
+   * those services still reach them, so the gallery had a file whose service it
+   * could not name and rendered the raw row id instead.
+   *
+   * `servicePresentation` is display-only and never narrowed, which is what makes
+   * a real name available without granting the editor anything new.
+   */
+  const editorShoot = {
+    id: '1',
+    // What an editor actually receives: the drone row (117) is filtered out.
+    serviceItems: [{ shoot_service_id: '116', name: '10 Exterior HDR Photos' }],
+    servicePresentation: [
+      { shoot_service_id: '116', service_id: '6', name: '10 Exterior HDR Photos' },
+      { shoot_service_id: '117', service_id: '15', name: '10-12 Drone Photos Package' },
+      { shoot_service_id: '118', service_id: '18', name: 'Virtual Staging (per image)' },
+    ],
+  } as unknown as ShootData;
+
+  it('names a service the viewer may see but may not edit', () => {
+    const labels = buildServiceLabelMap(editorShoot);
+    expect(labels.get('117')).toBe('10-12 Drone Photos Package');
+  });
+
+  it('renders the real service name instead of Service #<id> for that subgroup', () => {
+    const groups = groupMediaFilesByService([file('a', '116'), file('b', '117')], editorShoot);
+
+    expect(groups.map((group) => group.label)).toEqual([
+      '10 Exterior HDR Photos',
+      '10-12 Drone Photos Package',
+    ]);
+    // The regression this replaces.
+    expect(groups.map((group) => group.label)).not.toContain('Service #117');
+  });
+
+  it('reads the snake_case payload alias too', () => {
+    const snake = {
+      id: '1',
+      service_presentation: [{ shoot_service_id: '117', name: '10-12 Drone Photos Package' }],
+    } as unknown as ShootData;
+
+    expect(buildServiceLabelMap(snake).get('117')).toBe('10-12 Drone Photos Package');
+  });
+
+  it('still works from serviceItems alone, so an older payload is unaffected', () => {
+    const labels = buildServiceLabelMap(shoot);
+    expect(labels.get('101')).toBe('Exterior HDR');
+    expect(labels.get('103')).toBe('Drone Photos');
+  });
+
+  it('keeps the row-id fallback for a service no payload names', () => {
+    // Presentation resolves what it knows; a genuinely unknown row must still be
+    // visible rather than silently dropped.
+    const groups = groupMediaFilesByService([file('a', '116'), file('z', '999')], editorShoot);
+    expect(groups.map((group) => group.label)).toEqual(['10 Exterior HDR Photos', 'Service #999']);
+  });
+
+  it('does not invent sections for services with no files', () => {
+    // Presentation lists every booked service, but only services that actually
+    // delivered media may appear as a section.
+    const groups = groupMediaFilesByService([file('a', '116')], editorShoot);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe('10 Exterior HDR Photos');
+  });
+});
+
+describe('provider-delivered floorplans keep their own section', () => {
+  const floorplan = (id: string, source: string | null, serviceId: string | null = null): MediaFile => ({
+    id,
+    shoot_service_id: serviceId,
+    media_type: 'floorplan',
+    media_source: source,
+  } as unknown as MediaFile);
+
+  const fpShoot = {
+    id: '1',
+    servicePresentation: [{ shoot_service_id: '201', name: '2D Floor plans' }],
+  } as unknown as ShootData;
+
+  it('groups an iGuide floorplan under iGuide rather than Unassigned', () => {
+    const groups = groupMediaFilesByService(
+      [floorplan('booked', null, '201'), floorplan('ig', 'iguide')],
+      fpShoot,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'iGuide Floor Plans']);
+    expect(groups.map((group) => group.label)).not.toContain('Unassigned');
+  });
+
+  it('groups a CubiCasa floorplan under CubiCasa', () => {
+    const groups = groupMediaFilesByService(
+      [floorplan('booked', null, '201'), floorplan('cc', 'cubicasa')],
+      fpShoot,
+    );
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'CubiCasa Floor Plans']);
+  });
+
+  it('separates two providers on the same shoot', () => {
+    const groups = groupMediaFilesByService(
+      [floorplan('ig', 'iguide'), floorplan('cc', 'cubicasa'), floorplan('ig2', 'iguide')],
+      fpShoot,
+    );
+
+    expect(groups.map((group) => [group.label, group.files.length])).toEqual([
+      ['CubiCasa Floor Plans', 1],
+      ['iGuide Floor Plans', 2],
+    ]);
+  });
+
+  it('leaves a provider floorplan that does have a booked service on that service', () => {
+    // Provider attribution is only a fallback for the missing pivot; it must not
+    // pull a file out of the service that actually paid for it.
+    const groups = groupMediaFilesByService([floorplan('ig', 'iguide', '201')], fpShoot);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe('2D Floor plans');
+  });
+
+  it('ignores an unrecognised provider and falls back to Unassigned', () => {
+    const groups = groupMediaFilesByService(
+      [floorplan('booked', null, '201'), floorplan('mystery', 'some-new-provider')],
+      fpShoot,
+    );
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'Unassigned']);
+  });
+
+  it('never applies a floorplan provider label to non-floorplan media', () => {
+    // media_source is only written by the floorplan ingestion jobs today; scoping
+    // the label to floorplan media keeps it from misdescribing anything else.
+    const photo = {
+      id: 'p',
+      shoot_service_id: null,
+      media_type: 'raw',
+      media_source: 'iguide',
+    } as unknown as MediaFile;
+
+    const groups = groupMediaFilesByService([floorplan('booked', null, '201'), photo], fpShoot);
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'Unassigned']);
+  });
+
+  it('does not lose or duplicate provider files', () => {
+    const files = [
+      floorplan('booked', null, '201'),
+      floorplan('ig', 'iguide'),
+      floorplan('cc', 'cubicasa'),
+      floorplan('legacy', null),
+    ];
+
+    const groups = groupMediaFilesByService(files, fpShoot);
+    const grouped = groups.flatMap((group) => group.files.map((f) => f.id));
+
+    expect([...grouped].sort()).toEqual(['booked', 'cc', 'ig', 'legacy']);
+    expect(new Set(grouped).size).toBe(files.length);
+  });
+});

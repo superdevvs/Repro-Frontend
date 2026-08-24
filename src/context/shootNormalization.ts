@@ -586,6 +586,34 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     }
     return undefined;
   })();
+  // Display-only names for every booked service. Kept separate from
+  // `serviceItems` because that payload is narrowed by workflow eligibility and
+  // therefore cannot be relied on to name a service the viewer may see but not
+  // edit. Passed through verbatim: there is nothing to normalize but the ids.
+  const servicePresentation = (() => {
+    const rawPresentation = Array.isArray(shoot.servicePresentation)
+      ? shoot.servicePresentation
+      : Array.isArray(shoot.service_presentation)
+        ? shoot.service_presentation
+        : [];
+
+    return rawPresentation
+      .filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
+      .map((item) => {
+        const pivotId = item.shoot_service_id ?? item.shootServiceId ?? null;
+        const serviceId = item.service_id ?? item.serviceId ?? null;
+        const name = item.name ?? item.serviceName ?? null;
+
+        return {
+          shoot_service_id: pivotId as string | number | null,
+          shootServiceId: pivotId as string | number | null,
+          service_id: serviceId as string | number | null,
+          serviceId: serviceId as string | number | null,
+          name: name === null ? null : String(name),
+          serviceName: name === null ? null : String(name),
+        };
+      });
+  })();
   const serviceItems = (() => {
     const rawItems = Array.isArray(shoot.serviceItems)
       ? shoot.serviceItems
@@ -833,6 +861,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     serviceObjects,
     serviceItems,
     service_items: serviceItems,
+    servicePresentation,
+    service_presentation: servicePresentation,
     editorAssignments,
     payment: {
       baseQuote: paymentSummary.baseQuote,

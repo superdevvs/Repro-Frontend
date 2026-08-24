@@ -149,15 +149,19 @@ export function useShootMediaDerivedData({
 
   // Collect asset_keys / urls already ingested into ShootFiles so the URL-only
   // floorplan link cards don't double-show the same items.
+  //
+  // Reads the flat provenance fields the media payload actually sends. It
+  // previously reached into `file.metadata`, which the API does not serialize, so
+  // nothing ever matched and an ingested iGuide floorplan showed twice: once as a
+  // grid tile and again as a link card.
   const ingestedIguideKeys = useMemo(() => {
     const keys = new Set<string>();
     const urls = new Set<string>();
     const collect = (files: MediaFile[]) => {
       for (const file of files) {
-        const meta = ((file as any)?.metadata ?? {}) as Record<string, unknown>;
-        if (!meta || meta.source !== 'iguide') continue;
-        const key = typeof meta.iguide_asset_key === 'string' ? meta.iguide_asset_key : '';
-        const url = typeof meta.original_url === 'string' ? meta.original_url : '';
+        if (String(file.media_source ?? '').toLowerCase() !== 'iguide') continue;
+        const key = String(file.provider_asset_key ?? '');
+        const url = String(file.provider_source_url ?? '');
         if (key) keys.add(key);
         if (url) urls.add(url);
       }

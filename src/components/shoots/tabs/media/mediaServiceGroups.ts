@@ -36,19 +36,65 @@ const isExtraFile = (file: MediaFile): boolean =>
   || String((file as { media_type?: string }).media_type ?? '').toLowerCase() === 'extra';
 
 /**
- * Service labels keyed by execution row id, taken from the shoot's own service items so
- * the heading matches what the upload selector called it.
+ * Provider-delivered floorplans carry no `shoot_service_id`.
+ *
+ * They are ingested from iGuide / CubiCasa rather than uploaded against a booked
+ * execution row, so they have no pivot to group by and would otherwise land in
+ * the generic unattributed bucket. `metadata.source` is the only attribution they
+ * have, and it is set by the ingestion jobs.
+ *
+ * Deliberately scoped to floorplan media: `metadata.source` is only written by
+ * the two floorplan ingestion jobs today, and this keeps the label from being
+ * applied to something it would misdescribe if that ever changes.
+ */
+const PROVIDER_SECTION_LABELS: Record<string, string> = {
+  iguide: 'iGuide Floor Plans',
+  cubicasa: 'CubiCasa Floor Plans',
+};
+
+const readProviderSection = (file: MediaFile): { key: string; label: string } | null => {
+  if (String((file as { media_type?: string }).media_type ?? '').toLowerCase() !== 'floorplan') {
+    return null;
+  }
+
+  const source = String(file.media_source ?? '').trim().toLowerCase();
+  const label = PROVIDER_SECTION_LABELS[source];
+
+  return label ? { key: `provider:${source}`, label } : null;
+};
+
+/**
+ * Service labels keyed by execution row id, taken from the shoot's own booked
+ * services so the heading matches what the upload selector called it.
+ *
+ * `servicePresentation` is preferred because it is display-only and therefore
+ * carries every booked row. `serviceItems` is the operational payload and is
+ * narrowed by workflow eligibility — an editor does not receive rows for
+ * services they may not edit, which is why a file they *can* see could end up
+ * with no resolvable name. Both are read, presentation first, so the label works
+ * regardless of which payload a given endpoint sends.
  */
 export const buildServiceLabelMap = (shoot: ShootData): Map<string, string> => {
   const labels = new Map<string, string>();
-  const items = (shoot?.serviceItems ?? shoot?.service_items ?? []) as unknown as Array<Record<string, unknown>>;
 
-  items.forEach((item) => {
-    const id = item?.shoot_service_id ?? item?.shootServiceId;
-    if (id === null || id === undefined || id === '') return;
+  const sources = [
+    shoot?.servicePresentation ?? shoot?.service_presentation,
+    shoot?.serviceItems ?? shoot?.service_items,
+  ] as unknown as Array<Array<Record<string, unknown>> | undefined>;
 
-    const name = String(item?.name ?? item?.serviceName ?? '').trim();
-    if (name) labels.set(String(id), name);
+  sources.forEach((items) => {
+    if (!Array.isArray(items)) return;
+
+    items.forEach((item) => {
+      const id = item?.shoot_service_id ?? item?.shootServiceId;
+      if (id === null || id === undefined || id === '') return;
+
+      const key = String(id);
+      if (labels.has(key)) return;
+
+      const name = String(item?.name ?? item?.serviceName ?? '').trim();
+      if (name) labels.set(key, name);
+    });
   });
 
   return labels;
@@ -70,6 +116,7 @@ export const groupMediaFilesByService = (
 
   const labels = buildServiceLabelMap(shoot);
   const byService = new Map<string, MediaFile[]>();
+  const byProvider = new Map<string, { label: string; files: MediaFile[] }>();
   const extras: MediaFile[] = [];
 
   files.forEach((file) => {
@@ -81,6 +128,22 @@ export const groupMediaFilesByService = (
     }
 
     const serviceId = readFileServiceId(file);
+
+    // A provider-ingested floorplan has no pivot to group by. Give it the
+    // provider's own section instead of dropping it into "Unassigned".
+    if (serviceId === '') {
+      const provider = readProviderSection(file);
+      if (provider) {
+        const existing = byProvider.get(provider.key);
+        if (existing) {
+          existing.files.push(file);
+        } else {
+          byProvider.set(provider.key, { label: provider.label, files: [file] });
+        }
+        return;
+      }
+    }
+
     const bucket = byService.get(serviceId);
     if (bucket) {
       bucket.push(file);
@@ -112,6 +175,19 @@ export const groupMediaFilesByService = (
   const unattributed = byService.get('') ?? [];
 
   const groups: MediaServiceGroup[] = [...attributed];
+
+  // Provider sections follow the booked services: the shoot's own deliverables
+  // read first, then what a provider returned for them.
+  Array.from(byProvider.entries())
+    .sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    .forEach(([key, group]) => {
+      groups.push({
+        serviceId: key,
+        label: group.label,
+        files: group.files,
+        isExtras: false,
+      });
+    });
 
   if (unattributed.length > 0) {
     groups.push({

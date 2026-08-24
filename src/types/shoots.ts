@@ -185,6 +185,22 @@ export interface ShootUserSummary {
   phone?: string;
 }
 
+/**
+ * Display-only identity for one booked service (one `shoot_service` row).
+ *
+ * Deliberately minimal: naming a service is not a permission, so this projection
+ * is never role-filtered and therefore must never carry pricing, assignments or
+ * workflow state.
+ */
+export interface ShootServicePresentation {
+  shoot_service_id?: string | number | null;
+  shootServiceId?: string | number | null;
+  service_id?: string | number | null;
+  serviceId?: string | number | null;
+  name?: string | null;
+  serviceName?: string | null;
+}
+
 export interface ShootServiceObject {
   id: string;
   invoice_id?: string | number | null;
@@ -379,6 +395,13 @@ export interface ShootData {
   serviceObjects?: ShootServiceObject[];
   serviceItems?: ShootServiceObject[];
   service_items?: ShootServiceObject[];
+  /**
+   * Display-only identity for every booked service on the shoot. Unlike
+   * `serviceItems`, this is not narrowed by workflow eligibility, so a subgroup
+   * heading can always resolve a real service name.
+   */
+  servicePresentation?: ShootServicePresentation[];
+  service_presentation?: ShootServicePresentation[];
   editorAssignments?: ShootEditorAssignment[];
   paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
   payment_status?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;

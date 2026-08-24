@@ -315,7 +315,7 @@ export function useShootDetailsMediaTab({
         !isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0)
           ? {
               id: 'floorplans' as MediaSubTab,
-              label: `Floorplans (${editedFloorplans.length + iguideFloorplans.length})`,
+              label: `Floor Plans (${editedFloorplans.length + iguideFloorplans.length})`,
             }
           : null,
         editedVirtualStaging.length > 0
