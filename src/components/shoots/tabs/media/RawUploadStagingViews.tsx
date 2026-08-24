@@ -213,81 +213,96 @@ export function StagedGroupCard({
 
       {isOpen && (
         <div className="space-y-1 border-t bg-background/60 p-2">
-          {serviceTargets.length > 0 && (
-            <div className="relative pb-1">
-              <select
-                value={group.serviceId}
-                onChange={(event) => onChangeService(event.target.value)}
-                className="h-8 w-full appearance-none truncate rounded-md border border-input bg-background pl-2.5 pr-8 text-xs font-medium text-foreground"
-                aria-label="Service for this upload group"
-              >
-                {/* A photographer with eligible booked services never sees an
-                    unassigned option. Their whole job here is to file capture against
-                    the service it was booked for, and offering "General / Unassigned"
-                    made it possible to sidestep that with one click — the endpoint then
-                    answers 422 anyway once more than one service is assigned. Admins keep
-                    it as a deliberate escape hatch for legacy and reference uploads. */}
-                {normalizedRole !== 'photographer' && (
-                  <option value="">General / Unassigned</option>
-                )}
-                {serviceTargets.map((target) => (
-                  <option key={target.id} value={target.id}>{target.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-[0.9rem] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            </div>
-          )}
+          {/* Service and bracket share one row: the header above already states the
+              service, count and size, so these controls exist only to change them and
+              do not need a stacked block each. The service selector takes the flexible
+              remaining width and the bracket control takes only what it needs. Wrapping
+              is driven by the selector's own min-width rather than a viewport
+              breakpoint, so the pair splits onto two lines exactly when the panel is
+              genuinely too narrow — including inside a narrow modal on a wide screen. */}
+          {(serviceTargets.length > 0 || brackets) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-1">
+              {serviceTargets.length > 0 && (
+                <div
+                  className={`relative min-w-[11.5rem] flex-1 ${
+                    // With no bracket control beside it, a full-width selector on a wide
+                    // panel is just a very long dropdown for a short service name.
+                    brackets ? 'basis-[60%]' : 'sm:max-w-xs'
+                  }`}
+                >
+                  <select
+                    value={group.serviceId}
+                    onChange={(event) => onChangeService(event.target.value)}
+                    className="h-8 w-full appearance-none truncate rounded-md border border-input bg-background pl-2.5 pr-8 text-xs font-medium text-foreground"
+                    aria-label="Service for this upload group"
+                  >
+                    {/* A photographer with eligible booked services never sees an
+                        unassigned option. Their whole job here is to file capture against
+                        the service it was booked for, and offering "General / Unassigned"
+                        made it possible to sidestep that with one click — the endpoint then
+                        answers 422 anyway once more than one service is assigned. Admins keep
+                        it as a deliberate escape hatch for legacy and reference uploads. */}
+                    {normalizedRole !== 'photographer' && (
+                      <option value="">General / Unassigned</option>
+                    )}
+                    {serviceTargets.map((target) => (
+                      <option key={target.id} value={target.id}>{target.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                </div>
+              )}
 
-          {/* Bracket size belongs to this group, not to the shoot. Two services on
-              one shoot can be captured by different photographers at different
-              sizes, so a single shoot-wide picker could not express the batch. The
-              service arrives with its own size already resolved; this only changes
-              it for this upload. Services that do not bracket say so instead of
-              showing a control with nothing to set. */}
-          {brackets ? (
-            <div className="flex items-center gap-2 pb-1">
-              <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
-                Bracket
-              </span>
-              <div
-                role="radiogroup"
-                aria-label={`Bracket size for ${label}`}
-                className="flex h-8 flex-1 items-center gap-1 rounded-md border bg-muted/40 p-1"
-              >
-                {bracketOptions.map((option) => {
-                  const isSelected = bracketMode === option.value;
+              {/* Bracket size belongs to this group, not to the shoot. Two services on
+                  one shoot can be captured by different photographers at different
+                  sizes, so a single shoot-wide picker could not express the batch. The
+                  service arrives with its own size already resolved; this only changes
+                  it for this upload. A service that does not bracket renders nothing
+                  here rather than an empty half-row. */}
+              {brackets && (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Bracket
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-label={`Bracket size for ${label}`}
+                    className="flex h-8 shrink-0 items-center gap-1 rounded-md border bg-muted/40 p-1"
+                  >
+                    {bracketOptions.map((option) => {
+                      const isSelected = bracketMode === option.value;
 
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      title={option.expected === null
-                        ? `${option.value} exposures per final photo · expected count not set for ${label}`
-                        : `${option.value} exposures per final photo · ${option.expected} raw files expected for ${label}`}
-                      className={`flex min-w-0 flex-1 items-baseline justify-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                      onClick={() => onBracketChange(option.value)}
-                    >
-                      <span className="font-medium">{option.value}x</span>
-                      <span
-                        className={`tabular-nums ${
-                          isSelected ? 'text-primary-foreground/75' : 'text-muted-foreground/70'
-                        }`}
-                      >
-                        {option.expected === null ? '—' : option.expected}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          title={option.expected === null
+                            ? `${option.value} exposures per final photo · expected count not set for ${label}`
+                            : `${option.value} exposures per final photo · ${option.expected} raw files expected for ${label}`}
+                          className={`flex items-baseline justify-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          }`}
+                          onClick={() => onBracketChange(option.value)}
+                        >
+                          <span className="font-medium">{option.value}x</span>
+                          <span
+                            className={`tabular-nums ${
+                              isSelected ? 'text-primary-foreground/75' : 'text-muted-foreground/70'
+                            }`}
+                          >
+                            {option.expected === null ? '—' : option.expected}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <p className="px-1 pb-1 text-[11px] text-muted-foreground">No bracketing</p>
           )}
 
           {group.files.length === 0 ? (

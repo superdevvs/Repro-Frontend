@@ -94,18 +94,60 @@ export const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [
 ];
 
 /**
- * The only per-file control raw staging offers.
+ * Post-capture treatments asked for on one individual frame.
  *
- * Everything else on that row used to be a media-type shortcut — Floor Plan,
- * Virtual Staging, Green Grass, Twilight, Drone — which duplicated the booked-service
- * grouping model and was offered even when the shoot had never booked those services.
- * Ownership is the group's booked service; treatments are applied to existing media
- * afterwards through the reclassify action. Extra survives because it is genuinely a
- * per-file exception: one unplanned frame inside an otherwise planned batch, and it is
- * a property of the file rather than a service that was sold.
+ * These travel in their own `treatment` field, never in `media_type`. A frame marked
+ * for virtual staging is still a raw of its booked service: it keeps its
+ * `shoot_service_id`, it keeps `media_type='raw'`, and so it stays inside its
+ * service's bracket stacks, in the Photos tab and in delivery. Writing them into
+ * `media_type` — which is a single scalar — is what previously knocked a treated
+ * frame out of all three.
+ */
+export const UPLOAD_TREATMENTS = ['virtual_staging', 'green_grass', 'twilight'] as const;
+
+export type UploadTreatment = (typeof UPLOAD_TREATMENTS)[number];
+
+/** Whether a staged classification is a treatment rather than a media type. */
+export const isUploadTreatment = (value: UploadQueueMediaType): value is UploadTreatment =>
+  (UPLOAD_TREATMENTS as readonly string[]).includes(value);
+
+/**
+ * The upload fields one staged classification contributes.
+ *
+ * The split is the whole point: a treatment must land in `treatment` and leave
+ * `media_type` alone, because `media_type` carries the capture identity that bracket
+ * stacking, the Photos tab and delivery all key on. Extra is the opposite case — it
+ * genuinely changes what the file is, so it stays a media type and keeps its
+ * `is_extra` flag.
+ */
+export const resolveClassificationUploadFields = (
+  value: UploadQueueMediaType | undefined,
+): Record<string, string> => {
+  if (!value) return {};
+
+  if (isUploadTreatment(value)) {
+    return { treatment: value };
+  }
+
+  return value === 'extra'
+    ? { media_type: value, is_extra: '1' }
+    : { media_type: value };
+};
+
+/**
+ * The per-file controls raw staging offers: VS / GG / TW / EX.
+ *
+ * Floor Plan and Drone are deliberately absent. Those are capture/service
+ * classifications, and they belong to the booked service-group system — a drone frame
+ * is owned by the Drone execution row, not by a per-file button that would compete
+ * with that ownership. The three treatments and Extra are genuinely properties of an
+ * individual image: a treatment is work requested on that frame, and Extra is one
+ * unplanned frame inside an otherwise planned batch.
  */
 export const RAW_STAGING_CLASSIFICATION_OPTIONS: UploadClassificationOption[] =
-  UPLOAD_CLASSIFICATION_OPTIONS.filter((option) => option.type === 'extra');
+  UPLOAD_CLASSIFICATION_OPTIONS.filter(
+    (option) => option.type !== 'floorplan' && option.type !== 'drone',
+  );
 
 export const MEDIA_TYPE_CARD_LABELS: Record<UploadQueueMediaType, string> = {
   extra: 'EX',

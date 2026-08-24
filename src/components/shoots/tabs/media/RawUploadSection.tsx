@@ -21,6 +21,7 @@ import {
   TRACKED_MEDIA_TYPES,
   bracketAppliesToUploadService,
   compareUploadServiceTargets,
+  resolveClassificationUploadFields,
   buildUploadLimitDescription,
   buildUploadSummary,
   countUploadedFilesByServiceId,
@@ -571,13 +572,14 @@ export function RawUploadSection({
               if (isVideoUpload(file)) {
                 formData.append('service_category', 'video');
               }
-              if (mediaType) {
-                formData.append('media_type', mediaType);
-
-                if (mediaType === 'extra') {
-                  formData.append('is_extra', '1');
-                }
-              }
+              // A treatment and a media type are different axes and must not share a
+              // field. VS/GG/TW go to `treatment`, which leaves media_type at 'raw' so
+              // the frame stays in its service's stacks, in the Photos tab and in
+              // delivery. Extra stays a media type because it really does change what
+              // the file is: an unplanned frame outside the contracted count.
+              Object.entries(resolveClassificationUploadFields(mediaType)).forEach(
+                ([field, value]) => formData.append(field, value),
+              );
 
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
@@ -875,8 +877,11 @@ export function RawUploadSection({
         <div className="flex flex-1 min-h-0 flex-col space-y-2">
           <div className="flex-shrink-0 flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
             <span>Selected Files ({stagedFileCount})</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              (FP = floorplan, VS = virtual staging, GG = green grass, TW = twilight, DR = drone, EX = extra)
+            {/* Names only the shortcuts that actually render. Kept deliberately light
+                so it reads as a footnote to "Selected Files" rather than competing
+                with it. */}
+            <span className="text-[11px] font-normal text-muted-foreground/80">
+              VS = virtual staging · GG = green grass · TW = twilight · EX = extra
             </span>
           </div>
           {/* The list is the only part of the panel that scrolls: it takes every
