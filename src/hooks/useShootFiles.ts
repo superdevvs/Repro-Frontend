@@ -49,6 +49,13 @@ export interface MediaFile {
   uses_watermark?: boolean;
   processed_at?: string;
   media_type?: string;
+  /**
+   * Post-capture treatment requested on this individual frame
+   * (`virtual_staging` / `green_grass` / `twilight`), or null when none was
+   * asked for. Independent of `media_type`: a treated frame is still a raw of
+   * its booked service, so this only ever adds a visible marker.
+   */
+  treatment?: string | null;
   // Size info
   width?: number;
   height?: number;
@@ -167,6 +174,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   uses_watermark: Boolean(value.uses_watermark ?? value.usesWatermark),
   processed_at: value.processed_at,
   media_type: value.media_type,
+  treatment: value.treatment ?? null,
   width: value.width,
   height: value.height,
   fileSize: value.file_size ?? value.fileSize,
