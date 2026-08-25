@@ -187,7 +187,9 @@ export default {
       ? fetch(metadataUrl, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(timeoutMs),
-        cf: { cacheEverything: true, cacheTtl: 300 },
+        // Short: this response carries the card URL, so a long TTL would keep
+        // publishing a stale fingerprint after a shoot edit.
+        cf: { cacheEverything: true, cacheTtl: 60 },
       }).then((response) => (response.ok ? response.json() : null)).catch(() => null)
       : Promise.resolve(null);
 
