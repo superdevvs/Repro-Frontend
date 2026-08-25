@@ -48,6 +48,20 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
 
   const hasMetricTiles = Boolean(metricTiles && metricTiles.length > 0);
   const hasLeftColumnCard = Boolean(leftColumnCard);
+
+  /**
+   * With nothing to list, the shoots panel collapses to just its header and the
+   * empty message, leaving a hole beside the side columns. The collapsible grid
+   * is `items-start`, so the column is only as tall as its content and the
+   * `h-full` already on it has no row height to resolve against. Stretching this
+   * one item fills the row, lining the panel up with whichever side column is
+   * tallest.
+   *
+   * Scoped to the empty case so a populated list keeps its current height, and to
+   * the collapsible branch because the other grid is already `items-stretch`.
+   */
+  const stretchEmptyUpcoming = (upcomingShoots?.length ?? 0) === 0;
+
   // The collapsible layout only makes sense when a left side column exists.
   const useCollapsibleLayout = collapsibleColumns && !hideLeftColumn && (hasMetricTiles || hasLeftColumnCard);
   const {
@@ -180,6 +194,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 data-onboarding-target={upcomingOnboardingTarget}
                 className={cn(
                   "relative flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+                  stretchEmptyUpcoming && "md:self-stretch",
                   effectiveLeftColumnHidden && effectiveRightColumnHidden
                     ? "md:col-span-12 min-[1025px]:col-span-1"
                     : effectiveLeftColumnHidden || effectiveRightColumnHidden

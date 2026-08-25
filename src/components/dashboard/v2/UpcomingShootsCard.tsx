@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
@@ -27,6 +27,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { downloadShootRawFiles, startSameWindowDownload } from '@/utils/shootMediaDownload';
@@ -260,6 +261,142 @@ const countActiveFilters = (filters: FiltersState) => {
   if (filters.priority.missingRaw) count += 1;
   if (filters.priority.missingEditor) count += 1;
   return count;
+};
+
+/**
+ * Viewport band where the dashboard centre column is narrow enough that the
+ * service pills no longer fit on one line, but still wide enough that the row
+ * has not collapsed to the stacked mobile card. Inside this band the pills
+ * collapse to a single line with a "+N more" chip rather than wrapping.
+ */
+const PILL_TRUNCATE_QUERY = '(min-width: 1420px) and (max-width: 1500px)';
+
+type ServicePillItem = { label: string; type?: string; icon?: string };
+
+interface ServicePillsProps {
+  shootId: number | string;
+  items: ServicePillItem[];
+  /** `compact` is the stacked mobile card, `desktop` the three-column row. */
+  variant: 'compact' | 'desktop';
+}
+
+const ServicePills: React.FC<ServicePillsProps> = ({ shootId, items, variant }) => {
+  const isCompact = variant === 'compact';
+  // `gap-1.5` (6px) on the compact card, `gap-2` (8px) on the desktop row.
+  const gap = isCompact ? 6 : 8;
+  const inBand = useMediaQuery(PILL_TRUNCATE_QUERY);
+  // Only the desktop row is affected; the compact card owns its full width.
+  const shouldTruncate = inBand && !isCompact;
+
+  const rowRef = useRef<HTMLDivElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState<number | null>(null);
+
+  const labelSignature = useMemo(() => items.map((tag) => tag.label).join('|'), [items]);
+
+  useLayoutEffect(() => {
+    if (!shouldTruncate) {
+      setVisibleCount(null);
+      return;
+    }
+    const row = rowRef.current;
+    const mirror = mirrorRef.current;
+    if (!row || !mirror) return;
+
+    // Widths come from an off-screen mirror holding every pill plus the chip, so
+    // the visible row never has to render all of them just to be measured.
+    const fit = () => {
+      const avail = row.clientWidth;
+      if (!avail) return;
+      const widths = Array.from(mirror.querySelectorAll<HTMLElement>('[data-pill-measure]')).map(
+        (el) => el.offsetWidth,
+      );
+      if (widths.length !== items.length) return;
+
+      const total = widths.reduce((sum, w) => sum + w, 0) + gap * Math.max(0, widths.length - 1);
+      if (total <= avail) {
+        setVisibleCount(null);
+        return;
+      }
+
+      const chipWidth = mirror.querySelector<HTMLElement>('[data-chip-measure]')?.offsetWidth ?? 0;
+      let used = 0;
+      let count = 0;
+      for (let i = 0; i < widths.length; i += 1) {
+        const next = used + (count > 0 ? gap : 0) + widths[i];
+        if (next + gap + chipWidth > avail) break;
+        used = next;
+        count += 1;
+      }
+      // Always keep at least one pill, and always leave something for the chip.
+      setVisibleCount(Math.max(1, Math.min(count, widths.length - 1)));
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [shouldTruncate, gap, items.length, labelSignature]);
+
+  const pillClass = cn(
+    'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border/70 font-semibold text-muted-foreground',
+    isCompact ? 'px-2.5 py-1 bg-muted/30 text-[10px]' : 'px-3 py-1 bg-background text-[11px]',
+  );
+
+  const renderPill = (tag: ServicePillItem, index: number, forMeasure = false) => {
+    const key = getServiceKey(tag.label, tag.type);
+    const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
+    const icon = IconComp
+      ? <IconComp className={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+      : (SERVICE_ICON_MAP[key] || <Camera size={isCompact ? 10 : 12} />);
+    return (
+      <span
+        key={`${shootId}-${key}-${index}${forMeasure ? '-measure' : ''}`}
+        {...(forMeasure ? { 'data-pill-measure': 'true' } : {})}
+        className={pillClass}
+      >
+        {icon}
+        {tag.label || SERVICE_LABELS[key]}
+      </span>
+    );
+  };
+
+  const shownItems = visibleCount === null ? items : items.slice(0, visibleCount);
+  const hiddenItems = visibleCount === null ? [] : items.slice(visibleCount);
+
+  return (
+    <div
+      ref={rowRef}
+      className={cn(
+        'relative flex text-xs text-muted-foreground',
+        isCompact ? 'gap-1.5' : 'gap-2',
+        // Clip for the whole band, not just once a count is known, so the first
+        // paint can never show a wrapped row.
+        shouldTruncate ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
+      )}
+    >
+      {shownItems.map((tag, index) => renderPill(tag, index))}
+
+      {hiddenItems.length > 0 && (
+        <span className={pillClass} title={hiddenItems.map((tag) => tag.label).filter(Boolean).join(', ')}>
+          +{hiddenItems.length} more
+        </span>
+      )}
+
+      {shouldTruncate && (
+        <div
+          ref={mirrorRef}
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute top-0 left-[-9999px] flex flex-nowrap"
+        >
+          {items.map((tag, index) => renderPill(tag, index, true))}
+          <span data-chip-measure="true" className={pillClass}>
+            +{Math.max(1, items.length - 1)} more
+          </span>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(({
@@ -1294,22 +1431,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                       </div>
                       {/* Row 4: Service tags */}
-                      <div className="flex gap-1.5 flex-wrap">
-                        {serviceList.map((tag, index) => {
-                          const key = getServiceKey(tag.label, tag.type);
-                          const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
-                          const icon = IconComp ? <IconComp className="w-2.5 h-2.5" /> : (SERVICE_ICON_MAP[key] || <Camera size={10} />);
-                          return (
-                            <span
-                              key={`${shoot.id}-${key}-${index}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border/70 bg-muted/30 text-[10px] font-semibold text-muted-foreground"
-                            >
-                              {icon}
-                              {tag.label || SERVICE_LABELS[key]}
-                            </span>
-                          );
-                        })}
-                      </div>
+                      <ServicePills shootId={shoot.id} items={serviceList} variant="compact" />
                       {/* Row 5: Status left + Photographer/Client right */}
                       <hr className="border-border" />
                       <div className="flex items-center justify-between">
@@ -1414,22 +1536,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           )}
                           <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                         </div>
-                        <div className="flex gap-2 flex-wrap text-xs text-muted-foreground transition-all">
-                          {serviceList.map((tag, index) => {
-                            const key = getServiceKey(tag.label, tag.type);
-                            const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
-                            const icon = IconComp ? <IconComp className="w-3 h-3" /> : (SERVICE_ICON_MAP[key] || <Camera size={12} />);
-                            return (
-                              <span
-                                key={`${shoot.id}-${key}-${index}`}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border/70 bg-background text-[11px] font-semibold text-muted-foreground"
-                              >
-                                {icon}
-                                {tag.label || SERVICE_LABELS[key]}
-                              </span>
-                            );
-                          })}
-                        </div>
+                        <ServicePills shootId={shoot.id} items={serviceList} variant="desktop" />
                       </div>
 
                       <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
