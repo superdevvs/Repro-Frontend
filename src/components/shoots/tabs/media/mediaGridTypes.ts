@@ -11,7 +11,6 @@ export interface MediaGridProps {
   onSelectAll?: () => void;
   canSelect: boolean;
   sortOrder?: MediaSortOrder;
-  manualSortActive?: boolean;
   manualOrder?: string[];
   onManualOrderChange?: (newOrder: string[]) => void;
   getImageUrl: (file: MediaFile, size?: MediaImageSize) => string;

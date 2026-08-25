@@ -32,10 +32,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleMediaViewMode,
     isEditor,
     sortOrder,
-    isDragMode,
     sortSaveStatus,
     changeSortOrder,
-    toggleDragMode,
     activeShootUploads,
     showUploadTab,
     selectedFiles,
@@ -272,10 +270,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         sortMenuOpen={sortMenuOpen}
         setSortMenuOpen={setSortMenuOpen}
         sortOrder={sortOrder}
-        isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
-        toggleDragMode={toggleDragMode}
         showUploadTab={showUploadTab}
         selectedFiles={selectedFiles}
         setRequestManagerOpen={setRequestManagerOpen}

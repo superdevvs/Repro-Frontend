@@ -45,10 +45,8 @@ export interface ShootDetailsMediaTabViewProps {
   toggleMediaViewMode: (mode: 'list' | 'grid') => void;
   isEditor: boolean;
   sortOrder: MediaSortOrder;
-  isDragMode: boolean;
   sortSaveStatus: 'idle' | 'saving' | 'saved';
   changeSortOrder: (order: MediaSortOrder) => void;
-  toggleDragMode: () => void;
   activeShootUploads: ShootUpload[];
   showUploadTab: boolean;
   selectedFiles: Set<string>;

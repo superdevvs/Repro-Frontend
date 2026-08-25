@@ -2,6 +2,19 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 
 export type MediaSortOrder = 'name' | 'date' | 'time' | 'manual';
 
+/**
+ * Where the per-shoot sort choice is remembered.
+ *
+ * Shared rather than duplicated because the Bright MLS export reads the same
+ * preference to order its photos: if the two disagreed, the export would come
+ * out in a different order from the grid the user arranged.
+ *
+ * The `v2` suffix retires the pre-capture-time default. The old default was file
+ * name, so nearly every stored value was `name` by inheritance rather than by
+ * choice, and reusing the key would have pinned existing users to it.
+ */
+export const mediaSortStorageKey = (shootId: string | number) => `media-sort-v2-${shootId}`;
+
 const compareStrings = (left?: string, right?: string) => (left || '').localeCompare(right || '');
 
 /**
@@ -65,7 +78,16 @@ export const sortMediaFiles = (
       return compareStrings(left.created_at, right.created_at);
     }
 
-    return compareStrings(left.captured_at || left.created_at, right.captured_at || right.created_at);
+    // Capture time, the default. A whole folder copied off a card can share one
+    // timestamp and `captured_at` is sometimes absent, so ties fall back to the
+    // camera's filename counter instead of however the API happened to return
+    // them - otherwise equal timestamps look shuffled between refetches.
+    const byCaptureTime = compareStrings(
+      left.captured_at || left.created_at,
+      right.captured_at || right.created_at,
+    );
+
+    return byCaptureTime !== 0 ? byCaptureTime : compareFilenames(left.filename, right.filename);
   });
 };
 

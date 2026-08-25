@@ -35,7 +35,6 @@ export function MediaGrid({
   onSelectAll,
   canSelect,
   sortOrder = 'time',
-  manualSortActive = false,
   manualOrder = [],
   onManualOrderChange,
   getImageUrl,
@@ -55,7 +54,9 @@ export function MediaGrid({
   rawStackSize = null,
   renderScanStatus,
 }: MediaGridProps) {
-  const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
+  // Choosing Manual in the sort menu is the only step: it enables dragging
+  // directly rather than arming a second "sort mode" toggle first.
+  const isManualSortEnabled = sortOrder === 'manual';
   const [stackPreviewIndexes, setStackPreviewIndexes] = useState<Record<string, number>>({});
   const [hoveredStackId, setHoveredStackId] = useState<string | null>(null);
 

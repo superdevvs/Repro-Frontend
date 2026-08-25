@@ -82,7 +82,7 @@ import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
-import { getSortedMediaIds, normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
+import { getSortedMediaIds, mediaSortStorageKey, normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
@@ -354,18 +354,18 @@ export function useShootDetailsMediaTab({
   );
   const [sortOrder, setSortOrderRaw] = useState<MediaSortOrder>(() => {
     try {
-      const saved = localStorage.getItem(`media-sort-${shoot.id}`);
+      const saved = localStorage.getItem(mediaSortStorageKey(shoot.id));
       if (saved && ['name', 'date', 'time', 'manual'].includes(saved)) return saved as MediaSortOrder;
     } catch {
       // Ignore unavailable localStorage and fall back to the default sort mode.
     }
-    // Filename is the default: capture time is unreliable (files uploaded from a
-    // copied folder all share one timestamp, and `captured_at` is often absent),
-    // whereas the camera's filename counter reflects the order they were shot in.
-    return 'name';
+    // Capture time is the default: it is the order the property was actually
+    // shot in, which is the order that reads as a walkthrough. Ties fall back to
+    // the filename counter in sortMediaFiles, so a folder of files sharing one
+    // timestamp still comes out in camera order.
+    return 'time';
   });
   const [manualOrder, setManualOrder] = useState<string[]>([]);
-  const [isDragMode, setIsDragMode] = useState(false);
   const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const sortSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sortSavedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -581,7 +581,14 @@ export function useShootDetailsMediaTab({
   useEffect(() => {
     const sortableFiles = getSortableFiles();
     if (sortableFiles.length === 0) return;
-    if (hasPendingManualOrder.current || (sortOrder === 'manual' && manualOrder.length > 0)) {
+    // Only restore a saved arrangement while manual sort is the active mode.
+    // This effect used to run under every sort, pre-filling `manualOrder` from
+    // whatever `sort_order` values happened to be on the files, which is why
+    // switching to Manual visibly reshuffled the grid.
+    if (sortOrder !== 'manual') {
+      return;
+    }
+    if (hasPendingManualOrder.current || manualOrder.length > 0) {
       return;
     }
     // Check if any file has a non-zero sort_order (meaning order was previously saved)
@@ -617,14 +624,8 @@ export function useShootDetailsMediaTab({
   }, [getSortableFiles, manualOrder]);
 
   useEffect(() => {
-    if (sortOrder !== 'manual' && isDragMode) {
-      setIsDragMode(false);
-    }
-  }, [isDragMode, sortOrder]);
-
-  useEffect(() => {
     try {
-      localStorage.setItem(`media-sort-${shoot.id}`, sortOrder);
+      localStorage.setItem(mediaSortStorageKey(shoot.id), sortOrder);
     } catch {
       // Ignore unavailable localStorage and keep the in-memory selection active.
     }
@@ -749,11 +750,15 @@ export function useShootDetailsMediaTab({
   }, []);
 
   const changeSortOrder = useCallback((nextSortOrder: MediaSortOrder) => {
-    if (nextSortOrder === 'manual') {
+    // Switching into manual takes the order that is on screen right now as its
+    // starting point. Seeding from a previously saved arrangement instead made
+    // the grid jump the moment Manual was chosen, and the saved order was often
+    // not meaningful anyway: files never reordered carry sort_order 0 and sorted
+    // ahead of everything else.
+    if (nextSortOrder === 'manual' && sortOrder !== 'manual') {
       const sortableFiles = getSortableFiles();
-      const baselineSort = sortOrder === 'manual' ? 'time' : sortOrder;
       const nextManualOrder = normalizeManualOrder(
-        manualOrder.length > 0 ? manualOrder : getSortedMediaIds(sortableFiles, baselineSort),
+        getSortedMediaIds(sortableFiles, sortOrder),
         sortableFiles,
       );
       // Entering manual mode should not immediately persist and refresh the parent list.
@@ -765,20 +770,11 @@ export function useShootDetailsMediaTab({
     }
 
     setSortOrderRaw(nextSortOrder);
-    if (nextSortOrder !== 'manual') {
-      setIsDragMode(false);
-      setSelectedFiles(new Set());
-    }
-  }, [getSortableFiles, manualOrder, setSelectedFiles, sortOrder]);
-
-  const toggleDragMode = useCallback(() => {
-    if (sortOrder !== 'manual') {
-      return;
-    }
-
-    setIsDragMode((current) => !current);
+    // Clear the selection on any sort change. Entering manual used to clear it
+    // via the drag-mode toggle, and a selection carried over from a different
+    // order would drag files the user is no longer looking at.
     setSelectedFiles(new Set());
-  }, [setSelectedFiles, sortOrder]);
+  }, [getSortableFiles, setSelectedFiles, sortOrder]);
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
@@ -1182,7 +1178,6 @@ export function useShootDetailsMediaTab({
             }}
             canSelect={canSelectInDisplayTab}
             sortOrder={sortOrder}
-            manualSortActive={isDragMode}
             manualOrder={manualOrder}
             onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder, separateExtras)}
             getImageUrl={getImageUrl}
@@ -1288,10 +1283,8 @@ export function useShootDetailsMediaTab({
         toggleMediaViewMode={toggleMediaViewMode}
         isEditor={isEditor}
         sortOrder={sortOrder}
-        isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
-        toggleDragMode={toggleDragMode}
         activeShootUploads={activeShootUploads}
         showUploadTab={canUploadInDisplayTab}
         selectedFiles={selectedFiles}

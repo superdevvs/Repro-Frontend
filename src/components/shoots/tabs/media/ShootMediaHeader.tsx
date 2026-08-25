@@ -43,10 +43,8 @@ interface ShootMediaHeaderProps {
   sortMenuOpen: boolean;
   setSortMenuOpen: Dispatch<SetStateAction<boolean>>;
   sortOrder: MediaSortOrder;
-  isDragMode: boolean;
   sortSaveStatus: 'idle' | 'saving' | 'saved';
   changeSortOrder: (order: MediaSortOrder) => void;
-  toggleDragMode: () => void;
   showUploadTab: boolean;
   selectedFiles: Set<string>;
   setRequestManagerOpen: Dispatch<SetStateAction<boolean>>;
@@ -67,7 +65,7 @@ export function ShootMediaHeader({
   isClient, rawFiles, editedFiles, activeSubTab, displayTab, defaultTab, setActiveSubTab, setDisplayTab,
   isPhotographer, isEditor, renderClientEditedCategoryTabs, renderEditedTab, renderRawUploadsTab,
   isExpanded, onToggleExpand, mediaViewMode, toggleMediaViewMode, sortMenuOpen, setSortMenuOpen,
-  sortOrder, isDragMode, sortSaveStatus, changeSortOrder, toggleDragMode, showUploadTab,
+  sortOrder, sortSaveStatus, changeSortOrder, showUploadTab,
   selectedFiles, setRequestManagerOpen, downloading, handleDownload, handleGenerateShareLink,
   handleEditorDownloadRaw, canMarkSelectedFiles, canDownload, isAdmin, handleReclassify,
   markMenuOptions, canDelete, handleDeleteFiles,
@@ -162,34 +160,30 @@ export function ShootMediaHeader({
                     variant="ghost"
                     size="sm"
                     className={`h-7 text-[11px] px-2 rounded-none border-0 ${
-                      sortOrder === 'manual' && isDragMode
+                      sortOrder === 'manual'
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : 'bg-transparent'
                     }`}
-                    onClick={() => {
-                      if (sortOrder === 'manual') {
-                        toggleDragMode();
-                        return;
-                      }
-
-                      setSortMenuOpen(true);
-                    }}
+                    // Selecting Manual already enables dragging, so this segment
+                    // only opens the menu now.
+                    onClick={() => setSortMenuOpen(true)}
+                    title={sortOrder === 'manual' ? 'Drag photos to reorder them' : 'Change photo order'}
                   >
-                    {sortOrder === 'manual' && isDragMode ? (
+                    {sortOrder === 'manual' ? (
                       <GripVertical className="h-3 w-3 mr-1" />
                     ) : (
                       <ArrowUpDown className="h-3 w-3 mr-1" />
                     )}
                     <span>
-                      {sortOrder === 'manual' && isDragMode
-                        ? 'Sort Mode ON'
-                        : `Sort: ${sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : sortOrder === 'manual' ? 'Manual' : 'Time'}`}
+                      {sortOrder === 'manual'
+                        ? 'Drag to Reorder'
+                        : `Sort: ${sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : 'Time'}`}
                     </span>
                     {sortSaveStatus === 'saving' && (
-                      <Loader2 className={`h-3 w-3 ml-1 animate-spin ${sortOrder === 'manual' && isDragMode ? 'text-white/80' : 'text-muted-foreground'}`} />
+                      <Loader2 className={`h-3 w-3 ml-1 animate-spin ${sortOrder === 'manual' ? 'text-white/80' : 'text-muted-foreground'}`} />
                     )}
                     {sortSaveStatus === 'saved' && (
-                      <Check className={`h-3 w-3 ml-1 ${sortOrder === 'manual' && isDragMode ? 'text-white' : 'text-green-500'}`} />
+                      <Check className={`h-3 w-3 ml-1 ${sortOrder === 'manual' ? 'text-white' : 'text-green-500'}`} />
                     )}
                   </Button>
                   <DropdownMenuTrigger asChild>
@@ -197,7 +191,7 @@ export function ShootMediaHeader({
                       variant="ghost"
                       size="sm"
                       className={`h-7 w-7 px-0 rounded-none border-l ${
-                        sortOrder === 'manual' && isDragMode
+                        sortOrder === 'manual'
                           ? 'border-white/20 bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-transparent'
                       }`}
@@ -207,6 +201,9 @@ export function ShootMediaHeader({
                   </DropdownMenuTrigger>
                 </div>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => changeSortOrder('manual')}>
+                    <span className={sortOrder === 'manual' ? 'font-medium' : ''}>Manual (Drag &amp; Drop)</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => changeSortOrder('time')}>
                     <span className={sortOrder === 'time' ? 'font-medium' : ''}>Time Captured</span>
                   </DropdownMenuItem>
@@ -215,9 +212,6 @@ export function ShootMediaHeader({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => changeSortOrder('date')}>
                     <span className={sortOrder === 'date' ? 'font-medium' : ''}>Date Added</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => changeSortOrder('manual')}>
-                    <span className={sortOrder === 'manual' ? 'font-medium' : ''}>Manual (Drag & Drop)</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

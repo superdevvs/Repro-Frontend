@@ -1,3 +1,4 @@
+import { mediaSortStorageKey } from '@/components/shoots/tabs/media/mediaSort'
 import { API_BASE_URL } from '@/config/env'
 import type { ShootData, ShootFileData } from '@/types/shoots'
 import { getImageUrl, normalizeImageUrl } from '@/utils/imageUrl'
@@ -202,7 +203,7 @@ const getMediaGridSortOrder = (shoot: Partial<ShootData> & LooseRecord): MediaGr
   }
 
   try {
-    const saved = window.localStorage.getItem(`media-sort-${shoot.id}`)
+    const saved = window.localStorage.getItem(mediaSortStorageKey(shoot.id))
     return saved === 'name' || saved === 'date' || saved === 'manual' || saved === 'time' ? saved : fallback
   } catch {
     return fallback
