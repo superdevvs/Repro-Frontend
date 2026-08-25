@@ -93,6 +93,8 @@ interface ShootDetailsModalActionRailProps {
   activeMediaDisplayTab: 'uploaded' | 'edited';
   selectedFileIds: string[];
   isPublishingToBrightMls: boolean;
+  /** Market-gated, resolved by the parent so both rails agree. */
+  showPublishToBrightMls: boolean;
   holdActionLabel: string;
   cancelActionLabel: string;
   isMobileActionsOpen: boolean;
@@ -157,6 +159,7 @@ export function ShootDetailsModalActionRail({
   activeMediaDisplayTab,
   selectedFileIds,
   isPublishingToBrightMls,
+  showPublishToBrightMls,
   holdActionLabel,
   cancelActionLabel,
   isMobileActionsOpen,
@@ -336,15 +339,59 @@ export function ShootDetailsModalActionRail({
                   <span>{holdActionLabel}</span>
                 </Button>
               )}
-              {canCancelShoot && (
+              {/* Downloads and Bright MLS sit up here because they are the two
+                  actions clients reach for constantly, and eyes go to the top of
+                  the panel. Delete and Print Marketing moved to the bottom rail. */}
+              {canOpenDeliveredDownloadDialog && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs px-3 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
-                  onClick={handleCancelShootClick}
+                  className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                  onClick={() => {
+                    blurActiveElement();
+                    setIsDownloadDialogOpen(true);
+                  }}
                 >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  <span>{cancelActionLabel}</span>
+                  <Download className="h-3 w-3 mr-1" />
+                  <span>Downloads</span>
+                </Button>
+              )}
+              {canPrivilegedProgressDownload && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                  onClick={() => runDownloadControl('progress', handleProgressMediaDownload)}
+                  disabled={isProgressDownloadDisabled}
+                >
+                  {activeDownloadControl === 'progress' ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3 mr-1" />
+                  )}
+                  <span>{activeDownloadControl === 'progress' ? 'Preparing…' : 'Downloads'}</span>
+                </Button>
+              )}
+              {showPublishToBrightMls && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 hover:bg-transparent"
+                  onClick={handleSendToBrightMls}
+                  disabled={isPublishingToBrightMls}
+                >
+                  {isPublishingToBrightMls ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Sending...
+                    </span>
+                  ) : (
+                    <img
+                      src="/brightmls-media-sync-button.svg"
+                      alt="Publish to Bright MLS"
+                      className="h-7 w-auto rounded-full"
+                    />
+                  )}
                 </Button>
               )}
               {isDelivered && isPhotographer && (
@@ -362,33 +409,6 @@ export function ShootDetailsModalActionRail({
                   )}
                   <span>{activeDownloadControl === 'photographer_raw' ? 'Preparing…' : 'Download RAW'}</span>
                 </Button>
-              )}
-              {showMmmPunchoutButtons && (
-                <>
-                  {canStartMmmPunchout && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
-                      onClick={() => {
-                        void handleStartMmmPunchout();
-                      }}
-                      disabled={isStartingMmmPunchout}
-                    >
-                      {isStartingMmmPunchout ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          <span>Preparing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Printer className="h-3 w-3 mr-1" />
-                          <span>Print Marketing</span>
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </>
               )}
               {isEditor && (
                 <>

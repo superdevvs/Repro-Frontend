@@ -30,6 +30,7 @@ import {
   Upload,
 } from "lucide-react";
 import { ShootData } from '@/types/shoots';
+import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 import { transformShootFromApi } from '@/context/shootNormalization';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { computePhotographerPayForShoot, formatPay } from '@/utils/photographerPay';
@@ -528,6 +529,18 @@ export function ShootDetailsModal({
       (activeMediaDisplayTab === 'uploaded' && hasRawDownloadSelection) ||
       (activeMediaDisplayTab === 'edited' && editedMediaCount > 0)
     );
+  // Bright MLS sync must not be exposed in unsupported markets (e.g. NJ / Garden
+  // State). Resolved here rather than in the rail so the gate has one owner.
+  const showPublishToBrightMls =
+    isDelivered &&
+    !isEditor &&
+    !isPhotographer &&
+    isBrightMlsSupportedForShoot({
+      state: (shoot as unknown as { location?: { state?: string }; state?: string }).location?.state
+        ?? (shoot as unknown as { state?: string }).state,
+      listing_source: (shoot as unknown as { listing_source?: string; listingSource?: string }).listing_source
+        ?? (shoot as unknown as { listingSource?: string }).listingSource,
+    });
 
   useEffect(() => {
     if (!isOpen || !openDownloadDialog || !clientReleaseAccess.canClientDownload) return;
@@ -775,6 +788,7 @@ export function ShootDetailsModal({
           activeMediaDisplayTab={activeMediaDisplayTab}
           selectedFileIds={selectedFileIds}
           isPublishingToBrightMls={isPublishingToBrightMls}
+          showPublishToBrightMls={showPublishToBrightMls}
           holdActionLabel={holdActionLabel}
           cancelActionLabel={cancelActionLabel}
           isMobileActionsOpen={isMobileActionsOpen}
@@ -847,10 +861,13 @@ export function ShootDetailsModal({
           isEditMode={isEditMode}
           isSavingChanges={isSavingChanges}
           editActions={editActions}
-          canOpenDeliveredDownloadDialog={canOpenDeliveredDownloadDialog}
-          canPrivilegedProgressDownload={canPrivilegedProgressDownload}
-          isDownloading={isDownloading}
-          isPublishingToBrightMls={isPublishingToBrightMls}
+          canCancelShoot={canCancelShoot}
+          cancelActionLabel={cancelActionLabel}
+          handleCancelShootClick={handleCancelShootClick}
+          showMmmPunchoutButtons={showMmmPunchoutButtons}
+          canStartMmmPunchout={canStartMmmPunchout}
+          isStartingMmmPunchout={isStartingMmmPunchout}
+          handleStartMmmPunchout={handleStartMmmPunchout}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
@@ -868,12 +885,9 @@ export function ShootDetailsModal({
           setSelectedFileIds={setSelectedFileIds}
           setEditActions={setEditActions}
           setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
-          setIsDownloadDialogOpen={setIsDownloadDialogOpen}
           handleTabChange={handleTabChange}
           handleProcessPayment={handleProcessPayment}
           handleShowInvoice={handleShowInvoice}
-          handleProgressMediaDownload={handleProgressMediaDownload}
-          handleSendToBrightMls={handleSendToBrightMls}
           handleResumeFromHold={handleResumeFromHold}
           handleSendToEditing={handleSendToEditing}
           handleApproveEditingReview={handleApproveEditingReview}

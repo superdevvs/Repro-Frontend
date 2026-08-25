@@ -10,12 +10,14 @@ import {
   Loader2,
   PlayCircle,
   Save,
+  Printer,
   Send,
+  Trash2,
   Upload as UploadIcon,
+  XCircle,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
-import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 import { ShootDetailsOverviewTab } from '../tabs/ShootDetailsOverviewTab';
 import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
@@ -79,10 +81,15 @@ interface ShootDetailsModalBodyProps {
   isSendingToEditing?: boolean;
   isApprovingEditingReview?: boolean;
   isFinalising?: boolean;
-  canOpenDeliveredDownloadDialog?: boolean;
-  canPrivilegedProgressDownload?: boolean;
-  isDownloading?: boolean;
-  isPublishingToBrightMls?: boolean;
+  // Delete and Print Marketing live in this rail now; Downloads and Bright MLS
+  // sync moved to the top rail.
+  canCancelShoot?: boolean;
+  cancelActionLabel?: string;
+  handleCancelShootClick?: () => void;
+  showMmmPunchoutButtons?: boolean;
+  canStartMmmPunchout?: boolean;
+  isStartingMmmPunchout?: boolean;
+  handleStartMmmPunchout?: () => Promise<void>;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   hasInflightUploads?: boolean;
@@ -96,12 +103,9 @@ interface ShootDetailsModalBodyProps {
   setSelectedFileIds: (ids: string[]) => void;
   setEditActions: (actions: { save: () => void; cancel: () => void } | null) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
-  setIsDownloadDialogOpen: (open: boolean) => void;
   handleTabChange: (value: string) => void;
   handleProcessPayment: () => void;
   handleShowInvoice: () => void;
-  handleProgressMediaDownload: () => void;
-  handleSendToBrightMls: () => void;
   handleResumeFromHold: () => void;
   handleSendToEditing: () => void;
   handleApproveEditingReview?: () => void;
@@ -146,10 +150,13 @@ export function ShootDetailsModalBody({
   isSendingToEditing = false,
   isApprovingEditingReview = false,
   isFinalising = false,
-  canOpenDeliveredDownloadDialog = false,
-  canPrivilegedProgressDownload = false,
-  isDownloading = false,
-  isPublishingToBrightMls = false,
+  canCancelShoot = false,
+  cancelActionLabel = 'Cancel shoot',
+  handleCancelShootClick,
+  showMmmPunchoutButtons = false,
+  canStartMmmPunchout = false,
+  isStartingMmmPunchout = false,
+  handleStartMmmPunchout,
   canSubmitRaw = false,
   canSubmitEdits = false,
   hasInflightUploads = false,
@@ -163,12 +170,9 @@ export function ShootDetailsModalBody({
   setSelectedFileIds,
   setEditActions,
   setIsMarkPaidDialogOpen,
-  setIsDownloadDialogOpen,
   handleTabChange,
   handleProcessPayment,
   handleShowInvoice,
-  handleProgressMediaDownload,
-  handleSendToBrightMls,
   handleResumeFromHold,
   handleSendToEditing,
   handleApproveEditingReview,
@@ -193,13 +197,11 @@ export function ShootDetailsModalBody({
   const showDesktopSubmitActions =
     (activeMediaDisplayTab === 'uploaded' && canSubmitRaw && !!handleSubmitRaw) ||
     (activeMediaDisplayTab === 'edited' && canSubmitEdits && !!handleSubmitEdits);
-  const showDesktopDownloadActions = canOpenDeliveredDownloadDialog || canPrivilegedProgressDownload;
-  // Bright MLS sync must not be exposed in unsupported markets (e.g. NJ / Garden State).
-  const brightMlsSupported = isBrightMlsSupportedForShoot({
-    state: (shoot as any).location?.state ?? (shoot as any).state,
-    listing_source: (shoot as any).listing_source ?? (shoot as any).listingSource,
-  });
-  const showDesktopPublishAction = isDelivered && !isEditor && !isPhotographer && brightMlsSupported;
+  // Downloads and Bright MLS sync moved to the top rail; this rail now carries
+  // the destructive and lower-frequency actions.
+  const showDesktopPrintAction = showMmmPunchoutButtons && canStartMmmPunchout;
+  const showDesktopDeleteAction = canCancelShoot && Boolean(handleCancelShootClick);
+  const isDeleteAction = cancelActionLabel.toLowerCase().startsWith('delete');
   const showMobileSubmitActions =
     !isEditMode &&
     !isRequestedStatus &&
@@ -397,53 +399,66 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDownloadActions || showDesktopPublishAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
-                {canOpenDeliveredDownloadDialog && (
+                {/* Destructive first and collapsed to an icon: it has to be
+                    reachable but should not compete with the actions people use
+                    every day, which now live in the top rail. */}
+                {canCancelShoot && handleCancelShootClick && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={() => setIsDownloadDialogOpen(true)}
-                    disabled={isDownloading}
+                    aria-label={cancelActionLabel}
+                    title={cancelActionLabel}
+                    className="group h-8 px-2 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+                    onClick={handleCancelShootClick}
                   >
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                    <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
-                  </Button>
-                )}
-                {canPrivilegedProgressDownload && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={handleProgressMediaDownload}
-                    disabled={isDownloading}
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                    <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
-                  </Button>
-                )}
-                {showDesktopPublishAction && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 hover:bg-transparent"
-                    onClick={handleSendToBrightMls}
-                    disabled={isPublishingToBrightMls}
-                  >
-                    {isPublishingToBrightMls ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Sending...
-                      </span>
+                    {isDeleteAction ? (
+                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
                     ) : (
-                      <img
-                        src="/brightmls-media-sync-button.svg"
-                        alt="Publish to Bright MLS"
-                        className="h-8 w-auto rounded-full"
-                      />
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
                     )}
+                    <span
+                      aria-hidden="true"
+                      className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-1.5 group-hover:max-w-[10rem] group-hover:opacity-100 group-focus-visible:ml-1.5 group-focus-visible:max-w-[10rem] group-focus-visible:opacity-100 motion-reduce:transition-none"
+                    >
+                      {cancelActionLabel}
+                    </span>
+                  </Button>
+                )}
+                {showMmmPunchoutButtons && canStartMmmPunchout && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                    onClick={() => {
+                      void handleStartMmmPunchout?.();
+                    }}
+                    disabled={isStartingMmmPunchout}
+                  >
+                    {isStartingMmmPunchout ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Printer className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isStartingMmmPunchout ? 'Preparing...' : 'Print Marketing'}</span>
+                  </Button>
+                )}
+                {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                    onClick={handleShowInvoice}
+                    disabled={isLoadingInvoice}
+                  >
+                    {isLoadingInvoice ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    <span>{isLoadingInvoice ? '...' : 'Invoice'}</span>
                   </Button>
                 )}
                 {activeMediaDisplayTab === 'uploaded' && canSubmitRaw && handleSubmitRaw && (
@@ -487,22 +502,6 @@ export function ShootDetailsModalBody({
                   >
                     <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
                     <span>Resume from hold</span>
-                  </Button>
-                )}
-                {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                    onClick={handleShowInvoice}
-                    disabled={isLoadingInvoice}
-                  >
-                    {isLoadingInvoice ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    ) : (
-                      <FileText className="h-3.5 w-3.5 mr-1.5" />
-                    )}
-                    <span>{isLoadingInvoice ? '...' : 'Invoice'}</span>
                   </Button>
                 )}
                 {isAdmin && canSendToEditing && (
