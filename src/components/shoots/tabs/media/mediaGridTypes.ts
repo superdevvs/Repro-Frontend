@@ -11,6 +11,8 @@ export interface MediaGridProps {
   onSelectAll?: () => void;
   canSelect: boolean;
   sortOrder?: MediaSortOrder;
+  /** Whether tiles accept drags. Manual order still applies when false. */
+  manualSortActive?: boolean;
   manualOrder?: string[];
   onManualOrderChange?: (newOrder: string[]) => void;
   getImageUrl: (file: MediaFile, size?: MediaImageSize) => string;

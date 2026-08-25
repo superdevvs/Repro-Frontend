@@ -32,8 +32,10 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleMediaViewMode,
     isEditor,
     sortOrder,
+    isDragMode,
     sortSaveStatus,
     changeSortOrder,
+    toggleDragMode,
     activeShootUploads,
     showUploadTab,
     selectedFiles,
@@ -270,8 +272,10 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         sortMenuOpen={sortMenuOpen}
         setSortMenuOpen={setSortMenuOpen}
         sortOrder={sortOrder}
+        isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
+        toggleDragMode={toggleDragMode}
         showUploadTab={showUploadTab}
         selectedFiles={selectedFiles}
         setRequestManagerOpen={setRequestManagerOpen}
@@ -542,6 +546,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                 }}
                                 canSelect={canDownload}
                                 sortOrder={sortOrder}
+                                manualSortActive={isDragMode}
                                 manualOrder={manualOrder}
                                 onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder)}
                                 getImageUrl={getImageUrl}
@@ -781,6 +786,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                 }}
                                 canSelect={canDownload}
                                 sortOrder={sortOrder}
+                                manualSortActive={isDragMode}
                                 manualOrder={manualOrder}
                                 onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder)}
                                 getImageUrl={getImageUrl}

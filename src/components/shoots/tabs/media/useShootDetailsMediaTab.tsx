@@ -370,6 +370,10 @@ export function useShootDetailsMediaTab({
     return DEFAULT_MEDIA_SORT;
   });
   const [manualOrder, setManualOrder] = useState<string[]>([]);
+  // Whether tiles are draggable right now. Separate from `sortOrder` because
+  // stopping the drag interaction must not throw away the manual arrangement:
+  // the grid stays in manual order, it just stops accepting drags.
+  const [isDragMode, setIsDragMode] = useState(false);
   const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const sortSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sortSavedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -767,11 +771,29 @@ export function useShootDetailsMediaTab({
     }
 
     setSortOrderRaw(nextSortOrder);
-    // Clear the selection on any sort change. Entering manual used to clear it
-    // via the drag-mode toggle, and a selection carried over from a different
-    // order would drag files the user is no longer looking at.
+    // Picking Manual from the menu arms dragging in that one action; picking any
+    // other sort disarms it.
+    setIsDragMode(nextSortOrder === 'manual');
+    // Clear the selection on any sort change: a selection carried over from a
+    // different order would drag files the user is no longer looking at.
     setSelectedFiles(new Set());
   }, [getSortableFiles, setSelectedFiles, sortOrder]);
+
+  /**
+   * Turn dragging on or off without leaving manual order.
+   *
+   * Stopping used to switch back to capture time, which relabelled the control
+   * "Sort: Time" while the photos were still in the arrangement the admin had
+   * just made - the label contradicted the grid.
+   */
+  const toggleDragMode = useCallback(() => {
+    if (sortOrder !== 'manual') {
+      return;
+    }
+
+    setIsDragMode((current) => !current);
+    setSelectedFiles(new Set());
+  }, [setSelectedFiles, sortOrder]);
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
@@ -1175,6 +1197,7 @@ export function useShootDetailsMediaTab({
             }}
             canSelect={canSelectInDisplayTab}
             sortOrder={sortOrder}
+            manualSortActive={isDragMode}
             manualOrder={manualOrder}
             onManualOrderChange={(nextOrder) => handleManualOrderChange(paneFiles, nextOrder, separateExtras)}
             getImageUrl={getImageUrl}
@@ -1280,8 +1303,10 @@ export function useShootDetailsMediaTab({
         toggleMediaViewMode={toggleMediaViewMode}
         isEditor={isEditor}
         sortOrder={sortOrder}
+        isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
+        toggleDragMode={toggleDragMode}
         activeShootUploads={activeShootUploads}
         showUploadTab={canUploadInDisplayTab}
         selectedFiles={selectedFiles}

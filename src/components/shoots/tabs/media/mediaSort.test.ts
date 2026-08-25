@@ -125,6 +125,39 @@ describe('sortMediaFiles — time (the default)', () => {
     expect(sortMediaFiles(files, 'time').map((f) => f.id)).toEqual(['a', 'b']);
   });
 
+  it('compares EXIF dates against upload dates by real time, not as strings', () => {
+    // captured_at arrives from EXIF with colons in the date (2026:04:29), while
+    // created_at uses hyphens. Compared as strings, '-' sorts before ':' so every
+    // file lacking EXIF data jumped ahead of every file that had it.
+    const files = [
+      file('exif-earlier', { filename: 'IMG_1.jpg', captured_at: '2026:04:29 18:50:33' }),
+      file('upload-later', { filename: 'IMG_2.jpg', created_at: '2026-04-30 12:22:09' }),
+    ];
+
+    expect(sortMediaFiles(files, 'time').map((f) => f.id)).toEqual([
+      'exif-earlier',
+      'upload-later',
+    ]);
+  });
+
+  it('treats an unset camera clock as unknown rather than the dawn of time', () => {
+    const files = [
+      file('zeroed', { filename: 'IMG_9.jpg', captured_at: '0000:00:00 00:00:00' }),
+      file('real', { filename: 'IMG_1.jpg', captured_at: '2026:04:29 18:50:33' }),
+    ];
+
+    expect(sortMediaFiles(files, 'time').map((f) => f.id)).toEqual(['real', 'zeroed']);
+  });
+
+  it('puts files with no usable date at all last', () => {
+    const files = [
+      file('undated', { filename: 'IMG_5.jpg' }),
+      file('dated', { filename: 'IMG_9.jpg', captured_at: '2026:04:29 18:50:33' }),
+    ];
+
+    expect(sortMediaFiles(files, 'time').map((f) => f.id)).toEqual(['dated', 'undated']);
+  });
+
   it('breaks ties on the filename counter so a shared timestamp is not shuffled', () => {
     // A folder copied off a card can land with one identical timestamp on every
     // file. Without a tie-breaker these came out in whatever order the API

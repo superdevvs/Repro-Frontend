@@ -37,6 +37,30 @@ const compareFilenames = (left?: string, right?: string) =>
     sensitivity: 'base',
   });
 
+/** EXIF writes the date part with colons: `2026:04:29 18:50:33`. */
+const EXIF_DATE_PREFIX = /^(\d{4}):(\d{2}):(\d{2})[ T]/;
+
+/**
+ * Parse a media timestamp to an epoch, or null when it carries no information.
+ *
+ * `captured_at` arrives straight from EXIF, so its date part is colon-separated
+ * while `created_at` is hyphen-separated. Comparing those two as plain strings is
+ * meaningless: `-` sorts before `:`, so every file lacking EXIF data sorted ahead
+ * of every file that had it, whatever the actual times were. Cameras also write
+ * `0000:00:00 00:00:00` for an unset clock, which has to read as "unknown"
+ * rather than as the beginning of time.
+ */
+const toTimestamp = (value?: string): number | null => {
+  const raw = (value || '').trim();
+  if (!raw || raw.startsWith('0000')) {
+    return null;
+  }
+
+  const parsed = Date.parse(raw.replace(EXIF_DATE_PREFIX, '$1-$2-$3T'));
+
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 export const normalizeManualOrder = (manualOrder: string[], files: MediaFile[]): string[] => {
   const fileIds = files.map((file) => file.id);
   const knownIds = new Set(fileIds);
@@ -85,16 +109,21 @@ export const sortMediaFiles = (
       return compareStrings(left.created_at, right.created_at);
     }
 
-    // Capture time, the default. A whole folder copied off a card can share one
-    // timestamp and `captured_at` is sometimes absent, so ties fall back to the
-    // camera's filename counter instead of however the API happened to return
-    // them - otherwise equal timestamps look shuffled between refetches.
-    const byCaptureTime = compareStrings(
-      left.captured_at || left.created_at,
-      right.captured_at || right.created_at,
-    );
+    // Capture time, the default. Fall back to upload time when a file carries no
+    // EXIF date, and to the camera's filename counter when the timestamps tie -
+    // a whole folder off one card frequently shares a single timestamp, and
+    // without a tie-break those groups reshuffle between refetches.
+    const leftTime = toTimestamp(left.captured_at) ?? toTimestamp(left.created_at);
+    const rightTime = toTimestamp(right.captured_at) ?? toTimestamp(right.created_at);
 
-    return byCaptureTime !== 0 ? byCaptureTime : compareFilenames(left.filename, right.filename);
+    if (leftTime !== rightTime) {
+      // A file with no usable date at all goes last rather than first.
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      return leftTime - rightTime;
+    }
+
+    return compareFilenames(left.filename, right.filename);
   });
 };
 
