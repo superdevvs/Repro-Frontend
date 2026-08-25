@@ -71,6 +71,7 @@ const BrandedPage = lazy(() => import('@/components/tourLinks/BrandedPage').then
 const MlsCompliant = lazy(() => import('@/components/tourLinks/MlsCompliant').then(module => ({ default: module.MlsCompliant })));
 const GenericMLS = lazy(() => import('@/components/tourLinks/GenericMLS').then(module => ({ default: module.GenericMLS })));
 const PublicVideoPage = lazy(() => import('@/components/tourLinks/PublicVideoPage').then(module => ({ default: module.PublicVideoPage })));
+const Public3dRedirect = lazy(() => import('@/components/tourLinks/Public3dRedirect').then(module => ({ default: module.Public3dRedirect })));
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
@@ -387,6 +388,16 @@ const AppRoutes = () => {
       <Route path="/tour/video/generic" element={
         <PageTransition>
           <PublicVideoPage variant="generic" />
+        </PageTransition>
+      } />
+      <Route path="/tour/3d/branded" element={
+        <PageTransition>
+          <Public3dRedirect variant="branded" />
+        </PageTransition>
+      } />
+      <Route path="/tour/3d/mls" element={
+        <PageTransition>
+          <Public3dRedirect variant="mls" />
         </PageTransition>
       } />
       {/* Public client portal so clients can share their link */}

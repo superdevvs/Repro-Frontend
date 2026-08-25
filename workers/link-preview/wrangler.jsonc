@@ -1,0 +1,14 @@
+{
+  "name": "repro-link-preview",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-25",
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "reprodashboard.com/", "zone_name": "reprodashboard.com" },
+    { "pattern": "reprodashboard.com/client-portal*", "zone_name": "reprodashboard.com" },
+    { "pattern": "reprodashboard.com/tour/*", "zone_name": "reprodashboard.com" }
+  ],
+  "vars": {
+    "API_ORIGIN": "https://api.reprodashboard.com"
+  }
+}

@@ -420,6 +420,16 @@ export function ShootDetailsTourTab({
           return `${baseUrl}/tour/video/mls?${query}`;
         case 'video_generic':
           return `${baseUrl}/tour/video/generic?${query}`;
+        case 'matterport_branded':
+          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=matterport` : '';
+        case 'matterport_mls':
+          return tourLinks[type] ? `${baseUrl}/tour/3d/mls?${query}&provider=matterport` : '';
+        case 'iguide_branded':
+          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=iguide` : '';
+        case 'iguide_mls':
+          return tourLinks[type] ? `${baseUrl}/tour/3d/mls?${query}&provider=iguide` : '';
+        case 'zillow_3d':
+          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=zillow` : '';
         default:
           return tourLinks[type] || '';
       }
