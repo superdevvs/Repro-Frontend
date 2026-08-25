@@ -443,10 +443,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
         <div className="flex-1 flex flex-col">
           {editingManagerPaginatedGroups.length === 0 ? (
-            <div
-              data-shoots-empty="true"
-              className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500"
-            >
+            <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
               {activeEditingManagerTab?.emptyStateText || 'No shoots found.'}
             </div>
           ) : (

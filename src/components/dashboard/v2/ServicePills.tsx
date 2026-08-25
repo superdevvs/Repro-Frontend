@@ -12,8 +12,11 @@ import { SERVICE_ICON_MAP, SERVICE_LABELS, getServiceKey } from './shootsTabsCar
  */
 export const PILL_TRUNCATE_QUERY = '(min-width: 1420px) and (max-width: 1500px)';
 
-/** Narrowest a text-clipped pill is allowed to get before it stops being readable. */
-const MIN_ELLIPSIS_PILL_WIDTH = 64;
+/**
+ * Below this a text-clipped pill shows so few characters that it is no longer
+ * worth the space, and the row drops to just the count chip.
+ */
+const MIN_ELLIPSIS_PILL_WIDTH = 40;
 
 export type ServicePillItem = { label: string; type?: string; icon?: string };
 
@@ -22,11 +25,6 @@ interface ServicePillsProps {
   items: ServicePillItem[];
   /** `compact` is the stacked mobile card, `desktop` the three-column row. */
   variant: 'compact' | 'desktop';
-  /**
-   * Whether this row participates in the narrow-band truncation. The compact
-   * card owns its full width, so it only needs the non-shrinking pills.
-   */
-  truncateInBand?: boolean;
   /**
    * The two card families disagree on label precedence: the shoots tabs card
    * prefers the mapped label, the upcoming card prefers the raw tag. Kept as a
@@ -40,9 +38,11 @@ interface FitResult {
   count: number | null;
   /** Set when a single pill has to be text-clipped because none fit whole. */
   firstMaxWidth: number | null;
+  /** `"+3 more"` when there is room for it, `"+3"` when there is not. */
+  chipForm: 'long' | 'short';
 }
 
-const SHOW_ALL: FitResult = { count: null, firstMaxWidth: null };
+const SHOW_ALL: FitResult = { count: null, firstMaxWidth: null, chipForm: 'long' };
 
 /**
  * Service tags for a shoot card.
@@ -55,7 +55,6 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
   shootId,
   items,
   variant,
-  truncateInBand = true,
   preferMappedLabel = false,
 }) => {
   const isCompact = variant === 'compact';
@@ -67,7 +66,10 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
       && typeof window.matchMedia === 'function'
       && window.matchMedia(PILL_TRUNCATE_QUERY).matches,
   );
-  const shouldTruncate = inBand && truncateInBand;
+  // Truncation is confined to the band. Outside it, on either side, the row wraps
+  // exactly as it always did and nothing is hidden. The compact card owns its full
+  // width and is not part of the band at all.
+  const shouldTruncate = inBand && !isCompact;
 
   const rowRef = useRef<HTMLDivElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
@@ -109,26 +111,48 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
         return;
       }
 
-      const chipWidth = mirror.querySelector<HTMLElement>('[data-chip-measure]')
-        ?.getBoundingClientRect().width ?? 0;
-      const budget = avail - chipWidth - gap;
+      const chipWidthFor = (form: 'long' | 'short') =>
+        mirror.querySelector<HTMLElement>(`[data-chip-measure="${form}"]`)
+          ?.getBoundingClientRect().width ?? 0;
 
-      let used = 0;
-      let count = 0;
-      for (let i = 0; i < widths.length; i += 1) {
-        const next = used + (count > 0 ? gap : 0) + widths[i];
-        if (next > budget) break;
-        used = next;
-        count += 1;
+      const budgetFor = (form: 'long' | 'short') => avail - chipWidthFor(form) - gap;
+
+      const countWholePills = (budget: number) => {
+        let used = 0;
+        let count = 0;
+        for (let i = 0; i < widths.length; i += 1) {
+          const next = used + (count > 0 ? gap : 0) + widths[i];
+          if (next > budget) break;
+          used = next;
+          count += 1;
+        }
+        return count;
+      };
+
+      // Prefer the readable "+N more" chip, and only fall back to the bare count
+      // when spelling it out would leave no room for a pill.
+      const forms: Array<'long' | 'short'> = ['long', 'short'];
+      for (const form of forms) {
+        const count = countWholePills(budgetFor(form));
+        if (count > 0) {
+          setFit({
+            count: Math.min(count, widths.length - 1),
+            firstMaxWidth: null,
+            chipForm: form,
+          });
+          return;
+        }
       }
 
-      if (count === 0) {
-        // Nothing fits whole. Keep one pill and let its label ellipsis rather
-        // than hard-clipping it mid-word.
-        setFit({ count: 1, firstMaxWidth: Math.max(MIN_ELLIPSIS_PILL_WIDTH, budget) });
+      // Nothing fits whole. Keep one pill clipped to the space actually available
+      // so its label ellipsises instead of the chip being cut off, and drop the
+      // pill entirely once that space stops being readable.
+      const budget = budgetFor('short');
+      if (budget < MIN_ELLIPSIS_PILL_WIDTH) {
+        setFit({ count: 0, firstMaxWidth: null, chipForm: 'short' });
         return;
       }
-      setFit({ count: Math.min(count, widths.length - 1), firstMaxWidth: null });
+      setFit({ count: 1, firstMaxWidth: budget, chipForm: 'short' });
     };
 
     measure();
@@ -193,7 +217,7 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
           className={pillClass}
           title={hiddenItems.map((tag) => tag.label).filter(Boolean).join(', ')}
         >
-          +{hiddenItems.length} more
+          {fit.chipForm === 'long' ? `+${hiddenItems.length} more` : `+${hiddenItems.length}`}
         </span>
       )}
 
@@ -204,8 +228,11 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
           className="pointer-events-none invisible absolute top-0 left-[-9999px] flex flex-nowrap"
         >
           {items.map((tag, index) => renderPill(tag, index, { forMeasure: true }))}
-          <span data-chip-measure="true" className={pillClass}>
-            +{Math.max(1, items.length - 1)} more
+          <span data-chip-measure="long" className={pillClass}>
+            +{items.length} more
+          </span>
+          <span data-chip-measure="short" className={pillClass}>
+            +{items.length}
           </span>
         </div>
       )}

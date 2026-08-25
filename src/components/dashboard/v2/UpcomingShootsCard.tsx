@@ -1161,10 +1161,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       <div ref={filterPanelHostRef} />
 
       {paginatedGroups.length === 0 ? (
-        <div
-          data-shoots-empty="true"
-          className="flex-1 flex items-center justify-center text-center text-sm text-slate-500"
-        >
+        <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500">
           {emptyText}
         </div>
       ) : (
