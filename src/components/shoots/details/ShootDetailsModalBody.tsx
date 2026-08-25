@@ -12,12 +12,14 @@ import {
   Save,
   Printer,
   Send,
+  Sparkles,
   Trash2,
   Upload as UploadIcon,
   XCircle,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
+import { blurActiveElement } from '../dialogFocusUtils';
 import { ShootDetailsOverviewTab } from '../tabs/ShootDetailsOverviewTab';
 import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
@@ -90,6 +92,10 @@ interface ShootDetailsModalBodyProps {
   canStartMmmPunchout?: boolean;
   isStartingMmmPunchout?: boolean;
   handleStartMmmPunchout?: () => Promise<void>;
+  canSendManualNotification?: boolean;
+  onOpenManualNotification?: () => void;
+  canOpenAiEdit?: boolean;
+  handleOpenAiEdit?: () => void;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   hasInflightUploads?: boolean;
@@ -113,6 +119,62 @@ interface ShootDetailsModalBodyProps {
   handleSaveRequest: (updates: Partial<ShootData>) => void;
   handleCancelEdit: () => void;
   refreshShootAndParent: () => Promise<ShootData | null>;
+}
+
+type RailIconActionProps = {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  tone?: 'default' | 'danger' | 'ai';
+};
+
+const RAIL_ICON_TONES: Record<NonNullable<RailIconActionProps['tone']>, string> = {
+  default: 'border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950',
+  danger: 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950',
+  ai: 'border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950',
+};
+
+/**
+ * A bottom-rail action that shows only its icon until hovered or focused.
+ *
+ * The label is rendered but hidden from assistive tech; the button carries the
+ * same text as its accessible name, so it is announced while collapsed and not
+ * announced twice when expanded. Focus expands it too, so the label is not
+ * mouse-only.
+ */
+function RailIconAction({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
+  busy = false,
+  tone = 'default',
+}: RailIconActionProps) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`group h-8 px-2 text-xs ${RAIL_ICON_TONES[tone]}`}
+    >
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+      ) : (
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+      )}
+      <span
+        aria-hidden="true"
+        className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-1.5 group-hover:max-w-[10rem] group-hover:opacity-100 group-focus-visible:ml-1.5 group-focus-visible:max-w-[10rem] group-focus-visible:opacity-100 motion-reduce:transition-none"
+      >
+        {label}
+      </span>
+    </Button>
+  );
 }
 
 export function ShootDetailsModalBody({
@@ -157,6 +219,10 @@ export function ShootDetailsModalBody({
   canStartMmmPunchout = false,
   isStartingMmmPunchout = false,
   handleStartMmmPunchout,
+  canSendManualNotification = false,
+  onOpenManualNotification,
+  canOpenAiEdit = false,
+  handleOpenAiEdit,
   canSubmitRaw = false,
   canSubmitEdits = false,
   hasInflightUploads = false,
@@ -202,6 +268,8 @@ export function ShootDetailsModalBody({
   const showDesktopPrintAction = showMmmPunchoutButtons && canStartMmmPunchout;
   const showDesktopDeleteAction = canCancelShoot && Boolean(handleCancelShootClick);
   const isDeleteAction = cancelActionLabel.toLowerCase().startsWith('delete');
+  const showDesktopNotifyAction = canSendManualNotification && Boolean(onOpenManualNotification);
+  const showDesktopAiEditAction = canOpenAiEdit && !isRequestedStatus && Boolean(handleOpenAiEdit);
   const showMobileSubmitActions =
     !isEditMode &&
     !isRequestedStatus &&
@@ -399,33 +467,32 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || showDesktopNotifyAction || showDesktopAiEditAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
-                {/* Destructive first and collapsed to an icon: it has to be
-                    reachable but should not compete with the actions people use
-                    every day, which now live in the top rail. */}
-                {canCancelShoot && handleCancelShootClick && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={cancelActionLabel}
-                    title={cancelActionLabel}
-                    className="group h-8 px-2 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+                {/* Collapsed to icons: these stay reachable without competing
+                    with the actions people use on every shoot, which now live in
+                    the top rail. */}
+                {showDesktopDeleteAction && handleCancelShootClick && (
+                  <RailIconAction
+                    icon={isDeleteAction ? Trash2 : XCircle}
+                    label={cancelActionLabel}
+                    tone="danger"
                     onClick={handleCancelShootClick}
-                  >
-                    {isDeleteAction ? (
-                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <XCircle className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span
-                      aria-hidden="true"
-                      className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-1.5 group-hover:max-w-[10rem] group-hover:opacity-100 group-focus-visible:ml-1.5 group-focus-visible:max-w-[10rem] group-focus-visible:opacity-100 motion-reduce:transition-none"
-                    >
-                      {cancelActionLabel}
-                    </span>
-                  </Button>
+                  />
+                )}
+                {canSendManualNotification && onOpenManualNotification && (
+                  <RailIconAction
+                    icon={Send}
+                    label="Notify"
+                    onClick={() => {
+                      blurActiveElement();
+                      onOpenManualNotification();
+                    }}
+                  />
+                )}
+                {canOpenAiEdit && !isRequestedStatus && handleOpenAiEdit && (
+                  <RailIconAction icon={Sparkles} label="AI Edit" tone="ai" onClick={handleOpenAiEdit} />
                 )}
                 {showMmmPunchoutButtons && canStartMmmPunchout && (
                   <Button

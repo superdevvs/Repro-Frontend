@@ -7,7 +7,6 @@ import {
   Copy,
   Download,
   Edit,
-  Link2,
   Loader2,
   Camera,
   FileText,
@@ -57,7 +56,6 @@ const getModalTabIcon = (tabId: string) => {
 };
 
 interface ShootDetailsModalActionRailProps {
-  canOpenAiEdit: boolean;
   shootAddress: string;
   statusBadge: React.ReactNode;
   isEditMode: boolean;
@@ -105,7 +103,7 @@ interface ShootDetailsModalActionRailProps {
   setIsDeclineModalOpen: (open: boolean) => void;
   setIsEditMode: (open: boolean) => void;
   setIsDownloadDialogOpen: (open: boolean) => void;
-  handleOpenAiEdit: () => void;
+
   handleMarkOnHoldClick: () => void;
   handleResumeFromHold: () => void;
   handleCancelShootClick: () => void;
@@ -123,7 +121,6 @@ interface ShootDetailsModalActionRailProps {
 }
 
 export function ShootDetailsModalActionRail({
-  canOpenAiEdit,
   shootAddress,
   statusBadge,
   isEditMode,
@@ -170,7 +167,7 @@ export function ShootDetailsModalActionRail({
   setIsDeclineModalOpen,
   setIsEditMode,
   setIsDownloadDialogOpen,
-  handleOpenAiEdit,
+
   handleMarkOnHoldClick,
   handleResumeFromHold,
   handleCancelShootClick,
@@ -314,20 +311,6 @@ export function ShootDetailsModalActionRail({
                   <span>Edit</span>
                 </Button>
               )}
-              {canSendManualNotification && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                  onClick={() => {
-                    blurActiveElement();
-                    onOpenManualNotification();
-                  }}
-                >
-                  <Send className="h-3 w-3 mr-1" />
-                  <span>Notify</span>
-                </Button>
-              )}
               {!isEditMode && canUserPutOnHold && (
                 <Button
                   variant="outline"
@@ -446,19 +429,6 @@ export function ShootDetailsModalActionRail({
                     <span>{isGeneratingShareLink ? 'Generating...' : 'Share Link'}</span>
                   </Button>
                 </>
-              )}
-              {/* AI editing sits last so downloads, media, and MLS actions rank
-                  above marketing/AI actions in the rail (Req 7.7). */}
-              {canOpenAiEdit && !isRequestedStatus && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-violet-600 hover:bg-violet-700 text-white"
-                  onClick={handleOpenAiEdit}
-                >
-                  <Link2 className="h-3 w-3 mr-1" />
-                  <span>AI Edit</span>
-                </Button>
               )}
             </>
           )}

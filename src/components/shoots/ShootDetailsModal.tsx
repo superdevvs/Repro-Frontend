@@ -752,7 +752,6 @@ export function ShootDetailsModal({
         </DialogHeader>
         
         <ShootDetailsModalActionRail
-          canOpenAiEdit={canOpenAiEdit}
           shootAddress={shoot.location?.address || 'Shoot'}
           statusBadge={statusBadge}
           isEditMode={isEditMode}
@@ -799,7 +798,6 @@ export function ShootDetailsModal({
           setIsDeclineModalOpen={setIsDeclineModalOpen}
           setIsEditMode={setIsEditMode}
           setIsDownloadDialogOpen={setIsDownloadDialogOpen}
-          handleOpenAiEdit={handleOpenAiEdit}
           handleMarkOnHoldClick={handleMarkOnHoldClick}
           handleResumeFromHold={handleResumeFromHold}
           handleCancelShootClick={handleCancelShootClick}
@@ -868,6 +866,10 @@ export function ShootDetailsModal({
           canStartMmmPunchout={canStartMmmPunchout}
           isStartingMmmPunchout={isStartingMmmPunchout}
           handleStartMmmPunchout={handleStartMmmPunchout}
+          canSendManualNotification={canSendManualNotification}
+          onOpenManualNotification={() => setIsManualNotificationOpen(true)}
+          canOpenAiEdit={canOpenAiEdit}
+          handleOpenAiEdit={handleOpenAiEdit}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
