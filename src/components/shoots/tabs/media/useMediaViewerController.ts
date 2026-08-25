@@ -571,6 +571,25 @@ export function useMediaViewerController({
       });
     }
   };
+  /**
+   * The stage swaps `src` on one <img>, so a full-size load that fails leaves the
+   * browser's broken-image glyph with nothing to fall back to. Drop back to the
+   * web rendition instead of stranding the user on a dead frame.
+   */
+  const handleStageImageError = useCallback(() => {
+    setPreviewMode((current) => {
+      if (current !== 'full') {
+        return current;
+      }
+
+      toast({
+        title: 'Full-size preview unavailable',
+        description: 'Showing the web-sized version instead.',
+      });
+
+      return 'web';
+    });
+  }, [toast]);
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.25, MAX_MEDIA_VIEWER_ZOOM));
   };
@@ -890,6 +909,7 @@ export function useMediaViewerController({
     setZoom,
     previewMode,
     setPreviewMode,
+    handleStageImageError,
     viewerMode,
     setViewerMode,
     slideshowIndex,

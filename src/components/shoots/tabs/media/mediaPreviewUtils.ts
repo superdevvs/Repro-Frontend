@@ -310,8 +310,28 @@ export const getMediaViewerImageUrl = (file: MediaFile): string => {
   return getMediaViewerImageCandidates(file)[0] || '';
 };
 
+/**
+ * Formats no mainstream browser can decode. A .tif or .heic original passes the
+ * previewable check on its extension, so "Full size" used to point straight at a
+ * file Chrome and Firefox render as a broken image - with no way back, because
+ * the stage swaps the src on the same element. These fall back to the largest
+ * processed rendition instead, which makes the toggle correctly report that no
+ * full-size preview exists rather than producing a dead frame.
+ */
+const BROWSER_UNDECODABLE_ORIGINALS = /\.(tiff?|heic|heif)$/i;
+
+const hasBrowserRenderableOriginal = (file: MediaFile): boolean => {
+  const name = (file.filename || '').toLowerCase();
+  if (BROWSER_UNDECODABLE_ORIGINALS.test(name)) {
+    return false;
+  }
+
+  const mime = (file.fileType || '').toLowerCase();
+  return !(mime.includes('tiff') || mime.includes('heic') || mime.includes('heif'));
+};
+
 export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
-  if (isRawMediaFile(file)) {
+  if (isRawMediaFile(file) || !hasBrowserRenderableOriginal(file)) {
     return getStrictLargePreviewCandidates(file)[0] || '';
   }
 

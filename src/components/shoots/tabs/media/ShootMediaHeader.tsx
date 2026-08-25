@@ -20,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ReclassifyMediaType } from './useShootMediaActions';
-import type { MediaSortOrder } from './mediaSort';
+import { DEFAULT_MEDIA_SORT, type MediaSortOrder } from './mediaSort';
 
 interface ShootMediaHeaderProps {
   isClient: boolean;
@@ -164,10 +164,22 @@ export function ShootMediaHeader({
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : 'bg-transparent'
                     }`}
-                    // Selecting Manual already enables dragging, so this segment
-                    // only opens the menu now.
-                    onClick={() => setSortMenuOpen(true)}
-                    title={sortOrder === 'manual' ? 'Drag photos to reorder them' : 'Change photo order'}
+                    // Selecting Manual from the menu switches dragging on, so
+                    // this segment is the way back out of it. Any arrangement
+                    // already made is saved, so stopping is non-destructive.
+                    onClick={() => {
+                      if (sortOrder === 'manual') {
+                        changeSortOrder(DEFAULT_MEDIA_SORT);
+                        return;
+                      }
+
+                      setSortMenuOpen(true);
+                    }}
+                    title={
+                      sortOrder === 'manual'
+                        ? 'Reordering is on - click to stop. Your order is saved.'
+                        : 'Change photo order'
+                    }
                   >
                     {sortOrder === 'manual' ? (
                       <GripVertical className="h-3 w-3 mr-1" />
@@ -176,7 +188,7 @@ export function ShootMediaHeader({
                     )}
                     <span>
                       {sortOrder === 'manual'
-                        ? 'Drag to Reorder'
+                        ? 'Reordering - Click to Stop'
                         : `Sort: ${sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : 'Time'}`}
                     </span>
                     {sortSaveStatus === 'saving' && (

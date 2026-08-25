@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { MediaFile } from '@/hooks/useShootFiles';
 
-import { getSortedMediaIds, normalizeManualOrder, sortMediaFiles } from './mediaSort';
+import {
+  buildManualBaselineIds,
+  getSortedMediaIds,
+  hasSavedManualOrder,
+  normalizeManualOrder,
+  sortMediaFiles,
+} from './mediaSort';
 
 /** Minimal MediaFile stub — only the fields the comparators read. */
 const file = (id: string, overrides: Partial<MediaFile> = {}): MediaFile =>
@@ -179,5 +185,73 @@ describe('switching into manual sort', () => {
     const seeded = normalizeManualOrder(getSortedMediaIds(files, 'time'), files);
 
     expect(seeded).toEqual(['a', 'b']);
+  });
+});
+
+describe('buildManualBaselineIds', () => {
+  it('restores a saved arrangement so leaving and re-entering manual is not destructive', () => {
+    const files = [
+      file('a', { filename: 'IMG_1.jpg', captured_at: '2026-05-01T09:00:00Z', sort_order: 3 }),
+      file('b', { filename: 'IMG_2.jpg', captured_at: '2026-05-01T10:00:00Z', sort_order: 1 }),
+      file('c', { filename: 'IMG_3.jpg', captured_at: '2026-05-01T11:00:00Z', sort_order: 2 }),
+    ];
+
+    expect(buildManualBaselineIds(files, 'time')).toEqual(['b', 'c', 'a']);
+  });
+
+  it('falls back to exactly the visible order when nothing was ever saved', () => {
+    const files = [
+      file('c', { filename: 'IMG_3.jpg', captured_at: '2026-05-01T11:00:00Z' }),
+      file('a', { filename: 'IMG_1.jpg', captured_at: '2026-05-01T09:00:00Z' }),
+      file('b', { filename: 'IMG_2.jpg', captured_at: '2026-05-01T10:00:00Z' }),
+    ];
+
+    const visible = sortMediaFiles(files, 'time').map((f) => f.id);
+
+    expect(buildManualBaselineIds(files, 'time')).toEqual(visible);
+  });
+
+  it('trails never-placed files behind the arranged block instead of leading with them', () => {
+    // sort_order 0 sorting first is what made entering manual look like a shuffle:
+    // every new upload jumped to the top of a curated set.
+    const files = [
+      file('new', { filename: 'IMG_9.jpg', captured_at: '2026-05-01T08:00:00Z', sort_order: 0 }),
+      file('first', { filename: 'IMG_1.jpg', captured_at: '2026-05-01T09:00:00Z', sort_order: 1 }),
+      file('second', { filename: 'IMG_2.jpg', captured_at: '2026-05-01T10:00:00Z', sort_order: 2 }),
+    ];
+
+    expect(buildManualBaselineIds(files, 'time')).toEqual(['first', 'second', 'new']);
+  });
+
+  it('breaks duplicate saved positions by id, matching the backend delivery order', () => {
+    const files = [
+      file('20', { sort_order: 1 }),
+      file('3', { sort_order: 1 }),
+      file('11', { sort_order: 1 }),
+    ];
+
+    expect(buildManualBaselineIds(files, 'time')).toEqual(['3', '11', '20']);
+  });
+
+  it('is idempotent', () => {
+    const files = [
+      file('a', { sort_order: 2 }),
+      file('b', { sort_order: 1 }),
+      file('c', { sort_order: 0 }),
+    ];
+
+    const once = buildManualBaselineIds(files, 'time');
+
+    expect(sortMediaFiles(files, 'manual', once).map((f) => f.id)).toEqual(once);
+  });
+});
+
+describe('hasSavedManualOrder', () => {
+  it('is false when no file was ever placed', () => {
+    expect(hasSavedManualOrder([file('a'), file('b', { sort_order: 0 })])).toBe(false);
+  });
+
+  it('is true as soon as one file carries a 1-based position', () => {
+    expect(hasSavedManualOrder([file('a', { sort_order: 0 }), file('b', { sort_order: 1 })])).toBe(true);
   });
 });

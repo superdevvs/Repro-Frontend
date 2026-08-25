@@ -3,6 +3,13 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 export type MediaSortOrder = 'name' | 'date' | 'time' | 'manual';
 
 /**
+ * Capture time: the order the property was actually shot in, which is the order
+ * that reads as a walkthrough. Also the order manual sort falls back to when a
+ * shoot has no saved arrangement.
+ */
+export const DEFAULT_MEDIA_SORT: Exclude<MediaSortOrder, 'manual'> = 'time';
+
+/**
  * Where the per-shoot sort choice is remembered.
  *
  * Shared rather than duplicated because the Bright MLS export reads the same
@@ -95,3 +102,56 @@ export const getSortedMediaIds = (
   files: MediaFile[],
   sortOrder: Exclude<MediaSortOrder, 'manual'>,
 ): string[] => sortMediaFiles(files, sortOrder).map((file) => file.id);
+
+/** Backend writes sort_order 1-based, so 0 or null means "never placed". */
+export const hasSavedManualOrder = (files: MediaFile[]): boolean =>
+  files.some((file) => (file.sort_order ?? 0) > 0);
+
+const compareIdsAscending = (left: string, right: string) => {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+
+  return left.localeCompare(right, undefined, { numeric: true });
+};
+
+/**
+ * The order manual sort starts from.
+ *
+ * Deliberately mirrors the backend's delivery order (ShootFile::deliveryOrderKey
+ * sorts on `[sort_order > 0 ? 0 : 1, sort_order, id]`) so the arrangement an
+ * admin sees here is the arrangement the tour gallery, the ZIP and the MLS
+ * export produce. Two consequences fall out of that:
+ *
+ *  - A previously saved arrangement is restored, which is what makes switching
+ *    away to another sort and back non-destructive.
+ *  - A file that was never placed carries sort_order 0 and trails the curated
+ *    block instead of leading it. Sorting naively on sort_order put every new
+ *    upload at the very top, which is what made entering manual sort look like
+ *    it had shuffled the grid at random.
+ *
+ * When nothing has ever been saved this returns exactly the visible order, so
+ * choosing Manual on a fresh shoot moves nothing.
+ */
+export const buildManualBaselineIds = (
+  files: MediaFile[],
+  visibleSort: Exclude<MediaSortOrder, 'manual'>,
+): string[] => {
+  const placed = files
+    .filter((file) => (file.sort_order ?? 0) > 0)
+    .sort((left, right) => {
+      const byPosition = (left.sort_order ?? 0) - (right.sort_order ?? 0);
+      // A partial reorder can leave duplicate positions; match the backend's
+      // `id asc` tie-break so both sides agree.
+      return byPosition !== 0 ? byPosition : compareIdsAscending(left.id, right.id);
+    });
+
+  const unplaced = sortMediaFiles(
+    files.filter((file) => (file.sort_order ?? 0) <= 0),
+    visibleSort,
+  );
+
+  return normalizeManualOrder([...placed, ...unplaced].map((file) => file.id), files);
+};

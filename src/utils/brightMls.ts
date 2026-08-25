@@ -182,18 +182,63 @@ const getNumericSortValue = (value: unknown): number | null => {
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
-const getSavedSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
+/**
+ * A placed file's position, or null when it was never placed.
+ *
+ * `sort_order` is written 1-based by a saved manual reorder, so 0 and null both
+ * mean "no admin ever positioned this". Returning a literal 0 here used to sort
+ * those files *ahead* of manual position 1 - the opposite of the backend, which
+ * pushes them to the tail (ShootFile::deliveryOrderKey). That made the MLS export
+ * disagree with the tour gallery and the ZIP for the same shoot.
+ */
+const getPlacedSortOrder = (file: Partial<ShootFileData> & LooseRecord): number | null => {
   const sortOrder = getNumericSortValue(file.sort_order)
-  if (sortOrder !== null) {
-    return sortOrder
-  }
+  return sortOrder !== null && sortOrder > 0 ? sortOrder : null
+}
 
+const getSavedSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
   const sequence = getNumericSortValue(file.sequence)
   if (sequence !== null) {
     return sequence
   }
 
   return index
+}
+
+const hasPlacedSortOrder = (files: Array<Partial<ShootFileData> & LooseRecord>): boolean =>
+  files.some((file) => getPlacedSortOrder(file) !== null)
+
+/**
+ * Order two photos the way the backend delivers them: placed files first by
+ * position, everything else after, ties broken by id.
+ */
+const comparePlacedSortOrder = (
+  left: { file: Partial<ShootFileData> & LooseRecord; index: number },
+  right: { file: Partial<ShootFileData> & LooseRecord; index: number },
+): number => {
+  const leftPosition = getPlacedSortOrder(left.file)
+  const rightPosition = getPlacedSortOrder(right.file)
+
+  if (leftPosition === null && rightPosition === null) {
+    return left.index - right.index
+  }
+  if (leftPosition === null) {
+    return 1
+  }
+  if (rightPosition === null) {
+    return -1
+  }
+  if (leftPosition !== rightPosition) {
+    return leftPosition - rightPosition
+  }
+
+  const leftId = Number(left.file.id)
+  const rightId = Number(right.file.id)
+  if (Number.isFinite(leftId) && Number.isFinite(rightId) && leftId !== rightId) {
+    return leftId - rightId
+  }
+
+  return left.index - right.index
 }
 
 const getMediaGridSortOrder = (shoot: Partial<ShootData> & LooseRecord): MediaGridSortOrder => {
@@ -262,7 +307,17 @@ const compareMediaGridPhotos = (
   right: { file: Partial<ShootFileData> & LooseRecord; index: number },
   sortOrder: MediaGridSortOrder,
   orderedPhotoMap: Map<string, number> | null,
+  preferPlacedSortOrder = false,
 ): number => {
+  // A saved manual arrangement lives in the database, so it wins over anything
+  // cached in this browser. Without this the export depended on a localStorage
+  // array that only the Media tab writes: publishing from another machine, or
+  // after clearing storage, silently dropped the admin's arrangement, and an
+  // array written while a different sort was active overrode it.
+  if (preferPlacedSortOrder) {
+    return comparePlacedSortOrder(left, right)
+  }
+
   const leftOrderedIndex = getOrderedPhotoIndex(left.file, orderedPhotoMap)
   const rightOrderedIndex = getOrderedPhotoIndex(right.file, orderedPhotoMap)
 
@@ -307,8 +362,14 @@ export const buildBrightMlsPublishPayload = (
   const mediaRecord = asRecord(shoot.media)
   const mediaImages = Array.isArray(mediaRecord.images) ? (mediaRecord.images as LooseRecord[]) : []
 
-  const filePhotos = getBrightMlsPublishableFiles(shoot)
+  const publishableFiles = getBrightMlsPublishableFiles(shoot)
     .map((file, index) => ({ file: (file || {}) as Partial<ShootFileData> & LooseRecord, index }))
+  // An explicit caller-supplied order still wins; otherwise a saved manual
+  // arrangement in the database takes precedence over browser-cached order.
+  const preferPlacedSortOrder = !options?.orderedPhotoIds
+    && hasPlacedSortOrder(publishableFiles.map(({ file }) => file))
+
+  const filePhotos = publishableFiles
     .filter(({ file }) => {
       if (!selectedPhotoIds) {
         return true
@@ -316,7 +377,7 @@ export const buildBrightMlsPublishPayload = (
 
       return selectedPhotoIds.has(String(file.id ?? ''))
     })
-    .sort((left, right) => compareMediaGridPhotos(left, right, mediaGridSortOrder, orderedPhotoMap))
+    .sort((left, right) => compareMediaGridPhotos(left, right, mediaGridSortOrder, orderedPhotoMap, preferPlacedSortOrder))
     .map(({ file, index }, orderedIndex) => ({
       id: file.id,
       url: getFileUrl(file),
@@ -354,6 +415,7 @@ export const buildBrightMlsPublishPayload = (
       { file: right.image as Partial<ShootFileData> & LooseRecord, index: right.index },
       mediaGridSortOrder,
       orderedPhotoMap,
+      preferPlacedSortOrder,
     ))
     .map(({ image, index }, orderedIndex) => ({
       id: typeof image.id === 'string' || typeof image.id === 'number' ? image.id : undefined,

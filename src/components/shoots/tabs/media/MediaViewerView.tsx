@@ -22,6 +22,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     currentIndex,
     onIndexChange,
     getImageUrl,
+    handleStageImageError,
     shoot,
     isClient,
     canInteractSingleMedia,
@@ -436,6 +437,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                               className={fitMediaClassName}
                               loading="eager"
                               draggable={false}
+                              onError={handleStageImageError}
                             />
                           </div>
                         ) : (
@@ -445,6 +447,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                               className={fitMediaClassName}
                               loading="eager"
                               draggable={false}
+                              onError={handleStageImageError}
                             />
                         )
                         ) : isVid ? (

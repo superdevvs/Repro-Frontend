@@ -82,7 +82,15 @@ import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
-import { getSortedMediaIds, mediaSortStorageKey, normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
+import {
+  buildManualBaselineIds,
+  DEFAULT_MEDIA_SORT,
+  hasSavedManualOrder,
+  mediaSortStorageKey,
+  normalizeManualOrder,
+  sortMediaFiles,
+  type MediaSortOrder,
+} from './mediaSort';
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
@@ -359,11 +367,7 @@ export function useShootDetailsMediaTab({
     } catch {
       // Ignore unavailable localStorage and fall back to the default sort mode.
     }
-    // Capture time is the default: it is the order the property was actually
-    // shot in, which is the order that reads as a walkthrough. Ties fall back to
-    // the filename counter in sortMediaFiles, so a folder of files sharing one
-    // timestamp still comes out in camera order.
-    return 'time';
+    return DEFAULT_MEDIA_SORT;
   });
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -591,11 +595,8 @@ export function useShootDetailsMediaTab({
     if (hasPendingManualOrder.current || manualOrder.length > 0) {
       return;
     }
-    // Check if any file has a non-zero sort_order (meaning order was previously saved)
-    const hasSavedOrder = sortableFiles.some(f => (f.sort_order ?? 0) > 0);
-    if (hasSavedOrder) {
-      const sorted = [...sortableFiles].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      const newOrder = normalizeManualOrder(sorted.map((file) => file.id), sortableFiles);
+    if (hasSavedManualOrder(sortableFiles)) {
+      const newOrder = buildManualBaselineIds(sortableFiles, DEFAULT_MEDIA_SORT);
       // Only update if the order fingerprint changed (avoids infinite loops)
       const fingerprint = newOrder.join(',');
       if (fingerprint !== lastSortFingerprint.current) {
@@ -750,17 +751,13 @@ export function useShootDetailsMediaTab({
   }, []);
 
   const changeSortOrder = useCallback((nextSortOrder: MediaSortOrder) => {
-    // Switching into manual takes the order that is on screen right now as its
-    // starting point. Seeding from a previously saved arrangement instead made
-    // the grid jump the moment Manual was chosen, and the saved order was often
-    // not meaningful anyway: files never reordered carry sort_order 0 and sorted
-    // ahead of everything else.
+    // Switching into manual restores the saved arrangement when there is one, so
+    // going Manual -> Time -> Manual returns to the arrangement rather than
+    // discarding it. With nothing saved the baseline is exactly the order on
+    // screen, so choosing Manual on a fresh shoot moves nothing.
     if (nextSortOrder === 'manual' && sortOrder !== 'manual') {
       const sortableFiles = getSortableFiles();
-      const nextManualOrder = normalizeManualOrder(
-        getSortedMediaIds(sortableFiles, sortOrder),
-        sortableFiles,
-      );
+      const nextManualOrder = buildManualBaselineIds(sortableFiles, sortOrder);
       // Entering manual mode should not immediately persist and refresh the parent list.
       // We only want to save after the user actually reorders files.
       isRestoringOrder.current = true;
