@@ -337,7 +337,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                           return (
                             <span
                               key={`${shoot.id}-${key}-${index}`}
-                              className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground"
+                              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground"
                             >
                               {icon}
                               {SERVICE_LABELS[key] || tag.label}

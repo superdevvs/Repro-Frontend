@@ -132,6 +132,11 @@ export const AdminDashboardView = ({
           style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
           className={cn(
             "relative flex flex-col gap-4 sm:gap-6 order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+            // With an empty shoots list this column is only as tall as the card's
+            // header plus the empty message, leaving a hole beside the taller side
+            // columns. The grid is `items-start`, so stretch just this item when the
+            // card reports itself empty and its `flex-1` root will fill the row.
+            "md:has-[[data-shoots-empty]]:self-stretch",
             effectiveLeftColumnHidden && effectiveRightColumnHidden
               ? "md:col-span-12 min-[1025px]:col-span-1"
               : effectiveLeftColumnHidden || effectiveRightColumnHidden

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import type { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Avatar } from './SharedComponents';
+import { ServicePills } from './ServicePills';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -648,22 +649,7 @@ export function useShootsTabsCardController({
             <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
           </div>
           {/* Row 4: Service tags + Photographer bottom-right */}
-          <div className="flex gap-1.5 flex-wrap">
-            {serviceList.map((tag, index) => {
-              const key = getServiceKey(tag.label, tag.type);
-              const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
-              const icon = IconComp ? <IconComp className="w-2.5 h-2.5" /> : (SERVICE_ICON_MAP[key] || <Camera size={10} />);
-              return (
-                <span
-                  key={`${shoot.id}-${key}-${index}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border/70 bg-muted/30 text-[10px] font-semibold text-muted-foreground"
-                >
-                  {icon}
-                  {SERVICE_LABELS[key] || tag.label}
-                </span>
-              );
-            })}
-          </div>
+          <ServicePills shootId={shoot.id} items={serviceList} variant="compact" preferMappedLabel />
           {/* Row 5: Status left + Photographer right */}
           <hr className="border-border" />
           <div className="flex items-center justify-between">
@@ -761,22 +747,7 @@ export function useShootsTabsCardController({
               <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
               <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
             </div>
-            <div className="flex gap-2 flex-wrap text-xs text-muted-foreground transition-all">
-              {serviceList.map((tag, index) => {
-                const key = getServiceKey(tag.label, tag.type);
-                const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
-                const icon = IconComp ? <IconComp className="w-3 h-3" /> : (SERVICE_ICON_MAP[key] || <Camera size={12} />);
-                return (
-                  <span
-                    key={`${shoot.id}-${key}-${index}`}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border/70 bg-background text-[11px] font-semibold text-muted-foreground"
-                  >
-                    {icon}
-                    {SERVICE_LABELS[key] || tag.label}
-                  </span>
-                );
-              })}
-            </div>
+            <ServicePills shootId={shoot.id} items={serviceList} variant="desktop" preferMappedLabel />
           </div>
           <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
             <div className="flex flex-col items-end gap-1.5">

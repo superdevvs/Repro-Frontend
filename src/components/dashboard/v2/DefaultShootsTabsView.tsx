@@ -532,7 +532,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
       <div className={cn('flex flex-col', activeTab === 'upcoming' && 'flex-1')}>
         {activeTab === 'upcoming' ? (
           paginatedGroups.length === 0 ? (
-            <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
+            <div
+              data-shoots-empty="true"
+              className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500"
+            >
               No upcoming shoots found.
             </div>
           ) : (
