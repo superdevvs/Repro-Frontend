@@ -36,8 +36,23 @@ const PROVIDERS = new Set(['matterport', 'iguide', 'zillow']);
 // Must match config('link_preview.unbranded_types').
 const UNBRANDED_TYPES = new Set(['mls', 'g-mls', 'video-mls', 'video-generic', '3d-mls']);
 
-// The SPA must not wait on the API. A miss costs a generic card, not a page.
-const METADATA_TIMEOUT_MS = 800;
+/**
+ * Wait budget for the metadata subrequest.
+ *
+ * A human is waiting for the document, so their budget is short: a miss costs a
+ * generic card, not a page. A crawler has nobody waiting, and a card it fetches
+ * too early gets cached on its side for a long time - WhatsApp cached the generic
+ * fallback this way - so it gets a much longer budget.
+ *
+ * The user agent selects only how long to wait. It never selects what to serve:
+ * every client receives the same document and the same tags. Guessing wrong is
+ * therefore harmless in both directions, which is what makes this safe when
+ * clients like iMessage present themselves as ordinary browsers.
+ */
+const METADATA_TIMEOUT_HUMAN_MS = 1500;
+const METADATA_TIMEOUT_CRAWLER_MS = 8000;
+
+const CRAWLER_HINT = /bot|crawler|spider|facebookexternalhit|whatsapp|telegram|slack|discord|linkedin|twitter|pinterest|instagram|applebot|skypeuripreview|embedly|iframely|vkshare|preview|quora|redditbot/i;
 
 const NEUTRAL_CARD_PATH = '/og-tour.jpg';
 const BRANDED_CARD_PATH = '/og-image.jpg';
@@ -164,12 +179,15 @@ export default {
       }
     }
 
+    const looksLikeCrawler = CRAWLER_HINT.test(request.headers.get('user-agent') || '');
+    const timeoutMs = looksLikeCrawler ? METADATA_TIMEOUT_CRAWLER_MS : METADATA_TIMEOUT_HUMAN_MS;
+
     const originRequest = fetch(request);
     const metadataRequest = inputsValid
       ? fetch(metadataUrl, {
         headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
-        cf: { cacheEverything: true, cacheTtl: 60 },
+        signal: AbortSignal.timeout(timeoutMs),
+        cf: { cacheEverything: true, cacheTtl: 300 },
       }).then((response) => (response.ok ? response.json() : null)).catch(() => null)
       : Promise.resolve(null);
 
