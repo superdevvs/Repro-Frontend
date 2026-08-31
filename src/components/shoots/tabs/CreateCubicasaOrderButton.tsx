@@ -15,6 +15,14 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { Loader2, FilePlus2 } from 'lucide-react';
 
+type CubicasaOrderMutationResponse = {
+  error?: string;
+  message?: string;
+  mode?: string;
+  success?: boolean;
+  synced?: boolean;
+};
+
 export interface CreateCubicasaOrderButtonProps {
   /** Shoot identifier the order will be created against. */
   shootId: number | string;
@@ -31,6 +39,10 @@ export interface CreateCubicasaOrderButtonProps {
   visible?: boolean;
   /** External disable signal (e.g. another mutation in flight). */
   disabled?: boolean;
+  /** Keep the compact provider row from repeating the status already shown beside it. */
+  showStatus?: boolean;
+  /** Short button copy for narrow provider rows. */
+  compact?: boolean;
 }
 
 /**
@@ -54,6 +66,8 @@ export function CreateCubicasaOrderButton({
   onCreated,
   visible = true,
   disabled = false,
+  showStatus = true,
+  compact = false,
 }: CreateCubicasaOrderButtonProps) {
   const { toast } = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -70,7 +84,9 @@ export function CreateCubicasaOrderButton({
     return 'outline';
   })();
 
-  const buttonLabel = alreadyLinked ? 'Sync CubiCasa order' : 'Create CubiCasa order';
+  const buttonLabel = compact
+    ? (alreadyLinked ? 'Sync order' : 'Create order')
+    : (alreadyLinked ? 'Sync CubiCasa order' : 'Create CubiCasa order');
   const dialogTitle = alreadyLinked
     ? 'Sync existing CubiCasa order?'
     : 'Create CubiCasa order?';
@@ -94,7 +110,7 @@ export function CreateCubicasaOrderButton({
           },
         },
       );
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({} as CubicasaOrderMutationResponse)) as CubicasaOrderMutationResponse;
       if (!res.ok || (json && json.success === false)) {
         const message =
           (json && (json.message || json.error)) ||
@@ -110,11 +126,11 @@ export function CreateCubicasaOrderButton({
       });
       setConfirmOpen(false);
       if (onCreated) onCreated();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Create CubiCasa order failed', err);
       toast({
         title: 'CubiCasa order failed',
-        description: err?.message || 'Could not create CubiCasa order.',
+        description: err instanceof Error ? err.message : 'Could not create CubiCasa order.',
         variant: 'destructive',
       });
     } finally {
@@ -128,16 +144,19 @@ export function CreateCubicasaOrderButton({
       data-testid="create-cubicasa-order-button"
     >
       {/* AC 19.8 — surface current cubicasa_status next to the control. */}
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className="text-muted-foreground">CubiCasa status:</span>
-        <Badge variant={statusVariant} data-testid="cubicasa-current-status">
-          {statusLabel}
-        </Badge>
-      </div>
+      {showStatus && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground">CubiCasa status:</span>
+          <Badge variant={statusVariant} data-testid="cubicasa-current-status">
+            {statusLabel}
+          </Badge>
+        </div>
+      )}
       <span className="inline-flex" data-testid="cubicasa-create-order-button">
         <Button
           variant="outline"
           size="sm"
+          className={compact ? 'h-8 px-3 text-xs' : undefined}
           onClick={() => setConfirmOpen(true)}
           disabled={disabled || isSubmitting}
           data-testid="create-cubicasa-order-trigger"

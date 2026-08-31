@@ -1,6 +1,7 @@
 import { formatDistanceToNowStrict } from 'date-fns';
 
 import type { WeeklyInvoice } from '@/services/invoiceService';
+import { parseInvoiceDateInput } from '@/utils/invoiceDateFilters';
 
 export type ReviewWorkspaceTab = 'review-queue' | 'payout-report';
 export type ReviewStatusFilter = 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
@@ -25,9 +26,9 @@ export const formatCurrency = (amount: number | string | undefined) =>
 export const formatBillingPeriod = (start?: string, end?: string) => {
   if (!start || !end) return 'Billing period unavailable';
   const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  const startDate = parseInvoiceDateInput(start);
+  const endDate = parseInvoiceDateInput(end);
+  if (!startDate || !endDate) {
     return 'Billing period unavailable';
   }
   const startLabel = formatter.format(startDate);

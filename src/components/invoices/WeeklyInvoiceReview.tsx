@@ -2,19 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +29,6 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  Download,
   DollarSign,
   ReceiptText,
   Camera,
@@ -54,22 +47,39 @@ import {
 } from '@/services/invoiceService';
 import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
 import {
+  InvoiceDateFilterToolbar,
+  type InvoiceExportFormat,
+} from '@/components/accounting/InvoiceDateFilterToolbar';
+import {
   getMatchingShootServiceForInvoiceItem,
   getPhotographerPayForService,
   getPhotographerPayForShoot,
 } from '@/components/accounting/photographerEarningsUtils';
 import { cn } from '@/lib/utils';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
+import { downloadInvoicesPdf } from '@/utils/invoiceDownloads';
+import {
+  DEFAULT_INVOICE_DATE_FILTER,
+  type InvoiceDateFilter,
+} from '@/utils/invoiceDateFilters';
 
 import {
-  FETCH_PAGE_SIZE,
   ITEMS_PER_PAGE,
+  WEEKLY_INVOICE_EXPORT_COLUMNS,
   approvalStatusConfig,
+  buildWeeklyInvoiceExportRows,
+  fetchAllWeeklyInvoicePages,
+  filterWeeklyInvoicesByDate,
   formatWeeklyBillingPeriod as formatBillingPeriod,
   formatWeeklyInvoiceCurrency as formatCurrency,
-  formatWeeklyInvoiceDate as formatDate,
+  getWeeklyInvoiceAggregateStats,
+  getWeeklyInvoiceChargeTotal,
+  getWeeklyInvoiceExportScope,
   getWeeklyInvoiceReviewCopy,
+  getWeeklyInvoiceTotal,
+  normalizeWeeklyInvoiceRole,
 } from './weeklyInvoiceReviewUtils';
+import { WeeklyInvoiceEmptyState, WeeklyInvoiceLoadingState } from './WeeklyInvoiceReviewStates';
 
 export const WeeklyInvoiceReview: React.FC = () => {
   const { role, user } = useAuth();
@@ -87,10 +97,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-  const [totalInvoices, setTotalInvoices] = useState(0);
+  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<number>>(() => new Set());
+  const [exporting, setExporting] = useState(false);
 
-  const invoiceRole: 'photographer' | 'salesRep' = role === 'salesRep' ? 'salesRep' : 'photographer';
+  const invoiceRole = normalizeWeeklyInvoiceRole(role);
   const reviewCopy = getWeeklyInvoiceReviewCopy(invoiceRole);
 
   const shootLookup = React.useMemo(() => {
@@ -153,12 +164,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
     try {
       setLoading(true);
       const fetchFn = invoiceRole === 'photographer' ? fetchPhotographerInvoices : fetchSalesRepInvoices;
-      // Fetch a large batch so the new design's aggregate stats and the left
-      // list both have the full dataset to work with. The list itself is
-      // paginated client-side via {currentPage}.
-      const response = await fetchFn({ page: 1, per_page: FETCH_PAGE_SIZE });
-      setInvoices(response.data || []);
-      setTotalInvoices(response.total || (response.data || []).length);
+      setInvoices(await fetchAllWeeklyInvoicePages(fetchFn));
     } catch (error) {
       console.error('Failed to load weekly invoices:', error);
       toast({ title: 'Failed to load invoices', variant: 'destructive' });
@@ -170,6 +176,34 @@ export const WeeklyInvoiceReview: React.FC = () => {
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
+
+  const filteredInvoices = React.useMemo(
+    () => filterWeeklyInvoicesByDate(invoices, dateFilter),
+    [dateFilter, invoices],
+  );
+
+  const selectedCount = React.useMemo(
+    () => filteredInvoices.filter((invoice) => selectedInvoiceIds.has(invoice.id)).length,
+    [filteredInvoices, selectedInvoiceIds],
+  );
+
+  useEffect(() => {
+    const filteredIds = new Set(filteredInvoices.map((invoice) => invoice.id));
+    setSelectedInvoiceIds((current) => {
+      const next = new Set([...current].filter((id) => filteredIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+    setSelectedInvoice((current) => {
+      const matchingInvoice = current
+        ? filteredInvoices.find((invoice) => invoice.id === current.id)
+        : null;
+      return matchingInvoice ?? filteredInvoices[0] ?? null;
+    });
+    setCurrentPage((page) => Math.min(
+      page,
+      Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE)),
+    ));
+  }, [filteredInvoices]);
 
   const canModify = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status) &&
@@ -270,38 +304,96 @@ export const WeeklyInvoiceReview: React.FC = () => {
     }
   };
 
-  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
-    const rows = invoices.map((invoice) => ({
-      week: `${formatDate(invoice.billing_period_start)} - ${formatDate(invoice.billing_period_end)}`,
-      status: approvalStatusConfig[invoice.approval_status || 'pending']?.label || invoice.approval_status,
-      total: formatCurrency(invoice.total_amount),
-      charges: (invoice.charge_count || 0).toString(),
-      expenses: (invoice.expense_count || 0).toString(),
-      notes: invoice.modification_notes || invoice.rejection_reason || '',
-    }));
-
-    const columns = [
-      { key: 'week', label: 'Week' },
-      { key: 'status', label: 'Status' },
-      { key: 'total', label: 'Total' },
-      { key: 'charges', label: 'Charges' },
-      { key: 'expenses', label: 'Expenses' },
-      { key: 'notes', label: 'Notes' },
-    ] as const;
-
-    const fileName = reviewCopy.fileName;
-
+  const exportInvoices = async (
+    format: InvoiceExportFormat,
+    scopedInvoices: WeeklyInvoice[],
+    fileName: string,
+    pdfTitle = reviewCopy.pdfTitle,
+  ) => {
+    const rows = buildWeeklyInvoiceExportRows(scopedInvoices);
     if (format === 'csv') {
-      exportRowsAsCsv(fileName, columns, rows);
-      return;
+      exportRowsAsCsv(fileName, WEEKLY_INVOICE_EXPORT_COLUMNS, rows);
+    } else if (format === 'excel') {
+      await exportRowsAsExcel(fileName, 'Weekly Invoices', WEEKLY_INVOICE_EXPORT_COLUMNS, rows);
+    } else {
+      await exportRowsAsPdf(fileName, pdfTitle, WEEKLY_INVOICE_EXPORT_COLUMNS, rows);
     }
+  };
 
-    if (format === 'excel') {
-      exportRowsAsExcel(fileName, 'Weekly Invoices', columns, rows);
-      return;
+  const handleExport = async (format: InvoiceExportFormat) => {
+    const scopedInvoices = getWeeklyInvoiceExportScope(filteredInvoices, selectedInvoiceIds);
+    const selectionSuffix = selectedCount > 0 ? `-selected-${selectedCount}` : '';
+    setExporting(true);
+    try {
+      await exportInvoices(format, scopedInvoices, `${reviewCopy.fileName}${selectionSuffix}`);
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unable to export these invoices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
     }
+  };
 
-    exportRowsAsPdf(fileName, reviewCopy.pdfTitle, columns, rows);
+  const handleBulkPdf = async () => {
+    const selectedInvoices = filteredInvoices.filter((invoice) => selectedInvoiceIds.has(invoice.id));
+    if (selectedInvoices.length === 0) return;
+
+    setExporting(true);
+    try {
+      await downloadInvoicesPdf(
+        selectedInvoices.map((invoice) => {
+          const payee = invoiceRole === 'salesRep'
+            ? invoice.salesRep ?? invoice.payee
+            : invoice.photographer ?? invoice.payee;
+          const total = getWeeklyInvoiceTotal(invoice);
+          const amountPaid = Number(invoice.amount_paid || 0);
+
+          return {
+            ...invoice,
+            number: `W-${invoice.id}`,
+            client: payee,
+            date: invoice.billing_period_start,
+            dueDate: invoice.billing_period_end,
+            amount: total,
+            amountPaid,
+            balance: Math.max(total - amountPaid, 0),
+          };
+        }),
+        {
+          fileName: `${reviewCopy.fileName}-selected-invoices-combined-${selectedInvoices.length}.pdf`,
+        },
+      );
+      toast({
+        title: 'Invoices downloaded',
+        description: `${selectedInvoices.length} invoices were combined into one PDF.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unable to download the selected invoices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDateFilterChange = (filter: InvoiceDateFilter) => {
+    setDateFilter(filter);
+    setSelectedInvoiceIds(new Set());
+    setCurrentPage(1);
+  };
+
+  const toggleInvoiceSelection = (invoiceId: number, checked: boolean) => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(invoiceId);
+      else next.delete(invoiceId);
+      return next;
+    });
   };
 
   const openReviewDialog = (invoice: WeeklyInvoice) => {
@@ -342,107 +434,39 @@ export const WeeklyInvoiceReview: React.FC = () => {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">{reviewCopy.loading}</span>
-      </div>
-    );
+    return <WeeklyInvoiceLoadingState message={reviewCopy.loading} />;
   }
 
   if (invoices.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold">{reviewCopy.emptyTitle}</h3>
-          <p className="text-muted-foreground text-sm mt-1">
-            {reviewCopy.emptyDescription}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <WeeklyInvoiceEmptyState title={reviewCopy.emptyTitle} description={reviewCopy.emptyDescription} />;
   }
 
-  // Sum the charge lines recorded on the invoice.
-  //
-  // This used to re-derive a photographer's payout from ShootsContext instead of
-  // reading the invoice, which made the list and the KPI cards disagree with the
-  // invoice itself: `getPhotographerPayForShoot` returns 0 whenever a shoot uses
-  // per-service photographer assignment and the top-level photographer is
-  // someone else, so a real $350 invoice rendered as $0.00 here while the
-  // approval dialog (which reads `total_amount`) showed the true figure.
-  //
-  // An invoice is a financial record; the server-computed amount is the only
-  // authoritative value, so every display and aggregate now reads it directly.
-  const computeInvoiceChargeTotal = (invoice: WeeklyInvoice): number =>
-    (invoice.items || [])
-      .filter((i) => i.type === 'charge')
-      .reduce((sum, item) => sum + parseFloat(String(item.total_amount ?? 0)), 0);
-
-  // Prefer the invoice's own recorded total; fall back to summing its lines when
-  // the field is absent (older payloads), never to a client-side re-derivation.
-  const getInvoiceTotal = (invoice: WeeklyInvoice): number => {
-    const recorded = parseFloat(String(invoice.total_amount ?? ''));
-    if (Number.isFinite(recorded) && recorded !== 0) return recorded;
-    return (invoice.items || []).reduce(
-      (sum, item) => sum + parseFloat(String(item.total_amount ?? 0)),
-      0,
-    );
-  };
-
-  // -------- Aggregate stats across all loaded invoices --------
-  const aggregateStats = invoices.reduce(
-    (acc, invoice) => {
-      const invoiceCharges = (invoice.items || []).filter((i) => i.type === 'charge');
-      const invoiceExpenses = (invoice.items || []).filter((i) => i.type === 'expense');
-      const expensesTotal = invoiceExpenses.reduce(
-        (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
-        0,
-      );
-      acc.totalAmount += getInvoiceTotal(invoice);
-      acc.totalShoots += invoiceCharges.length;
-      acc.totalExpensesAmount += expensesTotal;
-      if (invoice.approval_status === 'pending') {
-        acc.pendingReviewCount += 1;
-      }
-      return acc;
-    },
-    { totalAmount: 0, totalShoots: 0, totalExpensesAmount: 0, pendingReviewCount: 0 },
-  );
+  const aggregateStats = getWeeklyInvoiceAggregateStats(filteredInvoices);
 
   // Client-side pagination of the left list.
-  const clientLastPage = Math.max(1, Math.ceil(invoices.length / ITEMS_PER_PAGE));
+  const clientLastPage = Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, clientLastPage);
-  const pagedInvoices = invoices.slice(
+  const pagedInvoices = filteredInvoices.slice(
     (safePage - 1) * ITEMS_PER_PAGE,
     safePage * ITEMS_PER_PAGE,
   );
 
-  // Auto-select first invoice when none is selected (or selection no longer present).
-  if (!selectedInvoice || !invoices.find((inv) => inv.id === selectedInvoice.id)) {
-    if (invoices.length > 0) {
-      // Avoid setting state during render: defer.
-      Promise.resolve().then(() => setSelectedInvoice(invoices[0]));
-    }
-  }
-
   // Detail computations for the right pane.
-  const detailInvoice = selectedInvoice && invoices.find((i) => i.id === selectedInvoice.id)
-    ? selectedInvoice
-    : invoices[0] ?? null;
+  const detailInvoice = selectedInvoice
+    ? filteredInvoices.find((invoice) => invoice.id === selectedInvoice.id) ?? filteredInvoices[0] ?? null
+    : filteredInvoices[0] ?? null;
   const detailCharges = detailInvoice
     ? (detailInvoice.items || []).filter((i) => i.type === 'charge')
     : [];
   const detailExpenses = detailInvoice
     ? (detailInvoice.items || []).filter((i) => i.type === 'expense')
     : [];
-  const detailShootPay = detailInvoice ? computeInvoiceChargeTotal(detailInvoice) : 0;
+  const detailShootPay = detailInvoice ? getWeeklyInvoiceChargeTotal(detailInvoice) : 0;
   const detailExpensesTotal = detailExpenses.reduce(
     (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
     0,
   );
-  const detailTotal = detailInvoice ? getInvoiceTotal(detailInvoice) : 0;
+  const detailTotal = detailInvoice ? getWeeklyInvoiceTotal(detailInvoice) : 0;
   const detailStatusCfg = detailInvoice
     ? approvalStatusConfig[detailInvoice.approval_status] || approvalStatusConfig.pending
     : null;
@@ -453,7 +477,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
     // Outer wrapper for the redesigned Weekly Invoices section.
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start gap-3">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <FileText className="h-5 w-5 text-primary" />
@@ -463,27 +487,26 @@ export const WeeklyInvoiceReview: React.FC = () => {
             <p className="text-sm text-muted-foreground">{reviewCopy.sectionDescription}.</p>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="self-start">
-              <Download className="mr-2 h-4 w-4" />
-              Export Report
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport('csv')}>CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
+
+      <InvoiceDateFilterToolbar
+        filter={dateFilter}
+        onFilterChange={handleDateFilterChange}
+        resultCount={filteredInvoices.length}
+        selectedCount={selectedCount}
+        onClearSelection={() => setSelectedInvoiceIds(new Set())}
+        onExport={handleExport}
+        onBulkPdf={handleBulkPdf}
+        exportDisabled={filteredInvoices.length === 0}
+        exporting={loading || exporting}
+      />
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/60 bg-card/50 p-4 sm:grid-cols-3 lg:grid-cols-5">
         {[
           {
             icon: <FileText className="h-5 w-5" />,
-            value: invoices.length.toString(),
+            value: filteredInvoices.length.toString(),
             label: 'Invoices',
             iconBg: 'bg-blue-500/10 text-blue-500',
           },
@@ -533,11 +556,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
               const isActive = detailInvoice?.id === invoice.id;
               const charges = (invoice.items || []).filter((i) => i.type === 'charge');
               const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
-              const expensesTotal = expenses.reduce(
-                (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
-                0,
-              );
-              const itemTotal = getInvoiceTotal(invoice);
+              const itemTotal = getWeeklyInvoiceTotal(invoice);
               const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
               const statusDot = invoice.approval_status === 'pending'
                 ? 'bg-amber-500'
@@ -549,10 +568,8 @@ export const WeeklyInvoiceReview: React.FC = () => {
                 : `${charges.length} shoot${charges.length === 1 ? '' : 's'}`;
 
               return (
-                <button
-                  type="button"
+                <div
                   key={invoice.id}
-                  onClick={() => setSelectedInvoice(invoice)}
                   className={cn(
                     'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
                     isActive
@@ -560,26 +577,37 @@ export const WeeklyInvoiceReview: React.FC = () => {
                       : 'border-border/60 hover:border-border hover:bg-muted/40',
                   )}
                 >
-                  <div className={cn(
-                    'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
-                    isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-                  )}>
-                    <Calendar className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}
-                    </p>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', statusDot)} />
-                      <span className="truncate">{statusCfg.label} · {subLabel}</span>
+                  <Checkbox
+                    checked={selectedInvoiceIds.has(invoice.id)}
+                    onCheckedChange={(checked) => toggleInvoiceSelection(invoice.id, checked === true)}
+                    aria-label={`Select invoice for ${formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInvoice(invoice)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className={cn(
+                      'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
+                      isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                    )}>
+                      <Calendar className="h-4 w-4" />
                     </div>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-1">
-                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(itemTotal)}</p>
-                    <ChevronRight className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-muted-foreground')} />
-                  </div>
-                </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', statusDot)} />
+                        <span className="truncate">{statusCfg.label} · {subLabel}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-1">
+                      <p className="text-sm font-semibold tabular-nums">{formatCurrency(itemTotal)}</p>
+                      <ChevronRight className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -587,7 +615,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
           {/* Left-pane pagination */}
           <div className="flex flex-col gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Showing {pagedInvoices.length} of {invoices.length} invoice{invoices.length === 1 ? '' : 's'}
+              Showing {pagedInvoices.length} of {filteredInvoices.length} invoice{filteredInvoices.length === 1 ? '' : 's'}
             </span>
             <div className="flex items-center gap-1">
               <Button

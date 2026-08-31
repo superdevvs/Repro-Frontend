@@ -103,6 +103,7 @@ export function DateRangePicker({
           type="button"
           variant="outline"
           disabled={disabled}
+          aria-label={value.startDate ? `Date range: ${formatDateRangeLabel(value, placeholder)}` : placeholder}
           className={cn(
             'h-10 w-full justify-start text-left font-normal',
             !value.startDate && 'text-muted-foreground',
@@ -138,6 +139,7 @@ export function DateRangePicker({
                 size="icon"
                 className="h-9 w-9 rounded-xl border-border/70 bg-background/80"
                 onClick={() => setCalendarMonth((current) => subMonths(current, 1))}
+                aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -147,6 +149,7 @@ export function DateRangePicker({
                 size="icon"
                 className="h-9 w-9 rounded-xl border-border/70 bg-background/80"
                 onClick={() => setCalendarMonth((current) => addMonths(current, 1))}
+                aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

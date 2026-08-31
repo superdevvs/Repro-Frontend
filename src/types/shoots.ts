@@ -576,6 +576,28 @@ export interface ShootData {
   iguide_last_synced_at?: string;
   iguideData?: Record<string, unknown> | null;
   iguide_data?: Record<string, unknown> | null;
+  iguideManualOfflinePackage?: {
+    id?: string | number | null;
+    fileId?: string | number | null;
+    file_id?: string | number | null;
+    mediaId?: string | number | null;
+    media_id?: string | number | null;
+    status?: string | null;
+    originalFilename?: string | null;
+    original_filename?: string | null;
+    sizeBytes?: number | null;
+    size_bytes?: number | null;
+    sha256?: string | null;
+    uploadedAt?: string | null;
+    uploaded_at?: string | null;
+    readyAt?: string | null;
+    ready_at?: string | null;
+    downloadUrl?: string | null;
+    download_url?: string | null;
+    error?: string | null;
+    [key: string]: unknown;
+  } | null;
+  iguide_manual_offline_package?: ShootData['iguideManualOfflinePackage'];
   cubicasaTourUrl?: string;
   cubicasa_tour_url?: string;
   cubicasaFloorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;

@@ -233,6 +233,24 @@ export type NormalizedIguideBilling = {
   billableAreaSqMeters?: number;
 };
 
+export type IguideOfflinePackageStatus = 'queued' | 'scanning' | 'ready' | 'failed' | 'unknown';
+
+export type NormalizedIguideOfflinePackage = {
+  id: string;
+  fileId: string;
+  status: IguideOfflinePackageStatus;
+  rawStatus: string;
+  originalFilename: string;
+  sizeBytes: number | null;
+  sha256: string;
+  uploadedAt: string;
+  readyAt: string;
+  downloadUrl: string;
+  error: string;
+  exists: boolean;
+  raw: LooseRecord;
+};
+
 export type NormalizedIguideSync = {
   url: string;
   unbrandedUrl: string;
@@ -256,6 +274,7 @@ export type NormalizedIguideSync = {
   jpgMetric: Array<{ id: number | null; floor_name: string | null; url: string }>;
   jpgImperial: Array<{ id: number | null; floor_name: string | null; url: string }>;
   billing: NormalizedIguideBilling | null;
+  offlinePackage: NormalizedIguideOfflinePackage;
   raw: LooseRecord;
 };
 
@@ -301,9 +320,56 @@ const normalizeBilling = (raw: LooseRecord): NormalizedIguideBilling | null => {
   };
 };
 
+const normalizeIguideOfflinePackageStatus = (value: unknown): IguideOfflinePackageStatus => {
+  const status = String(value ?? '').trim().toLowerCase();
+  if (['queued', 'pending'].includes(status)) return 'queued';
+  if (['scanning', 'processing', 'validating', 'uploading'].includes(status)) return 'scanning';
+  if (['ready', 'complete', 'completed', 'published'].includes(status)) return 'ready';
+  if (['failed', 'error', 'rejected'].includes(status)) return 'failed';
+  return 'unknown';
+};
+
+export const normalizeIguideOfflinePackage = (value: unknown): NormalizedIguideOfflinePackage => {
+  const raw = asLooseRecord(value);
+  const rawStatus = String(pickFirst(raw.status, raw.scan_status, raw.state) ?? '');
+  const sizeValue = pickFirst(raw.size_bytes, raw.sizeBytes, raw.size);
+  const numericSize = Number(sizeValue);
+  const id = String(raw.id ?? '');
+  const fileId = String(pickFirst(raw.file_id, raw.fileId, raw.media_id, raw.mediaId) ?? '');
+  const originalFilename = String(
+    pickFirst(raw.original_filename, raw.originalFilename, raw.filename, raw.file_name) ?? '',
+  );
+  const downloadUrl = String(pickFirst(raw.download_url, raw.downloadUrl) ?? '');
+  const exists = Boolean(Object.keys(raw).length && (id || fileId || originalFilename || rawStatus || downloadUrl));
+
+  return {
+    id,
+    fileId,
+    status: normalizeIguideOfflinePackageStatus(rawStatus),
+    rawStatus,
+    originalFilename,
+    sizeBytes: Number.isFinite(numericSize) && numericSize >= 0 ? numericSize : null,
+    sha256: String(raw.sha256 ?? ''),
+    uploadedAt: String(pickFirst(raw.uploaded_at, raw.uploadedAt, raw.created_at, raw.createdAt) ?? ''),
+    readyAt: String(pickFirst(raw.ready_at, raw.readyAt) ?? ''),
+    downloadUrl,
+    error: String(pickFirst(raw.error, raw.error_message, raw.message) ?? ''),
+    exists,
+    raw,
+  };
+};
+
 export const getNormalizedIguideSync = (shoot?: ShootLike | null): NormalizedIguideSync => {
   const raw = getRawIguideData(shoot);
   const pickStr = (...values: unknown[]) => String(pickFirst(...values) ?? '');
+  const offlinePackage = normalizeIguideOfflinePackage(
+    pickFirst(
+      shoot?.iguideManualOfflinePackage,
+      shoot?.iguide_manual_offline_package,
+      raw.manual_offline_package,
+      raw.manualOfflinePackage,
+    ),
+  );
 
   return {
     url: getPreferredIguideUrl(shoot),
@@ -328,6 +394,7 @@ export const getNormalizedIguideSync = (shoot?: ShootLike | null): NormalizedIgu
     jpgMetric: normalizeJpgFloors(raw.jpg_metric),
     jpgImperial: normalizeJpgFloors(raw.jpg_imperial),
     billing: normalizeBilling(raw),
+    offlinePackage,
     raw,
   };
 };

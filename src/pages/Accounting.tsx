@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
-import { fetchInvoices, markInvoiceAsPaid, sendInvoicePaymentReminder } from '@/services/invoiceService';
+import { downloadInvoiceCsv, fetchInvoices, markInvoiceAsPaid, sendInvoicePaymentReminder } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useClientBilling } from '@/hooks/useClientBilling';
 import { useEditorRates } from '@/hooks/useEditorRates';
@@ -29,6 +29,7 @@ import {
   toClientBillingInvoiceViewData,
 } from '@/services/clientBillingService';
 import type { ClientBillingItem } from '@/types/clientBilling';
+import { downloadInvoicePdf, downloadInvoicesPdf } from '@/utils/invoiceDownloads';
 import { useShoots } from '@/context/shootsContextState';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import type { DashboardShootSummary } from '@/types/dashboard';
@@ -395,11 +396,35 @@ const AccountingPage = () => {
   const isSuperAdmin = role === 'superadmin'; // Only Super Admin can see payment status
   const isEditingManagerAccounting = role === 'editing_manager';
 
-  const handleDownloadInvoice = (invoice: InvoiceData) => {
-    toast({
-      title: "Invoice Generated",
-      description: `Invoice ${invoice.id} has been downloaded successfully.`,
-      variant: "default",
+  const handleDownloadInvoice = async (invoice: InvoiceData, format: 'pdf' | 'csv') => {
+    if (format === 'csv') {
+      await downloadInvoiceCsv(invoice.id);
+      return;
+    }
+    await downloadInvoicePdf(invoice);
+  };
+
+  const handleDownloadInvoices = async (selectedInvoices: InvoiceData[]) => {
+    await downloadInvoicesPdf(selectedInvoices);
+  };
+
+  const handleDownloadClientBillingItem = async (
+    item: ClientBillingItem,
+    format: 'pdf' | 'csv',
+  ) => {
+    if (format === 'csv') {
+      if (item.invoiceId == null) {
+        throw new Error('CSV detail is available only for issued invoices.');
+      }
+      await downloadInvoiceCsv(item.invoiceId);
+      return;
+    }
+    await downloadInvoicePdf(toClientBillingInvoiceViewData(item));
+  };
+
+  const handleDownloadClientBillingItems = async (items: ClientBillingItem[]) => {
+    await downloadInvoicesPdf(items.map(toClientBillingInvoiceViewData), {
+      fileName: 'billing-statements.pdf',
     });
   };
 
@@ -662,11 +687,13 @@ const AccountingPage = () => {
                           onView={handleViewInvoice}
                           onEdit={handleEditInvoice}
                           onDownload={handleDownloadInvoice}
+                          onDownloadMultiple={handleDownloadInvoices}
                           onPay={handlePayInvoice}
                           onSendReminder={handleSendReminder}
                           isAdmin={isAdmin}
                           isSuperAdmin={isSuperAdmin}
                           role={role || ''}
+                          loading={loading}
                         />
                       </section>
                     )}
@@ -704,6 +731,8 @@ const AccountingPage = () => {
                         loading={clientBillingLoading}
                         onView={handleViewClientBillingItem}
                         onPay={handlePayClientBillingItem}
+                        onDownload={handleDownloadClientBillingItem}
+                        onDownloadMultiple={handleDownloadClientBillingItems}
                       />
                     )}
 
@@ -807,11 +836,13 @@ const AccountingPage = () => {
                               onView={handleViewInvoice}
                               onEdit={handleEditInvoice}
                               onDownload={handleDownloadInvoice}
+                              onDownloadMultiple={handleDownloadInvoices}
                               onPay={handlePayInvoice}
                               onSendReminder={handleSendReminder}
                               isAdmin={isAdmin}
                               isSuperAdmin={isSuperAdmin}
                               role={role || ''}
+                              loading={loading}
                             />
                           )
                         )}

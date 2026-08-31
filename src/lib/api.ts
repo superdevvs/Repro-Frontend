@@ -49,6 +49,7 @@ export const API_ROUTES = {
     },
     iguide: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/sync`,
+      offlinePackage: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package`,
     },
     cubicasaShoot: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/sync`,

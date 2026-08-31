@@ -928,7 +928,10 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     iguideTourUrl: shoot.iguide_tour_url || undefined,
     iguideFloorplans: shoot.iguide_floorplans || undefined,
     iguidePropertyId: shoot.iguide_property_id || undefined,
+    iguideWorkOrderId: shoot.iguide_work_order_id || undefined,
     iguideLastSyncedAt: shoot.iguide_last_synced_at || undefined,
+    iguideData: shoot.iguide_data || undefined,
+    iguideManualOfflinePackage: shoot.iguide_manual_offline_package || undefined,
     // CubiCasa — mirror the iGUIDE mapping so the Tours tab can surface
     // tour/floorplan links (previously these snake_case fields never reached
     // the view-model, so CubiCasa floor plans never rendered).

@@ -1,4 +1,4 @@
-import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 import type { ShootData, ShootServiceObject } from '@/types/shoots';
 import type { InvoiceData } from '@/utils/invoiceUtils';
@@ -6,7 +6,6 @@ import {
   DELIVERED_STATUS_KEYWORDS,
   UPLOADED_STATUS_KEYWORDS,
 } from '@/utils/dashboardDerivedUtils';
-type DatePreset = 'all_time' | 'this_month' | 'last_month' | 'custom';
 type VerificationStatusFilter = 'all' | 'uploaded' | 'delivered' | 'paid' | 'unpaid';
 
 type VerificationServiceBreakdown = {
@@ -100,28 +99,6 @@ const parseDateValue = (value?: string | null): Date | null => {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const formatInputDate = (value: Date) => format(value, 'yyyy-MM-dd');
-
-const getPresetDateRange = (preset: DatePreset) => {
-  if (preset === 'all_time') {
-    return null;
-  }
-
-  const now = new Date();
-  if (preset === 'last_month') {
-    const previousMonth = subMonths(now, 1);
-    return {
-      from: startOfMonth(previousMonth),
-      to: endOfMonth(previousMonth),
-    };
-  }
-
-  return {
-    from: startOfMonth(now),
-    to: endOfMonth(now),
-  };
 };
 
 const normalizeText = (value?: string | null) =>
@@ -470,18 +447,15 @@ const buildPaginationItems = (currentPage: number, totalPages: number) => {
 };
 
 
-export type { DatePreset, EditingManagerVerificationViewProps, VerificationStatusFilter };
+export type { EditingManagerVerificationViewProps, VerificationStatusFilter };
 export {
   buildPaginationItems,
   buildVerificationRow,
   currencyFormatter,
-  formatInputDate,
   getInvoiceLinkedShootIds,
-  getPresetDateRange,
   normalizeText,
   parseDateValue,
   rowsPerPageOptions,
   statusLabelMap,
   summaryCardTone,
 };
-

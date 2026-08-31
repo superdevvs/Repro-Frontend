@@ -296,7 +296,10 @@ export type ApiShoot = {
   iguide_tour_url?: string;
   iguide_floorplans?: ShootData['iguideFloorplans'];
   iguide_property_id?: string;
+  iguide_work_order_id?: string;
   iguide_last_synced_at?: string;
+  iguide_data?: ShootData['iguideData'];
+  iguide_manual_offline_package?: ShootData['iguideManualOfflinePackage'];
   cubicasa_tour_url?: string;
   cubicasa_floorplans?: ShootData['cubicasaFloorplans'];
   cubicasa_data?: ShootData['cubicasaData'];

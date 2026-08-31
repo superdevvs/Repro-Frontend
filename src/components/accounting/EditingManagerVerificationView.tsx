@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
 
 import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import {
   Pagination,
@@ -33,6 +32,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from './InvoiceDateFilterToolbar';
+import {
+  DEFAULT_INVOICE_DATE_FILTER,
+  matchesInvoiceDateFilter,
+  type InvoiceDateFilter,
+} from '@/utils/invoiceDateFilters';
+import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import type { ShootData, ShootServiceObject } from '@/types/shoots';
 import type { InvoiceData } from '@/utils/invoiceUtils';
@@ -44,7 +51,6 @@ import {
 
 export type { EditingAccountingVerificationRow } from './editingManagerVerificationUtils';
 import type {
-  DatePreset,
   EditingManagerVerificationViewProps,
   VerificationStatusFilter,
 } from './editingManagerVerificationUtils';
@@ -52,9 +58,7 @@ import {
   buildPaginationItems,
   buildVerificationRow,
   currencyFormatter,
-  formatInputDate,
   getInvoiceLinkedShootIds,
-  getPresetDateRange,
   normalizeText,
   parseDateValue,
   rowsPerPageOptions,
@@ -67,16 +71,16 @@ export function EditingManagerVerificationView({
   loading = false,
   onViewInvoice,
 }: EditingManagerVerificationViewProps) {
+  const { toast } = useToast();
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  const [datePreset, setDatePreset] = useState<DatePreset>('all_time');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
   const [editorFilter, setEditorFilter] = useState('all_editors');
   const [statusFilter, setStatusFilter] = useState<VerificationStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const shootLookup = useMemo(() => {
     const map = new Map<string, ShootData>();
@@ -123,24 +127,10 @@ export function EditingManagerVerificationView({
   }, [allRows]);
 
   const filteredRows = useMemo(() => {
-    const from = parseDateValue(fromDate);
-    const to = parseDateValue(toDate);
     const search = normalizeText(searchQuery);
 
     return allRows.filter((row) => {
-      if (from && row.verificationDate && row.verificationDate < from) {
-        return false;
-      }
-
-      if (to && row.verificationDate) {
-        const inclusiveTo = new Date(to);
-        inclusiveTo.setHours(23, 59, 59, 999);
-        if (row.verificationDate > inclusiveTo) {
-          return false;
-        }
-      }
-
-      if (from && !row.verificationDate) {
+      if (!matchesInvoiceDateFilter(row.verificationDate, dateFilter)) {
         return false;
       }
 
@@ -182,7 +172,7 @@ export function EditingManagerVerificationView({
 
       return true;
     });
-  }, [allRows, editorFilter, fromDate, searchQuery, statusFilter, toDate]);
+  }, [allRows, dateFilter, editorFilter, searchQuery, statusFilter]);
 
   const summary = useMemo(() => {
     const totalShoots = filteredRows.length;
@@ -209,20 +199,18 @@ export function EditingManagerVerificationView({
 
   const hasActiveFilters = useMemo(
     () =>
-      datePreset !== 'all_time' ||
-      Boolean(fromDate) ||
-      Boolean(toDate) ||
+      dateFilter.preset !== 'all' ||
       editorFilter !== 'all_editors' ||
       statusFilter !== 'all' ||
       Boolean(searchQuery.trim()),
-    [datePreset, editorFilter, fromDate, searchQuery, statusFilter, toDate],
+    [dateFilter.preset, editorFilter, searchQuery, statusFilter],
   );
 
   const totalPages = Math.max(Math.ceil(filteredRows.length / rowsPerPage), 1);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [editorFilter, fromDate, rowsPerPage, searchQuery, statusFilter, toDate]);
+  }, [dateFilter, editorFilter, rowsPerPage, searchQuery, statusFilter]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -248,21 +236,8 @@ export function EditingManagerVerificationView({
     }));
   };
 
-  const handlePresetChange = (value: DatePreset) => {
-    setDatePreset(value);
-    if (value === 'custom') {
-      return;
-    }
-
-    const range = getPresetDateRange(value);
-    setFromDate(range ? formatInputDate(range.from) : '');
-    setToDate(range ? formatInputDate(range.to) : '');
-  };
-
   const resetFilters = () => {
-    setDatePreset('all_time');
-    setFromDate('');
-    setToDate('');
+    setDateFilter(DEFAULT_INVOICE_DATE_FILTER);
     setEditorFilter('all_editors');
     setStatusFilter('all');
     setSearchQuery('');
@@ -274,10 +249,52 @@ export function EditingManagerVerificationView({
     setSelectedShoot(shootDataToSummary(shoot));
   };
 
+  const handleExport = async (exportFormat: InvoiceExportFormat) => {
+    const rows = filteredRows.map((row) => ({
+      shoot: row.shootId,
+      date: row.verificationDate ? format(row.verificationDate, 'MMM d, yyyy') : '',
+      editor: row.editorName,
+      property: row.address,
+      status: row.status,
+      invoice: row.invoiceDisplayNumber,
+      calculatedPay: row.calculatedEditorPay,
+      invoiceAmount: row.invoiceAmount,
+      difference: row.differenceAmount,
+      issues: row.discrepancyFlags.join('; '),
+    }));
+    const columns = [
+      { key: 'shoot', label: 'Shoot #' },
+      { key: 'date', label: 'Verification Date' },
+      { key: 'editor', label: 'Editor' },
+      { key: 'property', label: 'Property' },
+      { key: 'status', label: 'Status' },
+      { key: 'invoice', label: 'Invoice' },
+      { key: 'calculatedPay', label: 'Calculated Pay' },
+      { key: 'invoiceAmount', label: 'Invoice Amount' },
+      { key: 'difference', label: 'Difference' },
+      { key: 'issues', label: 'Issues' },
+    ] as const;
+    const fileName = `editing-verification-${format(new Date(), 'yyyy-MM-dd')}`;
+    setExporting(true);
+    try {
+      if (exportFormat === 'csv') exportRowsAsCsv(fileName, columns, rows);
+      else if (exportFormat === 'excel') await exportRowsAsExcel(fileName, 'Verification', columns, rows);
+      else await exportRowsAsPdf(fileName, 'Editing Verification Report', columns, rows);
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unable to export verification rows.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4 sm:space-y-6">
-      <Card>
+        <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg sm:text-xl">Verification workspace</CardTitle>
           <CardDescription>
@@ -285,7 +302,7 @@ export function EditingManagerVerificationView({
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
-          <div className="space-y-2 xl:col-span-3">
+          <div className="space-y-2 xl:col-span-6">
             <p className="text-sm font-medium">Search</p>
             <Input
               value={searchQuery}
@@ -295,35 +312,7 @@ export function EditingManagerVerificationView({
             />
           </div>
 
-          <div className="space-y-2 xl:col-span-2">
-            <p className="text-sm font-medium">Date range</p>
-            <Select value={datePreset} onValueChange={(value) => handlePresetChange(value as DatePreset)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all_time">All time</SelectItem>
-                <SelectItem value="this_month">This month</SelectItem>
-                <SelectItem value="last_month">Last month</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2 xl:col-span-4">
-            <p className="text-sm font-medium">Custom range</p>
-            <DateRangePicker
-              value={{ startDate: fromDate, endDate: toDate }}
-              onChange={({ startDate: nextFromDate, endDate: nextToDate }) => {
-                setDatePreset('custom');
-                setFromDate(nextFromDate);
-                setToDate(nextToDate);
-              }}
-              placeholder="Choose verification range"
-            />
-          </div>
-
-          <div className="space-y-2 xl:col-span-2">
+          <div className="space-y-2 xl:col-span-3">
             <p className="text-sm font-medium">Editor</p>
             <Select value={editorFilter} onValueChange={setEditorFilter}>
               <SelectTrigger>
@@ -340,7 +329,7 @@ export function EditingManagerVerificationView({
             </Select>
           </div>
 
-          <div className="space-y-2 xl:col-span-1">
+          <div className="space-y-2 xl:col-span-3">
             <p className="text-sm font-medium">Status</p>
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as VerificationStatusFilter)}>
               <SelectTrigger>
@@ -354,6 +343,18 @@ export function EditingManagerVerificationView({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="xl:col-span-12">
+            <InvoiceDateFilterToolbar
+              filter={dateFilter}
+              onFilterChange={setDateFilter}
+              resultCount={filteredRows.length}
+              onExport={handleExport}
+              resultNoun="verification row"
+              exportDisabled={loading}
+              exporting={exporting}
+            />
           </div>
         </CardContent>
       </Card>

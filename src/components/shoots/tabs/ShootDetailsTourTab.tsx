@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, Share2, QrCode, Edit, Trash, Check, X, Plus } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
@@ -1257,74 +1255,11 @@ export function ShootDetailsTourTab({
     }
   };
 
-  const renderLinkActionButtons = (
-    type: string,
-    options?: {
-      editable?: boolean;
-      onEdit?: () => void;
-      deletable?: boolean;
-      onDelete?: () => void;
-      deleting?: boolean;
-      editTitle?: string;
-      deleteTitle?: string;
-    },
-  ) => {
-    const hasValue = Boolean(getTourUrl(type)?.trim());
-    return (
-      <>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => copyLink(type)}
-          title="Copy link"
-          disabled={!hasValue}
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => openLink(type)}
-          title="Open in new tab"
-          disabled={!hasValue}
-        >
-          <ExternalLink className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => shareLink(type)}
-          title="Share link"
-          disabled={!hasValue}
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-        {options?.editable && options.onEdit && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={options.onEdit}
-            title={options.editTitle || 'Edit link'}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        )}
-        {options?.deletable && options.onDelete && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={options.onDelete}
-            disabled={options.deleting}
-            title={options.deleteTitle || 'Remove link'}
-          >
-            <Trash className="h-4 w-4" />
-          </Button>
-        )}
-      </>
-    );
-  };
   return (
     <ShootDetailsTourTabView
+      shootId={shoot.id}
+      onShootUpdate={onShootUpdate}
+      isClientView={isClientView}
       isClientReleaseLocked={isClientReleaseLocked}
       onShowAnalytics={onShowAnalytics}
       getTourUrl={getTourUrl}
@@ -1434,7 +1369,6 @@ export function ShootDetailsTourTab({
       cancelEdit3D={cancelEdit3D}
       save3DTour={save3DTour}
       confirmDelete3D={confirmDelete3D}
-      renderLinkActionButtons={renderLinkActionButtons}
       iguideSync={iguideSync}
       iguidePropertyIdInput={iguidePropertyIdInput}
       setIguidePropertyIdInput={setIguidePropertyIdInput}
@@ -1461,6 +1395,8 @@ export function ShootDetailsTourTab({
             alreadyLinked={Boolean(cubicasaSync.orderId || cubicasaSync.externalId)}
             onCreated={onShootUpdate}
             disabled={isSyncingCubicasa || isSavingCubicasaIdentifiers}
+            showStatus={false}
+            compact
           />
         ) : null
       }

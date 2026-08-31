@@ -92,6 +92,8 @@ export interface InvoiceData {
   shoots?: InvoiceShootRef[];
   items?: InvoiceItem[];
   notes?: string;
+  role?: string;
+  payee?: InvoiceParty | null;
 }
 
 export type InvoiceViewDialogItem = InvoiceItem & {

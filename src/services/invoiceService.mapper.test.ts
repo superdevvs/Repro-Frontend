@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { mapInvoiceMutationResponse, mapInvoiceResponse } from './invoiceService';
 import { isChaseableInvoice } from '@/components/accounting/InvoiceList';
@@ -163,6 +163,16 @@ describe('mapInvoiceResponse — partial and overdue stay reminder-eligible', ()
     expect(isChaseableInvoice(mapped)).toBe(true);
   });
 
+  it('keeps an invoice pending through the end of its due calendar day', () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(new Date(2026, 7, 31, 12).getTime());
+    const mapped = mapInvoiceResponse(
+      record({ status: 'sent', is_paid: false, total_amount: '90.00', due_date: '2026-08-31' }),
+    );
+
+    expect(mapped.status).toBe('sent');
+    nowSpy.mockRestore();
+  });
+
   it('prefers a positive reported balance_due over the derived one', () => {
     const mapped = mapInvoiceResponse(
       record({ status: 'partial', is_paid: false, total_amount: '400.00', amount_paid: '0.00', balance_due: 125.5, due_date: future }),
@@ -193,6 +203,21 @@ describe('mapInvoiceResponse — incomplete payloads', () => {
 
     expect(mapped.status).toBe('sent');
     expect(mapped.balance).toBeCloseTo(250, 2);
+  });
+});
+
+describe('mapInvoiceResponse — payout identity', () => {
+  it('preserves role and payee for role-aware downloads', () => {
+    const mapped = mapInvoiceResponse(record({
+      role: 'photographer',
+      photographer: { id: 44, name: 'Pat Photographer', email: 'pat@example.test' },
+      status: 'sent',
+      total_amount: '125.00',
+      due_date: future,
+    }));
+
+    expect(mapped.role).toBe('photographer');
+    expect(mapped.payee?.name).toBe('Pat Photographer');
   });
 });
 

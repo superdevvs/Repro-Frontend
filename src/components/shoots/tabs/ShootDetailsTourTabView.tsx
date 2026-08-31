@@ -11,8 +11,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BarChart3, Copy, ExternalLink, Share2, QrCode, ChevronDown, ChevronUp, Download, Edit, Trash, Check, X, Plus, Info } from 'lucide-react';
+import { TourProvidersSection } from './tours/TourProvidersSection';
+// This legacy view is a pass-through shell while its sections are progressively extracted.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ShootDetailsTourTabView(props: any) {
   const {
+    shootId,
+    onShootUpdate,
     onShowAnalytics,
     getTourUrl,
     copyLink,
@@ -22,6 +27,7 @@ export function ShootDetailsTourTabView(props: any) {
     showVideoLinksSection,
     showVideoEmbedSection,
     showTourSettings,
+    isClientView,
     show3dTours,
     showMatterportSection,
     showIguideSection,
@@ -72,7 +78,6 @@ export function ShootDetailsTourTabView(props: any) {
     cancelEdit3D,
     save3DTour,
     confirmDelete3D,
-    renderLinkActionButtons,
     iguideSync,
     iguidePropertyIdInput,
     setIguidePropertyIdInput,
@@ -674,538 +679,50 @@ export function ShootDetailsTourTabView(props: any) {
         </Card>
       )}
       {propertySection}
-      {/* 3D Tours Section */}
-      {show3dTours && (
-        <Card>
-          <CardHeader>
-            <CardTitle>3D Tours</CardTitle>
-            <CardDescription>Manage Matterport and iGuide links with branded and MLS options.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Matterport Section */}
-            {showMatterportSection && (
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm">Matterport</h4>
-                {visibleMatterportKeys.map((key) => {
-                  const label = key === 'matterport_branded' ? 'Matterport Branded Link' : 'Matterport MLS Link';
-                  const url = tourLinks[key] || '';
-                  const isEditing = editing3DKey === key;
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label>{label}</Label>
-                      {!isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={url}
-                            readOnly
-                            placeholder="No link set"
-                            className="flex-1"
-                          />
-                          {renderLinkActionButtons(key, {
-                            editable: isAdmin,
-                            onEdit: () => startEdit3D(key),
-                            editTitle: `Edit ${label}`,
-                            deletable: Boolean(isAdmin && url),
-                            onDelete: () => confirmDelete3D(key),
-                            deleting: isDeleting3D === key,
-                            deleteTitle: `Remove ${label}`,
-                          })}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2">
-                          <Input
-                            value={editing3DValue}
-                            onChange={(e) => setEditing3DValue(e.target.value)}
-                            placeholder="https://"
-                            className="flex-1"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="mr-1 h-3.5 w-3.5" />
-                              Cancel
-                            </Button>
-                            <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* iGuide Section */}
-            {showIguideSection && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">iGuide</h4>
-                  {syncIguideNow && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={syncIguideNow}
-                      disabled={isSyncingIguide}
-                      title="Re-fetch iGuide deliverables from youriguide.com"
-                    >
-                      {isSyncingIguide ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync iGuide now</>)}
-                    </Button>
-                  )}
-                </div>
-                {/* iGuide sync info */}
-                {(() => {
-                  const s = iguideSync || {};
-                  const iguideTourUrl = s.url;
-                  const iguideFloorplans = s.floorplans || [];
-                  const iguidePropertyId = s.propertyId;
-                  const iguideWorkOrderId = s.workOrderId;
-                  const iguideLastSyncedAt = s.lastSyncedAt;
-                  const billing = s.billing;
-                  const hasAny = Boolean(
-                    iguideTourUrl || iguideFloorplans.length || iguidePropertyId
-                      || iguideWorkOrderId || iguideLastSyncedAt || s.unbrandedUrl
-                      || s.embeddedUrl || s.manageUrl || s.embedImageUrl || billing,
-                  );
-                  if (!hasAny) return null;
-                  return (
-                    <div className="border rounded-lg p-3 space-y-2 text-xs">
-                      {s.embedImageUrl && (
-                        <a
-                          href={iguideTourUrl || s.embedImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-full max-h-40 overflow-hidden rounded border"
-                          title="Open iGuide tour"
-                        >
-                          <img src={s.embedImageUrl} alt="iGuide preview" className="w-full h-full object-cover" />
-                        </a>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {iguideTourUrl && (
-                          <a
-                            href={iguideTourUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Open tour <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                        {s.unbrandedUrl && (
-                          <a
-                            href={s.unbrandedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Unbranded <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                        {s.embeddedUrl && (
-                          <a
-                            href={s.embeddedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Embed page <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                        {isAdmin && s.manageUrl && (
-                          <a
-                            href={s.manageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Manage on iGuide <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                      {(iguidePropertyId || iguideWorkOrderId || iguideLastSyncedAt) && (
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {iguidePropertyId && (
-                            <>
-                              <span className="text-muted-foreground">Property ID:</span>
-                              <span className="font-medium truncate" title={iguidePropertyId}>{iguidePropertyId}</span>
-                            </>
-                          )}
-                          {iguideWorkOrderId && (
-                            <>
-                              <span className="text-muted-foreground">Work order:</span>
-                              <span className="font-medium truncate" title={iguideWorkOrderId}>{iguideWorkOrderId}</span>
-                            </>
-                          )}
-                          {iguideLastSyncedAt && (
-                            <>
-                              <span className="text-muted-foreground">Last sync:</span>
-                              <span className="font-medium">{new Date(iguideLastSyncedAt).toLocaleString()}</span>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {billing && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {billing.iguideType && (
-                            <Badge variant="secondary" className="text-[10px] uppercase">{billing.iguideType}</Badge>
-                          )}
-                          {Array.isArray(billing.addons) && billing.addons.map((addon: string) => (
-                            <Badge key={addon} variant="outline" className="text-[10px] uppercase">{addon}</Badge>
-                          ))}
-                          {typeof billing.billableAreaSqFeet === 'number' && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {Math.round(billing.billableAreaSqFeet).toLocaleString()} sqft
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                      {(s.pdfMetricUrl || s.pdfImperialUrl) && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {s.pdfImperialUrl && (
-                            <a
-                              href={s.pdfImperialUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-primary hover:underline"
-                            >
-                              <Download className="h-3 w-3" /> Floor plan PDF (Imperial)
-                            </a>
-                          )}
-                          {s.pdfMetricUrl && (
-                            <a
-                              href={s.pdfMetricUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-primary hover:underline"
-                            >
-                              <Download className="h-3 w-3" /> Floor plan PDF (Metric)
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {iguideFloorplans.length > 0 && (
-                        <div className="space-y-1 pt-1">
-                          <span className="text-[10px] uppercase text-muted-foreground">All deliverables</span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                            {iguideFloorplans.map((floorplan: any, index: number) => {
-                              const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
-                              if (!url) return null;
-                              const label = typeof floorplan === 'string'
-                                ? `Floorplan ${index + 1}`
-                                : (floorplan?.label || floorplan?.filename || `Floorplan ${index + 1}`);
-                              return (
-                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                                  {label}
-                                </a>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-                {/* Admin-only iGuide identifier inputs (drives webhook matching). */}
-                {isAdmin && (saveIguideIdentifiers || setIguidePropertyIdInput) && (
-                  <div className="border rounded-lg p-3 space-y-2 text-xs">
-                    <span className="text-[10px] uppercase text-muted-foreground">iGuide matching</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Property ID</Label>
-                        <Input
-                          value={iguidePropertyIdInput ?? ''}
-                          onChange={(e) => setIguidePropertyIdInput && setIguidePropertyIdInput(e.target.value)}
-                          placeholder="igYGFV5GG6V8DD1"
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Work order ID</Label>
-                        <Input
-                          value={iguideWorkOrderIdInput ?? ''}
-                          onChange={(e) => setIguideWorkOrderIdInput && setIguideWorkOrderIdInput(e.target.value)}
-                          placeholder="WO1234 or shoot:123"
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={saveIguideIdentifiers}
-                        disabled={isSavingIguideIdentifiers}
-                      >
-                        {isSavingIguideIdentifiers ? 'Saving…' : 'Save identifiers'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {visibleIguideKeys.map((key) => {
-                  const label = key === 'iguide_branded' ? 'iGuide Branded Link' : 'iGuide MLS Link';
-                  const url = tourLinks[key] || '';
-                  const isEditing = editing3DKey === key;
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label>{label}</Label>
-                      {!isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={url}
-                            readOnly
-                            placeholder="No link set"
-                            className="flex-1"
-                          />
-                          {renderLinkActionButtons(key, {
-                            editable: isAdmin,
-                            onEdit: () => startEdit3D(key),
-                            editTitle: `Edit ${label}`,
-                            deletable: Boolean(isAdmin && url),
-                            onDelete: () => confirmDelete3D(key),
-                            deleting: isDeleting3D === key,
-                            deleteTitle: `Remove ${label}`,
-                          })}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2">
-                          <Input
-                            value={editing3DValue}
-                            onChange={(e) => setEditing3DValue(e.target.value)}
-                            placeholder="https://"
-                            className="flex-1"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="mr-1 h-3.5 w-3.5" />
-                              Cancel
-                            </Button>
-                            <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* CubiCasa Section — floor-plan ingestion only (no tour links). */}
-            {(cubicasaSync || isAdmin) && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h4 className="font-semibold text-sm">CubiCasa Floor Plans</h4>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {createCubicasaOrderButton}
-                    {syncCubicasaNow && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={syncCubicasaNow}
-                        disabled={isSyncingCubicasa}
-                        title="Re-fetch CubiCasa floor plans from app.cubi.casa"
-                      >
-                        {isSyncingCubicasa ? 'Syncing…' : (<><Download className="mr-1 h-3.5 w-3.5" />Sync CubiCasa now</>)}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {(() => {
-                  const c = cubicasaSync || {};
-                  const status = c.status;
-                  const productType = c.productType;
-                  const lastSyncedAt = c.lastSyncedAt;
-                  const orderId = c.orderId;
-                  const externalId = c.externalId;
-                  const brandedUrl = c.brandedUrl;
-                  const unbrandedUrl = c.unbrandedUrl;
-                  const floorplans = Array.isArray(c.floorplans) ? c.floorplans : [];
-                  const hasAny = Boolean(
-                    status || orderId || externalId || lastSyncedAt || brandedUrl || unbrandedUrl || floorplans.length,
-                  );
-                  if (!hasAny && !isAdmin) return null;
-                  const statusVariant: any = (() => {
-                    const s = (status || '').toString().toLowerCase();
-                    if (s === 'ready') return 'default';
-                    if (s === 'fixing') return 'destructive';
-                    if (s === 'pending') return 'secondary';
-                    return 'outline';
-                  })();
-                  return (
-                    <div className="border rounded-lg p-3 space-y-2 text-xs">
-                      <p className="text-muted-foreground text-[11px]">
-                        Floor plans appear under <strong>Media → Edited → Floor Plans</strong> once CubiCasa
-                        marks the order as <em>Ready</em>.
-                      </p>
-                      {(brandedUrl || unbrandedUrl) && (
-                        <div className="flex flex-wrap gap-2">
-                          {brandedUrl && (
-                            <a
-                              href={brandedUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-primary hover:underline"
-                            >
-                              Open tour <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                          {unbrandedUrl && (
-                            <a
-                              href={unbrandedUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-primary hover:underline"
-                            >
-                              MLS-compliant <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {(status || productType) && (
-                        <div className="flex flex-wrap items-center gap-2">
-                          {status && <Badge variant={statusVariant}>{status}</Badge>}
-                          {productType && <span className="text-muted-foreground">{productType}</span>}
-                        </div>
-                      )}
-                      {floorplans.length > 0 && (
-                        <div className="space-y-1 pt-1">
-                          <span className="text-[10px] uppercase text-muted-foreground">Floor plans</span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                            {floorplans.map((floorplan: any, index: number) => {
-                              const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
-                              if (!url) return null;
-                              const label = typeof floorplan === 'string'
-                                ? `Floor plan ${index + 1}`
-                                : (floorplan?.label || floorplan?.filename || `Floor plan ${index + 1}`);
-                              return (
-                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                                  {label}
-                                </a>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      {(orderId || externalId || lastSyncedAt) && (
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {orderId && (
-                            <div className="col-span-2">
-                              <span className="text-muted-foreground">Order ID:</span>{' '}
-                              <span className="font-mono">{orderId}</span>
-                            </div>
-                          )}
-                          {externalId && (
-                            <div>
-                              <span className="text-muted-foreground">External ID:</span>{' '}
-                              <span className="font-mono">{externalId}</span>
-                            </div>
-                          )}
-                          {lastSyncedAt && (
-                            <div className="col-span-2">
-                              <span className="text-muted-foreground">Last synced:</span>{' '}
-                              <span>{new Date(lastSyncedAt).toLocaleString()}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-                {/* Admin-only CubiCasa identifier inputs (drives webhook matching). */}
-                {isAdmin && saveCubicasaIdentifiers && (
-                  <div className="border rounded-lg p-3 space-y-2 text-xs">
-                    <span className="text-[10px] uppercase text-muted-foreground">CubiCasa matching</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Order ID</Label>
-                        <Input
-                          value={cubicasaOrderIdInput ?? ''}
-                          onChange={(e) => setCubicasaOrderIdInput && setCubicasaOrderIdInput(e.target.value)}
-                          placeholder="9ba65f04-3ee2-4de9-a098-ece787ceee57"
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">External ID (optional)</Label>
-                        <Input
-                          value={cubicasaExternalIdInput ?? ''}
-                          onChange={(e) => setCubicasaExternalIdInput && setCubicasaExternalIdInput(e.target.value)}
-                          placeholder="shoot:123"
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={saveCubicasaIdentifiers}
-                        disabled={isSavingCubicasaIdentifiers}
-                      >
-                        {isSavingCubicasaIdentifiers ? 'Saving…' : 'Save identifiers'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Zillow 3D Section */}
-            {showZillowSection && (
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm">Zillow 3D</h4>
-                {(() => {
-                  const key = 'zillow_3d' as const;
-                  const label = 'Zillow 3D Home Tour';
-                  const url = tourLinks[key] || '';
-                  const isEditing = editing3DKey === key;
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label>{label}</Label>
-                      {!isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={url}
-                            readOnly
-                            placeholder="No link set"
-                            className="flex-1"
-                          />
-                          {renderLinkActionButtons(key, {
-                            editable: isAdmin,
-                            onEdit: () => startEdit3D(key),
-                            editTitle: `Edit ${label}`,
-                            deletable: Boolean(isAdmin && url),
-                            onDelete: () => confirmDelete3D(key),
-                            deleting: isDeleting3D === key,
-                            deleteTitle: `Remove ${label}`,
-                          })}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2">
-                          <Input
-                            value={editing3DValue}
-                            onChange={(e) => setEditing3DValue(e.target.value)}
-                            placeholder="https://"
-                            className="flex-1"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="mr-1 h-3.5 w-3.5" />
-                              Cancel
-                            </Button>
-                            <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <TourProvidersSection
+        shootId={shootId}
+        onShootUpdate={onShootUpdate}
+        isAdmin={isAdmin}
+        isClientView={isClientView}
+        show3dTours={show3dTours}
+        showMatterportSection={showMatterportSection}
+        showIguideSection={showIguideSection}
+        showZillowSection={showZillowSection}
+        visibleMatterportKeys={visibleMatterportKeys}
+        visibleIguideKeys={visibleIguideKeys}
+        tourLinks={tourLinks}
+        editing3DKey={editing3DKey}
+        editing3DValue={editing3DValue}
+        setEditing3DValue={setEditing3DValue}
+        isSaving3D={isSaving3D}
+        isDeleting3D={isDeleting3D}
+        startEdit3D={startEdit3D}
+        cancelEdit3D={cancelEdit3D}
+        save3DTour={save3DTour}
+        confirmDelete3D={confirmDelete3D}
+        copyLink={copyLink}
+        openLink={openLink}
+        shareLink={shareLink}
+        iguideSync={iguideSync}
+        iguidePropertyIdInput={iguidePropertyIdInput}
+        setIguidePropertyIdInput={setIguidePropertyIdInput}
+        iguideWorkOrderIdInput={iguideWorkOrderIdInput}
+        setIguideWorkOrderIdInput={setIguideWorkOrderIdInput}
+        saveIguideIdentifiers={saveIguideIdentifiers}
+        isSavingIguideIdentifiers={isSavingIguideIdentifiers}
+        syncIguideNow={syncIguideNow}
+        isSyncingIguide={isSyncingIguide}
+        cubicasaSync={cubicasaSync}
+        cubicasaOrderIdInput={cubicasaOrderIdInput}
+        setCubicasaOrderIdInput={setCubicasaOrderIdInput}
+        cubicasaExternalIdInput={cubicasaExternalIdInput}
+        setCubicasaExternalIdInput={setCubicasaExternalIdInput}
+        saveCubicasaIdentifiers={saveCubicasaIdentifiers}
+        isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
+        syncCubicasaNow={syncCubicasaNow}
+        isSyncingCubicasa={isSyncingCubicasa}
+        createCubicasaOrderButton={createCubicasaOrderButton}
+      />
       {/* QR Code Dialog */}
       <Dialog open={qrCodeDialog.open} onOpenChange={onQrDialogOpenChange}>
         <DialogContent className="sm:max-w-md">

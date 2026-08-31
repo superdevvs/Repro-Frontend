@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Calendar as CalendarIcon,
+  Download,
   MoreVertical,
   Check,
 } from 'lucide-react';
@@ -18,9 +19,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { InvoiceData } from '@/utils/invoiceUtils';
+import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from '@/components/accounting/InvoiceDateFilterToolbar';
+import {
+  DEFAULT_INVOICE_DATE_FILTER,
+  filterInvoiceItemsByDate,
+  parseInvoiceDateInput,
+  type InvoiceDateFilter,
+} from '@/utils/invoiceDateFilters';
+import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import {
   Pagination,
   PaginationContent,
@@ -38,8 +48,8 @@ const usdCurrencyFormatter = new Intl.NumberFormat('en-US', {
 
 const formatInvoiceDate = (value?: string | null) => {
   if (!value) return '—';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '—';
+  const parsed = parseInvoiceDateInput(value);
+  if (!parsed) return '—';
   return format(parsed, 'MMM d, yyyy');
 };
 
@@ -56,6 +66,8 @@ const getInvoiceOverpayment = (invoice: InvoiceData): number => Math.max(
  * was unreachable for exactly the invoices that need one. A settled, draft or
  * cancelled invoice is excluded instead, and a zero balance short-circuits it.
  */
+// Exported for focused rule tests alongside the component.
+// eslint-disable-next-line react-refresh/only-export-components
 export const isChaseableInvoice = (invoice: Pick<InvoiceData, 'status' | 'balance' | 'amount'>): boolean => {
   const status = String(invoice.status || '').trim().toLowerCase();
 
@@ -76,12 +88,14 @@ interface InvoiceListProps {
   };
   onView: (invoice: InvoiceData) => void;
   onEdit: (invoice: InvoiceData) => void;
-  onDownload: (invoice: InvoiceData) => void;
+  onDownload: (invoice: InvoiceData, format: 'pdf' | 'csv') => void | Promise<void>;
+  onDownloadMultiple?: (invoices: InvoiceData[]) => void | Promise<void>;
   onPay: (invoice: InvoiceData) => void;
   onSendReminder: (invoice: InvoiceData) => void | Promise<void>;
   isAdmin?: boolean; // Prop to determine if user is admin
   isSuperAdmin?: boolean; // Prop to determine if user is super admin (for payment visibility)
   role?: string; // User role
+  loading?: boolean;
 }
 
 export function InvoiceList({ 
@@ -89,11 +103,13 @@ export function InvoiceList({
   onView, 
   onEdit, 
   onDownload, 
+  onDownloadMultiple,
   onPay, 
   onSendReminder,
   isAdmin = false, // Default to false for safety
   isSuperAdmin = false, // Default to false for safety
-  role = '' // Default to empty string
+  role = '', // Default to empty string
+  loading = false,
 }: InvoiceListProps) {
   /**
    * Who may chase a payment: admins, superadmins, sales reps and editing
@@ -113,10 +129,33 @@ export function InvoiceList({
   });
   const [hasExplicitViewMode, setHasExplicitViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
-  const filteredInvoices = activeTab === 'all' 
-    ? data.invoices 
-    : data.invoices.filter(invoice => invoice.status === activeTab);
+  const dateFilteredInvoices = useMemo(
+    () => filterInvoiceItemsByDate(data.invoices, dateFilter, (invoice) => (
+      invoice.billingPeriodStart || invoice.billingPeriodEnd
+        ? {
+            startDate: invoice.billingPeriodStart || invoice.billingPeriodEnd,
+            endDate: invoice.billingPeriodEnd || invoice.billingPeriodStart,
+          }
+        : invoice.date
+    )),
+    [data.invoices, dateFilter],
+  );
+  const filteredInvoices = useMemo(
+    () => {
+      if (activeTab === 'all') return dateFilteredInvoices;
+      if (activeTab === 'pending') {
+        return dateFilteredInvoices.filter((invoice) => (
+          ['pending', 'sent', 'partial', 'unpaid'].includes(String(invoice.status).toLowerCase())
+        ));
+      }
+      return dateFilteredInvoices.filter((invoice) => invoice.status === activeTab);
+    },
+    [activeTab, dateFilteredInvoices],
+  );
 
   const itemsPerPage = viewMode === 'list' ? 15 : 10;
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
@@ -136,7 +175,16 @@ export function InvoiceList({
   useEffect(() => {
     // Reset pagination whenever tab or view mode changes
     setCurrentPage(1);
-  }, [activeTab, viewMode]);
+  }, [activeTab, dateFilter, viewMode]);
+
+  useEffect(() => {
+    const visibleIds = new Set(filteredInvoices.map((invoice) => String(invoice.id)));
+    setSelectedIds((current) => {
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
+      if (next.size === current.size && [...next].every((id) => current.has(id))) return current;
+      return next;
+    });
+  }, [filteredInvoices]);
 
   useEffect(() => {
     if (hasExplicitViewMode) return;
@@ -156,12 +204,115 @@ export function InvoiceList({
     onView(invoice);
   };
 
-  const handleDownloadInvoice = (invoice: InvoiceData) => {
-    toast({
-      title: "Invoice downloaded",
-      description: `Invoice #${invoice.number} has been downloaded.`
+  const handleDownloadInvoice = async (invoice: InvoiceData, downloadFormat: 'pdf' | 'csv') => {
+    try {
+      await onDownload(invoice, downloadFormat);
+      toast({
+        title: 'Invoice downloaded',
+        description: `Invoice #${invoice.number} was downloaded as ${downloadFormat.toUpperCase()}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unable to download this invoice.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleSelected = (invoiceId: string | number) => {
+    const id = String(invoiceId);
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-    onDownload(invoice);
+  };
+
+  const selectedInvoices = useMemo(
+    () => filteredInvoices.filter((invoice) => selectedIds.has(String(invoice.id))),
+    [filteredInvoices, selectedIds],
+  );
+  const exportInvoices = selectedInvoices.length > 0 ? selectedInvoices : filteredInvoices;
+  const currentPageIds = paginatedInvoices.map((invoice) => String(invoice.id));
+  const selectedOnPage = currentPageIds.filter((id) => selectedIds.has(id)).length;
+  const allOnPageSelected = currentPageIds.length > 0 && selectedOnPage === currentPageIds.length;
+  const someOnPageSelected = selectedOnPage > 0 && !allOnPageSelected;
+
+  const toggleCurrentPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allOnPageSelected) currentPageIds.forEach((id) => next.delete(id));
+      else currentPageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const handleExport = async (exportFormat: InvoiceExportFormat) => {
+    const rows = exportInvoices.map((invoice) => {
+      const normalizedInvoiceRole = String(invoice.role || '').toLowerCase().replace(/[\s_-]+/g, '');
+      const isPayout = ['photographer', 'salesrep', 'salesrepresentative'].includes(normalizedInvoiceRole);
+      const party = isPayout
+        ? invoice.payee?.name || (normalizedInvoiceRole === 'salesrep' ? invoice.salesRep : invoice.photographer) || ''
+        : invoice.client || '';
+
+      return {
+      invoice: invoice.number,
+      type: isPayout ? (normalizedInvoiceRole === 'salesrep' ? 'Sales rep payout' : 'Photographer payout') : 'Client invoice',
+      party,
+      status: invoice.status,
+      amount: Number(invoice.amount || 0),
+      balance: Number(invoice.balance ?? invoice.amount ?? 0),
+      issueDate: formatInvoiceDate(invoice.date),
+      dueDate: formatInvoiceDate(invoice.dueDate),
+      property: invoice.property || '',
+      };
+    });
+    const columns = [
+      { key: 'invoice', label: 'Invoice #' },
+      { key: 'type', label: 'Invoice Type' },
+      { key: 'party', label: 'Client / Payee' },
+      { key: 'status', label: 'Status' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'balance', label: 'Balance' },
+      { key: 'issueDate', label: 'Issue Date' },
+      { key: 'dueDate', label: 'Due Date' },
+      { key: 'property', label: 'Property' },
+    ] as const;
+    const fileName = `invoices-${format(new Date(), 'yyyy-MM-dd')}`;
+
+    setExporting(true);
+    try {
+      if (exportFormat === 'csv') exportRowsAsCsv(fileName, columns, rows);
+      else if (exportFormat === 'excel') await exportRowsAsExcel(fileName, 'Invoices', columns, rows);
+      else await exportRowsAsPdf(fileName, 'Invoice Report', columns, rows);
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unable to export these invoices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleBulkPdf = async () => {
+    if (!onDownloadMultiple || selectedInvoices.length === 0) return;
+    try {
+      await onDownloadMultiple(selectedInvoices);
+      toast({
+        title: 'Invoices downloaded',
+        description: `${selectedInvoices.length} invoices were combined into one PDF.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unable to download the selected invoices.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSendInvoice = (invoice: InvoiceData) => {
@@ -217,7 +368,11 @@ export function InvoiceList({
       <Card className="mb-6">
         <div className="border-b p-3">
           <div className="flex items-start gap-2 sm:items-center sm:justify-between">
-            <Tabs value={activeTab} className="min-w-0 flex-1 sm:w-auto" onValueChange={(value) => setActiveTab(value as any)}>
+            <Tabs
+              value={activeTab}
+              className="min-w-0 flex-1 sm:w-auto"
+              onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+            >
               <div className="overflow-x-auto pb-1 sm:pb-0">
                 <TabsList className="inline-flex min-w-max">
                   <TabsTrigger value="all" className="py-1 text-sm">All Invoices</TabsTrigger>
@@ -279,6 +434,20 @@ export function InvoiceList({
           </div>
         </div>
 
+        <InvoiceDateFilterToolbar
+          filter={dateFilter}
+          onFilterChange={setDateFilter}
+          resultCount={filteredInvoices.length}
+          selectedCount={selectedInvoices.length}
+          onClearSelection={() => setSelectedIds(new Set())}
+          onExport={handleExport}
+          onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
+          resultNoun="invoice"
+          className="rounded-none border-x-0 border-t-0"
+          exportDisabled={loading}
+          exporting={exporting}
+        />
+
         <div>
           {viewMode === 'list' ? (
             isMobile ? (
@@ -289,9 +458,17 @@ export function InvoiceList({
                   return (
                     <div key={invoice.id} className="rounded-xl border bg-card p-3">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <Checkbox
+                            checked={selectedIds.has(String(invoice.id))}
+                            onCheckedChange={() => toggleSelected(invoice.id)}
+                            aria-label={`Select invoice ${invoice.number}`}
+                            className="mt-1"
+                          />
+                          <div>
                           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Invoice</p>
                           <p className="text-base font-semibold">#{invoice.number}</p>
+                          </div>
                         </div>
                         <Badge className={`${getStatusColor(invoice.status)} capitalize`}>{invoice.status}</Badge>
                       </div>
@@ -321,9 +498,7 @@ export function InvoiceList({
                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleViewInvoice(invoice)}>
                           View
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleDownloadInvoice(invoice)}>
-                          Download
-                        </Button>
+                        <InvoiceDownloadMenu invoice={invoice} onDownload={handleDownloadInvoice} />
                         {showMarkAsPaid && (
                           <Button
                             variant="accent"
@@ -366,6 +541,13 @@ export function InvoiceList({
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b">
+                      <th className="w-10 px-3 py-2 text-left">
+                        <Checkbox
+                          checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
+                          onCheckedChange={toggleCurrentPage}
+                          aria-label="Select all invoices on this page"
+                        />
+                      </th>
                       <th className="px-3 py-2 text-left">Invoice #</th>
                       <th className="px-3 py-2 text-left">Client</th>
                       <th className="px-3 py-2 text-left">Status</th>
@@ -377,6 +559,13 @@ export function InvoiceList({
                   <tbody>
                     {paginatedInvoices.map((invoice) => (
                       <tr key={invoice.id} className="border-b hover:bg-muted/30 transition">
+                        <td className="px-3 py-2">
+                          <Checkbox
+                            checked={selectedIds.has(String(invoice.id))}
+                            onCheckedChange={() => toggleSelected(invoice.id)}
+                            aria-label={`Select invoice ${invoice.number}`}
+                          />
+                        </td>
                         <td className="px-3 py-2 font-medium text-xs">#{invoice.number}</td>
                         <td className="px-3 py-2 text-xs">{invoice.client || '—'}</td>
                         <td className="px-3 py-2">
@@ -397,27 +586,19 @@ export function InvoiceList({
                               variant="outline" 
                               size="sm" 
                               onClick={() => handleViewInvoice(invoice)} 
-                              aria-label="View" 
+                              aria-label={`View invoice ${invoice.number}`}
                               className="px-3 py-1 text-xs"
                             >
                               View
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleDownloadInvoice(invoice)} 
-                              aria-label="Download" 
-                              className="px-3 py-1 text-xs"
-                            >
-                              Download
-                            </Button>
+                            <InvoiceDownloadMenu invoice={invoice} onDownload={handleDownloadInvoice} />
                             {isSuperAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
                               <Button
                                 variant="accent"
                                 size="sm"
                                 onClick={() => onPay(invoice)}
                                 className="!px-3 py-1 text-xs"
-                                aria-label="Mark as Paid"
+                                aria-label={`Mark invoice ${invoice.number} as paid`}
                               >
                                 Mark Paid
                               </Button>
@@ -431,7 +612,7 @@ export function InvoiceList({
                                 size="sm"
                                 onClick={() => onSendReminder(invoice)}
                                 className="px-3 py-1 text-xs"
-                                aria-label="Send payment reminder"
+                                aria-label={`Send payment reminder for invoice ${invoice.number}`}
                               >
                                 Send reminder
                               </Button>
@@ -441,7 +622,7 @@ export function InvoiceList({
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => handleEditInvoice(invoice)} 
-                                aria-label="Edit" 
+                                aria-label={`Edit invoice ${invoice.number}`}
                                 className="px-3 py-1 text-xs"
                               >
                                 Edit
@@ -453,7 +634,7 @@ export function InvoiceList({
                     ))}
                     {paginatedInvoices.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">
+                        <td colSpan={7} className="py-4 text-center text-muted-foreground text-sm">
                           No invoices found
                         </td>
                       </tr>
@@ -472,6 +653,8 @@ export function InvoiceList({
                       invoice={invoice}
                       onView={handleViewInvoice}
                       onDownload={handleDownloadInvoice}
+                      selected={selectedIds.has(String(invoice.id))}
+                      onSelectedChange={() => toggleSelected(invoice.id)}
                       onSend={handleSendInvoice}
                       onPrint={handlePrintInvoice}
                       onEdit={handleEditInvoice}
@@ -552,10 +735,44 @@ export function InvoiceList({
   );
 }
 
+function InvoiceDownloadMenu({
+  invoice,
+  onDownload,
+}: {
+  invoice: InvoiceData;
+  onDownload: (invoice: InvoiceData, format: 'pdf' | 'csv') => void | Promise<void>;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-3 text-xs"
+          aria-label={`Download invoice ${invoice.number}`}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Download
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Download invoice</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void onDownload(invoice, 'pdf')}>
+          PDF invoice
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void onDownload(invoice, 'csv')}>
+          CSV detail
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 interface InvoiceCardProps {
   invoice: InvoiceData;
   onView: (invoice: InvoiceData) => void;
-  onDownload: (invoice: InvoiceData) => void;
+  onDownload: (invoice: InvoiceData, format: 'pdf' | 'csv') => void | Promise<void>;
   onSend: (invoice: InvoiceData) => void;
   onPrint: (invoice: InvoiceData) => void;
   onEdit: (invoice: InvoiceData) => void;
@@ -564,6 +781,8 @@ interface InvoiceCardProps {
   onPay: (invoice: InvoiceData) => void;
   isAdmin?: boolean;
   isSuperAdmin?: boolean;
+  selected: boolean;
+  onSelectedChange: () => void;
 }
 
 function InvoiceGridCard({
@@ -578,6 +797,8 @@ function InvoiceGridCard({
   onPay,
   isAdmin = false,
   isSuperAdmin = false,
+  selected,
+  onSelectedChange,
 }: InvoiceCardProps) {
   const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
   const amountFormatted = usdCurrencyFormatter.format(invoice.amount || 0);
@@ -589,9 +810,17 @@ function InvoiceGridCard({
   return (
     <div className="relative flex h-full flex-col justify-between rounded-2xl border border-border bg-gradient-to-b from-background via-background to-muted/40 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Invoice</p>
-          <h3 className="text-xl font-semibold text-foreground">#{invoice.number}</h3>
+        <div className="flex min-w-0 items-start gap-3">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onSelectedChange}
+            aria-label={`Select invoice ${invoice.number}`}
+            className="mt-1"
+          />
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Invoice</p>
+            <h3 className="text-xl font-semibold text-foreground">#{invoice.number}</h3>
+          </div>
         </div>
         <Badge className={`${getStatusColor(invoice.status)} capitalize`}>{invoice.status}</Badge>
       </div>
@@ -633,9 +862,7 @@ function InvoiceGridCard({
         <Button variant="secondary" size="sm" onClick={() => onView(invoice)}>
           View
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onDownload(invoice)}>
-          Download
-        </Button>
+        <InvoiceDownloadMenu invoice={invoice} onDownload={onDownload} />
         {showMarkAsPaid && (
           <Button variant="accent" size="sm" onClick={() => onPay(invoice)}>
             Mark Paid
@@ -656,7 +883,8 @@ function InvoiceGridCard({
           <DropdownMenuContent align="end" className="text-sm">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onView(invoice)}>View</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDownload(invoice)}>Download</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDownload(invoice, 'pdf')}>Download PDF</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDownload(invoice, 'csv')}>Download CSV</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onPrint(invoice)}>Print</DropdownMenuItem>
             {isAdmin && (
               <>

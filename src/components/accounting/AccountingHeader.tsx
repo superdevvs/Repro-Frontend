@@ -27,6 +27,7 @@ interface AccountingHeaderProps {
   showTabs?: boolean;
   daysWindow?: number;
   onDaysWindowChange?: (v: number) => void;
+  onExport?: (format: 'csv' | 'excel' | 'pdf') => void;
   payoutActions?: {
     refresh: () => void;
     download: () => Promise<void>;
@@ -47,6 +48,7 @@ export function AccountingHeader({
   showTabs = false,
   daysWindow,
   onDaysWindowChange,
+  onExport,
   payoutActions,
 }: AccountingHeaderProps) {
   const showPayoutActions = activeTab === 'photographers' && Boolean(payoutActions);
@@ -79,25 +81,27 @@ export function AccountingHeader({
 
                 {showCreateButton && (
                   <>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-2">
-                          <Download className="h-4 w-4" />
-                          Export
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem>
-                          <span>CSV</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <span>Excel</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <span>PDF</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {onExport && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Export
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem onClick={() => onExport('csv')}>
+                            <span>CSV</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onExport('excel')}>
+                            <span>Excel</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onExport('pdf')}>
+                            <span>PDF</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -148,18 +152,19 @@ export function AccountingHeader({
                   </DropdownMenu>
                 )}
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                      title="Accounting actions"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                {(showPayoutActions || onExport) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        title="Accounting actions"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
                     {showPayoutActions && payoutActions && (
                       <>
                         <DropdownMenuLabel>Photographer Reports</DropdownMenuLabel>
@@ -179,22 +184,23 @@ export function AccountingHeader({
                       </>
                     )}
 
-                    {showCreateButton && (
+                    {showCreateButton && onExport && (
                       <>
                         <DropdownMenuLabel>Export</DropdownMenuLabel>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onExport('csv')}>
                           <span>CSV</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onExport('excel')}>
                           <span>Excel</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onExport('pdf')}>
                           <span>PDF</span>
                         </DropdownMenuItem>
                       </>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           ) : undefined

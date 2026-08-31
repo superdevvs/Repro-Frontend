@@ -3,12 +3,53 @@ export interface ExportColumn<Row extends Record<string, unknown>> {
   label: string;
 }
 
-const sanitizeValue = (value: unknown) => {
+type SpreadsheetExportTarget = 'csv' | 'xlsx';
+
+const DANGEROUS_SPREADSHEET_PREFIX = /^[\s\u200B\uFEFF]*[=+\-@]/u;
+const LEADING_ZERO_IDENTIFIER = /^0\d+$/;
+
+const normalizeValue = (value: unknown): string | number => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return value;
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return String(value);
 };
+
+/**
+ * Make user-controlled strings inert when a report is opened in spreadsheet
+ * software. CSV imports also need an explicit text marker for digit-only IDs
+ * with leading zeroes, otherwise Excel commonly turns invoice `00037` into 37.
+ */
+export const sanitizeSpreadsheetCellValue = (
+  value: unknown,
+  target: SpreadsheetExportTarget = 'xlsx',
+): string | number => {
+  const normalized = normalizeValue(value);
+
+  if (typeof normalized !== 'string') {
+    return normalized;
+  }
+
+  if (
+    DANGEROUS_SPREADSHEET_PREFIX.test(normalized)
+    || (target === 'csv' && LEADING_ZERO_IDENTIFIER.test(normalized))
+  ) {
+    return `'${normalized}`;
+  }
+
+  return normalized;
+};
+
+const quoteCsvCell = (value: unknown) =>
+  `"${String(sanitizeSpreadsheetCellValue(value, 'csv')).replace(/"/g, '""')}"`;
+
+export const serializeRowsAsCsv = <Row extends Record<string, unknown>>(
+  columns: ReadonlyArray<ExportColumn<Row>>,
+  rows: Row[],
+) => [
+  columns.map((column) => quoteCsvCell(column.label)).join(','),
+  ...rows.map((row) => columns.map((column) => quoteCsvCell(row[column.key])).join(',')),
+].join('\n');
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
@@ -26,16 +67,7 @@ export const exportRowsAsCsv = <Row extends Record<string, unknown>>(
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  const lines = [
-    columns.map((column) => `"${column.label.replace(/"/g, '""')}"`).join(','),
-    ...rows.map((row) =>
-      columns
-        .map((column) => `"${String(sanitizeValue(row[column.key])).replace(/"/g, '""')}"`)
-        .join(','),
-    ),
-  ];
-
-  downloadBlob(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' }), `${fileName}.csv`);
+  downloadBlob(new Blob([serializeRowsAsCsv(columns, rows)], { type: 'text/csv;charset=utf-8;' }), `${fileName}.csv`);
 };
 
 export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
@@ -44,14 +76,14 @@ export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  void import('write-excel-file/browser').then(({ default: writeExcelFile }) => {
+  return import('write-excel-file/browser').then(({ default: writeExcelFile }) => {
     const data = [
       columns.map((column) => ({
-        value: column.label,
+        value: sanitizeSpreadsheetCellValue(column.label, 'xlsx'),
         fontWeight: 'bold' as const,
       })),
       ...rows.map((row) =>
-        columns.map((column) => sanitizeValue(row[column.key])),
+        columns.map((column) => sanitizeSpreadsheetCellValue(row[column.key], 'xlsx')),
       ),
     ];
 
@@ -62,53 +94,99 @@ export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
   });
 };
 
+export const calculatePdfTableLayout = (pageWidth: number, columnCount: number) => {
+  const horizontalMargin = 30;
+  const tableWidth = Math.max(pageWidth - horizontalMargin * 2, 1);
+  const safeColumnCount = Math.max(columnCount, 1);
+  const columnWidth = tableWidth / safeColumnCount;
+
+  return {
+    horizontalMargin,
+    columnWidth,
+    cellWidth: Math.max(columnWidth - 10, 4),
+    fontSize: columnCount >= 9 ? 8 : 10,
+  };
+};
+
 export const exportRowsAsPdf = <Row extends Record<string, unknown>>(
   fileName: string,
   title: string,
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  void import('jspdf').then(({ jsPDF }) => {
+  return import('jspdf').then(({ jsPDF }) => {
     const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'pt',
-    format: 'a4',
-  });
+      orientation: 'landscape',
+      unit: 'pt',
+      format: 'a4',
+    });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const startY = 44;
-  const lineHeight = 18;
-  const columnWidth = Math.max(90, Math.floor((pageWidth - 60) / columns.length));
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const startY = 44;
+    const lineHeight = 18;
+    const wrappedLineHeight = 12;
+    const {
+      horizontalMargin,
+      columnWidth,
+      cellWidth,
+      fontSize,
+    } = calculatePdfTableLayout(pageWidth, columns.length);
+    const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-  doc.setFontSize(18);
-  doc.text(title, 30, startY);
-  doc.setFontSize(10);
+    doc.setFontSize(18);
+    doc.text(title, horizontalMargin, startY);
+    doc.setFontSize(fontSize);
 
-  let y = startY + 28;
-  columns.forEach((column, index) => {
-    doc.text(String(column.label), 30 + index * columnWidth, y);
-  });
+  const wrapCell = (value: unknown): string[] => {
+    const lines = doc.splitTextToSize(String(normalizeValue(value)), cellWidth) as string[];
+    return lines.length > 0 ? lines : [''];
+  };
 
-  y += 12;
-  doc.line(30, y, pageWidth - 30, y);
-  y += 18;
+  const drawTableHeader = (headerY: number): number => {
+    const headerLines = columns.map((column) => wrapCell(column.label));
+    const headerHeight = Math.max(
+      lineHeight,
+      ...headerLines.map((lines) => lines.length * wrappedLineHeight),
+    );
 
-  rows.forEach((row) => {
-    if (y > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      y = 40;
-    }
-
-    columns.forEach((column, index) => {
-      const value = String(sanitizeValue(row[column.key])).slice(0, 28);
-      doc.text(value, 30 + index * columnWidth, y, {
-        maxWidth: columnWidth - 12,
+    headerLines.forEach((lines, index) => {
+      doc.text(lines, horizontalMargin + index * columnWidth, headerY, {
+        maxWidth: cellWidth,
+        lineHeightFactor: 1.2,
       });
     });
 
-    y += lineHeight;
+    const separatorY = headerY + headerHeight;
+    doc.line(horizontalMargin, separatorY, pageWidth - horizontalMargin, separatorY);
+    return separatorY + lineHeight;
+  };
+
+  let y = drawTableHeader(startY + 28);
+
+  rows.forEach((row) => {
+    const cellLines = columns.map((column) => wrapCell(row[column.key]));
+    const rowHeight = Math.max(
+      lineHeight,
+      ...cellLines.map((lines) => lines.length * wrappedLineHeight + 6),
+    );
+
+    if (y + rowHeight > pageBottom) {
+      doc.addPage();
+      doc.setFontSize(fontSize);
+      doc.text(`${title} (continued)`, horizontalMargin, 30);
+      y = drawTableHeader(50);
+    }
+
+    cellLines.forEach((lines, index) => {
+      doc.text(lines, horizontalMargin + index * columnWidth, y, {
+        maxWidth: cellWidth,
+        lineHeightFactor: 1.2,
+      });
+    });
+
+    y += rowHeight;
   });
 
-  doc.save(`${fileName}.pdf`);
+    doc.save(`${fileName}.pdf`);
   });
 };

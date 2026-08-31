@@ -1,5 +1,5 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { formatDistanceToNowStrict } from 'date-fns';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import {
   AlertTriangle,
   CalendarRange,
@@ -20,6 +20,7 @@ import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -28,9 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
@@ -45,14 +53,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   adminRejectWeeklyInvoice,
   approveWeeklyInvoice,
+  downloadInvoiceCsv,
   fetchAdminInvoiceReviewDetail,
   fetchAdminInvoiceReviewQueue,
   type WeeklyInvoice,
@@ -60,7 +63,14 @@ import {
   type WeeklyInvoiceTimelineEvent,
 } from '@/services/invoiceService';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
+import { downloadInvoicePdf, downloadInvoicesPdf } from '@/utils/invoiceDownloads';
 import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
+import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from './InvoiceDateFilterToolbar';
+import {
+  DEFAULT_INVOICE_DATE_FILTER,
+  resolveInvoiceDateFilterRange,
+  type InvoiceDateFilter,
+} from '@/utils/invoiceDateFilters';
 
 import type {
   InvoiceReviewWorkspaceProps,
@@ -92,8 +102,7 @@ export function PhotographerInvoiceReviewWorkspace({
   const [workspaceTab, setWorkspaceTab] = useState<ReviewWorkspaceTab>('review-queue');
   const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('pending_approval');
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
   const [page, setPage] = useState(1);
   const [queueResponse, setQueueResponse] = useState<WeeklyInvoiceReviewQueueResponse | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
@@ -107,10 +116,22 @@ export function PhotographerInvoiceReviewWorkspace({
   const [returnReason, setReturnReason] = useState('');
   const [warningOverrideReason, setWarningOverrideReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [selectedDownloadInvoices, setSelectedDownloadInvoices] = useState<Map<number, WeeklyInvoice>>(
+    () => new Map(),
+  );
+  const queueRequestId = useRef(0);
   const deferredSearch = useDeferredValue(search.trim());
   const resolvedShortLabel = shortLabel || (role === 'salesRep' ? 'Sales Rep' : 'Photographer');
   const resolvedPluralLabel = pluralLabel || (role === 'salesRep' ? 'Sales Reps' : 'Photographers');
   const resolvedTitle = title || `${resolvedPluralLabel} Review`;
+  const { startDate, endDate } = useMemo(() => {
+    const range = resolveInvoiceDateFilterRange(dateFilter);
+    return {
+      startDate: range.start ? format(range.start, 'yyyy-MM-dd') : '',
+      endDate: range.end ? format(range.end, 'yyyy-MM-dd') : '',
+    };
+  }, [dateFilter]);
 
   const queue = queueResponse?.data || [];
   const summary = queueResponse?.summary || {
@@ -153,6 +174,7 @@ export function PhotographerInvoiceReviewWorkspace({
   );
 
   const loadQueue = useCallback(async () => {
+    const requestId = ++queueRequestId.current;
     setQueueLoading(true);
 
     try {
@@ -165,6 +187,8 @@ export function PhotographerInvoiceReviewWorkspace({
         page,
         per_page: 10,
       });
+
+      if (requestId !== queueRequestId.current) return null;
 
       setQueueResponse(response);
       setSelectedInvoiceId((current) => {
@@ -183,6 +207,7 @@ export function PhotographerInvoiceReviewWorkspace({
 
       return response;
     } catch (error) {
+      if (requestId !== queueRequestId.current) return null;
       toast({
         title: `Failed to load ${resolvedShortLabel.toLowerCase()} review queue`,
         description: error instanceof Error ? error.message : 'Unable to load the review queue.',
@@ -193,7 +218,9 @@ export function PhotographerInvoiceReviewWorkspace({
       setSelectedInvoice(null);
       return null;
     } finally {
-      setQueueLoading(false);
+      if (requestId === queueRequestId.current) {
+        setQueueLoading(false);
+      }
     }
   }, [deferredSearch, endDate, page, resolvedShortLabel, role, startDate, statusFilter, toast]);
 
@@ -241,6 +268,10 @@ export function PhotographerInvoiceReviewWorkspace({
     setPage(1);
   }, [deferredSearch, endDate, startDate, statusFilter]);
 
+  useEffect(() => {
+    setSelectedDownloadInvoices(new Map());
+  }, [deferredSearch, endDate, role, startDate, statusFilter]);
+
   const handleSelectInvoice = (invoiceId: number) => {
     setSelectedInvoiceId(invoiceId);
 
@@ -268,8 +299,34 @@ export function PhotographerInvoiceReviewWorkspace({
     }
   };
 
-  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
-    const rows = queue.map((invoice) => ({
+  const handleExport = async (exportFormat: InvoiceExportFormat) => {
+    setExporting(true);
+    try {
+      let exportQueue = [...selectedDownloadInvoices.values()];
+      if (exportQueue.length === 0) {
+        const baseParams = {
+          role,
+          approval_status: statusFilter,
+          search: deferredSearch || undefined,
+          start: startDate || undefined,
+          end: endDate || undefined,
+          per_page: 100,
+        } as const;
+        const firstPage = await fetchAdminInvoiceReviewQueue({ ...baseParams, page: 1 });
+        exportQueue = [...(firstPage.data || [])];
+        for (let exportPage = 2; exportPage <= firstPage.last_page; exportPage += 1) {
+          const response = await fetchAdminInvoiceReviewQueue({ ...baseParams, page: exportPage });
+          exportQueue.push(...(response.data || []));
+        }
+
+        const seen = new Set<number>();
+        exportQueue = exportQueue.filter((invoice) => {
+          if (seen.has(invoice.id)) return false;
+          seen.add(invoice.id);
+          return true;
+        });
+      }
+      const rows = exportQueue.map((invoice) => ({
       payee: role === 'salesRep' ? invoice.salesRep?.name || 'Sales Rep' : invoice.photographer?.name || 'Photographer',
       email: role === 'salesRep' ? invoice.salesRep?.email || '' : invoice.photographer?.email || '',
       period: formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end),
@@ -278,7 +335,7 @@ export function PhotographerInvoiceReviewWorkspace({
       expenses: invoice.expense_count || 0,
       total: formatCurrency(invoice.total_amount),
       updated: formatRelativeTimestamp(invoice.last_activity_at),
-    }));
+      }));
 
     const columns = [
       { key: 'payee', label: resolvedShortLabel },
@@ -293,17 +350,88 @@ export function PhotographerInvoiceReviewWorkspace({
 
     const fileName = `${resolvedShortLabel.toLowerCase().replace(/\s+/g, '-')}-review-queue`;
 
-    if (format === 'csv') {
-      exportRowsAsCsv(fileName, columns, rows);
-      return;
+      if (exportFormat === 'csv') exportRowsAsCsv(fileName, columns, rows);
+      else if (exportFormat === 'excel') await exportRowsAsExcel(fileName, `${resolvedShortLabel} Queue`, columns, rows);
+      else await exportRowsAsPdf(fileName, `${resolvedTitle} Export`, columns, rows);
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unable to export the filtered review queue.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
     }
+  };
 
-    if (format === 'excel') {
-      exportRowsAsExcel(fileName, `${resolvedShortLabel} Queue`, columns, rows);
-      return;
+  const toDownloadableInvoice = (invoice: WeeklyInvoice) => {
+    const payee = role === 'salesRep'
+      ? invoice.salesRep ?? invoice.payee
+      : invoice.photographer ?? invoice.payee;
+    const total = Number(invoice.total_amount || 0);
+    const amountPaid = Number(invoice.amount_paid || 0);
+
+    return {
+      ...invoice,
+      number: `W-${invoice.id}`,
+      client: payee,
+      payee,
+      date: invoice.billing_period_start,
+      dueDate: invoice.billing_period_end,
+      amount: total,
+      amountPaid,
+      balance: Math.max(total - amountPaid, 0),
+    };
+  };
+
+  const handleInvoiceDownload = async (invoice: WeeklyInvoice, downloadFormat: 'pdf' | 'csv') => {
+    try {
+      if (downloadFormat === 'csv') await downloadInvoiceCsv(invoice.id);
+      else await downloadInvoicePdf(toDownloadableInvoice(invoice));
+      toast({
+        title: 'Invoice downloaded',
+        description: `Invoice W-${invoice.id} was downloaded as ${downloadFormat.toUpperCase()}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unable to download this invoice.',
+        variant: 'destructive',
+      });
     }
+  };
 
-    exportRowsAsPdf(fileName, `${resolvedTitle} Export`, columns, rows);
+  const handleBulkInvoiceDownload = async () => {
+    const selected = [...selectedDownloadInvoices.values()];
+    if (selected.length === 0) return;
+
+    setExporting(true);
+    try {
+      await downloadInvoicesPdf(selected.map(toDownloadableInvoice), {
+        fileName: `${resolvedShortLabel.toLowerCase().replace(/\s+/g, '-')}-selected-invoices.pdf`,
+      });
+      toast({
+        title: 'Invoices downloaded',
+        description: `${selected.length} invoices were combined into one PDF.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unable to download the selected invoices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const toggleDownloadSelection = (invoice: WeeklyInvoice, checked: boolean) => {
+    setSelectedDownloadInvoices((current) => {
+      const next = new Map(current);
+      if (checked) next.set(invoice.id, invoice);
+      else next.delete(invoice.id);
+      return next;
+    });
   };
 
   const handleApprove = async (overrideReasonOverride?: string) => {
@@ -383,19 +511,6 @@ export function PhotographerInvoiceReviewWorkspace({
 
         {workspaceTab === 'review-queue' ? (
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleExport('csv')}>CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={queueLoading}>
               <RefreshCw className={cn('mr-2 h-4 w-4', queueLoading && 'animate-spin')} />
               Refresh Queue
@@ -447,10 +562,14 @@ export function PhotographerInvoiceReviewWorkspace({
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 pt-5">
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(15rem,0.85fr)]">
+            <div className="grid gap-3">
               <div className="relative">
+                <Label htmlFor="invoice-review-search" className="sr-only">
+                  Search {resolvedPluralLabel.toLowerCase()} by name or email
+                </Label>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  id="invoice-review-search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder={`Search ${resolvedShortLabel.toLowerCase()} name or email`}
@@ -458,13 +577,17 @@ export function PhotographerInvoiceReviewWorkspace({
                 />
               </div>
 
-              <DateRangePicker
-                value={{ startDate, endDate }}
-                onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
-                  setStartDate(nextStartDate);
-                  setEndDate(nextEndDate);
-                }}
-                triggerClassName="h-11 rounded-xl border-border/70 bg-background"
+              <InvoiceDateFilterToolbar
+                filter={dateFilter}
+                onFilterChange={setDateFilter}
+                resultCount={queueResponse?.total || 0}
+                selectedCount={selectedDownloadInvoices.size}
+                onClearSelection={() => setSelectedDownloadInvoices(new Map())}
+                onExport={handleExport}
+                onBulkPdf={handleBulkInvoiceDownload}
+                exporting={exporting}
+                exportDisabled={queueLoading}
+                resultNoun="invoice"
               />
             </div>
 
@@ -519,12 +642,10 @@ export function PhotographerInvoiceReviewWorkspace({
                   const payee = role === 'salesRep' ? invoice.salesRep : invoice.photographer;
 
                   return (
-                    <button
+                    <div
                       key={invoice.id}
-                      type="button"
-                      onClick={() => handleSelectInvoice(invoice.id)}
                       className={cn(
-                        'flex w-full flex-col gap-3 rounded-xl border px-4 py-4 text-left transition-colors',
+                        'flex w-full items-start gap-3 rounded-xl border px-3 py-4 transition-colors',
                         isSelected
                           ? 'border-primary/35 bg-primary/5'
                           : isNeedsReview
@@ -532,6 +653,17 @@ export function PhotographerInvoiceReviewWorkspace({
                             : 'border-border/70 bg-card hover:border-border',
                       )}
                     >
+                      <Checkbox
+                        checked={selectedDownloadInvoices.has(invoice.id)}
+                        onCheckedChange={(checked) => toggleDownloadSelection(invoice, checked === true)}
+                        aria-label={`Select invoice W-${invoice.id}`}
+                        className="mt-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSelectInvoice(invoice.id)}
+                        className="min-w-0 flex-1 space-y-3 text-left"
+                      >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-col gap-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -569,7 +701,9 @@ export function PhotographerInvoiceReviewWorkspace({
                         <span>{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</span>
                         <span>Updated {formatRelativeTimestamp(invoice.last_activity_at)}</span>
                       </div>
-                    </button>
+                      </button>
+                      <ReviewInvoiceDownloadMenu invoice={invoice} onDownload={handleInvoiceDownload} />
+                    </div>
                   );
                 })
               )}
@@ -781,5 +915,39 @@ export function PhotographerInvoiceReviewWorkspace({
         />
       ) : null}
     </Tabs>
+  );
+}
+
+function ReviewInvoiceDownloadMenu({
+  invoice,
+  onDownload,
+}: {
+  invoice: WeeklyInvoice;
+  onDownload: (invoice: WeeklyInvoice, format: 'pdf' | 'csv') => void | Promise<void>;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          aria-label={`Download invoice W-${invoice.id}`}
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Download invoice</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void onDownload(invoice, 'pdf')}>
+          PDF invoice
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void onDownload(invoice, 'csv')}>
+          CSV detail
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
