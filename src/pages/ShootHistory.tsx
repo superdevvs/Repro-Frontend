@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -32,6 +32,7 @@ import {
   formatCurrency,
   getShootStatusBadgeClass,
   isFeaturedTabShoot,
+  resolveShootThumbnail,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
@@ -145,14 +146,14 @@ const ShootHistory: React.FC = () => {
   // Local formatDisplayDate that uses user preference. Pass the raw string so
   // the formatter renders the LOCAL calendar day (no UTC round-trip) and the
   // date does not drift across browser timezones.
-  const formatDisplayDatePref = (value?: string | null) => {
+  const formatDisplayDatePref = useCallback((value?: string | null) => {
     if (!value) return '—'
     try {
       return formatDatePref(value)
     } catch (error) {
       return value
     }
-  }
+  }, [formatDatePref])
   
   const isSuperAdmin = role === 'superadmin'
   const isEditingManager = role === 'editing_manager'
@@ -454,10 +455,13 @@ const ShootHistory: React.FC = () => {
           subtitle: `${formatDisplayDatePref(shoot.scheduledDate)}${shoot.time ? ` · ${formatTime(shoot.time)}` : ''}`,
           address,
           coords,
+          imageUrl: resolveShootThumbnail(shoot, 'thumb'),
+          status: shoot.workflowStatus || shoot.status,
+          onOpen: () => handleShootSelect(shoot),
         }
       })
       .filter(Boolean) as MapMarker[]
-  }, [filteredOperationalData, geoCache, shouldHideClientDetails])
+  }, [filteredOperationalData, formatDisplayDatePref, formatTime, geoCache, handleShootSelect, shouldHideClientDetails])
 
   const historyMarkers: MapMarker[] = useMemo(() => {
     if (activeTab !== 'history' || historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') {
@@ -480,10 +484,12 @@ const ShootHistory: React.FC = () => {
           subtitle: `${formatDisplayDatePref(record.scheduledDate)}${record.completedDate ? ` · Completed ${formatDisplayDatePref(record.completedDate)}` : ''}`,
           address,
           coords,
+          status: record.status ?? undefined,
+          onOpen: () => handleHistoryRecordSelect(record),
         }
       })
       .filter(Boolean) as MapMarker[]
-  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, shouldHideClientDetails])
+  }, [activeTab, formatDisplayDatePref, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, handleHistoryRecordSelect, shouldHideClientDetails])
 
   const handleOpenPaymentDialog = React.useCallback((shoot: ShootData) => {
     setPaymentShoot(shoot)
@@ -1067,7 +1073,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
 
   const {
     operationalServicesSelected,

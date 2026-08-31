@@ -10,6 +10,7 @@ import {
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import '@/components/ui/map.css'
+import { ShootHistoryMarkerPreview } from './ShootHistoryMarkerPreview'
 import type { MapMarker } from './shootHistoryUtils'
 
 interface ShootHistoryLeafletMapProps {
@@ -113,14 +114,8 @@ export const ShootHistoryLeafletMap = ({
             icon={fallbackMarkerIcon}
             title={[marker.title, marker.address].filter(Boolean).join(' — ')}
           >
-            <Popup>
-              <div className="space-y-1 p-2">
-                <p className="text-sm font-semibold">{marker.title}</p>
-                {marker.subtitle ? (
-                  <p className="text-xs text-muted-foreground">{marker.subtitle}</p>
-                ) : null}
-                <p className="text-xs">{marker.address}</p>
-              </div>
+            <Popup className="listing-marker-popup" maxWidth={288}>
+              <ShootHistoryMarkerPreview marker={marker} theme={theme} />
             </Popup>
           </Marker>
         ))}

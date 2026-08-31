@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,15 +36,19 @@ const markerRecords: MarkerRecord[] = []
 const fitBoundsCalls: unknown[][] = []
 const setCenterCalls: Array<{ lat: number; lng: number }> = []
 const setZoomCalls: number[] = []
+const mapOptionsCalls: GoogleMapOptions[] = []
+const infoWindowOptions: unknown[] = []
 
 const createMapsApi = (): GoogleMapsApi => {
   class MapInstance {
-    constructor(_element: HTMLElement, _options: GoogleMapOptions) {}
+    constructor(_element: HTMLElement, options: GoogleMapOptions) {
+      mapOptionsCalls.push(options)
+    }
 
     fitBounds(...args: unknown[]) { fitBoundsCalls.push(args) }
     getZoom() { return 12 }
     setCenter(center: { lat: number; lng: number }) { setCenterCalls.push(center) }
-    setOptions() {}
+    setOptions(options: GoogleMapOptions) { mapOptionsCalls.push(options) }
     setZoom(zoom: number) { setZoomCalls.push(zoom) }
   }
 
@@ -65,9 +69,11 @@ const createMapsApi = (): GoogleMapsApi => {
   }
 
   class InfoWindowInstance {
+    constructor(options?: unknown) { infoWindowOptions.push(options) }
     close() {}
     open() {}
     setContent() {}
+    setHeaderContent() {}
   }
 
   class LatLngBounds {
@@ -131,6 +137,8 @@ beforeEach(() => {
   fitBoundsCalls.length = 0
   setCenterCalls.length = 0
   setZoomCalls.length = 0
+  mapOptionsCalls.length = 0
+  infoWindowOptions.length = 0
   h.loadGoogleMaps.mockReset()
   h.loadGoogleMaps.mockResolvedValue(createMapsApi())
 })
@@ -153,21 +161,70 @@ describe('PrivateListingGoogleMap', () => {
     renderMap(listings, 'listing-2', onSelectListing)
 
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
-    expect(screen.getByRole('region')).toHaveAccessibleName(
-      'Private listings map with 1 mapped location',
-    )
+    expect(screen.getByRole('region', {
+      name: 'Private listings map with 1 mapped location',
+    })).toBeInTheDocument()
     expect(markerRecords).toHaveLength(1)
     expect(markerRecords[0].options.position).toEqual({ lat: 30.2672, lng: -97.7431 })
     expect(markerRecords[0].options.icon).toContain('data:image/svg+xml')
     expect(fitBoundsCalls).toHaveLength(1)
     expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 372, bottom: 64, left: 64 })
 
+    const selectedPreview = screen.getByRole('region', {
+      name: 'Selected listing 100 Congress Avenue',
+    })
+    expect(selectedPreview).toHaveClass('top-36', 'right-[372px]')
+    expect(within(selectedPreview).getByText('100 Congress Avenue')).toBeVisible()
+    // Only the hover InfoWindow remains; selection uses the positioned React
+    // preview above, so Google's empty header cannot return.
+    expect(infoWindowOptions).toHaveLength(1)
+
+    act(() => screen.getByRole('button', { name: 'Close selected listing preview' }).click())
+    expect(screen.queryByRole('region', {
+      name: 'Selected listing 100 Congress Avenue',
+    })).not.toBeInTheDocument()
+
+    act(() => markerRecords[0].handlers.get('click')?.())
+    expect(screen.getByRole('region', {
+      name: 'Selected listing 100 Congress Avenue',
+    })).toBeInTheDocument()
+
     act(() => screen.getByRole('button', { name: 'Zoom in on map' }).click())
     act(() => screen.getByRole('button', { name: 'Zoom out of map' }).click())
     expect(setZoomCalls).toEqual([13, 11])
 
-    act(() => markerRecords[0].handlers.get('click')?.())
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+  })
+
+  it('disables obscured Google controls and hides business POIs in both themes', async () => {
+    const sharedProps = {
+      apiKey: 'browser-key-for-test',
+      listings: [listing('listing-1', 30.2672, -97.7431)],
+      selectedListingId: null,
+      onSelectListing: vi.fn(),
+      showMarkerLabels: false,
+      onToggleLabels: vi.fn(),
+      resolveImageUrl: () => null,
+      formatPrice: (price: number | undefined | null) => `$${price ?? 0}`,
+      onOpenListing: vi.fn(),
+    }
+    const { rerender } = render(<PrivateListingGoogleMap {...sharedProps} theme="light" />)
+
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    const lightOptions = mapOptionsCalls.at(-1) as GoogleMapOptions & { cameraControl?: boolean }
+    expect(lightOptions.cameraControl).toBe(false)
+    expect(lightOptions.zoomControl).toBe(false)
+    expect(lightOptions.styles).toEqual(expect.arrayContaining([
+      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+    ]))
+
+    rerender(<PrivateListingGoogleMap {...sharedProps} theme="dark" />)
+    const darkOptions = mapOptionsCalls.at(-1) as GoogleMapOptions & { cameraControl?: boolean }
+    expect(darkOptions.cameraControl).toBe(false)
+    expect(darkOptions.zoomControl).toBe(false)
+    expect(darkOptions.styles).toEqual(expect.arrayContaining([
+      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+    ]))
   })
 
   it('keeps the empty-map framing and empty state when no coordinates are valid', async () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { Loader2, Minus, Plus } from 'lucide-react'
+import { Loader2, Minus, Plus, X } from 'lucide-react'
 
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 import { MarkerPreview } from '@/components/listings/map/MarkerPreview'
@@ -73,22 +73,25 @@ const SELECTED_PIN_COLOR = '#d74432'
 const LIGHT_PIN_COLOR = '#1f5aa6'
 const DARK_PIN_COLOR = '#3b82f6'
 
+const HIDE_BUSINESS_POIS = {
+  featureType: 'poi.business',
+  stylers: [{ visibility: 'off' }],
+} as const
+
 const DARK_MAP_STYLES: ReadonlyArray<Record<string, unknown>> = [
+  HIDE_BUSINESS_POIS,
   { elementType: 'geometry', stylers: [{ color: '#111827' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#111827' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#374151' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#172033' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#13281f' }] },
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#263244' }] },
   { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
   { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#334155' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#13281f' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#071827' }] },
 ]
 
 const mapOptionsForTheme = (theme: PrivateListingMapTheme): GoogleMapOptions => ({
+  cameraControl: false,
   clickableIcons: false,
   fullscreenControl: false,
   gestureHandling: 'cooperative',
@@ -96,7 +99,7 @@ const mapOptionsForTheme = (theme: PrivateListingMapTheme): GoogleMapOptions => 
   rotateControl: false,
   scaleControl: true,
   streetViewControl: false,
-  styles: theme === 'dark' ? DARK_MAP_STYLES : null,
+  styles: theme === 'dark' ? DARK_MAP_STYLES : [HIDE_BUSINESS_POIS],
   zoomControl: false,
 })
 
@@ -155,12 +158,29 @@ const scheduleUnmount = (root: Root) => {
   })
 }
 
-const createPopup = (maps: GoogleMapsApi): PopupHandle => {
+const createPopup = (maps: GoogleMapsApi, verticalOffset: number): PopupHandle => {
   const container = document.createElement('div')
   const root = createRoot(container)
-  const infoWindow = new maps.InfoWindow({ maxWidth: 320 })
+  const pixelOffset = maps.Size
+    ? new maps.Size(0, verticalOffset)
+    : undefined
+  const infoWindow = new maps.InfoWindow({
+    headerContent: 'Private listing',
+    maxWidth: 320,
+    pixelOffset,
+    zIndex: 30,
+  })
   infoWindow.setContent(container)
   return { container, infoWindow, root }
+}
+
+const setPopupTitle = (popup: PopupHandle, listing: ShowcaseListing) => {
+  if (!popup.infoWindow.setHeaderContent) return
+  const title = document.createElement('div')
+  title.className = 'max-w-[230px] pr-1 text-sm font-semibold leading-snug text-slate-900'
+  title.textContent =
+    listing.address?.trim() || listing.fullAddress?.trim() || 'Private listing'
+  popup.infoWindow.setHeaderContent(title)
 }
 
 const normalizeMappedListings = (listings: ShowcaseListing[]): ShowcaseListing[] =>
@@ -189,7 +209,7 @@ export function PrivateListingGoogleMap({
   const mapsApiRef = React.useRef<GoogleMapsApi | null>(null)
   const markersRef = React.useRef<ListingMarkerEntry[]>([])
   const hoverPopupRef = React.useRef<PopupHandle | null>(null)
-  const selectedPopupRef = React.useRef<PopupHandle | null>(null)
+  const hoverCloseTimerRef = React.useRef<number | null>(null)
   const idleListenerRef = React.useRef<GoogleMapsListener | null>(null)
   const onLoadErrorRef = React.useRef(onLoadError)
   const themeRef = React.useRef(theme)
@@ -200,6 +220,7 @@ export function PrivateListingGoogleMap({
   const [retryVersion, setRetryVersion] = React.useState(0)
   const [drawAreaActive, setDrawAreaActive] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [dismissedPreviewId, setDismissedPreviewId] = React.useState<string | null>(null)
 
   onLoadErrorRef.current = onLoadError
   themeRef.current = theme
@@ -209,6 +230,18 @@ export function PrivateListingGoogleMap({
   const markerGroups = React.useMemo(
     () => buildMarkerLocationGroups(mappedListings),
     [mappedListings],
+  )
+  const selectedMarkerGroup = React.useMemo(
+    () => markerGroups.find((group) =>
+      group.listings.some((listing) => listing.id === selectedListingId),
+    ) ?? null,
+    [markerGroups, selectedListingId],
+  )
+  const selectedMappedListing = React.useMemo(
+    () => selectedMarkerGroup?.listings.find(
+      (listing) => listing.id === selectedListingId,
+    ) ?? null,
+    [selectedListingId, selectedMarkerGroup],
   )
   const initialCenter = React.useMemo(
     () => getMapCenter(buildMarkers(mappedListings), selectedListingId),
@@ -222,8 +255,30 @@ export function PrivateListingGoogleMap({
     })
     markersRef.current = []
     hoverPopupRef.current?.infoWindow.close()
-    selectedPopupRef.current?.infoWindow.close()
   }, [])
+
+  const cancelHoverClose = React.useCallback(() => {
+    if (hoverCloseTimerRef.current === null) return
+    window.clearTimeout(hoverCloseTimerRef.current)
+    hoverCloseTimerRef.current = null
+  }, [])
+
+  const closeHoverPopup = React.useCallback(() => {
+    cancelHoverClose()
+    hoverPopupRef.current?.infoWindow.close()
+  }, [cancelHoverClose])
+
+  const scheduleHoverClose = React.useCallback(() => {
+    cancelHoverClose()
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      hoverCloseTimerRef.current = null
+      hoverPopupRef.current?.infoWindow.close()
+    }, 180)
+  }, [cancelHoverClose])
+
+  React.useEffect(() => {
+    setDismissedPreviewId(null)
+  }, [selectedListingId])
 
   const reportLoadError = React.useCallback((error: Error) => {
     setLoadError(error)
@@ -280,8 +335,14 @@ export function PrivateListingGoogleMap({
           })
           mapRef.current = map
           mapsApiRef.current = maps
-          hoverPopupRef.current = createPopup(maps)
-          selectedPopupRef.current = createPopup(maps)
+          // The toolbar overlays the top of the map. Positive offsets keep the
+          // previews below it while retaining marker anchoring and auto-pan.
+          hoverPopupRef.current = createPopup(maps, 56)
+          const hoverContainer = hoverPopupRef.current.container
+          hoverContainer.addEventListener('mouseenter', cancelHoverClose)
+          hoverContainer.addEventListener('mouseleave', scheduleHoverClose)
+          hoverContainer.addEventListener('focusin', cancelHoverClose)
+          hoverContainer.addEventListener('focusout', scheduleHoverClose)
           setMapsApi(maps)
           setIsReady(true)
         } catch (error) {
@@ -310,9 +371,8 @@ export function PrivateListingGoogleMap({
         mapsApiRef.current.event.clearInstanceListeners(mapRef.current)
       }
       if (hoverPopupRef.current) scheduleUnmount(hoverPopupRef.current.root)
-      if (selectedPopupRef.current) scheduleUnmount(selectedPopupRef.current.root)
+      cancelHoverClose()
       hoverPopupRef.current = null
-      selectedPopupRef.current = null
       mapRef.current = null
       mapsApiRef.current = null
       setMapsApi(null)
@@ -320,7 +380,7 @@ export function PrivateListingGoogleMap({
     // Map construction is intentionally tied only to the key/retry attempt.
     // Listings and theme are applied by the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey, clearMarkers, reportLoadError, retryVersion])
+  }, [apiKey, cancelHoverClose, clearMarkers, reportLoadError, retryVersion, scheduleHoverClose])
 
   React.useEffect(() => {
     mapRef.current?.setOptions(mapOptionsForTheme(theme))
@@ -356,13 +416,16 @@ export function PrivateListingGoogleMap({
       })
       const listeners = [
         marker.addListener('click', () => {
-          hoverPopupRef.current?.infoWindow.close()
+          closeHoverPopup()
+          setDismissedPreviewId(null)
           latestRef.current.onSelectListing(listing.id)
         }),
         marker.addListener('mouseover', () => {
           if (selected) return
+          cancelHoverClose()
           const popup = hoverPopupRef.current
           if (!popup) return
+          setPopupTitle(popup, listing)
           popup.root.render(
             <MarkerPreview
               listing={listing}
@@ -375,7 +438,7 @@ export function PrivateListingGoogleMap({
           )
           popup.infoWindow.open({ anchor: marker, map, shouldFocus: false })
         }),
-        marker.addListener('mouseout', () => hoverPopupRef.current?.infoWindow.close()),
+        marker.addListener('mouseout', scheduleHoverClose),
       ]
       markersRef.current.push({ group, listeners, marker })
     })
@@ -383,47 +446,17 @@ export function PrivateListingGoogleMap({
     fitAllLocations()
     return clearMarkers
   }, [
+    cancelHoverClose,
     clearMarkers,
+    closeHoverPopup,
     fitAllLocations,
     mapsApi,
     markerGroups,
     selectedListingId,
+    scheduleHoverClose,
     showMarkerLabels,
     theme,
   ])
-
-  React.useEffect(() => {
-    const map = mapRef.current
-    const popup = selectedPopupRef.current
-    if (!mapsApi || !map || !popup) return
-    if (!selectedListingId) {
-      popup.infoWindow.close()
-      return
-    }
-
-    const entry = markersRef.current.find(({ group }) =>
-      group.listings.some((listing) => listing.id === selectedListingId),
-    )
-    const listing = entry?.group.listings.find(
-      (candidate) => candidate.id === selectedListingId,
-    )
-    if (!entry || !listing) {
-      popup.infoWindow.close()
-      return
-    }
-
-    popup.root.render(
-      <MarkerPreview
-        listing={listing}
-        relatedListings={entry.group.listings}
-        resolveImageUrl={latestRef.current.resolveImageUrl}
-        formatPrice={latestRef.current.formatPrice}
-        onOpenListing={latestRef.current.onOpenListing}
-        onSelectListing={latestRef.current.onSelectListing}
-      />,
-    )
-    popup.infoWindow.open({ anchor: entry.marker, map, shouldFocus: false })
-  }, [mapsApi, markerGroups, selectedListingId])
 
   React.useEffect(() => {
     const map = mapRef.current
@@ -510,9 +543,43 @@ export function PrivateListingGoogleMap({
         </div>
       ) : null}
 
+      {isReady && selectedMappedListing && selectedMarkerGroup && dismissedPreviewId !== selectedMappedListing.id ? (
+        <div
+          className="pointer-events-none absolute right-[372px] top-36 z-30 hidden lg:block"
+          role="region"
+          aria-label={`Selected listing ${selectedMappedListing.address || selectedMappedListing.fullAddress || 'Private listing'}`}
+        >
+          <div className="pointer-events-auto relative">
+            <MarkerPreview
+              listing={selectedMappedListing}
+              relatedListings={selectedMarkerGroup.listings}
+              resolveImageUrl={resolveImageUrl}
+              formatPrice={formatPrice}
+              onOpenListing={onOpenListing}
+              onSelectListing={onSelectListing}
+              className="border-slate-300/80 shadow-2xl dark:border-white/15"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2 z-20 h-8 w-8 rounded-full bg-slate-950/75 text-white shadow-sm backdrop-blur hover:bg-slate-950 hover:text-white"
+              aria-label="Close selected listing preview"
+              onClick={() => setDismissedPreviewId(selectedMappedListing.id)}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {isReady ? (
         <>
-          <div className="absolute bottom-[45%] left-3 z-10 flex flex-col rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:bottom-4 lg:left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white">
+          <div
+            className="absolute bottom-[45%] left-3 z-30 flex flex-col rounded-xl border border-slate-300/80 bg-white/88 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:bottom-4 lg:left-4 dark:border-white/15 dark:bg-slate-950/82 dark:text-white"
+            role="group"
+            aria-label="Map zoom controls"
+          >
             <Button
               type="button"
               variant="ghost"
@@ -523,6 +590,7 @@ export function PrivateListingGoogleMap({
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
             </Button>
+            <div className="mx-1 border-t border-slate-300/80 dark:border-white/15" aria-hidden="true" />
             <Button
               type="button"
               variant="ghost"

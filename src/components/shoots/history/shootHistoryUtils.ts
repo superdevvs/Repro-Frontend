@@ -64,6 +64,9 @@ export type MapMarker = {
   subtitle?: string
   address: string
   coords: { lat: number; lng: number }
+  imageUrl?: string | null
+  status?: string
+  onOpen?: () => void
 }
 
 export const HISTORY_ALLOWED_ROLES = new Set([

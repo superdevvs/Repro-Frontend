@@ -1,5 +1,7 @@
 import React from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import type { MapMarker } from './shootHistoryUtils'
+import { ShootHistoryMarkerPreview } from './ShootHistoryMarkerPreview'
 import {
   loadGoogleMaps,
   type GoogleInfoWindowInstance,
@@ -26,6 +28,15 @@ const BLUE_PIN_ICON =
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="#3b82f6" stroke="#fff" stroke-width="2" d="M16 1C7.7 1 1 7.7 1 16c0 11 15 25 15 25s15-14 15-25C31 7.7 24.3 1 16 1Z"/><circle cx="16" cy="16" r="5.5" fill="#fff"/></svg>',
   )
 
+const SIMPLIFIED_MAP_STYLES: ReadonlyArray<Record<string, unknown>> = [
+  { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+  {
+    featureType: 'administrative.land_parcel',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+]
+
 const DARK_MAP_STYLES: ReadonlyArray<Record<string, unknown>> = [
   { elementType: 'geometry', stylers: [{ color: '#111827' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
@@ -39,33 +50,11 @@ const DARK_MAP_STYLES: ReadonlyArray<Record<string, unknown>> = [
   { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#334155' }] },
   { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#071827' }] },
+  ...SIMPLIFIED_MAP_STYLES,
 ]
 
-const createPopupContent = (marker: MapMarker): HTMLDivElement => {
-  const content = document.createElement('div')
-  content.className = 'repro-google-map-popup'
-
-  const title = document.createElement('p')
-  title.className = 'repro-google-map-popup__title'
-  title.textContent = marker.title
-  content.appendChild(title)
-
-  if (marker.subtitle) {
-    const subtitle = document.createElement('p')
-    subtitle.className = 'repro-google-map-popup__subtitle'
-    subtitle.textContent = marker.subtitle
-    content.appendChild(subtitle)
-  }
-
-  const address = document.createElement('p')
-  address.className = 'repro-google-map-popup__address'
-  address.textContent = marker.address
-  content.appendChild(address)
-
-  return content
-}
-
 const mapOptionsForTheme = (theme: MapTheme): GoogleMapOptions => ({
+  cameraControl: false,
   clickableIcons: false,
   fullscreenControl: true,
   gestureHandling: 'cooperative',
@@ -73,9 +62,19 @@ const mapOptionsForTheme = (theme: MapTheme): GoogleMapOptions => ({
   rotateControl: false,
   scaleControl: true,
   streetViewControl: false,
-  styles: theme === 'dark' ? DARK_MAP_STYLES : null,
+  styles: theme === 'dark' ? DARK_MAP_STYLES : SIMPLIFIED_MAP_STYLES,
   zoomControl: true,
 })
+
+const scheduleUnmount = (root: Root) => {
+  Promise.resolve().then(() => {
+    try {
+      root.unmount()
+    } catch {
+      // The popup root may already have been released during map teardown.
+    }
+  })
+}
 
 const fitMapToMarkers = (
   maps: GoogleMapsApi,
@@ -109,6 +108,8 @@ export const GoogleShootHistoryMap = ({
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<GoogleMapInstance | null>(null)
   const infoWindowRef = React.useRef<GoogleInfoWindowInstance | null>(null)
+  const popupRootRef = React.useRef<Root | null>(null)
+  const popupMarkerRef = React.useRef<MapMarker | null>(null)
   const markerInstancesRef = React.useRef<GoogleMarkerInstance[]>([])
   const markerListenersRef = React.useRef<GoogleMapsListener[]>([])
   const onLoadErrorRef = React.useRef(onLoadError)
@@ -123,13 +124,20 @@ export const GoogleShootHistoryMap = ({
 
   themeRef.current = theme
 
+  const clearPopupContent = React.useCallback(() => {
+    if (popupRootRef.current) scheduleUnmount(popupRootRef.current)
+    popupRootRef.current = null
+    popupMarkerRef.current = null
+  }, [])
+
   const clearMarkers = React.useCallback(() => {
     markerListenersRef.current.forEach((listener) => listener.remove())
     markerListenersRef.current = []
     markerInstancesRef.current.forEach((marker) => marker.setMap(null))
     markerInstancesRef.current = []
     infoWindowRef.current?.close()
-  }, [])
+    clearPopupContent()
+  }, [clearPopupContent])
 
   React.useEffect(() => {
     let cancelled = false
@@ -156,7 +164,11 @@ export const GoogleShootHistoryMap = ({
           })
           mapRef.current = map
           mapsApiRef.current = maps
-          infoWindowRef.current = new maps.InfoWindow({ maxWidth: 320 })
+          infoWindowRef.current = new maps.InfoWindow({
+            ariaLabel: 'Shoot property preview',
+            headerDisabled: true,
+            maxWidth: 320,
+          })
           setMapsApi(maps)
           setIsReady(true)
         } catch (error) {
@@ -193,14 +205,32 @@ export const GoogleShootHistoryMap = ({
 
   React.useEffect(() => {
     mapRef.current?.setOptions(mapOptionsForTheme(theme))
-  }, [theme])
+    const popupRoot = popupRootRef.current
+    const popupMarker = popupMarkerRef.current
+    if (popupRoot && popupMarker) {
+      popupRoot.render(
+        <ShootHistoryMarkerPreview
+          marker={popupMarker}
+          theme={theme}
+          onDismiss={() => {
+            infoWindowRef.current?.close()
+            clearPopupContent()
+          }}
+        />,
+      )
+    }
+  }, [clearPopupContent, theme])
 
   React.useEffect(() => {
     const map = mapRef.current
     if (!mapsApi || !map) return
 
     clearMarkers()
-    const infoWindow = infoWindowRef.current ?? new mapsApi.InfoWindow({ maxWidth: 320 })
+    const infoWindow = infoWindowRef.current ?? new mapsApi.InfoWindow({
+      ariaLabel: 'Shoot property preview',
+      headerDisabled: true,
+      maxWidth: 320,
+    })
     infoWindowRef.current = infoWindow
 
     markers.forEach((markerData) => {
@@ -212,7 +242,23 @@ export const GoogleShootHistoryMap = ({
         title: [markerData.title, markerData.address].filter(Boolean).join(' — '),
       })
       const listener = marker.addListener('click', () => {
-        infoWindow.setContent(createPopupContent(markerData))
+        clearPopupContent()
+        const content = document.createElement('div')
+        content.className = 'repro-google-map-popup'
+        const popupRoot = createRoot(content)
+        popupRoot.render(
+          <ShootHistoryMarkerPreview
+            marker={markerData}
+            theme={themeRef.current}
+            onDismiss={() => {
+              infoWindow.close()
+              clearPopupContent()
+            }}
+          />,
+        )
+        popupRootRef.current = popupRoot
+        popupMarkerRef.current = markerData
+        infoWindow.setContent(content)
         infoWindow.open({ anchor: marker, map, shouldFocus: false })
       })
       markerInstancesRef.current.push(marker)
@@ -221,7 +267,7 @@ export const GoogleShootHistoryMap = ({
 
     fitMapToMarkers(mapsApi, map, markers)
     return clearMarkers
-  }, [clearMarkers, mapsApi, markers])
+  }, [clearMarkers, clearPopupContent, mapsApi, markers])
 
   React.useEffect(() => {
     const map = mapRef.current

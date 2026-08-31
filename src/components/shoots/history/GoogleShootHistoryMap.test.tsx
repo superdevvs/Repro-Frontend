@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GoogleMapOptions, GoogleMapsApi } from './googleMapsLoader'
@@ -20,6 +20,10 @@ vi.mock('./googleMapsLoader', async (importOriginal) => {
 import { GoogleShootHistoryMap } from './GoogleShootHistoryMap'
 
 const mapOptions: GoogleMapOptions[] = []
+const markerClickHandlers: Array<() => void> = []
+const infoWindowContents: Node[] = []
+const infoWindowOptions: unknown[] = []
+let infoWindowCloseCalls = 0
 
 const createMapsApi = (): GoogleMapsApi => {
   class MapInstance {
@@ -35,14 +39,27 @@ const createMapsApi = (): GoogleMapsApi => {
   }
 
   class MarkerInstance {
-    addListener() { return { remove: () => undefined } }
+    addListener(eventName: string, handler: () => void) {
+      if (eventName === 'click') markerClickHandlers.push(handler)
+      return { remove: () => undefined }
+    }
     setMap() {}
   }
 
   class InfoWindowInstance {
-    close() {}
+    private content: Node | null = null
+
+    constructor(options?: unknown) { infoWindowOptions.push(options) }
+    close() {
+      infoWindowCloseCalls += 1
+      this.content?.parentNode?.removeChild(this.content)
+    }
     open() {}
-    setContent() {}
+    setContent(content: Node) {
+      this.content = content
+      infoWindowContents.push(content)
+      document.body.appendChild(content)
+    }
   }
 
   class LatLngBounds {
@@ -79,11 +96,16 @@ const deferredMaps = () => {
 
 beforeEach(() => {
   mapOptions.length = 0
+  markerClickHandlers.length = 0
+  infoWindowContents.length = 0
+  infoWindowOptions.length = 0
+  infoWindowCloseCalls = 0
   h.loadGoogleMaps.mockReset()
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  await act(async () => Promise.resolve())
   vi.restoreAllMocks()
 })
 
@@ -139,5 +161,80 @@ describe('GoogleShootHistoryMap', () => {
 
     await waitFor(() => expect(mapOptions).toHaveLength(1))
     expect(mapOptions[0].styles).not.toBeNull()
+  })
+
+  it('keeps roads visible while hiding business details', async () => {
+    h.loadGoogleMaps.mockResolvedValue(createMapsApi())
+
+    render(
+      <GoogleShootHistoryMap
+        apiKey="browser-key-for-test"
+        markers={[marker]}
+        onLoadError={vi.fn()}
+        theme="light"
+      />,
+    )
+
+    await waitFor(() => expect(mapOptions).toHaveLength(1))
+    const styles = mapOptions[0].styles ?? []
+
+    expect(mapOptions[0].cameraControl).toBe(false)
+    expect(styles).toContainEqual({
+      featureType: 'poi.business',
+      stylers: [{ visibility: 'off' }],
+    })
+    expect(styles).not.toContainEqual({
+      featureType: 'road',
+      stylers: [{ visibility: 'off' }],
+    })
+    expect(styles).not.toContainEqual({
+      featureType: 'poi',
+      stylers: [{ visibility: 'off' }],
+    })
+  })
+
+  it('opens the marker card and forwards View Overview to the existing handler', async () => {
+    const onOpen = vi.fn()
+    h.loadGoogleMaps.mockResolvedValue(createMapsApi())
+
+    render(
+      <GoogleShootHistoryMap
+        apiKey="browser-key-for-test"
+        markers={[{
+          ...marker,
+          imageUrl: 'https://images.example.test/property.jpg',
+          status: 'scheduled',
+          subtitle: 'Aug 31, 2026 · 2:30 PM',
+          onOpen,
+        }]}
+        onLoadError={vi.fn()}
+        theme="light"
+      />,
+    )
+
+    await waitFor(() => expect(markerClickHandlers).toHaveLength(1))
+    await act(async () => {
+      markerClickHandlers[0]()
+      await Promise.resolve()
+    })
+
+    await waitFor(() => expect(infoWindowContents).toHaveLength(1))
+    expect(infoWindowOptions).toContainEqual({
+      ariaLabel: 'Shoot property preview',
+      headerDisabled: true,
+      maxWidth: 320,
+    })
+    const card = await screen.findByRole('button', {
+      name: `View Overview for ${marker.address}`,
+    })
+    expect(screen.getByText(marker.address)).toBeInTheDocument()
+    expect(screen.getByText('Scheduled')).toBeInTheDocument()
+
+    fireEvent.click(card)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+
+    const closeCallsBeforeDismiss = infoWindowCloseCalls
+    fireEvent.click(screen.getByRole('button', { name: 'Close property preview' }))
+    expect(infoWindowCloseCalls).toBe(closeCallsBeforeDismiss + 1)
   })
 })

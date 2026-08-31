@@ -26,9 +26,11 @@ export interface GoogleInfoWindowInstance {
     shouldFocus?: boolean
   }) => void
   setContent: (content: Node) => void
+  setHeaderContent?: (content: string | Element | Text | null) => void
 }
 
 export interface GoogleMapOptions {
+  cameraControl?: boolean
   center?: { lat: number; lng: number }
   clickableIcons?: boolean
   fullscreenControl?: boolean
@@ -42,6 +44,15 @@ export interface GoogleMapOptions {
   zoomControl?: boolean
 }
 
+export interface GoogleInfoWindowOptions {
+  ariaLabel?: string
+  headerContent?: string | Element | Text
+  headerDisabled?: boolean
+  maxWidth?: number
+  pixelOffset?: unknown
+  zIndex?: number
+}
+
 interface GoogleMarkerOptions {
   icon?: string
   map: GoogleMapInstance
@@ -51,10 +62,11 @@ interface GoogleMarkerOptions {
 }
 
 export interface GoogleMapsApi {
-  InfoWindow: new (options?: { maxWidth?: number }) => GoogleInfoWindowInstance
+  InfoWindow: new (options?: GoogleInfoWindowOptions) => GoogleInfoWindowInstance
   LatLngBounds: new () => GoogleLatLngBounds
   Map: new (element: HTMLElement, options: GoogleMapOptions) => GoogleMapInstance
   Marker: new (options: GoogleMarkerOptions) => GoogleMarkerInstance
+  Size?: new (width: number, height: number) => unknown
   event: {
     addListenerOnce: (
       instance: object,
