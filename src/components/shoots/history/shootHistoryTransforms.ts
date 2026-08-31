@@ -14,6 +14,10 @@ import {
   ShootServiceObject,
 } from '@/types/shoots'
 import { FilterCollections } from './shootHistoryUtils'
+import {
+  ShootMapCoordinates,
+  toValidMapCoordinates,
+} from './shootHistoryCoordinates'
 
 const toStringValue = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback)
 const toNumberValue = (value: unknown, fallback = 0): number => {
@@ -48,6 +52,16 @@ const toOptionalIdString = (value: unknown): string | undefined => {
 }
 const toOptionalIsoString = (value: unknown): string | undefined => {
   if (typeof value === 'string' && value.trim()) return value
+  return undefined
+}
+const firstValidCoordinatePair = (
+  pairs: Array<readonly [latitude: unknown, longitude: unknown]>,
+): ShootMapCoordinates | undefined => {
+  for (const [latitude, longitude] of pairs) {
+    const coordinates = toValidMapCoordinates(latitude, longitude)
+    if (coordinates) return coordinates
+  }
+
   return undefined
 }
 const toServiceObjectValue = (value: unknown) =>
@@ -198,8 +212,20 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const state = toStringValue(item.state)
   const zip = toStringValue(item.zip)
   const fallbackFull = [address, city, getStateFullName(state)].filter(Boolean).join(', ')
-  const locationDetails = toObjectValue<{ fullAddress?: string }>(item.location)
-  const fullAddress = locationDetails?.fullAddress ?? `${fallbackFull}${zip ? ` ${zip}` : ''}`
+  const locationDetails = toObjectValue<Record<string, unknown>>(item.location)
+  const propertyDetails = toObjectValue<Record<string, unknown>>(
+    item.property_details ?? item.propertyDetails,
+  )
+  const fullAddress = toOptionalString(locationDetails?.fullAddress)
+    ?? `${fallbackFull}${zip ? ` ${zip}` : ''}`
+  const coordinates = firstValidCoordinatePair([
+    [locationDetails?.latitude, locationDetails?.longitude],
+    [locationDetails?.lat, locationDetails?.lng],
+    [item.latitude, item.longitude],
+    [item.lat, item.lng],
+    [propertyDetails?.latitude, propertyDetails?.longitude],
+    [propertyDetails?.lat, propertyDetails?.lng],
+  ])
 
   const packageDetails = toObjectValue<{ name?: string; expectedDeliveredCount?: number; bracketMode?: number; servicesIncluded?: string[] }>(item.package) ?? toObjectValue<{ name?: string; expectedDeliveredCount?: number; bracketMode?: number; servicesIncluded?: string[] }>(item.package_details) ?? {}
   const client = toObjectValue<{ id?: number | string; name?: string; email?: string; company_name?: string; phonenumber?: string; totalShoots?: number; total_shoots?: number }>(item.client)
@@ -539,7 +565,15 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
       totalShoots: toNumberValue(client?.totalShoots ?? client?.total_shoots, 0),
       id: client?.id ? String(client.id) : undefined,
     },
-    location: { address, city, state, zip, fullAddress },
+    location: {
+      address,
+      city,
+      state,
+      zip,
+      fullAddress,
+      latitude: coordinates?.lat,
+      longitude: coordinates?.lng,
+    },
     photographer: photographer ? { id: photographer.id ? String(photographer.id) : undefined, name: photographer.name ?? 'Unassigned', avatar: photographer.avatar } : undefined,
     editor: resolvedEditor,
     editorId: resolvedEditor?.id ? String(resolvedEditor.id) : undefined,

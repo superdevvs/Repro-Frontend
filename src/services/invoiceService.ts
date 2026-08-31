@@ -116,9 +116,14 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
   // populated. Fall back to the authoritative total-minus-paid in that case.
   const reportedBalance = toNumber(invoice.balance_due, Number.NaN);
   const derivedBalance = baseAmount - amountPaid;
-  const balance = Number.isFinite(reportedBalance) && reportedBalance > 0.005
+  const balance = Math.max(Number.isFinite(reportedBalance) && reportedBalance > 0.005
     ? reportedBalance
-    : derivedBalance;
+    : derivedBalance, 0);
+  const reportedOverpayment = toNumber(invoice.overpayment_amount ?? invoice.overpaymentAmount, Number.NaN);
+  const overpaymentAmount = Math.max(
+    Number.isFinite(reportedOverpayment) ? reportedOverpayment : amountPaid - baseAmount,
+    0,
+  );
   const invoiceNumber = String(invoice.invoice_number ?? invoice.invoiceNumber ?? invoice.id ?? fallbackId ?? '');
   const rawStatus = String(invoice.status ?? '').trim().toLowerCase();
 
@@ -196,6 +201,8 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
     amount: baseAmount,
     amountPaid,
     balance,
+    overpaymentAmount,
+    overpayment_amount: overpaymentAmount,
     subtotal,
     tax,
     total: baseAmount,
@@ -633,29 +640,6 @@ export const updateWeeklyInvoiceItem = async (
 };
 
 /**
- * Reject a weekly invoice
- */
-export const rejectWeeklyInvoice = async (
-  invoiceId: number,
-  role: 'photographer' | 'salesRep',
-  reason?: string
-): Promise<{ message: string; invoice: WeeklyInvoice }> => {
-  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
-  const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/reject`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify({ reason }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to reject invoice');
-  }
-
-  return response.json();
-};
-
-/**
  * Submit a weekly invoice for approval
  */
 export const submitWeeklyInvoiceForApproval = async (
@@ -677,6 +661,17 @@ export const submitWeeklyInvoiceForApproval = async (
 
   return response.json();
 };
+
+/**
+ * Submit a payee-edited weekly invoice to the same admin review queue.
+ * "Rejected" is reserved for an invoice an admin has returned to the payee.
+ */
+export const submitWeeklyInvoiceChangesForApproval = async (
+  invoiceId: number,
+  role: 'photographer' | 'salesRep',
+  changeSummary: string,
+): Promise<{ message: string; invoice: WeeklyInvoice }> =>
+  submitWeeklyInvoiceForApproval(invoiceId, role, changeSummary);
 
 // ---- Admin Invoice Approval ----
 

@@ -70,22 +70,7 @@ import {
   getShootDetailsAddressTitle,
   getShootSubmitFileCount,
 } from './details/shootDetailsModalHelpers';
-
-interface ShootDetailsModalProps {
-  shootId: string | number;
-  isOpen: boolean;
-  onClose: () => void;
-  currentRole?: string; // Optional override, defaults to auth role
-  onShootUpdate?: () => void; // Callback to refresh shoot list when shoot is updated
-  initialWeather?: WeatherInfo | null; // Pre-fetched weather from dashboard to avoid re-fetching
-  onModify?: () => void; // Callback to modify/edit the shoot request
-  photographers?: Array<{ id: string | number; name: string; avatar?: string }>; // For approval modal
-  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media';
-  openDownloadDialog?: boolean;
-  shouldHideClientDetails?: boolean;
-  initialFocus?: 'schedule_assignments';
-}
-
+import type { ShootDetailsModalProps, ShootDetailsTabId } from './modal/shootDetailsTypes';
 export function ShootDetailsModal({
   shootId, 
   isOpen, 
@@ -106,10 +91,7 @@ export function ShootDetailsModal({
   const { toast } = useToast();
   const { updateShoot } = useShoots();
   const { formatTemperature, formatTime } = useUserPreferences();
-  
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media'>(
-    initialTab,
-  );
+  const [activeTab, setActiveTab] = useState<ShootDetailsTabId>(initialTab);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
@@ -556,10 +538,12 @@ export function ShootDetailsModal({
     isSavingChanges,
     isSaveConfirmOpen,
     pendingUpdates,
+    serviceDetachConfirmation,
     notifyClientOnSave,
     notifyPhotographerOnSave,
     setIsSaveConfirmOpen,
     setPendingUpdates,
+    setServiceDetachConfirmation,
     setNotifyClientOnSave,
     setNotifyPhotographerOnSave,
     handleSaveRequest,
@@ -948,10 +932,12 @@ export function ShootDetailsModal({
         mmmDialogRedirectUrl={mmmDialogRedirectUrl}
         mmmDialogError={mmmDialogError}
         pendingUpdates={pendingUpdates}
+        serviceDetachConfirmation={serviceDetachConfirmation}
         setIsPaymentDialogOpen={setIsPaymentDialogOpen}
         setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
         setIsSaveConfirmOpen={setIsSaveConfirmOpen}
         setPendingUpdates={setPendingUpdates}
+        setServiceDetachConfirmation={setServiceDetachConfirmation}
         setNotifyClientOnSave={setNotifyClientOnSave}
         setNotifyPhotographerOnSave={setNotifyPhotographerOnSave}
         setIsCancellationFeeDialogOpen={setIsCancellationFeeDialogOpen}

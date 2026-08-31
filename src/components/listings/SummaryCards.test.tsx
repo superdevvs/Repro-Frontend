@@ -53,6 +53,24 @@ function valueOf(key: string): string {
 }
 
 describe('SummaryCards — recompute on filter change (R5.3)', () => {
+  it('can render a compact subset in canonical order', () => {
+    const summary = computeSummary(allListings)
+
+    render(
+      <SummaryCards
+        summary={summary}
+        visibleKeys={['mapped', 'total']}
+        variant="overlay"
+      />,
+    )
+
+    const cards = screen.getAllByTestId(/^summary-card-/)
+    expect(cards).toHaveLength(2)
+    expect(cards[0]).toHaveAttribute('data-testid', 'summary-card-total')
+    expect(cards[1]).toHaveAttribute('data-testid', 'summary-card-mapped')
+    expect(screen.queryByTestId('summary-card-unmapped')).not.toBeInTheDocument()
+  })
+
   it('renders the five summary values from computeSummary over the full set', () => {
     const summaryA = computeSummary(allListings)
 

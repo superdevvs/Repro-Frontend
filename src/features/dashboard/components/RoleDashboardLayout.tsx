@@ -2,6 +2,7 @@ import React from "react";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
@@ -90,9 +91,9 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             <div className="flex-1">
               <PageHeader title={title} description={description} />
             </div>
-            <div className="flex items-center gap-2 empty:hidden">
+            <DashboardNoticeStack label="Dashboard notices">
               <UploadStatusWidget />
-            </div>
+            </DashboardNoticeStack>
           </div>
           {isCompactDashboardLayout && mobileTabs.length > 0 ? (
             <div className="space-y-4 flex-1 flex flex-col">

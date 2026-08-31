@@ -27,6 +27,7 @@ import {
   downloadPayoutReport,
   sendPayoutReport,
 } from '@/services/invoiceService';
+import { normalizeReportingWeekRange } from '@/utils/reportingWeek';
 
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -37,6 +38,9 @@ const formatDate = (dateStr: string) => {
   if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 interface PayoutReportPanelProps {
   role?: 'all' | 'photographer' | 'salesRep' | 'editor';
@@ -71,9 +75,13 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
       if (end) params.end = end;
       const data = await fetchPayoutReport(params);
       setReport(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load payout report:', error);
-      toast({ title: 'Failed to load payout report', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Failed to load payout report',
+        description: getErrorMessage(error, 'Unable to load the payout report.'),
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -83,53 +91,71 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
     loadReport();
   }, [loadReport]);
 
-  const handleDownload = async () => {
+  const normalizeSelectedRange = useCallback(() => {
+    const normalized = normalizeReportingWeekRange({ startDate, endDate });
+    if (normalized.startDate !== startDate) setStartDate(normalized.startDate);
+    if (normalized.endDate !== endDate) setEndDate(normalized.endDate);
+    return normalized;
+  }, [endDate, startDate]);
+
+  const handleDownload = useCallback(async () => {
     try {
       setDownloading(true);
+      const normalized = normalizeSelectedRange();
       const params: { start?: string; end?: string; role?: 'all' | 'photographer' | 'salesRep' | 'editor' } = { role };
-      if (startDate) params.start = startDate;
-      if (endDate) params.end = endDate;
+      if (normalized.startDate) params.start = normalized.startDate;
+      if (normalized.endDate) params.end = normalized.endDate;
       await downloadPayoutReport(params);
       toast({ title: 'Report downloaded' });
-    } catch (error: any) {
-      toast({ title: 'Download failed', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Download failed',
+        description: getErrorMessage(error, 'Unable to download the payout report.'),
+        variant: 'destructive',
+      });
     } finally {
       setDownloading(false);
     }
-  };
+  }, [normalizeSelectedRange, role, toast]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     try {
       setSending(true);
+      const normalized = normalizeSelectedRange();
       await sendPayoutReport({
         role,
-        start: startDate || undefined,
-        end: endDate || undefined,
+        start: normalized.startDate || undefined,
+        end: normalized.endDate || undefined,
       });
       toast({ title: 'Report sent', description: 'Accounting payout emails were queued successfully.' });
-    } catch (error: any) {
-      toast({ title: 'Send failed', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Send failed',
+        description: getErrorMessage(error, 'Unable to send the payout report.'),
+        variant: 'destructive',
+      });
     } finally {
       setSending(false);
     }
-  };
+  }, [normalizeSelectedRange, role, toast]);
 
-  const handleFilter = () => {
-    loadReport(startDate || undefined, endDate || undefined);
-  };
+  const handleFilter = useCallback(() => {
+    const normalized = normalizeSelectedRange();
+    void loadReport(normalized.startDate || undefined, normalized.endDate || undefined);
+  }, [loadReport, normalizeSelectedRange]);
 
   useEffect(() => {
     if (registerActions) {
-        registerActions({
-          refresh: () => loadReport(),
-          download: handleDownload,
-          send: handleSend,
-          loading,
-          downloading,
-          sending,
-        });
+      registerActions({
+        refresh: handleFilter,
+        download: handleDownload,
+        send: handleSend,
+        loading,
+        downloading,
+        sending,
+      });
     }
-  }, [registerActions, loading, downloading, sending, loadReport]);
+  }, [registerActions, loading, downloading, sending, handleFilter, handleDownload, handleSend]);
 
   const clearFilters = () => {
     setStartDate('');
@@ -184,9 +210,12 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
               </Button>
             )}
           </div>
+          <p className="text-xs text-muted-foreground xl:text-right">
+            Reports always cover complete weeks, Sunday through Saturday.
+          </p>
           {!hideHeaderButtons && (
             <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-              <Button variant="outline" size="sm" onClick={() => loadReport()} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={handleFilter} disabled={loading}>
                 <RefreshCw className="w-3 h-3 mr-1" />
                 Refresh
               </Button>

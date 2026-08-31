@@ -487,6 +487,16 @@ const ListingsSkeleton = () => (
   </div>
 );
 
+const ExclusiveListingsLoadingSurface = () => (
+  <div
+    className="min-h-full bg-background"
+    role="status"
+    aria-label="Loading exclusive listings"
+  >
+    <span className="sr-only">Loading exclusive listings</span>
+  </div>
+);
+
 const PanelPageSkeleton = () => (
   <div className="space-y-5 px-2 py-4 sm:p-6">
     <HeaderSkeleton />
@@ -520,7 +530,8 @@ export const DashboardRouteSkeleton = ({ pathname }: DashboardRouteSkeletonProps
   if (pathname.startsWith('/messaging')) return <MessagingSkeleton />;
   if (pathname === '/chat-with-reproai') return <ChatSkeleton />;
   if (pathname.startsWith('/shoots/')) return <ShootDetailsSkeleton />;
-  if (pathname === '/portal' || pathname.startsWith('/exclusive-listings/')) return <ListingsSkeleton />;
+  if (pathname === '/portal') return <ExclusiveListingsLoadingSurface />;
+  if (pathname.startsWith('/exclusive-listings/')) return <ListingsSkeleton />;
 
   return <PanelPageSkeleton />;
 };

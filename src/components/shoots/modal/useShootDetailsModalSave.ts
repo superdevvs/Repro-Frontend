@@ -4,6 +4,11 @@ import { API_BASE_URL } from '@/config/env';
 import { blurActiveElement } from '../dialogFocusUtils';
 import type { ShootData } from '@/types/shoots';
 import type { useToast } from '@/hooks/use-toast';
+import {
+  ShootServiceMutationError,
+  submitShootServiceMutation,
+  type ServiceDetachConfirmation,
+} from '@/utils/shootServiceMutation';
 
 interface UseShootDetailsModalSaveParams {
   shoot: ShootData | null;
@@ -73,6 +78,7 @@ export function useShootDetailsModalSave({
   const saveChangesInFlight = useRef(false);
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<Partial<ShootData> | null>(null);
+  const [serviceDetachConfirmation, setServiceDetachConfirmation] = useState<ServiceDetachConfirmation | null>(null);
   const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
   const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
   const to24Hour = (timeString?: string | null) => {
@@ -92,6 +98,7 @@ export function useShootDetailsModalSave({
   const handleSaveChanges = async (
     updates: ShootSaveUpdates,
     notifyOptions?: { notifyClient?: boolean; notifyPhotographer?: boolean },
+    confirmationToken?: string | null,
   ) => {
     if (!shoot) {
       console.error('💾 Cannot save: shoot is null');
@@ -126,6 +133,7 @@ export function useShootDetailsModalSave({
     saveChangesInFlight.current = true;
     setIsSavingChanges(true);
     
+    let preservePendingUpdates = false;
     try {
       const payload: Record<string, unknown> = {};
       
@@ -199,10 +207,11 @@ export function useShootDetailsModalSave({
         }
       }
       
-      // Payment fields
-      if (updates.payment?.baseQuote !== undefined) payload.base_quote = updates.payment.baseQuote;
-      if (updates.payment?.taxAmount !== undefined) payload.tax_amount = updates.payment.taxAmount;
-      if (updates.payment?.totalQuote !== undefined) payload.total_quote = updates.payment.totalQuote;
+      // Service-changing prices are canonical on the server. Admins can opt into
+      // one explicit final-order override instead of sending conflicting pieces.
+      if (hasOwn(updates, 'adminAdjustedTotalQuote')) {
+        payload.admin_adjusted_total_quote = toNullableNumber(updates.adminAdjustedTotalQuote);
+      }
       
       // Property details (beds, baths, sqft, access info)
       if (hasOwn(updates, 'propertyDetails')) {
@@ -288,8 +297,14 @@ export function useShootDetailsModalSave({
             if (!isNaN(serviceId) && serviceId > 0) {
               const serviceData: Record<string, unknown> = {
                 id: serviceId,
-                quantity: serviceRecord.quantity || 1,
               };
+
+              if (serviceRecord.quantity !== undefined && serviceRecord.quantity !== null) {
+                const quantity = Number(serviceRecord.quantity);
+                if (Number.isInteger(quantity) && quantity > 0) {
+                  serviceData.quantity = quantity;
+                }
+              }
               
               // Include price if provided
               if (serviceRecord.price !== undefined && serviceRecord.price !== null) {
@@ -346,8 +361,14 @@ export function useShootDetailsModalSave({
 
           const itemData: Record<string, unknown> = {
             service_id: serviceId,
-            quantity: serviceItem.quantity || 1,
           };
+
+          if (serviceItem.quantity !== undefined && serviceItem.quantity !== null) {
+            const quantity = Number(serviceItem.quantity);
+            if (Number.isInteger(quantity) && quantity > 0) {
+              itemData.quantity = quantity;
+            }
+          }
 
           if (serviceItem.price !== undefined && serviceItem.price !== null) {
             const price = typeof serviceItem.price === 'string'
@@ -421,153 +442,39 @@ export function useShootDetailsModalSave({
       console.log('💾 Token present:', !!token);
       console.log('💾 Token length:', token ? token.length : 0);
       
-      // Validate payload can be stringified (catch circular references, etc.)
-      let payloadString: string;
-      try {
-        payloadString = JSON.stringify(payload);
-        console.log('💾 Payload stringified successfully, length:', payloadString.length);
-      } catch (stringifyError) {
-        console.error('💾 Failed to stringify payload:', stringifyError);
-        throw new Error('Invalid data format - cannot serialize request');
-      }
-      
-      let res: Response;
-      try {
-        // Add timeout to prevent hanging requests
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-        
-        res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: payloadString,
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-      } catch (fetchError) {
-        // Network error (CORS, connection issue, timeout, etc.)
-        console.error('💾 Network error during fetch:', fetchError);
-        console.error('💾 Error details:', {
-          name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-          message: fetchError instanceof Error ? fetchError.message : String(fetchError),
-          stack: fetchError instanceof Error ? fetchError.stack : undefined,
-          url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
-          method: 'PATCH',
-        });
-        
-        let errorMessage = 'Network error - please check your connection and try again';
-        
-        if (fetchError instanceof Error) {
-          if (fetchError.name === 'AbortError') {
-            errorMessage = 'Request timed out - refreshing to confirm changes.';
-            const refreshedShoot = await refreshShoot();
-            if (refreshedShoot?.id) {
-              updateShoot(String(refreshedShoot.id), refreshedShoot, { skipApi: true }).catch((contextError) => {
-                console.log('💾 Context update after timeout failed (ignored):', contextError);
-              });
-              if (onShootUpdate) {
-                setTimeout(() => {
-                  try {
-                    onShootUpdate();
-                  } catch (error) {
-                    console.log('💾 onShootUpdate after timeout failed (ignored):', error);
-                  }
-                }, 0);
-              }
-            }
-          } else if (fetchError.message.includes('Failed to fetch') || 
-                     fetchError.message.includes('NetworkError') ||
-                     fetchError.message.includes('Network request failed')) {
-            // This is a true network error - server unreachable, CORS, etc.
-            errorMessage = 'Unable to connect to server. Please check:\n' +
-              '1. Your internet connection\n' +
-              '2. The backend server is running\n' +
-              '3. CORS is properly configured';
-          } else {
-            errorMessage = fetchError.message;
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      console.log('💾 Save response status:', res.status, res.statusText);
-      console.log('💾 Response headers:', Object.fromEntries(res.headers.entries()));
-      
-      if (!res.ok) {
-        // Try to get error message from response
-        let errorMessage = 'Failed to update shoot';
-        let errorData: Record<string, unknown> | null = null;
-        
-        try {
-          // Try to read response as text first to see what we got
-          const responseText = await res.text();
-          console.error('💾 Save error response text:', responseText);
-          
-          if (responseText) {
-            try {
-              errorData = asRecord(JSON.parse(responseText) as unknown);
-              console.error('💾 Save error response (parsed):', errorData);
-            } catch (parseError) {
-              // Response is not JSON, use the text as error message
-              errorMessage = responseText || `Failed to update shoot (${res.status} ${res.statusText})`;
-            }
-          }
-          
-          // Handle validation errors
-          if (errorData) {
-            const validationErrors = asRecord(errorData.errors);
-            if (Object.keys(validationErrors).length > 0) {
-              const errorMessages = Object.entries(validationErrors)
-                .map(([key, value]) => {
-                  if (Array.isArray(value)) {
-                    return `${key}: ${value.join(', ')}`;
-                  }
-                  return `${key}: ${value}`;
-                })
-                .join('; ');
-              errorMessage = errorMessages || optionalString(errorData.message) || errorMessage;
-            } else if (optionalString(errorData.message)) {
-              errorMessage = optionalString(errorData.message) || errorMessage;
-            } else if (optionalString(errorData.error)) {
-              errorMessage = optionalString(errorData.error) || errorMessage;
-            }
-          }
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          errorMessage = `Failed to update shoot (${res.status} ${res.statusText})`;
-        }
-        
-        // Provide more specific error messages based on status code
-        if (res.status === 401 || res.status === 403) {
-          errorMessage = 'Unauthorized - please refresh the page and try again';
-        } else if (res.status === 404) {
-          errorMessage = 'Shoot not found - it may have been deleted';
-        } else if (res.status === 422) {
-          errorMessage = errorMessage || 'Validation error - please check your input';
-        } else if (res.status >= 500) {
-          errorMessage = 'Server error - please try again later';
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
       let responseData: Record<string, unknown>;
       try {
-        const responseText = await res.text();
-        if (responseText) {
-          responseData = asRecord(JSON.parse(responseText) as unknown);
-        } else {
-          responseData = {};
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        try {
+          const result = await submitShootServiceMutation({
+            url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
+            token,
+            payload,
+            confirmationToken,
+            signal: controller.signal,
+          });
+
+          if (result.kind === 'confirmation_required') {
+            preservePendingUpdates = true;
+            setPendingUpdates(updates as Partial<ShootData>);
+            setServiceDetachConfirmation(result.confirmation);
+            blurActiveElement();
+            setIsSaveConfirmOpen(true);
+            return;
+          }
+
+          responseData = asRecord(result.data);
+          setServiceDetachConfirmation(null);
+        } finally {
+          clearTimeout(timeoutId);
         }
-      } catch (parseError) {
-        console.warn('💾 Failed to parse response as JSON, using empty object:', parseError);
-        responseData = {};
+      } catch (fetchError) {
+        console.error('💾 Network error during fetch:', fetchError);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Request timed out. Refresh the shoot to confirm whether the change was saved.');
+        }
+        throw fetchError;
       }
       
       console.log('💾 Save success response:', responseData);
@@ -672,7 +579,15 @@ export function useShootDetailsModalSave({
       
       // Provide more helpful error messages
       let userMessage = errorMessage;
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+      if (error instanceof ShootServiceMutationError && (error.status === 401 || error.status === 403)) {
+        userMessage = 'You do not have permission to update this shoot.';
+      } else if (error instanceof ShootServiceMutationError && error.status === 404) {
+        userMessage = 'Shoot not found - it may have been deleted.';
+      } else if (error instanceof ShootServiceMutationError && error.status === 422) {
+        userMessage = errorMessage;
+      } else if (error instanceof ShootServiceMutationError && error.status >= 500) {
+        userMessage = 'Server error - please try again later.';
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
         userMessage = 'Network error - please check your connection and try again. If the problem persists, the changes may have been saved. Please refresh the page to verify.';
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         userMessage = 'Authentication error - please refresh the page and try again.';
@@ -692,7 +607,9 @@ export function useShootDetailsModalSave({
     } finally {
       saveChangesInFlight.current = false;
       setIsSavingChanges(false);
-      setPendingUpdates(null);
+      if (!preservePendingUpdates) {
+        setPendingUpdates(null);
+      }
     }
   };
 
@@ -700,6 +617,7 @@ export function useShootDetailsModalSave({
     if (!shoot || isSavingChanges || isSaveConfirmOpen) return;
 
     setPendingUpdates(updates);
+    setServiceDetachConfirmation(null);
     setNotifyClientOnSave(canNotifyClient);
     setNotifyPhotographerOnSave(canNotifyPhotographer);
     blurActiveElement();
@@ -716,17 +634,19 @@ export function useShootDetailsModalSave({
     handleSaveChanges(pendingUpdates, {
       notifyClient: notifyClientOnSave,
       notifyPhotographer: notifyPhotographerOnSave,
-    });
+    }, serviceDetachConfirmation?.token);
   };
 
   return {
     isSavingChanges,
     isSaveConfirmOpen,
     pendingUpdates,
+    serviceDetachConfirmation,
     notifyClientOnSave,
     notifyPhotographerOnSave,
     setIsSaveConfirmOpen,
     setPendingUpdates,
+    setServiceDetachConfirmation,
     setNotifyClientOnSave,
     setNotifyPhotographerOnSave,
     handleSaveChanges,

@@ -140,7 +140,7 @@ export function CommandBar({
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {/* Search input + categorized cmdk suggestions dropdown. */}
-      <div className="relative min-w-[200px] flex-1 sm:max-w-sm">
+      <div className="relative min-w-[200px] flex-[1_1_280px]">
         <Command
           shouldFilter={false}
           className="relative overflow-visible rounded-none bg-transparent"

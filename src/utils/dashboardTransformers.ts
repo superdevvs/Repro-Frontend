@@ -7,7 +7,6 @@ import {
   DashboardOverviewResponse,
   DashboardPhotographerResponse,
   DashboardPhotographerSummary,
-  DashboardShootServiceTag,
   DashboardShootSummary,
   DashboardShootSummaryResponse,
   DashboardStats,
@@ -17,11 +16,6 @@ import {
   DashboardWorkflowResponse,
 } from '@/types/dashboard';
 import { extractLocalYmd } from '@/utils/shootLocalDate';
-
-const defaultTag = (label: string): DashboardShootServiceTag => ({
-  label,
-  type: 'primary',
-});
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   id: shoot.id,
@@ -47,7 +41,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
         type: tag.type,
         icon: tag.icon ?? null,
       }))
-    : [defaultTag('Standard Package')],
+    : [],
   photographer: shoot.photographer
     ? {
         id: shoot.photographer.id,

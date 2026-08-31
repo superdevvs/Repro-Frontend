@@ -35,7 +35,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     completeAddress, setCompleteAddress, propertyDetailsData, setPropertyDetailsData,
     clearAddressDerivedState, buildLookupPropertyDetails, extractAptSuite,
     onAddressFieldsChange, visiblePackages, selectedServices,
-    onSelectedServicesChange, packagesLoading, serviceDialogOpen, setServiceDialogOpen,
+    onSelectedServicesChange, canCreateNoProductShoot, packagesLoading, serviceDialogOpen, setServiceDialogOpen,
     effectiveSqft, handleRemoveService, presenceOption, setPresenceOption,
     onPropertyDraftChange, buildPropertyDraftData, submitAttemptNotice,
     showClearSavedData, onClearSavedData, handleSubmit, handleInvalidSubmit,
@@ -719,7 +719,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 selectedServices={selectedServices}
                 onSelectedServicesChange={(services) => onSelectedServicesChange(services as PackageOption[])}
                 servicesLoading={packagesLoading}
-                effectiveSqft={effectiveSqft}
+                effectiveSqft={effectiveSqft} allowEmptySelection={canCreateNoProductShoot}
               />
             </div>
             {selectedServices.length === 0 ? (
@@ -741,7 +741,9 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     <button
                       type="button"
                       onClick={() => handleRemoveService(service.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      disabled={!canCreateNoProductShoot && selectedServices.length === 1}
+                      title={!canCreateNoProductShoot && selectedServices.length === 1 ? 'At least one service is required for your role.' : 'Remove service'}
+                      className="text-xs text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ×
                     </button>

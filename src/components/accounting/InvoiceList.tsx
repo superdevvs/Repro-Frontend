@@ -43,6 +43,11 @@ const formatInvoiceDate = (value?: string | null) => {
   return format(parsed, 'MMM d, yyyy');
 };
 
+const getInvoiceOverpayment = (invoice: InvoiceData): number => Math.max(
+  Number(invoice.overpaymentAmount ?? invoice.overpayment_amount ?? ((invoice.amountPaid ?? 0) - invoice.amount)) || 0,
+  0,
+);
+
 /**
  * Whether an invoice is worth chasing.
  *
@@ -280,6 +285,7 @@ export function InvoiceList({
               <div className="space-y-2 p-3">
                 {paginatedInvoices.map((invoice) => {
                   const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
+                  const overpaymentAmount = getInvoiceOverpayment(invoice);
                   return (
                     <div key={invoice.id} className="rounded-xl border bg-card p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -303,6 +309,12 @@ export function InvoiceList({
                           <p className="text-xs text-muted-foreground">Date</p>
                           <p className="font-medium">{formatInvoiceDate(invoice.date)}</p>
                         </div>
+                        {overpaymentAmount > 0 && (
+                          <div className="col-span-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                            <p className="text-xs">Refund/credit due</p>
+                            <p className="font-semibold">{usdCurrencyFormatter.format(overpaymentAmount)}</p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -370,7 +382,14 @@ export function InvoiceList({
                         <td className="px-3 py-2">
                           <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
                         </td>
-                        <td className="px-3 py-2 text-xs">{usdCurrencyFormatter.format(invoice.amount || 0)}</td>
+                        <td className="px-3 py-2 text-xs">
+                          <div>{usdCurrencyFormatter.format(invoice.amount || 0)}</div>
+                          {getInvoiceOverpayment(invoice) > 0 && (
+                            <div className="mt-0.5 font-medium text-amber-700 dark:text-amber-300">
+                              Refund/credit {usdCurrencyFormatter.format(getInvoiceOverpayment(invoice))}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-xs">{formatInvoiceDate(invoice.date)}</td>
                         <td className="px-3 py-2">
                           <div className="flex flex-wrap gap-1">
@@ -562,6 +581,7 @@ function InvoiceGridCard({
 }: InvoiceCardProps) {
   const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
   const amountFormatted = usdCurrencyFormatter.format(invoice.amount || 0);
+  const overpaymentAmount = getInvoiceOverpayment(invoice);
 
   const formattedIssue = formatInvoiceDate(invoice.date);
   const formattedDue = formatInvoiceDate(invoice.dueDate);
@@ -599,6 +619,12 @@ function InvoiceGridCard({
           <div className="col-span-2">
             <p className="text-xs text-muted-foreground">Property</p>
             <p className="truncate text-sm text-foreground" title={invoice.property}>{invoice.property}</p>
+          </div>
+        )}
+        {overpaymentAmount > 0 && (
+          <div className="col-span-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <p className="text-xs">Refund/credit due</p>
+            <p className="font-semibold">{usdCurrencyFormatter.format(overpaymentAmount)}</p>
           </div>
         )}
       </div>

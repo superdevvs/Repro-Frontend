@@ -346,9 +346,8 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     renderPortal()
     await waitForLoaded()
 
-    // R5.1: all five Summary_Cards render with their labels (queried via their
-    // stable testids so we don't collide with the same words used by listing
-    // card badges, e.g. "Private"/"Mapped").
+    // The compact overlay keeps the two metrics that matter most to the map:
+    // total inventory and how much of it is currently mapped.
     const summaryCards = screen.getByTestId('summary-cards')
     expect(within(summaryCards).getByTestId('summary-card-total')).toHaveTextContent(
       'Total Listings',
@@ -356,20 +355,13 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(within(summaryCards).getByTestId('summary-card-mapped')).toHaveTextContent(
       'Mapped',
     )
-    expect(
-      within(summaryCards).getByTestId('summary-card-unmapped'),
-    ).toHaveTextContent('Unmapped')
-    expect(
-      within(summaryCards).getByTestId('summary-card-private'),
-    ).toHaveTextContent('Private')
-    expect(within(summaryCards).getByTestId('summary-card-hidden')).toHaveTextContent(
-      'Hidden',
-    )
+    expect(within(summaryCards).queryByTestId('summary-card-unmapped')).not.toBeInTheDocument()
+    expect(within(summaryCards).queryByTestId('summary-card-private')).not.toBeInTheDocument()
+    expect(within(summaryCards).queryByTestId('summary-card-hidden')).not.toBeInTheDocument()
 
-    // The five mapped, private listings yield total=4, mapped=4, private=4.
+    // The four mapped listings yield total=4 and mapped=4.
     expect(screen.getByTestId('summary-value-total')).toHaveTextContent('4')
     expect(screen.getByTestId('summary-value-mapped')).toHaveTextContent('4')
-    expect(screen.getByTestId('summary-value-private')).toHaveTextContent('4')
 
     // R6.1: the MapTabToolbar controls render — the Filters trigger, the
     // Saved-views trigger, and the Map/Grid/List ViewSwitcher (role=radio).

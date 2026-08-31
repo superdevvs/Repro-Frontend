@@ -155,6 +155,8 @@ export type ServiceApiRecord = {
 
 export interface ShootDetails {
   id: number;
+  canRemoveAllServices?: boolean;
+  can_remove_all_services?: boolean;
   address?: string;
   city?: string;
   state?: string;

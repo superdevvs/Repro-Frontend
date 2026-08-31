@@ -66,6 +66,7 @@ type ServiceSelectionDialogProps = {
   onSelectedServicesChange: (services: ServiceSelectionOption[]) => void;
   servicesLoading?: boolean;
   effectiveSqft?: number | null;
+  allowEmptySelection?: boolean;
   title?: string;
   description?: string;
 };
@@ -146,6 +147,7 @@ export function ServiceSelectionDialog({
   onSelectedServicesChange,
   servicesLoading = false,
   effectiveSqft,
+  allowEmptySelection = false,
   title = 'Select services',
   description = 'Pick the services for this shoot, compare prices quickly, then tap Done.',
 }: ServiceSelectionDialogProps) {
@@ -242,6 +244,9 @@ export function ServiceSelectionDialog({
     const exists = isServiceSelected(serviceId);
 
     if (exists) {
+      if (!allowEmptySelection && selectedServices.length === 1) {
+        return;
+      }
       onSelectedServicesChange(selectedServices.filter((selected) => String(selected.id) !== serviceId));
       return;
     }
@@ -443,15 +448,23 @@ export function ServiceSelectionDialog({
         <p className="text-sm font-semibold leading-tight">
           {selectedServices.length} Selected · {formatPrice(selectedServicesTotal)}
         </p>
+        {!allowEmptySelection && selectedServices.length <= 1 && (
+          <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
+        )}
       </div>
       {!mobileDrawer && (
-        <p className="mr-auto hidden text-sm text-muted-foreground sm:block">
-          {selectedServices.length} selected · {formatPrice(selectedServicesTotal)}
-        </p>
+        <div className="mr-auto hidden sm:block">
+          <p className="text-sm text-muted-foreground">
+            {selectedServices.length} selected · {formatPrice(selectedServicesTotal)}
+          </p>
+          {!allowEmptySelection && selectedServices.length <= 1 && (
+            <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
+          )}
+        </div>
       )}
       <Button
         className="h-10 px-5"
-        disabled={selectedServices.length === 0}
+        disabled={!allowEmptySelection && selectedServices.length === 0}
         onClick={() => onOpenChange(false)}
       >
         Done

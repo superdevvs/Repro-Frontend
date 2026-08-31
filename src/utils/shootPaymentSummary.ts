@@ -20,18 +20,44 @@ type RawPaymentRecord = {
 
 type RawPaymentContainer = {
   payments?: unknown;
+  service_subtotal?: unknown;
+  serviceSubtotal?: unknown;
   base_quote?: unknown;
+  discount_type?: unknown;
+  discountType?: unknown;
+  discount_value?: unknown;
+  discountValue?: unknown;
+  discount_amount?: unknown;
+  discountAmount?: unknown;
+  discounted_subtotal?: unknown;
+  discountedSubtotal?: unknown;
   tax_rate?: unknown;
   tax_percent?: unknown;
   taxPercent?: unknown;
   tax_amount?: unknown;
   total_quote?: unknown;
   total_paid?: unknown;
+  invoice_adjustments_total?: unknown;
+  invoiceAdjustmentsTotal?: unknown;
+  order_total?: unknown;
+  orderTotal?: unknown;
+  overpayment_amount?: unknown;
+  overpaymentAmount?: unknown;
   payment_status?: unknown;
   paymentStatus?: unknown;
   payment?: {
+    serviceSubtotal?: unknown;
+    service_subtotal?: unknown;
     baseQuote?: unknown;
     base_quote?: unknown;
+    discountType?: unknown;
+    discount_type?: unknown;
+    discountValue?: unknown;
+    discount_value?: unknown;
+    discountAmount?: unknown;
+    discount_amount?: unknown;
+    discountedSubtotal?: unknown;
+    discounted_subtotal?: unknown;
     taxRate?: unknown;
     tax_rate?: unknown;
     taxAmount?: unknown;
@@ -40,6 +66,12 @@ type RawPaymentContainer = {
     total_quote?: unknown;
     totalPaid?: unknown;
     total_paid?: unknown;
+    invoiceAdjustmentsTotal?: unknown;
+    invoice_adjustments_total?: unknown;
+    orderTotal?: unknown;
+    order_total?: unknown;
+    overpaymentAmount?: unknown;
+    overpayment_amount?: unknown;
     lastPaymentDate?: unknown;
     lastPaymentType?: unknown;
     payment_status?: unknown;
@@ -59,13 +91,21 @@ export type ShootPaymentSummaryInput = RawPaymentContainer;
 export type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial';
 
 export type NormalizedShootPaymentSummary = {
+  serviceSubtotal: number;
   baseQuote: number;
+  discountType: 'fixed' | 'percent' | 'percentage' | null;
+  discountValue: number | null;
+  discountAmount: number;
+  discountedSubtotal: number;
   taxRate: number;
   taxPercent: number;
   taxAmount: number;
   totalQuote: number;
   totalPaid: number;
   balance: number;
+  invoiceAdjustmentsTotal: number;
+  orderTotal: number;
+  overpaymentAmount: number;
   paymentStatus: CanonicalPaymentStatus | null;
   lastPaymentDate?: string;
   lastPaymentType?: string;
@@ -201,6 +241,42 @@ export const normalizeShootPaymentSummary = (
     payment?.baseQuote,
     payment?.base_quote,
   );
+  const discountAmount = pickFirstDefinedNumber(
+    rawShoot?.discount_amount,
+    rawShoot?.discountAmount,
+    payment?.discountAmount,
+    payment?.discount_amount,
+  );
+  const serviceSubtotal = pickFirstDefinedNumber(
+    rawShoot?.service_subtotal,
+    rawShoot?.serviceSubtotal,
+    payment?.serviceSubtotal,
+    payment?.service_subtotal,
+    baseQuote + discountAmount,
+  );
+  const discountTypeValue = toOptionalString(
+    payment?.discountType
+      ?? payment?.discount_type
+      ?? rawShoot?.discountType
+      ?? rawShoot?.discount_type,
+  )?.toLowerCase();
+  const discountType = ['fixed', 'percent', 'percentage'].includes(discountTypeValue || '')
+    ? discountTypeValue as 'fixed' | 'percent' | 'percentage'
+    : null;
+  const discountValueRaw = payment?.discountValue
+    ?? payment?.discount_value
+    ?? rawShoot?.discountValue
+    ?? rawShoot?.discount_value;
+  const discountValue = discountValueRaw === null || discountValueRaw === undefined || discountValueRaw === ''
+    ? null
+    : toNumber(discountValueRaw);
+  const discountedSubtotal = pickFirstDefinedNumber(
+    rawShoot?.discounted_subtotal,
+    rawShoot?.discountedSubtotal,
+    payment?.discountedSubtotal,
+    payment?.discounted_subtotal,
+    baseQuote,
+  );
   const taxRate = pickFirstDefinedNumber(
     rawShoot?.tax_rate,
     payment?.taxRate,
@@ -225,6 +301,26 @@ export const normalizeShootPaymentSummary = (
         rawShoot?.total_paid,
       )
     : (hasCompletedPayment(rawShoot?.payments) ? completedPaymentsTotal : 0);
+  const invoiceAdjustmentsTotal = pickFirstDefinedNumber(
+    rawShoot?.invoice_adjustments_total,
+    rawShoot?.invoiceAdjustmentsTotal,
+    payment?.invoiceAdjustmentsTotal,
+    payment?.invoice_adjustments_total,
+  );
+  const orderTotal = pickFirstDefinedNumber(
+    rawShoot?.order_total,
+    rawShoot?.orderTotal,
+    payment?.orderTotal,
+    payment?.order_total,
+    totalQuote,
+  );
+  const explicitOverpayment = payment?.overpaymentAmount
+    ?? payment?.overpayment_amount
+    ?? rawShoot?.overpaymentAmount
+    ?? rawShoot?.overpayment_amount;
+  const overpaymentAmount = explicitOverpayment === null || explicitOverpayment === undefined || explicitOverpayment === ''
+    ? Math.max(totalPaid - totalQuote, 0)
+    : Math.max(toNumber(explicitOverpayment), 0);
   const explicitPaymentStatus = normalizeCanonicalPaymentStatus(
     toOptionalString(payment?.paymentStatus) ||
       toOptionalString(payment?.payment_status) ||
@@ -243,13 +339,21 @@ export const normalizeShootPaymentSummary = (
             : 'partial';
 
   return {
+    serviceSubtotal,
     baseQuote,
+    discountType,
+    discountValue,
+    discountAmount,
+    discountedSubtotal,
     taxRate,
     taxPercent: taxRate > 1 ? taxRate : taxRate * 100,
     taxAmount,
     totalQuote,
     totalPaid,
     balance: Math.max(totalQuote - totalPaid, 0),
+    invoiceAdjustmentsTotal,
+    orderTotal,
+    overpaymentAmount,
     paymentStatus,
     lastPaymentDate:
       toOptionalString(rawShoot?.last_payment_date) ||

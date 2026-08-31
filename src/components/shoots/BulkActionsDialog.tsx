@@ -34,7 +34,7 @@ import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { finalizeShootsWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
-import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
+import { buildFinalizeRequestBody, canFinaliseShoot } from '@/utils/shootFinalize';
 
 interface BulkActionsDialogProps {
   isOpen: boolean;
@@ -81,7 +81,7 @@ const isEligibleForAction = (shoot: ShootData, action: BulkAction) => {
   if (action === 'delete') return true;
   if (action === 'pay') return isUnpaid(shoot);
   if (action === 'editing') return isUploaded(shoot);
-  return isEditing(shoot);
+  return canFinaliseShoot(shoot);
 };
 
 const resolveAddress = (shoot: ShootData) =>

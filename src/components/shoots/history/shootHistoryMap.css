@@ -1,0 +1,28 @@
+.repro-google-map-popup {
+  min-width: 180px;
+  max-width: 280px;
+  padding: 4px 2px 2px;
+  color: #0f172a;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.35;
+}
+.repro-google-map-popup p {
+  margin: 0;
+}
+
+.repro-google-map-popup__title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.repro-google-map-popup__subtitle {
+  margin-top: 3px !important;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.repro-google-map-popup__address {
+  margin-top: 6px !important;
+  color: #334155;
+  font-size: 12px;
+}

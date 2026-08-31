@@ -76,6 +76,8 @@ export interface InvoiceData {
   sales_rep_id?: number;
   amountPaid?: number;
   balance?: number;
+  overpaymentAmount?: number;
+  overpayment_amount?: number;
   subtotal?: number;
   tax?: number;
   total?: number;
@@ -141,4 +143,5 @@ export type InvoiceViewDialogInvoice = Omit<
   issue_date?: string;
   due_date?: string;
   amount_paid?: number | string;
+  overpayment_amount?: number | string;
 };

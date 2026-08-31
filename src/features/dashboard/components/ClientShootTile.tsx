@@ -124,6 +124,11 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                     {service}
                   </span>
                 ))}
+                {serviceBadges.length === 0 && (
+                  <span className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/50">
+                    No services
+                  </span>
+                )}
                 {overflow > 0 && (
                   <span className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/50">
                     +{overflow} more
@@ -202,6 +207,11 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                 {service}
               </Badge>
             ))}
+            {serviceBadges.length === 0 && (
+              <Badge variant="outline" className="rounded-full text-[10px] sm:text-xs">
+                No services
+              </Badge>
+            )}
             {overflow > 0 && (
               <Badge variant="outline" className="rounded-full text-[10px] sm:text-xs">
                 +{overflow}

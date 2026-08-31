@@ -12,6 +12,11 @@ import {
   getMediaVideoUrlCandidates,
   getMediaViewerImageUrl,
 } from './mediaPreviewUtils';
+import {
+  isImageFile as checkIsImageFile,
+  isPreviewableImage as checkIsPreviewableImage,
+  isVideoFile as checkIsVideoFile,
+} from './mediaViewerFileTypes';
 import { isRawFile } from '@/services/rawPreviewService';
 import {
   triggerDashboardOverviewRefresh,
@@ -52,57 +57,9 @@ export function useMediaViewerController({
 }: MediaViewerProps) {
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
-  const isImageFile = (file: MediaFile): boolean => {
-    const mediaType = (file.media_type || '').toLowerCase();
-    const previewFile = file as MediaFile & { previewImages?: unknown; preview_images?: unknown };
-    const hasPreviewImages =
-      (Array.isArray(previewFile.previewImages) && previewFile.previewImages.length > 0) ||
-      (Array.isArray(previewFile.preview_images) && previewFile.preview_images.length > 0);
-    if (mediaType === 'floorplan' && (hasPreviewImages || file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
-      return true;
-    }
-    // If RAW file has processed thumbnail, it's displayable
-    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
-      return true;
-    }
-    const name = file.filename.toLowerCase();
-    const rawExt = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/.test(name);
-    if (rawExt) return false;
-    const mime = (file.fileType || '').toLowerCase();
-    const rawMime = mime.includes('nef') || mime.includes('dng') || mime.includes('cr2') || mime.includes('cr3') || mime.includes('arw') || mime.includes('raf') || mime.includes('raw');
-    if (rawMime) return false;
-    if (mime.startsWith('image/')) return true;
-    return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
-  };
-  const isPreviewableImage = (file: MediaFile): boolean => {
-    const mediaType = (file.media_type || '').toLowerCase();
-    const previewFile = file as MediaFile & { previewImages?: unknown; preview_images?: unknown };
-    const hasPreviewImages =
-      (Array.isArray(previewFile.previewImages) && previewFile.previewImages.length > 0) ||
-      (Array.isArray(previewFile.preview_images) && previewFile.preview_images.length > 0);
-    if (mediaType === 'floorplan' && (hasPreviewImages || file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
-      return true;
-    }
-    // If RAW file has processed thumbnail, it's previewable
-    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
-      return true;
-    }
-    const name = file.filename.toLowerCase();
-    const rawExt = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/.test(name);
-    if (rawExt) return false;
-    const mime = (file.fileType || '').toLowerCase();
-    const rawMime = mime.includes('nef') || mime.includes('dng') || mime.includes('cr2') || mime.includes('cr3') || mime.includes('arw') || mime.includes('raf') || mime.includes('raw');
-    if (rawMime) return false;
-    if (mime.startsWith('image/')) return true;
-    return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
-  };
-  const isVideoFile = (file: MediaFile): boolean => {
-    if (file.media_type === 'video') return true;
-    const name = (file.filename || '').toLowerCase();
-    const mime = (file.fileType || '').toLowerCase();
-    if (mime.startsWith('video/')) return true;
-    return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
-  };
+  const isImageFile = (file: MediaFile): boolean => checkIsImageFile(file);
+  const isPreviewableImage = (file: MediaFile): boolean => checkIsPreviewableImage(file);
+  const isVideoFile = (file: MediaFile): boolean => checkIsVideoFile(file);
   const [zoom, setZoom] = useState(1);
   const [previewMode, setPreviewMode] = useState<'web' | 'full'>('web');
   const [viewerMode, setViewerMode] = useState<'standard' | 'slideshow'>('standard');

@@ -192,10 +192,14 @@ export function OverviewServicesTableSection(
   const selectedServicesForDialog = servicesList.filter((service) =>
     selectedServiceIds.includes(String(service.id)),
   );
+  const canRemoveAllServices = Boolean(
+    props.shoot.canRemoveAllServices ?? props.shoot.can_remove_all_services,
+  );
 
   // Apply the dialog's multi-select result back to the editor by diffing against
   // the currently selected ids (matches the existing OverviewServicesSection flow).
   const handleSelectedServicesChange = (nextServices: ServiceSelectionOption[]) => {
+    if (nextServices.length === 0 && !canRemoveAllServices) return;
     const currentIds = new Set(selectedServiceIds.map(String));
     const nextIds = new Set(nextServices.map((service) => String(service.id)));
 
@@ -257,6 +261,7 @@ export function OverviewServicesTableSection(
           selectedServices={selectedServicesForDialog}
           onSelectedServicesChange={handleSelectedServicesChange}
           effectiveSqft={effectiveSqft}
+          allowEmptySelection={canRemoveAllServices}
           title={editingServiceRowId ? 'Change service' : 'Add services'}
         />
       )}
@@ -340,6 +345,7 @@ function renderEditRows(
   openServiceDialog: (rowId: string | null) => void,
 ) {
   const {
+    shoot,
     servicesList,
     selectedServiceIds,
     serviceSchedules,
@@ -354,6 +360,9 @@ function renderEditRows(
   } = props;
   const headerCells = getHeaderCells(props);
   const showPhotographerColumn = !isPayView(props);
+  const canRemoveAllServices = Boolean(
+    shoot.canRemoveAllServices ?? shoot.can_remove_all_services,
+  );
 
   const addNewRow = (
     <tr key="__add_new__">
@@ -407,6 +416,10 @@ function renderEditRows(
               data-testid="delete-control"
               aria-label={`Remove ${service.name}`}
               className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-red-500 text-white hover:bg-red-600"
+              disabled={selectedServiceIds.length === 1 && !canRemoveAllServices}
+              title={selectedServiceIds.length === 1 && !canRemoveAllServices
+                ? 'At least one service is required for your role.'
+                : undefined}
               onClick={() => toggleServiceSelection(serviceId)}
             >
               <X className="h-3 w-3" />

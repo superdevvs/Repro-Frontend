@@ -465,6 +465,7 @@ export function useOverviewLookupData(
   setServicePhotographerPays: Dispatch<SetStateAction<Record<string, string>>>,
   setServiceSchedules: Dispatch<SetStateAction<Record<string, ServiceScheduleFields>>>,
   setEditPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
+  canInitializeServiceSelection: () => boolean,
 ) {
   useEffect(() => {
     if (!isEditMode) return;
@@ -584,7 +585,9 @@ export function useOverviewLookupData(
           })
           .filter(Boolean) as string[];
 
-        setSelectedServiceIds(currentServiceIds);
+        if (canInitializeServiceSelection()) {
+          setSelectedServiceIds(currentServiceIds);
+        }
 
         const nextPrices: Record<string, string> = {};
         const nextPhotographerPays: Record<string, string> = {};
@@ -651,6 +654,7 @@ export function useOverviewLookupData(
     fetchPhotographers();
   }, [
     effectiveSqft,
+    canInitializeServiceSelection,
     isEditMode,
     resolveServicePrice,
     setClients,

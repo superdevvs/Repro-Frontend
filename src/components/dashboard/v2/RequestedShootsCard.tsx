@@ -104,7 +104,7 @@ export function RequestedShootsCard({
                 </div>
 
                 {/* Services */}
-                {shoot.services.length > 0 && (
+                {shoot.services.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {shoot.services.slice(0, 3).map((service, idx) => (
                       <Badge
@@ -120,6 +120,12 @@ export function RequestedShootsCard({
                         +{shoot.services.length - 3} more
                       </Badge>
                     )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800">
+                      No services
+                    </Badge>
                   </div>
                 )}
 

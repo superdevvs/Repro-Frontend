@@ -21,6 +21,11 @@ import {
   getShootEditCatalogServiceId,
 } from './shootEditInvoiceAdjustments';
 import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
+import {
+  ShootServiceMutationError,
+  submitShootServiceMutation,
+  type ServiceDetachConfirmation,
+} from '@/utils/shootServiceMutation';
 import { extractLookupPropertyDetails, formatDateForInputValue, formatTimeForInputValue, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type SelectedServiceSource, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
 export function useShootEditModalController({
   isOpen,
@@ -45,8 +50,14 @@ export function useShootEditModalController({
   const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [expandedServiceScheduleId, setExpandedServiceScheduleId] = useState<string | null>(null);
   const [servicesEditorOpen, setServicesEditorOpen] = useState(false);
+  const [serviceDetachConfirmation, setServiceDetachConfirmation] = useState<ServiceDetachConfirmation | null>(null);
+  const [pendingDetachApproval, setPendingDetachApproval] = useState<{
+    notifyClient: boolean;
+    notifyPhotographer: boolean;
+    silent: boolean;
+  } | null>(null);
   const userRole = user?.role?.toLowerCase() || '';
-  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'super_admin';
   const isRep = userRole === 'rep' || userRole === 'salesrep';
   const isAdminOrRep = isAdmin || isRep;
   const [address, setAddress] = useState('');
@@ -95,6 +106,8 @@ export function useShootEditModalController({
       setPhotographerId('');
       setExpandedServiceScheduleId(null);
       setServicesEditorOpen(false);
+      setServiceDetachConfirmation(null);
+      setPendingDetachApproval(null);
       setAlternateDate('');
       setAlternateTime('');
       try {
@@ -301,16 +314,10 @@ export function useShootEditModalController({
       return Boolean(service?.pricing_type === 'variable' && service.sqft_ranges?.length && !propertySqft);
     });
   }, [selectedServiceIds, availableServices, propertySqft]);
-  useEffect(() => {
-    if (!shootDetails || selectedServiceIds.size > 0 || availableServices.length === 0) return;
-    const serviceSource = getShootEditCatalogServiceEntries(shootDetails);
-    if (!serviceSource.length) return;
-    const ids = resolveSelectedServiceIds(serviceSource, availableServices);
-    if (ids.size > 0) {
-      setSelectedServiceIds(ids);
-    }
-  }, [availableServices, selectedServiceIds.size, shootDetails]);
   const clientName = shootDetails?.client?.name || 'Unknown Client';
+  const canRemoveAllServices = Boolean(
+    shootDetails?.canRemoveAllServices ?? shootDetails?.can_remove_all_services,
+  );
   const invoiceAdjustmentTotal = useMemo(
     () => getShootInvoiceAdjustmentTotal(shootDetails),
     [shootDetails],
@@ -594,10 +601,10 @@ export function useShootEditModalController({
       });
       return null;
     }
-    if (selectedServiceIds.size === 0) {
+    if (selectedServiceIds.size === 0 && !canRemoveAllServices) {
       toast({
         title: 'Services required',
-        description: 'Please select at least one service.',
+        description: 'Your role must keep at least one service on this shoot.',
         variant: 'destructive',
       });
       return null;
@@ -605,17 +612,6 @@ export function useShootEditModalController({
     const [hours, minutes] = scheduledTime.split(':').map(Number);
     const scheduledAt = new Date(scheduledDate);
     scheduledAt.setHours(hours, minutes, 0, 0);
-    const servicesTotal = Array.from(selectedServiceIds).reduce((sum, id) => {
-      const service = availableServices.find(s => s.id?.toString() === id);
-      return sum + (service ? getServicePrice(service) : 0);
-    }, 0);
-    const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
-    const pricing = calculatePricingBreakdown({
-      serviceSubtotal: servicesTotal,
-      discountType: activeDiscountType,
-      discountValue: activeDiscountValue,
-      taxRate: normalizedTaxRate,
-    });
     const serviceItemsPayload = Array.from(selectedServiceIds).map(id => {
       const service = availableServices.find(s => s.id?.toString() === id);
       const serviceSchedule = serviceSchedules[id] || {
@@ -634,8 +630,6 @@ export function useShootEditModalController({
       const categoryPhotographerId = perCategoryPhotographers[catName.trim().toLowerCase().replace(/s$/, '')];
       return {
         service_id: Number(id),
-        quantity: 1,
-        price: service ? getServicePrice(service) : undefined,
         scheduled_at: serviceScheduledAt,
         photographer_id:
           categoryPhotographerId && categoryPhotographerId !== 'unassigned'
@@ -656,20 +650,9 @@ export function useShootEditModalController({
       shoot_notes: shootNotes.trim(),
       services: serviceItemsPayload.map((item) => ({
         id: item.service_id,
-        quantity: item.quantity,
-        price: item.price,
         scheduled_at: item.scheduled_at,
       })),
       service_items: serviceItemsPayload,
-      base_quote: pricing.discountedSubtotal,
-      discount_type: pricing.discountType,
-      discount_value: pricing.discountValue,
-      discount_amount: pricing.discountAmount,
-      tax_amount: pricing.taxAmount,
-      total_quote: addInvoiceAdjustmentToCatalogTotal(
-        pricing.totalQuote,
-        invoiceAdjustmentTotal,
-      ),
     };
     if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
       payload.photographer_id = Number(photographerId);
@@ -733,10 +716,12 @@ export function useShootEditModalController({
     notifyClient,
     notifyPhotographer,
     silent,
+    confirmationToken,
   }: {
     notifyClient: boolean;
     notifyPhotographer: boolean;
     silent: boolean;
+    confirmationToken?: string | null;
   }) => {
     if (isSubmitting || isLoading) return;
     const payload = buildApprovalPayload();
@@ -750,29 +735,21 @@ export function useShootEditModalController({
         notify_client: notifyClient,
         notify_photographer: notifyPhotographer,
       };
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve`, {
+      const result = await submitShootServiceMutation({
+        url: `${API_BASE_URL}/api/shoots/${shootId}/approve`,
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(approvalPayload),
+        token,
+        payload: approvalPayload,
+        confirmationToken,
       });
-      if (!response.ok) {
-        let errorBody: { message?: string; errors?: Record<string, string[] | string> } | null = null;
-        try {
-          errorBody = await response.json();
-        } catch {
-          errorBody = null;
-        }
-        const scheduleBoundError = extractStartTimeScheduleError(response.status, errorBody);
-        if (scheduleBoundError) {
-          setScheduleError(scheduleBoundError);
-          return;
-        }
-        throw new Error(errorBody?.message || 'Failed to approve shoot');
+
+      if (result.kind === 'confirmation_required') {
+        setServiceDetachConfirmation(result.confirmation);
+        setPendingDetachApproval({ notifyClient, notifyPhotographer, silent });
+        return;
       }
+      setServiceDetachConfirmation(null);
+      setPendingDetachApproval(null);
       toast({
         title: 'Shoot approved',
         description: silent
@@ -783,6 +760,16 @@ export function useShootEditModalController({
       onClose();
     } catch (error) {
       console.error('Error approving shoot:', error);
+      if (error instanceof ShootServiceMutationError) {
+        const scheduleBoundError = extractStartTimeScheduleError(
+          error.status,
+          error.data as { message?: string; errors?: Record<string, string[] | string> },
+        );
+        if (scheduleBoundError) {
+          setScheduleError(scheduleBoundError);
+          return;
+        }
+      }
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to approve shoot. Please try again.',
@@ -804,6 +791,16 @@ export function useShootEditModalController({
       notifyPhotographer: false,
       silent: true,
     });
+  const handleConfirmServiceDetach = () => {
+    if (!serviceDetachConfirmation || !pendingDetachApproval) return;
+    const confirmationToken = serviceDetachConfirmation.token;
+    setServiceDetachConfirmation(null);
+    void submitApproval({ ...pendingDetachApproval, confirmationToken });
+  };
+  const handleCancelServiceDetach = () => {
+    setServiceDetachConfirmation(null);
+    setPendingDetachApproval(null);
+  };
   const [timeOptions, setTimeOptions] = useState<{ value: string; label: string }[]>(() =>
     buildTimeOptions(scheduledTime),
   );
@@ -964,5 +961,5 @@ export function useShootEditModalController({
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
     return buildWallClockIso(dateValue, timeValue);
   };
-  return { isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
+  return { isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }

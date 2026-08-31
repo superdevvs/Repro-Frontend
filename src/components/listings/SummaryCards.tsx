@@ -28,6 +28,8 @@ export interface SummaryCardsProps {
   summary: Summary
   className?: string
   variant?: 'default' | 'overlay'
+  /** Optional subset to render, kept in the canonical display order. */
+  visibleKeys?: readonly (keyof Summary)[]
 }
 
 interface SummaryCardConfig {
@@ -55,8 +57,12 @@ export function SummaryCards({
   summary,
   className,
   variant = 'default',
+  visibleKeys,
 }: SummaryCardsProps) {
   const overlay = variant === 'overlay'
+  const visibleCards = visibleKeys
+    ? SUMMARY_CARDS.filter(({ key }) => visibleKeys.includes(key))
+    : SUMMARY_CARDS
 
   return (
     <div
@@ -68,7 +74,7 @@ export function SummaryCards({
       )}
       data-testid="summary-cards"
     >
-      {SUMMARY_CARDS.map(({ key, label, icon: Icon }) => (
+      {visibleCards.map(({ key, label, icon: Icon }) => (
         <Card
           key={key}
           className={cn(

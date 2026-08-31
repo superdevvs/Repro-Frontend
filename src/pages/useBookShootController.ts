@@ -18,6 +18,7 @@ import { normalizeEmailHealth } from '@/utils/emailHealth';
 import { BOOK_ANOTHER_SHOOT_NAV_TARGET, clearBookingFormCache } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
+import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
 import {
   buildAdminAdjustedPricing,
   asRecord,
@@ -45,11 +46,11 @@ export const useBookShootController = () => {
   const clientCompanyFromUrl = queryParams.get('clientCompany');
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
   const { user, isImpersonating } = useAuth();
-  const canAdjustBookingAmount = !isImpersonating && (user?.role === 'admin' || user?.role === 'superadmin');
+  const canAdjustBookingAmount = !isImpersonating && ['admin', 'superadmin', 'super_admin'].includes(String(user?.role ?? '').toLowerCase());
   const isClientAccount = Boolean(user && (user.role as string) === 'client');
-  const canCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
+  const roleCanCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const {
-    isEditMode, setIsEditMode, editShootLoading, packages, packagesLoading, setPackagesLoading,
+    isEditMode, setIsEditMode, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
     clients, setClients, client, setClient, address, setAddress, city, setCity, state,
     setState, zip, setZip, date, setDate, time, setTime, photographer, setPhotographer,
     servicePhotographers, setServicePhotographers, serviceSchedules, setServiceSchedules,
@@ -69,6 +70,9 @@ export const useBookShootController = () => {
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
     editShootId, canAdjustBookingAmount,
   });
+  const canCreateNoProductShoot = isEditMode
+    ? canRemoveAllServicesForEdit
+    : roleCanCreateNoProductShoot;
   const {
     duplicateLocationWarningAcceptedRef, largeHomePackageWarningAcceptedRef, isFormComplete,
     sameDayAddressShoot, sameAddressScheduledDates, addressScheduledWarningMessage,
@@ -290,19 +294,27 @@ export const useBookShootController = () => {
       };
       const servicesPayload = selectedServices.map(service => {
         const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
-        return {
+        const servicePayload: Record<string, unknown> = {
           id: service.id,
-          price: resolveSelectedServicePrice(service, sqft),
-          quantity: 1,
           photographer_id: assignedPhotographerId,
           scheduled_at: resolveServiceScheduledAt(service.id),
           is_deliverable: true,
         };
+
+        // Existing-shoot prices and quantities are booked snapshots. Omitting
+        // them lets the server preserve retained lines and price only genuinely
+        // new services from the current catalogue/square-footage tier.
+        if (!isEditMode) {
+          servicePayload.price = resolveSelectedServicePrice(service, sqft);
+          servicePayload.quantity = 1;
+        }
+
+        return servicePayload;
       });
       const serviceItemsPayload = servicesPayload.map(service => ({
         service_id: service.id,
-        price: service.price,
-        quantity: service.quantity,
+        ...(service.price !== undefined ? { price: service.price } : {}),
+        ...(service.quantity !== undefined ? { quantity: service.quantity } : {}),
         photographer_id: service.photographer_id,
         scheduled_at: service.scheduled_at,
         is_deliverable: true,
@@ -375,9 +387,69 @@ export const useBookShootController = () => {
             'Content-Type': 'application/json'
           }
         };
-        const response = isEditMode && editShootId
-          ? await axios.patch(requestUrl, payload, requestConfig)
-          : await axios.post(requestUrl, payload, requestConfig);
+        let responsePayload: unknown;
+        if (isEditMode && editShootId) {
+          const editPayload = { ...payload } as Record<string, unknown>;
+          [
+            'service_id',
+            'shoot_type',
+            'product_status',
+            'bypass_paywall',
+            'payment_status',
+            'base_quote',
+            'service_subtotal',
+            'discount_type',
+            'discount_value',
+            'discount_amount',
+            'tax_amount',
+            'total_quote',
+          ].forEach((field) => delete editPayload[field]);
+
+          let mutationResult = await submitShootServiceMutation({
+            url: requestUrl,
+            token,
+            payload: editPayload,
+          });
+
+          let confirmationRounds = 0;
+          while (mutationResult.kind === 'confirmation_required') {
+            const { impact } = mutationResult.confirmation;
+            const linkedRecords = impact.filesDetached + impact.albumsDetached + impact.uploadAttemptsDetached;
+            const confirmed = window.confirm([
+              `Remove ${impact.removedServices.map((service) => service.name).join(', ')}?`,
+              impact.leavesNoServices ? 'Warning: this shoot will have no services.' : '',
+              `Order total: $${impact.currentTotal.toFixed(2)} → $${impact.newTotal.toFixed(2)}.`,
+              linkedRecords > 0 ? `${linkedRecords} linked media/upload record(s) will remain at shoot level.` : '',
+              impact.paymentAllocationsReleased > 0
+                ? `$${impact.paymentAllocationsReleased.toFixed(2)} in payment allocations will be redistributed.`
+                : '',
+              impact.refundCreditDue > 0
+                ? `Refund/credit due: $${impact.refundCreditDue.toFixed(2)}. No automatic refund will be issued.`
+                : '',
+            ].filter(Boolean).join('\n\n'));
+
+            if (!confirmed) {
+              setIsSubmitting(false);
+              return;
+            }
+
+            confirmationRounds += 1;
+            if (confirmationRounds > 3) {
+              throw new Error('The shoot keeps changing while you confirm. Refresh it and try again.');
+            }
+
+            mutationResult = await submitShootServiceMutation({
+              url: requestUrl,
+              token,
+              payload: editPayload,
+              confirmationToken: mutationResult.confirmation.token,
+            });
+          }
+          responsePayload = mutationResult.data;
+        } else {
+          const response = await axios.post(requestUrl, payload, requestConfig);
+          responsePayload = response.data;
+        }
         const isClientRole = user?.role === 'client';
         toast({
           title: isEditMode ? "Shoot Updated!" : (isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!"),
@@ -386,11 +458,15 @@ export const useBookShootController = () => {
             : isEditMode ? "The shoot has been successfully updated." : "The shoot has been successfully created.",
           variant: "default"
         });
-        const shootData = response.data?.data || response.data;
+        const responseRecord = asRecord(responsePayload);
+        const shootData = asRecord(responseRecord.data ?? responsePayload);
+        const savedShootId = typeof shootData.id === 'string' || typeof shootData.id === 'number'
+          ? shootData.id
+          : undefined;
         const completedSnapshot: CompletedBookingSnapshot = {
           date,
           time,
-          shootId: shootData?.id,
+          shootId: savedShootId,
           totalAmount: getTotal(),
           pricing: pricingForSubmission,
           shootAddress: buildNormalizedAddress({ address, city, state, zip }),
@@ -399,8 +475,8 @@ export const useBookShootController = () => {
           clientEmail: user?.email,
           shoot: shootData,
         };
-        if (shootData?.id) {
-          setCreatedShootId(shootData.id);
+        if (savedShootId !== undefined) {
+          setCreatedShootId(savedShootId);
         }
         setCompletedBooking(completedSnapshot);
         clearBookingDraftState();
@@ -411,7 +487,7 @@ export const useBookShootController = () => {
         if (shouldCacheForm) {
           localStorage.removeItem(CACHE_KEY);
         }
-        console.log("Shoot created response:", response.data);
+        console.log("Shoot saved response:", responsePayload);
       } catch (error: unknown) {
         const errorDetails = asRecord(error);
         const errorResponse = asRecord(errorDetails.response);

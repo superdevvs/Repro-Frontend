@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
 import { apiClient } from '@/services/api'
@@ -34,6 +34,7 @@ import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
 import { getApiHeaders } from '@/services/api'
+import { useShootHistoryMapGeocoding } from '@/hooks/useShootHistoryMapGeocoding'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 type InvoicePayload = Record<string, unknown>
@@ -235,7 +236,13 @@ export function useShootHistoryData({
   const [historyFiltersOpen, setHistoryFiltersOpen] = useState(false)
   const [operationalOptions, setOperationalOptions] = useState<FilterCollections>(EMPTY_FILTER_COLLECTION)
   const [historyOptions, setHistoryOptions] = useState<FilterCollections>(EMPTY_FILTER_COLLECTION)
-  const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>({})
+  const { geoCache, setGeoCache } = useShootHistoryMapGeocoding({
+    activeTab,
+    historyFilters,
+    historyRecords,
+    viewMode,
+    operationalData,
+  })
   const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [openDownloadDialog, setOpenDownloadDialog] = useState(false)
@@ -283,27 +290,6 @@ export function useShootHistoryData({
     setOperationalOptions((prev) => (prev.clients.length ? { ...prev, clients: [] } : prev))
     setHistoryOptions((prev) => (prev.clients.length ? { ...prev, clients: [] } : prev))
   }, [shouldHideClientDetails])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const stored = localStorage.getItem('shootGeoCache')
-      if (stored) {
-        setGeoCache(JSON.parse(stored))
-      }
-    } catch {
-      // ignore malformed cache
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem('shootGeoCache', JSON.stringify(geoCache))
-    } catch {
-      // ignore
-    }
-  }, [geoCache])
 
   useEffect(() => {
     if (!(isAdmin || isSuperAdmin)) return
@@ -1097,59 +1083,6 @@ export function useShootHistoryData({
     },
     [fetchHistoryData, loadShootById, toast],
   )
-
-  const mapAddresses = useMemo(() => {
-    if (activeTab === 'history') {
-      if (historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') return []
-      return historyRecords
-        .map((record) => record.address?.full)
-        .filter((addr): addr is string => Boolean(addr))
-    }
-
-    if (viewMode !== 'map') return []
-    return operationalData
-      .map((shoot) => shoot.location.fullAddress)
-      .filter((addr): addr is string => Boolean(addr))
-  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, viewMode, operationalData])
-
-  useEffect(() => {
-    if (!mapAddresses.length) return
-    const unknownAddresses = mapAddresses.filter((addr) => !geoCache[addr]).slice(0, 6)
-    if (!unknownAddresses.length) return
-
-    let cancelled = false
-
-    const geocode = async () => {
-      const updates: Record<string, { lat: number; lng: number }> = {}
-
-      for (const address of unknownAddresses) {
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`, {
-            headers: { Accept: 'application/json' },
-          })
-          if (!response.ok) continue
-          const data = await response.json()
-          const match = data?.[0]
-          if (match && !cancelled) {
-            updates[address] = { lat: parseFloat(match.lat), lng: parseFloat(match.lon) }
-          }
-        } catch {
-          // ignore
-        }
-        await new Promise((resolve) => setTimeout(resolve, 450))
-      }
-
-      if (!cancelled && Object.keys(updates).length) {
-        setGeoCache((prev) => ({ ...prev, ...updates }))
-      }
-    }
-
-    geocode()
-
-    return () => {
-      cancelled = true
-    }
-  }, [mapAddresses, geoCache])
 
   return {
     deleteShootId,

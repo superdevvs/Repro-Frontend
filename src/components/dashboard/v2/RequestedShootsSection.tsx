@@ -344,6 +344,11 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                             </span>
                           );
                         })}
+                        {visibleServices.length === 0 && (
+                          <span className="inline-flex shrink-0 items-center whitespace-nowrap px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground">
+                            No services
+                          </span>
+                        )}
                         {hidden > 0 && (
                           <Badge
                             variant="outline"

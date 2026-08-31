@@ -206,6 +206,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const status = invoiceData.status || 'pending';
   const isPaid = status.toLowerCase() === 'paid';
   const paidAmount = Number(invoiceData.amountPaid ?? invoiceData.amount_paid ?? total) || 0;
+  const overpaymentAmount = Math.max(
+    Number(invoiceData.overpaymentAmount ?? invoiceData.overpayment_amount ?? Math.max(paidAmount - total, 0)) || 0,
+    0,
+  );
   const paymentDetails = invoiceData.paymentDetails ?? invoiceData.payment_details ?? null;
   const paidAt = invoiceData.paidAt || invoiceData.paid_at || null;
   const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
@@ -662,6 +666,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         writeSummaryCurrencyRow('PRIOR PAYMENT:', `-${formatCurrency(paidAmount)}`, [0, 128, 0]);
       }
 
+      if (overpaymentAmount > 0) {
+        writeSummaryCurrencyRow('REFUND/CREDIT DUE:', formatCurrency(overpaymentAmount), [180, 83, 9]);
+      }
+
       if (isPaid && paymentMethodLabel !== 'N/A') {
         writeSummaryDetailRow('METHOD:', paymentMethodLabel);
       }
@@ -948,6 +956,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 <div className="flex justify-between text-sm">
                   <span className="text-green-600 dark:text-green-400">Prior Payment:</span>
                   <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(paidAmount)}</span>
+                </div>
+              )}
+              {overpaymentAmount > 0 && (
+                <div className="flex justify-between text-sm font-semibold text-amber-700 dark:text-amber-300">
+                  <span>Refund/credit due:</span>
+                  <span>{formatCurrency(overpaymentAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-border mt-2">

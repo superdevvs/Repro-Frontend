@@ -346,6 +346,8 @@ export interface PendingPaymentIntent {
 
 export interface ShootData {
   id: string;
+  /** Draft-only explicit Admin/Super Admin final-order override. */
+  adminAdjustedTotalQuote?: number | null;
   scheduledDate: string;
   time: string;  // Required field
   propertySlug?: string;
@@ -407,6 +409,8 @@ export interface ShootData {
   payment_status?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
   bypassPaywall?: boolean;
   bypass_paywall?: boolean;
+  overpaymentAmount?: number;
+  overpayment_amount?: number;
   payment: {
     serviceSubtotal?: number;
     baseQuote: number;
@@ -421,6 +425,8 @@ export interface ShootData {
     orderTotal?: number;
     totalQuote: number;
     totalPaid: number;  // Making this required
+    overpaymentAmount?: number;
+    overpayment_amount?: number;
     paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;
     lastPaymentDate?: string;
     lastPaymentType?: string;
@@ -524,10 +530,14 @@ export interface ShootData {
   canSubmitEdits?: boolean;
   canApproveEditingReview?: boolean;
   canViewInvoice?: boolean;
+  canFinalizeNoMedia?: boolean;
+  canRemoveAllServices?: boolean;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
   can_approve_editing_review?: boolean;
   can_view_invoice?: boolean;
+  can_finalize_no_media?: boolean;
+  can_remove_all_services?: boolean;
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;
   heroImage?: string;
@@ -667,6 +677,8 @@ export interface ShootHistoryRecord {
     state: string;
     zip: string;
     full: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   photographer: {
     id?: number | null;

@@ -261,7 +261,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     Services ordered
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {(services.length ? services.slice(0, 5) : ['General package']).map((service) => (
+                    {services.length ? services.slice(0, 5).map((service) => (
                       <Badge
                         key={service}
                         variant="secondary"
@@ -269,7 +269,9 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                       >
                         {service}
                       </Badge>
-                    ))}
+                    )) : (
+                      <span className="text-sm text-muted-foreground">No services</span>
+                    )}
                     {services.length > 5 && (
                       <span className="px-2 py-1 text-[11px] text-muted-foreground bg-muted/40 rounded-full border border-dashed border-border">
                         +{services.length - 5} more

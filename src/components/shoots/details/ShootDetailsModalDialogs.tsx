@@ -18,10 +18,11 @@ import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImport
 import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
-import { Loader2, PauseCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, Loader2, PauseCircle, XCircle } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { ShootDownloadCenterDialog } from './ShootDownloadCenterDialog';
+import type { ServiceDetachConfirmation } from '@/utils/shootServiceMutation';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -76,10 +77,12 @@ interface ShootDetailsModalDialogsProps {
   mmmDialogRedirectUrl: string | null;
   mmmDialogError: string | null;
   pendingUpdates: Partial<ShootData> | null;
+  serviceDetachConfirmation: ServiceDetachConfirmation | null;
   setIsPaymentDialogOpen: (open: boolean) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
   setIsSaveConfirmOpen: (open: boolean) => void;
   setPendingUpdates: (updates: Partial<ShootData> | null) => void;
+  setServiceDetachConfirmation: (value: ServiceDetachConfirmation | null) => void;
   setNotifyClientOnSave: (value: boolean) => void;
   setNotifyPhotographerOnSave: (value: boolean) => void;
   setIsCancellationFeeDialogOpen: (open: boolean) => void;
@@ -159,10 +162,12 @@ export function ShootDetailsModalDialogs({
   mmmDialogRedirectUrl,
   mmmDialogError,
   pendingUpdates,
+  serviceDetachConfirmation,
   setIsPaymentDialogOpen,
   setIsMarkPaidDialogOpen,
   setIsSaveConfirmOpen,
   setPendingUpdates,
+  setServiceDetachConfirmation,
   setNotifyClientOnSave,
   setNotifyPhotographerOnSave,
   setIsCancellationFeeDialogOpen,
@@ -254,17 +259,96 @@ export function ShootDetailsModalDialogs({
           if (!open) {
             setIsSaveConfirmOpen(false);
             setPendingUpdates(null);
+            setServiceDetachConfirmation(null);
           }
         }}
       >
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Confirm update</DialogTitle>
+            <DialogTitle>
+              {serviceDetachConfirmation ? 'Confirm service removal' : 'Confirm update'}
+            </DialogTitle>
             <DialogDescription>
-              Choose who should receive update notifications for this shoot.
+              {serviceDetachConfirmation
+                ? 'Review what will be detached and repriced before saving.'
+                : 'Choose who should receive update notifications for this shoot.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
+            {serviceDetachConfirmation && (
+              <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+                  <div>
+                    <p className="font-semibold text-amber-900 dark:text-amber-100">
+                      {serviceDetachConfirmation.impact.removedServices.length === 1
+                        ? '1 booked service will be removed'
+                        : `${serviceDetachConfirmation.impact.removedServices.length} booked services will be removed`}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                      {serviceDetachConfirmation.impact.removedServices
+                        .map((service) => service.name)
+                        .join(', ')}
+                    </p>
+                  </div>
+                </div>
+
+                {serviceDetachConfirmation.impact.leavesNoServices && (
+                  <div className="rounded-md border border-amber-400 bg-amber-100 px-3 py-2 font-semibold text-amber-950 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-50">
+                    This shoot will have no services. Existing media stays attached to the shoot and can still support video-link-only delivery.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <span className="text-muted-foreground">Current total</span>
+                  <span className="text-right">${serviceDetachConfirmation.impact.currentTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">New total</span>
+                  <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newTotal.toFixed(2)}</span>
+                  {serviceDetachConfirmation.impact.paymentAllocationsReleased > 0.005 && (
+                    <>
+                      <span className="text-muted-foreground">Allocations redistributed</span>
+                      <span className="text-right">${serviceDetachConfirmation.impact.paymentAllocationsReleased.toFixed(2)}</span>
+                    </>
+                  )}
+                  {serviceDetachConfirmation.impact.refundCreditDue > 0.005 && (
+                    <>
+                      <span className="font-medium text-rose-700 dark:text-rose-300">Refund/credit due</span>
+                      <span className="text-right font-semibold text-rose-700 dark:text-rose-300">
+                        ${serviceDetachConfirmation.impact.refundCreditDue.toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {(serviceDetachConfirmation.impact.filesDetached > 0
+                  || serviceDetachConfirmation.impact.albumsDetached > 0
+                  || serviceDetachConfirmation.impact.uploadAttemptsDetached > 0
+                  || serviceDetachConfirmation.impact.assignmentsRemoved > 0
+                  || serviceDetachConfirmation.impact.progressRowsRemoved > 0) && (
+                  <p className="text-xs text-amber-800 dark:text-amber-200">
+                    Linked records becoming shoot-level: {[
+                      serviceDetachConfirmation.impact.filesDetached > 0
+                        ? `${serviceDetachConfirmation.impact.filesDetached} file(s)`
+                        : null,
+                      serviceDetachConfirmation.impact.albumsDetached > 0
+                        ? `${serviceDetachConfirmation.impact.albumsDetached} album(s)`
+                        : null,
+                      serviceDetachConfirmation.impact.uploadAttemptsDetached > 0
+                        ? `${serviceDetachConfirmation.impact.uploadAttemptsDetached} upload attempt(s)`
+                        : null,
+                    ].filter(Boolean).join(', ') || 'none'}.{' '}
+                    {serviceDetachConfirmation.impact.assignmentsRemoved > 0
+                      ? `${serviceDetachConfirmation.impact.assignmentsRemoved} assignment(s) and `
+                      : ''}
+                    {serviceDetachConfirmation.impact.progressRowsRemoved > 0
+                      ? `${serviceDetachConfirmation.impact.progressRowsRemoved} workflow progress row(s) will be removed.`
+                      : serviceDetachConfirmation.impact.assignmentsRemoved > 0
+                        ? 'their service workflow state will be removed.'
+                        : ''}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div>
                 <p className="text-sm font-medium">Client</p>
@@ -298,6 +382,7 @@ export function ShootDetailsModalDialogs({
               onClick={() => {
                 setIsSaveConfirmOpen(false);
                 setPendingUpdates(null);
+                setServiceDetachConfirmation(null);
               }}
             >
               Cancel
@@ -309,7 +394,7 @@ export function ShootDetailsModalDialogs({
                   Saving...
                 </>
               ) : (
-                'Save changes'
+                serviceDetachConfirmation ? 'Confirm removal & save' : 'Save changes'
               )}
             </Button>
           </div>

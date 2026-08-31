@@ -25,6 +25,9 @@ const toOptionalNumber = (value: unknown): number | undefined => {
   return Number.isFinite(number) ? number : undefined;
 };
 
+const toOptionalBoolean = (...values: unknown[]): boolean | undefined =>
+  values.find((value): value is boolean => typeof value === 'boolean');
+
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
   if (!media) return undefined;
   return {
@@ -865,13 +868,21 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     service_presentation: servicePresentation,
     editorAssignments,
     payment: {
+      serviceSubtotal: paymentSummary.serviceSubtotal,
       baseQuote: paymentSummary.baseQuote,
+      discountType: paymentSummary.discountType,
+      discountValue: paymentSummary.discountValue,
+      discountAmount: paymentSummary.discountAmount,
+      discountedSubtotal: paymentSummary.discountedSubtotal,
       taxRate: paymentSummary.taxRate || toNumber(rawTaxRate),
+      taxPercent: paymentSummary.taxPercent,
       taxAmount: paymentSummary.taxAmount,
       invoiceAdjustmentsTotal,
       orderTotal,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
+      overpaymentAmount: paymentSummary.overpaymentAmount,
+      overpayment_amount: paymentSummary.overpaymentAmount,
       paymentStatus: paymentSummary.paymentStatus,
       lastPaymentDate: paymentSummary.lastPaymentDate ?? payments[0]?.paid_at ?? undefined,
       lastPaymentType: paymentSummary.lastPaymentType,
@@ -901,14 +912,16 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     extraPhotoCount: toNumber(shoot.extra_photo_count ?? shoot.extraPhotoCount),
     canSubmitRaw: Boolean(shoot.canSubmitRaw ?? shoot.can_submit_raw),
     canSubmitEdits: Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits),
-    canViewInvoice: typeof (shoot.canViewInvoice ?? shoot.can_view_invoice) === 'boolean'
-      ? Boolean(shoot.canViewInvoice ?? shoot.can_view_invoice)
-      : undefined,
+    canViewInvoice: toOptionalBoolean(shoot.canViewInvoice, shoot.can_view_invoice),
+    canFinalizeNoMedia: toOptionalBoolean(shoot.canFinalizeNoMedia, shoot.can_finalize_no_media),
+    canRemoveAllServices: toOptionalBoolean(shoot.canRemoveAllServices, shoot.can_remove_all_services),
     can_submit_raw: Boolean(shoot.can_submit_raw ?? shoot.canSubmitRaw),
     can_submit_edits: Boolean(shoot.can_submit_edits ?? shoot.canSubmitEdits),
-    can_view_invoice: typeof (shoot.can_view_invoice ?? shoot.canViewInvoice) === 'boolean'
-      ? Boolean(shoot.can_view_invoice ?? shoot.canViewInvoice)
-      : undefined,
+    can_view_invoice: toOptionalBoolean(shoot.can_view_invoice, shoot.canViewInvoice),
+    can_finalize_no_media: toOptionalBoolean(shoot.can_finalize_no_media, shoot.canFinalizeNoMedia),
+    can_remove_all_services: toOptionalBoolean(shoot.can_remove_all_services, shoot.canRemoveAllServices),
+    overpaymentAmount: paymentSummary.overpaymentAmount,
+    overpayment_amount: paymentSummary.overpaymentAmount,
     heroImage: shoot.hero_image || shoot.heroImage || undefined,
     media: shoot.media || undefined,
     tourLinks: shoot.tour_links || undefined,

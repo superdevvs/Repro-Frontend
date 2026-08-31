@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
+  readonly VITE_GOOGLE_MAPS_API_KEY?: string;
   readonly VITE_SQUARE_APPLICATION_ID?: string;
   readonly VITE_SQUARE_LOCATION_ID?: string;
   readonly VITE_REALTIME_ENABLED?: string;

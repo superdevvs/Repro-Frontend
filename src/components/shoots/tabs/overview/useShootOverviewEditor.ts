@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import type { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
@@ -29,6 +29,7 @@ import {
   usePhotographerDistanceAvailability,
 } from './shootOverviewEditorSupport';
 import { to12Hour } from '@/utils/availabilityUtils';
+import { calculatePricingBreakdown } from '@/utils/pricing';
 import type {
   AddressDetailsForLookup,
   ClientOption,
@@ -61,7 +62,6 @@ export function useShootOverviewEditor({
   const refreshShootMutations = useShootMutationRefresh();
 
   const [editedShoot, setEditedShoot] = useState<Partial<ShootData>>({});
-  const [taxAmountDirty, setTaxAmountDirty] = useState(false);
   const [clients, setClients] = useState<ClientOption[]>(() => {
     if (!shoot.client) return [];
     return [{
@@ -80,6 +80,7 @@ export function useShootOverviewEditor({
   const [perCategoryPopoverOpen, setPerCategoryPopoverOpen] = useState<Record<string, boolean>>({});
   const [servicesList, setServicesList] = useState<ServiceOption[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const serviceSelectionTouchedRef = useRef(false);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [servicePhotographerPays, setServicePhotographerPays] = useState<Record<string, string>>({});
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
@@ -87,6 +88,31 @@ export function useShootOverviewEditor({
     () => getShootInvoiceAdjustmentTotal(shoot),
     [shoot],
   );
+  const bookedServiceQuantities = useMemo(() => {
+    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
+    const sources = [
+      ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
+      ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
+      ...((shoot.serviceObjects as unknown as LegacyServiceItemRecord[] | undefined) || []),
+    ].filter((item) => !isInvoiceAdjustmentServiceItem(item));
+    const quantities = new Map<string, number>();
+
+    sources.forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      const serviceId = item.service_id ?? item.serviceId ?? item.id;
+      if (serviceId === null || serviceId === undefined) return;
+      const pivot = item.pivot && typeof item.pivot === 'object'
+        ? item.pivot as Record<string, unknown>
+        : {};
+      const quantity = Number(item.quantity ?? pivot.quantity ?? 1);
+      quantities.set(
+        String(serviceId),
+        Number.isInteger(quantity) && quantity > 0 ? quantity : 1,
+      );
+    });
+
+    return quantities;
+  }, [shoot]);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [servicePanelCategory, setServicePanelCategory] = useState('all');
   const [serviceModalSearch, setServiceModalSearch] = useState('');
@@ -209,6 +235,15 @@ export function useShootOverviewEditor({
     return Number.isFinite(parsedSqft) ? parsedSqft : null;
   }, [isEditMode, propertyMetricsEdit.sqft, shoot]);
 
+  useEffect(() => {
+    serviceSelectionTouchedRef.current = false;
+  }, [isEditMode, shoot.id]);
+
+  const canInitializeServiceSelection = useCallback(
+    () => !serviceSelectionTouchedRef.current,
+    [],
+  );
+
   useOverviewLookupData(
     isEditMode,
     shoot,
@@ -221,6 +256,7 @@ export function useShootOverviewEditor({
     setServicePhotographerPays,
     setServiceSchedules,
     setEditPhotographers,
+    canInitializeServiceSelection,
   );
 
   useEffect(() => {
@@ -267,7 +303,6 @@ export function useShootOverviewEditor({
       });
       return nextSchedules;
     });
-    setTaxAmountDirty(false);
     const presenceOptionValue = propertyDetails.presenceOption;
     setPresenceOption(presenceOptionValue === 'lockbox' || presenceOptionValue === 'other' ? presenceOptionValue : 'self');
     setLockboxCode(typeof propertyDetails.lockboxCode === 'string' ? propertyDetails.lockboxCode : '');
@@ -277,7 +312,7 @@ export function useShootOverviewEditor({
   }, [initializeMetricsFromShoot, isEditMode, photographerAssignments.groups, shoot]);
 
   useEffect(() => {
-    if (!isEditMode || selectedServiceIds.length > 0) return;
+    if (!isEditMode || selectedServiceIds.length > 0 || serviceSelectionTouchedRef.current) return;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const serviceObjects = (
@@ -426,26 +461,6 @@ export function useShootOverviewEditor({
       }
     }
 
-    const rawSqftForPricing =
-      sqftValue ??
-      basePropertyDetails.sqft ??
-      basePropertyDetails.squareFeet ??
-      basePropertyDetails.square_feet ??
-      legacyShoot.sqft ??
-      legacyShoot.squareFeet ??
-      legacyShoot.square_feet ??
-      legacyShoot.livingArea ??
-      legacyShoot.living_area ??
-      null;
-    // `resolveServicePrice` declares `number | null`, so coerce here rather than
-    // passing whichever alias shape the payload happened to carry.
-    const parsedSqftForPricing = Number(rawSqftForPricing);
-    const sqftForPricing =
-      rawSqftForPricing !== null && rawSqftForPricing !== undefined && rawSqftForPricing !== ''
-        && Number.isFinite(parsedSqftForPricing)
-        ? parsedSqftForPricing
-        : null;
-
     const orderSchedule = {
       date: formatDateForInput(updates.scheduledDate ?? shoot.scheduledDate),
       time: formatTimeForInput(String(updates.time ?? shoot.time ?? '')) || '10:00',
@@ -467,8 +482,6 @@ export function useShootOverviewEditor({
       });
     });
     const serviceItemsPayload = selectedServiceIds.map((serviceId) => {
-      const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
-      const resolvedPrice = service ? resolveServicePrice(service, sqftForPricing, servicePrices[serviceId]).price : 0;
       const savedSchedule = serviceSchedules[serviceId] || orderSchedule;
       const existingSchedule = existingScheduleByServiceId.get(serviceId);
       const serviceSchedule =
@@ -479,14 +492,19 @@ export function useShootOverviewEditor({
           : savedSchedule;
       const serviceData: OverviewServiceItemPayload = {
         service_id: Number(serviceId),
-        price: resolvedPrice,
-        quantity: 1,
         // Keep unscheduled services unscheduled: an empty date must NOT fall back
         // to the order date. `buildScheduledAtIso` returns null for an empty date.
         scheduled_at: serviceSchedule.date
           ? buildScheduledAtIso(serviceSchedule.date, serviceSchedule.time)
           : null,
       };
+      const explicitPrice = servicePrices[serviceId];
+      if (isAdmin && explicitPrice !== undefined && explicitPrice !== '') {
+        const parsedPrice = Number(explicitPrice);
+        if (Number.isFinite(parsedPrice) && parsedPrice >= 0) {
+          serviceData.price = parsedPrice;
+        }
+      }
       if (servicePhotographerPays[serviceId]) {
         serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
       }
@@ -495,8 +513,8 @@ export function useShootOverviewEditor({
     updates.service_items = serviceItemsPayload;
     updates.services = serviceItemsPayload.map((serviceData) => ({
       id: serviceData.service_id,
-      price: serviceData.price,
-      quantity: serviceData.quantity,
+      ...(serviceData.price !== undefined ? { price: serviceData.price } : {}),
+      ...(serviceData.quantity !== undefined ? { quantity: serviceData.quantity } : {}),
       scheduled_at: serviceData.scheduled_at,
       photographer_pay: serviceData.photographer_pay,
     }));
@@ -534,7 +552,7 @@ export function useShootOverviewEditor({
     propertyMetricsEdit.baths,
     propertyMetricsEdit.beds,
     propertyMetricsEdit.sqft,
-    resolveServicePrice,
+    isAdmin,
     selectedServiceIds,
     servicePhotographerPays,
     servicePrices,
@@ -633,6 +651,7 @@ export function useShootOverviewEditor({
   }, [serviceCategoryOptions, servicePanelCategory]);
 
   const toggleServiceSelection = useCallback((serviceId: string) => {
+    serviceSelectionTouchedRef.current = true;
     setSelectedServiceIds((current) => {
       if (current.includes(serviceId)) {
         setServicePrices((prices) => {
@@ -652,33 +671,54 @@ export function useShootOverviewEditor({
   }, []);
 
   useEffect(() => {
-    const total = selectedServiceIds.reduce((sum, serviceId) => {
+    const serviceSubtotal = selectedServiceIds.reduce((sum, serviceId) => {
       const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
       if (!service) return sum;
       const resolvedPrice = resolveServicePrice(service, effectiveSqft, servicePrices[serviceId]).price;
-      return sum + (Number.isNaN(resolvedPrice) ? 0 : resolvedPrice);
+      const quantity = bookedServiceQuantities.get(serviceId) ?? 1;
+      return sum + (Number.isNaN(resolvedPrice) ? 0 : resolvedPrice * quantity);
     }, 0);
     const rawTaxRate = Number(editedShoot.payment?.taxRate ?? shoot.payment?.taxRate ?? 0);
     const normalizedTaxRate = rawTaxRate > 1 ? rawTaxRate / 100 : rawTaxRate;
-    const autoTax = Number((total * normalizedTaxRate).toFixed(2));
-    const manualTax = Number(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0);
-    const resolvedManualTax = Number.isFinite(manualTax) ? manualTax : 0;
-    const finalTax = taxAmountDirty ? resolvedManualTax : autoTax;
-    updateField('payment.baseQuote', total);
-    updateField('payment.taxAmount', finalTax);
-    updateField('payment.totalQuote', total + finalTax + invoiceAdjustmentTotal);
+    const pricing = calculatePricingBreakdown({
+      serviceSubtotal,
+      discountType: editedShoot.payment?.discountType ?? shoot.payment?.discountType ?? null,
+      discountValue: editedShoot.payment?.discountValue ?? shoot.payment?.discountValue ?? null,
+      taxRate: normalizedTaxRate,
+    });
+    const automaticTotal = Number((pricing.totalQuote + invoiceAdjustmentTotal).toFixed(2));
+    const adjustedTotal = editedShoot.adminAdjustedTotalQuote;
+    const displayedTotal = adjustedTotal !== null
+      && adjustedTotal !== undefined
+      && Number.isFinite(Number(adjustedTotal))
+      ? Number(adjustedTotal)
+      : automaticTotal;
+
+    updateField('payment.serviceSubtotal', pricing.serviceSubtotal);
+    updateField('payment.discountType', pricing.discountType);
+    updateField('payment.discountValue', pricing.discountValue);
+    updateField('payment.discountAmount', pricing.discountAmount);
+    updateField('payment.discountedSubtotal', pricing.discountedSubtotal);
+    updateField('payment.baseQuote', pricing.discountedSubtotal);
+    updateField('payment.taxAmount', pricing.taxAmount);
+    updateField('payment.invoiceAdjustmentsTotal', invoiceAdjustmentTotal);
+    updateField('payment.orderTotal', displayedTotal);
+    updateField('payment.totalQuote', displayedTotal);
   }, [
-    editedShoot.payment?.taxAmount,
+    editedShoot.adminAdjustedTotalQuote,
+    editedShoot.payment?.discountType,
+    editedShoot.payment?.discountValue,
     editedShoot.payment?.taxRate,
+    bookedServiceQuantities,
     effectiveSqft,
     invoiceAdjustmentTotal,
     resolveServicePrice,
     selectedServiceIds,
     servicePrices,
     servicesList,
-    shoot.payment?.taxAmount,
+    shoot.payment?.discountType,
+    shoot.payment?.discountValue,
     shoot.payment?.taxRate,
-    taxAmountDirty,
     updateField,
   ]);
 
@@ -993,7 +1033,6 @@ export function useShootOverviewEditor({
   return {
     state: {
       editedShoot,
-      taxAmountDirty,
       clients,
       selectedClientId,
       clientSearchOpen,
@@ -1028,7 +1067,6 @@ export function useShootOverviewEditor({
       isLoadingAvailability,
     },
     actions: {
-      setTaxAmountDirty,
       setSelectedClientId,
       setClientSearchOpen,
       setSelectedPhotographerIdEdit,

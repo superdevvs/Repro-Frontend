@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
+import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
 import type { ShootData } from "@/types/shoots";
@@ -230,15 +231,18 @@ export const ClientDashboardView = ({
   };
   const clientEmailNotice = (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-      <ClientEmailHealthNotice
-        email={user?.email}
-        emailHealth={normalizeEmailHealth(user?.email_health)}
-        onManageEmail={onManageClientEmail}
-        onResendVerification={onResendClientVerification}
-        resendPending={clientEmailActionPending}
-        resendFeedback={clientEmailResendFeedback}
-        variant="banner"
-      />
+      {/* Account notices never sit next to each other - they stack and rotate. */}
+      <DashboardNoticeStack label="Account notices" stackWidthClassName="w-full sm:w-[34rem]">
+        <ClientEmailHealthNotice
+          email={user?.email}
+          emailHealth={normalizeEmailHealth(user?.email_health)}
+          onManageEmail={onManageClientEmail}
+          onResendVerification={onResendClientVerification}
+          resendPending={clientEmailActionPending}
+          resendFeedback={clientEmailResendFeedback}
+          variant="banner"
+        />
+      </DashboardNoticeStack>
       <DashboardOnboarding
         roleKey="client"
         steps={dashboardOnboardingConfig.client.steps}

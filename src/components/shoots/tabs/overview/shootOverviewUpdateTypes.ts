@@ -39,8 +39,8 @@ export type LegacyServiceItemRecord = {
 
 export type OverviewServiceItemPayload = {
   service_id: number;
-  price: number;
-  quantity: number;
+  price?: number;
+  quantity?: number;
   scheduled_at: string | null;
   photographer_pay?: number;
 };

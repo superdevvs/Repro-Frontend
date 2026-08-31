@@ -209,7 +209,7 @@ const servicesCache = new Map<string, DashboardShootServiceTag[]>();
 export const normalizeServices = (
   services?: string[] | Array<{ name?: string; id?: number | string }>,
 ): DashboardShootServiceTag[] => {
-  if (!services?.length) return [{ label: "Standard Package", type: "primary" }];
+  if (!services?.length) return [];
 
   // Create cache key
   const cacheKey = JSON.stringify(services);

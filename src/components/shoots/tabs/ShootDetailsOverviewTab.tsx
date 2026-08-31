@@ -439,7 +439,6 @@ export function ShootDetailsOverviewTab({
   const {
     state: {
       editedShoot,
-      taxAmountDirty,
       clients,
       selectedClientId,
       clientSearchOpen,
@@ -447,6 +446,7 @@ export function ShootDetailsOverviewTab({
       perCategoryPhotographers,
       servicesList,
       selectedServiceIds,
+      servicePrices,
       serviceSchedules,
       serviceDialogOpen,
       servicePanelCategory,
@@ -468,7 +468,6 @@ export function ShootDetailsOverviewTab({
       isLoadingAvailability,
     },
     actions: {
-      setTaxAmountDirty,
       setSelectedClientId,
       setClientSearchOpen,
       setSelectedPhotographerIdEdit,
@@ -829,11 +828,14 @@ export function ShootDetailsOverviewTab({
     const pricingInfo = effectiveSqft && service.pricing_type === 'variable' && hasSqftRanges
       ? getServicePricingForSqft(serviceWithPrice, effectiveSqft)
       : null;
+    const bookedOrAdjustedPrice = servicePrices[String(service.id)];
     const amount = isEditor
       ? getEditorServicePayout(service)
       : isPhotographer
         ? pricingInfo?.photographerPay ?? Number(service.photographer_pay ?? 0)
-        : pricingInfo?.price ?? Number(service.price ?? 0);
+        : bookedOrAdjustedPrice !== undefined && bookedOrAdjustedPrice !== ''
+          ? Number(bookedOrAdjustedPrice)
+          : pricingInfo?.price ?? Number(service.price ?? 0);
     return serviceCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0);
   };
 
@@ -890,9 +892,7 @@ export function ShootDetailsOverviewTab({
 
   const paymentTotalPaid = paymentDialogModel?.totalPaid ?? (Number(shoot.payment?.totalPaid) || 0);
   const paymentTotalQuote = paymentDialogModel?.totalQuote ?? (Number(shoot.payment?.totalQuote) || 0);
-  const editedPaymentTotalQuote = Number(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote) || 0;
   const paymentBalance = Math.max(paymentTotalQuote - paymentTotalPaid, 0);
-  const editedPaymentBalance = Math.max(editedPaymentTotalQuote - paymentTotalPaid, 0);
 
   const renderWeatherIcon = (icon?: string) => {
     switch (icon) {
@@ -1111,8 +1111,6 @@ export function ShootDetailsOverviewTab({
           shoot={shoot}
           paymentTotalPaid={paymentTotalPaid}
           paymentBalance={paymentBalance}
-          editedPaymentBalance={editedPaymentBalance}
-          setTaxAmountDirty={setTaxAmountDirty}
           updateField={updateField}
           onPayNow={isClient ? handleOpenPaymentDialog : undefined}
           canModeratePendingIntents={isAdmin || isRep}

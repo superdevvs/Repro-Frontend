@@ -22,6 +22,8 @@ export type InvoiceApiRecord = {
   amount_paid?: number | string;
   paid_amount?: number | string;
   balance_due?: number | string;
+  overpayment_amount?: number | string;
+  overpaymentAmount?: number | string;
   is_paid?: boolean;
   status?: string;
   shoot?: InvoiceShootRef | null;

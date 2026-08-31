@@ -47,6 +47,7 @@ export const useBookShootWorkflow = ({
 }: BookShootWorkflowOptions) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editShootLoading, setEditShootLoading] = useState(false);
+  const [canRemoveAllServicesForEdit, setCanRemoveAllServicesForEdit] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
@@ -605,6 +606,9 @@ export const useBookShootWorkflow = ({
         });
         const shootData = response.data?.data || response.data;
         if (shootData) {
+          setCanRemoveAllServicesForEdit(Boolean(
+            shootData.canRemoveAllServices ?? shootData.can_remove_all_services,
+          ));
           setClient(shootData.client_id?.toString() || shootData.client?.id?.toString() || '');
           setAddress(shootData.address || shootData.location?.address || '');
           setCity(shootData.city || shootData.location?.city || '');
@@ -636,9 +640,10 @@ export const useBookShootWorkflow = ({
                 return packages.find(pkg => pkg.id === serviceId);
               })
               .filter(Boolean) as ServicePackage[];
-            if (matchedServices.length > 0) {
-              setSelectedServices(matchedServices);
-            }
+            // An empty service list is a valid Admin/Super Admin edit state and
+            // must replace any cached/new-booking selection instead of leaving a
+            // phantom service selected locally.
+            setSelectedServices(matchedServices);
             const svcPhotographers: Record<string, string> = {};
             const svcSchedules: ServiceScheduleMap = {};
             const serviceRows = Array.isArray(shootData.serviceItems)
@@ -676,6 +681,7 @@ export const useBookShootWorkflow = ({
           });
         }
       } catch (error) {
+        setCanRemoveAllServicesForEdit(false);
         console.error('Error fetching shoot for edit:', error);
         toast({
           title: "Error loading shoot",
@@ -691,7 +697,7 @@ export const useBookShootWorkflow = ({
     }
   }, [editShootId, packagesLoading, packages, toast]);
   return {
-    isEditMode, setIsEditMode, editShootLoading, packages, setPackages, packagesLoading,
+    isEditMode, setIsEditMode, editShootLoading, canRemoveAllServicesForEdit, packages, setPackages, packagesLoading,
     setPackagesLoading, clients, setClients, client, setClient, address, setAddress,
     city, setCity, state, setState, zip, setZip, date, setDate, time, setTime,
     photographer, setPhotographer, servicePhotographers, setServicePhotographers,

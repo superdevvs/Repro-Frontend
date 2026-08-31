@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, Loader2, Plus, ReceiptText, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Plus, ReceiptText, Trash2 } from 'lucide-react';
 
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +60,7 @@ export interface InvoiceApprovalDialogProps {
   getDisplayAmount?: (item: WeeklyInvoiceItem) => number;
   /** Photographer-side actions */
   onPhotographerApprove?: (notes: string) => Promise<void> | void;
-  onPhotographerReject?: (reason: string) => Promise<void> | void;
+  onPhotographerSubmitChanges?: (summary: string) => Promise<void> | void;
   /** Admin-side actions */
   onAdminApprove?: (warningOverrideReason?: string) => Promise<void> | void;
   onAdminReject?: (reason: string) => Promise<void> | void;
@@ -167,7 +167,7 @@ export function InvoiceApprovalDialog({
   resolveShoot,
   getDisplayAmount,
   onPhotographerApprove,
-  onPhotographerReject,
+  onPhotographerSubmitChanges,
   onAdminApprove,
   onAdminReject,
   onInvoiceChange,
@@ -216,7 +216,7 @@ export function InvoiceApprovalDialog({
   const photographerCanReview = photographerCanEdit;
   const adminCanReview = mode === 'admin' && ['pending', 'pending_approval'].includes(status);
 
-  const items = currentInvoice?.items || [];
+  const items = useMemo(() => currentInvoice?.items ?? [], [currentInvoice?.items]);
   const charges = useMemo(() => items.filter((item) => item.type === 'charge'), [items]);
   const expenses = useMemo(() => items.filter((item) => item.type === 'expense'), [items]);
   const resolveAmount = useCallback(
@@ -409,13 +409,19 @@ export function InvoiceApprovalDialog({
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      toast({ title: 'Reason required', description: 'Add a short note so the other side knows what to change.', variant: 'destructive' });
+      toast({
+        title: mode === 'photographer' ? 'Change summary required' : 'Reason required',
+        description: mode === 'photographer'
+          ? 'Add a short summary so the super admin can review your changes.'
+          : 'Add a short note so the payee knows what to change.',
+        variant: 'destructive',
+      });
       return;
     }
     setBusyAction('reject');
     try {
       if (mode === 'photographer') {
-        await onPhotographerReject?.(rejectReason.trim());
+        await onPhotographerSubmitChanges?.(rejectReason.trim());
       } else {
         await onAdminReject?.(rejectReason.trim());
       }
@@ -455,7 +461,7 @@ export function InvoiceApprovalDialog({
               <DialogTitle className="text-xl font-semibold">Photographer Invoice</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 {mode === 'photographer'
-                  ? 'Review your weekly payout. Edit lines, then approve or request changes.'
+                  ? 'Review your weekly payout. Submit it as-is, or edit it and send the changes for review.'
                   : 'Review the photographer-submitted payout and approve or return for changes.'}
               </DialogDescription>
             </div>
@@ -823,18 +829,23 @@ export function InvoiceApprovalDialog({
             </div>
           ) : null}
 
-          {/* Reject reason input (shared between photographer & admin) */}
+          {/* Change summary for payees; return reason for admins. */}
           {showRejectInput && (photographerCanReview || adminCanReview) ? (
-            <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+            <div className={cn(
+              'space-y-2 rounded-md border p-4',
+              mode === 'photographer'
+                ? 'border-violet-300/70 bg-violet-50/70 dark:border-violet-500/30 dark:bg-violet-950/20'
+                : 'border-destructive/30 bg-destructive/5',
+            )}>
               <Label htmlFor="invoice-reject-reason" className="text-sm">
-                {mode === 'photographer' ? 'What needs to change?' : 'Return reason'}
+                {mode === 'photographer' ? 'Summary of changes' : 'Return reason'}
               </Label>
               <Textarea
                 id="invoice-reject-reason"
                 value={rejectReason}
                 onChange={(event) => setRejectReason(event.target.value)}
                 placeholder={mode === 'photographer'
-                  ? 'Explain what should be corrected before this can be approved...'
+                  ? 'Tell the super admin what you changed on this invoice...'
                   : 'Explain the correction needed before payout can be approved.'}
                 rows={4}
               />
@@ -848,7 +859,9 @@ export function InvoiceApprovalDialog({
             <Button
               type="button"
               variant="outline"
-              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              className={mode === 'photographer'
+                ? 'border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40'
+                : 'text-destructive border-destructive/30 hover:bg-destructive/10'}
               onClick={() => {
                 if (showRejectInput) {
                   void handleReject();
@@ -858,10 +871,10 @@ export function InvoiceApprovalDialog({
               }}
               disabled={busyAction !== null}
             >
-              {busyAction === 'reject' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              {busyAction === 'reject' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ReceiptText className="h-4 w-4 mr-2" />}
               {showRejectInput
-                ? mode === 'photographer' ? 'Submit Reject' : 'Return for Changes'
-                : mode === 'photographer' ? 'Reject with Changes' : 'Return for Changes'}
+                ? mode === 'photographer' ? 'Send Changes for Review' : 'Return for Changes'
+                : mode === 'photographer' ? 'Submit with Changes' : 'Return for Changes'}
             </Button>
             <Button
               type="button"
@@ -870,7 +883,7 @@ export function InvoiceApprovalDialog({
               className="bg-violet-600 hover:bg-violet-700 text-white"
             >
               {busyAction === 'approve' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              {mode === 'photographer' ? 'Approve' : 'Approve Invoice'}
+              {mode === 'photographer' ? 'Approve & Send for Review' : 'Approve Invoice'}
             </Button>
           </div>
         ) : null}

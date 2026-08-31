@@ -1,18 +1,21 @@
 import { ShootData } from '@/types/shoots';
 
-/**
- * Workflow statuses from which an admin can "fast-forward" a shoot straight to
- * Delivered without any raw/edited uploads. These are the pre-upload states:
- * a booked/scheduled shoot or one currently on hold.
- */
-const FAST_FORWARD_STATUSES = ['scheduled', 'booked', 'on_hold'];
+const NO_MEDIA_FINALISE_STATUSES = ['scheduled', 'on_hold', 'uploaded', 'editing', 'ready'];
+const LEGACY_FAST_FORWARD_STATUSES = ['scheduled', 'on_hold'];
+const NORMAL_FINALISE_STATUSES = ['uploaded', 'editing', 'ready'];
 
 const normalizeStatus = (shoot: ShootData | null | undefined): string => {
-  const raw = String(shoot?.workflowStatus ?? shoot?.status ?? '')
+  const raw = String(
+    shoot?.workflowStatus ??
+      (shoot as { workflow_status?: string } | null | undefined)?.workflow_status ??
+      shoot?.status ??
+      '',
+  )
     .toLowerCase()
     .trim();
-  // Treat the legacy "booked" alias as scheduled.
-  return raw === 'booked' ? 'scheduled' : raw;
+  if (raw === 'booked') return 'scheduled';
+  if (raw === 'completed') return 'uploaded';
+  return raw;
 };
 
 const readRawMediaCount = (shoot: ShootData | null | undefined): number =>
@@ -31,25 +34,62 @@ const readEditedMediaCount = (shoot: ShootData | null | undefined): number =>
       0,
   );
 
+const hasKnownUploadedFile = (shoot: ShootData | null | undefined): boolean =>
+  Boolean(shoot?.files?.length);
+
+const hasCompletedFile = (shoot: ShootData | null | undefined): boolean =>
+  Boolean(
+    shoot?.files?.some((file) =>
+      ['completed', 'verified'].includes(
+        String(file.workflowStage ?? file.workflow_stage ?? '').toLowerCase(),
+      ),
+    ),
+  );
+
+const readNoMediaCapability = (
+  shoot: ShootData | null | undefined,
+): boolean | undefined => {
+  const capability = shoot?.canFinalizeNoMedia ?? shoot?.can_finalize_no_media;
+  return typeof capability === 'boolean' ? capability : undefined;
+};
+
 /**
- * Whether finalizing this shoot would be a "fast-forward" / no-media delivery:
- * the shoot is still in a pre-upload state (scheduled/on hold) and has no media.
- * This is the only path that should send `allow_no_media_delivery` to the
- * backend; finalizing an uploaded/editing/ready shoot continues to require
- * edited media, so normal billable deliveries stay protected.
+ * Whether finalizing this shoot uses the explicit whole-shoot no-media path.
+ * New API payloads own the decision through a role-specific capability. The
+ * scheduled/on-hold fallback keeps rolling deployments compatible with an
+ * older backend that did not advertise the field yet.
  */
 export const isFastForwardFinalise = (shoot: ShootData | null | undefined): boolean => {
   if (!shoot) return false;
   const status = normalizeStatus(shoot);
-  if (!FAST_FORWARD_STATUSES.includes(status)) return false;
-  return readRawMediaCount(shoot) === 0 && readEditedMediaCount(shoot) === 0;
+  if (!NO_MEDIA_FINALISE_STATUSES.includes(status)) return false;
+
+  const hasNoMedia =
+    readRawMediaCount(shoot) === 0 &&
+    readEditedMediaCount(shoot) === 0 &&
+    !hasKnownUploadedFile(shoot);
+  if (!hasNoMedia) return false;
+
+  const capability = readNoMediaCapability(shoot);
+  if (typeof capability === 'boolean') return capability;
+
+  return LEGACY_FAST_FORWARD_STATUSES.includes(status);
+};
+
+/** Whether a finalise action should be offered for this shoot. */
+export const canFinaliseShoot = (shoot: ShootData | null | undefined): boolean => {
+  if (!shoot) return false;
+  if (isFastForwardFinalise(shoot)) return true;
+
+  const status = normalizeStatus(shoot);
+  const hasEditedMedia = readEditedMediaCount(shoot) > 0 || hasCompletedFile(shoot);
+  return NORMAL_FINALISE_STATUSES.includes(status) && hasEditedMedia;
 };
 
 /**
  * Build the request body for POST /api/shoots/{id}/finalize. Sends
- * `allow_no_media_delivery: true` only for the explicit fast-forward (no-media)
- * path so the backend keeps enforcing media requirements for the normal
- * finalize flow.
+ * `allow_no_media_delivery: true` only when the server capability authorizes
+ * the explicit whole-shoot no-media path.
  */
 export const buildFinalizeRequestBody = (
   shoot: ShootData | null | undefined,

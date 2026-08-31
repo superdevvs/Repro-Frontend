@@ -270,8 +270,8 @@ const LazyListingMapCanvas = lazy(() =>
 )
 
 const MapLoadingFallback = () => (
-  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-slate-100 dark:bg-slate-950">
-    <div className="text-center text-slate-600 dark:text-slate-300">
+  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-background">
+    <div className="text-center text-muted-foreground">
       <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
       <p className="text-sm">Loading map...</p>
     </div>
@@ -424,7 +424,7 @@ export function ExclusiveListingsShowcase({
   return (
     <section
       data-testid="showcase-map-canvas"
-      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-slate-100 shadow-2xl dark:border-white/10 dark:bg-slate-950"
+      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-background shadow-2xl dark:border-white/10"
     >
       <Suspense fallback={<MapLoadingFallback />}>
         <LazyListingMapCanvas

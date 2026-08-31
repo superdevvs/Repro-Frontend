@@ -197,6 +197,14 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
   const shownItems = fit.count === null ? items : items.slice(0, fit.count);
   const hiddenItems = fit.count === null ? [] : items.slice(fit.count);
 
+  if (items.length === 0) {
+    return (
+      <div className="flex text-xs text-muted-foreground">
+        <span className={pillClass}>No services</span>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={rowRef}

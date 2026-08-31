@@ -829,6 +829,7 @@ export const useClientPropertyFormController = ({
     visiblePackages,
     selectedServices,
     onSelectedServicesChange,
+    canCreateNoProductShoot,
     packagesLoading,
     serviceDialogOpen,
     setServiceDialogOpen,

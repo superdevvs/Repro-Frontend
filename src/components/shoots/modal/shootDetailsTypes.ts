@@ -1,4 +1,5 @@
 import { ShootData } from '@/types/shoots';
+import type { WeatherInfo } from '@/services/weatherService';
 
 export type ShootDetailsTabId =
   | 'overview'
@@ -10,6 +11,21 @@ export type ShootDetailsTabId =
   | 'media';
 
 export type ShootDetailsInitialTab = Exclude<ShootDetailsTabId, 'media'>;
+
+export interface ShootDetailsModalProps {
+  shootId: string | number;
+  isOpen: boolean;
+  onClose: () => void;
+  currentRole?: string;
+  onShootUpdate?: () => void;
+  initialWeather?: WeatherInfo | null;
+  onModify?: () => void;
+  photographers?: Array<{ id: string | number; name: string; avatar?: string }>;
+  initialTab?: ShootDetailsTabId;
+  openDownloadDialog?: boolean;
+  shouldHideClientDetails?: boolean;
+  initialFocus?: 'schedule_assignments';
+}
 
 export interface ShootDetailsRoleFlags {
   isEditingManager: boolean;

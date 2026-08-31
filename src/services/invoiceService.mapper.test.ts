@@ -121,6 +121,26 @@ describe('mapInvoiceResponse — paid is asserted only from authoritative fields
     expect(mapped.status).toBe('paid');
     expect(isChaseableInvoice(mapped)).toBe(false);
   });
+
+  it('keeps an overpaid invoice settled with zero balance and exposes refund credit due', () => {
+    const mapped = mapInvoiceResponse(
+      record({ status: 'paid', is_paid: true, total_amount: '100.00', amount_paid: '175.00', balance_due: 0 }),
+    );
+
+    expect(mapped.status).toBe('paid');
+    expect(mapped.balance).toBe(0);
+    expect(mapped.overpaymentAmount).toBe(75);
+    expect(mapped.overpayment_amount).toBe(75);
+    expect(isChaseableInvoice(mapped)).toBe(false);
+  });
+
+  it('preserves the canonical server overpayment when supplied', () => {
+    const mapped = mapInvoiceResponse(
+      record({ status: 'paid', total_amount: '100.00', amount_paid: '100.00', overpayment_amount: '25.50' }),
+    );
+
+    expect(mapped.overpaymentAmount).toBe(25.5);
+  });
 });
 
 describe('mapInvoiceResponse — partial and overdue stay reminder-eligible', () => {

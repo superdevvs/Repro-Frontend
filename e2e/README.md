@@ -8,6 +8,13 @@ Vitest unit/property tests under `src/**` (`*.{test,spec}.tsx`).
 
 ## Specs
 
+- `link-only-shoot-finalization.e2e.ts` — saves a hosted video URL as an Admin,
+  verifies the finalise request opts into no-media delivery, and waits for the
+  queued shoot to reach Delivered. This mutates its fixture and runs only when
+  `E2E_LINK_ONLY_SHOOT_ID` and `E2E_CONFIRM_DESTRUCTIVE=1` are provided. The
+  fixture must have zero uploads, an eligible workflow status, and either no
+  booked services or at least one test/free booked service.
+
 - `service-area-assignment.e2e.ts` — Requirement 10.6: drives the `ServiceAreaAssignmentTool`
   (page `/admin/service-areas`) through the full **filter → preview → commit** flow:
   1. Filter photographers by a service-area `(kind, value)`.
@@ -109,6 +116,8 @@ npm run test:e2e:ui
 | `E2E_VIDEO_EDITOR_EMAIL`    | `video-editor@example.com` | Video-lane editor login email (Req 7).                  |
 | `E2E_VIDEO_EDITOR_PASSWORD` | `password`                 | Video-lane editor login password (Req 7).               |
 | `E2E_ASSIGNED_SHOOT_ID`     | _(unset)_                  | Pin the assigned shoot used by the 7.4 action check.    |
+| `E2E_LINK_ONLY_SHOOT_ID`    | _(unset)_                  | Eligible zero-upload shoot used by the Admin link-only delivery flow. |
+| `E2E_LINK_ONLY_VIDEO_URL`   | `https://video.example.test/e2e/{shoot}` | Hosted URL saved by the link-only flow. |
 | `E2E_EDITOR_RESTRICTED_ROUTE` | `/admin/service-areas`   | Restricted route used by the 7.5 block check.           |
 | `E2E_TEST_SHOOT_REGION_VALUE` | `Northeast`              | Region value used by the Test-Shoot simulator check.    |
 | `E2E_TEST_SHOOT_STATE_VALUE`  | `MD`                     | State value used by the Test-Shoot simulator check.     |
@@ -196,6 +205,7 @@ records a `Blocked_Check` (with the missing dependency noted) and the run contin
 | `E2E_LIFECYCLE_SHOOT_ID`            | `booking-lifecycle.e2e.ts`       | Shoot walked through the ordered `Booking_Status` path.  |
 | `E2E_PAID_SHOOT_ID`                 | `invoicing-reporting.e2e.ts`     | Paid shoot for the payment-lock "download permitted" path. |
 | `E2E_ZERO_DOLLAR_SHOOT_ID`          | `invoicing-reporting.e2e.ts`     | Zero-dollar shoot asserting no payment lock is applied.  |
+| `E2E_SERVICE_REMOVAL_SHOOT_ID`      | `admin-service-removal-pricing.e2e.ts` | Pre-delivery Admin fixture with at least two services; removes/restores services, verifies canonical pricing, and delivers by video link. |
 | `E2E_SETTINGS_PHOTOGRAPHER_ID`      | `settings.e2e.ts`                | Photographer whose settings/effect round-trips are checked. |
 | `E2E_PHOTOGRAPHER_ID`               | multiple modules                 | Default photographer used by profile/radius/equipment checks. |
 | `E2E_SEEDED_ADDRESS_SET`            | `service-radius.e2e.ts`          | Names the seeded inside/boundary/outside address fixture set. |

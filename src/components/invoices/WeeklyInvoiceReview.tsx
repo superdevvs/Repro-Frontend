@@ -29,7 +29,6 @@ import {
   Clock,
   Plus,
   Trash2,
-  AlertTriangle,
   Calendar,
   Loader2,
   ChevronDown,
@@ -50,7 +49,7 @@ import {
   fetchSalesRepInvoices,
   addWeeklyInvoiceExpense,
   removeWeeklyInvoiceExpense,
-  rejectWeeklyInvoice,
+  submitWeeklyInvoiceChangesForApproval,
   submitWeeklyInvoiceForApproval,
 } from '@/services/invoiceService';
 import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
@@ -178,22 +177,20 @@ export const WeeklyInvoiceReview: React.FC = () => {
     !invoice.is_paid &&
     !invoice.paid_at;
 
-  // Show review actions whenever the invoice is still awaiting the photographer's
-  // decision (approval_status pending/rejected). Backend `canBeModifiedByPhotographer`
-  // additionally enforces invoice.status === 'draft' and returns 422 if that fails;
-  // any such error is surfaced via the existing toast handlers below.
+  // A new or admin-returned invoice remains with the payee until they submit it.
+  // Once submitted, pending_approval locks editing while the admin reviews it.
   const canReview = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status);
 
-  const handleRequestModification = async (reasonOverride?: string) => {
+  const handleSubmitChangesForReview = async (reasonOverride?: string) => {
     if (!selectedInvoice) return;
     const reason = (reasonOverride ?? reviewNotes).trim();
     try {
       setActionLoading(true);
-      await rejectWeeklyInvoice(selectedInvoice.id, invoiceRole, reason || undefined);
+      await submitWeeklyInvoiceChangesForApproval(selectedInvoice.id, invoiceRole, reason);
       toast({
-        title: 'Modification requested',
-        description: 'Invoice status has been updated to requested modification.',
+        title: 'Changes submitted',
+        description: 'The changed invoice is now in the super admin review queue.',
       });
       setReviewOpen(false);
       setApprovalDialogOpen(false);
@@ -201,8 +198,8 @@ export const WeeklyInvoiceReview: React.FC = () => {
       await loadInvoices();
     } catch (error: unknown) {
       toast({
-        title: 'Failed to request modification',
-        description: error instanceof Error ? error.message : 'Unable to update invoice status',
+        title: 'Failed to submit changes',
+        description: error instanceof Error ? error.message : 'Unable to send the invoice for review',
         variant: 'destructive',
       });
     } finally {
@@ -216,38 +213,15 @@ export const WeeklyInvoiceReview: React.FC = () => {
     try {
       setActionLoading(true);
       await submitWeeklyInvoiceForApproval(selectedInvoice.id, invoiceRole, notes || undefined);
-      toast({
-        title: 'Invoice accepted',
-        description: 'Invoice status has been updated to accepted.',
-      });
+      toast({ title: 'Invoice submitted', description: 'The invoice is now awaiting super admin review.' });
       setReviewOpen(false);
       setApprovalDialogOpen(false);
       setReviewNotes('');
       await loadInvoices();
     } catch (error: unknown) {
       toast({
-        title: 'Failed to accept invoice',
-        description: error instanceof Error ? error.message : 'Unable to update invoice status',
-        variant: 'destructive',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleResubmit = async (invoice: WeeklyInvoice) => {
-    try {
-      setActionLoading(true);
-      await submitWeeklyInvoiceForApproval(invoice.id, invoiceRole, invoice.modification_notes || undefined);
-      toast({
-        title: 'Invoice resubmitted',
-        description: 'Invoice status has been updated to accepted.',
-      });
-      await loadInvoices();
-    } catch (error: unknown) {
-      toast({
-        title: 'Failed to resubmit invoice',
-        description: error instanceof Error ? error.message : 'Unable to update invoice status',
+        title: 'Failed to submit invoice',
+        description: error instanceof Error ? error.message : 'Unable to send the invoice for review',
         variant: 'destructive',
       });
     } finally {
@@ -776,17 +750,17 @@ export const WeeklyInvoiceReview: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {detailInvoice.approval_status === 'pending' && 'This invoice is currently pending review.'}
-                    {detailInvoice.approval_status === 'rejected' && 'This invoice needs your attention — modification was requested.'}
-                    {detailInvoice.approval_status === 'pending_approval' && 'Accepted — awaiting accounting approval.'}
+                    {detailInvoice.approval_status === 'pending' && 'This invoice is ready for your review.'}
+                    {detailInvoice.approval_status === 'rejected' && 'The admin returned this invoice for changes.'}
+                    {detailInvoice.approval_status === 'pending_approval' && 'Submitted — awaiting super admin review.'}
                     {(detailInvoice.approval_status === 'approved' || detailInvoice.approval_status === 'accounts_approved')
                       && 'Approved — payment is being processed.'}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {detailInvoice.approval_status === 'pending'
-                      ? 'You can review the line items, verify the details, and approve or request changes.'
+                      ? 'Review the line items, edit anything needed, then submit the invoice.'
                       : detailInvoice.approval_status === 'rejected'
-                        ? detailInvoice.rejection_reason || 'Open the review dialog to update the invoice.'
+                        ? detailInvoice.rejection_reason || 'Make the requested changes, then resubmit the invoice.'
                         : 'No further action required from you on this invoice.'}
                   </p>
                 </div>
@@ -796,11 +770,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40"
                     onClick={() => openReviewDialog(detailInvoice)}
                   >
-                    <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
-                    Reject with Changes
+                    <ReceiptText className="h-3.5 w-3.5 mr-1.5" />
+                    Edit &amp; Submit Changes
                   </Button>
                   <Button
                     size="sm"
@@ -808,7 +782,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                     onClick={() => openReviewDialog(detailInvoice)}
                   >
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                    Approve
+                    Approve &amp; Submit
                   </Button>
                 </div>
               )}
@@ -913,7 +887,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
           mode="photographer"
           resolveShoot={resolveShootForItem}
           onPhotographerApprove={(notes) => handleAcceptReview(notes)}
-          onPhotographerReject={(reason) => handleRequestModification(reason)}
+          onPhotographerSubmitChanges={(reason) => handleSubmitChangesForReview(reason)}
           onInvoiceChange={handleApprovalDialogChange}
         />
       ) : null}
@@ -940,9 +914,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
-            <Button variant="outline" onClick={() => handleRequestModification()} disabled={actionLoading}>
+            <Button variant="outline" onClick={() => handleSubmitChangesForReview()} disabled={actionLoading}>
               {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Request Modification
+              Submit with Changes
             </Button>
             <Button onClick={() => handleAcceptReview()} disabled={actionLoading}>
               {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

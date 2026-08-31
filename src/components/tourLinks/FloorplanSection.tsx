@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Maximize2 } from 'lucide-react';
+
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 /**
  * Public tour "Floor Plans" section.
@@ -25,23 +28,34 @@ export interface TourFloorplan {
   type?: string | null;
 }
 
-const normalizeTourFloorplans = (raw: any): TourFloorplan[] => {
+const firstString = (...values: unknown[]): string | undefined =>
+  values.find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+const stringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+
+const normalizeTourFloorplans = (raw: unknown): TourFloorplan[] => {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((item): TourFloorplan | null => {
+    .map((item: unknown): TourFloorplan | null => {
       if (!item) return null;
       if (typeof item === 'string') return { url: item };
+      if (typeof item !== 'object') return null;
+
+      const record = item as Record<string, unknown>;
+      const previewImages = stringArray(record.previewImages ?? record.preview_images);
+
       return {
-        url: item.url || item.original_url || item.path || undefined,
-        original_url: item.original_url || undefined,
-        image: item.image || item.preview_url || item.web_url || item.thumbnail_url || null,
-        preview_images: Array.isArray(item.preview_images) ? item.preview_images.filter(Boolean) : [],
-        previewImages: Array.isArray(item.previewImages ?? item.preview_images)
-          ? (item.previewImages ?? item.preview_images).filter(Boolean)
-          : [],
-        label: item.label || item.filename || null,
-        filename: item.filename || null,
-        type: item.type || null,
+        url: firstString(record.url, record.original_url, record.path),
+        original_url: firstString(record.original_url),
+        image: firstString(record.image, record.preview_url, record.web_url, record.thumbnail_url) ?? null,
+        preview_images: stringArray(record.preview_images),
+        previewImages,
+        label: firstString(record.label, record.filename) ?? null,
+        filename: firstString(record.filename) ?? null,
+        type: firstString(record.type) ?? null,
       };
     })
     .filter((x): x is TourFloorplan => !!x);
@@ -56,17 +70,21 @@ const resolvePreviewSrc = (fp: TourFloorplan): string | null => {
 };
 
 interface PreviewItem {
-  fp: TourFloorplan;
   sources: string[];
-  label: string;
 }
 
-export function FloorplanSection({ floorplans }: { floorplans: any }) {
+interface ActivePreview {
+  src: string;
+  alt: string;
+}
+
+export function FloorplanSection({ floorplans }: { floorplans: unknown }) {
   const [failed, setFailed] = useState<Record<number, boolean>>({});
+  const [activePreview, setActivePreview] = useState<ActivePreview | null>(null);
 
   // Only floorplans that have something previewable are candidates.
   const candidates: PreviewItem[] = normalizeTourFloorplans(floorplans)
-    .map((fp, i): PreviewItem | null => {
+    .map((fp): PreviewItem | null => {
       const src = resolvePreviewSrc(fp);
       if (!src) return null;
       const sources = Array.from(new Set([
@@ -74,7 +92,7 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
         ...(fp.preview_images || []),
         src,
       ].filter(Boolean)));
-      return { fp, sources, label: fp.label || fp.filename || `Level ${i + 1}` };
+      return { sources };
     })
     .filter((x): x is PreviewItem => x !== null);
 
@@ -82,36 +100,84 @@ export function FloorplanSection({ floorplans }: { floorplans: any }) {
   if (visible.length === 0) return null;
 
   return (
-    <section id="floorplan" className="max-w-6xl mx-auto px-6 mt-10">
-      <h2 className="text-2xl font-bold text-foreground mb-6">Floor Plans</h2>
-      <div className="grid md:grid-cols-2 gap-6">
-        {candidates.map((item, i) => {
-          if (failed[i]) return null;
-          return (
-            <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
-              <h3 className="font-semibold mb-3">{item.label}</h3>
-              <div className="flex-1 space-y-3 min-h-[200px]">
-                {item.sources.map((src, pageIndex) => (
-                  <div key={src} className="flex items-center justify-center">
-                    <img
-                      src={src}
-                      alt={item.sources.length > 1 ? `${item.label} page ${pageIndex + 1}` : item.label}
-                      loading="lazy"
-                      decoding="async"
-                      className="max-w-full max-h-[300px] object-contain"
-                      onError={() => {
-                        if (pageIndex === 0) {
-                          setFailed((prev) => ({ ...prev, [i]: true }));
-                        }
-                      }}
-                    />
-                  </div>
-                ))}
+    <>
+      <section id="floorplan" className="max-w-6xl mx-auto px-6 mt-10">
+        <h2 className="text-2xl font-bold text-foreground mb-6">Floor Plans</h2>
+        <div className="grid md:grid-cols-2 gap-6">
+          {candidates.map((item, i) => {
+            if (failed[i]) return null;
+            return (
+              <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-4 shadow-sm">
+                <div className="space-y-3">
+                  {item.sources.map((src, pageIndex) => {
+                    const alt = item.sources.length > 1
+                      ? `Floor plan ${i + 1}, page ${pageIndex + 1}`
+                      : `Floor plan ${i + 1}`;
+
+                    return (
+                      <button
+                        key={src}
+                        type="button"
+                        className="group relative flex min-h-[200px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-xl bg-muted/20 outline-none transition focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        aria-label={`Open ${alt} in full view`}
+                        onClick={() => setActivePreview({ src, alt })}
+                      >
+                        <img
+                          src={src}
+                          alt={alt}
+                          loading="lazy"
+                          decoding="async"
+                          draggable={false}
+                          className="max-h-[300px] max-w-full select-none object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                          onContextMenu={(event) => event.preventDefault()}
+                          onDragStart={(event) => event.preventDefault()}
+                          onError={() => {
+                            if (pageIndex === 0) {
+                              setFailed((prev) => ({ ...prev, [i]: true }));
+                            }
+                          }}
+                        />
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/15 group-focus-visible:bg-black/15">
+                          <span className="flex h-11 w-11 scale-90 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg backdrop-blur-sm transition-all group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
+                            <Maximize2 className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <Dialog
+        open={activePreview !== null}
+        onOpenChange={(open) => {
+          if (!open) setActivePreview(null);
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          className="!h-[100svh] !w-screen !max-w-none overflow-hidden bg-black/95 p-4 shadow-none sm:!rounded-none sm:p-8"
+        >
+          <DialogTitle className="sr-only">Floor plan full view</DialogTitle>
+          {activePreview && (
+            <div className="flex h-full w-full items-center justify-center">
+              <img
+                src={activePreview.src}
+                alt={`${activePreview.alt} full view`}
+                decoding="async"
+                draggable={false}
+                className="max-h-full max-w-full select-none object-contain"
+                onContextMenu={(event) => event.preventDefault()}
+                onDragStart={(event) => event.preventDefault()}
+              />
             </div>
-          );
-        })}
-      </div>
-    </section>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

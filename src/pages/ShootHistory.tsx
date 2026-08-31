@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -34,6 +34,7 @@ import {
   isFeaturedTabShoot,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
+import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
 
 const READY_STATUS_KEYS = [
   'ready',
@@ -253,7 +254,6 @@ const ShootHistory: React.FC = () => {
     operationalOptions,
     historyOptions,
     geoCache,
-    setGeoCache,
     selectedShoot,
     isDetailOpen,
     openDownloadDialog,
@@ -442,7 +442,11 @@ const ShootHistory: React.FC = () => {
       .map((shoot) => {
         const address = shoot.location.fullAddress
         if (!address) return null
-        const coords = geoCache[address]
+        const cachedCoordinates = geoCache[address]
+        const coords = toValidMapCoordinates(
+          shoot.location.latitude,
+          shoot.location.longitude,
+        ) ?? toValidMapCoordinates(cachedCoordinates?.lat, cachedCoordinates?.lng)
         if (!coords) return null
         return {
           id: shoot.id,
@@ -464,7 +468,11 @@ const ShootHistory: React.FC = () => {
       .map((record) => {
         const address = record.address?.full
         if (!address) return null
-        const coords = geoCache[address]
+        const cachedCoordinates = geoCache[address]
+        const coords = toValidMapCoordinates(
+          record.address.latitude,
+          record.address.longitude,
+        ) ?? toValidMapCoordinates(cachedCoordinates?.lat, cachedCoordinates?.lng)
         if (!coords) return null
         return {
           id: String(record.id),
@@ -525,63 +533,6 @@ const ShootHistory: React.FC = () => {
       })
     }
   }, [refreshActiveTabData, toast])
-
-  const mapAddresses = useMemo(() => {
-    if (activeTab === 'history') {
-      if (historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') return []
-      return historyRecords
-        .map((record) => record.address?.full)
-        .filter((addr): addr is string => Boolean(addr))
-    }
-
-    if (viewMode !== 'map') return []
-    return filteredOperationalData
-      .map((shoot) => shoot.location.fullAddress)
-      .filter((addr): addr is string => Boolean(addr))
-  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, viewMode, filteredOperationalData])
-
-  useEffect(() => {
-    if (!mapAddresses.length) return
-    const unknownAddresses = mapAddresses.filter((addr) => !geoCache[addr]).slice(0, 6)
-    if (!unknownAddresses.length) return
-
-    let cancelled = false
-
-    const geocode = async () => {
-      const updates: Record<string, { lat: number; lng: number }> = {}
-
-      for (const address of unknownAddresses) {
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
-            { headers: { Accept: 'application/json' } },
-          )
-          if (!response.ok) continue
-          const data = await response.json()
-          const match = data?.[0]
-          if (match && !cancelled) {
-            updates[address] = {
-              lat: parseFloat(match.lat),
-              lng: parseFloat(match.lon),
-            }
-          }
-        } catch (error) {
-          // ignore
-        }
-        await new Promise((resolve) => setTimeout(resolve, 450))
-      }
-
-      if (!cancelled && Object.keys(updates).length) {
-        setGeoCache((prev) => ({ ...prev, ...updates }))
-      }
-    }
-
-    geocode()
-
-    return () => {
-      cancelled = true
-    }
-  }, [mapAddresses, geoCache])
 
   // Scheduled shoots content
   const scheduledContent = useMemo(() => {

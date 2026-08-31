@@ -25,6 +25,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
     setExpandedServiceScheduleId,
     servicesEditorOpen,
     setServicesEditorOpen,
+    canRemoveAllServices,
     isAdminOrRep,
     address,
     setAddress,
@@ -639,6 +640,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
           onSelectedServicesChange={handleSelectedServicesChange}
           servicesLoading={isLoading}
           effectiveSqft={propertySqft}
+          allowEmptySelection={canRemoveAllServices}
         />
 
         {selectedServiceIds.size > 0 && (

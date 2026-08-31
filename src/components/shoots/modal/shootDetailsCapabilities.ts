@@ -3,6 +3,10 @@ import {
   ShootDetailsCapabilities,
   ShootDetailsRoleFlags,
 } from './shootDetailsTypes';
+import {
+  canFinaliseShoot,
+  isFastForwardFinalise as isNoMediaFinalise,
+} from '@/utils/shootFinalize';
 
 interface GetShootDetailsCapabilitiesInput {
   shoot: ShootData | null;
@@ -73,24 +77,11 @@ export const getShootDetailsCapabilities = ({
     : isClient
       ? isDelivered
       : isUploadedStatus || isEditingStatus;
-  // Fast-forward finalize: an admin can move a still-unstarted shoot (scheduled
-  // or on hold, with no raw/edited media) straight to Delivered. This is the
-  // explicit "Finalize (fast-forward)" path; the backend honours it via the
-  // allow_no_media_delivery flag while the normal finalize flow still requires
-  // edited media.
-  const isScheduledStatus = normalizedStatus === 'scheduled';
-  const isOnHoldStatus = normalizedStatus === 'on_hold';
   const canFastForwardFinalise =
     isAdmin &&
     !isDelivered &&
-    (isScheduledStatus || isOnHoldStatus) &&
-    rawMediaCount === 0 &&
-    editedMediaCount === 0;
-  const canFinalise =
-    (isAdmin &&
-      !isDelivered &&
-      ['uploaded', 'editing', 'ready'].includes(normalizedStatus)) ||
-    canFastForwardFinalise;
+    isNoMediaFinalise(shoot);
+  const canFinalise = isAdmin && !isDelivered && canFinaliseShoot(shoot);
   // Drives the "Finalize (fast-forward)" label and the allow_no_media_delivery
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;

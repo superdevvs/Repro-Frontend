@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -21,23 +20,17 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import {
   Home,
   Search,
-  MapPin,
   Plus,
   LayoutGrid,
   List,
   Map as MapIcon,
-  BedDouble,
-  Bath,
-  Ruler,
   User,
-  ExternalLink,
   X,
   Globe,
   Eye,
   EyeOff,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
-import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
 import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListingGridCard';
@@ -65,6 +58,7 @@ import {
   writeGeoCache,
 } from '@/utils/privateListings';
 import type { ListingRecord } from '@/utils/privateListings';
+import { PrivateListingPortalListRow } from './PrivateListingPortalListRow';
 
 const PrivateListingPortal = () => {
   const { toast } = useToast();
@@ -540,114 +534,6 @@ const PrivateListingPortal = () => {
     );
   };
 
-  const renderListRow = (listing: PrivateListing) => {
-    const heroUrl = resolveListingPreviewUrl(listing.heroImage) || '/placeholder.svg';
-    const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
-    const selected = selectedHiddenIds.has(listing.id);
-    const isHidden = listing.isListingHidden;
-    const handleRowClick = () => {
-      if (hideSelectionMode) {
-        if (!isHidden) toggleListingSelectedForHide(listing);
-        return;
-      }
-      handleCardClick(listing);
-    };
-    return (
-      <div
-        key={listing.id}
-        className={`group flex items-center gap-4 p-3 sm:p-4 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/30 ${isHidden ? 'opacity-70' : ''}`}
-        onClick={handleRowClick}
-      >
-        {hideSelectionMode && !isHidden && (
-          <div
-            className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'
-            }`}
-          >
-            ✓
-          </div>
-        )}
-
-        {/* Thumbnail */}
-        <div className="relative h-16 w-24 sm:h-20 sm:w-32 flex-shrink-0 rounded-md overflow-hidden bg-muted">
-          <img
-            src={heroUrl}
-            alt={listing.address}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-          {!hideSelectionMode && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
-              <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm truncate">{listing.address}</h3>
-                {isHidden && (
-                  <Badge variant="outline" className="border-amber-200 bg-amber-100 text-amber-900">
-                    Hidden
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
-              </div>
-            </div>
-            {isHidden && isAdmin ? (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={savingVisibility}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  unhideListing(listing);
-                }}
-              >
-                Unhide
-              </Button>
-            ) : listing.price && (
-              <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                {formatListingPrice(listing.price)}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-            {listing.bedrooms && (
-              <div className="flex items-center gap-1">
-                <BedDouble className="h-3 w-3" />
-                <span>{listing.bedrooms} Bed</span>
-              </div>
-            )}
-            {bathroomDisplay && (
-              <div className="flex items-center gap-1">
-                <Bath className="h-3 w-3" />
-                <span>{bathroomDisplay.value} {bathroomDisplay.label}</span>
-              </div>
-            )}
-            {listing.sqft && (
-              <div className="flex items-center gap-1">
-                <Ruler className="h-3 w-3" />
-                <span>{listing.sqft.toLocaleString()} sqft</span>
-              </div>
-            )}
-            <div className="hidden sm:flex items-center gap-1 ml-auto">
-              <User className="h-3 w-3" />
-              <span className="truncate max-w-[140px]">{listing.client.name}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const clientScopeControl = isClient ? (
     <div
       className={
@@ -922,9 +808,14 @@ const PrivateListingPortal = () => {
             onSelectListing={presentation.selectListing}
             showMarkerLabels={false}
             controlsOverlay={
-              <div className="space-y-2.5">
+              <div className="flex flex-wrap items-stretch gap-2.5">
                 {clientScopeControl}
-                <SummaryCards summary={presentation.summary} variant="overlay" />
+                <SummaryCards
+                  summary={presentation.summary}
+                  visibleKeys={['total', 'mapped']}
+                  variant="overlay"
+                  className="w-full shrink-0 sm:w-[320px]"
+                />
                 <MapTabToolbar
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
@@ -942,6 +833,7 @@ const PrivateListingPortal = () => {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   variant="overlay"
+                  className="min-w-0 flex-[1_1_680px]"
                 />
               </div>
             }
@@ -984,7 +876,19 @@ const PrivateListingPortal = () => {
         ) : (
           /* ─── List View ─── */
           <div className="space-y-2">
-            {sortedListings.map((listing) => renderListRow(listing))}
+            {sortedListings.map((listing) => (
+              <PrivateListingPortalListRow
+                key={listing.id}
+                listing={listing}
+                selectionMode={hideSelectionMode}
+                selected={selectedHiddenIds.has(listing.id)}
+                canManageVisibility={isAdmin}
+                savingVisibility={savingVisibility}
+                onOpen={handleCardClick}
+                onToggleSelect={toggleListingSelectedForHide}
+                onUnhide={unhideListing}
+              />
+            ))}
           </div>
         )}
       </div>

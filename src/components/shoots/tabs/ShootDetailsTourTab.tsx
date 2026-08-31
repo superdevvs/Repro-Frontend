@@ -16,6 +16,13 @@ import { ShootTourRealtorPicker, type TourRealtorOption } from '@/components/sho
 import { ShootDetailsTourTabView } from '@/components/shoots/tabs/ShootDetailsTourTabView';
 import { useShootTourPropertyEditor } from '@/components/shoots/tabs/useShootTourPropertyEditor';
 import { CreateCubicasaOrderButton } from '@/components/shoots/tabs/CreateCubicasaOrderButton';
+import {
+  asOptionalString,
+  asRecord,
+  getErrorMessage,
+  toStringMap,
+  type LooseRecord,
+} from '@/components/shoots/tabs/shootDetailsTourTabUtils';
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
   isAdmin: boolean;
@@ -36,8 +43,6 @@ type ManagedVideoLinkKey =
   | 'video_branded'
   | 'video_mls'
   | 'video_generic';
-
-type LooseRecord = Record<string, unknown>;
 
 type TourLinkSource = LooseRecord & {
   tour_style?: string;
@@ -65,21 +70,6 @@ type ShootTourCompat = ShootData & {
   cubicasaLastStatusAt?: string | null;
   cubicasa_last_status_at?: string | null;
 };
-
-const asRecord = (value: unknown): LooseRecord =>
-  value && typeof value === 'object' ? value as LooseRecord : {};
-
-const asOptionalString = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim() ? value : undefined;
-
-const toStringMap = (value: unknown): Record<string, string> =>
-  Object.fromEntries(
-    Object.entries(asRecord(value))
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-  );
-
-const getErrorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error && error.message ? error.message : fallback;
 
 export function ShootDetailsTourTab({
   shoot,

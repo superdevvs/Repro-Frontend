@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BellOff, Check, Clock, Edit, FileText, Layers, Loader2, MapPin, Search, User, X } from 'lucide-react';
+import { AlertTriangle, BellOff, Check, Clock, Edit, FileText, Layers, Loader2, MapPin, Search, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import type { useShootEditModalController } from './useShootEditModalController';
@@ -51,6 +51,9 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
     handleClearPhotographerPicker,
     handleApprove,
     handleApproveWithoutNotification,
+    serviceDetachConfirmation,
+    handleConfirmServiceDetach,
+    handleCancelServiceDetach,
   } = model;
   const {
     renderDetailsPanel,
@@ -423,6 +426,64 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
             </div>
           </PickerContent>
         </PickerRoot>
+
+        <Dialog
+          open={Boolean(serviceDetachConfirmation)}
+          onOpenChange={(open) => {
+            if (!open) handleCancelServiceDetach();
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Confirm service removal
+              </DialogTitle>
+              <DialogDescription>
+                The shoot changed services. Review the impact before approving it.
+              </DialogDescription>
+            </DialogHeader>
+            {serviceDetachConfirmation && (
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
+                  <p className="font-semibold">
+                    Removing: {serviceDetachConfirmation.impact.removedServices.map((service) => service.name).join(', ')}
+                  </p>
+                  {serviceDetachConfirmation.impact.leavesNoServices && (
+                    <p className="mt-2 font-semibold text-amber-800 dark:text-amber-200">
+                      This shoot will have no services. Linked media remains at shoot level.
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border p-3 text-xs">
+                  <span className="text-muted-foreground">Current total</span>
+                  <span className="text-right">${serviceDetachConfirmation.impact.currentTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">New total</span>
+                  <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Payment allocations released</span>
+                  <span className="text-right">${serviceDetachConfirmation.impact.paymentAllocationsReleased.toFixed(2)}</span>
+                  {serviceDetachConfirmation.impact.refundCreditDue > 0.005 && (
+                    <>
+                      <span className="font-semibold text-rose-700 dark:text-rose-300">Refund/credit due</span>
+                      <span className="text-right font-semibold text-rose-700 dark:text-rose-300">
+                        ${serviceDetachConfirmation.impact.refundCreditDue.toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelServiceDetach} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmServiceDetach} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Confirm removal & approve
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
 
     </Dialog>

@@ -253,7 +253,7 @@ export function ShootDetailContent({ shoot, isAdmin }: ShootDetailContentProps) 
                 </Badge>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No services selected</p>
+              <p className="text-sm text-muted-foreground">No services</p>
             )}
           </div>
         </div>

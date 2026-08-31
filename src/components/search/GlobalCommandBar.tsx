@@ -27,7 +27,7 @@ import { API_BASE_URL } from "@/config/env";
 import type { DashboardClientRequest } from "@/types/dashboard";
 import type { EditingRequest } from "@/services/editingRequestService";
 import type { ShootData } from "@/types/shoots";
-import { buildFinalizeRequestBody } from "@/utils/shootFinalize";
+import { buildFinalizeRequestBody, canFinaliseShoot } from "@/utils/shootFinalize";
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 
 interface GlobalCommandBarProps {
@@ -42,7 +42,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
   const shootsContext = useOptionalShoots();
   const shoots = shootsContext?.shoots ?? [];
   const fetchShoots = shootsContext?.fetchShoots;
-  const isAdminExperience = ["admin", "superadmin"].includes(role);
+  const isAdminExperience = ["admin", "superadmin", "super_admin"].includes(role);
   const canViewAvailability = ["admin", "superadmin", "salesRep", "sales_rep", "photographer"].includes(role);
   const canLoadEditingRequests = open && (isAdminExperience || role === "salesRep");
 
@@ -437,18 +437,20 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
                       </div>
                       <span className="text-sm">Send to Editing · Shoot #{shoot.id}</span>
                     </CommandItem>
-                    <CommandItem
-                      value={`finalize shoot ${shootSearchValue(shoot)}`}
-                      onSelect={async () => {
-                        onOpenChange(false);
-                        await handleFinalizeShoot(shoot);
-                      }}
-                    >
-                      <div className="mr-2 text-muted-foreground">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </div>
-                      <span className="text-sm">Finalize shoot · Shoot #{shoot.id}</span>
-                    </CommandItem>
+                    {canFinaliseShoot(shoot) && (
+                      <CommandItem
+                        value={`finalize shoot ${shootSearchValue(shoot)}`}
+                        onSelect={async () => {
+                          onOpenChange(false);
+                          await handleFinalizeShoot(shoot);
+                        }}
+                      >
+                        <div className="mr-2 text-muted-foreground">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm">Finalize shoot · Shoot #{shoot.id}</span>
+                      </CommandItem>
+                    )}
                   </React.Fragment>
                 ))}
               </CommandGroup>

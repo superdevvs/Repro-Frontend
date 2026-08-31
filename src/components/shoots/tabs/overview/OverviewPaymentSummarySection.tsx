@@ -58,8 +58,6 @@ type OverviewPaymentSummarySectionProps = {
   shoot: ShootData;
   paymentTotalPaid: number;
   paymentBalance: number;
-  editedPaymentBalance: number;
-  setTaxAmountDirty: (value: boolean) => void;
   updateField: (field: string, value: unknown) => void;
   onPayNow?: () => void;
   isPaying?: boolean;
@@ -78,8 +76,6 @@ export function OverviewPaymentSummarySection({
   shoot,
   paymentTotalPaid,
   paymentBalance,
-  editedPaymentBalance,
-  setTaxAmountDirty,
   updateField,
   onPayNow,
   isPaying = false,
@@ -108,6 +104,37 @@ export function OverviewPaymentSummarySection({
   );
   const hasInvoiceAdjustments = invoiceAdjustmentsTotal > 0.005;
   const hasEditedInvoiceAdjustments = editedInvoiceAdjustmentsTotal > 0.005;
+  const serviceSubtotal = Number(shoot.payment?.serviceSubtotal ?? shoot.payment?.baseQuote ?? 0) || 0;
+  const editedServiceSubtotal = Number(
+    editedShoot.payment?.serviceSubtotal
+      ?? shoot.payment?.serviceSubtotal
+      ?? editedShoot.payment?.baseQuote
+      ?? shoot.payment?.baseQuote
+      ?? 0,
+  ) || 0;
+  const editedBaseQuote = Number(editedShoot.payment?.baseQuote ?? shoot.payment?.baseQuote ?? 0) || 0;
+  const editedTaxAmount = Number(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0) || 0;
+  const automaticEditedTotal = Number(
+    (editedBaseQuote + editedTaxAmount + editedInvoiceAdjustmentsTotal).toFixed(2),
+  );
+  const adjustedTotal = editedShoot.adminAdjustedTotalQuote;
+  const hasAdjustedTotal = adjustedTotal !== null
+    && adjustedTotal !== undefined
+    && Number.isFinite(Number(adjustedTotal));
+  const editedOrderTotal = hasAdjustedTotal ? Number(adjustedTotal) : automaticEditedTotal;
+  const editedPaymentBalance = Math.max(editedOrderTotal - paymentTotalPaid, 0);
+  const overpaymentAmount = Math.max(
+    Number(
+      shoot.overpaymentAmount
+        ?? shoot.overpayment_amount
+        ?? shoot.payment?.overpaymentAmount
+        ?? shoot.payment?.overpayment_amount
+        ?? (paymentTotalPaid - Number(shoot.payment?.totalQuote ?? 0)),
+    ) || 0,
+    0,
+  );
+  const editedOverpaymentAmount = Math.max(paymentTotalPaid - editedOrderTotal, 0);
+  const canAdjustOrderTotal = Boolean(shoot.canRemoveAllServices ?? shoot.can_remove_all_services);
 
   // Admin and sales reps see the full editable/detailed breakdown.
   const canViewFullBreakdown = isAdmin || isRep;
@@ -117,15 +144,9 @@ export function OverviewPaymentSummarySection({
       <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
       {isEditMode && canViewFullBreakdown ? (
         <div className="space-y-1.5 text-xs">
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground">Base Quote:</span>
-            <Input
-              type="number"
-              step="0.01"
-              value={parseFloat(String(editedShoot.payment?.baseQuote ?? shoot.payment?.baseQuote ?? 0)).toFixed(2)}
-              onChange={(e) => updateField('payment.baseQuote', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
-              className="h-7 text-xs"
-            />
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Services:</span>
+            <span>${editedServiceSubtotal.toFixed(2)}</span>
           </div>
           {hasEditedDiscount && (
             <div className="flex justify-between">
@@ -133,37 +154,55 @@ export function OverviewPaymentSummarySection({
               <span className="text-emerald-600">-${editedDiscountAmount.toFixed(2)}</span>
             </div>
           )}
+          {hasEditedDiscount && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">After discount:</span>
+              <span>${editedBaseQuote.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Tax:</span>
+            <span>${editedTaxAmount.toFixed(2)}</span>
+          </div>
           {hasEditedInvoiceAdjustments && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Invoice adjustments:</span>
               <span>${editedInvoiceAdjustmentsTotal.toFixed(2)}</span>
             </div>
           )}
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground">Tax Amount:</span>
-            <Input
-              type="number"
-              step="0.01"
-              value={parseFloat(String(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0)).toFixed(2)}
-              onChange={(e) => {
-                const nextValue = parseFloat(parseFloat(e.target.value).toFixed(2));
-                setTaxAmountDirty(true);
-                updateField('payment.taxAmount', Number.isFinite(nextValue) ? nextValue : 0);
-              }}
-              className="h-7 text-xs"
-            />
+          <div className="flex justify-between font-medium">
+            <span>Calculated total:</span>
+            <span>${automaticEditedTotal.toFixed(2)}</span>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground">Total Quote:</span>
-            <Input
-              type="number"
-              step="0.01"
-              value={parseFloat(String(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote ?? 0)).toFixed(2)}
-              onChange={(e) => updateField('payment.totalQuote', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
-              className="h-7 text-xs"
-            />
-          </div>
+          {canAdjustOrderTotal && (
+            <div className="flex flex-col gap-1 pt-1">
+              <span className="font-medium">Adjusted Total (optional)</span>
+              <Input
+                aria-label="Adjusted Total"
+                type="number"
+                min={editedInvoiceAdjustmentsTotal}
+                step="0.01"
+                placeholder={automaticEditedTotal.toFixed(2)}
+                value={hasAdjustedTotal ? String(adjustedTotal) : ''}
+                onChange={(event) => {
+                  const rawValue = event.target.value;
+                  updateField(
+                    'adminAdjustedTotalQuote',
+                    rawValue === '' ? null : Math.max(Number(rawValue) || 0, 0),
+                  );
+                }}
+                className="h-7 text-xs"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                Leave blank to use server pricing. The adjusted total includes invoice adjustments.
+              </span>
+            </div>
+          )}
           <Separator className="my-1.5" />
+          <div className="flex justify-between font-semibold">
+            <span>Final total:</span>
+            <span>${editedOrderTotal.toFixed(2)}</span>
+          </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Paid:</span>
             <span>${paymentTotalPaid.toFixed(2)}</span>
@@ -174,6 +213,12 @@ export function OverviewPaymentSummarySection({
               ${editedPaymentBalance.toFixed(2)}
             </span>
           </div>
+          {editedOverpaymentAmount > 0.005 && (
+            <div className="flex justify-between font-semibold text-rose-700 dark:text-rose-300">
+              <span>Refund/credit due:</span>
+              <span>${editedOverpaymentAmount.toFixed(2)}</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-0.5 text-xs">
@@ -194,8 +239,8 @@ export function OverviewPaymentSummarySection({
                 </>
               ) : (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Base:</span>
-                  <span>${(Number(shoot.payment?.baseQuote) || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Services:</span>
+                  <span>${serviceSubtotal.toFixed(2)}</span>
                 </div>
               )}
               {hasDiscount && !shouldShowCancelledServiceCharges && (
@@ -204,16 +249,22 @@ export function OverviewPaymentSummarySection({
                   <span className="text-emerald-600">-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
-              {hasInvoiceAdjustments && (
+              {hasDiscount && !shouldShowCancelledServiceCharges && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Invoice adjustments:</span>
-                  <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">After discount:</span>
+                  <span>${(Number(shoot.payment?.baseQuote) || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax:</span>
                 <span>${(Number(shoot.payment?.taxAmount) || 0).toFixed(2)}</span>
               </div>
+              {hasInvoiceAdjustments && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Invoice adjustments:</span>
+                  <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
+                </div>
+              )}
               <Separator className="my-1.5" />
               <div className="flex justify-between font-medium">
                 <span>Total:</span>
@@ -229,6 +280,12 @@ export function OverviewPaymentSummarySection({
                   ${paymentBalance.toFixed(2)}
                 </span>
               </div>
+              {overpaymentAmount > 0.005 && (
+                <div className="flex justify-between font-semibold text-rose-700 dark:text-rose-300">
+                  <span>Refund/credit due:</span>
+                  <span>${overpaymentAmount.toFixed(2)}</span>
+                </div>
+              )}
             </>
           ) : isClient ? (
             <>
@@ -272,6 +329,12 @@ export function OverviewPaymentSummarySection({
                   {formattedPaymentBalance}
                 </span>
               </div>
+              {overpaymentAmount > 0.005 && (
+                <div className="flex justify-between font-semibold text-rose-700 dark:text-rose-300">
+                  <span>Refund/credit due:</span>
+                  <span>${overpaymentAmount.toFixed(2)}</span>
+                </div>
+              )}
               {paymentBalance > 0.01 && onPayNow && (
                 <div className="mt-3 border-t pt-3">
                   <Button

@@ -27,12 +27,9 @@ import {
   formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
 import {
-  getShootInvoiceAdjustmentTotal,
-} from '@/utils/shootServiceItems';
-import {
-  calculateAddServiceQuote,
   getCatalogServiceEntries,
 } from './addServiceInvoiceAdjustments';
+import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
 
 interface Service {
   id: number;
@@ -124,7 +121,6 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const selectedService = services.find(s => s.id === Number(selectedServiceId));
       const existingServiceEntries = getExistingServiceEntries();
       
       // Get current shoot services
@@ -132,71 +128,57 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         .map((s: any) => {
           const serviceId = resolveExistingServiceId(s);
           if (!serviceId) return null;
-          const catalogService = services.find(service => String(service.id) === String(serviceId));
 
           return {
             id: Number(serviceId),
-            price: typeof s === 'object' ? s.price ?? catalogService?.price ?? 0 : catalogService?.price ?? 0,
-            quantity: typeof s === 'object' ? s.quantity || 1 : 1,
             photographer_pay: typeof s === 'object' ? s.photographer_pay ?? s.photographerPay ?? null : null,
             scheduled_at: typeof s === 'object' ? s.scheduled_at || s.scheduledAt || null : null,
           };
         })
         .filter((service): service is {
           id: number;
-          price: number;
-          quantity: number;
           photographer_pay: number | null;
           scheduled_at: string | null;
         } => Boolean(service));
 
       // Add new service
-      const newService = {
+      const newService: {
+        id: number;
+        quantity: number;
+        price?: number;
+        photographer_pay: number | null;
+        scheduled_at: string | null;
+      } = {
         id: Number(selectedServiceId),
-        price: customPrice ? parseFloat(customPrice) : (selectedService?.price || 0),
         quantity: 1,
         photographer_pay: photographerPay ? parseFloat(photographerPay) : null,
         scheduled_at: buildScheduledAtIso(scheduleDate, scheduleTime),
       };
+      if (customPrice.trim() !== '') {
+        newService.price = parseFloat(customPrice);
+      }
 
       const updatedServices = [...currentServices, newService];
 
-      // Calculate tax (use existing tax rate from shoot or default to 0)
-      const currentTaxRate = shoot.payment?.taxRate || 0;
-      const {
-        baseQuote: newBaseQuote,
-        taxAmount: newTaxAmount,
-        totalQuote: newTotalQuote,
-      } = calculateAddServiceQuote(
-        updatedServices,
-        currentTaxRate,
-        getShootInvoiceAdjustmentTotal(shoot),
-      );
-
-      // Update shoot with new services and recalculated quote
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
+      // The server owns discount, tax, adjustments, totals and payment state.
+      const result = await submitShootServiceMutation({
+        url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
+        token,
+        payload: {
           services: updatedServices,
           service_items: updatedServices.map((service) => ({
             service_id: service.id,
-            price: service.price,
-            quantity: service.quantity || 1,
+            ...('price' in service && service.price !== undefined ? { price: service.price } : {}),
+            ...('quantity' in service && service.quantity !== undefined ? { quantity: service.quantity } : {}),
             photographer_pay: service.photographer_pay ?? null,
             scheduled_at: service.scheduled_at || null,
           })),
-          base_quote: parseFloat(newBaseQuote.toFixed(2)),
-          tax_amount: parseFloat(newTaxAmount.toFixed(2)),
-          total_quote: parseFloat(newTotalQuote.toFixed(2)),
-        }),
+        },
       });
 
-      if (!res.ok) throw new Error('Failed to add service');
+      if (result.kind === 'confirmation_required') {
+        throw new Error('The shoot changed while this dialog was open. Refresh it before adding a service.');
+      }
 
       toast({
         title: 'Success',
@@ -210,11 +192,11 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       setScheduleDate('');
       setScheduleTime('10:00');
       onShootUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding service:', error);
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to add service',
+        description: error instanceof Error ? error.message : 'Failed to add service',
         variant: 'destructive',
       });
     } finally {
