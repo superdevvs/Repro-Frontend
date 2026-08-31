@@ -50,6 +50,8 @@ export interface MapTabToolbarProps {
   onApplyView: (id: string) => void
   onSaveView: (name: string) => void
   onDeleteView: (id: string) => void
+  /** Set false when Saved views is promoted into the page header. */
+  showSavedViews?: boolean
   // view mode
   viewMode: MapTabViewMode
   onViewModeChange: (mode: MapTabViewMode) => void
@@ -76,6 +78,7 @@ export function MapTabToolbar({
   onApplyView,
   onSaveView,
   onDeleteView,
+  showSavedViews = true,
   viewMode,
   onViewModeChange,
   className,
@@ -112,6 +115,7 @@ export function MapTabToolbar({
           onApplyView={onApplyView}
           onSaveView={onSaveView}
           onDeleteView={onDeleteView}
+          showSavedViews={showSavedViews}
           cityOptions={cityOptions}
         />
         <div className="ml-auto shrink-0">

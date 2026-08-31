@@ -80,3 +80,8 @@
 .dark .repro-map-marker span {
   background: #60a5fa;
 }
+
+/* Keep the keyless OpenStreetMap fallback legible in dark mode. */
+.map-tiles-dark {
+  filter: brightness(0.72) invert(1) contrast(1.45) hue-rotate(180deg) saturate(0.35);
+}

@@ -27,7 +27,7 @@
 
 import * as React from 'react'
 
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
@@ -134,10 +134,17 @@ import {
 } from '@/components/listings/ExclusiveListingsShowcase'
 import { ThemeProvider } from '@/hooks/useTheme'
 
+beforeEach(() => {
+  // These tests exercise the provider-independent backup canvas. The Google
+  // provider has its own focused suite and must not depend on a developer key.
+  vi.stubEnv('VITE_GOOGLE_MAPS_API_KEY', '')
+})
+
 afterEach(() => {
   cleanup()
   mapSpies.recenter.mockClear()
   mapSpies.isReady.mockClear()
+  vi.unstubAllEnvs()
 })
 
 const resolveImageUrl = (v: string | null | undefined): string | null => v ?? null

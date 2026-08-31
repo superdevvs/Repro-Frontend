@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
 interface TileProps {
+  className?: string
   url: string
 }
 
@@ -59,20 +60,22 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Leaflet map theme selection', () => {
-  it('uses the CARTO light tiles for the light theme', () => {
+  it('uses keyless OpenStreetMap tiles for the light theme', () => {
     render(<Map center={[0, 0]} theme="light" />)
-    expect(h.tileProps.at(-1)?.url).toContain('/light_all/')
+    expect(h.tileProps.at(-1)?.url).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+    expect(h.tileProps.at(-1)?.className).toBeUndefined()
   })
 
-  it('uses the CARTO dark tiles for the dark theme', () => {
+  it('uses the dark treatment with the same keyless fallback tiles', () => {
     render(<Map center={[0, 0]} theme="dark" />)
-    expect(h.tileProps.at(-1)?.url).toContain('/dark_all/')
+    expect(h.tileProps.at(-1)?.url).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+    expect(h.tileProps.at(-1)?.className).toBe('map-tiles-dark')
   })
 
   it('tracks the document theme when no explicit theme is provided', () => {
     document.documentElement.classList.add('dark')
     render(<Map center={[0, 0]} />)
-    expect(h.tileProps.at(-1)?.url).toContain('/dark_all/')
+    expect(h.tileProps.at(-1)?.className).toBe('map-tiles-dark')
   })
 })
 

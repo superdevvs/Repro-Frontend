@@ -293,6 +293,9 @@ async function waitForLoaded() {
 }
 
 beforeEach(() => {
+  // Keep this portal-shell suite independent from local browser credentials;
+  // the Google map renderer is covered by its dedicated provider tests.
+  vi.stubEnv('VITE_GOOGLE_MAPS_API_KEY', '')
   window.localStorage.clear()
   // Pin a theme so ThemeProvider's initializer doesn't depend on matchMedia.
   window.localStorage.setItem('theme', 'light')
@@ -318,6 +321,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.unstubAllEnvs()
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
@@ -346,28 +350,33 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     renderPortal()
     await waitForLoaded()
 
-    // The compact overlay keeps the two metrics that matter most to the map:
-    // total inventory and how much of it is currently mapped.
+    // The compact overlay keeps only the total inventory metric.
     const summaryCards = screen.getByTestId('summary-cards')
     expect(within(summaryCards).getByTestId('summary-card-total')).toHaveTextContent(
       'Total Listings',
     )
-    expect(within(summaryCards).getByTestId('summary-card-mapped')).toHaveTextContent(
-      'Mapped',
-    )
+    expect(within(summaryCards).queryByTestId('summary-card-mapped')).not.toBeInTheDocument()
     expect(within(summaryCards).queryByTestId('summary-card-unmapped')).not.toBeInTheDocument()
     expect(within(summaryCards).queryByTestId('summary-card-private')).not.toBeInTheDocument()
     expect(within(summaryCards).queryByTestId('summary-card-hidden')).not.toBeInTheDocument()
 
-    // The four mapped listings yield total=4 and mapped=4.
+    // The four listings yield total=4; the Mapped statistic is not rendered.
     expect(screen.getByTestId('summary-value-total')).toHaveTextContent('4')
-    expect(screen.getByTestId('summary-value-mapped')).toHaveTextContent('4')
+    expect(screen.queryByTestId('summary-value-mapped')).not.toBeInTheDocument()
 
-    // R6.1: the MapTabToolbar controls render — the Filters trigger, the
-    // Saved-views trigger, and the Map/Grid/List ViewSwitcher (role=radio).
+    // R6.1: the MapTabToolbar keeps Filters and the Map/Grid/List ViewSwitcher,
+    // while Saved views lives in the header immediately before Add Listing.
     const filtersButton = screen.getByRole('button', { name: /Filters/i })
     expect(filtersButton).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Saved views/i })).toBeInTheDocument()
+    const savedViewsButton = screen.getByRole('button', { name: /Saved views/i })
+    const addListingButton = screen.getByRole('button', { name: 'Add Listing' })
+    const headerActions = screen.getByTestId('listing-header-actions')
+    expect(headerActions).toContainElement(savedViewsButton)
+    expect(headerActions).toContainElement(addListingButton)
+    expect(
+      savedViewsButton.compareDocumentPosition(addListingButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /Saved views/i })).toHaveLength(1)
     expect(screen.getByRole('radio', { name: 'Map view' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Grid view' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'List view' })).toBeInTheDocument()
@@ -379,6 +388,7 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(canvas).toContainElement(map)
     expect(canvas).toContainElement(summaryCards)
     expect(canvas).toContainElement(filtersButton)
+    expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 
   it('R4.3 + R5.3: applying a filter updates the summary and listings without a network call', async () => {

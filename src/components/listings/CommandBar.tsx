@@ -56,6 +56,8 @@ export interface CommandBarProps {
   onApplyView: (id: string) => void
   onSaveView: (name: string) => void
   onDeleteView: (id: string) => void
+  /** Set false when the parent renders SavedViewsMenu in a page-level header. */
+  showSavedViews?: boolean
   /** City names offered as city filters in `FilterMenu`. */
   cityOptions?: string[]
   className?: string
@@ -111,6 +113,7 @@ export function CommandBar({
   onApplyView,
   onSaveView,
   onDeleteView,
+  showSavedViews = true,
   cityOptions = [],
   className,
   variant = 'default',
@@ -220,12 +223,14 @@ export function CommandBar({
         cityOptions={cityOptions}
       />
       <SortMenu sort={sort} onSortChange={onSortChange} />
-      <SavedViewsMenu
-        savedViews={savedViews}
-        onApplyView={onApplyView}
-        onSaveView={onSaveView}
-        onDeleteView={onDeleteView}
-      />
+      {showSavedViews ? (
+        <SavedViewsMenu
+          savedViews={savedViews}
+          onApplyView={onApplyView}
+          onSaveView={onSaveView}
+          onDeleteView={onDeleteView}
+        />
+      ) : null}
     </div>
   )
 }

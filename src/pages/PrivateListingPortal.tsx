@@ -36,6 +36,7 @@ import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListin
 import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListingGridCard';
 import { useListingPresentation } from '@/hooks/useListingPresentation';
 import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
+import { SavedViewsMenu } from '@/components/listings/SavedViewsMenu';
 import { SummaryCards } from '@/components/listings/SummaryCards';
 import {
   SAVED_VIEWS_KEY,
@@ -589,15 +590,24 @@ const PrivateListingPortal = () => {
       >
         {/* Header — emphasized title section with the Add Listing / Hide
             controls aligned in a single horizontal group (R9.1, R9.2). */}
-        <div className="flex flex-wrap items-start justify-between gap-4 px-2 pb-2 sm:px-0">
-          <div className="[&_h1]:text-4xl [&_h1]:font-bold [&_h1]:tracking-tight">
+        <div className="flex flex-col items-start justify-between gap-4 px-2 pb-2 sm:px-0 md:flex-row md:flex-nowrap">
+          <div className="min-w-0 [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:tracking-tight">
             <PageHeader
               badge="Exclusive"
               title="Exclusive Listings"
               description="Private, pre-market properties — invitation only"
             />
           </div>
-          <div className="flex flex-row items-center gap-2 self-start justify-end">
+          <div
+            className="flex w-full flex-row flex-nowrap items-center justify-start gap-2 self-start overflow-x-auto pb-1 [&>button]:shrink-0 md:w-auto md:justify-end md:overflow-visible md:pb-0"
+            data-testid="listing-header-actions"
+          >
+            <SavedViewsMenu
+              savedViews={presentation.savedViews}
+              onApplyView={presentation.applyView}
+              onSaveView={presentation.saveView}
+              onDeleteView={presentation.deleteView}
+            />
             {isAdmin && hideSelectionMode ? (
               <>
                 <Button
@@ -812,9 +822,9 @@ const PrivateListingPortal = () => {
                 {clientScopeControl}
                 <SummaryCards
                   summary={presentation.summary}
-                  visibleKeys={['total', 'mapped']}
+                  visibleKeys={['total']}
                   variant="overlay"
-                  className="w-full shrink-0 sm:w-[320px]"
+                  className="w-full shrink-0 sm:w-[156px]"
                 />
                 <MapTabToolbar
                   searchQuery={searchQuery}
@@ -830,6 +840,7 @@ const PrivateListingPortal = () => {
                   onApplyView={presentation.applyView}
                   onSaveView={presentation.saveView}
                   onDeleteView={presentation.deleteView}
+                  showSavedViews={false}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   variant="overlay"

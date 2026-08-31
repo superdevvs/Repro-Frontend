@@ -1,4 +1,5 @@
 import {
+  Component,
   Suspense,
   lazy,
   useCallback,
@@ -7,9 +8,10 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type ErrorInfo,
   type ReactNode,
 } from 'react'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -104,6 +106,36 @@ interface ListingMapCanvasProps {
   formatPrice: (price: number | undefined | null) => string
   onOpenListing: (listing: ShowcaseListing) => void
   theme: 'light' | 'dark'
+}
+
+const LazyPrivateListingGoogleMap = lazy(() =>
+  import('@/components/listings/map/PrivateListingGoogleMap').then((module) => ({
+    default: module.PrivateListingGoogleMap,
+  })),
+)
+
+interface GoogleMapBoundaryProps {
+  children: ReactNode
+  onError: (error: Error) => void
+}
+
+class GoogleMapBoundary extends Component<
+  GoogleMapBoundaryProps,
+  { failed: boolean }
+> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    this.props.onError(error)
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
 }
 
 // The Leaflet map canvas is code-split so its runtime and styles stay out of the
@@ -289,6 +321,19 @@ export function ExclusiveListingsShowcase({
   controlsOverlay,
 }: ExclusiveListingsShowcaseProps) {
   const { theme } = useTheme()
+  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim()
+  const [googleMapError, setGoogleMapError] = useState<Error | null>(null)
+  const [googleMapAttempt, setGoogleMapAttempt] = useState(0)
+
+  const handleGoogleMapError = useCallback((error: Error) => {
+    console.warn('Google Maps is unavailable; using the backup listings map.', error)
+    setGoogleMapError(error)
+  }, [])
+
+  const retryGoogleMap = useCallback(() => {
+    setGoogleMapError(null)
+    setGoogleMapAttempt((attempt) => attempt + 1)
+  }, [])
 
   // Controlled-or-uncontrolled selection: use the props when both are provided,
   // otherwise fall back to internal state so existing callers keep working.
@@ -427,18 +472,57 @@ export function ExclusiveListingsShowcase({
       className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-background shadow-2xl dark:border-white/10"
     >
       <Suspense fallback={<MapLoadingFallback />}>
-        <LazyListingMapCanvas
-          listings={listings}
-          selectedListingId={selectedListingId}
-          onSelectListing={handleSelectListing}
-          showMarkerLabels={showMarkerLabels}
-          onToggleLabels={handleToggleLabels}
-          resolveImageUrl={resolveImageUrl}
-          formatPrice={formatPrice}
-          onOpenListing={onOpenListing}
-          theme={theme === 'dark' ? 'dark' : 'light'}
-        />
+        {googleMapsApiKey && !googleMapError ? (
+          <GoogleMapBoundary
+            key={`google-map-${googleMapAttempt}`}
+            onError={handleGoogleMapError}
+          >
+            <LazyPrivateListingGoogleMap
+              apiKey={googleMapsApiKey}
+              listings={listings}
+              selectedListingId={selectedListingId}
+              onSelectListing={handleSelectListing}
+              showMarkerLabels={showMarkerLabels}
+              onToggleLabels={handleToggleLabels}
+              resolveImageUrl={resolveImageUrl}
+              formatPrice={formatPrice}
+              onOpenListing={onOpenListing}
+              onLoadError={handleGoogleMapError}
+              theme={theme === 'dark' ? 'dark' : 'light'}
+            />
+          </GoogleMapBoundary>
+        ) : (
+          <LazyListingMapCanvas
+            listings={listings}
+            selectedListingId={selectedListingId}
+            onSelectListing={handleSelectListing}
+            showMarkerLabels={showMarkerLabels}
+            onToggleLabels={handleToggleLabels}
+            resolveImageUrl={resolveImageUrl}
+            formatPrice={formatPrice}
+            onOpenListing={onOpenListing}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+          />
+        )}
       </Suspense>
+
+      {googleMapError && googleMapsApiKey ? (
+        <div
+          className="absolute bottom-4 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-300/70 bg-background/95 px-3 py-2 text-xs shadow-lg backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+          <span className="text-foreground">Backup map active</span>
+          <button
+            type="button"
+            className="shrink-0 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={retryGoogleMap}
+          >
+            Retry Google Maps
+          </button>
+        </div>
+      ) : null}
 
       {controlsOverlay ? (
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:right-[372px] lg:top-4">
