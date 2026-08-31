@@ -520,6 +520,7 @@ export function PrivateListingGoogleMap({
           onOpenListing={latestRef.current.onOpenListing}
           onSelectListing={latestRef.current.onSelectListing}
           className="border-slate-300/80 shadow-2xl dark:border-white/15"
+          responsiveCompact
         />
         <Button
           type="button"
@@ -537,15 +538,10 @@ export function PrivateListingGoogleMap({
       </div>,
     )
 
-    // Focus the selected marker before opening the anchored card. Google can
-    // keep an InfoWindow inside the map viewport, but it cannot see our search
-    // toolbar or inspector overlays. A negative camera-Y move shifts the map
-    // center north, which places the selected marker lower on screen and leaves
-    // a stable clear area for the card above it.
+    // Focus the selected marker before opening the anchored card. The selected
+    // preview uses a shorter small-width layout so the centered pin, toolbar,
+    // and bottom inspector can all remain visible at the same time.
     map.setCenter(selectedMarkerGroup.coords)
-    if (typeof window === 'undefined' || window.innerWidth >= 1024) {
-      map.panBy?.(0, -72)
-    }
     popup.infoWindow.open({ anchor: markerEntry.marker, map, shouldFocus: false })
   }, [
     dismissedPreviewId,

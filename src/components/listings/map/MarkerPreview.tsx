@@ -39,6 +39,8 @@ export interface MarkerPreviewProps {
   onSelectListing?: (id: string) => void
   /** Optional extra classes for the outer card. */
   className?: string
+  /** Use a shorter image/content stack below the desktop map breakpoint. */
+  responsiveCompact?: boolean
 }
 
 /**
@@ -54,6 +56,7 @@ export function MarkerPreview({
   relatedListings = [],
   onSelectListing,
   className,
+  responsiveCompact = false,
 }: MarkerPreviewProps) {
   const imageUrl = resolveCardImage(listing.heroImage, resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE)
   const price = priceDisplay(listing.price, formatPrice)
@@ -79,7 +82,12 @@ export function MarkerPreview({
         className,
       )}
     >
-      <div className="relative h-28 w-full overflow-hidden bg-muted">
+      <div
+        className={cn(
+          'relative w-full overflow-hidden bg-muted',
+          responsiveCompact ? 'h-12 lg:h-28' : 'h-28',
+        )}
+      >
         <img
           src={imageUrl}
           alt={address}
@@ -126,13 +134,18 @@ export function MarkerPreview({
         ) : null}
       </div>
 
-      <div className="space-y-2 p-3">
+      <div className={cn('space-y-2', responsiveCompact ? 'p-2.5 lg:p-3' : 'p-3')}>
         <p className="truncate text-sm font-semibold leading-tight text-foreground">{price}</p>
 
         <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{address}</p>
 
         {locationLine.length > 0 && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div
+            className={cn(
+              'items-center gap-1 text-xs text-muted-foreground',
+              responsiveCompact ? 'hidden lg:flex' : 'flex',
+            )}
+          >
             <MapPin className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{locationLine}</span>
           </div>

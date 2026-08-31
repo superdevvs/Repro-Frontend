@@ -36,7 +36,6 @@ const markerRecords: MarkerRecord[] = []
 const markerInstances: object[] = []
 const fitBoundsCalls: unknown[][] = []
 const setCenterCalls: Array<{ lat: number; lng: number }> = []
-const panByCalls: Array<[number, number]> = []
 const setZoomCalls: number[] = []
 const mapOptionsCalls: GoogleMapOptions[] = []
 interface InfoWindowRecord {
@@ -56,7 +55,6 @@ const createMapsApi = (): GoogleMapsApi => {
 
     fitBounds(...args: unknown[]) { fitBoundsCalls.push(args) }
     getZoom() { return 12 }
-    panBy(x: number, y: number) { panByCalls.push([x, y]) }
     setCenter(center: { lat: number; lng: number }) { setCenterCalls.push(center) }
     setOptions(options: GoogleMapOptions) { mapOptionsCalls.push(options) }
     setZoom(zoom: number) { setZoomCalls.push(zoom) }
@@ -172,7 +170,6 @@ beforeEach(() => {
   markerInstances.length = 0
   fitBoundsCalls.length = 0
   setCenterCalls.length = 0
-  panByCalls.length = 0
   setZoomCalls.length = 0
   mapOptionsCalls.length = 0
   infoWindowRecords.length = 0
@@ -226,7 +223,8 @@ describe('PrivateListingGoogleMap', () => {
       shouldFocus: false,
     }))
     expect(setCenterCalls.at(-1)).toEqual({ lat: 30.2672, lng: -97.7431 })
-    expect(panByCalls.at(-1)).toEqual([0, -72])
+    const selectedImageShell = within(selectedPreview).getByRole('img').parentElement
+    expect(selectedImageShell).toHaveClass('h-12', 'lg:h-28')
 
     act(() => screen.getByRole('button', { name: 'Close selected listing preview' }).click())
     await waitFor(() => expect(screen.queryByRole('region', {
