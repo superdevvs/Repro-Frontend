@@ -110,4 +110,31 @@ describe('TourProvidersSection', () => {
     expect(screen.queryByTestId('tour-provider-iguide')).toBeNull();
     expect(screen.queryByText('3D & floor plans')).toBeNull();
   });
+
+  it('keeps the previous clean ZIP downloadable while its replacement is scanning', () => {
+    const props = baseProps();
+    props.iguideSync = getNormalizedIguideSync({
+      iguide_data: {
+        manual_offline_package: {
+          id: 'replacement',
+          status: 'scanning',
+          original_filename: 'new.zip',
+          previous_ready: {
+            id: 'previous',
+            file_id: 88,
+            status: 'ready',
+            original_filename: 'old.zip',
+          },
+        },
+      },
+    });
+
+    render(<TourProvidersSection {...props} />);
+    const iguide = screen.getByTestId('tour-provider-iguide');
+    expect(within(iguide).getByText('Scanning')).toBeTruthy();
+    fireEvent.click(within(iguide).getAllByRole('button')[0]);
+
+    expect(within(iguide).getByRole('button', { name: 'Download previous' })).toBeTruthy();
+    expect(within(iguide).getByText('new.zip')).toBeTruthy();
+  });
 });

@@ -47,6 +47,33 @@ describe('iGUIDE offline package helpers', () => {
     expect(sync.offlinePackage.status).toBe('ready');
   });
 
+  it('normalizes the previous ready package while a replacement is scanning', () => {
+    const sync = getNormalizedIguideSync({
+      iguide_data: {
+        manual_offline_package: {
+          id: 'replacement',
+          status: 'scanning',
+          original_filename: 'new.zip',
+          previous_ready: {
+            id: 'previous',
+            file_id: 71,
+            status: 'ready',
+            original_filename: 'old.zip',
+          },
+        },
+      },
+    });
+
+    expect(sync.offlinePackage.status).toBe('scanning');
+    expect(sync.offlinePackage.previousReady).toMatchObject({
+      id: 'previous',
+      fileId: '71',
+      originalFilename: 'old.zip',
+      status: 'ready',
+    });
+    expect(sync.offlinePackage.previousReady?.previousReady).toBeNull();
+  });
+
   it('reads packages nested in an updated shoot response', () => {
     const parsed = parseIguideOfflinePackageResponse({
       data: {

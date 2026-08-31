@@ -248,6 +248,7 @@ export type NormalizedIguideOfflinePackage = {
   downloadUrl: string;
   error: string;
   exists: boolean;
+  previousReady: NormalizedIguideOfflinePackage | null;
   raw: LooseRecord;
 };
 
@@ -329,7 +330,10 @@ const normalizeIguideOfflinePackageStatus = (value: unknown): IguideOfflinePacka
   return 'unknown';
 };
 
-export const normalizeIguideOfflinePackage = (value: unknown): NormalizedIguideOfflinePackage => {
+const normalizeIguideOfflinePackageValue = (
+  value: unknown,
+  includePreviousReady: boolean,
+): NormalizedIguideOfflinePackage => {
   const raw = asLooseRecord(value);
   const rawStatus = String(pickFirst(raw.status, raw.scan_status, raw.state) ?? '');
   const sizeValue = pickFirst(raw.size_bytes, raw.sizeBytes, raw.size);
@@ -355,9 +359,15 @@ export const normalizeIguideOfflinePackage = (value: unknown): NormalizedIguideO
     downloadUrl,
     error: String(pickFirst(raw.error, raw.error_message, raw.message) ?? ''),
     exists,
+    previousReady: includePreviousReady && (raw.previous_ready || raw.previousReady)
+      ? normalizeIguideOfflinePackageValue(raw.previous_ready ?? raw.previousReady, false)
+      : null,
     raw,
   };
 };
+
+export const normalizeIguideOfflinePackage = (value: unknown): NormalizedIguideOfflinePackage =>
+  normalizeIguideOfflinePackageValue(value, true);
 
 export const getNormalizedIguideSync = (shoot?: ShootLike | null): NormalizedIguideSync => {
   const raw = getRawIguideData(shoot);

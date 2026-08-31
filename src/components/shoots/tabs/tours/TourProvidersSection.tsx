@@ -360,6 +360,13 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     + Number(Boolean(iguideSync.pdfMetricUrl));
   const iguidePackageLabel = getIguidePackageStatusLabel(offlinePackage);
   const packageWorking = offlinePackage.status === 'queued' || offlinePackage.status === 'scanning';
+  const previousReadyPackage = offlinePackage.previousReady?.status === 'ready'
+    && offlinePackage.previousReady.fileId
+    ? offlinePackage.previousReady
+    : null;
+  const downloadablePackage = offlinePackage.status === 'ready' && offlinePackage.fileId
+    ? offlinePackage
+    : previousReadyPackage;
   const packageStatusKind = offlinePackage.status === 'ready'
     ? 'ready'
     : offlinePackage.status === 'failed'
@@ -415,7 +422,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
   });
 
   const downloadOfflinePackage = async () => {
-    if (!offlinePackage.fileId) {
+    if (!downloadablePackage?.fileId) {
       toast({
         title: 'Download is not ready',
         description: 'The package is still being prepared. Refresh after it reaches Ready.',
@@ -427,8 +434,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     try {
       await downloadIguideOfflinePackage({
         shootId,
-        fileId: offlinePackage.fileId,
-        filename: offlinePackage.originalFilename || undefined,
+        fileId: downloadablePackage.fileId,
+        filename: downloadablePackage.originalFilename || undefined,
       });
     } catch (error) {
       toast({
@@ -511,7 +518,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
               >
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />Open
               </Button>
-            ) : !isClientView && offlinePackage.status === 'ready' && offlinePackage.fileId ? (
+            ) : !isClientView && downloadablePackage?.fileId ? (
               <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => void downloadOfflinePackage()}>
                 <Download className="mr-1 h-3.5 w-3.5" />Download
               </Button>
@@ -534,9 +541,10 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   label: key === 'iguide_branded' ? 'Branded' : 'MLS',
                 })))}
                 {!isClientView && offlinePackage.exists && <DropdownMenuSeparator />}
-                {!isClientView && offlinePackage.status === 'ready' && offlinePackage.fileId && (
+                {!isClientView && downloadablePackage?.fileId && (
                   <DropdownMenuItem onSelect={() => void downloadOfflinePackage()}>
-                    <Download className="mr-2 h-3.5 w-3.5" />Download offline ZIP
+                    <Download className="mr-2 h-3.5 w-3.5" />
+                    {previousReadyPackage ? 'Download previous ZIP' : 'Download offline ZIP'}
                   </DropdownMenuItem>
                 )}
                 {isAdmin && (
@@ -565,9 +573,10 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                       <p className="mt-1 text-[10px] text-destructive">{offlinePackage.error}</p>
                     )}
                   </div>
-                  {offlinePackage.status === 'ready' && (
+                  {downloadablePackage?.fileId && (
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => void downloadOfflinePackage()}>
-                      <Download className="mr-1 h-3.5 w-3.5" />Download
+                      <Download className="mr-1 h-3.5 w-3.5" />
+                      {previousReadyPackage ? 'Download previous' : 'Download'}
                     </Button>
                   )}
                 </div>

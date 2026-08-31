@@ -50,6 +50,13 @@ export const API_ROUTES = {
     iguide: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/sync`,
       offlinePackage: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package`,
+      offlinePackageUploads: {
+        create: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads`,
+        show: (shootId: number | string, sessionId: string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads/${sessionId}`,
+        chunk: (shootId: number | string, sessionId: string, index: number) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads/${sessionId}/chunks/${index}`,
+        complete: (shootId: number | string, sessionId: string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads/${sessionId}/complete`,
+        discard: (shootId: number | string, sessionId: string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads/${sessionId}`,
+      },
     },
     cubicasaShoot: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/sync`,

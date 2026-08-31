@@ -11,15 +11,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { getApiHeaders } from '@/services/api';
-import { API_ROUTES } from '@/lib/api';
 import type { NormalizedIguideOfflinePackage } from '@/utils/shootTourData';
 import {
   formatFileSize,
   IGUIDE_OFFLINE_PACKAGE_MAX_BYTES,
-  parseIguideOfflinePackageResponse,
   validateIguideOfflineZip,
 } from './iguideOfflinePackage';
+import {
+  discardIguideUploadSession,
+  getPersistedIguideUpload,
+  IguideResumableUploadError,
+  IguideUploadPausedError,
+  type IguideResumableUploadPhase,
+  type IguideResumableUploadProgress,
+  uploadIguideOfflinePackageResumable,
+} from './iguideResumableUpload';
 
 interface IguideOfflinePackageDialogProps {
   currentPackage: NormalizedIguideOfflinePackage;
@@ -29,19 +35,16 @@ interface IguideOfflinePackageDialogProps {
   shootId: number | string;
 }
 
-const getUploadError = (xhr: XMLHttpRequest) => {
-  let message = xhr.status === 413
-    ? 'The server rejected this ZIP because it is too large.'
-    : `The iGUIDE package could not be uploaded (${xhr.status || 'network error'}).`;
+type DialogUploadPhase = IguideResumableUploadPhase | 'discarding' | 'error' | 'idle' | 'paused';
 
-  try {
-    const payload = JSON.parse(xhr.responseText || '{}');
-    message = payload.message || payload.error || message;
-  } catch {
-    // Keep the actionable status-based fallback when the server returns HTML/text.
-  }
-
-  return message;
+const EMPTY_PROGRESS: IguideResumableUploadProgress = {
+  bytesConfirmed: 0,
+  bytesTransferred: 0,
+  chunkIndex: null,
+  percent: 0,
+  phase: 'preparing',
+  totalBytes: 0,
+  totalChunks: 0,
 };
 
 export function IguideOfflinePackageDialog({
@@ -53,114 +56,157 @@ export function IguideOfflinePackageDialog({
 }: IguideOfflinePackageDialogProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+  const operationRef = useRef(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [conflictSessionId, setConflictSessionId] = useState('');
   const [error, setError] = useState('');
+  const [hasSavedSession, setHasSavedSession] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<DialogUploadPhase>('idle');
+  const [progress, setProgress] = useState<IguideResumableUploadProgress>(EMPTY_PROGRESS);
   const replacing = currentPackage.exists;
+  const isBusy = phase === 'preparing' || phase === 'uploading' || phase === 'finalizing';
+  const hasRecoverableSession = hasSavedSession || Boolean(conflictSessionId);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      xhrRef.current?.abort();
+      abortControllerRef.current?.abort();
     };
   }, []);
 
   useEffect(() => {
-    if (open || isUploading) return;
-    setSelectedFile(null);
-    setError('');
-    setProgress(0);
-    setIsDragging(false);
-    if (inputRef.current) inputRef.current.value = '';
-  }, [isUploading, open]);
+    if (!open) setIsDragging(false);
+  }, [open]);
 
   const chooseFile = (file?: File) => {
-    if (!file || isUploading) return;
+    if (!file || isBusy) return;
     const validationError = validateIguideOfflineZip(file);
     setSelectedFile(validationError ? null : file);
+    setConflictSessionId('');
     setError(validationError || '');
-    setProgress(0);
+    setProgress({ ...EMPTY_PROGRESS, totalBytes: file.size });
+    const saved = validationError ? null : getPersistedIguideUpload(shootId, file);
+    setHasSavedSession(Boolean(saved?.sessionId));
+    setPhase(saved?.sessionId ? 'paused' : 'idle');
   };
 
-  const cancelUpload = () => {
-    xhrRef.current?.abort();
+  const pauseUpload = () => {
+    abortControllerRef.current?.abort();
+    setPhase('paused');
+    setError('');
   };
 
-  const startUpload = () => {
-    if (!selectedFile || isUploading) return;
+  const startUpload = async () => {
+    if (!selectedFile || isBusy || phase === 'discarding' || conflictSessionId) return;
     const validationError = validateIguideOfflineZip(selectedFile);
     if (validationError) {
       setError(validationError);
       return;
     }
 
+    const operation = operationRef.current + 1;
+    operationRef.current = operation;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setError('');
-    setProgress(0);
-    setIsUploading(true);
+    setPhase('preparing');
 
-    const formData = new FormData();
-    formData.append('package', selectedFile);
-    const xhr = new XMLHttpRequest();
-    xhrRef.current = xhr;
-
-    xhr.upload.addEventListener('progress', (event) => {
-      if (!mountedRef.current || !event.lengthComputable) return;
-      setProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-    });
-
-    xhr.addEventListener('load', () => {
-      if (!mountedRef.current) return;
-      xhrRef.current = null;
-      setIsUploading(false);
-
-      if (xhr.status < 200 || xhr.status >= 300) {
-        setError(getUploadError(xhr));
-        return;
+    try {
+      const offlinePackage = await uploadIguideOfflinePackageResumable({
+        file: selectedFile,
+        shootId,
+        signal: controller.signal,
+        onProgress: (nextProgress) => {
+          if (!mountedRef.current || operationRef.current !== operation) return;
+          setProgress(nextProgress);
+          setPhase(nextProgress.phase);
+          setHasSavedSession(Boolean(getPersistedIguideUpload(shootId, selectedFile)?.sessionId));
+        },
+      });
+      if (!mountedRef.current || operationRef.current !== operation) return;
+      setProgress((current) => ({ ...current, percent: 100 }));
+      setConflictSessionId('');
+      setHasSavedSession(false);
+      setPhase('idle');
+      setSelectedFile(null);
+      if (inputRef.current) inputRef.current.value = '';
+      onUploaded(offlinePackage);
+      onOpenChange(false);
+    } catch (uploadError) {
+      if (!mountedRef.current || operationRef.current !== operation) return;
+      const saved = Boolean(getPersistedIguideUpload(shootId, selectedFile)?.sessionId);
+      setHasSavedSession(saved);
+      if (uploadError instanceof IguideUploadPausedError) {
+        setPhase('paused');
+        setError('');
+      } else {
+        setConflictSessionId(uploadError instanceof IguideResumableUploadError
+          ? uploadError.sessionId
+          : '');
+        setPhase('error');
+        setError(uploadError instanceof Error
+          ? uploadError.message
+          : 'The iGUIDE package could not be uploaded.');
       }
-
-      try {
-        const payload = JSON.parse(xhr.responseText || '{}');
-        const offlinePackage = parseIguideOfflinePackageResponse(payload, selectedFile);
-        setProgress(100);
-        onUploaded(offlinePackage);
-        onOpenChange(false);
-      } catch {
-        setError('The upload finished, but its status response could not be read. Refresh and try again.');
-      }
-    });
-
-    xhr.addEventListener('error', () => {
-      if (!mountedRef.current) return;
-      xhrRef.current = null;
-      setIsUploading(false);
-      setError('The connection was interrupted while uploading the ZIP. You can retry the same file.');
-    });
-
-    xhr.addEventListener('abort', () => {
-      if (!mountedRef.current) return;
-      xhrRef.current = null;
-      setIsUploading(false);
-      setProgress(0);
-      setError('Upload cancelled.');
-    });
-
-    xhr.open('POST', API_ROUTES.integrations.iguide.offlinePackage(shootId));
-    Object.entries(getApiHeaders()).forEach(([name, value]) => {
-      if (name.toLowerCase() !== 'content-type') xhr.setRequestHeader(name, value);
-    });
-    xhr.send(formData);
+    } finally {
+      if (operationRef.current === operation) abortControllerRef.current = null;
+    }
   };
+
+  const discardUpload = async () => {
+    if (!selectedFile || isBusy || phase === 'discarding' || !hasRecoverableSession) return;
+    operationRef.current += 1;
+    abortControllerRef.current?.abort();
+    setPhase('discarding');
+    setError('');
+    try {
+      await discardIguideUploadSession({
+        file: selectedFile,
+        shootId,
+        ...(conflictSessionId ? { sessionId: conflictSessionId } : {}),
+      });
+      if (!mountedRef.current) return;
+      setConflictSessionId('');
+      setHasSavedSession(false);
+      setProgress({ ...EMPTY_PROGRESS, totalBytes: selectedFile.size });
+      setPhase('idle');
+    } catch (discardError) {
+      if (!mountedRef.current) return;
+      setHasSavedSession(Boolean(getPersistedIguideUpload(shootId, selectedFile)?.sessionId));
+      setPhase('error');
+      setError(discardError instanceof Error
+        ? discardError.message
+        : 'The saved upload could not be discarded.');
+    }
+  };
+
+  const phaseLabel = phase === 'preparing'
+    ? 'Preparing secure upload'
+    : phase === 'uploading'
+      ? progress.chunkIndex === null
+        ? 'Uploading package'
+        : `Uploading chunk ${progress.chunkIndex + 1} of ${progress.totalChunks}`
+      : phase === 'finalizing'
+        ? 'Finalizing and validating package'
+        : phase === 'paused'
+          ? 'Upload paused — progress saved'
+          : phase === 'discarding'
+            ? 'Discarding saved upload'
+            : conflictSessionId
+              ? 'Existing upload must be discarded'
+              : hasSavedSession
+              ? 'Ready to resume'
+              : 'Ready to upload';
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (isUploading && !nextOpen) return;
+        if (isBusy && !nextOpen) pauseUpload();
         onOpenChange(nextOpen);
       }}
     >
@@ -186,7 +232,7 @@ export function IguideOfflinePackageDialog({
             htmlFor={inputId}
             className={`flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-5 text-center transition-colors ${
               isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/60 hover:bg-muted/30'
-            } ${isUploading ? 'pointer-events-none opacity-60' : ''}`}
+            } ${isBusy || hasRecoverableSession ? 'pointer-events-none opacity-60' : ''}`}
             onDragEnter={(event) => {
               event.preventDefault();
               setIsDragging(true);
@@ -208,7 +254,7 @@ export function IguideOfflinePackageDialog({
               type="file"
               accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream"
               className="sr-only"
-              disabled={isUploading}
+              disabled={isBusy || hasRecoverableSession}
               onChange={(event) => chooseFile(event.target.files?.[0])}
             />
             {selectedFile ? (
@@ -230,35 +276,47 @@ export function IguideOfflinePackageDialog({
 
           {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
 
-          {isUploading && (
+          {selectedFile && phase !== 'idle' && phase !== 'discarding' && (
             <div className="space-y-1.5" aria-live="polite">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Uploading package</span>
-                <span className="font-medium">{progress}%</span>
+                <span className="text-muted-foreground">{phaseLabel}</span>
+                <span className="font-medium">{progress.percent}%</span>
               </div>
-              <Progress value={progress} className="h-1.5" />
+              <Progress value={progress.percent} className="h-1.5" />
             </div>
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          {isUploading ? (
-            <Button type="button" variant="outline" onClick={cancelUpload}>
+        <DialogFooter className="gap-2">
+          {isBusy ? (
+            <Button type="button" variant="outline" onClick={pauseUpload}>
               <X className="mr-1.5 h-4 w-4" />
-              Cancel upload
+              Pause upload
             </Button>
           ) : (
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <>
+              {hasRecoverableSession && (
+                <Button type="button" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void discardUpload()} disabled={phase === 'discarding'}>
+                  {phase === 'discarding' && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  {conflictSessionId ? 'Discard existing upload' : 'Discard upload'}
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+            </>
           )}
-          <Button type="button" onClick={startUpload} disabled={!selectedFile || isUploading}>
-            {isUploading ? (
+          <Button type="button" onClick={() => void startUpload()} disabled={!selectedFile || isBusy || phase === 'discarding' || Boolean(conflictSessionId)}>
+            {isBusy ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
               <UploadCloud className="mr-1.5 h-4 w-4" />
             )}
-            {replacing ? 'Replace package' : 'Upload package'}
+            {isBusy
+              ? phase === 'finalizing' ? 'Finalizing…' : 'Uploading…'
+              : conflictSessionId
+                ? replacing ? 'Replace package' : 'Upload package'
+                : hasSavedSession ? 'Resume upload' : replacing ? 'Replace package' : 'Upload package'}
           </Button>
         </DialogFooter>
       </DialogContent>
