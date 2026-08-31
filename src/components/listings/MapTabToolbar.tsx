@@ -17,6 +17,7 @@
 // theme tokens, so it reads as one cohesive surface with the rest of the Map Tab.
 
 import * as React from 'react'
+import { Building2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { CommandBar } from './CommandBar'
@@ -33,6 +34,8 @@ import type {
 export type MapTabViewMode = 'showcase' | 'grid' | 'list'
 
 export interface MapTabToolbarProps {
+  /** Number of listings represented by the current map result set. */
+  totalListings: number
   // search
   searchQuery: string
   onSearchChange: (q: string) => void
@@ -65,6 +68,7 @@ export interface MapTabToolbarProps {
  * each child; this component owns only layout and visual cohesion.
  */
 export function MapTabToolbar({
+  totalListings,
   searchQuery,
   onSearchChange,
   suggestions,
@@ -89,17 +93,60 @@ export function MapTabToolbar({
   return (
     <div
       className={cn(
-        'flex flex-col rounded-xl border',
+        'flex min-w-0 flex-col rounded-xl border',
         overlay
           ? 'gap-2 border-slate-300/80 bg-white/82 p-2.5 text-slate-950 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
           : 'gap-3 border-border bg-card p-3',
         className,
       )}
+      data-testid="map-tab-toolbar"
     >
-      {/* Top row: CommandBar grows on the left, ViewSwitcher sits on the right,
-          wrapping responsively while staying in one horizontal control group
-          (R4.1, R6.1). */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Primary row: inventory context, search, filters, sorting, and view mode
+          share one command surface. The search is the only flexible item, so
+          it gives up width first on narrower desktop canvases. */}
+      <div
+        className="flex min-w-0 flex-nowrap items-center gap-2"
+        data-testid="map-toolbar-primary-row"
+      >
+        <dl
+          className="flex shrink-0 items-center"
+          data-testid="summary-cards"
+          aria-label="Listing summary"
+        >
+          <div
+            className={cn(
+              'flex h-9 items-center gap-2 border-r pr-3',
+              overlay
+                ? 'border-slate-300/80 text-slate-950 dark:border-white/15 dark:text-white'
+                : 'border-border text-foreground',
+            )}
+            data-testid="summary-card-total"
+          >
+            <span
+              className={cn(
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                overlay
+                  ? 'bg-blue-500/10 text-blue-600 ring-1 ring-inset ring-blue-500/20 dark:text-blue-300 dark:ring-blue-400/15'
+                  : 'bg-muted text-muted-foreground',
+              )}
+              aria-hidden="true"
+            >
+              <Building2 className="h-4 w-4" />
+            </span>
+            <dt className="whitespace-nowrap text-xs font-medium text-slate-600 dark:text-slate-300">
+              <span className="sr-only">Total listings</span>
+              <span aria-hidden="true" className="lg:hidden 2xl:inline">Total Listings</span>
+              <span aria-hidden="true" className="hidden lg:inline 2xl:hidden">Listings</span>
+            </dt>
+            <dd
+              className="text-sm font-semibold tabular-nums"
+              data-testid="summary-value-total"
+            >
+              {totalListings}
+            </dd>
+          </div>
+        </dl>
+
         <CommandBar
           className="min-w-0 flex-1"
           variant={variant}

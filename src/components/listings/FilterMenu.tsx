@@ -21,6 +21,8 @@ export interface FilterMenuProps {
   onRemoveFilter: (key: FilterKey) => void
   /** Available city names to offer as city filters. */
   cityOptions?: string[]
+  /** Collapse the trigger label at constrained desktop map widths. */
+  compact?: boolean
 }
 
 interface FilterOption {
@@ -63,6 +65,7 @@ export function FilterMenu({
   onAddFilter,
   onRemoveFilter,
   cityOptions = [],
+  compact = false,
 }: FilterMenuProps) {
   const activeKeys = React.useMemo(
     () => new Set(filters.map((f) => filterKey(f))),
@@ -91,9 +94,10 @@ export function FilterMenu({
           variant="outline"
           size="sm"
           className="h-9 gap-2 rounded-xl border-border"
+          aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : 'Filters'}
         >
           <FilterIcon className="h-4 w-4" />
-          Filters
+          <span className={cn(compact && 'lg:max-2xl:hidden')}>Filters</span>
           {activeCount > 0 && (
             <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
               {activeCount}

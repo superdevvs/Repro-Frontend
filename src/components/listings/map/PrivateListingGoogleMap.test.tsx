@@ -33,11 +33,20 @@ interface MarkerRecord {
 }
 
 const markerRecords: MarkerRecord[] = []
+const markerInstances: object[] = []
 const fitBoundsCalls: unknown[][] = []
 const setCenterCalls: Array<{ lat: number; lng: number }> = []
+const panByCalls: Array<[number, number]> = []
 const setZoomCalls: number[] = []
 const mapOptionsCalls: GoogleMapOptions[] = []
-const infoWindowOptions: unknown[] = []
+interface InfoWindowRecord {
+  closeCalls: number
+  content: Node | null
+  headerContent: string | Element | Text | null
+  openCalls: Array<{ anchor: object; map: object; shouldFocus?: boolean }>
+  options: unknown
+}
+const infoWindowRecords: InfoWindowRecord[] = []
 
 const createMapsApi = (): GoogleMapsApi => {
   class MapInstance {
@@ -47,6 +56,7 @@ const createMapsApi = (): GoogleMapsApi => {
 
     fitBounds(...args: unknown[]) { fitBoundsCalls.push(args) }
     getZoom() { return 12 }
+    panBy(x: number, y: number) { panByCalls.push([x, y]) }
     setCenter(center: { lat: number; lng: number }) { setCenterCalls.push(center) }
     setOptions(options: GoogleMapOptions) { mapOptionsCalls.push(options) }
     setZoom(zoom: number) { setZoomCalls.push(zoom) }
@@ -58,6 +68,7 @@ const createMapsApi = (): GoogleMapsApi => {
     constructor(options: MarkerRecord['options']) {
       this.record = { handlers: new Map(), options }
       markerRecords.push(this.record)
+      markerInstances.push(this)
     }
 
     addListener(eventName: string, handler: () => void): GoogleMapsListener {
@@ -69,11 +80,35 @@ const createMapsApi = (): GoogleMapsApi => {
   }
 
   class InfoWindowInstance {
-    constructor(options?: unknown) { infoWindowOptions.push(options) }
-    close() {}
-    open() {}
-    setContent() {}
-    setHeaderContent() {}
+    private readonly record: InfoWindowRecord
+
+    constructor(options?: unknown) {
+      this.record = {
+        closeCalls: 0,
+        content: null,
+        headerContent: null,
+        openCalls: [],
+        options,
+      }
+      infoWindowRecords.push(this.record)
+    }
+
+    close() {
+      this.record.closeCalls += 1
+      if (this.record.content instanceof Element) this.record.content.remove()
+    }
+
+    open(options: { anchor: object; map: object; shouldFocus?: boolean }) {
+      this.record.openCalls.push(options)
+      if (this.record.content && !this.record.content.isConnected) {
+        document.body.appendChild(this.record.content)
+      }
+    }
+
+    setContent(content: Node) { this.record.content = content }
+    setHeaderContent(content: string | Element | Text | null) {
+      this.record.headerContent = content
+    }
   }
 
   class LatLngBounds {
@@ -134,11 +169,13 @@ const renderMap = (
 
 beforeEach(() => {
   markerRecords.length = 0
+  markerInstances.length = 0
   fitBoundsCalls.length = 0
   setCenterCalls.length = 0
+  panByCalls.length = 0
   setZoomCalls.length = 0
   mapOptionsCalls.length = 0
-  infoWindowOptions.length = 0
+  infoWindowRecords.length = 0
   h.loadGoogleMaps.mockReset()
   h.loadGoogleMaps.mockResolvedValue(createMapsApi())
 })
@@ -170,30 +207,106 @@ describe('PrivateListingGoogleMap', () => {
     expect(fitBoundsCalls).toHaveLength(1)
     expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 372, bottom: 64, left: 64 })
 
-    const selectedPreview = screen.getByRole('region', {
+    const selectedPreview = await screen.findByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
     })
-    expect(selectedPreview).toHaveClass('top-36', 'right-[372px]')
     expect(within(selectedPreview).getByText('100 Congress Avenue')).toBeVisible()
-    // Only the hover InfoWindow remains; selection uses the positioned React
-    // preview above, so Google's empty header cannot return.
-    expect(infoWindowOptions).toHaveLength(1)
+    expect(infoWindowRecords).toHaveLength(2)
+    expect(infoWindowRecords[1].options).toEqual({
+      ariaLabel: 'Selected private listing preview',
+      headerDisabled: true,
+      maxWidth: 320,
+      zIndex: 40,
+    })
+    expect(infoWindowRecords[1].content).toBeInstanceOf(HTMLElement)
+    expect(infoWindowRecords[1].content as HTMLElement).toHaveClass('repro-google-map-popup')
+    expect(infoWindowRecords[1].openCalls).toHaveLength(1)
+    expect(infoWindowRecords[1].openCalls[0]).toEqual(expect.objectContaining({
+      anchor: markerInstances[0],
+      shouldFocus: false,
+    }))
+    expect(setCenterCalls.at(-1)).toEqual({ lat: 30.2672, lng: -97.7431 })
+    expect(panByCalls.at(-1)).toEqual([0, -72])
 
     act(() => screen.getByRole('button', { name: 'Close selected listing preview' }).click())
-    expect(screen.queryByRole('region', {
+    await waitFor(() => expect(screen.queryByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
-    })).not.toBeInTheDocument()
+    })).not.toBeInTheDocument())
 
     act(() => markerRecords[0].handlers.get('click')?.())
-    expect(screen.getByRole('region', {
+    expect(await screen.findByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
     })).toBeInTheDocument()
+    expect(infoWindowRecords[1].openCalls).toHaveLength(2)
 
     act(() => screen.getByRole('button', { name: 'Zoom in on map' }).click())
     act(() => screen.getByRole('button', { name: 'Zoom out of map' }).click())
     expect(setZoomCalls).toEqual([13, 11])
 
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+  })
+
+  it('reanchors the selected card when marker styling recreates the pin', async () => {
+    const sharedProps = {
+      apiKey: 'browser-key-for-test',
+      listings: [listing('listing-1', 30.2672, -97.7431, '100 Congress Avenue')],
+      selectedListingId: 'listing-1',
+      onSelectListing: vi.fn(),
+      onToggleLabels: vi.fn(),
+      resolveImageUrl: () => null,
+      formatPrice: (price: number | undefined | null) => `$${price ?? 0}`,
+      onOpenListing: vi.fn(),
+    }
+    const { rerender } = render(
+      <PrivateListingGoogleMap
+        {...sharedProps}
+        showMarkerLabels={false}
+        theme="light"
+      />,
+    )
+
+    await screen.findByRole('region', { name: 'Selected listing 100 Congress Avenue' })
+    const selectedInfoWindow = infoWindowRecords[1]
+    await waitFor(() => expect(selectedInfoWindow.openCalls).toHaveLength(1))
+    const originalAnchor = selectedInfoWindow.openCalls[0].anchor
+
+    rerender(
+      <PrivateListingGoogleMap
+        {...sharedProps}
+        showMarkerLabels
+        theme="dark"
+      />,
+    )
+
+    await waitFor(() => expect(selectedInfoWindow.openCalls).toHaveLength(2))
+    expect(selectedInfoWindow.openCalls[1].anchor).not.toBe(originalAnchor)
+    expect(selectedInfoWindow.openCalls[1].anchor).toBe(markerInstances.at(-1))
+  })
+
+  it('keeps hover cards anchored independently from the selected pin preview', async () => {
+    renderMap([
+      listing('selected', 30.2672, -97.7431, '100 Congress Avenue'),
+      listing('hovered', 30.301, -97.71, '200 Brazos Street'),
+    ], 'selected')
+
+    await waitFor(() => expect(markerRecords).toHaveLength(2))
+    expect(infoWindowRecords).toHaveLength(2)
+
+    const hoveredMarkerIndex = markerRecords.findIndex(
+      ({ options }) => options.title?.startsWith('200 Brazos Street'),
+    )
+    expect(hoveredMarkerIndex).toBeGreaterThanOrEqual(0)
+    act(() => markerRecords[hoveredMarkerIndex].handlers.get('mouseover')?.())
+
+    await waitFor(() => expect(infoWindowRecords[0].openCalls).toHaveLength(1))
+    expect(infoWindowRecords[0].openCalls[0]).toEqual(expect.objectContaining({
+      anchor: markerInstances[hoveredMarkerIndex],
+      shouldFocus: false,
+    }))
+    expect(infoWindowRecords[1].openCalls).toHaveLength(1)
+    expect(infoWindowRecords[1].openCalls[0].anchor).not.toBe(
+      infoWindowRecords[0].openCalls[0].anchor,
+    )
   })
 
   it('disables obscured Google controls and hides business POIs in both themes', async () => {

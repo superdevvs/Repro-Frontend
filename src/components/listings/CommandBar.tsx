@@ -141,9 +141,25 @@ export function CommandBar({
   )
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div
+      className={cn(
+        variant === 'overlay'
+          ? 'flex min-w-0 flex-nowrap items-center gap-2'
+          : 'flex flex-wrap items-center gap-2',
+        className,
+      )}
+      data-testid="listing-command-bar"
+    >
       {/* Search input + categorized cmdk suggestions dropdown. */}
-      <div className="relative min-w-[200px] flex-[1_1_280px]">
+      <div
+        className={cn(
+          'relative',
+          variant === 'overlay'
+            ? 'min-w-[6rem] flex-1'
+            : 'min-w-[200px] flex-[1_1_280px]',
+        )}
+        data-testid="listing-search-shell"
+      >
         <Command
           shouldFilter={false}
           className="relative overflow-visible rounded-none bg-transparent"
@@ -175,7 +191,7 @@ export function CommandBar({
               placeholder="Search address, city, client..."
               aria-label="Search listings"
               className={cn(
-                'flex h-9 w-full bg-transparent text-sm outline-none',
+                'flex h-9 min-w-0 w-full bg-transparent text-sm outline-none',
                 variant === 'overlay'
                   ? 'text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400'
                   : 'text-foreground placeholder:text-muted-foreground',
@@ -221,8 +237,13 @@ export function CommandBar({
         onAddFilter={onAddFilter}
         onRemoveFilter={onRemoveFilter}
         cityOptions={cityOptions}
+        compact={variant === 'overlay'}
       />
-      <SortMenu sort={sort} onSortChange={onSortChange} />
+      <SortMenu
+        sort={sort}
+        onSortChange={onSortChange}
+        compact={variant === 'overlay'}
+      />
       {showSavedViews ? (
         <SavedViewsMenu
           savedViews={savedViews}

@@ -37,7 +37,6 @@ import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListing
 import { useListingPresentation } from '@/hooks/useListingPresentation';
 import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
 import { SavedViewsMenu } from '@/components/listings/SavedViewsMenu';
-import { SummaryCards } from '@/components/listings/SummaryCards';
 import {
   SAVED_VIEWS_KEY,
   parseSavedViews,
@@ -545,8 +544,9 @@ const PrivateListingPortal = () => {
     >
       <button
         type="button"
+        aria-label="Show all listings"
         onClick={() => setListingScope('all')}
-        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors sm:flex-none 2xl:px-4 ${
           listingScope === 'all'
             ? 'bg-blue-600 text-white shadow-sm'
             : viewMode === 'showcase'
@@ -555,12 +555,13 @@ const PrivateListingPortal = () => {
         }`}
       >
         <Globe className="h-4 w-4" />
-        All Listings
+        <span className="lg:max-2xl:hidden">All Listings</span>
       </button>
       <button
         type="button"
+        aria-label="Show my listings"
         onClick={() => setListingScope('mine')}
-        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors sm:flex-none 2xl:px-4 ${
           listingScope === 'mine'
             ? 'bg-blue-600 text-white shadow-sm'
             : viewMode === 'showcase'
@@ -569,7 +570,7 @@ const PrivateListingPortal = () => {
         }`}
       >
         <User className="h-4 w-4" />
-        My Listings
+        <span className="lg:max-2xl:hidden">My Listings</span>
       </button>
     </div>
   ) : null;
@@ -818,15 +819,10 @@ const PrivateListingPortal = () => {
             onSelectListing={presentation.selectListing}
             showMarkerLabels={false}
             controlsOverlay={
-              <div className="flex flex-wrap items-stretch gap-2.5">
+              <div className="flex min-w-0 flex-nowrap items-stretch gap-2.5">
                 {clientScopeControl}
-                <SummaryCards
-                  summary={presentation.summary}
-                  visibleKeys={['total']}
-                  variant="overlay"
-                  className="w-full shrink-0 sm:w-[156px]"
-                />
                 <MapTabToolbar
+                  totalListings={presentation.summary.total}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
                   suggestions={presentation.suggestions}
@@ -844,7 +840,7 @@ const PrivateListingPortal = () => {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   variant="overlay"
-                  className="min-w-0 flex-[1_1_680px]"
+                  className="min-w-0 flex-1"
                 />
               </div>
             }

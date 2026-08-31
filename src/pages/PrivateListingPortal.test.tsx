@@ -350,7 +350,8 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     renderPortal()
     await waitForLoaded()
 
-    // The compact overlay keeps only the total inventory metric.
+    // The compact overlay keeps only the total inventory metric and places it
+    // in the same non-wrapping command row as search and filters.
     const summaryCards = screen.getByTestId('summary-cards')
     expect(within(summaryCards).getByTestId('summary-card-total')).toHaveTextContent(
       'Total Listings',
@@ -368,6 +369,9 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     // while Saved views lives in the header immediately before Add Listing.
     const filtersButton = screen.getByRole('button', { name: /Filters/i })
     expect(filtersButton).toBeInTheDocument()
+    expect(within(filtersButton).getByText('Filters')).toHaveClass('lg:max-2xl:hidden')
+    const sortButton = screen.getByRole('button', { name: 'Sort: Newest' })
+    expect(within(sortButton).getByText('Newest')).toHaveClass('lg:max-2xl:hidden')
     const savedViewsButton = screen.getByRole('button', { name: /Saved views/i })
     const addListingButton = screen.getByRole('button', { name: 'Add Listing' })
     const headerActions = screen.getByTestId('listing-header-actions')
@@ -385,9 +389,20 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     // same full-canvas map workspace as floating overlays.
     const map = screen.getByTestId('map')
     const canvas = screen.getByTestId('showcase-map-canvas')
+    const toolbar = within(canvas).getByTestId('map-tab-toolbar')
+    const primaryRow = within(toolbar).getByTestId('map-toolbar-primary-row')
+    const commandBar = within(primaryRow).getByTestId('listing-command-bar')
+    const searchShell = within(commandBar).getByTestId('listing-search-shell')
+    const mapControls = within(canvas).getByTestId('map-controls-overlay')
     expect(canvas).toContainElement(map)
     expect(canvas).toContainElement(summaryCards)
     expect(canvas).toContainElement(filtersButton)
+    expect(primaryRow).toContainElement(summaryCards)
+    expect(summaryCards.querySelector('dt')).toHaveTextContent('Total listings')
+    expect(primaryRow).toHaveClass('min-w-0', 'flex-nowrap')
+    expect(commandBar).toHaveClass('min-w-0', 'flex-nowrap')
+    expect(searchShell).toHaveClass('min-w-[6rem]', 'flex-1')
+    expect(mapControls).toHaveClass('lg:right-[332px]', '2xl:right-[372px]')
     expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 

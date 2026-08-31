@@ -26,6 +26,8 @@ export interface SortMenuProps {
   sort: SortOption
   /** Called with the newly selected sort option. */
   onSortChange: (s: SortOption) => void
+  /** Collapse the trigger label at constrained desktop map widths. */
+  compact?: boolean
 }
 
 /**
@@ -35,7 +37,7 @@ export interface SortMenuProps {
 const labelFor = (value: SortOption): string =>
   SORT_OPTIONS.find((option) => option.value === value)?.label ?? value
 
-export function SortMenu({ sort, onSortChange }: SortMenuProps) {
+export function SortMenu({ sort, onSortChange, compact = false }: SortMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -46,7 +48,9 @@ export function SortMenu({ sort, onSortChange }: SortMenuProps) {
           aria-label={`Sort: ${labelFor(sort)}`}
         >
           <ArrowUpDown className="h-4 w-4" />
-          <span className="truncate">{labelFor(sort)}</span>
+          <span className={cn('truncate', compact && 'lg:max-2xl:hidden')}>
+            {labelFor(sort)}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="rounded-xl border-border min-w-[12rem]">

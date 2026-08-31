@@ -8,6 +8,7 @@ export interface GoogleLatLngBounds {
 export interface GoogleMapInstance {
   fitBounds: (bounds: GoogleLatLngBounds, padding?: number) => void
   getZoom: () => number | undefined
+  panBy?: (x: number, y: number) => void
   setCenter: (center: { lat: number; lng: number }) => void
   setOptions: (options: GoogleMapOptions) => void
   setZoom: (zoom: number) => void

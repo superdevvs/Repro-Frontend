@@ -26,6 +26,8 @@ import {
 } from '@/lib/listing-presentation/markers'
 import { cn } from '@/lib/utils'
 
+import '@/components/shoots/history/shootHistoryMap.css'
+
 export type PrivateListingMapTheme = 'light' | 'dark'
 
 interface MapPadding {
@@ -174,6 +176,20 @@ const createPopup = (maps: GoogleMapsApi, verticalOffset: number): PopupHandle =
   return { container, infoWindow, root }
 }
 
+const createSelectedPopup = (maps: GoogleMapsApi): PopupHandle => {
+  const container = document.createElement('div')
+  container.className = 'repro-google-map-popup'
+  const root = createRoot(container)
+  const infoWindow = new maps.InfoWindow({
+    ariaLabel: 'Selected private listing preview',
+    headerDisabled: true,
+    maxWidth: 320,
+    zIndex: 40,
+  })
+  infoWindow.setContent(container)
+  return { container, infoWindow, root }
+}
+
 const setPopupTitle = (popup: PopupHandle, listing: ShowcaseListing) => {
   if (!popup.infoWindow.setHeaderContent) return
   const title = document.createElement('div')
@@ -209,6 +225,7 @@ export function PrivateListingGoogleMap({
   const mapsApiRef = React.useRef<GoogleMapsApi | null>(null)
   const markersRef = React.useRef<ListingMarkerEntry[]>([])
   const hoverPopupRef = React.useRef<PopupHandle | null>(null)
+  const selectedPopupRef = React.useRef<PopupHandle | null>(null)
   const hoverCloseTimerRef = React.useRef<number | null>(null)
   const idleListenerRef = React.useRef<GoogleMapsListener | null>(null)
   const onLoadErrorRef = React.useRef(onLoadError)
@@ -255,6 +272,7 @@ export function PrivateListingGoogleMap({
     })
     markersRef.current = []
     hoverPopupRef.current?.infoWindow.close()
+    selectedPopupRef.current?.infoWindow.close()
   }, [])
 
   const cancelHoverClose = React.useCallback(() => {
@@ -338,6 +356,7 @@ export function PrivateListingGoogleMap({
           // The toolbar overlays the top of the map. Positive offsets keep the
           // previews below it while retaining marker anchoring and auto-pan.
           hoverPopupRef.current = createPopup(maps, 56)
+          selectedPopupRef.current = createSelectedPopup(maps)
           const hoverContainer = hoverPopupRef.current.container
           hoverContainer.addEventListener('mouseenter', cancelHoverClose)
           hoverContainer.addEventListener('mouseleave', scheduleHoverClose)
@@ -371,8 +390,10 @@ export function PrivateListingGoogleMap({
         mapsApiRef.current.event.clearInstanceListeners(mapRef.current)
       }
       if (hoverPopupRef.current) scheduleUnmount(hoverPopupRef.current.root)
+      if (selectedPopupRef.current) scheduleUnmount(selectedPopupRef.current.root)
       cancelHoverClose()
       hoverPopupRef.current = null
+      selectedPopupRef.current = null
       mapRef.current = null
       mapsApiRef.current = null
       setMapsApi(null)
@@ -460,6 +481,83 @@ export function PrivateListingGoogleMap({
 
   React.useEffect(() => {
     const map = mapRef.current
+    const popup = selectedPopupRef.current
+    if (!mapsApi || !map || !popup) return
+
+    if (
+      !selectedMappedListing
+      || !selectedMarkerGroup
+      || dismissedPreviewId === selectedMappedListing.id
+    ) {
+      popup.infoWindow.close()
+      return
+    }
+
+    const markerEntry = markersRef.current.find(({ group }) =>
+      group.listings.some((listing) => listing.id === selectedMappedListing.id),
+    )
+    if (!markerEntry) {
+      popup.infoWindow.close()
+      return
+    }
+
+    const previewLabel =
+      selectedMappedListing.address?.trim()
+      || selectedMappedListing.fullAddress?.trim()
+      || 'Private listing'
+
+    popup.root.render(
+      <div
+        className="relative w-64"
+        role="region"
+        aria-label={`Selected listing ${previewLabel}`}
+      >
+        <MarkerPreview
+          listing={selectedMappedListing}
+          relatedListings={selectedMarkerGroup.listings}
+          resolveImageUrl={latestRef.current.resolveImageUrl}
+          formatPrice={latestRef.current.formatPrice}
+          onOpenListing={latestRef.current.onOpenListing}
+          onSelectListing={latestRef.current.onSelectListing}
+          className="border-slate-300/80 shadow-2xl dark:border-white/15"
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-2 z-20 h-8 w-8 rounded-full bg-slate-950/75 text-white shadow-sm backdrop-blur hover:bg-slate-950 hover:text-white"
+          aria-label="Close selected listing preview"
+          onClick={() => {
+            popup.infoWindow.close()
+            setDismissedPreviewId(selectedMappedListing.id)
+          }}
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>,
+    )
+
+    // Focus the selected marker before opening the anchored card. Google can
+    // keep an InfoWindow inside the map viewport, but it cannot see our search
+    // toolbar or inspector overlays. A negative camera-Y move shifts the map
+    // center north, which places the selected marker lower on screen and leaves
+    // a stable clear area for the card above it.
+    map.setCenter(selectedMarkerGroup.coords)
+    if (typeof window === 'undefined' || window.innerWidth >= 1024) {
+      map.panBy?.(0, -72)
+    }
+    popup.infoWindow.open({ anchor: markerEntry.marker, map, shouldFocus: false })
+  }, [
+    dismissedPreviewId,
+    mapsApi,
+    selectedMappedListing,
+    selectedMarkerGroup,
+    showMarkerLabels,
+    theme,
+  ])
+
+  React.useEffect(() => {
+    const map = mapRef.current
     const element = mapElementRef.current
     if (!mapsApi || !map || !element) return
     let frame = 0
@@ -538,36 +636,6 @@ export function PrivateListingGoogleMap({
             <p className="text-xs text-muted-foreground">{loadError.message}</p>
             <Button type="button" size="sm" variant="outline" onClick={() => setRetryVersion((value) => value + 1)}>
               Retry map
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {isReady && selectedMappedListing && selectedMarkerGroup && dismissedPreviewId !== selectedMappedListing.id ? (
-        <div
-          className="pointer-events-none absolute right-[372px] top-36 z-30 hidden lg:block"
-          role="region"
-          aria-label={`Selected listing ${selectedMappedListing.address || selectedMappedListing.fullAddress || 'Private listing'}`}
-        >
-          <div className="pointer-events-auto relative">
-            <MarkerPreview
-              listing={selectedMappedListing}
-              relatedListings={selectedMarkerGroup.listings}
-              resolveImageUrl={resolveImageUrl}
-              formatPrice={formatPrice}
-              onOpenListing={onOpenListing}
-              onSelectListing={onSelectListing}
-              className="border-slate-300/80 shadow-2xl dark:border-white/15"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-2 z-20 h-8 w-8 rounded-full bg-slate-950/75 text-white shadow-sm backdrop-blur hover:bg-slate-950 hover:text-white"
-              aria-label="Close selected listing preview"
-              onClick={() => setDismissedPreviewId(selectedMappedListing.id)}
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </div>
