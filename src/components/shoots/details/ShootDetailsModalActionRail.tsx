@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { blurActiveElement } from '../dialogFocusUtils';
+import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
 import {
   Check,
   Copy,
@@ -689,6 +690,7 @@ export function ShootDetailsModalActionRail({
 
 interface ShootDetailsModalHeaderProps {
   addressTitle: string;
+  fullAddress?: string | null;
   createdByLabel: string | null;
   statusBadge: React.ReactNode;
   paymentBadge?: React.ReactNode;
@@ -703,6 +705,7 @@ interface ShootDetailsModalHeaderProps {
 
 export function ShootDetailsModalHeader({
   addressTitle,
+  fullAddress,
   createdByLabel,
   statusBadge,
   paymentBadge,
@@ -717,9 +720,10 @@ export function ShootDetailsModalHeader({
   const [isAddressCopied, setIsAddressCopied] = React.useState(false);
 
   const handleCopyAddress = async () => {
-    if (!addressTitle) return;
+    const addressToCopy = fullAddress?.trim() || addressTitle;
+    if (!addressToCopy) return;
     try {
-      await navigator.clipboard.writeText(addressTitle);
+      await navigator.clipboard.writeText(addressToCopy);
       setIsAddressCopied(true);
       window.setTimeout(() => setIsAddressCopied(false), 1200);
     } catch {
@@ -734,15 +738,18 @@ export function ShootDetailsModalHeader({
           <div className="flex-1 min-w-0 w-full sm:w-auto">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
               <div className="group/address flex min-w-0 flex-1 items-center gap-1.5">
-                <h2 className="min-w-0 text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
+                <OverflowRevealAddressTitle
+                  compactAddress={addressTitle}
+                  fullAddress={fullAddress}
+                />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 flex-shrink-0 rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   onClick={handleCopyAddress}
-                  title="Copy address"
-                  aria-label="Copy address"
+                  title="Copy full address"
+                  aria-label="Copy full address"
                 >
                   {isAddressCopied ? (
                     <Check className="h-3.5 w-3.5 text-green-600" />

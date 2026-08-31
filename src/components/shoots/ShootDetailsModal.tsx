@@ -799,7 +799,7 @@ export function ShootDetailsModal({
         />
         
         <ShootDetailsModalHeader
-          addressTitle={addressTitle}
+          addressTitle={addressTitle} fullAddress={weatherLocationQuery || addressTitle}
           createdByLabel={createdByLabel}
           statusBadge={statusBadge}
           paymentBadge={paymentBadge}

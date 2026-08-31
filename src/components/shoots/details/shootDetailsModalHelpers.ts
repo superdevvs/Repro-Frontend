@@ -19,19 +19,40 @@ const asCompatibleShoot = (shoot: ShootData): CompatibleShoot => shoot;
 const sanitizeWeatherSegment = (value?: string | null) =>
   value?.replace(/\s+/g, ' ').trim() ?? '';
 
+const addressSegmentTokens = (value: string) =>
+  value.toLocaleLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+const containsAddressSegment = (value: string, segment: string) => {
+  const valueTokens = new Set(addressSegmentTokens(value));
+  const segmentTokens = addressSegmentTokens(segment);
+  return segmentTokens.length > 0 && segmentTokens.every((token) => valueTokens.has(token));
+};
+
 export const buildWeatherLocationQuery = (shoot: ShootData | null): string | null => {
   if (!shoot) return null;
   const compatibleShoot = asCompatibleShoot(shoot);
   const fullAddress = sanitizeWeatherSegment(shoot.location?.fullAddress);
-  const streetAddress = sanitizeWeatherSegment(shoot.location?.address);
-  const city = sanitizeWeatherSegment(shoot.location?.city);
-  const state = sanitizeWeatherSegment(shoot.location?.state);
-  const zip = sanitizeWeatherSegment(shoot.location?.zip);
+  const streetAddress = sanitizeWeatherSegment(
+    shoot.location?.address || compatibleShoot.address || compatibleShoot.addressLine,
+  );
+  const city = sanitizeWeatherSegment(shoot.location?.city || compatibleShoot.city);
+  const state = sanitizeWeatherSegment(shoot.location?.state || compatibleShoot.state);
+  const zip = sanitizeWeatherSegment(shoot.location?.zip || compatibleShoot.zip);
   const fallbackAddressLine = sanitizeWeatherSegment(compatibleShoot.addressLine);
   const fallbackCityStateZip = sanitizeWeatherSegment(compatibleShoot.cityStateZip);
 
   if (fullAddress) return fullAddress;
-  const parts = [streetAddress, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean);
+  const structuredRegion = [state, zip].filter(Boolean).join(' ');
+  const locality = fallbackCityStateZip
+    ? [
+        city && !containsAddressSegment(fallbackCityStateZip, city) ? city : '',
+        fallbackCityStateZip,
+        [state, zip]
+          .filter((segment) => segment && !containsAddressSegment(fallbackCityStateZip, segment))
+          .join(' '),
+      ].filter(Boolean).join(', ')
+    : [city, structuredRegion].filter(Boolean).join(', ');
+  const parts = [streetAddress, locality].filter(Boolean);
   if (parts.length > 0) return parts.join(', ');
   const fallbackParts = [fallbackAddressLine, fallbackCityStateZip].filter(Boolean);
   return fallbackParts.length > 0 ? fallbackParts.join(', ') : null;
