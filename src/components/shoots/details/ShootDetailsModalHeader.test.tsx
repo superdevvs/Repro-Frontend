@@ -4,8 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
 
-const compactAddress = '9137 Lakelandlley Court';
-const fullAddress = '9137 Lakelandlley Court, Springfield, VA 22153';
+const compactAddress = '9137 Lakeland Valley Court';
+const fullAddress = '9137 Lakeland Valley Court, Springfield, VA 22153';
 
 const mockAddressMeasurements = (viewportWidth: number, textWidth: number) => {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function getClientWidth() {

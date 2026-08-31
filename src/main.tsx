@@ -6,6 +6,7 @@ import App from './App.tsx'
 import './index.css'
 import { ThemeProvider } from './hooks/useTheme'
 import { installChunkLoadRecovery } from '@/lib/chunkLoadRecovery'
+import { installImageContextMenuGuard } from '@/lib/imageContextMenuGuard'
 
 // Fonts are bundled locally in their own CSS chunk, avoiding third-party CSP
 // requests without consuming the main stylesheet's strict size allowance.
@@ -19,6 +20,7 @@ if (!rootElement) {
 }
 
 installChunkLoadRecovery()
+installImageContextMenuGuard()
 
 createRoot(rootElement).render(
   <React.StrictMode>

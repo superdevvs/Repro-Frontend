@@ -74,6 +74,7 @@ import {
 import { to12Hour } from '@/utils/availabilityUtils';
 import AddressLookupField from '@/components/AddressLookupField';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
+import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsModalHelpers';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
@@ -673,30 +674,7 @@ export function ShootDetailsOverviewTab({
     ? `${formatDate(alternateDateRaw)}${alternateTimeRaw ? ` · ${formatTime(alternateTimeRaw)}` : ''}`
     : null;
 
-  // Get location address - return only street address, not full address with city/state/zip
-  const getLocationAddress = () => {
-    const address = shoot.location?.address || optionalString(shootRecord.address) || '';
-    
-    // If we have city/state/zip, try to strip them from the address to get just street address
-    const city = shoot.location?.city || optionalString(shootRecord.city) || '';
-    const state = shoot.location?.state || optionalString(shootRecord.state) || '';
-    const zip = shoot.location?.zip || optionalString(shootRecord.zip) || '';
-    
-    if (address && (city || state || zip)) {
-      // Remove city, state, zip from the end of address if present
-      let streetAddress = address;
-      if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
-      if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
-      if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
-      // Clean up any trailing commas or spaces
-      streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
-      if (streetAddress) return streetAddress;
-    }
-    
-    if (address) return address;
-    if (shoot.location?.fullAddress) return shoot.location.fullAddress;
-    return 'Not set';
-  };
+  const getLocationAddress = () => getShootStreetAddress(shoot) || 'Not set';
 
   // Get location city/state/zip
   const getLocationDetails = () => {

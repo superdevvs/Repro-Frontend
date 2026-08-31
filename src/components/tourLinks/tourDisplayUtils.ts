@@ -13,3 +13,8 @@ export const formatTourPrice = (value: string | number | null | undefined): stri
 
   return `$${Number(numericValue).toLocaleString()}`;
 };
+
+export const normalizeTourDescription = (description: unknown): string => {
+  if (description === null || description === undefined) return '';
+  return String(description).trim();
+};

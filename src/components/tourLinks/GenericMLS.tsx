@@ -12,8 +12,10 @@ import {
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
-import { formatTourPrice } from './tourDisplayUtils';
+import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
+import { TourStatsGrid } from './TourStatsGrid';
+import { TourAboutSection } from './TourAboutSection';
 
 interface PropertyDetails {
   beds?: number;
@@ -206,6 +208,7 @@ export function GenericMLS() {
   const mlsId = propertyDetails?.mls_id || propertyDetails?.mlsId || null;
   const listingType = propertyDetails?.listing_type || propertyDetails?.listingType || null;
   const propertyStatus = propertyDetails?.property_status || propertyDetails?.propertyStatus || null;
+  const description = normalizeTourDescription(propertyDetails?.description);
   const listPrice = formatTourPrice(propertyDetails?.price);
   const hasStats = beds || baths || sqft || garageCars;
 
@@ -306,7 +309,7 @@ export function GenericMLS() {
 
           {/* Floating nav pill */}
           <nav className="absolute top-3 left-3 right-3 md:left-auto md:top-5 md:right-5 z-10 flex items-center gap-0.5 md:gap-1 bg-white/15 backdrop-blur-md rounded-full px-1.5 md:px-2 py-1 md:py-1.5 border border-white/20 overflow-x-auto no-scrollbar">
-            {propertyDetails?.description && (
+            {description && (
               <a href="#about" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium bg-white text-black rounded-full transition-colors whitespace-nowrap">About</a>
             )}
             {photos.length > 0 && (
@@ -361,29 +364,16 @@ export function GenericMLS() {
         if (mlsId != null) statItems.push({ icon: <FileText className="w-7 h-7 text-muted-foreground" />, label: 'MLS', value: String(mlsId) });
         return (
           <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
-            <div className="grid grid-cols-3 md:flex md:items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
-              {statItems.map((item, i) => (
-                <div key={i} className={cn("flex flex-col items-center gap-1 md:gap-1.5 py-3 md:py-5 px-1 md:px-2 md:flex-1", i >= 3 && "border-t border-border/40 md:border-t-0")}>
-                  <span className="[&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-7 md:[&>svg]:h-7">{item.icon}</span>
-                  <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
-                  <span className="text-xs md:text-lg font-extrabold text-foreground">{item.value}</span>
-                </div>
-              ))}
-            </div>
+            <TourStatsGrid items={statItems} />
           </section>
         );
       })()}
 
-      {(propertyDetails?.description || listingType || propertyStatus) && (
-        <section id="about" className="max-w-6xl mx-auto px-6 mt-10">
-          <div className="flex flex-wrap gap-2 mb-4">
-            {listingType && <Badge variant="secondary">{String(listingType).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</Badge>}
-            {propertyStatus && String(propertyStatus) !== 'available' && <Badge variant="outline">{String(propertyStatus).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</Badge>}
-          </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">About</h2>
-          {propertyDetails?.description && <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-sm md:text-base">{propertyDetails.description}</p>}
-        </section>
-      )}
+      <TourAboutSection
+        description={description}
+        listingType={listingType}
+        propertyStatus={propertyStatus}
+      />
 
       {/* Photo Gallery */}
       {photos.length > 0 && (

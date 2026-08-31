@@ -5,6 +5,7 @@ interface ShootDetailsCompatibilityFields {
   addressLine?: string;
   city?: string;
   cityStateZip?: string;
+  fullAddress?: string;
   state?: string;
   zip?: string;
   startTime?: string;
@@ -26,6 +27,53 @@ const containsAddressSegment = (value: string, segment: string) => {
   const valueTokens = new Set(addressSegmentTokens(value));
   const segmentTokens = addressSegmentTokens(segment);
   return segmentTokens.length > 0 && segmentTokens.every((token) => valueTokens.has(token));
+};
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const removeTrailingLocality = (address: string, segments: string[]) => {
+  const normalizedSegments = segments
+    .map(sanitizeWeatherSegment)
+    .filter(Boolean);
+  if (normalizedSegments.length === 0) return address;
+
+  const localityPattern = normalizedSegments
+    .map(escapeRegExp)
+    .join('(?:\\s*,\\s*|\\s+)');
+
+  return address
+    .replace(new RegExp(`\\s*,\\s*${localityPattern}\\s*$`, 'iu'), '')
+    .replace(/[,\s]+$/, '')
+    .trim();
+};
+
+/**
+ * Resolve the street line without treating state abbreviations as arbitrary
+ * substrings. For example, "VA" must never remove the "Va" in "Valley".
+ */
+export const getShootStreetAddress = (shoot: ShootData | null): string => {
+  if (!shoot) return '';
+
+  const compatibleShoot = asCompatibleShoot(shoot);
+  const explicitStreetAddress =
+    shoot.location?.address || compatibleShoot.address || compatibleShoot.addressLine || '';
+
+  // Structured address fields are already the canonical street-only value.
+  if (explicitStreetAddress.trim()) return explicitStreetAddress;
+
+  const fullAddress = sanitizeWeatherSegment(
+    shoot.location?.fullAddress || compatibleShoot.fullAddress,
+  );
+  if (!fullAddress) return '';
+
+  const city = shoot.location?.city || compatibleShoot.city || '';
+  const state = shoot.location?.state || compatibleShoot.state || '';
+  const zip = shoot.location?.zip || compatibleShoot.zip || '';
+
+  // Remove one complete, comma-delimited locality suffix. Requiring the
+  // delimiter prevents street words that resemble a city/state from matching.
+  return removeTrailingLocality(fullAddress, [city, state, zip]);
 };
 
 export const buildWeatherLocationQuery = (shoot: ShootData | null): string | null => {
@@ -155,21 +203,7 @@ export const canSubmitEditsFromDetails = ({
 };
 
 export const getShootDetailsAddressTitle = (shoot: ShootData | null): string => {
-  if (!shoot) return 'Shoot Details';
-  const compatibleShoot = asCompatibleShoot(shoot);
-  const address = shoot.location?.address || compatibleShoot.address || '';
-  const city = shoot.location?.city || compatibleShoot.city || '';
-  const state = shoot.location?.state || compatibleShoot.state || '';
-  const zip = shoot.location?.zip || compatibleShoot.zip || '';
-  if (address && (city || state || zip)) {
-    let streetAddress = address;
-    if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
-    if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
-    if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
-    streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
-    if (streetAddress) return streetAddress;
-  }
-  return address || shoot.location?.fullAddress || 'Shoot Details';
+  return getShootStreetAddress(shoot) || 'Shoot Details';
 };
 
 export const getShootSubmitFileCount = (

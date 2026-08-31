@@ -3,6 +3,7 @@ import { BedDouble, MapPinIcon, Ruler, ShowerHead } from 'lucide-react';
 import AddressLookupField from '@/components/AddressLookupField';
 import { Input } from '@/components/ui/input';
 import { ShootData } from '@/types/shoots';
+import type { AddressDetailsForLookup } from './shootOverviewEditorSupport';
 
 type PropertyMetricsEdit = {
   beds: string;
@@ -27,7 +28,7 @@ type OverviewPropertyLocationSectionProps = {
   shoot: ShootData;
   updateField: (field: string, value: unknown) => void;
   clearAddressDerivedState: (options?: { keepAddressInput?: boolean }) => void;
-  handleAddressSelect: (details: unknown) => void;
+  handleAddressSelect: (details: AddressDetailsForLookup) => void;
   getLocationAddress: () => string;
   locationDetails: {
     city?: string;
@@ -162,7 +163,7 @@ export function OverviewPropertyLocationSection({
                     onSelectionStarted={() => {
                       clearAddressDerivedState({ keepAddressInput: false });
                     }}
-                    onAddressSelect={handleAddressSelect as any}
+                    onAddressSelect={handleAddressSelect}
                     className="text-xs"
                   />
                 </div>
@@ -210,6 +211,7 @@ export function OverviewPropertyLocationSection({
 
   return (
     <>
+      {locationCard}
       {rightSlot ? (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-stretch">
           <div className="md:col-span-3 min-w-0">{propertyDetailsCard}</div>
@@ -218,7 +220,6 @@ export function OverviewPropertyLocationSection({
       ) : (
         propertyDetailsCard
       )}
-      {locationCard}
     </>
   );
 }
