@@ -1,5 +1,3 @@
-import type { jsPDF as JsPdfDocument } from 'jspdf';
-
 import {
   BRAND_ADDRESS_LINES,
   BRAND_EMAIL,
@@ -11,6 +9,8 @@ import type {
   InvoiceParty,
   InvoiceShootRef,
 } from '@/types/invoice';
+
+type JsPdfDocument = import('jspdf').jsPDF;
 
 /** Any normalized or API invoice-shaped object accepted by the PDF renderer. */
 export type DownloadableInvoice = object;
