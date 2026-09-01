@@ -1,151 +1,240 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Navigate } from 'react-router-dom';
+import {
+  AlertCircle,
+  BarChart3,
+  Download,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
-import { useState } from "react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { useAuth } from '@/components/auth/AuthProvider';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/auth/AuthProvider";
-import { usePermission } from "@/hooks/usePermission";
-import { Navigate } from "react-router-dom";
-import { toast } from "@/components/ui/use-toast";
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  buildPeriodRows,
+  buildPhotographerRows,
+  buildReportCsv,
+  buildServiceRows,
+  fetchReportInvoices,
+  fetchReportShoots,
+  getReportRange,
+  type ReportServiceRow,
+  type ReportTimeframe,
+  type ReportType,
+} from '@/features/reports/reporting';
+import { usePermission } from '@/hooks/usePermission';
+import { useToast } from '@/hooks/use-toast';
 
-// Monthly data
-const revenueData = [
-  { month: 'Jan', revenue: 4000 },
-  { month: 'Feb', revenue: 3000 },
-  { month: 'Mar', revenue: 2000 },
-  { month: 'Apr', revenue: 2780 },
-  { month: 'May', revenue: 1890 },
-  { month: 'Jun', revenue: 2390 },
-  { month: 'Jul', revenue: 3490 },
-  { month: 'Aug', revenue: 4000 },
-  { month: 'Sep', revenue: 5000 },
-  { month: 'Oct', revenue: 6000 },
-  { month: 'Nov', revenue: 4500 },
-  { month: 'Dec', revenue: 3800 },
-];
+const CHART_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16', '#f97316'];
 
-// Quarterly data
-const quarterlyData = [
-  { quarter: 'Q1', revenue: 9000, shoots: 45 },
-  { quarter: 'Q2', revenue: 7060, shoots: 35 },
-  { quarter: 'Q3', revenue: 12490, shoots: 62 },
-  { quarter: 'Q4', revenue: 14300, shoots: 71 },
-];
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
 
-// Yearly data
-const yearlyData = [
-  { year: '2020', revenue: 35000, shoots: 175 },
-  { year: '2021', revenue: 42000, shoots: 210 },
-  { year: '2022', revenue: 48000, shoots: 240 },
-  { year: '2023', revenue: 54000, shoots: 270 },
-  { year: '2024', revenue: 30000, shoots: 150 },
-];
+const formatCurrency = (value: number): string => currencyFormatter.format(value);
 
-// Monthly shoots data
-const shootsData = [
-  { month: 'Jan', shoots: 20 },
-  { month: 'Feb', shoots: 15 },
-  { month: 'Mar', shoots: 10 },
-  { month: 'Apr', shoots: 14 },
-  { month: 'May', shoots: 9 },
-  { month: 'Jun', shoots: 12 },
-  { month: 'Jul', shoots: 17 },
-  { month: 'Aug', shoots: 20 },
-  { month: 'Sep', shoots: 25 },
-  { month: 'Oct', shoots: 30 },
-  { month: 'Nov', shoots: 22 },
-  { month: 'Dec', shoots: 19 },
-];
+const getTimeframeDescription = (timeframe: ReportTimeframe, rangeLabel: string): string => {
+  if (timeframe === 'monthly') return `Monthly breakdown for ${rangeLabel}`;
+  if (timeframe === 'quarterly') return `Quarterly breakdown for ${rangeLabel}`;
+  return `Annual breakdown for ${rangeLabel}`;
+};
 
-// Photographer performance data
-const photographerData = [
-  { name: "John Doe", revenue: 12500, shoots: 65 },
-  { name: "Jane Smith", revenue: 15800, shoots: 72 },
-  { name: "Mike Brown", revenue: 9200, shoots: 43 },
-  { name: "Sarah Johnson", revenue: 13400, shoots: 58 },
-  { name: "David Lee", revenue: 8900, shoots: 36 },
-];
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback;
 
-// Service type data
-const serviceData = [
-  { name: "HDR Photos", value: 45, revenue: 4500 },
-  { name: "Floor Plans", value: 20, revenue: 2000 },
-  { name: "Video Tours", value: 15, revenue: 1500 },
-  { name: "Drone Photography", value: 12, revenue: 1200 },
-  { name: "Virtual Staging", value: 8, revenue: 800 },
-];
+const collapseServiceRows = (rows: ReportServiceRow[]): ReportServiceRow[] => {
+  if (rows.length <= 8) return rows;
 
-// Colors for pie chart
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  const visible = rows.slice(0, 7);
+  const remainder = rows.slice(7).reduce(
+    (total, row) => ({
+      name: 'Other',
+      shoots: total.shoots + row.shoots,
+      revenue: total.revenue + row.revenue,
+    }),
+    { name: 'Other', shoots: 0, revenue: 0 },
+  );
+
+  return [...visible, remainder];
+};
+
+const downloadCsv = (csv: string, filename: string) => {
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+interface ReportStateProps {
+  state: 'loading' | 'error' | 'empty';
+  title?: string;
+  description?: string;
+  onRetry?: () => void;
+}
+
+function ReportState({ state, title, description, onRetry }: ReportStateProps) {
+  if (state === 'loading') {
+    return (
+      <div className="flex h-full items-end gap-3 px-2 pb-3" aria-label="Loading report data">
+        {[44, 68, 52, 84, 62, 74, 48, 70].map((height, index) => (
+          <Skeleton key={`${height}-${index}`} className="flex-1 rounded-t-md" style={{ height: `${height}%` }} />
+        ))}
+      </div>
+    );
+  }
+
+  const isError = state === 'error';
+  const Icon = isError ? AlertCircle : BarChart3;
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className={`mb-3 rounded-full p-3 ${isError ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+        <Icon className="h-6 w-6" />
+      </div>
+      <p className="font-medium text-foreground">{title}</p>
+      {description && <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>}
+      {isError && onRetry && (
+        <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Try again
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export default function Reports() {
-  const [timeframe, setTimeframe] = useState("monthly");
-  const [reportType, setReportType] = useState("summary");
+  const [timeframe, setTimeframe] = useState<ReportTimeframe>('monthly');
+  const [reportType, setReportType] = useState<ReportType>('summary');
   const { role } = useAuth();
   const { can } = usePermission();
+  const { toast } = useToast();
   const canViewReports = can('reports', 'view');
   const isSuperAdmin = role === 'superadmin';
-  const isAdmin = role === 'admin' || role === 'superadmin';
-  
-  // Only Super Admin can access Reports
-  if (!canViewReports || !isSuperAdmin) {
+  const canLoadReports = canViewReports && isSuperAdmin;
+  const range = useMemo(() => getReportRange(timeframe), [timeframe]);
+
+  const invoiceQuery = useQuery({
+    queryKey: ['reports', 'invoices', range.start, range.end],
+    queryFn: ({ signal }) => fetchReportInvoices(range, signal),
+    enabled: canLoadReports,
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const shootQuery = useQuery({
+    queryKey: ['reports', 'shoots', range.start, range.end],
+    queryFn: ({ signal }) => fetchReportShoots(range, signal),
+    enabled: canLoadReports,
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (role && !canLoadReports) {
+      toast({
+        title: 'Access denied',
+        description: 'Only Super Admin can access Reports.',
+        variant: 'destructive',
+      });
+    }
+  }, [canLoadReports, role, toast]);
+
+  const invoices = useMemo(() => invoiceQuery.data ?? [], [invoiceQuery.data]);
+  const shoots = useMemo(() => shootQuery.data ?? [], [shootQuery.data]);
+  const periodRows = useMemo(
+    () => buildPeriodRows(invoices, shoots, timeframe),
+    [invoices, shoots, timeframe],
+  );
+  const photographerRows = useMemo(() => buildPhotographerRows(shoots), [shoots]);
+  const serviceRows = useMemo(() => buildServiceRows(shoots), [shoots]);
+  const photographerChartRows = useMemo(() => photographerRows.slice(0, 10), [photographerRows]);
+  const serviceChartRows = useMemo(() => collapseServiceRows(serviceRows), [serviceRows]);
+  const hasRevenue = periodRows.some((row) => row.revenue > 0);
+  const hasShoots = periodRows.some((row) => row.shoots > 0);
+  const timeframeDescription = getTimeframeDescription(timeframe, range.label);
+
+  const selectedIsLoading = reportType === 'summary'
+    ? invoiceQuery.isPending || shootQuery.isPending
+    : shootQuery.isPending;
+  const selectedHasError = reportType === 'summary'
+    ? invoiceQuery.isError || shootQuery.isError
+    : shootQuery.isError;
+  const selectedHasData = reportType === 'summary'
+    ? hasRevenue || hasShoots
+    : reportType === 'photographer'
+      ? photographerRows.length > 0
+      : serviceRows.length > 0;
+
+  const handleExport = () => {
+    if (!selectedHasData || selectedHasError) {
+      toast({
+        title: 'Nothing to export',
+        description: 'Load a report with live data before exporting it.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const csv = buildReportCsv(reportType, periodRows, photographerRows, serviceRows);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(csv, `report-${reportType}-${timeframe}-${stamp}.csv`);
     toast({
-      title: "Access Denied",
-      description: "Only Super Admin can access Reports.",
-      variant: "destructive",
+      title: 'Report exported',
+      description: `The ${reportType} report for ${range.label} was downloaded as CSV.`,
     });
+  };
+
+  if (!canLoadReports) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const getDataForTimeframe = (dataType: "revenue" | "shoots") => {
-    switch (timeframe) {
-      case "monthly":
-        return dataType === "revenue" ? revenueData : shootsData;
-      case "quarterly":
-        return quarterlyData;
-      case "yearly":
-        return yearlyData;
-      default:
-        return dataType === "revenue" ? revenueData : shootsData;
-    }
-  };
-
-  const getXAxisKey = () => {
-    switch (timeframe) {
-      case "monthly":
-        return "month";
-      case "quarterly":
-        return "quarter";
-      case "yearly":
-        return "year";
-      default:
-        return "month";
-    }
-  };
-
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader
           badge="Reports"
           title="Reports"
-          description="Analytics and reporting for your photography business"
-          action={
-            <div className="flex flex-wrap gap-3">
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Report Type" />
+          description={`Live business analytics for ${range.label}`}
+          action={(
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+              <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Report type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="summary">Summary</SelectItem>
@@ -153,9 +242,9 @@ export default function Reports() {
                   <SelectItem value="service">By Service</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select timeframe" />
+              <Select value={timeframe} onValueChange={(value) => setTimeframe(value as ReportTimeframe)}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Timeframe" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monthly">Monthly</SelectItem>
@@ -163,101 +252,149 @@ export default function Reports() {
                   <SelectItem value="yearly">Yearly</SelectItem>
                 </SelectContent>
               </Select>
-              {isAdmin && (
-                <Button>
-                  Export Report
-                </Button>
-              )}
+              <Button
+                onClick={handleExport}
+                disabled={selectedIsLoading || selectedHasError || !selectedHasData}
+                aria-label="Export selected report as CSV"
+              >
+                {selectedIsLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Export Report
+              </Button>
             </div>
-          }
+          )}
         />
 
-          {reportType === "summary" && (
-            <Tabs defaultValue="revenue" className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-                <TabsTrigger value="revenue">Revenue</TabsTrigger>
-                <TabsTrigger value="shoots">Shoots</TabsTrigger>
-              </TabsList>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+            Live data
+          </Badge>
+          <span className="text-sm text-muted-foreground">Selected period: {range.label}</span>
+        </div>
 
-              <TabsContent value="revenue">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Revenue Overview</CardTitle>
-                    <CardDescription>
-                      {timeframe === "monthly" && "Monthly revenue breakdown for the current year"}
-                      {timeframe === "quarterly" && "Quarterly revenue breakdown for the current year"}
-                      {timeframe === "yearly" && "Yearly revenue breakdown for the past 5 years"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-80">
+        {reportType === 'summary' && (
+          <Tabs defaultValue="revenue" className="w-full">
+            <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="revenue">Revenue</TabsTrigger>
+              <TabsTrigger value="shoots">Shoots</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="revenue">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Collected Revenue</CardTitle>
+                  <CardDescription>{timeframeDescription}, with collected client payments grouped by invoice issue date</CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  {invoiceQuery.isPending ? (
+                    <ReportState state="loading" />
+                  ) : invoiceQuery.isError ? (
+                    <ReportState
+                      state="error"
+                      title="Revenue data could not be loaded"
+                      description={getErrorMessage(invoiceQuery.error, 'Please try again.')}
+                      onRetry={() => void invoiceQuery.refetch()}
+                    />
+                  ) : !hasRevenue ? (
+                    <ReportState
+                      state="empty"
+                      title="No collected revenue in this period"
+                      description="Paid client invoices will appear here as soon as they are recorded."
+                    />
+                  ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={getDataForTimeframe("revenue")}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey={getXAxisKey()} />
-                        <YAxis tickFormatter={(value) => `$${value}`} />
-                        <Tooltip formatter={(value) => `$${value}`} />
+                      <BarChart data={periodRows} margin={{ top: 12, right: 12, left: 8, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                        <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} />
+                        <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Collected revenue']} />
                         <Legend />
-                        <Bar dataKey="revenue" fill="#10b981" name="Revenue ($)" />
+                        <Bar dataKey="revenue" fill="#10b981" name="Collected revenue" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              <TabsContent value="shoots">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Shoots Overview</CardTitle>
-                    <CardDescription>
-                      {timeframe === "monthly" && "Monthly shoots breakdown for the current year"}
-                      {timeframe === "quarterly" && "Quarterly shoots breakdown for the current year"}
-                      {timeframe === "yearly" && "Yearly shoots breakdown for the past 5 years"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-80">
+            <TabsContent value="shoots">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Shoots Overview</CardTitle>
+                  <CardDescription>{timeframeDescription}, based on scheduled shoot dates</CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  {shootQuery.isPending ? (
+                    <ReportState state="loading" />
+                  ) : shootQuery.isError ? (
+                    <ReportState
+                      state="error"
+                      title="Shoot data could not be loaded"
+                      description={getErrorMessage(shootQuery.error, 'Please try again.')}
+                      onRetry={() => void shootQuery.refetch()}
+                    />
+                  ) : !hasShoots ? (
+                    <ReportState
+                      state="empty"
+                      title="No shoots in this period"
+                      description="Shoots will appear here when they are scheduled."
+                    />
+                  ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={getDataForTimeframe("shoots")}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey={getXAxisKey()} />
-                        <YAxis />
-                        <Tooltip />
+                      <LineChart data={periodRows} margin={{ top: 12, right: 12, left: 8, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                        <Tooltip formatter={(value) => [Number(value).toLocaleString(), 'Shoots']} />
                         <Legend />
-                        <Line type="monotone" dataKey="shoots" stroke="#6366f1" name="Number of Shoots" />
+                        <Line type="monotone" dataKey="shoots" stroke="#2563eb" strokeWidth={2} name="Shoots" />
                       </LineChart>
                     </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
 
-          {reportType === "photographer" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {reportType === 'photographer' && (
+          shootQuery.isPending ? (
+            <Card><CardContent className="h-80 pt-6"><ReportState state="loading" /></CardContent></Card>
+          ) : shootQuery.isError ? (
+            <Card>
+              <CardContent className="h-80 pt-6">
+                <ReportState
+                  state="error"
+                  title="Photographer performance could not be loaded"
+                  description={getErrorMessage(shootQuery.error, 'Please try again.')}
+                  onRetry={() => void shootQuery.refetch()}
+                />
+              </CardContent>
+            </Card>
+          ) : photographerRows.length === 0 ? (
+            <Card>
+              <CardContent className="h-80 pt-6">
+                <ReportState state="empty" title="No photographer activity in this period" />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Photographer Revenue</CardTitle>
-                  <CardDescription>
-                    Revenue by photographer for the selected period
-                  </CardDescription>
+                  <CardDescription>Top 10 by collected service revenue for {range.label}</CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
+                <CardContent className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={photographerData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      layout="vertical"
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tickFormatter={(value) => `$${value}`} />
-                      <YAxis type="category" dataKey="name" width={100} />
-                      <Tooltip formatter={(value) => `$${value}`} />
-                      <Bar dataKey="revenue" fill="#10b981" name="Revenue ($)" />
+                    <BarChart data={photographerChartRows} layout="vertical" margin={{ top: 8, right: 18, left: 18, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" width={120} tickLine={false} axisLine={false} />
+                      <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Collected revenue']} />
+                      <Bar dataKey="revenue" fill="#10b981" name="Collected revenue" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -266,56 +403,68 @@ export default function Reports() {
               <Card>
                 <CardHeader>
                   <CardTitle>Photographer Shoot Count</CardTitle>
-                  <CardDescription>
-                    Number of shoots completed by photographer
-                  </CardDescription>
+                  <CardDescription>Unique assigned shoots for {range.label}</CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
+                <CardContent className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={photographerData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      layout="vertical"
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" width={100} />
-                      <Tooltip />
-                      <Bar dataKey="shoots" fill="#6366f1" name="Number of Shoots" />
+                    <BarChart data={photographerChartRows} layout="vertical" margin={{ top: 8, right: 18, left: 18, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" width={120} tickLine={false} axisLine={false} />
+                      <Tooltip formatter={(value) => [Number(value).toLocaleString(), 'Shoots']} />
+                      <Bar dataKey="shoots" fill="#2563eb" name="Shoots" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
-          )}
+          )
+        )}
 
-          {reportType === "service" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {reportType === 'service' && (
+          shootQuery.isPending ? (
+            <Card><CardContent className="h-80 pt-6"><ReportState state="loading" /></CardContent></Card>
+          ) : shootQuery.isError ? (
+            <Card>
+              <CardContent className="h-80 pt-6">
+                <ReportState
+                  state="error"
+                  title="Service performance could not be loaded"
+                  description={getErrorMessage(shootQuery.error, 'Please try again.')}
+                  onRetry={() => void shootQuery.refetch()}
+                />
+              </CardContent>
+            </Card>
+          ) : serviceRows.length === 0 ? (
+            <Card>
+              <CardContent className="h-80 pt-6">
+                <ReportState state="empty" title="No service activity in this period" />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Services Breakdown</CardTitle>
-                  <CardDescription>
-                    Distribution of services provided
-                  </CardDescription>
+                  <CardDescription>Share of booked shoots by service for {range.label}</CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
+                <CardContent className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={serviceData}
+                        data={serviceChartRows}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
+                        label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                        outerRadius={105}
+                        dataKey="shoots"
                       >
-                        {serviceData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        {serviceChartRows.map((row, index) => (
+                          <Cell key={row.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => `${value} shoots`} />
+                      <Tooltip formatter={(value) => [Number(value).toLocaleString(), 'Shoots']} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -324,29 +473,24 @@ export default function Reports() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Top Services Revenue</CardTitle>
-                  <CardDescription>
-                    Revenue generated by service type
-                  </CardDescription>
+                  <CardTitle>Service Revenue</CardTitle>
+                  <CardDescription>Collected payment allocated to each service for {range.label}</CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
+                <CardContent className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={serviceData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis tickFormatter={(value) => `$${value}`} />
-                      <Tooltip formatter={(value) => `$${value}`} />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#10b981" name="Revenue ($)" />
+                    <BarChart data={serviceRows.slice(0, 10)} layout="vertical" margin={{ top: 8, right: 18, left: 18, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" tickFormatter={(value) => formatCurrency(Number(value))} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" width={120} tickLine={false} axisLine={false} />
+                      <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Collected revenue']} />
+                      <Bar dataKey="revenue" fill="#10b981" name="Collected revenue" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
-          )}
+          )
+        )}
       </div>
     </DashboardLayout>
   );

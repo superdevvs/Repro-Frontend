@@ -32,6 +32,10 @@ interface SettingsBrandingTabProps {
   onLogoChange: (url: string) => void;
   brandBanner: string;
   onBannerChange: (url: string) => void;
+  primaryColor: string;
+  onPrimaryColorChange: (value: string) => void;
+  secondaryColor: string;
+  onSecondaryColorChange: (value: string) => void;
   brandAbout: string;
   onBrandAboutChange: (value: string) => void;
   heroHeadline: string;
@@ -57,6 +61,10 @@ export function SettingsBrandingTab({
   onLogoChange,
   brandBanner,
   onBannerChange,
+  primaryColor,
+  onPrimaryColorChange,
+  secondaryColor,
+  onSecondaryColorChange,
   brandAbout,
   onBrandAboutChange,
   heroHeadline,
@@ -132,23 +140,23 @@ export function SettingsBrandingTab({
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="brand-colors" className="text-sm font-medium">Brand Colors</label>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:max-w-md">
                   {[
-                    ['Primary', '#0070f3'],
-                    ['Secondary', '#f5f5f5'],
-                    ['Accent', '#ff4500'],
-                    ['Text', '#333333'],
-                  ].map(([label, color]) => (
+                    { label: 'Primary', color: primaryColor, onChange: onPrimaryColorChange },
+                    { label: 'Secondary', color: secondaryColor, onChange: onSecondaryColorChange },
+                  ].map(({ label, color, onChange }) => (
                     <div key={label} className="space-y-1">
                       <span className="text-xs text-muted-foreground">{label}</span>
-                      <Input type="color" defaultValue={color} className="h-10 p-1" />
+                      <Input
+                        aria-label={`${label} brand color`}
+                        type="color"
+                        value={color}
+                        onChange={(event) => onChange(event.target.value)}
+                        className="h-10 p-1"
+                      />
                     </div>
                   ))}
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="tagline" className="text-sm font-medium">Company Tagline</label>
-                <Input id="tagline" placeholder="Your business tagline" />
               </div>
               <div className="space-y-2">
                 <label htmlFor="brand-about" className="text-sm font-medium">Portfolio About</label>

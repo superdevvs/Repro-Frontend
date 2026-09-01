@@ -10,24 +10,29 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileEdit, ClipboardList, Loader2 } from "lucide-react";
+import { FileEdit, ClipboardList, Loader2, RefreshCw } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
+import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
 
 export function EditorProfile() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
-  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
+  const editorQueue = useEditorDashboardQueue(user?.id, Boolean(user?.id));
+  const metadata = (user?.metadata ?? {}) as Record<string, unknown>;
+  const savedPreferences = metadata.preferences && typeof metadata.preferences === 'object'
+    ? metadata.preferences as Record<string, unknown>
+    : {};
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "",
     avatar: user?.avatar || "",
-    showEditingNotes: savedPreferences.showEditingNotes ?? true,
-    emailNotifications: savedPreferences.emailNotifications ?? true,
+    showEditingNotes: typeof savedPreferences.showEditingNotes === 'boolean' ? savedPreferences.showEditingNotes : true,
+    emailNotifications: typeof savedPreferences.notificationEmail === 'boolean' ? savedPreferences.notificationEmail : true,
     currentPassword: "",
   });
 
@@ -57,7 +62,7 @@ export function EditorProfile() {
           avatar: formData.avatar || null,
           preferences: {
             showEditingNotes: formData.showEditingNotes,
-            emailNotifications: formData.emailNotifications,
+            notificationEmail: formData.emailNotifications,
           },
       });
       if (!result.reauthRequired) {
@@ -72,12 +77,10 @@ export function EditorProfile() {
     }
   };
 
-  // Mock data for editor stats
   const editorStats = {
-    assignedShoots: 12,
-    completedEdits: 146,
-    pendingEdits: 8,
-    avgTurnaroundTime: "1.5 days"
+    assignedShoots: editorQueue.sourceShoots.length,
+    completedEdits: editorQueue.deliveredShoots.length,
+    pendingEdits: editorQueue.upcomingShoots.length,
   };
 
   return (
@@ -179,7 +182,7 @@ export function EditorProfile() {
                   <div className="flex items-center justify-between border p-4 rounded-lg">
                     <div className="space-y-0.5">
                       <Label htmlFor="emailNotifications">Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Receive notifications for new assignments</p>
+                      <p className="text-sm text-muted-foreground">Email me when I receive a new internal dashboard message</p>
                     </div>
                     <Switch
                       id="emailNotifications"
@@ -232,6 +235,18 @@ export function EditorProfile() {
               <CardDescription>Your current workload and performance</CardDescription>
             </CardHeader>
             <CardContent>
+              {editorQueue.isLoading ? (
+                <div className="flex min-h-28 items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading workload…
+                </div>
+              ) : editorQueue.isError ? (
+                <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                  <p>Could not load your current editor workload.</p>
+                  <Button variant="outline" size="sm" onClick={() => void editorQueue.refetch()}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                  </Button>
+                </div>
+              ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Assigned Shoots</span>
@@ -245,11 +260,8 @@ export function EditorProfile() {
                   <span className="text-sm text-muted-foreground">Pending Edits</span>
                   <span className="font-medium">{editorStats.pendingEdits}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Avg. Turnaround</span>
-                  <span className="font-medium">{editorStats.avgTurnaroundTime}</span>
-                </div>
               </div>
+              )}
             </CardContent>
           </Card>
 

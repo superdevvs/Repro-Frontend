@@ -284,14 +284,6 @@ export function RoleBasedOverviewCards({
     }
   }, [mode, invoices, shoots, editingJobs, user, effectiveDaysWindow, isInvoiceForCurrentClient, timeFilter]);
 
-  // Fake trend data (replace with real data)
-  const trends = {
-    revenue: { value: 8.2, direction: "up" as const },
-    pending: { value: -2.5, direction: "down" as const },
-    overdue: { value: 4.1, direction: "up" as const },
-    paid: { value: 12.5, direction: "up" as const },
-  };
-
   // Render cards based on mode
   const renderCards = () => {
     switch (mode) {
@@ -303,7 +295,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.totalRevenue?.value.toLocaleString() || 0}`}
               description={`Current ${timeFilter ?? "period"}`}
               icon={<DollarSign className="h-4 w-4" />}
-              trend={trends.revenue}
               color="blue"
               animated={true}
             />
@@ -312,7 +303,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.outstanding?.value.toLocaleString() || 0}`}
               description={`${metrics.outstanding?.count || 0} invoice${(metrics.outstanding?.count || 0) !== 1 ? "s" : ""}`}
               icon={<CreditCard className="h-4 w-4" />}
-              trend={trends.pending}
               color="amber"
               animated={true}
             />
@@ -321,7 +311,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.paid?.value.toLocaleString() || 0}`}
               description={`${metrics.paid?.count || 0} invoice${(metrics.paid?.count || 0) !== 1 ? "s" : ""}`}
               icon={<CheckCircle className="h-4 w-4" />}
-              trend={trends.paid}
               color="emerald"
               animated={true}
             />
@@ -380,7 +369,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.totalEarnings?.value.toLocaleString() || 0}`}
               description="Completed jobs"
               icon={<DollarSign className="h-4 w-4" />}
-              trend={trends.revenue}
               color="blue"
               animated={true}
             />
@@ -389,7 +377,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.pendingPayouts?.value.toLocaleString() || 0}`}
               description="Awaiting payment"
               icon={<Clock className="h-4 w-4" />}
-              trend={trends.pending}
               color="amber"
               animated={true}
             />
@@ -398,7 +385,6 @@ export function RoleBasedOverviewCards({
               value={`${metrics.editsCompleted?.value || 0}`}
               description="This month"
               icon={<CheckCircle className="h-4 w-4" />}
-              trend={trends.paid}
               color="emerald"
               animated={true}
             />
@@ -407,7 +393,6 @@ export function RoleBasedOverviewCards({
               value={`$${Math.round(metrics.avgPayPerJob?.value || 0).toLocaleString()}`}
               description="Per job"
               icon={<TrendingUp className="h-4 w-4" />}
-              trend={trends.revenue}
               color="blue"
               animated={true}
             />
@@ -422,7 +407,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.outstandingBalance?.value.toLocaleString() || 0}`}
               description="Unpaid invoices"
               icon={<CreditCard className="h-4 w-4" />}
-              trend={trends.pending}
               color="amber"
               animated={true}
             />
@@ -431,7 +415,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.paidLast30Days?.value.toLocaleString() || 0}`}
               description="Recent payments"
               icon={<CheckCircle className="h-4 w-4" />}
-              trend={trends.paid}
               color="emerald"
               animated={true}
             />
@@ -440,7 +423,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.totalSpend?.value.toLocaleString() || 0}`}
               description="All payments"
               icon={<DollarSign className="h-4 w-4" />}
-              trend={trends.revenue}
               color="blue"
               animated={true}
             />
@@ -449,7 +431,6 @@ export function RoleBasedOverviewCards({
               value={`$${metrics.upcomingCharges?.value.toLocaleString() || 0}`}
               description="Pending invoices"
               icon={<Calendar className="h-4 w-4" />}
-              trend={trends.pending}
               color="rose"
               animated={true}
             />

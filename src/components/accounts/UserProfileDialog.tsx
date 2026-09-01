@@ -1,5 +1,6 @@
 
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { User } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,15 @@ import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 import { canResendUserVerification } from "@/utils/emailHealth";
 import { photographerAddressVisibility } from "@/utils/photographerAddressVisibility";
 import type { ResendVerificationResult } from "@/hooks/useResendVerificationEmail";
+import { apiClient } from "@/services/api";
 
 interface UserActivity {
   id: string;
   type: string;
-  description: string;
+  title: string;
+  description: string | null;
   timestamp: string;
+  source?: string;
 }
 
 type UserProfileDialogUser = User & {
@@ -40,28 +44,6 @@ type UserProfileDialogUser = User & {
   created_by_name?: string;
   createdBy?: string;
 };
-
-// Mock data for user activity
-const mockActivities: UserActivity[] = [
-  {
-    id: "1",
-    type: "login",
-    description: "User logged in",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    type: "role_change",
-    description: "User role changed from Client to Photographer",
-    timestamp: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "3",
-    type: "shoot_assigned",
-    description: "Assigned to shoot #12345",
-    timestamp: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
 
 interface UserProfileDialogProps {
   open: boolean;
@@ -102,6 +84,44 @@ export function UserProfileDialog({
   recentCompletedShoots = [],
 }: UserProfileDialogProps) {
   const { role: viewerRole } = useAuth();
+  const [activities, setActivities] = useState<UserActivity[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [activityReloadKey, setActivityReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!open || !user?.id) {
+      setActivities([]);
+      setActivityError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsLoadingActivity(true);
+    setActivityError(null);
+
+    void apiClient
+      .get<{ user: { activityLog?: UserActivity[] } }>(`/admin/users/${encodeURIComponent(String(user.id))}`, {
+        params: { activity_limit: 100 },
+        signal: controller.signal,
+      })
+      .then((response) => {
+        if (!controller.signal.aborted) {
+          setActivities(Array.isArray(response.data.user.activityLog) ? response.data.user.activityLog : []);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setActivityError(error instanceof Error ? error.message : 'Could not load account activity.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingActivity(false);
+      });
+
+    return () => controller.abort();
+  }, [activityReloadKey, open, user?.id]);
+
   if (!user) return null;
   const profileUser = user as UserProfileDialogUser;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
@@ -440,19 +460,39 @@ export function UserProfileDialog({
                 <TabsContent value="activity" className="pt-4">
                   <div className="space-y-4">
                     <h3 className="font-medium">Recent Activity</h3>
-                    <div className="space-y-4">
-                      {mockActivities.map(activity => (
-                        <div key={activity.id} className="border-b pb-3">
-                          <div className="flex justify-between">
-                            <p className="font-medium">{activity.description}</p>
-                            <Badge variant="outline">{activity.type}</Badge>
+                    {isLoadingActivity ? (
+                      <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading activity…
+                      </div>
+                    ) : activityError ? (
+                      <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                        <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4" />{activityError}</p>
+                        <Button variant="outline" size="sm" onClick={() => setActivityReloadKey((key) => key + 1)}>
+                          <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                        </Button>
+                      </div>
+                    ) : activities.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
+                        No account activity has been recorded yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {activities.map(activity => (
+                          <div key={activity.id} className="border-b pb-3 last:border-b-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium">{activity.title}</p>
+                                {activity.description && <p className="mt-1 text-sm text-muted-foreground">{activity.description}</p>}
+                              </div>
+                              <Badge variant="outline">{activity.source || activity.type.replace(/_/g, ' ')}</Badge>
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {format(new Date(activity.timestamp), "PPP 'at' p")}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {format(new Date(activity.timestamp), "PPP 'at' p")}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               )}

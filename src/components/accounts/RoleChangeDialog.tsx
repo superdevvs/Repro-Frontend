@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User, Role, useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,14 +24,14 @@ interface RoleChangeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: User | null;
-  onSubmit?: (userId: string, roles: Role[]) => void;
+  onSubmit?: (userId: string, roles: Role[]) => boolean | void | Promise<boolean | void>;
 }
 
 export function RoleChangeDialog({
   open,
   onOpenChange,
   user,
-  onSubmit = () => {},
+  onSubmit,
 }: RoleChangeDialogProps) {
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
@@ -40,6 +40,26 @@ export function RoleChangeDialog({
   // For multiple role assignment (optional feature)
   const [multipleRoles, setMultipleRoles] = useState(false);
   const [secondaryRoles, setSecondaryRoles] = useState<Role[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!open || !user) {
+      return;
+    }
+
+    const roleAwareUser = user as User & {
+      secondaryRoles?: Role[];
+      secondary_roles?: Role[];
+    };
+    const savedSecondaryRoles = roleAwareUser.secondaryRoles ?? roleAwareUser.secondary_roles ?? [];
+    const nextSecondaryRoles = savedSecondaryRoles.filter((role) => role !== user.role);
+
+    setPrimaryRole(user.role || 'client');
+    setSecondaryRoles(nextSecondaryRoles);
+    setMultipleRoles(nextSecondaryRoles.length > 0);
+    setSubmitError("");
+  }, [open, user]);
 
   const handleRoleChange = (value: string) => {
     setPrimaryRole(value as Role);
@@ -55,24 +75,47 @@ export function RoleChangeDialog({
     });
   };
 
-  const handleSubmit = () => {
-    if (user) {
-      if (multipleRoles) {
-        const uniqueRoles = [primaryRole, ...secondaryRoles].filter(
-          (value, index, self) => self.indexOf(value) === index
-        ) as Role[];
-        onSubmit(user.id, uniqueRoles);
-      } else {
-        onSubmit(user.id, [primaryRole]);
-      }
+  const handleSubmit = async () => {
+    if (!user || !onSubmit) {
+      setSubmitError("Role changes are unavailable right now.");
+      return;
     }
-    onOpenChange(false);
+
+    const roles = multipleRoles
+      ? [primaryRole, ...secondaryRoles].filter(
+          (value, index, self) => self.indexOf(value) === index,
+        ) as Role[]
+      : [primaryRole];
+
+    setSubmitError("");
+    setIsSubmitting(true);
+    try {
+      const succeeded = await onSubmit(user.id, roles);
+      if (succeeded === false) {
+        setSubmitError("The user's roles could not be updated. Please try again.");
+        return;
+      }
+
+      onOpenChange(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "The user's roles could not be updated.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!user) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && isSubmitting) {
+          return;
+        }
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Change User Role</DialogTitle>
@@ -84,7 +127,7 @@ export function RoleChangeDialog({
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>Primary Role</Label>
-            <Select defaultValue={user.role} onValueChange={handleRoleChange}>
+            <Select value={primaryRole} onValueChange={handleRoleChange} disabled={isSubmitting}>
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
@@ -105,6 +148,7 @@ export function RoleChangeDialog({
               id="multi-roles" 
               checked={multipleRoles} 
               onCheckedChange={(checked) => setMultipleRoles(checked === true)}
+              disabled={isSubmitting}
             />
             <Label htmlFor="multi-roles">Assign multiple roles</Label>
           </div>
@@ -118,7 +162,7 @@ export function RoleChangeDialog({
                     id="role-admin"
                     checked={secondaryRoles.includes('admin')}
                     onCheckedChange={() => handleSecondaryRoleToggle('admin')}
-                    disabled={primaryRole === 'admin'}
+                    disabled={isSubmitting || primaryRole === 'admin'}
                   />
                   <Label htmlFor="role-admin">Admin</Label>
                 </div>
@@ -127,7 +171,7 @@ export function RoleChangeDialog({
                     id="role-photographer"
                     checked={secondaryRoles.includes('photographer')}
                     onCheckedChange={() => handleSecondaryRoleToggle('photographer')}
-                    disabled={primaryRole === 'photographer'}
+                    disabled={isSubmitting || primaryRole === 'photographer'}
                   />
                   <Label htmlFor="role-photographer">Photographer</Label>
                 </div>
@@ -136,7 +180,7 @@ export function RoleChangeDialog({
                     id="role-client"
                     checked={secondaryRoles.includes('client')}
                     onCheckedChange={() => handleSecondaryRoleToggle('client')}
-                    disabled={primaryRole === 'client'}
+                    disabled={isSubmitting || primaryRole === 'client'}
                   />
                   <Label htmlFor="role-client">Client</Label>
                 </div>
@@ -145,7 +189,7 @@ export function RoleChangeDialog({
                     id="role-editor"
                     checked={secondaryRoles.includes('editor')}
                     onCheckedChange={() => handleSecondaryRoleToggle('editor')}
-                    disabled={primaryRole === 'editor'}
+                    disabled={isSubmitting || primaryRole === 'editor'}
                   />
                   <Label htmlFor="role-editor">Editor</Label>
                 </div>
@@ -155,20 +199,26 @@ export function RoleChangeDialog({
                   id="role-salesRep"
                   checked={secondaryRoles.includes('salesRep')}
                   onCheckedChange={() => handleSecondaryRoleToggle('salesRep')}
-                  disabled={primaryRole === 'salesRep'}
+                  disabled={isSubmitting || primaryRole === 'salesRep'}
                 />
                 <Label htmlFor="role-salesRep">Sales Rep</Label>
               </div>
             </div>
           )}
+
+          {submitError && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
+              {submitError}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
-            Save Changes
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -65,6 +65,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   useEffect(() => {
     onTabChange?.(activeTab);
@@ -146,12 +148,28 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
     try {
       const normalizedEmail = values.email.trim().toLowerCase();
-      const response = await axios.post<{ token: string; user: Record<string, unknown> }>(`${API_BASE_URL}/api/login`, {
+      const response = await axios.post<{
+        token?: string;
+        user?: Record<string, unknown>;
+        two_factor_required?: boolean;
+        message?: string;
+      }>(`${API_BASE_URL}/api/login`, {
         email: normalizedEmail,
         password: values.password,
+        two_factor_code: twoFactorRequired ? twoFactorCode : undefined,
       });
 
+      if (response.data.two_factor_required) {
+        setTwoFactorRequired(true);
+        setTwoFactorCode('');
+        setLoginError(null);
+        return;
+      }
+
       const { token, user } = response.data;
+      if (!token || !user) {
+        throw new Error(response.data.message || 'The sign-in response was incomplete.');
+      }
       const normalizedUser = normalizeUser(user);
 
       toast({
@@ -182,6 +200,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
   useEffect(() => {
     clearErrors();
+    setTwoFactorRequired(false);
+    setTwoFactorCode('');
   }, [activeTab]);
 
   useEffect(() => {
@@ -338,6 +358,26 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                     )}
                   />
 
+                  {twoFactorRequired && (
+                    <div className="space-y-2">
+                      <p className={`text-sm ${isMobile ? 'text-slate-300' : 'text-muted-foreground'}`}>
+                        Enter the 6-digit code from your authenticator app, or a recovery code.
+                      </p>
+                      <Input
+                        type="text"
+                        inputMode="text"
+                        autoComplete="one-time-code"
+                        aria-label="Authenticator or recovery code"
+                        placeholder="Authenticator or recovery code"
+                        value={twoFactorCode}
+                        onChange={(event) => setTwoFactorCode(event.target.value.trimStart().slice(0, 32))}
+                        className={`${inputClass} text-center font-mono tracking-wider`}
+                        autoFocus
+                        required
+                      />
+                    </div>
+                  )}
+
 
                   {/* Submit Button */}
                   <Button
@@ -347,7 +387,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                         ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
                         : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
                     }`}
-                    disabled={isLoginLoading}
+                    disabled={isLoginLoading || (twoFactorRequired && !twoFactorCode.trim())}
                   >
                     {isLoginLoading ? (
                       <div className="flex items-center justify-center gap-2">
@@ -355,7 +395,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                         <span>Signing in...</span>
                       </div>
                     ) : (
-                      'Log In'
+                      twoFactorRequired ? 'Verify & Log In' : 'Log In'
                     )}
                   </Button>
 

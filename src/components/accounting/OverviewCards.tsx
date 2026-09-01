@@ -3,14 +3,12 @@ import {
   DollarSign,
   CheckCircle,
   CreditCard,
-  ChevronUp,
-  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { InvoiceData } from "@/utils/invoiceUtils";
 import { cn } from "@/lib/utils";
 
-export const DAYS_WINDOW_OPTIONS = [30, 60, 90, 365] as const;
+const DAYS_WINDOW_OPTIONS = [30, 60, 90, 365] as const;
 
 export function SegmentedDays({
   value,
@@ -130,14 +128,6 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
     0
   );
 
-  // fake trend data (you can replace with real)
-  const trends = {
-    revenue: { value: 8.2, direction: "up" as const },
-    pending: { value: -2.5, direction: "down" as const },
-    overdue: { value: 4.1, direction: "up" as const },
-    paid: { value: 12.5, direction: "up" as const },
-  };
-
   return (
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -146,7 +136,6 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
           value={`$${totalRevenue.toLocaleString()}`}
           description={`${revenueInvoices.length} paid invoice${revenueInvoices.length !== 1 ? "s" : ""} in last ${daysWindow} days`}
           icon={<DollarSign className="h-4 w-4" />}
-          trend={trends.revenue}
           color="blue"
           animated={true}
         />
@@ -156,7 +145,6 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
           value={`$${pendingTotal.toLocaleString()}`}
           description={`${outstandingInvoices.length} invoice${outstandingInvoices.length !== 1 ? "s" : ""}`}
           icon={<CreditCard className="h-4 w-4" />}
-          trend={trends.pending}
           color="amber"
           animated={true}
         />
@@ -166,7 +154,6 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
           value={`$${paidTotal.toLocaleString()}`}
           description={`${paidInvoices.length} invoice${paidInvoices.length !== 1 ? "s" : ""}`}
           icon={<CheckCircle className="h-4 w-4" />}
-          trend={trends.paid}
           color="emerald"
           animated={true}
         />
@@ -180,10 +167,6 @@ interface OverviewCardProps {
   value: string;
   description: string;
   icon: React.ReactNode;
-  trend?: {
-    value: number;
-    direction: "up" | "down";
-  };
   color?: "blue" | "emerald" | "amber" | "rose";
   animated?: boolean;
 }
@@ -193,7 +176,6 @@ function OverviewCard({
   value,
   description,
   icon,
-  trend,
   color = "blue",
   animated = false,
 }: OverviewCardProps) {
@@ -201,26 +183,18 @@ function OverviewCard({
     blue: {
       iconBg: "bg-blue-500/10",
       iconText: "text-blue-500",
-      trendUp: "text-blue-600",
-      trendDown: "text-blue-600 opacity-80",
     },
     emerald: {
       iconBg: "bg-emerald-500/10",
       iconText: "text-emerald-500",
-      trendUp: "text-emerald-600",
-      trendDown: "text-emerald-600 opacity-80",
     },
     amber: {
       iconBg: "bg-amber-500/10",
       iconText: "text-amber-500",
-      trendUp: "text-amber-600",
-      trendDown: "text-amber-600 opacity-80",
     },
     rose: {
       iconBg: "bg-rose-500/10",
       iconText: "text-rose-500",
-      trendUp: "text-rose-600",
-      trendDown: "text-rose-600 opacity-80",
     },
   };
 
@@ -236,25 +210,8 @@ function OverviewCard({
           <div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">{title}</p>
             <h3 className="text-2xl font-semibold tracking-tight">{value}</h3>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="mt-2">
               <p className="text-xs text-slate-600 dark:text-slate-400">{description}</p>
-              {trend && (
-                <div
-                  className={cn(
-                    "flex items-center text-xs font-medium gap-1",
-                    trend.direction === "up"
-                      ? colorStyles[color].trendUp
-                      : colorStyles[color].trendDown
-                  )}
-                >
-                  {trend.direction === "up" ? (
-                    <ChevronUp className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                  {Math.abs(trend.value)}%
-                </div>
-              )}
             </div>
           </div>
 

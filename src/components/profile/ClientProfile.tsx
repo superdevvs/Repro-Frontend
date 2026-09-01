@@ -20,16 +20,28 @@ import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNot
 import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { useResendVerificationEmail } from "@/hooks/useResendVerificationEmail";
+import { API_ROUTES } from "@/lib/api";
+
+type PhotographerOption = {
+  id: string;
+  name: string;
+};
 
 export function ClientProfile() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isResendingVerification, resendVerification, resendFeedback } = useResendVerificationEmail();
   const [serverEmailHealth, setServerEmailHealth] = useState(normalizeEmailHealth(user?.email_health));
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
-  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
+  const metadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
+  const savedPreferences = metadata.preferences && typeof metadata.preferences === 'object'
+    ? metadata.preferences as Record<string, unknown>
+    : {};
+  const [photographers, setPhotographers] = useState<PhotographerOption[]>([]);
+  const [isLoadingPhotographers, setIsLoadingPhotographers] = useState(true);
+  const [photographersError, setPhotographersError] = useState('');
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -43,8 +55,9 @@ export function ClientProfile() {
     linkedinUrl: user?.linkedinUrl || "",
     pinterestUrl: user?.pinterestUrl || "",
     preferredPhotographer: String(savedPreferences.preferredPhotographer || "any"),
-    notificationEmail: savedPreferences.notificationEmail ?? true,
-    notificationSMS: savedPreferences.notificationSMS ?? true,
+    notificationEmail: typeof savedPreferences.notificationEmail === 'boolean'
+      ? savedPreferences.notificationEmail
+      : true,
     billingAddress: user?.address || "",
     billingCity: user?.city || "",
     billingState: user?.state || "",
@@ -59,6 +72,65 @@ export function ClientProfile() {
   useEffect(() => {
     setServerEmailHealth(normalizeEmailHealth(user?.email_health));
   }, [user?.email_health]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadPhotographers = async () => {
+      setIsLoadingPhotographers(true);
+      setPhotographersError('');
+
+      try {
+        const response = await fetch(API_ROUTES.people.photographers, {
+          headers: { Accept: 'application/json' },
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to load photographers');
+        }
+
+        const payload = await response.json() as unknown;
+        const records = Array.isArray(payload)
+          ? payload
+          : payload && typeof payload === 'object' && Array.isArray((payload as Record<string, unknown>).data)
+            ? (payload as { data: unknown[] }).data
+            : [];
+        const seenIds = new Set<string>();
+        const options = records.reduce<PhotographerOption[]>((result, record) => {
+          if (!record || typeof record !== 'object') {
+            return result;
+          }
+
+          const photographer = record as Record<string, unknown>;
+          const id = photographer.id == null ? '' : String(photographer.id);
+          const name = typeof photographer.name === 'string' ? photographer.name.trim() : '';
+          if (!id || !name || seenIds.has(id)) {
+            return result;
+          }
+
+          seenIds.add(id);
+          result.push({ id, name });
+          return result;
+        }, []);
+
+        setPhotographers(options);
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.error('Failed to load preferred photographer options:', error);
+          setPhotographers([]);
+          setPhotographersError('Photographer options could not be loaded. Please try again later.');
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsLoadingPhotographers(false);
+        }
+      }
+    };
+
+    loadPhotographers();
+    return () => abortController.abort();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -119,17 +191,20 @@ export function ClientProfile() {
           preferences: {
             preferredPhotographer: formData.preferredPhotographer,
             notificationEmail: formData.notificationEmail,
-            notificationSMS: formData.notificationSMS,
           },
       });
       if (!result.reauthRequired) {
         setFormData((prev) => ({ ...prev, currentPassword: "" }));
         setEmailWarningOverride(false);
-        setServerEmailHealth(normalizeEmailHealth((result.user as any)?.email_health));
+        setServerEmailHealth(normalizeEmailHealth(result.user?.email_health));
         toast.success(result.message);
       }
-    } catch (error: any) {
-      const nextEmailHealth = normalizeEmailHealth(error?.payload?.email_health);
+    } catch (error: unknown) {
+      const errorRecord = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+      const errorPayload = errorRecord.payload && typeof errorRecord.payload === 'object'
+        ? errorRecord.payload as Record<string, unknown>
+        : {};
+      const nextEmailHealth = normalizeEmailHealth(errorPayload.email_health);
       if (nextEmailHealth) {
         setServerEmailHealth(nextEmailHealth);
       }
@@ -144,13 +219,8 @@ export function ClientProfile() {
     await resendVerification();
   };
 
-  const mockPhotographers = [
-    { id: "any", name: "No Preference" },
-    { id: "p1", name: "Alex Johnson" },
-    { id: "p2", name: "Maria Garcia" },
-    { id: "p3", name: "David Chen" },
-    { id: "p4", name: "Sarah Thompson" }
-  ];
+  const selectedPhotographerIsUnavailable = formData.preferredPhotographer !== 'any'
+    && !photographers.some((photographer) => photographer.id === formData.preferredPhotographer);
 
   return (
     <div className="space-y-6">
@@ -359,42 +429,44 @@ export function ClientProfile() {
               <Select 
                 value={formData.preferredPhotographer} 
                 onValueChange={(value) => handleSelectChange("preferredPhotographer", value)}
+                disabled={isLoadingPhotographers}
               >
                 <SelectTrigger id="preferredPhotographer">
-                  <SelectValue placeholder="Select preferred photographer" />
+                  <SelectValue placeholder={isLoadingPhotographers ? 'Loading photographers...' : 'Select preferred photographer'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPhotographers.map(photographer => (
+                  <SelectItem value="any">No Preference</SelectItem>
+                  {selectedPhotographerIsUnavailable && (
+                    <SelectItem value={formData.preferredPhotographer}>
+                      Previously selected photographer (unavailable)
+                    </SelectItem>
+                  )}
+                  {photographers.map(photographer => (
                     <SelectItem key={photographer.id} value={photographer.id}>
                       {photographer.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {photographersError && (
+                <p className="text-sm text-destructive" role="status">{photographersError}</p>
+              )}
+              {!isLoadingPhotographers && !photographersError && photographers.length === 0 && (
+                <p className="text-sm text-muted-foreground">No photographers are currently available.</p>
+              )}
             </div>
             <div className="space-y-4">
               <h4 className="text-sm font-medium">Notification Preferences</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="flex items-center justify-between border p-4 rounded-lg">
                   <div className="space-y-0.5">
                     <Label htmlFor="notificationEmail">Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Receive shoot updates via email</p>
+                    <p className="text-sm text-muted-foreground">Email me when I receive a new internal dashboard message</p>
                   </div>
                   <Switch
                     id="notificationEmail"
                     checked={formData.notificationEmail}
                     onCheckedChange={(checked) => handleSwitchChange("notificationEmail", checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between border p-4 rounded-lg">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="notificationSMS">SMS Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Get text alerts for important updates</p>
-                  </div>
-                  <Switch
-                    id="notificationSMS"
-                    checked={formData.notificationSMS}
-                    onCheckedChange={(checked) => handleSwitchChange("notificationSMS", checked)}
                   />
                 </div>
               </div>

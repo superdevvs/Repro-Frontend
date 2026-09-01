@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -33,6 +32,7 @@ import { TestShootPanel } from '@/components/photographers/TestShootPanel';
 import { getOnboardingConfig, type RoleKey } from '@/features/dashboard/config/dashboardOnboardingConfig';
 import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvents';
 import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
+import { NotificationPreferencesCard } from '@/components/settings/NotificationPreferencesCard';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -82,6 +82,7 @@ const Settings = () => {
     return window.sessionStorage.getItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY) === 'true';
   });
   const [accountTabTapCount, setAccountTabTapCount] = React.useState(0);
+  const [createCouponOpen, setCreateCouponOpen] = React.useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
   const clientIdFromUrl = searchParams.get('clientId');
@@ -90,6 +91,8 @@ const Settings = () => {
   const [avatar, setAvatar] = React.useState(user?.avatar || '');
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
+  const [primaryColor, setPrimaryColor] = React.useState('#1a56db');
+  const [secondaryColor, setSecondaryColor] = React.useState('#7e3af2');
   const [brandAbout, setBrandAbout] = React.useState('');
   const [heroHeadline, setHeroHeadline] = React.useState('');
   const [heroSubtitle, setHeroSubtitle] = React.useState('');
@@ -192,6 +195,8 @@ const Settings = () => {
         const b = data?.data?.branding;
         setBrandLogo(b?.logo ?? '');
         setBrandBanner(b?.banner ?? '');
+        setPrimaryColor(b?.primary_color ?? '#1a56db');
+        setSecondaryColor(b?.secondary_color ?? '#7e3af2');
         setBrandAbout(b?.about ?? '');
         setHeroHeadline(b?.hero_headline ?? '');
         setHeroSubtitle(b?.hero_subtitle ?? '');
@@ -346,6 +351,8 @@ const Settings = () => {
           branding: {
             logo: brandLogo || null,
             banner: brandBanner || null,
+            primary_color: primaryColor,
+            secondary_color: secondaryColor,
             about: brandAbout || null,
             hero_headline: heroHeadline || null,
             hero_subtitle: heroSubtitle || null,
@@ -595,7 +602,7 @@ const Settings = () => {
                   <CardHeader className="pb-4">
                     <CardTitle className="text-base">Personal Information</CardTitle>
                     <CardDescription>
-                      Update your name, email, and bio visible to your team.
+                      Update the name and bio visible to your team.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -611,10 +618,20 @@ const Settings = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label htmlFor="email" className="text-sm font-medium">
+                        <label htmlFor="profile-email" className="text-sm font-medium">
                           Email
                         </label>
-                        <Input id="email" type="email" defaultValue={user?.email} />
+                        <Input
+                          id="profile-email"
+                          type="email"
+                          value={user?.email || ''}
+                          readOnly
+                          aria-readonly="true"
+                          className="bg-muted/50"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Email changes are managed in the Account tab and require your current password.
+                        </p>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -790,6 +807,10 @@ const Settings = () => {
               onLogoChange={handleLogoChange}
               brandBanner={brandBanner}
               onBannerChange={handleBannerChange}
+              primaryColor={primaryColor}
+              onPrimaryColorChange={setPrimaryColor}
+              secondaryColor={secondaryColor}
+              onSecondaryColorChange={setSecondaryColor}
               brandAbout={brandAbout}
               onBrandAboutChange={setBrandAbout}
               heroHeadline={heroHeadline}
@@ -809,53 +830,7 @@ const Settings = () => {
             />
 
             <TabsContent value="notifications" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
-                  <CardDescription>
-                    Manage how we contact you
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-4">
-                      <div>
-                        <h4 className="font-medium">Email Notifications</h4>
-                        <p className="text-sm text-muted-foreground">Get notified about new bookings and updates</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between border-b pb-4">
-                      <div>
-                        <h4 className="font-medium">SMS Notifications</h4>
-                        <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between border-b pb-4">
-                      <div>
-                        <h4 className="font-medium">Marketing Emails</h4>
-                        <p className="text-sm text-muted-foreground">Receive special offers and updates</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                  <Button>Save Preferences</Button>
-                </CardFooter>
-              </Card>
+              <NotificationPreferencesCard />
             </TabsContent>
 
             {canViewCoupons && (
@@ -868,15 +843,13 @@ const Settings = () => {
                     </p>
                   </div>
                   {canCreateCoupons && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Discount
-                        </Button>
-                      </DialogTrigger>
-                      <CreateCouponDialog />
-                    </Dialog>
+                    <>
+                      <Button onClick={() => setCreateCouponOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Discount
+                      </Button>
+                      <CreateCouponDialog open={createCouponOpen} onOpenChange={setCreateCouponOpen} />
+                    </>
                   )}
                 </div>
                 <CouponsList />

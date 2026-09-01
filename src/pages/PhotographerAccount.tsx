@@ -40,7 +40,7 @@ import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
 import { approvedAddressFromUser } from '@/pages/applyApprovedPhotographerAddress';
 import { canResendUserVerification } from '@/utils/emailHealth';
 import { API_BASE_URL } from '@/config/env';
-import { Camera, ExternalLink, Eye, FileText, Settings, Upload, User, Wrench } from 'lucide-react';
+import { Camera, ExternalLink, Eye, FileText, Settings, ShieldCheck, Upload, User, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import { EquipmentVerificationDialog } from '@/components/equipment/EquipmentVerificationDialog';
@@ -52,13 +52,20 @@ import {
 } from '@/services/photographerEquipmentService';
 import { DefaultBracketModeField } from '@/components/accounts/DefaultBracketModeField';
 import {
-  notificationsSchema,
   personalInfoSchema,
-  specialtiesSchema,
-  type NotificationsFormValues,
   type PersonalInfoFormValues,
-  type SpecialtiesFormValues,
 } from '@/pages/photographerAccountSchemas';
+import {
+  PhotographerNotificationPreferencesForm,
+  PhotographerSpecialtiesForm,
+} from '@/components/profile/PhotographerPreferenceForms';
+import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
+import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
+
+const readStoredBoolean = (value: unknown, fallback: boolean) => (
+  typeof value === 'boolean' ? value : fallback
+);
+
 const PhotographerAccount = () => {
   const { user, setUser, logout } = useAuth();
   const { toast } = useToast();
@@ -72,7 +79,9 @@ const PhotographerAccount = () => {
   const pendingAddress = user?.pending_address_change;
   const canResendVerification = canResendUserVerification(undefined, user ?? {});
   const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
-  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
+  const savedPreferences = userMetadata.preferences && typeof userMetadata.preferences === 'object'
+    ? userMetadata.preferences as Record<string, unknown>
+    : {};
   const taxInfoSubmitted = Boolean(userMetadata.tax_document_submitted_at || userMetadata.tax_document_url);
   const taxDocumentName = String(userMetadata.tax_document_name ?? '');
   const taxSubmittedAt = String(userMetadata.tax_document_submitted_at ?? '');
@@ -176,28 +185,11 @@ const PhotographerAccount = () => {
       zip: user?.zipcode || '',
       travelRange: Number(userMetadata.travel_range ?? 25),
       travelRangeUnit: (userMetadata.travel_range_unit as 'miles' | 'km') ?? 'miles',
-      weeklyInvoice: savedPreferences.weeklyInvoice ?? true,
+      weeklyInvoice: readStoredBoolean(savedPreferences.weeklyInvoice, true),
       // 5x remains the product default when the photographer has stated no preference.
       defaultBracketMode: Number(
         (user as { default_bracket_mode?: number | null } | undefined)?.default_bracket_mode ?? 5,
       ) === 3 ? 3 : 5,
-    },
-  });
-
-  // Form for specialties
-  const specialtiesForm = useForm<SpecialtiesFormValues>({
-    resolver: zodResolver(specialtiesSchema),
-    defaultValues: {
-      specialties: ['Residential', 'Commercial'],
-    },
-  });
-  
-  // Form for notification preferences
-  const notificationsForm = useForm<NotificationsFormValues>({
-    resolver: zodResolver(notificationsSchema),
-    defaultValues: {
-      email_notifications: true,
-      sms_notifications: true,
     },
   });
 
@@ -284,24 +276,6 @@ const PhotographerAccount = () => {
     }
   };
 
-  const onSpecialtiesSubmit = (data: SpecialtiesFormValues) => {
-    console.log('Updating specialties:', data);
-    
-    toast({
-      title: 'Specialties updated',
-      description: 'Your photography specialties have been updated successfully.',
-    });
-  };
-
-  const onNotificationsSubmit = (data: NotificationsFormValues) => {
-    console.log('Updating notification preferences:', data);
-    
-    toast({
-      title: 'Preferences updated',
-      description: 'Your notification preferences have been updated successfully.',
-    });
-  };
-
   // Handle profile image change — ImageUpload handles the actual upload to the
   // backend; we just surface a confirmation toast here.
   const handleProfileImageChange = (_url: string) => {
@@ -356,6 +330,7 @@ const PhotographerAccount = () => {
               { value: 'specialties', icon: Camera, label: 'Specialties' },
               { value: 'equipments', icon: Wrench, label: 'Equipments' },
               { value: 'notifications', icon: Settings, label: 'Preferences' },
+              { value: 'security', icon: ShieldCheck, label: 'Security' },
             ]}
             value={activeTab}
             className="mb-6"
@@ -623,68 +598,7 @@ const PhotographerAccount = () => {
                   
           {/* Specialties Tab */}
           <TabsContent value="specialties" className="space-y-4">
-            <Form {...specialtiesForm}>
-              <form onSubmit={specialtiesForm.handleSubmit(onSpecialtiesSubmit)} className="space-y-4">
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Photography Services</CardTitle>
-                    <CardDescription>Select all the services you provide as a photographer</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {['Residential', 'Commercial', 'Aerial', 'Virtual Tour', 'Twilight', 'HDR', 'Floor Plans', 'Video', '3D Tour'].map((specialty) => (
-                        <div key={specialty} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`specialty-${specialty}`}
-                            value={specialty}
-                            onChange={(e) => {
-                              const currentSpecialties = specialtiesForm.getValues().specialties;
-                              if (e.target.checked) {
-                                specialtiesForm.setValue('specialties', [...currentSpecialties, specialty]);
-                              } else {
-                                specialtiesForm.setValue(
-                                  'specialties',
-                                  currentSpecialties.filter((s) => s !== specialty)
-                                );
-                              }
-                            }}
-                            checked={specialtiesForm.watch('specialties').includes(specialty)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <label htmlFor={`specialty-${specialty}`} className="text-sm">{specialty}</label>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Property Types</CardTitle>
-                    <CardDescription>Select the types of properties you're comfortable shooting</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {['Single Family', 'Multi-Family', 'Condo/Townhouse', 'Apartment', 'Vacant Land', 'Office', 'Retail', 'Industrial'].map((propertyType) => (
-                        <div key={propertyType} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`property-${propertyType}`}
-                            value={propertyType}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <label htmlFor={`property-${propertyType}`} className="text-sm">{propertyType}</label>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="border-t pt-4 flex justify-end">
-                    <Button type="submit">Save Specialties</Button>
-                  </CardFooter>
-                </Card>
-              </form>
-            </Form>
+            <PhotographerSpecialtiesForm />
           </TabsContent>
                   
                   {/* Equipments Tab */}
@@ -875,43 +789,14 @@ const PhotographerAccount = () => {
             </Card>
 
             {/* Notifications card */}
-            <Form {...notificationsForm}>
-              <form onSubmit={notificationsForm.handleSubmit(onNotificationsSubmit)}>
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Notifications</CardTitle>
-                    <CardDescription>Choose how you want to be notified about new shoots and updates</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="emailNotifications">Email Notifications</Label>
-                        <p className="text-sm text-muted-foreground">Receive updates via email</p>
-                      </div>
-                      <Switch
-                        id="emailNotifications"
-                        checked={notificationsForm.watch('email_notifications')}
-                        onCheckedChange={(checked) => notificationsForm.setValue('email_notifications', checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="smsNotifications">SMS Notifications</Label>
-                        <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
-                      </div>
-                      <Switch
-                        id="smsNotifications"
-                        checked={notificationsForm.watch('sms_notifications')}
-                        onCheckedChange={(checked) => notificationsForm.setValue('sms_notifications', checked)}
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="border-t pt-4 flex justify-end">
-                    <Button type="submit">Save Notifications</Button>
-                  </CardFooter>
-                </Card>
-              </form>
-            </Form>
+            <PhotographerNotificationPreferencesForm />
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-4">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ProfileActivityCard />
+              <ProfileSecurityCard />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

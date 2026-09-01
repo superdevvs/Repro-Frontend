@@ -479,6 +479,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Logout function
   const logout = useCallback(() => {
+    const token = getStoredAuthToken();
+
+    if (token && typeof window !== 'undefined') {
+      // The stored bearer token always belongs to the original signed-in user.
+      // Remove impersonation state before the globally patched fetch inspects
+      // localStorage, otherwise it would add the impersonated user's header.
+      localStorage.removeItem('originalUser');
+
+      try {
+        void fetch(`${API_BASE_URL}/api/logout`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          keepalive: true,
+        }).catch(() => undefined);
+      } catch {
+        // Local sign-out must still complete if the revocation request cannot start.
+      }
+    }
+
     clearStoredAuth();
     setUser(null);
     setOriginalUser(null);

@@ -10,11 +10,13 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import type { UserRole } from "@/types/auth";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
+import { ProfileActivityCard } from "@/components/profile/ProfileActivityCard";
+import { ProfileSecurityCard } from "@/components/profile/ProfileSecurityCard";
 
 const getRoleLabel = (role?: UserRole) => {
   switch (role) {
@@ -51,7 +53,13 @@ export function AdminProfile() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const roleLabel = getRoleLabel(user?.role);
   const { saveProfile } = useSelfProfileSave();
-  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
+  const metadata = (user?.metadata ?? {}) as Record<string, unknown>;
+  const savedPreferences = metadata.preferences && typeof metadata.preferences === 'object'
+    ? metadata.preferences as Record<string, unknown>
+    : {};
+  const savedNotifications = savedPreferences.notifications && typeof savedPreferences.notifications === 'object'
+    ? savedPreferences.notifications as Record<string, unknown>
+    : {};
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -59,9 +67,9 @@ export function AdminProfile() {
     avatar: user?.avatar || "",
     department: String(savedPreferences.department || "Operations"),
     notifications: {
-      shootReminders: savedPreferences.notifications?.shootReminders ?? true,
-      paymentReminders: savedPreferences.notifications?.paymentReminders ?? true,
-      weeklySummaries: savedPreferences.notifications?.weeklySummaries ?? true
+      shootReminders: typeof savedNotifications.shootReminders === 'boolean' ? savedNotifications.shootReminders : true,
+      paymentReminders: typeof savedNotifications.paymentReminders === 'boolean' ? savedNotifications.paymentReminders : true,
+      weeklySummaries: typeof savedNotifications.weeklySummaries === 'boolean' ? savedNotifications.weeklySummaries : true
     },
     uiDensity: String(savedPreferences.uiDensity || "default"),
     currentPassword: "",
@@ -136,13 +144,6 @@ export function AdminProfile() {
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
-
-  // Mock activity log
-  const activityLog = [
-    { id: 1, action: "Login", timestamp: "2025-04-05 09:32 AM", ip: "192.168.1.100" },
-    { id: 2, action: "Updated Shoot #1234", timestamp: "2025-04-04 03:15 PM", ip: "192.168.1.100" },
-    { id: 3, action: "Approved Payment", timestamp: "2025-04-04 01:47 PM", ip: "192.168.1.100" }
-  ];
 
   return (
     <div className="space-y-6">
@@ -344,77 +345,8 @@ export function AdminProfile() {
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Account Activity
-              </CardTitle>
-              <CardDescription>Recent actions performed</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {activityLog.map(activity => (
-                  <div key={activity.id} className="border-b pb-3 last:border-b-0">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-sm">{activity.action}</span>
-                      <Badge variant="outline" className="text-xs">
-                        <Clock className="mr-1 h-3 w-3" />
-                        {activity.timestamp.split(' ')[1]}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-xs text-muted-foreground">{activity.timestamp.split(' ')[0]}</span>
-                      <span className="text-xs text-muted-foreground">IP: {activity.ip}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-center border-t pt-4">
-              <Button variant="outline" size="sm">View Full Activity Log</Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Security
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex flex-col space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Password</span>
-                    <span className="text-xs text-muted-foreground">Last changed 30 days ago</span>
-                  </div>
-                  <Button variant="outline" size="sm">Change Password</Button>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Two-Factor Authentication</span>
-                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
-                      <AlertTriangle className="mr-1 h-3 w-3" />
-                      Not Enabled
-                    </Badge>
-                  </div>
-                  <Button variant="outline" size="sm">Enable 2FA</Button>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Active Sessions</span>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      1 Active
-                    </Badge>
-                  </div>
-                  <Button variant="outline" size="sm">Manage Sessions</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ProfileActivityCard />
+          <ProfileSecurityCard />
         </div>
       </div>
     </div>

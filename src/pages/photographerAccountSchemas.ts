@@ -31,11 +31,11 @@ export const personalInfoSchema = z.object({
 
 export const specialtiesSchema = z.object({
   specialties: z.array(z.string()).min(1, { message: 'Please select at least one specialty.' }),
+  property_types: z.array(z.string()).default([]),
 });
 
 export const notificationsSchema = z.object({
   email_notifications: z.boolean().default(true),
-  sms_notifications: z.boolean().default(true),
 });
 
 export type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;

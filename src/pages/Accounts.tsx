@@ -92,58 +92,6 @@ const INSIGHT_ROLE_OPTIONS: {
 
 const INSIGHT_ROLE_VALUES = INSIGHT_ROLE_OPTIONS.map((option) => option.value);
 
-const sampleUsersData = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john@example.com",
-    role: "admin" as Role,
-    avatar: "/placeholder.svg",
-    lastLogin: "2023-04-01T08:30:00Z",
-    active: true,
-  },
-  {
-    id: "2",
-    name: "Sarah Wilson",
-    email: "sarah@photostudio.com",
-    role: "photographer" as Role,
-    avatar: "/placeholder.svg",
-    phone: "555-123-4567",
-    lastLogin: "2023-04-02T14:20:00Z",
-    active: true,
-  },
-  {
-    id: "3",
-    name: "Michael Brown",
-    email: "michael@editing.com",
-    role: "editor" as Role,
-    avatar: "/placeholder.svg",
-    phone: "555-987-6543",
-    lastLogin: "2023-03-28T09:15:00Z",
-    active: true,
-  },
-  {
-    id: "4",
-    name: "Emily Davis",
-    email: "emily@realestate.com",
-    role: "client" as Role,
-    company: "Davis Realty",
-    avatar: "/placeholder.svg",
-    phone: "555-456-7890",
-    lastLogin: "2023-04-03T11:40:00Z",
-    active: true,
-  },
-  {
-    id: "5",
-    name: "Robert Johnson",
-    email: "robert@inactive.com",
-    role: "client" as Role,
-    avatar: "/placeholder.svg",
-    lastLogin: "2023-02-15T10:10:00Z",
-    active: false,
-  },
-];
-
 type UserType = {
   id: string;
   name: string;
@@ -697,8 +645,6 @@ export default function Accounts() {
   const handleUpdateUser = (data) => {
     if (!selectedUser) return;
 
-    console.log("Updating account", selectedUser.id, data);
-
     // Update state locally - include created_by fields for proper display
     setUsers((prev) =>
       prev.map((u) => {
@@ -981,7 +927,7 @@ export default function Accounts() {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
         handleSessionExpired();
-        return;
+        return false;
       }
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
         method: 'PATCH',
@@ -997,7 +943,7 @@ export default function Accounts() {
       });
       if (res.status === 401 || res.status === 419) {
         handleSessionExpired();
-        return;
+        return false;
       }
       if (!res.ok) {
         const t = await res.text();
@@ -1006,27 +952,69 @@ export default function Accounts() {
       const data = await res.json();
       if (!data.changed) {
         toast({ title: 'No change', description: 'Roles were not changed. Try again.', variant: 'destructive' });
-        return;
+        return false;
       }
       setUsers(users.map(u => (u.id === userId ? { ...u, role: primaryRole, secondaryRoles } : u)));
       const roleText = secondaryRoles.length > 0 
         ? `${primaryRole} + ${secondaryRoles.join(', ')}`
         : primaryRole;
       toast({ title: 'Roles updated', description: `User roles updated to ${roleText}.` });
-    } catch (e: any) {
+      return true;
+    } catch (e: unknown) {
       console.error('Role change failed', e);
       if (sessionExpiredRef.current) {
-        return;
+        return false;
       }
-      toast({ title: 'Failed to change roles', description: e?.message || 'Try again.', variant: 'destructive' });
+      toast({
+        title: 'Failed to change roles',
+        description: e instanceof Error ? e.message : 'Try again.',
+        variant: 'destructive',
+      });
+      return false;
     }
   };
 
-  const handleUpdateNotifications = (userId: string, settings: Record<string, boolean>) => {
-    toast({
-      title: "Notification preferences updated",
-      description: "Notification settings have been saved successfully.",
-    });
+  const handleUpdateNotifications = async (userId: string, settings: { notificationEmail: boolean }) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        handleSessionExpired();
+        return false;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ preferences: settings }),
+      });
+
+      if (response.status === 401 || response.status === 419) {
+        handleSessionExpired();
+        return false;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || 'Failed to update notification preferences.');
+      }
+
+      const updatedUser = payload.user as UserType;
+      setUsers((currentUsers) => currentUsers.map((account) => account.id === userId ? updatedUser : account));
+      setSelectedUser((currentUser) => currentUser?.id === userId ? updatedUser : currentUser);
+      toast({
+        title: "Notification preferences updated",
+        description: "Internal message email delivery has been saved.",
+      });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update notification preferences.';
+      toast({ title: 'Could not save preferences', description: message, variant: 'destructive' });
+      throw error;
+    }
   };
 
   const handleUpdateClientBranding = (userId: string, data) => {
@@ -1041,10 +1029,10 @@ export default function Accounts() {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
         handleSessionExpired();
-        return;
+        return false;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/users/${userId}/send-reset-link`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/send-reset-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1054,7 +1042,7 @@ export default function Accounts() {
 
       if (response.status === 401) {
         handleSessionExpired();
-        return;
+        return false;
       }
 
       if (!response.ok) {
@@ -1066,6 +1054,7 @@ export default function Accounts() {
         title: "Reset link sent",
         description: `Password reset link has been sent to ${email}.`,
       });
+      return true;
     } catch (error) {
       console.error('Error sending reset link:', error);
       toast({
@@ -1073,6 +1062,7 @@ export default function Accounts() {
         description: error instanceof Error ? error.message : "Failed to send reset link",
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -1099,10 +1089,10 @@ export default function Accounts() {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
         handleSessionExpired();
-        return;
+        return false;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/users/${userId}/password`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/password`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1113,7 +1103,7 @@ export default function Accounts() {
 
       if (response.status === 401) {
         handleSessionExpired();
-        return;
+        return false;
       }
 
       if (!response.ok) {
@@ -1125,7 +1115,7 @@ export default function Accounts() {
         title: "Password updated",
         description: "The user's password has been changed successfully.",
       });
-      setResetPasswordDialogOpen(false);
+      return true;
     } catch (error) {
       console.error('Error updating password:', error);
       toast({
@@ -1133,6 +1123,7 @@ export default function Accounts() {
         description: error instanceof Error ? error.message : "Failed to update password",
         variant: "destructive",
       });
+      return false;
     }
   };
 

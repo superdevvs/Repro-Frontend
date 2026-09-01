@@ -12,37 +12,80 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "@/lib/sonner-toast";
 
 interface ResetPasswordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: { id: string; email: string; name: string } | null;
-  onSendResetLink?: (userId: string, email: string) => void;
-  onUpdatePassword?: (userId: string, password: string) => void;
+  onSendResetLink?: (userId: string, email: string) => boolean | void | Promise<boolean | void>;
+  onUpdatePassword?: (userId: string, password: string) => boolean | void | Promise<boolean | void>;
 }
 
 export function ResetPasswordDialog({
   open,
   onOpenChange,
   user,
-  onSendResetLink = () => {},
-  onUpdatePassword = () => {},
+  onSendResetLink,
+  onUpdatePassword,
 }: ResetPasswordDialogProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [linkError, setLinkError] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  const [isSendingLink, setIsSendingLink] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const handleSendResetLink = () => {
-    if (user) {
-      onSendResetLink(user.id, user.email);
+  const resetDialogState = () => {
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setLinkError("");
+    setResetSent(false);
+  };
+
+  const closeDialog = () => {
+    resetDialogState();
+    onOpenChange(false);
+  };
+
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen && (isSendingLink || isUpdatingPassword)) {
+      return;
+    }
+
+    if (!isOpen) {
+      closeDialog();
+      return;
+    }
+
+    onOpenChange(true);
+  };
+
+  const handleSendResetLink = async () => {
+    if (!user || !onSendResetLink) {
+      setLinkError("Password reset links are unavailable right now.");
+      return;
+    }
+
+    setLinkError("");
+    setIsSendingLink(true);
+    try {
+      const succeeded = await onSendResetLink(user.id, user.email);
+      if (succeeded === false) {
+        setLinkError("The reset link could not be sent. Please try again.");
+        return;
+      }
+
       setResetSent(true);
-      toast.success("Password reset link sent successfully");
+    } catch (actionError) {
+      setLinkError(actionError instanceof Error ? actionError.message : "The reset link could not be sent.");
+    } finally {
+      setIsSendingLink(false);
     }
   };
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     setError("");
     
     if (password.length < 8) {
@@ -55,27 +98,31 @@ export function ResetPasswordDialog({
       return;
     }
     
-    if (user) {
-      onUpdatePassword(user.id, password);
-      toast.success("Password has been updated successfully");
-      onOpenChange(false);
-      setPassword("");
-      setConfirmPassword("");
+    if (!user || !onUpdatePassword) {
+      setError("Manual password reset is unavailable right now.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const succeeded = await onUpdatePassword(user.id, password);
+      if (succeeded === false) {
+        setError("The password could not be updated. Please try again.");
+        return;
+      }
+
+      closeDialog();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "The password could not be updated.");
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
   if (!user) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
-        setPassword("");
-        setConfirmPassword("");
-        setError("");
-        setResetSent(false);
-      }
-      onOpenChange(isOpen);
-    }}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Reset Password</DialogTitle>
@@ -86,8 +133,8 @@ export function ResetPasswordDialog({
 
         <Tabs defaultValue="reset-link">
           <TabsList className="grid grid-cols-2">
-            <TabsTrigger value="reset-link">Send Reset Link</TabsTrigger>
-            <TabsTrigger value="manual-reset">Manual Reset</TabsTrigger>
+            <TabsTrigger value="reset-link" disabled={isSendingLink || isUpdatingPassword}>Send Reset Link</TabsTrigger>
+            <TabsTrigger value="manual-reset" disabled={isSendingLink || isUpdatingPassword}>Manual Reset</TabsTrigger>
           </TabsList>
           
           <TabsContent value="reset-link" className="space-y-4 pt-4">
@@ -105,12 +152,18 @@ export function ResetPasswordDialog({
               </div>
             )}
 
+            {linkError && (
+              <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300" role="alert">
+                {linkError}
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button
                 onClick={handleSendResetLink}
-                disabled={resetSent}
+                disabled={resetSent || isSendingLink || isUpdatingPassword}
               >
-                {resetSent ? "Link Sent" : "Send Reset Link"}
+                {isSendingLink ? "Sending..." : resetSent ? "Link Sent" : "Send Reset Link"}
               </Button>
             </div>
           </TabsContent>
@@ -128,7 +181,11 @@ export function ResetPasswordDialog({
                   type="password"
                   placeholder="Enter new password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  disabled={isUpdatingPassword}
                 />
               </div>
               
@@ -139,7 +196,11 @@ export function ResetPasswordDialog({
                   type="password"
                   placeholder="Confirm new password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setError("");
+                  }}
+                  disabled={isUpdatingPassword}
                 />
               </div>
 
@@ -153,16 +214,16 @@ export function ResetPasswordDialog({
             <div className="flex justify-end">
               <Button
                 onClick={handleUpdatePassword}
-                disabled={!password || !confirmPassword}
+                disabled={!password || !confirmPassword || isUpdatingPassword || isSendingLink}
               >
-                Update Password
+                {isUpdatingPassword ? "Updating..." : "Update Password"}
               </Button>
             </div>
           </TabsContent>
         </Tabs>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleDialogOpenChange(false)} disabled={isSendingLink || isUpdatingPassword}>
             Cancel
           </Button>
         </DialogFooter>

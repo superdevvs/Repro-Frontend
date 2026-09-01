@@ -3,11 +3,11 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { CreateCouponDialog } from './CreateCouponDialog';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export function CouponsHeader() {
+  const [createCouponOpen, setCreateCouponOpen] = React.useState(false);
   const { role } = useAuth();
   const canCreateCoupons = ['admin', 'superadmin', 'editing_manager'].includes(role);
 
@@ -25,15 +25,13 @@ export function CouponsHeader() {
         </div>
 
         {canCreateCoupons && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Discount
-              </Button>
-            </DialogTrigger>
-            <CreateCouponDialog />
-          </Dialog>
+          <>
+            <Button onClick={() => setCreateCouponOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Discount
+            </Button>
+            <CreateCouponDialog open={createCouponOpen} onOpenChange={setCreateCouponOpen} />
+          </>
         )}
       </div>
     </div>
