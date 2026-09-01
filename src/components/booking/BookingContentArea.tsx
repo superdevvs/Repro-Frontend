@@ -4,14 +4,11 @@ import { ClientPropertyForm, type InternalShootType } from './ClientPropertyForm
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
 import type { PricingBreakdown } from '@/utils/pricing';
-
-type SelectedService = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category?: { id: string; name: string };
-};
+import { CompReshootServiceMapping } from '@/features/complimentary-reshoots/CompReshootServiceMapping';
+import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
+import { CompReshootReasonStep } from '@/features/complimentary-reshoots/CompReshootReasonStep';
+import { CompReshootServicesStep } from '@/features/complimentary-reshoots/CompReshootServicesStep';
+import type { ServicePackage } from '@/pages/bookShootModel';
 
 type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
 
@@ -27,14 +24,14 @@ interface BookingContentAreaProps {
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
   setTime: React.Dispatch<React.SetStateAction<string>>;
-  selectedServices: SelectedService[];
-  onSelectedServicesChange: (services: SelectedService[]) => void;
+  selectedServices: ServicePackage[];
+  onSelectedServicesChange: (services: ServicePackage[]) => void;
   shootType: InternalShootType;
   onShootTypeChange: (type: InternalShootType) => void;
   canCreateNoProductShoot: boolean;
   notes: string;
   setNotes: React.Dispatch<React.SetStateAction<string>>;
-  packages: any[];
+  packages: ServicePackage[];
   packagesLoading: boolean;
   client: string;
   address: string;
@@ -69,6 +66,8 @@ interface BookingContentAreaProps {
   sameDayAddressWarningMessage?: string;
   showClearSavedData?: boolean;
   onClearSavedData?: () => void;
+  compReshoot?: CompReshootBookingController;
+  propertySqft?: number | null;
 }
 
 export function BookingContentArea({
@@ -125,11 +124,30 @@ export function BookingContentArea({
   sameDayAddressWarningMessage = '',
   showClearSavedData = false,
   onClearSavedData,
+  compReshoot,
+  propertySqft = null,
 }: BookingContentAreaProps) {
   
   return (
     <div className="space-y-6">
-      {step === 1 && clientPropertyFormData && (
+      {compReshoot?.enabled && step === 1 && (
+        <CompReshootReasonStep controller={compReshoot} onContinue={handleSubmit} />
+      )}
+
+      {compReshoot?.enabled && step === 2 && (
+        <CompReshootServicesStep
+          controller={compReshoot}
+          services={packages}
+          selectedServices={selectedServices}
+          servicesLoading={packagesLoading}
+          sqft={propertySqft}
+          onSelectedServicesChange={onSelectedServicesChange}
+          onBack={goBack}
+          onContinue={handleSubmit}
+        />
+      )}
+
+      {step === 1 && !compReshoot?.enabled && clientPropertyFormData && (
         <ClientPropertyForm
           key={clientPropertyFormData.formKey ?? 'default'}
           initialData={clientPropertyFormData.initialData}
@@ -148,10 +166,18 @@ export function BookingContentArea({
           packagesLoading={packagesLoading}
           showClearSavedData={showClearSavedData}
           onClearSavedData={onClearSavedData}
+          isCompReshootMode={Boolean(compReshoot?.enabled)}
+          sourceContextLocked={Boolean(compReshoot?.enabled && compReshoot.template)}
+          serviceMappingSlot={compReshoot?.enabled ? (
+            <CompReshootServiceMapping
+              controller={compReshoot}
+              selectedServices={selectedServices}
+            />
+          ) : undefined}
         />
       )}
       
-      {step === 2 && (
+      {step === (compReshoot?.enabled ? 3 : 2) && (
         <SchedulingForm
           date={date}
           setDate={setDate}
@@ -181,7 +207,7 @@ export function BookingContentArea({
         />
       )}
       
-      {step === 3 && (
+      {step === (compReshoot?.enabled ? 4 : 3) && (
         <ReviewForm
           client={client}
           clientName={clients.find(c => c.id === client)?.name || undefined}
@@ -217,6 +243,7 @@ export function BookingContentArea({
           bathrooms={clientPropertyFormData.initialData?.bathRooms || 0}
           sqft={clientPropertyFormData.initialData?.sqft || 0}
           area={Number(clientPropertyFormData.initialData?.sqft) || 0}
+          compReshoot={compReshoot}
         />
       )}
     </div>

@@ -53,10 +53,13 @@ import {
 import type { SavedView } from '@/lib/listing-presentation/types'
 
 // --- context / layout module stubs ------------------------------------------
-// Auth: drive an admin role so the full (non-loading) listing UI renders.
+// Auth: default to admin, with individual tests able to exercise client-only
+// controls without rebuilding the module mock.
+const authState = vi.hoisted(() => ({ role: 'admin' }))
+
 vi.mock('@/components/auth/AuthProvider', () => ({
   __esModule: true,
-  useAuth: () => ({ role: 'admin' }),
+  useAuth: () => ({ role: authState.role }),
 }))
 
 // Toast: a no-op so portal toasts don't require the toaster provider.
@@ -293,6 +296,7 @@ async function waitForLoaded() {
 }
 
 beforeEach(() => {
+  authState.role = 'admin'
   // Keep this portal-shell suite independent from local browser credentials;
   // the Google map renderer is covered by its dedicated provider tests.
   vi.stubEnv('VITE_GOOGLE_MAPS_API_KEY', '')
@@ -325,6 +329,39 @@ afterEach(() => {
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
+  it('keeps client scope, a restrained search, and view controls in one browse row', async () => {
+    const user = userEvent.setup()
+    authState.role = 'client'
+    renderPortal()
+    await waitForLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'Grid view' }))
+
+    const toolbar = screen.getByTestId('listing-browse-toolbar')
+    const scope = within(toolbar).getByTestId('listing-scope-control')
+    const search = within(toolbar).getByTestId('listing-browse-search')
+    const viewSwitcher = within(toolbar).getByTestId('listing-browse-view-switcher')
+
+    expect(toolbar).toHaveClass('md:flex-nowrap')
+    expect(toolbar).toContainElement(scope)
+    expect(toolbar).toContainElement(search)
+    expect(toolbar).toContainElement(viewSwitcher)
+    expect(search).toHaveClass('flex-1', 'md:min-w-0', 'md:max-w-xl', 'xl:max-w-2xl')
+    expect(within(scope).getByText('All Listings')).toBeVisible()
+    expect(within(scope).getByText('My Listings')).toBeVisible()
+    expect(
+      scope.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      search.compareDocumentPosition(viewSwitcher) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await user.click(within(viewSwitcher).getByRole('button', { name: 'List view' }))
+    expect(screen.getByTestId('listing-browse-toolbar')).toContainElement(
+      screen.getByTestId('listing-scope-control'),
+    )
+  })
+
   it('keeps secondary grid-card text readable in dark mode', async () => {
     const user = userEvent.setup()
     window.localStorage.setItem('theme', 'dark')

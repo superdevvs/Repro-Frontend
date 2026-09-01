@@ -3,14 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BarChart3, Copy, ExternalLink, Share2, QrCode, ChevronDown, ChevronUp, Download, Edit, Trash, Check, X, Plus, Info } from 'lucide-react';
+import { BarChart3, Copy, ExternalLink, Share2, QrCode, Download, Edit, Trash, Check, X, Info } from 'lucide-react';
+import { ShootTourSettingsSection } from './ShootTourSettingsSection';
 import { TourProvidersSection } from './tours/TourProvidersSection';
 // This legacy view is a pass-through shell while its sections are progressively extracted.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -153,8 +150,7 @@ export function ShootDetailsTourTabView(props: any) {
   );
 
   return (
-    <div className="space-y-6 w-full">
-      {providerSection}
+    <div className="w-full space-y-4">
       {/* Tour Links Section */}
       <Card>
         <CardHeader>
@@ -490,243 +486,34 @@ export function ShootDetailsTourTabView(props: any) {
       )}
       {/* Tour Settings Section */}
       {showTourSettings && (
-        <Card>
-          <Collapsible
-            open={openSections.settings}
-            onOpenChange={() => toggleSection('settings')}
-          >
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Tour Settings</CardTitle>
-                    <CardDescription>Configure tour display and behavior</CardDescription>
-                  </div>
-                  {openSections.settings ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tour Style</Label>
-                <Select 
-                  value={tourStyle} 
-                  onValueChange={async (value) => {
-                    // Optimistically update UI
-                    setTourStyle(value);
-                    // Save to backend
-                    await saveTourStyle(value);
-                  }}
-                  disabled={isSavingTourStyle}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tour style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Default</SelectItem>
-                    <SelectItem value="neo">Neo</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Choose the visual style for tour links. Changes will apply to new tour page loads.
-                </p>
-                {isSavingTourStyle && (
-                  <p className="text-xs text-blue-500">Saving...</p>
-                )}
-              </div>
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Embed(s)</Label>
-                  {savingEmbeds && <span className="text-xs text-blue-500">Saving...</span>}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Add HTML embed snippets or direct URLs (iGUIDE, forms, widgets, etc.). Add as many as you need.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <Input
-                    value={embedForm.title}
-                    onChange={(e) => setEmbedForm((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Title"
-                    className="h-9 text-xs"
-                    disabled={!isAdmin}
-                  />
-                  <Input
-                    value={embedForm.branded}
-                    onChange={(e) => setEmbedForm((prev) => ({ ...prev, branded: e.target.value }))}
-                    placeholder="Branded Embed Link or HTML"
-                    className="h-9 text-xs"
-                    disabled={!isAdmin}
-                  />
-                  <Input
-                    value={embedForm.mls}
-                    onChange={(e) => setEmbedForm((prev) => ({ ...prev, mls: e.target.value }))}
-                    placeholder="MLS Embed Link or HTML"
-                    className="h-9 text-xs"
-                    disabled={!isAdmin}
-                  />
-                </div>
-                {isAdmin && (
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={handleSaveEmbed} disabled={savingEmbeds}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      {editingEmbedId ? 'Update Embed' : 'Add Embed'}
-                    </Button>
-                  </div>
-                )}
-                {embeds.length > 0 ? (
-                  <div className="space-y-2">
-                    {embeds.map((embed) => {
-                      const hasBranded = Boolean(embed.branded);
-                      const hasMls = Boolean(embed.mls);
-                      const previewUrl = !isEmbedHtml(embed.branded)
-                        ? embed.branded
-                        : (!isEmbedHtml(embed.mls) ? embed.mls : '');
-                      return (
-                        <div key={embed.id} className="border rounded-lg p-3 flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <div className="text-sm font-medium flex items-center gap-2">
-                                {embed.title}
-                                {featuredEmbedId === embed.id && (
-                                  <Badge variant="outline" className="text-[10px]">Featured</Badge>
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {hasBranded && 'Branded'}{hasBranded && hasMls ? ' • ' : ''}{hasMls && 'MLS'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {previewUrl && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(previewUrl, '_blank')}
-                                  title="Open embed"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {isAdmin && (
-                                <Button variant="ghost" size="sm" onClick={() => handleEditEmbed(embed)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {isAdmin && (
-                                <Button variant="destructive" size="sm" onClick={() => handleDeleteEmbed(embed.id)}>
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No embeds added yet.</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Feature Embed</Label>
-                <Select
-                  value={featuredEmbedId || 'none'}
-                  onValueChange={async (value) => {
-                    const nextValue = value === 'none' ? '' : value;
-                    setFeaturedEmbedId(nextValue);
-                    if (isAdmin) {
-                      await persistEmbeds(embeds, nextValue);
-                    }
-                  }}
-                  disabled={!isAdmin || savingEmbeds}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select featured embed" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {embeds.map((embed) => (
-                      <SelectItem key={embed.id} value={embed.id}>
-                        {embed.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Featured embed can be highlighted at the top of tour pages.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Header Position</Label>
-                  {isSavingTourSettings && <span className="text-xs text-blue-500">Saving...</span>}
-                </div>
-                <Select
-                  value={tourSettings.header_position}
-                  onValueChange={async (value) => updateTourSetting('header_position', value)}
-                  disabled={!isAdmin || isSavingTourSettings}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select header position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Controls where the headline sits on the hero banner.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Tour Version</Label>
-                <Select
-                  value={tourSettings.tour_version}
-                  onValueChange={async (value) => updateTourSetting('tour_version', value)}
-                  disabled={!isAdmin || isSavingTourSettings}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select version" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="legacy">Legacy</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Use this label to distinguish published variants.</p>
-              </div>
-              {realtorPicker}
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-                <div>
-                  <Label>Autoplay</Label>
-                  <p className="text-xs text-muted-foreground">Starts tour videos automatically (muted).</p>
-                </div>
-                <Switch
-                  checked={tourSettings.autoplay}
-                  onCheckedChange={async (checked) => updateTourSetting('autoplay', checked)}
-                  disabled={!isAdmin || isSavingTourSettings}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-                <div>
-                  <Label>Show Garage Info</Label>
-                  <p className="text-xs text-muted-foreground">Display garage details on public tour pages.</p>
-                </div>
-                <Switch
-                  checked={tourSettings.show_garage}
-                  onCheckedChange={async (checked) => updateTourSetting('show_garage', checked)}
-                  disabled={!isAdmin || isSavingTourSettings}
-                />
-              </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
+        <ShootTourSettingsSection
+          open={openSections.settings}
+          onOpenChange={() => toggleSection('settings')}
+          tourStyle={tourStyle}
+          setTourStyle={setTourStyle}
+          saveTourStyle={saveTourStyle}
+          isSavingTourStyle={isSavingTourStyle}
+          embeds={embeds}
+          embedForm={embedForm}
+          setEmbedForm={setEmbedForm}
+          editingEmbedId={editingEmbedId}
+          featuredEmbedId={featuredEmbedId}
+          setFeaturedEmbedId={setFeaturedEmbedId}
+          savingEmbeds={savingEmbeds}
+          handleSaveEmbed={handleSaveEmbed}
+          handleEditEmbed={handleEditEmbed}
+          handleDeleteEmbed={handleDeleteEmbed}
+          persistEmbeds={persistEmbeds}
+          isEmbedHtml={isEmbedHtml}
+          tourSettings={tourSettings}
+          updateTourSetting={updateTourSetting}
+          isSavingTourSettings={isSavingTourSettings}
+          realtorPicker={realtorPicker}
+          isAdmin={isAdmin}
+        />
       )}
       {propertySection}
+      {providerSection}
       {/* QR Code Dialog */}
       <Dialog open={qrCodeDialog.open} onOpenChange={onQrDialogOpenChange}>
         <DialogContent className="sm:max-w-md">

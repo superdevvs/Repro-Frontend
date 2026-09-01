@@ -97,6 +97,8 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildShootPaymentDialogModel } from '@/utils/shootPaymentDialogModel';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
+import { useNavigate } from 'react-router-dom';
+import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -428,6 +430,7 @@ export function ShootDetailsOverviewTab({
   onRegisterEditActions,
   initialFocus,
 }: ShootDetailsOverviewTabProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const shootRecord = asRecord(shoot);
@@ -888,6 +891,11 @@ export function ShootDetailsOverviewTab({
 
   return (
     <div className="space-y-2">
+      <CompReshootOverviewStrip
+        shoot={shoot}
+        role={role}
+        onOpenShoot={(shootId) => navigate(`/shoots/${encodeURIComponent(shootId)}`)}
+      />
       <OverviewPropertyLocationSection
         isEditMode={isEditMode}
         propertyMetrics={propertyMetrics}
@@ -954,6 +962,7 @@ export function ShootDetailsOverviewTab({
         isClient={isClient}
         isPhotographer={isPhotographer}
         isEditor={isEditor}
+        isAdmin={['admin', 'superadmin', 'super_admin'].includes(role.trim().toLowerCase())}
       />
 
       <OverviewClientSection

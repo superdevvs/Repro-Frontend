@@ -42,7 +42,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useUpload } from '@/context/UploadContext';
-import { ConfirmSubmitDialog } from './details/ConfirmSubmitDialog';
+import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 import { useShootDetailsScreen } from './modal/useShootDetailsScreen';
 import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions';
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
@@ -61,16 +61,15 @@ import { ShootDetailsModalBody } from './details/ShootDetailsModalBody';
 import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
 import { getShootClientReleaseAccess } from './details/shootClientReleaseAccess';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
-import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 import {
   buildWeatherDateTime,
   buildWeatherLocationQuery,
   canSubmitEditsFromDetails,
   canSubmitRawFromDetails,
   getShootDetailsAddressTitle,
-  getShootSubmitFileCount,
 } from './details/shootDetailsModalHelpers';
 import type { ShootDetailsModalProps, ShootDetailsTabId } from './modal/shootDetailsTypes';
+import { ShootDetailsModalTransientDialogs } from './details/ShootDetailsModalTransientDialogs';
 export function ShootDetailsModal({
   shootId, 
   isOpen, 
@@ -782,6 +781,11 @@ export function ShootDetailsModal({
           setIsDeclineModalOpen={setIsDeclineModalOpen}
           setIsEditMode={setIsEditMode}
           setIsDownloadDialogOpen={setIsDownloadDialogOpen}
+          canBookCompReshoot={isComplimentaryReshootEnabled && isAdmin && !isEditingManager}
+          onBookCompReshoot={() => {
+            onClose();
+            navigate(`/book-shoot?compReshootFrom=${encodeURIComponent(shoot.id)}`);
+          }}
           handleMarkOnHoldClick={handleMarkOnHoldClick}
           handleResumeFromHold={handleResumeFromHold}
           handleCancelShootClick={handleCancelShootClick}
@@ -970,30 +974,18 @@ export function ShootDetailsModal({
         formatTime={formatTime}
       />
 
-      {shoot && submitConfirm && (
-        <ConfirmSubmitDialog
-          open={Boolean(submitConfirm)}
-          kind={submitConfirm.kind}
-          fileCount={
-            getShootSubmitFileCount(shoot, submitConfirm.kind)
-          }
-          isSubmitting={submitConfirm.kind === 'raw' ? isSubmittingRaw : isSubmittingEdits}
-          hasInflightUploads={activeUploads.some(
-            (u) => u.shootId === String(shoot.id) && u.status === 'uploading',
-          )}
-          onCancel={closeSubmitConfirm}
-          onConfirm={confirmSubmit}
-        />
-      )}
-
-      {canSendManualNotification && (
-        <ManualNotificationDialog
-          shootId={Number(shoot.id)}
-          shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
-          open={isManualNotificationOpen}
-          onClose={() => setIsManualNotificationOpen(false)}
-        />
-      )}
+      <ShootDetailsModalTransientDialogs
+        shoot={shoot}
+        submitConfirm={submitConfirm}
+        isSubmittingRaw={isSubmittingRaw}
+        isSubmittingEdits={isSubmittingEdits}
+        hasInflightUploads={hasInflightShootUploads}
+        onCancelSubmit={closeSubmitConfirm}
+        onConfirmSubmit={confirmSubmit}
+        canSendManualNotification={canSendManualNotification}
+        isManualNotificationOpen={isManualNotificationOpen}
+        onCloseManualNotification={() => setIsManualNotificationOpen(false)}
+      />
     </>
   );
 }

@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, ArrowRight, Check, Info, Tag, Loader2 } from 'lucide-react';
+import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, Check, Info, Tag, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AddressLookupField from '@/components/AddressLookupField';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
@@ -24,6 +24,7 @@ import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { cn } from '@/lib/utils';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
 import type { ClientPropertyFormController, PackageOption, PresenceOption } from './useClientPropertyFormController';
+import { ClientPropertyFormActions } from './ClientPropertyFormActions';
 
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
@@ -39,6 +40,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     effectiveSqft, handleRemoveService, presenceOption, setPresenceOption,
     onPropertyDraftChange, buildPropertyDraftData, submitAttemptNotice,
     showClearSavedData, onClearSavedData, handleSubmit, handleInvalidSubmit,
+    isCompReshootMode, sourceContextLocked, serviceMappingSlot,
   } = controller;
   return (
     <Form {...form}>
@@ -147,6 +149,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={clientSelectOpen}
+                                    disabled={sourceContextLocked}
                                     className={cn(
                                       'w-full justify-between h-12 text-sm font-normal',
                                       showMissingFieldStroke('clientId') && invalidFieldClassName,
@@ -196,6 +199,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                                       variant="outline"
                                       role="combobox"
                                       aria-expanded={clientSelectOpen}
+                                      disabled={sourceContextLocked}
                                       className={cn(
                                         'w-full justify-between h-12 text-sm font-normal',
                                         showMissingFieldStroke('clientId') && invalidFieldClassName,
@@ -241,6 +245,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                             size="sm"
                             className="shrink-0 h-12 px-4 bg-blue-600 text-white hover:bg-blue-700"
                             onClick={navigateToNewClient}
+                            disabled={sourceContextLocked}
                           >
                             <PlusCircle className="h-4 w-4 mr-2" />
                             New Client
@@ -280,6 +285,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                   <FormControl>
                     <AddressLookupField
                       value={field.value}
+                      disabled={sourceContextLocked}
                       onChange={field.onChange}
                       onSelectionReset={() => {
                         clearAddressDerivedState();
@@ -390,6 +396,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                       );
                     }}
                     placeholder="Street address"
+                    disabled={sourceContextLocked}
                     className={cn('font-medium', showMissingFieldStroke('propertyAddress') && invalidFieldClassName)}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -403,7 +410,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     <FormItem>
                       <FormLabel className="text-xs font-medium text-muted-foreground">Apt/Suite</FormLabel>
                       <FormControl>
-                        <Input placeholder="Unit #" {...field} />
+                        <Input placeholder="Unit #" {...field} disabled={sourceContextLocked} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -421,6 +428,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                         <Input
                           placeholder="City"
                           {...field}
+                          disabled={sourceContextLocked}
                           className={cn(showMissingFieldStroke('propertyCity') && invalidFieldClassName)}
                         />
                       </FormControl>
@@ -441,6 +449,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                               <Button
                                 type="button"
                                 variant="outline"
+                                disabled={sourceContextLocked}
                                 className={cn(
                                   'w-full h-10 justify-between font-normal',
                                   showMissingFieldStroke('propertyState') && invalidFieldClassName,
@@ -486,7 +495,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                             </DrawerContent>
                           </Drawer>
                         ) : (
-                          <Select value={field.value} onValueChange={field.onChange}>
+                          <Select value={field.value} onValueChange={field.onChange} disabled={sourceContextLocked}>
                             <SelectTrigger
                               className={cn(showMissingFieldStroke('propertyState') && invalidFieldClassName)}
                             >
@@ -516,6 +525,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                         <Input
                           placeholder="ZIP Code"
                           {...field}
+                          disabled={sourceContextLocked}
                           className={cn(showMissingFieldStroke('propertyZip') && invalidFieldClassName)}
                         />
                       </FormControl>
@@ -738,6 +748,11 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 {selectedServices.map(service => (
                   <Badge key={service.id} variant="secondary" className="flex items-center gap-2 py-1 px-3 text-sm">
                     {service.name}
+                    {isCompReshootMode && (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                        Client $0
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveService(service.id)}
@@ -751,6 +766,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 ))}
               </div>
             )}
+            {serviceMappingSlot}
           </div>
           <FormField
             control={form.control}
@@ -946,44 +962,11 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
             )}
           </div>
         </div>
-        <div className="mt-6 flex flex-col gap-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-0">
-          {submitAttemptNotice && (
-            <div
-              id="property-continue-warning"
-              role="alert"
-              className="w-full rounded-xl border border-amber-300/70 bg-amber-50/95 px-3 py-2.5 text-amber-900 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:mr-auto sm:max-w-md"
-            >
-              <div className="flex items-start gap-2.5">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700/90 dark:text-amber-200/90">
-                    Action required
-                  </p>
-                  <p className="mt-0.5 text-sm leading-snug">
-                    {submitAttemptNotice}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          {showClearSavedData && onClearSavedData && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClearSavedData}
-              className="w-full sm:hidden"
-            >
-              Clear saved data
-            </Button>
-          )}
-          <Button
-            type="submit"
-            className="w-full sm:h-14 sm:w-auto sm:min-w-[200px] sm:bg-blue-600 sm:text-xl sm:font-bold sm:text-white sm:hover:bg-blue-700"
-          >
-            Continue
-            <ArrowRight className="ml-2 hidden h-5 w-5 sm:inline" />
-          </Button>
-        </div>
+        <ClientPropertyFormActions
+          submitAttemptNotice={submitAttemptNotice}
+          showClearSavedData={showClearSavedData}
+          onClearSavedData={onClearSavedData}
+        />
       </form>
       <AccountForm
         open={isAccountFormOpen}

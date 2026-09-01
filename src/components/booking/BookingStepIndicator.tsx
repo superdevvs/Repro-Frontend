@@ -2,33 +2,37 @@ import React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
-import { Check, MapPin, Calendar, ClipboardCheck } from 'lucide-react';
+import { Check, MapPin, Calendar, ClipboardCheck, RotateCcw, Wrench } from 'lucide-react';
 
 interface BookingStepIndicatorProps {
   currentStep: number;
   totalSteps: number;
+  stepLabels?: string[];
 }
 
-export function BookingStepIndicator({ currentStep, totalSteps }: BookingStepIndicatorProps) {
+export function BookingStepIndicator({ currentStep, totalSteps, stepLabels: providedStepLabels }: BookingStepIndicatorProps) {
   const isMobile = useIsMobile();
 
   const iconSizeClass = isMobile ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5';
   
   // Step icons for visual representation
-  const stepIcons = [
-    <MapPin key="location" className={iconSizeClass} />,
-    <Calendar key="calendar" className={iconSizeClass} />,
-    <ClipboardCheck key="review" className={iconSizeClass} />
-  ];
-  
-  // Step labels
-  const stepLabels = [
-    'Property Details',
-    'Schedule',
-    'Review'
-  ];
+  const isCompReshootSteps = providedStepLabels?.length === 4;
+  const stepIcons = isCompReshootSteps
+    ? [
+        <RotateCcw key="reason" className={iconSizeClass} />,
+        <Wrench key="services" className={iconSizeClass} />,
+        <Calendar key="calendar" className={iconSizeClass} />,
+        <ClipboardCheck key="review" className={iconSizeClass} />,
+      ]
+    : [
+        <MapPin key="location" className={iconSizeClass} />,
+        <Calendar key="calendar" className={iconSizeClass} />,
+        <ClipboardCheck key="review" className={iconSizeClass} />,
+      ];
 
-  const visibleStepLabels = isMobile
+  const stepLabels = providedStepLabels ?? ['Property Details', 'Schedule', 'Review'];
+
+  const visibleStepLabels = isMobile && !providedStepLabels
     ? ['Property', 'Schedule', 'Review']
     : stepLabels;
 
@@ -36,6 +40,20 @@ export function BookingStepIndicator({ currentStep, totalSteps }: BookingStepInd
     ? 'flex-1 min-w-[10px] h-0.5'
     : 'h-0.5 w-14 md:w-16 lg:w-20 flex-none';
   
+  if (isMobile) {
+    return (
+      <div className="w-full rounded-xl border border-border/60 bg-card/40 px-3 py-2" aria-label={`Step ${currentStep} of ${totalSteps}`}>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+            {stepIcons[currentStep - 1]}
+          </div>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{visibleStepLabels[currentStep - 1]}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{currentStep} of {totalSteps}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full lg:w-fit overflow-hidden rounded-xl border border-border/60 bg-card/40 px-3 py-2 sm:px-3.5 sm:py-2">
       <div className="flex items-center gap-2 sm:gap-2.5 w-full lg:w-auto">

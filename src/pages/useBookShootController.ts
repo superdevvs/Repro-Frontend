@@ -19,11 +19,16 @@ import { BOOK_ANOTHER_SHOOT_NAV_TARGET, clearBookingFormCache } from '@/utils/bo
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
 import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
+import { createComplimentaryReshoot } from '@/features/complimentary-reshoots/api';
+import { useCompReshootBooking } from '@/features/complimentary-reshoots/useCompReshootBooking';
+import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
+import type { ComplimentaryReshootCreatePayload } from '@/features/complimentary-reshoots/model';
 import {
   buildAdminAdjustedPricing,
   asRecord,
   buildNormalizedAddress,
   getDateKey,
+  getBookingWizardConfig,
   parseCurrencyInput,
   resolveSelectedServicePrice,
   roundCurrency,
@@ -35,7 +40,6 @@ import {
   type CompletedBookingSnapshot,
   type PropertyDraftSubmission,
 } from './bookShootModel';
-
 export const useBookShootController = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -45,8 +49,12 @@ export const useBookShootController = () => {
   const clientNameFromUrl = queryParams.get('clientName');
   const clientCompanyFromUrl = queryParams.get('clientCompany');
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
+  const requestedCompReshootSourceId = queryParams.get('compReshootFrom');
+  const additionalWorkSourceId = queryParams.get('reshootOf');
   const { user, isImpersonating } = useAuth();
   const canAdjustBookingAmount = !isImpersonating && ['admin', 'superadmin', 'super_admin'].includes(String(user?.role ?? '').toLowerCase());
+  const compReshootSourceId = isComplimentaryReshootEnabled && canAdjustBookingAmount ? requestedCompReshootSourceId : null;
+  const isCompReshootMode = Boolean(compReshootSourceId && !editShootId);
   const isClientAccount = Boolean(user && (user.role as string) === 'client');
   const roleCanCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const {
@@ -70,9 +78,44 @@ export const useBookShootController = () => {
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
     editShootId, canAdjustBookingAmount,
   });
+  const remountPropertyForm = React.useCallback(() => {
+    setClientPropertyFormKey((current) => current + 1);
+  }, [setClientPropertyFormKey]);
+  const compReshoot = useCompReshootBooking({
+    enabled: isCompReshootMode,
+    sourceShootId: compReshootSourceId,
+    selectedServices, photographerId: photographer, servicePhotographers, propertySqft,
+    setClient,
+    setAddress,
+    setCity,
+    setState,
+    setZip,
+    setPropertyDetails,
+    setPropertySqft,
+    setSelectedServices: handleSelectedServicesChange,
+    setServicePhotographers,
+    setServiceSchedules,
+    setShootType,
+    setBypassPayment,
+    setAdjustedTotalInput,
+    remountPropertyForm,
+  });
+  const compWizardSourceRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!isCompReshootMode || !compReshootSourceId) {
+      compWizardSourceRef.current = null;
+      return;
+    }
+    if (compWizardSourceRef.current !== compReshootSourceId) {
+      compWizardSourceRef.current = compReshootSourceId;
+      setStep(1);
+    }
+  }, [compReshootSourceId, isCompReshootMode, setStep]);
   const canCreateNoProductShoot = isEditMode
     ? canRemoveAllServicesForEdit
     : roleCanCreateNoProductShoot;
+  const [positiveChargeDialogOpen, setPositiveChargeDialogOpen] = React.useState(false);
+  const [exitCompDialogOpen, setExitCompDialogOpen] = React.useState(false);
   const {
     duplicateLocationWarningAcceptedRef, largeHomePackageWarningAcceptedRef, isFormComplete,
     sameDayAddressShoot, sameAddressScheduledDates, addressScheduledWarningMessage,
@@ -124,8 +167,17 @@ export const useBookShootController = () => {
     [adjustedTotalInput, canAdjustBookingAmount]
   );
   const displayPricingBreakdown = React.useMemo(
-    () => buildAdminAdjustedPricing(pricingBreakdown, parsedAdjustedTotal, getTaxRateForState(state)),
-    [pricingBreakdown, parsedAdjustedTotal, state]
+    () => isCompReshootMode
+      ? {
+          ...pricingBreakdown,
+          serviceSubtotal: 0,
+          discountAmount: 0,
+          discountedSubtotal: 0,
+          taxAmount: 0,
+          totalQuote: 0,
+        }
+      : buildAdminAdjustedPricing(pricingBreakdown, parsedAdjustedTotal, getTaxRateForState(state)),
+    [isCompReshootMode, pricingBreakdown, parsedAdjustedTotal, state]
   );
   const getPackagePrice = () => serviceSubtotal;
   const getPhotographerRate = () => {
@@ -145,8 +197,41 @@ export const useBookShootController = () => {
       setAdjustedTotalInput('');
     }
   }, [adjustedTotalInput, canAdjustBookingAmount, setAdjustedTotalInput]);
+  const bookingWizard = getBookingWizardConfig(isCompReshootMode);
+  const finalBookingStep = bookingWizard.finalStep;
+  const schedulingStep = bookingWizard.schedulingStep;
   const validateCurrentStep = () => {
-    if (step === 1) {
+    if (isCompReshootMode && step === 1) {
+      if (!compReshoot.reasonIsComplete) {
+        toast({
+          title: 'Choose a comp reason',
+          description: 'Select why the return visit is needed before continuing.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      return true;
+    }
+    if (isCompReshootMode && step === 2) {
+      if (!client || !address || !city || !state || !zip || selectedServices.length === 0) {
+        toast({
+          title: 'Choose correction services',
+          description: 'The source shoot must be loaded and at least one correction service selected.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      if (!compReshoot.mappingIsComplete) {
+        toast({
+          title: 'Complete source service mapping',
+          description: 'Link every selected service to the affected source item and responsibility.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      return true;
+    }
+    if (!isCompReshootMode && step === 1) {
       if (!client && !isClientAccount) {
         toast({
           title: "Missing information",
@@ -172,12 +257,18 @@ export const useBookShootController = () => {
       }
       return true;
     }
-    if (step === 2) {
-      const errors = {};
+    if (step === schedulingStep) {
+      const errors: Record<string, string> = {};
       if (!date) errors['date'] = "Please select a date";
       if (!time) errors['time'] = "Please select a time";
       if (Object.keys(errors).length > 0) {
         setFormErrors(errors);
+        return false;
+      }
+      const compIssue = isCompReshootMode ? compReshoot.scheduleValidationIssue : null;
+      if (compIssue) {
+        setFormErrors({ photographer: compIssue.description });
+        toast({ ...compIssue, variant: 'destructive' });
         return false;
       }
       return true;
@@ -187,10 +278,10 @@ export const useBookShootController = () => {
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setFormErrors({});
-    if (step === 3) {
+    if (step === finalBookingStep) {
       setIsSubmitting(true);
       const clientValid = isClientAccount || !!client;
-      const requiresServices = isClientAccount || !canCreateNoProductShoot;
+      const requiresServices = isCompReshootMode || isClientAccount || !canCreateNoProductShoot;
       if (!clientValid || !address || !city || !state || !zip || !date || !time || (requiresServices && selectedServices.length === 0)) {
         const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
           clientValid && !!address && !!city && !!state && !!zip && !!date && !!time;
@@ -203,6 +294,12 @@ export const useBookShootController = () => {
               : "Please fill in all required fields before confirming the booking.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
+        return;
+      }
+      const compSubmissionIssue = isCompReshootMode ? compReshoot.submissionValidationIssue : null;
+      if (compSubmissionIssue) {
+        toast({ ...compSubmissionIssue, variant: 'destructive' });
         setIsSubmitting(false);
         return;
       }
@@ -229,7 +326,12 @@ export const useBookShootController = () => {
         setIsSubmitting(false);
         return;
       }
-      if (duplicateLocationPopupMessage && !duplicateLocationWarningAcceptedRef.current) {
+      if (isCompReshootMode && adjustedTotalQuote !== null && adjustedTotalQuote > 0) {
+        setPositiveChargeDialogOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+      if (!isCompReshootMode && duplicateLocationPopupMessage && !duplicateLocationWarningAcceptedRef.current) {
         setDuplicateLocationDialogOpen(true);
         setIsSubmitting(false);
         return;
@@ -274,11 +376,13 @@ export const useBookShootController = () => {
         date.getDate(),
         12
       ) : new Date();
-      const pricingForSubmission = buildAdminAdjustedPricing(
-        pricingBreakdown,
-        adjustedTotalQuote,
-        getTaxRateForState(normalizedState)
-      );
+      const pricingForSubmission = isCompReshootMode
+        ? displayPricingBreakdown
+        : buildAdminAdjustedPricing(
+            pricingBreakdown,
+            adjustedTotalQuote,
+            getTaxRateForState(normalizedState)
+          );
       const baseQuote = pricingForSubmission.discountedSubtotal;
       const photographerRate = getPackagePrice();
       const taxAmount = pricingForSubmission.taxAmount;
@@ -294,6 +398,10 @@ export const useBookShootController = () => {
       };
       const servicesPayload = selectedServices.map(service => {
         const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
+        const compMapping = isCompReshootMode ? compReshoot.serviceMappings[service.id] : undefined;
+        const mappedSourceService = isCompReshootMode ? compReshoot.getMappedSourceService(service.id) : undefined;
+        const serviceCompensation = isCompReshootMode ? compReshoot.getServiceCompensation(service) : undefined;
+        const nominalPrice = resolveSelectedServicePrice(service, sqft);
         const servicePayload: Record<string, unknown> = {
           id: service.id,
           photographer_id: assignedPhotographerId,
@@ -305,8 +413,21 @@ export const useBookShootController = () => {
         // them lets the server preserve retained lines and price only genuinely
         // new services from the current catalogue/square-footage tier.
         if (!isEditMode) {
-          servicePayload.price = resolveSelectedServicePrice(service, sqft);
+          servicePayload.price = isCompReshootMode ? 0 : nominalPrice;
           servicePayload.quantity = 1;
+        }
+
+        if (isCompReshootMode && compMapping && serviceCompensation) {
+          servicePayload.nominal_price = nominalPrice;
+          servicePayload.source_shoot_service_id = compMapping.sourceShootServiceId;
+          servicePayload.responsibility = compMapping.responsibility;
+          servicePayload.responsible_staff_id = compMapping.responsibility === 'photographer'
+            ? mappedSourceService?.photographerId ?? null
+            : null;
+          servicePayload.photographer_compensation_mode = serviceCompensation.mode;
+          if (serviceCompensation.mode === 'custom') {
+            servicePayload.photographer_pay = serviceCompensation.amount;
+          }
         }
 
         return servicePayload;
@@ -318,10 +439,19 @@ export const useBookShootController = () => {
         photographer_id: service.photographer_id,
         scheduled_at: service.scheduled_at,
         is_deliverable: true,
+        ...(service.nominal_price !== undefined ? { nominal_price: service.nominal_price } : {}),
+        ...(service.source_shoot_service_id !== undefined ? { source_shoot_service_id: service.source_shoot_service_id } : {}),
+        ...(service.responsibility !== undefined ? { responsibility: service.responsibility } : {}),
+        ...(service.responsible_staff_id !== undefined ? { responsible_staff_id: service.responsible_staff_id } : {}),
+        ...(service.photographer_compensation_mode !== undefined
+          ? { photographer_compensation_mode: service.photographer_compensation_mode }
+          : {}),
+        ...(service.photographer_pay !== undefined ? { photographer_pay: service.photographer_pay } : {}),
       }));
       const primaryServiceId = servicesPayload[0]?.id ?? null;
-      const effectiveShootType =
-        canCreateNoProductShoot && servicesPayload.length === 0
+      const effectiveShootType = isCompReshootMode
+        ? 'complimentary_reshoot'
+        : canCreateNoProductShoot && servicesPayload.length === 0
           ? 'complimentary'
           : 'standard';
       const productStatus =
@@ -356,6 +486,25 @@ export const useBookShootController = () => {
         service_items: serviceItemsPayload,
         service_category: selectedServices[0]?.category?.name || undefined,
         shoot_type: effectiveShootType,
+        ...(isCompReshootMode ? {
+          policy_version: compReshoot.template?.policyVersion,
+          source_shoot_id: compReshoot.sourceShootId,
+          reshoot_parent_shoot_id: compReshoot.template?.parent.id || compReshoot.sourceShootId,
+          reshoot_root_shoot_id: compReshoot.template?.root.id || compReshoot.sourceShootId,
+          reason_code: compReshoot.reasonCode,
+          reason_note: compReshoot.reasonNote.trim() || undefined,
+          photographer_compensation_mode: compReshoot.photographerMode === 'custom'
+            ? 'mixed'
+            : compReshoot.photographerMode,
+          sales_rep_compensation_mode: compReshoot.repMode,
+          ...(compReshoot.repMode === 'custom'
+            ? { sales_rep_compensation_amount: compReshoot.repCompensationTotal }
+            : {}),
+          nominal_service_total: serviceSubtotal,
+        } : additionalWorkSourceId ? {
+          reshoot_parent_shoot_id: additionalWorkSourceId,
+          reshoot_classification: 'additional_work',
+        } : {}),
         product_status: productStatus,
         shoot_notes: notes || undefined,
         company_notes: companyNotes || undefined,
@@ -446,16 +595,31 @@ export const useBookShootController = () => {
             });
           }
           responsePayload = mutationResult.data;
+        } else if (isCompReshootMode && compReshoot.sourceShootId) {
+          responsePayload = await createComplimentaryReshoot(
+            compReshoot.sourceShootId,
+            payload as ComplimentaryReshootCreatePayload,
+            compReshoot.idempotencyKey,
+          );
+          compReshoot.rotateIdempotencyKey();
         } else {
           const response = await axios.post(requestUrl, payload, requestConfig);
           responsePayload = response.data;
         }
         const isClientRole = user?.role === 'client';
         toast({
-          title: isEditMode ? "Shoot Updated!" : (isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!"),
+          title: isEditMode
+            ? "Shoot Updated!"
+            : isCompReshootMode
+              ? 'Comp reshoot booked!'
+              : (isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!"),
           description: isClientRole 
             ? "Your shoot request has been submitted for approval. We'll notify you once it's reviewed."
-            : isEditMode ? "The shoot has been successfully updated." : "The shoot has been successfully created.",
+            : isEditMode
+              ? "The shoot has been successfully updated."
+              : isCompReshootMode
+                ? 'The return visit was created with a $0 client total.'
+                : "The shoot has been successfully created.",
           variant: "default"
         });
         const responseRecord = asRecord(responsePayload);
@@ -701,6 +865,22 @@ export const useBookShootController = () => {
           updateClientCompanyNotes(data.clientId, nextNotes);
         }
       }
+      if (isCompReshootMode && !compReshoot.reasonIsComplete) {
+        toast({
+          title: 'Choose a comp reason',
+          description: 'Select why the return visit is needed before scheduling it.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (isCompReshootMode && !compReshoot.mappingIsComplete) {
+        toast({
+          title: 'Complete source service mapping',
+          description: 'Link each selected service to its affected source item and responsibility.',
+          variant: 'destructive',
+        });
+        return;
+      }
       setStep(2);
     },
     isClientAccount: isClientAccount,
@@ -713,7 +893,8 @@ export const useBookShootController = () => {
     photographerNotes, propertyDetails, propertySqft, selectedServices, setAddress,
     setCity, setClient, setCompanyNotes, setEditorNotes, setNotes, setPhotographerNotes,
     setPropertyDetails, setPropertySqft, setState, setStep, setZip, state,
-    updateClientCompanyNotes, user, zip,
+    updateClientCompanyNotes, user, zip, isCompReshootMode,
+    compReshoot.reasonIsComplete, compReshoot.mappingIsComplete, toast,
   ]);
   const getSummaryInfo = () => {
     const serviceNames = selectedServices.map(service => service.name).join(', ');
@@ -762,23 +943,28 @@ export const useBookShootController = () => {
       : undefined;
   const summaryInfo = getSummaryInfo();
   const getCurrentStepContent = () => {
-    const stepContent = {
-      1: {
-        title: "Book a new shoot",
-        description: "Select a client and enter the property information"
-      },
-      2: {
-        title: "Schedule",
-        description: "Choose a convenient date and time for the shoot"
-      },
-      3: {
-        title: "Review & Confirm",
-        description: "Verify all the details before confirming the booking"
-      }
-    };
-    return stepContent[step as keyof typeof stepContent] || { title: '', description: '' };
+    return bookingWizard.steps[step - 1] || { title: '', description: '' };
   };
   const currentStepContent = getCurrentStepContent();
+  const canSubmitBooking = isFormComplete && (!isCompReshootMode || compReshoot.isValid);
+  const openCompReshootSource = React.useCallback(() => {
+    if (compReshoot.sourceShootId) navigate(`/shoots/${compReshoot.sourceShootId}`);
+  }, [compReshoot.sourceShootId, navigate]);
+  const confirmExitCompReshoot = React.useCallback(() => {
+    setExitCompDialogOpen(false);
+    clearBookingDraftState();
+    navigate('/book-shoot', { replace: true });
+  }, [clearBookingDraftState, navigate]);
+  const convertToAdditionalWork = React.useCallback(() => {
+    const sourceId = compReshoot.sourceShootId;
+    if (!sourceId) return;
+    setPositiveChargeDialogOpen(false);
+    setShootType('standard');
+    setBypassPayment(false);
+    setAdjustedTotalInput('');
+    setStep((current) => Math.min(current, 3));
+    navigate(`/book-shoot?reshootOf=${encodeURIComponent(sourceId)}`, { replace: true });
+  }, [compReshoot.sourceShootId, navigate, setAdjustedTotalInput, setBypassPayment, setShootType, setStep]);
 
   return {
     isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
@@ -792,7 +978,7 @@ export const useBookShootController = () => {
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId, formErrors,
     setFormErrors, clientPropertyFormKey, toast, photographers, availablePhotographerIds,
     availabilityChecked, canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
-    isFormComplete, sameDayAddressShoot, sameAddressScheduledDates,
+    isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
     addressScheduledWarningMessage, sameDayAddressWarningMessage, duplicateLocationWarningShoot,
     duplicateLocationPopupMessage, showAddressScheduledWarning, hasCachedData,
     clearBookingDraftState, selectedClientData, selectedServiceSqft, serviceSubtotal,
@@ -802,6 +988,9 @@ export const useBookShootController = () => {
     handlePropertyDraftChange, updateClientCompanyNotes, handleClearCache,
     clientPropertyFormData, getSummaryInfo, parsedTemperature, condition, summaryInfo,
     currentStepContent,
+    compReshoot, isCompReshootMode, positiveChargeDialogOpen, setPositiveChargeDialogOpen,
+    exitCompDialogOpen, setExitCompDialogOpen, openCompReshootSource,
+    confirmExitCompReshoot, convertToAdditionalWork,
     buildNormalizedAddress, user,
     shouldCacheForm, setNotes, duplicateLocationWarningAcceptedRef,
   };

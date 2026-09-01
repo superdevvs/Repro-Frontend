@@ -1,6 +1,6 @@
 export type ClientBillingSource = 'invoice' | 'shoot_balance';
-export type ClientBillingBucket = 'due_now' | 'upcoming' | 'paid';
-export type ClientBillingStatus = 'paid' | 'pending' | 'overdue';
+export type ClientBillingBucket = 'due_now' | 'upcoming' | 'paid' | 'no_payment_required';
+export type ClientBillingStatus = 'paid' | 'pending' | 'overdue' | 'no_payment_required';
 
 export interface ClientBillingBucketSummary {
   amount: number;
@@ -11,6 +11,7 @@ export interface ClientBillingSummary {
   dueNow: ClientBillingBucketSummary;
   upcoming: ClientBillingBucketSummary;
   paid: ClientBillingBucketSummary;
+  noPaymentRequired: ClientBillingBucketSummary;
   paymentRequiredToReleaseCount: number;
 }
 
@@ -58,6 +59,8 @@ export interface ClientBillingItem {
   id: string;
   source: ClientBillingSource;
   sourceLabel: string;
+  documentType?: string | null;
+  paymentRequired?: boolean;
   invoiceId?: number | null;
   shootId?: number | null;
   number?: string | null;

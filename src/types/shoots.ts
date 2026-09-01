@@ -307,6 +307,68 @@ export interface ShootServiceObject {
   unlockState?: string;
   lane?: string | null;
   category_key?: string | null;
+  source_shoot_service_id?: string | number | null;
+  sourceShootServiceId?: string | number | null;
+  source_service_name?: string | null;
+  sourceServiceName?: string | null;
+  reshoot_responsibility?: string | null;
+  reshootResponsibility?: string | null;
+  responsible_staff_id?: string | number | null;
+  responsibleStaffId?: string | number | null;
+  responsible_staff_name?: string | null;
+  responsibleStaffName?: string | null;
+  photographer_compensation_mode?: string | null;
+  photographerCompensationMode?: string | null;
+}
+
+export interface ShootReshootLineageSummary {
+  id: string | number;
+  address?: string | null;
+  fullAddress?: string | null;
+  full_address?: string | null;
+  scheduledAt?: string | null;
+  scheduled_at?: string | null;
+  scheduledDate?: string | null;
+  scheduled_date?: string | null;
+  shootType?: string | null;
+  shoot_type?: string | null;
+  classification?: string | null;
+  status?: string | null;
+  reasonCode?: string | null;
+  reason_code?: string | null;
+  reasonCodes?: string[];
+  reason_codes?: string[];
+  affectedServiceNames?: string[];
+  affected_service_names?: string[];
+}
+
+export interface ShootReshootServiceLink {
+  id?: string | number;
+  reshoot_shoot_id?: string | number | null;
+  reshootShootId?: string | number | null;
+  reshoot_shoot_service_id?: string | number | null;
+  reshootShootServiceId?: string | number | null;
+  source_shoot_service_id?: string | number | null;
+  sourceShootServiceId?: string | number | null;
+  source_service_name?: string | null;
+  sourceServiceName?: string | null;
+  source_service?: {
+    id?: string | number | null;
+    name?: string | null;
+  } | null;
+  sourceService?: {
+    id?: string | number | null;
+    name?: string | null;
+  } | null;
+  reason_code?: string | null;
+  reasonCode?: string | null;
+  reason_note?: string | null;
+  reasonNote?: string | null;
+  responsibility?: string | null;
+  responsible_staff_id?: string | number | null;
+  responsibleStaffId?: string | number | null;
+  responsible_staff_name?: string | null;
+  responsibleStaffName?: string | null;
 }
 
 export interface ShootEditorAssignment {
@@ -488,6 +550,20 @@ export interface ShootData {
    * Schedule_View can mark a Test_Shoot apart from real bookings (Req 10.10).
    */
   shootType?: string;
+  reshootParent?: ShootReshootLineageSummary | null;
+  reshoot_parent?: ShootReshootLineageSummary | null;
+  reshootRoot?: ShootReshootLineageSummary | null;
+  reshoot_root?: ShootReshootLineageSummary | null;
+  reshootChildren?: ShootReshootLineageSummary[];
+  reshoot_children?: ShootReshootLineageSummary[];
+  reshootReasonCode?: string | null;
+  reshoot_reason_code?: string | null;
+  reshootReasonNote?: string | null;
+  reshoot_reason_note?: string | null;
+  reshootServiceLinks?: ShootReshootServiceLink[];
+  reshoot_service_links?: ShootReshootServiceLink[];
+  compensationSummary?: Record<string, unknown> | null;
+  compensation_summary?: Record<string, unknown> | null;
   workflowStatus?: string;
   deliveryStatus?: string;
   notes?: string | {

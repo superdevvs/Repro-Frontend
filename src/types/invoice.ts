@@ -64,7 +64,7 @@ export interface InvoiceData {
   date: string;
   dueDate: string;
   amount: number;
-  status: "paid" | "pending" | "overdue";
+  status: "paid" | "pending" | "overdue" | "no_payment_required";
   services: string[];
   paymentMethod: string;
   paymentDetails?: PaymentDetails;
@@ -94,6 +94,10 @@ export interface InvoiceData {
   notes?: string;
   role?: string;
   payee?: InvoiceParty | null;
+  documentType?: string | null;
+  document_type?: string | null;
+  paymentRequired?: boolean;
+  payment_required?: boolean;
 }
 
 export type InvoiceViewDialogItem = InvoiceItem & {
@@ -146,4 +150,8 @@ export type InvoiceViewDialogInvoice = Omit<
   due_date?: string;
   amount_paid?: number | string;
   overpayment_amount?: number | string;
+  documentType?: string | null;
+  document_type?: string | null;
+  paymentRequired?: boolean;
+  payment_required?: boolean;
 };

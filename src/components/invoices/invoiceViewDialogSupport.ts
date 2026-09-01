@@ -1,4 +1,23 @@
-import type { InvoiceShootRef, InvoiceViewDialogInvoice } from '@/types/invoice';
+import type { InvoiceParty, InvoiceShootRef, InvoiceViewDialogInvoice } from '@/types/invoice';
+
+export const isInvoiceParty = (value: unknown): value is InvoiceParty => (
+  Boolean(value) && typeof value === 'object'
+);
+
+export const firstInvoicePartyText = (
+  source: InvoiceParty | null | undefined,
+  keys: string[],
+): string => {
+  if (!source) return '';
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' || typeof value === 'number') {
+      const normalized = String(value).trim();
+      if (normalized) return normalized;
+    }
+  }
+  return '';
+};
 
 /**
  * Resolve every shoot association supported by the backend. Older aggregate

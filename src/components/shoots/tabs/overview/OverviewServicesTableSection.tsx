@@ -84,6 +84,7 @@ export type OverviewServicesTableSectionProps = {
   isClient: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
+  isAdmin?: boolean;
 };
 
 // Placeholder shown in Date/Time/Photographer/Price cells when the underlying
@@ -297,6 +298,25 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
     const dateDisplay = formatDisplayDate(item.scheduledAt);
     const timeDisplay = formatDisplayTime(item.scheduledAt);
     const label = formatServiceLabel(item.source) || item.name;
+    const source = item.source;
+    const sourceItemId = String(item.shootServiceId || item.id);
+    const linkedResponsibility = (props.shoot.reshootServiceLinks ?? props.shoot.reshoot_service_links ?? []).find((link) => (
+      String(link.reshootShootServiceId ?? link.reshoot_shoot_service_id ?? '') === sourceItemId
+    ));
+    const responsibility = source.reshootResponsibility
+      ?? source.reshoot_responsibility
+      ?? linkedResponsibility?.responsibility
+      ?? null;
+    const responsibilityLabel = responsibility
+      ? String(responsibility).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+      : null;
+    const sourceServiceName = source.sourceServiceName
+      ?? source.source_service_name
+      ?? linkedResponsibility?.sourceService?.name
+      ?? linkedResponsibility?.source_service?.name
+      ?? linkedResponsibility?.sourceServiceName
+      ?? linkedResponsibility?.source_service_name
+      ?? null;
 
     return (
       <tr key={item.id} className="align-middle">
@@ -308,6 +328,14 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
             aria-hidden="true"
           />
           <span className="block truncate font-medium text-foreground">{label}</span>
+          {props.isAdmin && responsibilityLabel && (
+            <span className="block truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
+              Reshoot responsibility: {responsibilityLabel}
+            </span>
+          )}
+          {sourceServiceName && (
+            <span className="block truncate text-[10px] text-muted-foreground">From: {sourceServiceName}</span>
+          )}
         </td>
         <td className="py-1.5 pr-2 whitespace-nowrap">
           {dateDisplay ?? <span className="text-muted-foreground">{UNASSIGNED}</span>}

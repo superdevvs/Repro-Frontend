@@ -9,6 +9,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import type { BookShootController } from './useBookShootController';
+import { CompReshootBanner } from '@/features/complimentary-reshoots/CompReshootBanner';
+import { CompReasonChangeDialog } from '@/features/complimentary-reshoots/CompReasonChangeDialog';
+import { getBookingWizardConfig } from './bookShootModel';
 
 export function BookShootView({ controller }: { controller: BookShootController }) {
   const {
@@ -32,7 +35,13 @@ export function BookShootView({ controller }: { controller: BookShootController 
     getTax, getAvailablePhotographers, validateCurrentStep, goBack, handleSubmit,
     displayPricingBreakdown, pricingBreakdown, buildNormalizedAddress, user,
     shouldCacheForm, setNotes, duplicateLocationWarningAcceptedRef,
+    compReshoot, isCompReshootMode, canSubmitBooking,
+    positiveChargeDialogOpen, setPositiveChargeDialogOpen,
+    exitCompDialogOpen, setExitCompDialogOpen, openCompReshootSource,
+    confirmExitCompReshoot, convertToAdditionalWork,
   } = controller;
+  const wizard = getBookingWizardConfig(isCompReshootMode);
+  const finalStep = wizard.finalStep;
   return (
     <>
       <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
@@ -51,6 +60,8 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 clientName={completedBooking?.clientName ?? user?.name}
                 clientEmail={completedBooking?.clientEmail ?? user?.email}
                 shoot={completedBooking?.shoot}
+                isComplimentaryReshoot={isCompReshootMode}
+                sourceShootId={compReshoot.sourceShootId}
               />
             ) : (
               <div className="space-y-4">
@@ -59,7 +70,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   title={currentStepContent.title}
                   description={currentStepContent.description}
                 />
-                {showAddressScheduledWarning && (
+                {showAddressScheduledWarning && !isCompReshootMode && (
                   <div className="w-full rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 shadow-sm md:ml-auto md:max-w-xl">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-300" />
@@ -70,9 +81,17 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   </div>
                 )}
               </div>
+              {isCompReshootMode && (
+                <CompReshootBanner
+                  controller={compReshoot}
+                  onOpenSource={openCompReshootSource}
+                  onExit={() => setExitCompDialogOpen(true)}
+                  onConvertToAdditionalWork={() => setPositiveChargeDialogOpen(true)}
+                />
+              )}
               <div className="flex items-center gap-3">
-                <BookingStepIndicator currentStep={step} totalSteps={3} />
-                {step === 1 && shouldCacheForm && hasCachedData && (
+                <BookingStepIndicator currentStep={step} totalSteps={wizard.totalSteps} stepLabels={wizard.labels} />
+                {step === 1 && !isCompReshootMode && shouldCacheForm && hasCachedData && (
                   <Button
                     type="button"
                     variant="outline"
@@ -93,7 +112,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 className={`grid grid-cols-1 ${{
                   true: 'lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)]',
                   false: 'lg:grid-cols-1',
-                }[String(!isMobile || step === 3) as 'true' | 'false']} gap-8 mt-2 items-start`}
+                }[String(!isMobile || step === finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
               >
                 <div className="order-2 lg:order-1 w-full">
                 <BookingContentArea
@@ -150,25 +169,28 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   sameDayAddressWarningMessage={sameDayAddressWarningMessage}
                   showClearSavedData={shouldCacheForm && hasCachedData}
                   onClearSavedData={handleClearCache}
+                  compReshoot={compReshoot}
+                  propertySqft={propertySqft}
                 />
                 </div>
-                {(!isMobile || step === 3) && (
+                {(!isMobile || step === finalStep) && (
                   <div className="order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm w-full">
                     <BookingSummary
                       summaryInfo={summaryInfo}
                       selectedServices={selectedServices}
                       serviceSchedules={serviceSchedules}
-                      onSubmit={step === 3 ? handleSubmit : undefined}
-                      isLastStep={step === 3}
-                      canSubmit={isFormComplete}
+                      onSubmit={step === finalStep ? handleSubmit : undefined}
+                      isLastStep={step === finalStep}
+                      canSubmit={canSubmitBooking}
                       isSubmitting={isSubmitting}
-                      canAdjustAmount={canAdjustBookingAmount}
+                      canAdjustAmount={canAdjustBookingAmount && !isCompReshootMode}
                       adjustedTotalInput={adjustedTotalInput}
                       setAdjustedTotalInput={setAdjustedTotalInput}
                       originalTotalQuote={pricingBreakdown.totalQuote}
                       showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
                       weather={{ temperature: parsedTemperature, condition }}
                       isMobile={isMobile}
+                      isComplimentaryReshoot={isCompReshootMode}
                     />
                   </div>
                 )}
@@ -195,6 +217,35 @@ export function BookShootView({ controller }: { controller: BookShootController 
             >
               Continue scheduling
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <CompReasonChangeDialog controller={compReshoot} />
+      <AlertDialog open={exitCompDialogOpen} onOpenChange={setExitCompDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit comp reshoot mode?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The source link, reason, service mapping, and compensation choices will be cleared. You can continue with a normal booking.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay in comp mode</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExitCompReshoot}>Exit mode</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={positiveChargeDialogOpen} onOpenChange={setPositiveChargeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert to additional work?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A complimentary reshoot must keep the client total at exactly $0. Continue as Reshoot / Additional Work to add a client charge while preserving the source-shoot relationship.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep complimentary</AlertDialogCancel>
+            <AlertDialogAction onClick={convertToAdditionalWork}>Convert booking</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

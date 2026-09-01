@@ -8,9 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from '@/services/invoiceService';
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
-import type { InvoiceParty, InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
+import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 import { InvoiceAdjustmentEditor } from './InvoiceAdjustmentEditor';
-import { collectLinkedInvoiceShoots } from './invoiceViewDialogSupport';
+import {
+  collectLinkedInvoiceShoots,
+  firstInvoicePartyText as firstText,
+  isInvoiceParty,
+} from './invoiceViewDialogSupport';
 import {
   triggerDashboardOverviewRefresh,
   triggerInvoicesRefresh,
@@ -27,28 +31,7 @@ import {
   BRAND_PHONE,
 } from '@/config/brand';
 
-const COMPANY_NAME = BRAND_NAME;
-const COMPANY_PHONE = BRAND_PHONE;
-const COMPANY_EMAIL = BRAND_EMAIL;
-const COMPANY_ADDRESS_LINES = BRAND_ADDRESS_LINES;
-
 type InvoiceItem = InvoiceViewDialogItem;
-
-const isInvoiceParty = (value: unknown): value is InvoiceParty => (
-  Boolean(value) && typeof value === 'object'
-);
-
-const firstText = (source: InvoiceParty | null | undefined, keys: string[]): string => {
-  if (!source) return '';
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === 'string' || typeof value === 'number') {
-      const normalized = String(value).trim();
-      if (normalized) return normalized;
-    }
-  }
-  return '';
-};
 
 interface InvoiceViewDialogProps {
   isOpen: boolean;
@@ -204,7 +187,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const tax = Number(invoiceData.tax ?? 0);
   const subtotal = Number(invoiceData.subtotal ?? Math.max(total - tax, 0));
   const status = invoiceData.status || 'pending';
-  const isPaid = status.toLowerCase() === 'paid';
+  const documentType = invoiceData.documentType ?? invoiceData.document_type ?? null;
+  const paymentRequired = invoiceData.paymentRequired ?? invoiceData.payment_required;
+  const isComplimentaryReceipt = documentType === 'complimentary_receipt'
+    || paymentRequired === false
+    || status.toLowerCase() === 'no_payment_required';
+  const isPaid = !isComplimentaryReceipt && status.toLowerCase() === 'paid';
   const paidAmount = Number(invoiceData.amountPaid ?? invoiceData.amount_paid ?? total) || 0;
   const overpaymentAmount = Math.max(
     Number(invoiceData.overpaymentAmount ?? invoiceData.overpayment_amount ?? Math.max(paidAmount - total, 0)) || 0,
@@ -484,14 +472,19 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       } catch {
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(COMPANY_NAME, margin, headerTop + 10);
+        doc.text(BRAND_NAME, margin, headerTop + 10);
       }
 
-      // INVOICE title on right
+      // Document title on right
       doc.setTextColor(30, 64, 175); // Blue color
-      doc.setFontSize(28);
+      doc.setFontSize(isComplimentaryReceipt ? 16 : 28);
       doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE', headerRightX, headerTop + 10, { align: 'right' });
+      doc.text(
+        isComplimentaryReceipt ? 'COMPLIMENTARY — NO PAYMENT REQUIRED' : 'INVOICE',
+        headerRightX,
+        headerTop + 10,
+        { align: 'right' },
+      );
       
       // Date under INVOICE
       doc.setTextColor(100, 100, 100);
@@ -513,7 +506,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('INVOICE TO', margin + 8, yPos + 10);
+      doc.text(isComplimentaryReceipt ? 'RECEIPT FOR' : 'INVOICE TO', margin + 8, yPos + 10);
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
@@ -697,10 +690,19 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       yPos += 12;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text(isPaid ? 'TOTAL PAYMENT' : 'TOTAL DUE', margin, yPos);
+      doc.text(
+        isComplimentaryReceipt
+          ? 'COMPLIMENTARY RECEIPT'
+          : isPaid ? 'TOTAL PAYMENT' : 'TOTAL DUE',
+        margin,
+        yPos,
+      );
       
       doc.setFontSize(24);
-      if (isPaid) {
+      if (isComplimentaryReceipt) {
+        doc.setTextColor(30, 64, 175);
+        doc.text(formatCurrency(0), margin, yPos + 12);
+      } else if (isPaid) {
         doc.setTextColor(0, 128, 0);
         doc.text(formatCurrency(paidAmount), margin, yPos + 12);
       } else {
@@ -716,21 +718,21 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text(COMPANY_NAME, margin, footerY);
+      doc.text(BRAND_NAME, margin, footerY);
       doc.setFont('helvetica', 'normal');
       let footerLineY = footerY + 5;
-      if (COMPANY_ADDRESS_LINES.length > 0) {
-        COMPANY_ADDRESS_LINES.forEach((line) => {
+      if (BRAND_ADDRESS_LINES.length > 0) {
+        BRAND_ADDRESS_LINES.forEach((line) => {
           doc.text(line, margin, footerLineY);
           footerLineY += 4;
         });
       }
-      if (COMPANY_PHONE) {
-        doc.text(`Phone: ${COMPANY_PHONE}`, margin, footerLineY);
+      if (BRAND_PHONE) {
+        doc.text(`Phone: ${BRAND_PHONE}`, margin, footerLineY);
         footerLineY += 4;
       }
-      if (COMPANY_EMAIL) {
-        doc.text(`Email: ${COMPANY_EMAIL}`, margin, footerLineY);
+      if (BRAND_EMAIL) {
+        doc.text(`Email: ${BRAND_EMAIL}`, margin, footerLineY);
       }
 
       // Save PDF
@@ -739,14 +741,16 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, propertyAddress, resolvePhotographerName, subtotal, tax, total]);
+  }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isComplimentaryReceipt, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, propertyAddress, resolvePhotographerName, subtotal, tax, total]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Invoice</DialogTitle>
+            <DialogTitle className="text-2xl font-bold">
+              {isComplimentaryReceipt ? 'Complimentary receipt' : 'Invoice'}
+            </DialogTitle>
             <Button
               onClick={handleDownloadPDF}
               variant="outline"
@@ -768,15 +772,17 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 <Logo className="h-9 w-auto" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-lg leading-tight">{COMPANY_NAME}</p>
+                <p className="font-semibold text-lg leading-tight">{BRAND_NAME}</p>
                 <div className="text-sm text-muted-foreground leading-relaxed">
-                  <p>Phone: {COMPANY_PHONE}</p>
-                  <p>Email: {COMPANY_EMAIL}</p>
+                  <p>Phone: {BRAND_PHONE}</p>
+                  <p>Email: {BRAND_EMAIL}</p>
                 </div>
               </div>
             </div>
             <div className="text-right space-y-1">
-              <div className="text-xs font-semibold text-muted-foreground tracking-widest">INVOICE</div>
+              <div className="text-xs font-semibold text-muted-foreground tracking-widest">
+                {isComplimentaryReceipt ? 'RECEIPT' : 'INVOICE'}
+              </div>
               <div>
                 <span className="text-sm font-bold">{displayInvoiceNumber}</span>
               </div>
@@ -789,9 +795,20 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             </div>
           </div>
 
+          {isComplimentaryReceipt && (
+            <div
+              className="border-y border-sky-200 bg-sky-50 px-3 py-2 text-center text-sm font-semibold tracking-wide text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+              role="status"
+            >
+              COMPLIMENTARY — NO PAYMENT REQUIRED
+            </div>
+          )}
+
           {/* Invoice To Section */}
           <div>
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2">Invoice To</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+              {isComplimentaryReceipt ? 'Receipt for' : 'Invoice To'}
+            </h3>
             <div className="space-y-1">
               <p className="font-medium text-base">{clientName}</p>
               {clientEmail && (
@@ -800,7 +817,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             </div>
           </div>
 
-          {canEditInvoice && (
+          {canEditInvoice && !isComplimentaryReceipt && (
             <InvoiceAdjustmentEditor
               amount={miscAmount}
               billsClient={miscBillsClient}
@@ -965,8 +982,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 </div>
               )}
               <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-border mt-2">
-                <span className="text-foreground">{isPaid ? 'Total Payment:' : 'Total Due:'}</span>
-                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>{formatCurrency(isPaid ? paidAmount : total)}</span>
+                <span className="text-foreground">
+                  {isComplimentaryReceipt ? 'Client total:' : isPaid ? 'Total Payment:' : 'Total Due:'}
+                </span>
+                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>
+                  {formatCurrency(isComplimentaryReceipt ? 0 : isPaid ? paidAmount : total)}
+                </span>
               </div>
             </div>
           </div>

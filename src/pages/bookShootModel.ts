@@ -17,6 +17,9 @@ export type ServicePackage = {
   allow_multiple?: boolean;
   description: string;
   sqft_ranges?: SqftRange[];
+  photographer_pay?: number | null;
+  exclude_from_sales_commission?: boolean;
+  quantity?: number;
   category?: {
     id: string;
     name: string;
@@ -26,6 +29,35 @@ export type ServicePackage = {
 };
 
 export type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+
+export type BookingWizardStep = {
+  title: string;
+  description: string;
+};
+
+const STANDARD_BOOKING_STEPS: BookingWizardStep[] = [
+  { title: 'Book a new shoot', description: 'Select a client and enter the property information' },
+  { title: 'Schedule', description: 'Choose a convenient date and time for the shoot' },
+  { title: 'Review & Confirm', description: 'Verify all the details before confirming the booking' },
+];
+
+const COMP_RESHOOT_STEPS: BookingWizardStep[] = [
+  { title: 'Complimentary reshoot reason', description: 'Choose why the return visit is needed' },
+  { title: 'Services needing correction', description: 'Select return-visit work and map it to the original shoot' },
+  { title: 'Schedule & assignments', description: 'Choose the date, time, and photographers' },
+  { title: 'Review & compensation', description: 'Confirm the $0 client receipt and staff compensation' },
+];
+
+export const getBookingWizardConfig = (isCompReshoot: boolean) => {
+  const steps = isCompReshoot ? COMP_RESHOOT_STEPS : STANDARD_BOOKING_STEPS;
+  return {
+    steps,
+    totalSteps: steps.length,
+    finalStep: steps.length,
+    schedulingStep: isCompReshoot ? 3 : 2,
+    labels: isCompReshoot ? ['Reason', 'Services & source', 'Schedule', 'Review'] : undefined,
+  };
+};
 
 export type PropertyDetailsData = Record<string, unknown> & {
   sqft?: number;

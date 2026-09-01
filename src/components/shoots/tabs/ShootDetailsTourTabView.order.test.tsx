@@ -9,7 +9,7 @@ vi.mock('./tours/TourProvidersSection', () => ({
 import { ShootDetailsTourTabView } from './ShootDetailsTourTabView';
 
 describe('ShootDetailsTourTabView ordering', () => {
-  it('places provider status and actions before the general tour links', () => {
+  it('keeps 3D and floor-plan providers at the bottom of the tab content', () => {
     render(
       <ShootDetailsTourTabView
         shootId={82}
@@ -32,6 +32,7 @@ describe('ShootDetailsTourTabView ordering', () => {
         showZillowSection
         visibleMatterportKeys={[]}
         visibleIguideKeys={[]}
+        propertySection={<section data-testid="property-section">Property Information</section>}
         qrCodeDialog={{ open: false, type: 'branded', url: '' }}
         onQrDialogOpenChange={vi.fn()}
         onQrImageError={vi.fn()}
@@ -42,7 +43,9 @@ describe('ShootDetailsTourTabView ordering', () => {
 
     const providers = screen.getByTestId('provider-section');
     const tourLinks = screen.getByText('Tour Links');
+    const property = screen.getByTestId('property-section');
 
-    expect(providers.compareDocumentPosition(tourLinks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tourLinks.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(property.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

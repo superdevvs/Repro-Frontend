@@ -40,7 +40,11 @@ interface ClientBillingListProps {
 }
 
 /** A row is payable when money is actually outstanding on it. */
-const isPayable = (item: ClientBillingItem) => item.bucket !== 'paid' && item.balance > 0.01;
+const isPayable = (item: ClientBillingItem) =>
+  item.paymentRequired !== false
+  && item.bucket !== 'paid'
+  && item.bucket !== 'no_payment_required'
+  && item.balance > 0.01;
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -58,11 +62,18 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'paid':
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    case 'no_payment_required':
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200';
     case 'overdue':
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     default:
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
   }
+};
+
+const getStatusLabel = (status: ClientBillingItem['status']) => {
+  if (status === 'no_payment_required') return 'No payment required';
+  return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
 };
 
 const getBucketLabel = (bucket: ClientBillingItem['bucket']) => {
@@ -71,10 +82,15 @@ const getBucketLabel = (bucket: ClientBillingItem['bucket']) => {
       return 'Due now';
     case 'upcoming':
       return 'Upcoming';
+    case 'no_payment_required':
+      return 'No payment required';
     default:
       return 'Paid';
   }
 };
+
+const getSourceLabel = (item: ClientBillingItem) =>
+  item.documentType === 'complimentary_receipt' ? 'Complimentary receipt' : item.sourceLabel;
 
 export function ClientBillingList({
   items,
@@ -86,7 +102,7 @@ export function ClientBillingList({
 }: ClientBillingListProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'all' | 'due_now' | 'upcoming' | 'paid'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'due_now' | 'upcoming' | 'paid' | 'no_payment_required'>('all');
   const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -139,9 +155,9 @@ export function ClientBillingList({
   const handleExport = async (exportFormat: InvoiceExportFormat) => {
     const rows = exportItems.map((item) => ({
       reference: item.number || (item.shootId != null ? `Shoot ${item.shootId}` : item.id),
-      source: item.sourceLabel,
+      source: getSourceLabel(item),
       property: item.property || '',
-      status: item.status,
+      status: getStatusLabel(item.status),
       amount: item.amount,
       paid: item.amountPaid,
       balance: item.balance,
@@ -213,11 +229,11 @@ export function ClientBillingList({
   return (
     <div className="w-full">
       <Card className="mb-6">
-        <div className="border-b p-3">
+        <div className="flex flex-col gap-2 border-b p-3 lg:flex-row lg:items-center lg:justify-between">
           <Tabs
             value={activeTab}
-            className="w-full"
-            onValueChange={(value) => setActiveTab(value as 'all' | 'due_now' | 'upcoming' | 'paid')}
+            className="min-w-0 flex-1"
+            onValueChange={(value) => setActiveTab(value as 'all' | 'due_now' | 'upcoming' | 'paid' | 'no_payment_required')}
           >
             <div className="overflow-x-auto pb-1 sm:pb-0">
               <TabsList className="inline-flex min-w-max">
@@ -225,25 +241,26 @@ export function ClientBillingList({
                 <TabsTrigger value="due_now" className="py-1 text-sm">Due now</TabsTrigger>
                 <TabsTrigger value="upcoming" className="py-1 text-sm">Upcoming</TabsTrigger>
                 <TabsTrigger value="paid" className="py-1 text-sm">Paid</TabsTrigger>
+                <TabsTrigger value="no_payment_required" className="py-1 text-sm">No payment required</TabsTrigger>
               </TabsList>
             </div>
           </Tabs>
-        </div>
 
-        <InvoiceDateFilterToolbar
-          filter={dateFilter}
-          onFilterChange={setDateFilter}
-          resultCount={filteredItems.length}
-          selectedCount={selectedItems.length}
-          onClearSelection={() => setSelectedIds(new Set())}
-          onExport={handleExport}
-          onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
-          bulkPdfLabel="Selected billing statements"
-          resultNoun="billing item"
-          className="rounded-none border-x-0 border-t-0"
-          exportDisabled={loading}
-          exporting={exporting}
-        />
+          <InvoiceDateFilterToolbar
+            filter={dateFilter}
+            onFilterChange={setDateFilter}
+            resultCount={filteredItems.length}
+            selectedCount={selectedItems.length}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onExport={handleExport}
+            onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
+            bulkPdfLabel="Selected billing statements"
+            resultNoun="billing item"
+            className="rounded-none border-0 bg-transparent p-0 lg:w-auto lg:flex-none"
+            exportDisabled={loading}
+            exporting={exporting}
+          />
+        </div>
 
         {loading ? (
           <div className="p-6 text-sm text-muted-foreground">Loading billing data…</div>
@@ -261,14 +278,14 @@ export function ClientBillingList({
                     />
                     <div>
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {item.sourceLabel}
+                      {getSourceLabel(item)}
                     </p>
                     <p className="text-base font-semibold">
                       {item.number ? `#${item.number}` : `Shoot #${item.shootId}`}
                     </p>
                     </div>
                   </div>
-                  <Badge className={`${getStatusColor(item.status)} capitalize`}>{item.status}</Badge>
+                  <Badge className={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Badge>
                 </div>
 
                 <div className="mt-3 space-y-2 text-sm">
@@ -362,7 +379,7 @@ export function ClientBillingList({
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <p className="text-xs font-semibold">{item.sourceLabel}</p>
+                          <p className="text-xs font-semibold">{getSourceLabel(item)}</p>
                           <p className="text-[11px] text-muted-foreground">{getBucketLabel(item.bucket)}</p>
                         </div>
                       </div>
@@ -397,7 +414,7 @@ export function ClientBillingList({
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <Badge className={`${getStatusColor(item.status)} capitalize`}>{item.status}</Badge>
+                        <Badge className={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Badge>
                         {item.paymentRequiredToRelease && (
                           <Badge variant="destructive">Release blocked</Badge>
                         )}

@@ -41,6 +41,7 @@ interface BookingSummaryProps {
     condition?: string | null;
   };
   isMobile?: boolean;
+  isComplimentaryReshoot?: boolean;
 }
 
 export function BookingSummary({
@@ -57,6 +58,7 @@ export function BookingSummary({
   originalTotalQuote,
   showRepName = false,
   isMobile = false,
+  isComplimentaryReshoot = false,
 }: BookingSummaryProps) {
   const { user } = useAuth();
   const hasSelectedServices = selectedServices.length > 0;
@@ -81,7 +83,10 @@ export function BookingSummary({
       }
     >
       <div className={isMobile ? "p-4 pr-3" : "flex-1 overflow-y-auto p-6 pr-4"}>
-        <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Booking Summary</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Booking Summary</h2>
+          {isComplimentaryReshoot && <Badge variant="outline" className="border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-200">Client $0</Badge>}
+        </div>
         <p className="text-sm mb-6 text-slate-500 dark:text-slate-300">Complete all steps to schedule your shoot</p>
 
         <div className="space-y-6 pb-4">
@@ -144,7 +149,7 @@ export function BookingSummary({
                     )}
                   </div>
                   <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    ${Number(service.price ?? 0).toFixed(2)}
+                    {isComplimentaryReshoot ? '$0.00' : `$${Number(service.price ?? 0).toFixed(2)}`}
                   </span>
                 </div>
               ))}
@@ -231,7 +236,7 @@ export function BookingSummary({
               </>
             ) : (
               <>
-                <Check className="mr-2 h-4 w-4" /> Book Shoot
+                <Check className="mr-2 h-4 w-4" /> {isComplimentaryReshoot ? 'Book Comp Reshoot' : 'Book Shoot'}
               </>
             )}
           </Button>

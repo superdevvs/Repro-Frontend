@@ -26,6 +26,8 @@ interface BookingCompleteProps {
   clientName?: string;
   clientEmail?: string;
   shoot?: unknown;
+  isComplimentaryReshoot?: boolean;
+  sourceShootId?: string | number | null;
 }
 
 export function BookingComplete({ 
@@ -41,6 +43,8 @@ export function BookingComplete({
   clientName,
   clientEmail,
   shoot,
+  isComplimentaryReshoot = false,
+  sourceShootId,
 }: BookingCompleteProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -185,14 +189,27 @@ export function BookingComplete({
           <CheckCircleIcon className="h-10 w-10 text-primary" />
         </div>
         <h2 className="text-2xl font-bold mb-2">
-          {isClientRequest ? 'Shoot Requested!' : 'Booking Complete!'}
+          {isClientRequest ? 'Shoot Requested!' : isComplimentaryReshoot ? 'Comp Reshoot Booked!' : 'Booking Complete!'}
         </h2>
         <p className="text-muted-foreground mb-4">
           {isClientRequest 
             ? `Your shoot request for ${formattedDate} at ${time} has been submitted. We'll notify you once it's approved.`
-            : `The shoot has been successfully scheduled for ${formattedDate} at ${time}.`
+            : isComplimentaryReshoot
+              ? `The complimentary return visit has been scheduled for ${formattedDate} at ${time}.`
+              : `The shoot has been successfully scheduled for ${formattedDate} at ${time}.`
           }
         </p>
+        {isComplimentaryReshoot && (
+          <div className="mb-6 w-full rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-left dark:border-emerald-900/60 dark:bg-emerald-950/30">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-emerald-900 dark:text-emerald-100">Client receipt</span>
+              <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">$0.00</span>
+            </div>
+            <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200">
+              Complimentary reshoot · no client balance{sourceShootId ? ` · related to #${sourceShootId}` : ''}
+            </p>
+          </div>
+        )}
         
         {/* Payment section for client requests */}
         {isClientRequest && (paymentModel?.amount ?? totalAmount) > 0 && (

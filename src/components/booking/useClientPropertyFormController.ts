@@ -42,6 +42,7 @@ export type PresenceOption = 'self' | 'other' | 'lockbox';
 export type InternalShootType =
   | 'standard'
   | 'complimentary'
+  | 'complimentary_reshoot'
   | 'sample_upload'
   | 'internal_test'
   | 'pricing_pending';
@@ -257,6 +258,9 @@ export type ClientPropertyFormProps = {
   packagesLoading?: boolean;
   showClearSavedData?: boolean;
   onClearSavedData?: () => void;
+  isCompReshootMode?: boolean;
+  sourceContextLocked?: boolean;
+  serviceMappingSlot?: React.ReactNode;
 };
 
 
@@ -277,6 +281,9 @@ export const useClientPropertyFormController = ({
   packagesLoading = false,
   showClearSavedData = false,
   onClearSavedData,
+  isCompReshootMode = false,
+  sourceContextLocked = false,
+  serviceMappingSlot,
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
@@ -842,6 +849,9 @@ export const useClientPropertyFormController = ({
     submitAttemptNotice,
     showClearSavedData,
     onClearSavedData,
+    isCompReshootMode,
+    sourceContextLocked,
+    serviceMappingSlot,
     handleSubmit,
     handleInvalidSubmit,
   };

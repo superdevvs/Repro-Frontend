@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   readonly VITE_PUSHER_AUTH_ENDPOINT?: string;
   readonly VITE_COMPANY_ADDRESS?: string;
   readonly VITE_PUBLIC_SITE_URL?: string;
+  readonly VITE_COMPLIMENTARY_RESHOOT_ENABLED?: string;
 }
 
 interface ImportMeta {

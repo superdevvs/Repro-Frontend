@@ -19,7 +19,9 @@ export interface ClientBillingInvoiceViewData {
   amount: number;
   amountPaid: number;
   balance: number;
-  status: 'paid' | 'pending' | 'overdue';
+  status: 'paid' | 'pending' | 'overdue' | 'no_payment_required';
+  documentType?: string | null;
+  paymentRequired: boolean;
   subtotal: number;
   tax: number;
   total: number;
@@ -42,18 +44,29 @@ export const emptyClientBillingSummary: ClientBillingSummary = {
   dueNow: { amount: 0, count: 0 },
   upcoming: { amount: 0, count: 0 },
   paid: { amount: 0, count: 0 },
+  noPaymentRequired: { amount: 0, count: 0 },
   paymentRequiredToReleaseCount: 0,
 };
 
-const normalizeItem = (item: ClientBillingItem): ClientBillingItem => ({
-  ...item,
-  amount: toNumber(item.amount),
-  amountPaid: toNumber(item.amountPaid),
-  balance: toNumber(item.balance),
-  services: Array.isArray(item.services) ? item.services : [],
-  items: Array.isArray(item.items) ? item.items : [],
-  shoots: Array.isArray(item.shoots) ? item.shoots : [],
-});
+const normalizeItem = (item: ClientBillingItem): ClientBillingItem => {
+  const noPaymentRequired = item.paymentRequired === false
+    || item.documentType === 'complimentary_receipt'
+    || item.status === 'no_payment_required'
+    || item.bucket === 'no_payment_required';
+  return {
+    ...item,
+    documentType: item.documentType ?? null,
+    paymentRequired: noPaymentRequired ? false : item.paymentRequired ?? true,
+    status: noPaymentRequired ? 'no_payment_required' : item.status,
+    bucket: noPaymentRequired ? 'no_payment_required' : item.bucket,
+    amount: toNumber(item.amount),
+    amountPaid: toNumber(item.amountPaid),
+    balance: toNumber(item.balance),
+    services: Array.isArray(item.services) ? item.services : [],
+    items: Array.isArray(item.items) ? item.items : [],
+    shoots: Array.isArray(item.shoots) ? item.shoots : [],
+  };
+};
 
 export const fetchClientBilling = async (): Promise<ClientBillingResponse> => {
   const response = await apiClient.get<ClientBillingResponse>('/client/billing');
@@ -73,6 +86,10 @@ export const fetchClientBilling = async (): Promise<ClientBillingResponse> => {
           paid: {
             amount: toNumber(data.summary.paid?.amount),
             count: toNumber(data.summary.paid?.count),
+          },
+          noPaymentRequired: {
+            amount: toNumber(data.summary.noPaymentRequired?.amount),
+            count: toNumber(data.summary.noPaymentRequired?.count),
           },
           paymentRequiredToReleaseCount: toNumber(data.summary.paymentRequiredToReleaseCount),
         }
@@ -105,6 +122,8 @@ export const toClientBillingInvoiceViewData = (
     amountPaid: item.amountPaid,
     balance: item.balance,
     status: item.status,
+    documentType: item.documentType,
+    paymentRequired: item.paymentRequired !== false,
     subtotal: item.amount,
     tax: 0,
     total: item.amount,

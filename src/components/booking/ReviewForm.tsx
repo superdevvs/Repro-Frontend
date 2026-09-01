@@ -11,6 +11,9 @@ import { getStateFullName } from '@/utils/stateUtils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { PricingBreakdown } from '@/utils/pricing';
+import { CompReshootCompensationSection } from '@/features/complimentary-reshoots/CompReshootCompensationSection';
+import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
+import type { ServicePackage } from '@/pages/bookShootModel';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -30,7 +33,7 @@ interface ReviewFormProps {
   servicePhotographers?: Record<string, string>;
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   serviceSchedules?: Record<string, { date?: string; time?: string }>;
-  selectedServices: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
+  selectedServices: ServicePackage[];
   additionalNotes: string; // Renamed from notes to additionalNotes
   setAdditionalNotes: (value: string) => void; // Renamed from setNotes
   bypassPayment: boolean;
@@ -51,6 +54,7 @@ interface ReviewFormProps {
   onBack: () => void;
   onSubmit?: () => void;
   isLastStep?: boolean;
+  compReshoot?: CompReshootBookingController;
 }
 
 const normalizeAddressPart = (value?: string | null) =>
@@ -125,7 +129,8 @@ export function ReviewForm({
   onSubmit,
   onConfirm,
   onBack,
-  isLastStep = false
+  isLastStep = false,
+  compReshoot,
 }: ReviewFormProps) {
   const { user, isImpersonating } = useAuth();
   const isMobile = useIsMobile();
@@ -135,7 +140,8 @@ export function ReviewForm({
   const showAdminOptions = !isClientRole && !isImpersonating;
 
   const fullAddress = buildNormalizedAddress({ address, city, state, zip });
-  const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
+  const isCompReshoot = Boolean(compReshoot?.enabled);
+  const isAmountAdjusted = canAdjustAmount && !isCompReshoot && adjustedTotalInput.trim() !== '';
   const baselineTotal = originalPricing?.totalQuote ?? pricing.totalQuote;
   const defaultDate = date ? format(date, 'yyyy-MM-dd') : '';
   const normalizeTimeLabel = (value?: string) => {
@@ -158,7 +164,7 @@ export function ReviewForm({
   // Only show toggles section if user has admin options to show
   const reviewToggles = showAdminOptions ? (
     <div className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 p-3 sm:p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      {!isCompReshoot && <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5 min-w-0">
           <Label htmlFor="bypass-payment" className="text-slate-900 dark:text-slate-100">Bypass Payment</Label>
           <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
@@ -170,9 +176,9 @@ export function ReviewForm({
           checked={bypassPayment}
           onCheckedChange={setBypassPayment}
         />
-      </div>
+      </div>}
 
-      <Separator />
+      {!isCompReshoot && <Separator />}
 
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5 min-w-0">
@@ -291,7 +297,7 @@ export function ReviewForm({
                       <span className="block truncate">{service.name}</span>
                       <span className="block text-xs text-slate-500 dark:text-slate-400">{getServiceScheduleLabel(service.id)}</span>
                     </span>
-                    <span className="font-medium">${Number(service.price ?? 0).toFixed(2)}</span>
+                    <span className="font-medium">{isCompReshoot ? '$0.00' : `$${Number(service.price ?? 0).toFixed(2)}`}</span>
                   </li>
                 ))}
               </ul>
@@ -362,7 +368,7 @@ export function ReviewForm({
         <Separator />
 
         <div className="space-y-1">
-          {canAdjustAmount && (
+          {canAdjustAmount && !isCompReshoot && (
             <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/80 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="min-w-0">
@@ -406,7 +412,7 @@ export function ReviewForm({
 
           <div className="flex justify-between">
             <span className="text-sm text-slate-700 dark:text-slate-200">Subtotal:</span>
-            <span className="text-sm text-slate-900 dark:text-slate-100">${pricing.serviceSubtotal.toFixed(2)}</span>
+            <span className="text-sm text-slate-900 dark:text-slate-100">${(isCompReshoot ? 0 : pricing.serviceSubtotal).toFixed(2)}</span>
           </div>
 
           {pricing.discountAmount > 0 && (
@@ -419,7 +425,7 @@ export function ReviewForm({
           <div className="flex justify-between">
             <span className="text-sm text-slate-700 dark:text-slate-200">Tax:</span>
             <span className="text-sm text-slate-900 dark:text-slate-100">
-              ${pricing.taxAmount.toFixed(2)}
+              ${(isCompReshoot ? 0 : pricing.taxAmount).toFixed(2)}
             </span>
           </div>
 
@@ -427,10 +433,24 @@ export function ReviewForm({
 
           <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
             <span>Total:</span>
-            <span>${pricing.totalQuote.toFixed(2)}</span>
+            <span>${(isCompReshoot ? 0 : pricing.totalQuote).toFixed(2)}</span>
           </div>
+          {isCompReshoot && (
+            <p className="pt-1 text-right text-xs font-medium text-emerald-600 dark:text-emerald-400">Complimentary reshoot · no client balance</p>
+          )}
         </div>
       </div>
+      )}
+
+      {compReshoot?.enabled && (
+        <CompReshootCompensationSection
+          controller={compReshoot}
+          selectedServices={selectedServices}
+          nominalServiceTotal={originalPricing?.serviceSubtotal ?? packagePrice}
+          photographerId={photographer}
+          servicePhotographers={servicePhotographers}
+          photographers={photographers}
+        />
       )}
 
       {/* Toggles */}

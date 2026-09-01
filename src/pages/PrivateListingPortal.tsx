@@ -536,10 +536,11 @@ const PrivateListingPortal = () => {
 
   const clientScopeControl = isClient ? (
     <div
+      data-testid="listing-scope-control"
       className={
         viewMode === 'showcase'
-          ? 'inline-flex w-full items-center rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-950 shadow-xl backdrop-blur-xl sm:w-auto dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
-          : 'inline-flex w-full items-center rounded-xl border border-border/70 bg-muted/20 p-1 sm:w-auto'
+          ? 'inline-flex w-full shrink-0 items-center rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-950 shadow-xl backdrop-blur-xl sm:w-auto dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
+          : 'inline-flex w-full shrink-0 items-center rounded-xl border border-border/70 bg-muted/20 p-1 sm:w-auto'
       }
     >
       <button
@@ -555,7 +556,7 @@ const PrivateListingPortal = () => {
         }`}
       >
         <Globe className="h-4 w-4" />
-        <span className="lg:max-2xl:hidden">All Listings</span>
+        <span>All Listings</span>
       </button>
       <button
         type="button"
@@ -570,7 +571,7 @@ const PrivateListingPortal = () => {
         }`}
       >
         <User className="h-4 w-4" />
-        <span className="lg:max-2xl:hidden">My Listings</span>
+        <span>My Listings</span>
       </button>
     </div>
   ) : null;
@@ -674,16 +675,21 @@ const PrivateListingPortal = () => {
           </div>
         </div>
 
-        {viewMode !== 'showcase' ? clientScopeControl : null}
-
         {/* Controls: the Map Tab (showcase) gets the new SummaryCards +
             MapTabToolbar rendered above it (R5.1, R5.3, R6.3); Grid/List keep
-            the existing search + view-toggle controls so their behavior is
-            unchanged. The toolbar's ViewSwitcher and the legacy toggle both
-            drive `viewMode`, so users can move between all three views. */}
+            a compact scope/search/view command row. The toolbar's ViewSwitcher
+            and the legacy toggle both drive `viewMode`, so users can move
+            between all three views. */}
         {viewMode !== 'showcase' ? (
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+          <div
+            className="flex flex-wrap items-center gap-2 md:flex-nowrap"
+            data-testid="listing-browse-toolbar"
+          >
+            {clientScopeControl}
+            <div
+              className="relative min-w-[12rem] flex-1 sm:min-w-[16rem] md:min-w-0 md:max-w-xl xl:max-w-2xl"
+              data-testid="listing-browse-search"
+            >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by address, city, state, zip, price, or client..."
@@ -701,7 +707,10 @@ const PrivateListingPortal = () => {
                 </button>
               )}
             </div>
-            <div className="flex items-center border rounded-md overflow-hidden bg-card/50">
+            <div
+              className="flex shrink-0 items-center overflow-hidden rounded-md border bg-card/50"
+              data-testid="listing-browse-view-switcher"
+            >
               <button
                 type="button"
                 onClick={() => setViewMode('showcase')}

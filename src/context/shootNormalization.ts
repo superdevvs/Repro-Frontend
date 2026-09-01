@@ -6,11 +6,12 @@ import {
   isInvoiceAdjustmentServiceItem,
 } from '@/utils/shootServiceItems';
 import type {
-  ApiNotePayload,
   ApiServiceRecord,
   ApiShoot,
   ApiShootPayment,
 } from './shootApiTypes';
+import { normalizeShootCompReshootFields } from '@/features/complimentary-reshoots/normalizeShootCompReshoot';
+import { normalizeShootNotes } from './shootNotesNormalization';
 
 export type { ApiShoot } from './shootApiTypes';
 
@@ -126,63 +127,6 @@ export const getStoredShoots = (): ShootData[] => {
   return [];
 };
 
-const toOptionalString = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
-};
-
-const resolveApprovalNotes = (shoot: ApiShoot, structuredNotes: ApiNotePayload): string | undefined => {
-  const directApprovalNote =
-    toOptionalString(shoot.approval_notes) ||
-    toOptionalString(shoot.approvalNotes) ||
-    toOptionalString(structuredNotes.approvalNotes) ||
-    toOptionalString(structuredNotes.approval_notes);
-
-  if (directApprovalNote) {
-    return directApprovalNote;
-  }
-
-  const noteValue = shoot?.notes;
-  if (typeof noteValue !== 'string') {
-    return undefined;
-  }
-
-  const hasDedicatedNotes = [
-    shoot?.shoot_notes,
-    shoot?.photographer_notes,
-    shoot?.company_notes,
-    shoot?.editor_notes,
-  ].some((value) => Boolean(toOptionalString(value)));
-
-  return hasDedicatedNotes ? toOptionalString(noteValue) : undefined;
-};
-
-const normalizeNotes = (shoot: ApiShoot) => {
-  const noteValue = shoot?.notes;
-  const structuredNotes: ApiNotePayload =
-    typeof noteValue === 'object' && noteValue !== null ? (noteValue as ApiNotePayload) : {};
-  const approvalNotes = resolveApprovalNotes(shoot, structuredNotes);
-
-  if (typeof noteValue === 'string') {
-    return {
-      shootNotes: shoot?.shoot_notes ?? noteValue,
-      approvalNotes,
-      photographerNotes: shoot?.photographer_notes ?? undefined,
-      companyNotes: shoot?.company_notes ?? undefined,
-      editingNotes: shoot?.editor_notes ?? undefined,
-    };
-  }
-
-  return {
-    shootNotes: shoot?.shoot_notes ?? structuredNotes.shootNotes ?? undefined,
-    approvalNotes,
-    photographerNotes: shoot?.photographer_notes ?? structuredNotes.photographerNotes ?? undefined,
-    companyNotes: shoot?.company_notes ?? structuredNotes.companyNotes ?? undefined,
-    editingNotes: shoot?.editor_notes ?? structuredNotes.editingNotes ?? undefined,
-  };
-};
-
 const normalizeServicePerson = (person: unknown) => {
   if (!person || typeof person !== 'object') return null;
 
@@ -279,7 +223,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const zip = shoot?.zip || '';
   const payments: ApiShootPayment[] = Array.isArray(shoot?.payments) ? shoot.payments : [];
   const fullAddress = [address, city, state, zip].filter(Boolean).join(', ');
-  const notes = normalizeNotes(shoot);
+  const notes = normalizeShootNotes(shoot);
   const paymentSummary = normalizeShootPaymentSummary(shoot);
   const rawPayment = shoot.payment as Record<string, unknown> | undefined;
   const explicitInvoiceAdjustmentsTotal = toOptionalNumber(
@@ -817,6 +761,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     normalizeServicePerson(shoot.rep) ||
     normalizeServicePerson(shoot.salesRep) ||
     normalizeServicePerson(shoot.sales_rep);
+  const compReshootFields = normalizeShootCompReshootFields(shoot);
 
   return {
     id: String(shoot.id),
@@ -891,6 +836,20 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     shootType: (shoot.shoot_type || shoot.shootType || undefined) as
       | string
       | undefined,
+    reshootParent: compReshootFields.reshootParent,
+    reshoot_parent: compReshootFields.reshootParent,
+    reshootRoot: compReshootFields.reshootRoot,
+    reshoot_root: compReshootFields.reshootRoot,
+    reshootChildren: compReshootFields.reshootChildren,
+    reshoot_children: compReshootFields.reshootChildren,
+    reshootReasonCode: compReshootFields.reshootReasonCode,
+    reshoot_reason_code: compReshootFields.reshootReasonCode,
+    reshootReasonNote: compReshootFields.reshootReasonNote,
+    reshoot_reason_note: compReshootFields.reshootReasonNote,
+    reshootServiceLinks: compReshootFields.reshootServiceLinks,
+    reshoot_service_links: compReshootFields.reshootServiceLinks,
+    compensationSummary: compReshootFields.compensationSummary,
+    compensation_summary: compReshootFields.compensationSummary,
     workflowStatus: shoot.workflow_status || shoot.workflowStatus || undefined,
     notes,
     adminIssueNotes: shoot.admin_issue_notes ?? undefined,

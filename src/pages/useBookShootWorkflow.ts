@@ -70,7 +70,7 @@ export const useBookShootWorkflow = ({
   const [shootType, setShootType] = useState<InternalShootType>('standard');
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetailsData | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
-  const handleSelectedServicesChange = (services: ServicePackage[]) => {
+  const handleSelectedServicesChange = React.useCallback((services: ServicePackage[]) => {
     setSelectedServices(services);
     setServicePhotographers(prev => {
       const currentServiceIds = new Set(services.map(s => s.id));
@@ -92,7 +92,7 @@ export const useBookShootWorkflow = ({
       }
       return next;
     });
-  };
+  }, []);
   const handleShootTypeChange = (nextType: InternalShootType) => {
     setShootType(nextType);
     if (nextType !== 'standard') {
@@ -148,6 +148,7 @@ export const useBookShootWorkflow = ({
     setServicePhotographers(initial.servicePhotographers);
     setServiceSchedules(initial.serviceSchedules);
     setSelectedServices(initial.selectedServices);
+    setShootType('standard');
     setNotes(initial.notes);
     setCompanyNotes(initial.companyNotes);
     setPhotographerNotes(initial.photographerNotes);
@@ -468,6 +469,10 @@ export const useBookShootWorkflow = ({
             price: Number(pkg.price ?? 0),
             pricing_type: pkg.pricing_type === 'variable' ? 'variable' : 'fixed',
             allow_multiple: Boolean(pkg.allow_multiple),
+            photographer_pay: pkg.photographer_pay === null || pkg.photographer_pay === undefined
+              ? null
+              : Number(pkg.photographer_pay),
+            exclude_from_sales_commission: Boolean(pkg.exclude_from_sales_commission),
             sqft_ranges: Array.isArray(pkg.sqft_ranges) ? pkg.sqft_ranges : Array.isArray(pkg.sqftRanges) ? pkg.sqftRanges : [],
             category: pkg.category ? { id: String(category.id ?? ''), name: String(category.name ?? 'Other') } : undefined,
             service_groups: Array.isArray(pkg.service_groups)

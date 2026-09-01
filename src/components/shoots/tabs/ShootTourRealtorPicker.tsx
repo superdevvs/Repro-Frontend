@@ -39,10 +39,10 @@ export function ShootTourRealtorPicker({
     selectedClient || options.find((client) => client.id === selectedClientId) || null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <Label>Realtor</Label>
-        {isSaving ? <span className="text-xs text-blue-500">Saving...</span> : null}
+        <Label className="text-[11px] font-medium">Realtor</Label>
+        {isSaving ? <span className="text-[10px] text-blue-500">Saving...</span> : null}
       </div>
       <Popover open={open} onOpenChange={onOpenChange} modal={false}>
         <PopoverTrigger asChild>
@@ -51,15 +51,15 @@ export function ShootTourRealtorPicker({
             role="combobox"
             aria-expanded={open}
             disabled={disabled}
-            className="w-full justify-between h-10 text-sm font-normal"
+            className="h-8 w-full justify-between text-xs font-normal"
           >
             <span className="truncate text-left">
               {resolvedSelectedClient?.name || 'Select realtor'}
             </span>
             {isLoading ? (
-              <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" />
+              <Loader2 className="ml-2 h-3.5 w-3.5 shrink-0 animate-spin opacity-70" />
             ) : (
-              <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <ArrowUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
             )}
           </Button>
         </PopoverTrigger>
@@ -123,8 +123,8 @@ export function ShootTourRealtorPicker({
           </Command>
         </PopoverContent>
       </Popover>
-      <p className="text-xs text-muted-foreground">
-        Branded tours will show this client&apos;s branding and contact info instead of the shoot owner.
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        Uses this client&apos;s branding and contact info on branded tours.
       </p>
     </div>
   );
