@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AlertCircle,
   Download,
   ExternalLink,
   FileArchive,
@@ -20,6 +21,7 @@ import {
   formatFileSize,
   getIguidePackageStatusLabel,
   openIguideOfflineViewer,
+  requestIguideOfflineViewerLink,
 } from '../tours/iguideOfflinePackage';
 
 interface IguideMediaPanelProps {
@@ -47,19 +49,25 @@ export function IguideMediaPanel({
   const sync = iguideSync || ({} as NormalizedIguideSync);
   const embedUrl = sync.embeddedUrl || iguideUrl;
   const billing = sync.billing;
-  const staffCanSeeOffline = isAdmin && !isClient && !isEditor;
+  const canViewOffline = !isEditor && (isAdmin || isClient);
+  const canManageOffline = isAdmin && !isClient && !isEditor;
+  const canSeePublishedOperations = !isClient && !isEditor;
   const [offlinePackage, setOfflinePackage] = useState<NormalizedIguideOfflinePackage>(
-    staffCanSeeOffline ? sync.offlinePackage || emptyOfflinePackage() : emptyOfflinePackage(),
+    canViewOffline ? sync.offlinePackage || emptyOfflinePackage() : emptyOfflinePackage(),
   );
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState('');
+  const [viewerError, setViewerError] = useState('');
+  const [isViewerLoading, setIsViewerLoading] = useState(false);
+  const viewerRequestVersionRef = useRef(0);
 
   useEffect(() => {
     setOfflinePackage(
-      staffCanSeeOffline ? sync.offlinePackage || emptyOfflinePackage() : emptyOfflinePackage(),
+      canViewOffline ? sync.offlinePackage || emptyOfflinePackage() : emptyOfflinePackage(),
     );
-  }, [staffCanSeeOffline, sync.offlinePackage]);
+  }, [canViewOffline, sync.offlinePackage]);
 
   useEffect(() => {
     if (!['queued', 'scanning'].includes(offlinePackage.status)) return undefined;
@@ -74,8 +82,9 @@ export function IguideMediaPanel({
   const downloadablePackage = offlinePackage.status === 'ready' && offlinePackage.fileId
     ? offlinePackage
     : previousReadyPackage;
-  const packageReady = offlinePackage.status === 'ready' && Boolean(offlinePackage.fileId);
+  const packageReady = offlinePackage.status === 'ready' && offlinePackage.exists;
   const packageWorking = offlinePackage.status === 'queued' || offlinePackage.status === 'scanning';
+  const showOfflinePackage = canViewOffline && offlinePackage.exists && (!isClient || packageReady);
   const packageStatusLabel = getIguidePackageStatusLabel(offlinePackage);
   const packageStatusClass = packageReady
     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
@@ -84,6 +93,40 @@ export function IguideMediaPanel({
       : offlinePackage.status === 'failed'
         ? 'border-destructive/30 bg-destructive/10 text-destructive'
         : 'border-border bg-muted/40 text-muted-foreground';
+
+  const loadInlineViewer = useCallback(async () => {
+    if (!packageReady || !canViewOffline) return;
+
+    const requestVersion = ++viewerRequestVersionRef.current;
+    setViewerUrl('');
+    setViewerError('');
+    setIsViewerLoading(true);
+
+    try {
+      const link = await requestIguideOfflineViewerLink(shootId);
+      if (requestVersion !== viewerRequestVersionRef.current) return;
+      setViewerUrl(link.url);
+    } catch (error) {
+      if (requestVersion !== viewerRequestVersionRef.current) return;
+      setViewerError(error instanceof Error ? error.message : 'The viewer could not be loaded.');
+      setIsViewerLoading(false);
+    }
+  }, [canViewOffline, packageReady, shootId]);
+
+  useEffect(() => {
+    if (packageReady && canViewOffline) {
+      void loadInlineViewer();
+    } else {
+      viewerRequestVersionRef.current += 1;
+      setViewerUrl('');
+      setViewerError('');
+      setIsViewerLoading(false);
+    }
+
+    return () => {
+      viewerRequestVersionRef.current += 1;
+    };
+  }, [canViewOffline, loadInlineViewer, offlinePackage.fileId, packageReady]);
 
   const downloadLinks: Array<{ label: string; url: string }> = [];
   if (sync.pdfImperialUrl) downloadLinks.push({ label: 'Floor plan PDF (Imperial)', url: sync.pdfImperialUrl });
@@ -132,56 +175,100 @@ export function IguideMediaPanel({
   return (
     <div className="h-full overflow-y-auto">
       <div className="m-2.5 space-y-4 rounded-lg border bg-card p-4">
-        {staffCanSeeOffline && offlinePackage.exists && (
+        {showOfflinePackage && (
           <section
-            className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 p-3 sm:flex-row sm:items-center"
+            className="space-y-3 rounded-md border border-border/70 bg-muted/20 p-3"
             data-testid="iguide-offline-package"
             aria-label="Offline iGUIDE package"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm">
-              <FileArchive className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <h4 className="text-sm font-semibold">Offline iGUIDE</h4>
-                <Badge variant="outline" className={`h-5 rounded-full px-2 text-[10px] font-medium ${packageStatusClass}`}>
-                  {packageStatusLabel}
-                </Badge>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm">
+                <FileArchive className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h4 className="text-sm font-semibold">{isClient ? 'iGUIDE 3D Tour' : 'Offline iGUIDE'}</h4>
+                  <Badge variant="outline" className={`h-5 rounded-full px-2 text-[10px] font-medium ${packageStatusClass}`}>
+                    {isClient && packageReady ? 'Ready to view' : packageStatusLabel}
+                  </Badge>
+                </div>
+                {!isClient && (
+                  <>
+                    <p className="truncate text-xs font-medium" title={offlinePackage.originalFilename || undefined}>
+                      {offlinePackage.originalFilename || 'iGUIDE offline package'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {offlinePackage.sizeBytes !== null ? formatFileSize(offlinePackage.sizeBytes) : 'Package uploaded'}
+                      {packageWorking ? ' · Security check in progress' : packageReady ? ' · Ready to view' : ''}
+                    </p>
+                  </>
+                )}
+                {offlinePackage.status === 'failed' && offlinePackage.error && !isClient && (
+                  <p className="mt-1 text-[11px] text-destructive">{offlinePackage.error}</p>
+                )}
               </div>
-              <p className="truncate text-xs font-medium" title={offlinePackage.originalFilename || undefined}>
-                {offlinePackage.originalFilename || 'iGUIDE offline package'}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {offlinePackage.sizeBytes !== null ? formatFileSize(offlinePackage.sizeBytes) : 'Package uploaded'}
-                {packageWorking ? ' · Security check in progress' : packageReady ? ' · Ready to view' : ''}
-              </p>
-              {offlinePackage.status === 'failed' && offlinePackage.error && (
-                <p className="mt-1 text-[11px] text-destructive">{offlinePackage.error}</p>
-              )}
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {packageReady && (
+                  <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void handleOpenOffline()} disabled={isOpening}>
+                    {isOpening ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1.5 h-3.5 w-3.5" />}
+                    {isOpening ? 'Opening' : 'Open in new tab'}
+                  </Button>
+                )}
+                {canManageOffline && downloadablePackage?.fileId && (
+                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => void handleDownloadOffline()} disabled={isDownloading}>
+                    {isDownloading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+                    {previousReadyPackage ? 'Previous ZIP' : 'Download'}
+                  </Button>
+                )}
+                {canManageOffline && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs" onClick={() => setUploadDialogOpen(true)} disabled={packageWorking}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />Replace
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {packageReady && (
-                <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void handleOpenOffline()} disabled={isOpening}>
-                  {isOpening ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1.5 h-3.5 w-3.5" />}
-                  {isOpening ? 'Opening' : 'Open iGUIDE'}
-                </Button>
-              )}
-              {downloadablePackage?.fileId && (
-                <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => void handleDownloadOffline()} disabled={isDownloading}>
-                  {isDownloading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
-                  {previousReadyPackage ? 'Previous ZIP' : 'Download'}
-                </Button>
-              )}
-              {isAdmin && (
-                <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs" onClick={() => setUploadDialogOpen(true)} disabled={packageWorking}>
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />Replace
-                </Button>
-              )}
-            </div>
+
+            {packageReady && (
+              <div
+                className="relative min-h-[420px] w-full overflow-hidden rounded-md border bg-background sm:aspect-video sm:min-h-0"
+                data-testid="iguide-inline-viewer"
+                aria-busy={isViewerLoading}
+              >
+                {isViewerLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-background text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading iGUIDE…
+                  </div>
+                )}
+                {viewerError && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                    <AlertCircle className="h-6 w-6 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium">iGUIDE could not be loaded</p>
+                      <p className="mt-1 max-w-md text-xs text-muted-foreground">{viewerError}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => void loadInlineViewer()}>
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry
+                    </Button>
+                  </div>
+                )}
+                {viewerUrl && (
+                  <iframe
+                    src={viewerUrl}
+                    className="h-full w-full"
+                    allow="fullscreen"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                    title="iGUIDE 3D Tour"
+                    onLoad={() => setIsViewerLoading(false)}
+                  />
+                )}
+              </div>
+            )}
           </section>
         )}
 
-        {iguideUrl && (
+        {iguideUrl && !packageReady && (
           <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -201,7 +288,7 @@ export function IguideMediaPanel({
                     Unbranded <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
-                {sync.manageUrl && (
+                {canSeePublishedOperations && sync.manageUrl && (
                   <a href={sync.manageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     Manage <ExternalLink className="h-3 w-3" />
                   </a>
@@ -209,7 +296,7 @@ export function IguideMediaPanel({
               </div>
             </div>
 
-            {billing && (
+            {billing && !isClient && (
               <div className="flex flex-wrap gap-1.5">
                 {billing.iguideType && <Badge variant="secondary" className="text-[10px] uppercase">{billing.iguideType}</Badge>}
                 {Array.isArray(billing.addons) && billing.addons.map((addon: string) => (
@@ -232,7 +319,7 @@ export function IguideMediaPanel({
           </section>
         )}
 
-        {downloadLinks.length > 0 && (
+        {canSeePublishedOperations && downloadLinks.length > 0 && (
           <section className="space-y-1.5 border-t pt-3">
             <h5 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Deliverables</h5>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -246,12 +333,12 @@ export function IguideMediaPanel({
           </section>
         )}
 
-        {sync.lastSyncedAt && (
+        {sync.lastSyncedAt && !isClient && (
           <p className="text-[10px] text-muted-foreground">Last synced from youriguide.com: {new Date(sync.lastSyncedAt).toLocaleString()}</p>
         )}
       </div>
 
-      {staffCanSeeOffline && (
+      {canManageOffline && (
         <IguideOfflinePackageDialog
           open={uploadDialogOpen}
           onOpenChange={setUploadDialogOpen}

@@ -15,5 +15,8 @@ export const canShowIguideMedia = ({
 }) => {
   if (isEditor) return false;
   if (String(iguideUrl || '').trim()) return true;
-  return isAdmin && !isClient && Boolean(offlinePackage?.exists);
+  if (isClient) {
+    return offlinePackage?.status === 'ready' && Boolean(offlinePackage.exists);
+  }
+  return isAdmin && Boolean(offlinePackage?.exists);
 };

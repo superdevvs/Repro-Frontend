@@ -9,7 +9,7 @@ const readyPackage = normalizeIguideOfflinePackage({
 });
 
 describe('canShowIguideMedia', () => {
-  it('shows an offline-only iGUIDE tab only to an authorized admin-like role', () => {
+  it('shows an offline-only iGUIDE tab to staff and clients when it is ready', () => {
     expect(canShowIguideMedia({
       iguideUrl: '',
       isAdmin: true,
@@ -21,19 +21,23 @@ describe('canShowIguideMedia', () => {
     expect(canShowIguideMedia({
       iguideUrl: '',
       isAdmin: false,
-      isClient: false,
-      isEditor: false,
-      offlinePackage: readyPackage,
-    })).toBe(false);
-  });
-
-  it('keeps offline packages hidden from clients and editors', () => {
-    expect(canShowIguideMedia({
-      iguideUrl: '',
-      isAdmin: true,
       isClient: true,
       isEditor: false,
-      offlinePackage: readyPackage,
+      offlinePackage: normalizeIguideOfflinePackage({ status: 'ready' }),
+    })).toBe(true);
+  });
+
+  it('keeps unfinished offline packages hidden from clients and all packages hidden from editors', () => {
+    expect(canShowIguideMedia({
+      iguideUrl: '',
+      isAdmin: false,
+      isClient: true,
+      isEditor: false,
+      offlinePackage: normalizeIguideOfflinePackage({
+        id: 'package-2',
+        file_id: 73,
+        status: 'scanning',
+      }),
     })).toBe(false);
 
     expect(canShowIguideMedia({
