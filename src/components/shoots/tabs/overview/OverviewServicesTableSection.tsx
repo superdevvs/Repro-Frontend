@@ -101,6 +101,8 @@ export type OverviewServicesTableSectionProps = {
     onReasonCodeChange: (reason: CompReshootReasonCode) => void;
     reasonNote: string;
     onReasonNoteChange: (note: string) => void;
+    clientPays: boolean;
+    onClientPaysChange: (enabled: boolean) => void;
     payPhotographer: boolean;
     onPayPhotographerChange: (enabled: boolean) => void;
     paySalesRep: boolean;
@@ -320,11 +322,12 @@ export function OverviewServicesTableSection(
           onSelectedServicesChange={handleSelectedServicesChange}
           effectiveSqft={effectiveSqft}
           allowEmptySelection={Boolean(complimentary?.enabled) || canRemoveAllServices}
+          compact={Boolean(complimentary?.enabled)}
           title={complimentary?.enabled
-            ? 'Select comp services'
+            ? 'Select return-visit services'
             : editingServiceRowId ? 'Change service' : 'Add services'}
           description={complimentary?.enabled
-            ? 'Choose services from this shoot for the no-charge return visit.'
+            ? 'Choose what needs to be redone and who should be paid.'
             : undefined}
           contextualControls={complimentary ? (
             <CompServiceModeControls
@@ -334,6 +337,8 @@ export function OverviewServicesTableSection(
               onReasonCodeChange={complimentary.onReasonCodeChange}
               reasonNote={complimentary.reasonNote}
               onReasonNoteChange={complimentary.onReasonNoteChange}
+              clientPays={complimentary.clientPays}
+              onClientPaysChange={complimentary.onClientPaysChange}
               payPhotographer={complimentary.payPhotographer}
               onPayPhotographerChange={complimentary.onPayPhotographerChange}
               paySalesRep={complimentary.paySalesRep}
@@ -341,9 +346,11 @@ export function OverviewServicesTableSection(
               hasSalesRep={complimentary.hasSalesRep}
             />
           ) : undefined}
-          renderServicePrice={complimentary?.enabled ? () => '$0' : undefined}
+          renderServicePrice={complimentary?.enabled
+            ? (_service, defaultLabel) => (complimentary.clientPays ? defaultLabel : '$0')
+            : undefined}
           selectionSummary={complimentary?.enabled
-            ? `${complimentary.selectedSourceServiceIds.length} comp selected · Client $0`
+            ? `${complimentary.selectedSourceServiceIds.length} selected · ${complimentary.clientPays ? 'Client billed' : 'Client $0'}`
             : undefined}
         />
       )}
@@ -620,7 +627,7 @@ function renderEditRows(
       return (
         <tr
           key={`comp-${sourceShootServiceId}`}
-          className={`${mobileEditRowClass} align-middle bg-amber-50/60 dark:bg-amber-950/15`}
+          className={`${mobileEditRowClass} align-middle bg-primary/[0.035]`}
           data-testid={`comp-service-row-${sourceShootServiceId}`}
         >
           <td className="col-start-1 row-start-1 flex items-center py-1 sm:table-cell sm:py-1.5 sm:pr-2">
@@ -641,8 +648,8 @@ function renderEditRows(
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate">{service.name}</span>
-                <Badge className="h-4 shrink-0 rounded-full bg-amber-100 px-1.5 text-[9px] font-semibold uppercase text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200">
-                  Comp
+                <Badge className="h-4 shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold uppercase text-primary hover:bg-primary/10">
+                  {complimentary.clientPays ? 'Additional' : 'Comp'}
                 </Badge>
               </span>
             </button>
@@ -687,8 +694,8 @@ function renderEditRows(
               </Button>
             </td>
           )}
-          <td className="col-start-4 row-start-1 block py-1 text-right font-semibold text-amber-700 dark:text-amber-300 sm:table-cell sm:py-1.5 sm:pl-1.5">
-            $0
+          <td className="col-start-4 row-start-1 block py-1 text-right font-semibold text-primary sm:table-cell sm:py-1.5 sm:pl-1.5">
+            {complimentary.clientPays ? getServiceDisplayPrice(service) : '$0'}
           </td>
         </tr>
       );

@@ -72,6 +72,7 @@ type ServiceSelectionDialogProps = {
   contextualControls?: React.ReactNode;
   renderServicePrice?: (service: ServiceSelectionOption, defaultLabel: string) => React.ReactNode;
   selectionSummary?: React.ReactNode;
+  compact?: boolean;
 };
 
 const FALLBACK_CATEGORY_NAME = 'More services';
@@ -139,8 +140,10 @@ const getCategoryIcon = (name: string, index: number): LucideIcon => {
   return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
 };
 
-const getServiceSqftRanges = (service?: ServiceSelectionOption | ServiceWithPricing | null) =>
-  (service?.sqft_ranges || (service as any)?.sqftRanges || []) as SqftRange[];
+const getServiceSqftRanges = (service?: ServiceSelectionOption | ServiceWithPricing | null) => {
+  const serviceWithAliases = service as (ServiceSelectionOption & { sqftRanges?: unknown[] }) | null | undefined;
+  return (serviceWithAliases?.sqft_ranges || serviceWithAliases?.sqftRanges || []) as SqftRange[];
+};
 
 export function ServiceSelectionDialog({
   open,
@@ -156,6 +159,7 @@ export function ServiceSelectionDialog({
   contextualControls,
   renderServicePrice,
   selectionSummary,
+  compact = false,
 }: ServiceSelectionDialogProps) {
   const isMobile = useIsMobile();
   const [serviceSearchQuery, setServiceSearchQuery] = React.useState('');
@@ -272,8 +276,14 @@ export function ServiceSelectionDialog({
   };
 
   const body = (mobileDrawer = false) => (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden sm:h-[70vh] sm:flex-row">
-      <aside className="shrink-0 border-b border-border/60 bg-background/95 px-2.5 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:max-h-[70vh] sm:w-64 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4">
+    <div className={cn(
+      'flex h-full min-h-0 flex-col overflow-hidden sm:flex-row',
+      compact ? 'sm:h-[clamp(18rem,42vh,24rem)]' : 'sm:h-[70vh]',
+    )}>
+      <aside className={cn(
+        'shrink-0 border-b border-border/60 bg-background/95 px-2.5 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:w-64 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4',
+        compact ? 'sm:max-h-96' : 'sm:max-h-[70vh]',
+      )}>
         <div className="-mx-1.5 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-1.5 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-col sm:gap-2 sm:overflow-visible sm:pb-0 sm:snap-none [&::-webkit-scrollbar]:hidden">
           {categoryOptions.map((category) => {
             const isActive = category.id === panelCategory;
@@ -498,8 +508,14 @@ export function ServiceSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:!max-h-[90vh] sm:!w-[96vw] sm:!max-w-5xl [&>button]:right-2 [&>button]:top-2">
-        <DialogHeader className="items-start space-y-1 border-b border-border/80 px-6 py-4 text-left">
+      <DialogContent className={cn(
+        'gap-0 overflow-hidden p-0 sm:!max-h-[90vh] sm:!w-[96vw] [&>button]:right-2 [&>button]:top-2',
+        compact ? 'sm:!max-w-4xl' : 'sm:!max-w-5xl',
+      )}>
+        <DialogHeader className={cn(
+          'items-start space-y-1 border-b border-border/80 px-6 text-left',
+          compact ? 'py-3' : 'py-4',
+        )}>
           <DialogTitle className="w-full pr-10 text-left leading-tight">{title}</DialogTitle>
           <DialogDescription className="w-full pr-10 text-left text-sm leading-snug">
             {description}
@@ -507,7 +523,10 @@ export function ServiceSelectionDialog({
         </DialogHeader>
         {contextualControls}
         {body(false)}
-        <DialogFooter className="flex-row items-center justify-between gap-2 border-t border-border/80 bg-background/95 px-6 py-4 backdrop-blur [padding-bottom:1rem] supports-[backdrop-filter]:bg-background/85">
+        <DialogFooter className={cn(
+          'flex-row items-center justify-between gap-2 border-t border-border/80 bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/85',
+          compact ? 'py-3' : 'py-4 [padding-bottom:1rem]',
+        )}>
           {footer(false)}
         </DialogFooter>
       </DialogContent>

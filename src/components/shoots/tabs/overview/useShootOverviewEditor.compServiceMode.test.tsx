@@ -89,6 +89,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       sourceShootServiceId: '501',
       catalogServiceId: '10',
       name: 'Photography',
+      price: 125,
     });
 
     act(() => {
@@ -113,7 +114,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     act(() => result.current.actions.toggleCompServiceSelection('501'));
     act(() => result.current.actions.handleSave());
     expect(onSave).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Choose a comp reason' }));
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Choose a return-visit reason' }));
 
     act(() => {
       result.current.actions.setCompReasonCode('company_error');
@@ -123,7 +124,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     act(() => result.current.actions.handleSave());
 
     expect(onSave).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Finish the comp schedule' }));
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Finish the return-visit schedule' }));
   });
 
   it('adds the transactional comp contract without resubmitting ordinary paid services', async () => {
@@ -133,6 +134,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     act(() => {
       result.current.actions.toggleCompServiceSelection('501');
       result.current.actions.setCompReasonCode('company_error');
+      result.current.actions.setCompClientPays(true);
       result.current.actions.setPayCompPhotographer(true);
       result.current.actions.setPayCompSalesRep(true);
       result.current.actions.updateCompServiceSchedule('501', 'date', '2026-09-12');
@@ -147,6 +149,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     expect(payload.complimentary_service_options).toEqual({
       idempotency_key: expect.stringMatching(/^[0-9a-f-]{36}$/),
       reason_code: 'company_error',
+      client_pays: true,
       pay_photographer: true,
       pay_sales_rep: true,
       service_items: [{

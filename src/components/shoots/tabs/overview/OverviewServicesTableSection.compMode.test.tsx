@@ -58,6 +58,8 @@ describe('OverviewServicesTableSection comp rows', () => {
           onReasonCodeChange: vi.fn(),
           reasonNote: '',
           onReasonNoteChange: vi.fn(),
+          clientPays: false,
+          onClientPaysChange: vi.fn(),
           payPhotographer: false,
           onPayPhotographerChange: vi.fn(),
           paySalesRep: false,

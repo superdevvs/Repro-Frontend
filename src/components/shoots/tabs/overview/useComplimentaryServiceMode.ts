@@ -23,6 +23,7 @@ type UseComplimentaryServiceModeArgs = {
   isAdmin: boolean;
   isEditMode: boolean;
   selectedPhotographerId: string;
+  catalogServices: ServiceOption[];
   toast: UseShootOverviewEditorArgs['toast'];
 };
 
@@ -33,6 +34,7 @@ export function useComplimentaryServiceMode({
   isAdmin,
   isEditMode,
   selectedPhotographerId,
+  catalogServices,
   toast,
 }: UseComplimentaryServiceModeArgs) {
   const [enabled, setEnabled] = useState(false);
@@ -41,6 +43,7 @@ export function useComplimentaryServiceMode({
   const [photographerIds, setPhotographerIds] = useState<Record<string, string>>({});
   const [reasonCode, setReasonCode] = useState<CompReshootReasonCode | ''>('');
   const [reasonNote, setReasonNote] = useState('');
+  const [clientPays, setClientPays] = useState(false);
   const [payPhotographer, setPayPhotographer] = useState(false);
   const [paySalesRep, setPaySalesRep] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => uuidv4());
@@ -65,23 +68,33 @@ export function useComplimentaryServiceMode({
           ?? shoot.photographer?.id
           ?? '',
       );
-      const category = source.category as ServiceOption['category'];
+      const catalogService = catalogServices.find(
+        (service) => String(service.id) === String(item.serviceId),
+      );
+      const category = catalogService?.category ?? source.category as ServiceOption['category'];
+      const bookedPrice = Number(
+        source.price ?? source.unit_amount ?? source.unitAmount ?? item.subtotal ?? 0,
+      );
 
       return [{
         id: item.shootServiceId,
         sourceShootServiceId: item.shootServiceId,
         catalogServiceId: item.serviceId,
         name: item.name,
-        description: typeof source.description === 'string'
+        description: typeof catalogService?.description === 'string'
+          ? catalogService.description
+          : typeof source.description === 'string'
           ? source.description
-          : 'Add this service to the complimentary return visit.',
-        price: 0,
+          : 'Add this service to the return visit.',
+        price: catalogService?.price ?? (Number.isFinite(bookedPrice) ? bookedPrice : 0),
         category: category ?? null,
+        pricing_type: catalogService?.pricing_type,
+        sqft_ranges: catalogService?.sqft_ranges,
         photographer_pay: source.photographer_pay == null ? null : Number(source.photographer_pay),
         defaultPhotographerId: defaultPhotographerId || undefined,
       }];
     })
-  ), [shoot]);
+  ), [catalogServices, shoot]);
 
   const reset = useCallback(() => {
     ordinaryServiceMutationTouchedRef.current = false;
@@ -91,6 +104,7 @@ export function useComplimentaryServiceMode({
     setPhotographerIds({});
     setReasonCode('');
     setReasonNote('');
+    setClientPays(false);
     setPayPhotographer(false);
     setPaySalesRep(false);
     setIdempotencyKey(uuidv4());
@@ -175,15 +189,15 @@ export function useComplimentaryServiceMode({
     if (ordinaryServiceMutationTouchedRef.current) {
       toast({
         title: 'Save standard service changes first',
-        description: 'Comp services keep a separate billing trail. Save changes to the original services, then add the comp return visit.',
+        description: 'Return-visit services keep a separate billing trail. Save changes to the original services, then add the return visit.',
         variant: 'destructive',
       });
       return false;
     }
     if (!reasonCode) {
       toast({
-        title: 'Choose a comp reason',
-        description: 'Select why the return visit is complimentary before saving.',
+        title: 'Choose a return-visit reason',
+        description: 'Select why this return visit is needed before saving.',
         variant: 'destructive',
       });
       return false;
@@ -207,9 +221,9 @@ export function useComplimentaryServiceMode({
     const serviceName = sourceServiceOptions.find(
       (service) => service.sourceShootServiceId === incompleteServiceId,
     )?.name;
-    toast({
-      title: 'Finish the comp schedule',
-      description: `${serviceName || 'Each complimentary service'} needs a date, time, and photographer.`,
+      toast({
+        title: 'Finish the return-visit schedule',
+        description: `${serviceName || 'Each return-visit service'} needs a date, time, and photographer.`,
       variant: 'destructive',
     });
     return false;
@@ -222,6 +236,7 @@ export function useComplimentaryServiceMode({
       idempotency_key: idempotencyKey,
       reason_code: reasonCode,
       ...(reasonNote.trim() ? { reason_note: reasonNote.trim() } : {}),
+      client_pays: clientPays,
       pay_photographer: payPhotographer,
       pay_sales_rep: hasAssignedSalesRep && paySalesRep,
       service_items: selectedSourceServiceIds.map((sourceShootServiceId) => {
@@ -237,7 +252,7 @@ export function useComplimentaryServiceMode({
         };
       }),
     };
-  }, [hasAssignedSalesRep, hasSelectedServices, idempotencyKey, payPhotographer, paySalesRep, photographerIds, reasonCode, reasonNote, schedules, selectedSourceServiceIds, sourceServiceOptions]);
+  }, [clientPays, hasAssignedSalesRep, hasSelectedServices, idempotencyKey, payPhotographer, paySalesRep, photographerIds, reasonCode, reasonNote, schedules, selectedSourceServiceIds, sourceServiceOptions]);
 
   return {
     state: {
@@ -247,6 +262,7 @@ export function useComplimentaryServiceMode({
       photographerIds,
       reasonCode,
       reasonNote,
+      clientPays,
       payPhotographer,
       paySalesRep,
     },
@@ -257,6 +273,7 @@ export function useComplimentaryServiceMode({
       setServicePhotographer,
       setReasonCode,
       setReasonNote,
+      setClientPays,
       setPayPhotographer,
       setPaySalesRep,
       getServicePhotographer,

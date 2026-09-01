@@ -20,6 +20,8 @@ type CompServiceModeControlsProps = {
   onPayPhotographerChange: (enabled: boolean) => void;
   paySalesRep: boolean;
   onPaySalesRepChange: (enabled: boolean) => void;
+  clientPays: boolean;
+  onClientPaysChange: (enabled: boolean) => void;
   hasSalesRep: boolean;
 };
 
@@ -34,70 +36,93 @@ export function CompServiceModeControls({
   onPayPhotographerChange,
   paySalesRep,
   onPaySalesRepChange,
+  clientPays,
+  onClientPaysChange,
   hasSalesRep,
 }: CompServiceModeControlsProps) {
   return (
     <div
-      className={cn(
-        'border-b border-border/70 px-3 py-2.5 transition-colors sm:px-6',
-        enabled && 'bg-amber-50/70 dark:bg-amber-950/20',
-      )}
+      className="border-b border-border/70 bg-muted/20 px-3 py-2 sm:px-5"
       data-testid="comp-service-mode-controls"
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <RotateCcw className={cn('h-3.5 w-3.5', enabled ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')} />
-            <Label htmlFor="comp-service-mode" className="text-sm font-semibold">Comp Mode</Label>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Select services for a no-charge return visit.
-          </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex min-h-9 w-full shrink-0 items-center gap-2 sm:w-auto">
+          <RotateCcw
+            className={cn(
+              'h-3.5 w-3.5 shrink-0',
+              enabled ? 'text-primary' : 'text-muted-foreground',
+            )}
+            aria-hidden="true"
+          />
+          <Label htmlFor="comp-service-mode" className="whitespace-nowrap text-xs font-semibold">
+            Comp mode
+          </Label>
+          <Switch
+            id="comp-service-mode"
+            aria-label="Comp mode"
+            checked={enabled}
+            onCheckedChange={onEnabledChange}
+          />
+          {enabled && (
+            <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {clientPays ? 'Client billed' : 'Client $0'}
+            </span>
+          )}
         </div>
-        <Switch
-          id="comp-service-mode"
-          aria-label="Comp Mode"
-          checked={enabled}
-          onCheckedChange={onEnabledChange}
-        />
-      </div>
 
-      {enabled && (
-        <div className="mt-3 grid gap-3 border-t border-amber-200/70 pt-3 dark:border-amber-800/60 sm:grid-cols-[minmax(12rem,1fr)_minmax(16rem,1.25fr)] sm:items-end">
-          <div className="space-y-1.5">
-            <Label htmlFor="comp-service-reason" className="text-xs">Reason</Label>
-            <Select
-              value={reasonCode || undefined}
-              onValueChange={(value) => onReasonCodeChange(value as CompReshootReasonCode)}
+        {enabled && (
+          <>
+            <div className="flex w-full min-w-0 flex-[1_1_14rem] items-center gap-2 sm:w-auto">
+              <Label htmlFor="comp-service-reason" className="shrink-0 text-xs text-muted-foreground">
+                Reason
+              </Label>
+              <Select
+                value={reasonCode || undefined}
+                onValueChange={(value) => onReasonCodeChange(value as CompReshootReasonCode)}
+              >
+                <SelectTrigger
+                  id="comp-service-reason"
+                  className="h-9 min-w-0 flex-1 bg-background text-xs sm:h-8"
+                >
+                  <SelectValue placeholder="Choose a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMP_RESHOOT_REASON_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div
+              className="flex w-full min-w-0 flex-[1_1_27rem] flex-wrap items-center gap-x-3 gap-y-1 sm:w-auto"
+              role="group"
+              aria-label="Billing and staff pay"
             >
-              <SelectTrigger id="comp-service-reason" className="h-9 bg-background">
-                <SelectValue placeholder="Choose a reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {COMP_RESHOOT_REASON_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-foreground">Staff pay</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex min-h-9 items-center justify-between gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-xs font-medium">
-                Photographer
+              <label className="flex min-h-9 min-w-[8.5rem] flex-1 cursor-pointer items-center justify-between gap-2 whitespace-nowrap px-1 text-xs font-medium sm:min-h-8">
+                Bill client
+                <Switch
+                  aria-label="Bill client for return visit"
+                  checked={clientPays}
+                  onCheckedChange={onClientPaysChange}
+                />
+              </label>
+              <label className="flex min-h-9 min-w-[9.5rem] flex-1 cursor-pointer items-center justify-between gap-2 whitespace-nowrap px-1 text-xs font-medium sm:min-h-8">
+                Pay photographer
                 <Switch
                   aria-label="Pay photographer"
                   checked={payPhotographer}
                   onCheckedChange={onPayPhotographerChange}
                 />
               </label>
-              <label className={cn(
-                'flex min-h-9 items-center justify-between gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-xs font-medium',
-                !hasSalesRep && 'text-muted-foreground',
-              )}>
+              <label
+                className={cn(
+                  'flex min-h-9 min-w-[9.5rem] flex-1 items-center justify-between gap-2 px-1 text-xs font-medium sm:min-h-8',
+                  hasSalesRep ? 'cursor-pointer' : 'cursor-not-allowed text-muted-foreground',
+                )}
+              >
                 <span>
-                  Sales rep
+                  Pay sales rep
                   {!hasSalesRep && <span className="block text-[10px] font-normal">None assigned</span>}
                 </span>
                 <Switch
@@ -108,25 +133,22 @@ export function CompServiceModeControls({
                 />
               </label>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {hasSalesRep
-                ? 'Leave both off to pay neither; either or both may be enabled.'
-                : 'No sales rep is assigned, so only photographer pay is available.'}
-            </p>
-          </div>
+          </>
+        )}
+      </div>
 
-          {reasonCode === 'other' && (
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="comp-service-reason-note" className="text-xs">Internal reason</Label>
-              <Input
-                id="comp-service-reason-note"
-                value={reasonNote}
-                onChange={(event) => onReasonNoteChange(event.target.value)}
-                placeholder="Describe why the return visit is complimentary"
-                className="h-9 bg-background"
-              />
-            </div>
-          )}
+      {enabled && reasonCode === 'other' && (
+        <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
+          <Label htmlFor="comp-service-reason-note" className="shrink-0 text-xs text-muted-foreground">
+            Internal note
+          </Label>
+          <Input
+            id="comp-service-reason-note"
+            value={reasonNote}
+            onChange={(event) => onReasonNoteChange(event.target.value)}
+            placeholder="Why is this return visit needed?"
+            className="h-9 min-w-0 bg-background text-xs sm:h-8"
+          />
         </div>
       )}
     </div>

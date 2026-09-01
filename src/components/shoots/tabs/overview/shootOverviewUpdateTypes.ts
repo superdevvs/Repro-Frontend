@@ -56,6 +56,7 @@ export type ComplimentaryServiceOptionsPayload = {
   idempotency_key: string;
   reason_code: string;
   reason_note?: string;
+  client_pays: boolean;
   pay_photographer: boolean;
   pay_sales_rep: boolean;
   service_items: ComplimentaryServiceItemPayload[];
