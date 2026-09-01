@@ -83,6 +83,21 @@ afterEach(() => {
 });
 
 describe('IguideOfflinePackageDialog', () => {
+  it('warns admins that the public package must be MLS safe', () => {
+    render(
+      <IguideOfflinePackageDialog
+        currentPackage={normalizeIguideOfflinePackage(null)}
+        open
+        onOpenChange={vi.fn()}
+        onUploaded={vi.fn()}
+        shootId={9137}
+      />,
+    );
+
+    expect(screen.getByText(/used on delivered branded and MLS tours/i)).toBeTruthy();
+    expect(screen.getByText(/MLS-safe, unbranded export/i)).toBeTruthy();
+  });
+
   it('shows resumable phases and returns the queued package after finalization', async () => {
     const onUploaded = vi.fn();
     const onOpenChange = vi.fn();

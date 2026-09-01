@@ -35,6 +35,7 @@ interface MarkerRecord {
 const markerRecords: MarkerRecord[] = []
 const markerInstances: object[] = []
 const fitBoundsCalls: unknown[][] = []
+const panByCalls: Array<[number, number]> = []
 const setCenterCalls: Array<{ lat: number; lng: number }> = []
 const setZoomCalls: number[] = []
 const mapOptionsCalls: GoogleMapOptions[] = []
@@ -46,6 +47,12 @@ interface InfoWindowRecord {
   options: unknown
 }
 const infoWindowRecords: InfoWindowRecord[] = []
+interface OneTimeListenerRecord {
+  eventName: string
+  handler: () => void
+  removed: boolean
+}
+const oneTimeListenerRecords: OneTimeListenerRecord[] = []
 
 const createMapsApi = (): GoogleMapsApi => {
   class MapInstance {
@@ -55,6 +62,7 @@ const createMapsApi = (): GoogleMapsApi => {
 
     fitBounds(...args: unknown[]) { fitBoundsCalls.push(args) }
     getZoom() { return 12 }
+    panBy(x: number, y: number) { panByCalls.push([x, y]) }
     setCenter(center: { lat: number; lng: number }) { setCenterCalls.push(center) }
     setOptions(options: GoogleMapOptions) { mapOptionsCalls.push(options) }
     setZoom(zoom: number) { setZoomCalls.push(zoom) }
@@ -119,7 +127,11 @@ const createMapsApi = (): GoogleMapsApi => {
     Map: MapInstance,
     Marker: MarkerInstance,
     event: {
-      addListenerOnce: () => ({ remove: () => undefined }),
+      addListenerOnce: (_instance: object, eventName: string, handler: () => void) => {
+        const record = { eventName, handler, removed: false }
+        oneTimeListenerRecords.push(record)
+        return { remove: () => { record.removed = true } }
+      },
       clearInstanceListeners: () => undefined,
       trigger: () => undefined,
     },
@@ -151,28 +163,34 @@ const renderMap = (
   selectedListingId: string | null,
   onSelectListing = vi.fn(),
 ) => render(
-  <PrivateListingGoogleMap
-    apiKey="browser-key-for-test"
-    listings={listings}
-    selectedListingId={selectedListingId}
-    onSelectListing={onSelectListing}
-    showMarkerLabels={false}
-    onToggleLabels={vi.fn()}
-    resolveImageUrl={() => null}
-    formatPrice={(price) => `$${price ?? 0}`}
-    onOpenListing={vi.fn()}
-    theme="light"
-  />,
+  <section data-testid="showcase-map-canvas" data-map-workspace>
+    <PrivateListingGoogleMap
+      apiKey="browser-key-for-test"
+      listings={listings}
+      selectedListingId={selectedListingId}
+      onSelectListing={onSelectListing}
+      showMarkerLabels={false}
+      onToggleLabels={vi.fn()}
+      resolveImageUrl={() => null}
+      formatPrice={(price) => `$${price ?? 0}`}
+      onOpenListing={vi.fn()}
+      theme="light"
+    />
+    <div data-testid="map-controls-overlay" data-map-overlay="controls" />
+    <aside data-testid="listing-inspector-overlay" data-map-overlay="inspector" />
+  </section>,
 )
 
 beforeEach(() => {
   markerRecords.length = 0
   markerInstances.length = 0
   fitBoundsCalls.length = 0
+  panByCalls.length = 0
   setCenterCalls.length = 0
   setZoomCalls.length = 0
   mapOptionsCalls.length = 0
   infoWindowRecords.length = 0
+  oneTimeListenerRecords.length = 0
   h.loadGoogleMaps.mockReset()
   h.loadGoogleMaps.mockResolvedValue(createMapsApi())
 })
@@ -211,6 +229,7 @@ describe('PrivateListingGoogleMap', () => {
     expect(infoWindowRecords).toHaveLength(2)
     expect(infoWindowRecords[1].options).toEqual({
       ariaLabel: 'Selected private listing preview',
+      disableAutoPan: true,
       headerDisabled: true,
       maxWidth: 320,
       zIndex: 40,
@@ -242,6 +261,76 @@ describe('PrivateListingGoogleMap', () => {
     expect(setZoomCalls).toEqual([13, 11])
 
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+  })
+
+  it('moves the initially selected preview below the measured toolbar safe area', async () => {
+    const makeRect = (left: number, top: number, width: number, height: number) => ({
+      bottom: top + height,
+      height,
+      left,
+      right: left + width,
+      top,
+      width,
+      x: left,
+      y: top,
+      toJSON: () => ({}),
+    }) as DOMRect
+    const queuedFrames: FrameRequestCallback[] = []
+    let frameId = 0
+    let popupTop = 68
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      queuedFrames.push(callback)
+      frameId += 1
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      if (this.classList.contains('repro-google-map-popup')) {
+        return makeRect(580, popupTop, 256, 252)
+      }
+      if (this.dataset.mapOverlay === 'controls') {
+        return makeRect(16, 16, 1_012, 68)
+      }
+      if (this.dataset.mapOverlay === 'inspector') {
+        return makeRect(1_044, 16, 340, 568)
+      }
+      if (this.getAttribute('aria-label')?.startsWith('Private listings map with')) {
+        return makeRect(0, 0, 1_400, 600)
+      }
+      return makeRect(0, 0, 0, 0)
+    })
+
+    renderMap(
+      [listing('listing-1', 30.2672, -97.7431, '100 Congress Avenue')],
+      'listing-1',
+    )
+
+    await screen.findByRole('region', { name: 'Selected listing 100 Congress Avenue' })
+    expect(panByCalls).toHaveLength(0)
+    const popupReady = oneTimeListenerRecords.find(
+      ({ eventName, removed }) => eventName === 'domready' && !removed,
+    )
+    expect(popupReady).toBeDefined()
+
+    act(() => popupReady?.handler())
+    act(() => queuedFrames.shift()?.(0))
+    act(() => queuedFrames.shift()?.(16))
+
+    expect(panByCalls).toEqual([[0, -80]])
+
+    // A late fit/resize can reset the camera after InfoWindow DOM readiness.
+    // Rechecking on the settled map keeps the initial preview in the same safe area.
+    popupTop = 68
+    const mapSettled = oneTimeListenerRecords
+      .filter(({ eventName, removed }) => eventName === 'idle' && !removed)
+      .at(-1)
+    expect(mapSettled).toBeDefined()
+
+    act(() => mapSettled?.handler())
+    act(() => queuedFrames.shift()?.(32))
+    act(() => queuedFrames.shift()?.(48))
+
+    expect(panByCalls).toEqual([[0, -80], [0, -80]])
   })
 
   it('reanchors the selected card when marker styling recreates the pin', async () => {

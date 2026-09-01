@@ -16,6 +16,8 @@ import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
+import { Public3dTourViewer } from './Public3dTourViewer';
+import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 
 interface PropertyDetails {
   beds?: number;
@@ -52,6 +54,7 @@ export function GenericMLS() {
   const [floorplans, setFloorplans] = useState<any[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
+  const [iguideOpenUrl, setIguideOpenUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
   const [featuredEmbedId, setFeaturedEmbedId] = useState<string>('');
   const [tourSettings, setTourSettings] = useState({ autoplay: false });
@@ -109,7 +112,9 @@ export function GenericMLS() {
         if (data?.property_details) setPropertyDetails(data.property_details);
         setShowGarage(Boolean(data?.show_garage));
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
-        if (data?.iguide_tour_url || data?.iguide_url) setIguideUrl(data.iguide_tour_url || data.iguide_url);
+        const iguideSources = resolvePublicIguideSources(data, 'generic-mls');
+        setIguideUrl(iguideSources.inlineUrl || null);
+        setIguideOpenUrl(iguideSources.openUrl || null);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
           setFloorplans(Array.isArray(fps) ? fps : []);
@@ -119,12 +124,12 @@ export function GenericMLS() {
 
         const rawEmbeds = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
         const embedKey = shootId || [address, city, state, zip].filter(Boolean).join('-');
-        setEmbeds(rawEmbeds.map((embed: any, index: number) => ({
+        const safeEmbeds = rawEmbeds.map((embed: any, index: number) => ({
           id: embed?.id || `embed-${embedKey}-${index}`,
           title: embed?.title || `Embed ${index + 1}`,
-          branded: embed?.branded || embed?.branded_embed || embed?.url || '',
-          mls: embed?.mls || embed?.mls_embed || '',
-        })));
+          ...resolvePublicEmbedSources(embed, 'generic-mls'),
+        })).filter((embed) => Boolean(embed.mls));
+        setEmbeds(safeEmbeds);
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
         setTourSettings({ autoplay: Boolean(data?.tour_links?.autoplay) });
         const resolvedShootId = data?.shoot?.id || shootId;
@@ -251,7 +256,7 @@ export function GenericMLS() {
     return sanitizeTourEmbedHtml(html, appendAutoplayParam);
   };
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
-  const getEmbedValue = (embed: { branded: string; mls: string }) => embed.mls || embed.branded || '';
+  const getEmbedValue = (embed: { mls: string }) => embed.mls || '';
 
   if (loading) {
     return (
@@ -465,14 +470,12 @@ export function GenericMLS() {
       )}
 
       {/* 3D Tour */}
-      {(matterportUrl || iguideUrl) && (
-        <section id="tour" className="max-w-6xl mx-auto px-6 mt-10">
-          <h2 className="text-2xl font-bold text-foreground mb-6">3D Tour</h2>
-          <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg">
-            <iframe src={appendAutoplayParam(matterportUrl || iguideUrl || '')} className="w-full h-full border-0" allow="fullscreen; vr; autoplay" allowFullScreen loading="lazy" title="3D Tour" />
-          </div>
-        </section>
-      )}
+      <Public3dTourViewer
+        autoplay={tourSettings.autoplay}
+        matterportUrl={matterportUrl}
+        iguideInlineUrl={iguideUrl}
+        iguideOpenUrl={iguideOpenUrl}
+      />
 
       {/* Floor Plans */}
       <FloorplanSection floorplans={floorplans} />

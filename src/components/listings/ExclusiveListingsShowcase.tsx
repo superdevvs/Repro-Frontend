@@ -469,6 +469,7 @@ export function ExclusiveListingsShowcase({
   return (
     <section
       data-testid="showcase-map-canvas"
+      data-map-workspace
       className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-background shadow-2xl dark:border-white/10"
     >
       <Suspense fallback={<MapLoadingFallback />}>
@@ -528,12 +529,17 @@ export function ExclusiveListingsShowcase({
         <div
           className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:right-[332px] lg:top-4 2xl:right-[372px]"
           data-testid="map-controls-overlay"
+          data-map-overlay="controls"
         >
           <div className="pointer-events-auto">{controlsOverlay}</div>
         </div>
       ) : null}
 
-      <aside className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white">
+      <aside
+        className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
+        data-testid="listing-inspector-overlay"
+        data-map-overlay="inspector"
+      >
         <ScrollArea className="h-full">
           <div className="space-y-4 p-3">
             {!hasListings ? (

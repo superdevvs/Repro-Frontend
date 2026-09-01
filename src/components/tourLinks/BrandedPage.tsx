@@ -17,6 +17,8 @@ import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
+import { Public3dTourViewer } from './Public3dTourViewer';
+import { resolvePublicIguideSources } from './publicIguideModel';
 
 interface ShootData {
   id: number;
@@ -79,6 +81,7 @@ export function BrandedPage() {
   const [floorplans, setFloorplans] = useState<any[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
+  const [iguideOpenUrl, setIguideOpenUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
   const [featuredEmbedId, setFeaturedEmbedId] = useState<string>('');
   const [tourSettings, setTourSettings] = useState({
@@ -140,7 +143,9 @@ export function BrandedPage() {
         if (data?.property_details) setPropertyDetails(data.property_details);
         setShowGarage(Boolean(data?.show_garage));
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
-        if (data?.iguide_tour_url || data?.iguide_url) setIguideUrl(data.iguide_tour_url || data.iguide_url);
+        const iguideSources = resolvePublicIguideSources(data, 'branded');
+        setIguideUrl(iguideSources.inlineUrl || null);
+        setIguideOpenUrl(iguideSources.openUrl || null);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
           // Keep the full floorplan objects (url + generated preview image + label/type)
@@ -657,21 +662,12 @@ export function BrandedPage() {
       )}
 
       {/* 3D Tour */}
-      {(matterportUrl || iguideUrl) && (
-        <section id="tour" className="max-w-6xl mx-auto px-6 mt-10">
-          <h2 className="text-2xl font-bold text-foreground mb-6">3D Tour</h2>
-          <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg">
-            <iframe
-              src={appendAutoplayParam(matterportUrl || iguideUrl || '')}
-              className="w-full h-full border-0"
-              allow="fullscreen; vr; autoplay"
-              allowFullScreen
-              loading="lazy"
-              title="3D Tour"
-            />
-          </div>
-        </section>
-      )}
+      <Public3dTourViewer
+        autoplay={tourSettings.autoplay}
+        matterportUrl={matterportUrl}
+        iguideInlineUrl={iguideUrl}
+        iguideOpenUrl={iguideOpenUrl}
+      />
 
       {/* Floor Plans */}
       {/* Floor Plans */}

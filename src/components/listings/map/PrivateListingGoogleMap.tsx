@@ -74,6 +74,8 @@ export interface PrivateListingGoogleMapProps {
 const SELECTED_PIN_COLOR = '#d74432'
 const LIGHT_PIN_COLOR = '#1f5aa6'
 const DARK_PIN_COLOR = '#3b82f6'
+const MAP_EDGE_GAP_PX = 16
+const SELECTED_PREVIEW_TOOLBAR_GAP_PX = 64
 
 const HIDE_BUSINESS_POIS = {
   featureType: 'poi.business',
@@ -104,6 +106,63 @@ const mapOptionsForTheme = (theme: PrivateListingMapTheme): GoogleMapOptions => 
   styles: theme === 'dark' ? DARK_MAP_STYLES : [HIDE_BUSINESS_POIS],
   zoomControl: false,
 })
+
+interface PreviewPanDelta {
+  x: number
+  y: number
+}
+
+const isVisibleRect = (rect: DOMRect | undefined): rect is DOMRect =>
+  Boolean(rect && rect.width > 0 && rect.height > 0)
+
+const getSelectedPreviewPan = (
+  mapRect: DOMRect,
+  previewRect: DOMRect,
+  toolbarRect?: DOMRect,
+  inspectorRect?: DOMRect,
+): PreviewPanDelta => {
+  const safeBounds = {
+    top: mapRect.top + MAP_EDGE_GAP_PX,
+    right: mapRect.right - MAP_EDGE_GAP_PX,
+    bottom: mapRect.bottom - MAP_EDGE_GAP_PX,
+    left: mapRect.left + MAP_EDGE_GAP_PX,
+  }
+
+  if (isVisibleRect(toolbarRect)) {
+    safeBounds.top = Math.max(
+      safeBounds.top,
+      toolbarRect.bottom + SELECTED_PREVIEW_TOOLBAR_GAP_PX,
+    )
+  }
+
+  if (isVisibleRect(inspectorRect)) {
+    const inspectorIsRightRail = inspectorRect.left >= mapRect.left + mapRect.width / 2
+    const inspectorIsBottomSheet = inspectorRect.top >= mapRect.top + mapRect.height / 2
+    if (inspectorIsRightRail) {
+      safeBounds.right = Math.min(safeBounds.right, inspectorRect.left - MAP_EDGE_GAP_PX)
+    } else if (inspectorIsBottomSheet) {
+      safeBounds.bottom = Math.min(safeBounds.bottom, inspectorRect.top - MAP_EDGE_GAP_PX)
+    }
+  }
+
+  let x = 0
+  let y = 0
+  if (previewRect.left < safeBounds.left) {
+    x = -Math.ceil(safeBounds.left - previewRect.left)
+  } else if (previewRect.right > safeBounds.right) {
+    x = Math.ceil(previewRect.right - safeBounds.right)
+  }
+
+  // Prefer clearing the toolbar when the preview is taller than the remaining
+  // mobile safe area; the bottom sheet can still be scrolled independently.
+  if (previewRect.top < safeBounds.top) {
+    y = -Math.ceil(safeBounds.top - previewRect.top)
+  } else if (previewRect.bottom > safeBounds.bottom) {
+    y = Math.ceil(previewRect.bottom - safeBounds.bottom)
+  }
+
+  return { x, y }
+}
 
 const getFitPadding = (): MapPadding => {
   if (typeof window === 'undefined') {
@@ -182,6 +241,7 @@ const createSelectedPopup = (maps: GoogleMapsApi): PopupHandle => {
   const root = createRoot(container)
   const infoWindow = new maps.InfoWindow({
     ariaLabel: 'Selected private listing preview',
+    disableAutoPan: true,
     headerDisabled: true,
     maxWidth: 320,
     zIndex: 40,
@@ -228,6 +288,9 @@ export function PrivateListingGoogleMap({
   const selectedPopupRef = React.useRef<PopupHandle | null>(null)
   const hoverCloseTimerRef = React.useRef<number | null>(null)
   const idleListenerRef = React.useRef<GoogleMapsListener | null>(null)
+  const selectedPopupReadyListenerRef = React.useRef<GoogleMapsListener | null>(null)
+  const selectedPreviewIdleListenerRef = React.useRef<GoogleMapsListener | null>(null)
+  const previewPositionFramesRef = React.useRef<number[]>([])
   const onLoadErrorRef = React.useRef(onLoadError)
   const themeRef = React.useRef(theme)
   const latestRef = React.useRef({ formatPrice, onOpenListing, onSelectListing, resolveImageUrl })
@@ -265,7 +328,55 @@ export function PrivateListingGoogleMap({
     [mappedListings, selectedListingId],
   )
 
+  const cancelSelectedPreviewPosition = React.useCallback(() => {
+    previewPositionFramesRef.current.forEach((frame) => window.cancelAnimationFrame(frame))
+    previewPositionFramesRef.current = []
+  }, [])
+
+  const positionSelectedPreview = React.useCallback(() => {
+    const canvas = canvasRef.current
+    const mapElement = mapElementRef.current
+    const map = mapRef.current
+    const popup = selectedPopupRef.current
+    if (!canvas || !mapElement || !map || !popup) return
+
+    const workspace = canvas.closest<HTMLElement>('[data-map-workspace]')
+    const toolbar = document.fullscreenElement === canvas
+      ? null
+      : workspace?.querySelector<HTMLElement>('[data-map-overlay="controls"]')
+    const inspector = document.fullscreenElement === canvas
+      ? null
+      : workspace?.querySelector<HTMLElement>('[data-map-overlay="inspector"]')
+    const previewRect = popup.container.getBoundingClientRect()
+    if (!isVisibleRect(previewRect)) return
+    const { x, y } = getSelectedPreviewPan(
+      mapElement.getBoundingClientRect(),
+      previewRect,
+      toolbar?.getBoundingClientRect(),
+      inspector?.getBoundingClientRect(),
+    )
+
+    if (x !== 0 || y !== 0) map.panBy(x, y)
+  }, [])
+
+  const scheduleSelectedPreviewPosition = React.useCallback(() => {
+    cancelSelectedPreviewPosition()
+    const firstFrame = window.requestAnimationFrame(() => {
+      const secondFrame = window.requestAnimationFrame(() => {
+        previewPositionFramesRef.current = []
+        positionSelectedPreview()
+      })
+      previewPositionFramesRef.current = [secondFrame]
+    })
+    previewPositionFramesRef.current = [firstFrame]
+  }, [cancelSelectedPreviewPosition, positionSelectedPreview])
+
   const clearMarkers = React.useCallback(() => {
+    selectedPopupReadyListenerRef.current?.remove()
+    selectedPopupReadyListenerRef.current = null
+    selectedPreviewIdleListenerRef.current?.remove()
+    selectedPreviewIdleListenerRef.current = null
+    cancelSelectedPreviewPosition()
     markersRef.current.forEach(({ listeners, marker }) => {
       listeners.forEach((listener) => listener.remove())
       marker.setMap(null)
@@ -273,7 +384,7 @@ export function PrivateListingGoogleMap({
     markersRef.current = []
     hoverPopupRef.current?.infoWindow.close()
     selectedPopupRef.current?.infoWindow.close()
-  }, [])
+  }, [cancelSelectedPreviewPosition])
 
   const cancelHoverClose = React.useCallback(() => {
     if (hoverCloseTimerRef.current === null) return
@@ -489,6 +600,11 @@ export function PrivateListingGoogleMap({
       || !selectedMarkerGroup
       || dismissedPreviewId === selectedMappedListing.id
     ) {
+      selectedPopupReadyListenerRef.current?.remove()
+      selectedPopupReadyListenerRef.current = null
+      selectedPreviewIdleListenerRef.current?.remove()
+      selectedPreviewIdleListenerRef.current = null
+      cancelSelectedPreviewPosition()
       popup.infoWindow.close()
       return
     }
@@ -497,6 +613,11 @@ export function PrivateListingGoogleMap({
       group.listings.some((listing) => listing.id === selectedMappedListing.id),
     )
     if (!markerEntry) {
+      selectedPopupReadyListenerRef.current?.remove()
+      selectedPopupReadyListenerRef.current = null
+      selectedPreviewIdleListenerRef.current?.remove()
+      selectedPreviewIdleListenerRef.current = null
+      cancelSelectedPreviewPosition()
       popup.infoWindow.close()
       return
     }
@@ -538,14 +659,35 @@ export function PrivateListingGoogleMap({
       </div>,
     )
 
-    // Focus the selected marker before opening the anchored card. The selected
-    // preview uses a shorter small-width layout so the centered pin, toolbar,
-    // and bottom inspector can all remain visible at the same time.
+    // Focus the selected marker before opening the anchored card. Native
+    // InfoWindow auto-pan cannot account for our toolbar/right rail overlays, so
+    // wait for the React content to be laid out and then pan into the measured
+    // safe viewport. Re-registering here also covers later marker selections.
+    selectedPopupReadyListenerRef.current?.remove()
+    selectedPopupReadyListenerRef.current = mapsApi.event.addListenerOnce(
+      popup.infoWindow,
+      'domready',
+      () => {
+        selectedPopupReadyListenerRef.current = null
+        scheduleSelectedPreviewPosition()
+      },
+    )
+    selectedPreviewIdleListenerRef.current?.remove()
+    selectedPreviewIdleListenerRef.current = mapsApi.event.addListenerOnce(
+      map,
+      'idle',
+      () => {
+        selectedPreviewIdleListenerRef.current = null
+        scheduleSelectedPreviewPosition()
+      },
+    )
     map.setCenter(selectedMarkerGroup.coords)
     popup.infoWindow.open({ anchor: markerEntry.marker, map, shouldFocus: false })
   }, [
+    cancelSelectedPreviewPosition,
     dismissedPreviewId,
     mapsApi,
+    scheduleSelectedPreviewPosition,
     selectedMappedListing,
     selectedMarkerGroup,
     showMarkerLabels,
@@ -562,22 +704,42 @@ export function PrivateListingGoogleMap({
       frame = window.requestAnimationFrame(() => {
         mapsApi.event.trigger(map, 'resize')
         fitAllLocations()
+        selectedPreviewIdleListenerRef.current?.remove()
+        selectedPreviewIdleListenerRef.current = mapsApi.event.addListenerOnce(
+          map,
+          'idle',
+          () => {
+            selectedPreviewIdleListenerRef.current = null
+            scheduleSelectedPreviewPosition()
+          },
+        )
+        scheduleSelectedPreviewPosition()
       })
     }
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(handleResize)
-      observer.observe(element)
+      const workspace = canvasRef.current?.closest<HTMLElement>('[data-map-workspace]')
+      const resizeTargets = [
+        element,
+        workspace?.querySelector<HTMLElement>('[data-map-overlay="controls"]'),
+        workspace?.querySelector<HTMLElement>('[data-map-overlay="inspector"]'),
+      ].filter((target): target is HTMLElement => Boolean(target))
+      resizeTargets.forEach((target) => observer.observe(target))
       return () => {
         window.cancelAnimationFrame(frame)
+        selectedPreviewIdleListenerRef.current?.remove()
+        selectedPreviewIdleListenerRef.current = null
         observer.disconnect()
       }
     }
     window.addEventListener('resize', handleResize)
     return () => {
       window.cancelAnimationFrame(frame)
+      selectedPreviewIdleListenerRef.current?.remove()
+      selectedPreviewIdleListenerRef.current = null
       window.removeEventListener('resize', handleResize)
     }
-  }, [fitAllLocations, mapsApi])
+  }, [fitAllLocations, mapsApi, scheduleSelectedPreviewPosition])
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return

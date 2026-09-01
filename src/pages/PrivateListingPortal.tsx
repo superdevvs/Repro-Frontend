@@ -682,12 +682,12 @@ const PrivateListingPortal = () => {
             between all three views. */}
         {viewMode !== 'showcase' ? (
           <div
-            className="flex flex-wrap items-center gap-2 md:flex-nowrap"
+            className="flex w-full flex-wrap items-center gap-2 md:flex-nowrap"
             data-testid="listing-browse-toolbar"
           >
             {clientScopeControl}
             <div
-              className="relative min-w-[12rem] flex-1 sm:min-w-[16rem] md:min-w-0 md:max-w-xl xl:max-w-2xl"
+              className="relative min-w-[12rem] flex-1 sm:min-w-[16rem] md:min-w-0"
               data-testid="listing-browse-search"
             >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

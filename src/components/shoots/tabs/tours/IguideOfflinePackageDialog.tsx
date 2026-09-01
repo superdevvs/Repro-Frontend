@@ -215,6 +215,7 @@ export function IguideOfflinePackageDialog({
           <DialogTitle>{replacing ? 'Replace iGUIDE ZIP' : 'Upload iGUIDE ZIP'}</DialogTitle>
           <DialogDescription>
             Upload the offline package exported by iGUIDE. The package is scanned before it becomes ready.
+            {' '}Once ready, it is used on delivered branded and MLS tours, so upload an MLS-safe, unbranded export.
           </DialogDescription>
         </DialogHeader>
 

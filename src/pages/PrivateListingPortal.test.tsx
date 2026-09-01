@@ -329,7 +329,7 @@ afterEach(() => {
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
-  it('keeps client scope, a restrained search, and view controls in one browse row', async () => {
+  it('keeps client scope, full-width search, and view controls in one browse row', async () => {
     const user = userEvent.setup()
     authState.role = 'client'
     renderPortal()
@@ -342,11 +342,12 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     const search = within(toolbar).getByTestId('listing-browse-search')
     const viewSwitcher = within(toolbar).getByTestId('listing-browse-view-switcher')
 
-    expect(toolbar).toHaveClass('md:flex-nowrap')
+    expect(toolbar).toHaveClass('w-full', 'md:flex-nowrap')
     expect(toolbar).toContainElement(scope)
     expect(toolbar).toContainElement(search)
     expect(toolbar).toContainElement(viewSwitcher)
-    expect(search).toHaveClass('flex-1', 'md:min-w-0', 'md:max-w-xl', 'xl:max-w-2xl')
+    expect(search).toHaveClass('flex-1', 'md:min-w-0')
+    expect(search).not.toHaveClass('md:max-w-xl', 'xl:max-w-2xl')
     expect(within(scope).getByText('All Listings')).toBeVisible()
     expect(within(scope).getByText('My Listings')).toBeVisible()
     expect(

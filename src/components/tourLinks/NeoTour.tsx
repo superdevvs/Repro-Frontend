@@ -12,6 +12,12 @@ import {
 } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
+import { Public3dTourViewer } from './Public3dTourViewer';
+import {
+  resolvePublicEmbedSources,
+  resolvePublicIguideSources,
+  resolvePublicTourVariantFromPath,
+} from './publicIguideModel';
 
 interface ShootData {
   id: number;
@@ -68,6 +74,7 @@ export function NeoTour() {
   const [floorplans, setFloorplans] = useState<string[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
+  const [iguideOpenUrl, setIguideOpenUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
   const [featuredEmbedId, setFeaturedEmbedId] = useState<string>('');
   const [tourSettings, setTourSettings] = useState({
@@ -81,6 +88,10 @@ export function NeoTour() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [activeSection, setActiveSection] = useState<SectionId>('header');
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const publicTourVariant = useMemo(
+    () => resolvePublicTourVariantFromPath(window.location.pathname),
+    [],
+  );
 
   const headerRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -126,13 +137,7 @@ export function NeoTour() {
         if (!shootId) { setLoading(false); return; }
         
         // Determine which endpoint to use based on current route
-        const path = window.location.pathname;
-        let endpoint = 'g-mls';
-        if (path.includes('/branded')) {
-          endpoint = 'branded';
-        } else if (path.includes('/mls')) {
-          endpoint = 'mls';
-        }
+        const endpoint = publicTourVariant === 'generic-mls' ? 'g-mls' : publicTourVariant;
         
         // Add cache-busting parameter to ensure fresh data
         const cacheBuster = new Date().getTime();
@@ -146,7 +151,9 @@ export function NeoTour() {
         if (data?.shoot) setShoot(data.shoot);
         if (data?.property_details) setPropertyDetails(data.property_details);
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
-        if (data?.iguide_tour_url || data?.iguide_url) setIguideUrl(data.iguide_tour_url || data.iguide_url);
+        const iguideSources = resolvePublicIguideSources(data, publicTourVariant);
+        setIguideUrl(iguideSources.inlineUrl || null);
+        setIguideOpenUrl(iguideSources.openUrl || null);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
           setFloorplans(Array.isArray(fps) ? fps.map((f: any) => typeof f === 'string' ? f : f.url || f.path) : []);
@@ -156,9 +163,10 @@ export function NeoTour() {
         const normalizedEmbeds = rawEmbeds.map((embed: any, index: number) => ({
           id: embed?.id || `embed-${shootId}-${index}`,
           title: embed?.title || `Embed ${index + 1}`,
-          branded: embed?.branded || embed?.branded_embed || embed?.url || '',
-          mls: embed?.mls || embed?.mls_embed || '',
-        }));
+          ...resolvePublicEmbedSources(embed, publicTourVariant),
+        })).filter((embed) => publicTourVariant === 'branded'
+          ? Boolean(embed.branded || embed.mls)
+          : Boolean(embed.mls));
         setEmbeds(normalizedEmbeds);
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
         setTourSettings({
@@ -179,7 +187,7 @@ export function NeoTour() {
       }
     };
     fetchData();
-  }, []);
+  }, [publicTourVariant]);
 
   const getBeds = () => propertyDetails?.beds || propertyDetails?.bedrooms || propertyDetails?.building?.[0]?.bedrooms || null;
   const getBaths = () => propertyDetails?.baths || propertyDetails?.bathrooms || propertyDetails?.building?.[0]?.baths || null;
@@ -260,7 +268,8 @@ export function NeoTour() {
   };
 
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
-  const getEmbedValue = (embed: { branded: string; mls: string }) => embed.branded || embed.mls || '';
+  const getEmbedValue = (embed: { branded: string; mls: string }) =>
+    publicTourVariant === 'branded' ? embed.branded || embed.mls || '' : embed.mls || '';
 
   const renderWeatherIcon = (icon?: string) => {
     switch (icon) {
@@ -405,16 +414,14 @@ export function NeoTour() {
 
       {/* 3D Tour Section - Show first if available */}
       {(matterportUrl || iguideUrl) && (
-        <section className="relative h-screen overflow-hidden border-b border-blue-500/20">
-          <div className="absolute inset-0">
-            <iframe
-              src={appendAutoplayParam(matterportUrl || iguideUrl || '')}
-              className="w-full h-full border-0"
-              allow="fullscreen; vr; autoplay"
-              allowFullScreen
-              title="3D Tour"
-            />
-          </div>
+        <div className="dark relative min-h-screen overflow-hidden border-b border-blue-500/20 bg-slate-950 pt-24">
+          <Public3dTourViewer
+            autoplay={tourSettings.autoplay}
+            matterportUrl={matterportUrl}
+            iguideInlineUrl={iguideUrl}
+            iguideOpenUrl={iguideOpenUrl}
+            className="mt-0 max-w-7xl"
+          />
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
             <motion.div
               animate={{ y: [0, 10, 0] }}
@@ -423,7 +430,7 @@ export function NeoTour() {
               <ChevronDown className="w-8 h-8 text-blue-400" />
             </motion.div>
           </div>
-        </section>
+        </div>
       )}
 
       {/* Embed Section */}

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
+import { Public3dTourViewer } from './Public3dTourViewer';
+import {
+  normalizePublicTourUrl,
+  resolvePublicIguideSources,
+  type PublicIguideSources,
+} from './publicIguideModel';
 
 type Variant = 'branded' | 'mls';
 type Provider = 'matterport' | 'iguide' | 'zillow';
@@ -12,20 +18,9 @@ type Public3dRedirectProps = {
 const asRecord = (value: unknown): LooseRecord =>
   value && typeof value === 'object' ? (value as LooseRecord) : {};
 
-const asUrl = (value: unknown): string => {
-  if (typeof value !== 'string' || value.trim() === '') return '';
-
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : '';
-  } catch {
-    return '';
-  }
-};
-
 const firstUrl = (...values: unknown[]): string => {
   for (const value of values) {
-    const url = asUrl(value);
+    const url = normalizePublicTourUrl(value);
     if (url) return url;
   }
   return '';
@@ -40,6 +35,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
       ? requestedProvider
       : null;
   const [message, setMessage] = useState('Opening the 3D walkthrough…');
+  const [inlineIguide, setInlineIguide] = useState<PublicIguideSources | null>(null);
 
   const fallbackPath = variant === 'mls' ? '/tour/mls' : '/tour/branded';
   const fallbackUrl = shootId
@@ -65,41 +61,28 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
 
         const payload = asRecord(await response.json());
         const links = asRecord(payload.tour_links);
-        const brandedMatterport = firstUrl(
-          links.matterport_branded,
-          links.matterport,
-          variant === 'branded' ? payload.matterport_url : '',
-        );
-        const mlsMatterport = firstUrl(
-          links.matterport_mls,
-          variant === 'mls' ? payload.matterport_url : '',
-        );
-        const brandedIguide = firstUrl(
-          links.iguide_branded,
-          links.iGuide,
-          links.iguide,
-          variant === 'branded' ? payload.iguide_tour_url : '',
-          variant === 'branded' ? payload.iguide_url : '',
-        );
-        const mlsIguide = firstUrl(
-          links.iguide_mls,
-          variant === 'mls' ? payload.iguide_tour_url : '',
-          variant === 'mls' ? payload.iguide_url : '',
-        );
+        const iguideSources = resolvePublicIguideSources(payload, variant);
 
         const providerTargets: Record<Provider, string> = {
           matterport: variant === 'mls'
-            ? (mlsMatterport && mlsMatterport !== brandedMatterport ? mlsMatterport : '')
-            : brandedMatterport,
-          iguide: variant === 'mls'
-            ? (mlsIguide && mlsIguide !== brandedIguide ? mlsIguide : '')
-            : brandedIguide,
+            ? firstUrl(payload.matterport_url, links.matterport_mls)
+            : firstUrl(payload.matterport_url, links.matterport_branded, links.matterport),
+          iguide: iguideSources.inlineUrl,
           zillow: variant === 'mls' ? '' : firstUrl(links.zillow_3d),
         };
+        const resolvedProvider = provider || (
+          providerTargets.iguide ? 'iguide'
+            : providerTargets.matterport ? 'matterport'
+              : providerTargets.zillow ? 'zillow'
+                : null
+        );
+        const target = resolvedProvider ? providerTargets[resolvedProvider] : '';
 
-        const target = provider
-          ? providerTargets[provider]
-          : firstUrl(providerTargets.matterport, providerTargets.iguide, providerTargets.zillow);
+        if (resolvedProvider === 'iguide' || provider === 'iguide') {
+          setInlineIguide(iguideSources);
+          setMessage('');
+          return;
+        }
 
         if (!target) {
           setMessage('The 3D walkthrough is not available yet.');
@@ -118,6 +101,31 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
     void openTour();
     return () => controller.abort();
   }, [provider, shootId, variant]);
+
+  if (inlineIguide) {
+    return (
+      <main className="dark min-h-screen bg-[#060a0e] px-4 py-8 text-white sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          {variant === 'branded' && (
+            <img src="/REPRO-HQ.png" alt="R/E Pro Photos" className="mx-auto mb-7 w-52 max-w-full" />
+          )}
+          <Public3dTourViewer
+            iguideInlineUrl={inlineIguide.inlineUrl}
+            iguideOpenUrl={inlineIguide.openUrl}
+            initialProvider="iguide"
+            showUnavailable
+            heading="iGUIDE 3D Tour"
+            className="mt-0 max-w-none px-0"
+          />
+          <div className="mt-5 text-center">
+            <a className="text-sm text-[#75bfff] underline" href={fallbackUrl}>
+              View the full property tour
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#060a0e] px-6 text-white">
