@@ -50,6 +50,7 @@ export const API_ROUTES = {
     iguide: {
       sync: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/sync`,
       offlinePackage: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package`,
+      offlinePackageViewLink: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/view-link`,
       offlinePackageUploads: {
         create: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads`,
         show: (shootId: number | string, sessionId: string) => `${BASE_URL}/api/integrations/shoots/${shootId}/iguide/offline-package/uploads/${sessionId}`,

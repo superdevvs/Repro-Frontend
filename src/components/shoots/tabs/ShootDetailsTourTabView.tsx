@@ -105,8 +105,56 @@ export function ShootDetailsTourTabView(props: any) {
     downloadQrCode,
   } = props;
 
+  const providerSection = (
+    <TourProvidersSection
+      shootId={shootId}
+      onShootUpdate={onShootUpdate}
+      isAdmin={isAdmin}
+      isClientView={isClientView}
+      show3dTours={show3dTours}
+      showMatterportSection={showMatterportSection}
+      showIguideSection={showIguideSection}
+      showZillowSection={showZillowSection}
+      visibleMatterportKeys={visibleMatterportKeys}
+      visibleIguideKeys={visibleIguideKeys}
+      tourLinks={tourLinks}
+      editing3DKey={editing3DKey}
+      editing3DValue={editing3DValue}
+      setEditing3DValue={setEditing3DValue}
+      isSaving3D={isSaving3D}
+      isDeleting3D={isDeleting3D}
+      startEdit3D={startEdit3D}
+      cancelEdit3D={cancelEdit3D}
+      save3DTour={save3DTour}
+      confirmDelete3D={confirmDelete3D}
+      copyLink={copyLink}
+      openLink={openLink}
+      shareLink={shareLink}
+      iguideSync={iguideSync}
+      iguidePropertyIdInput={iguidePropertyIdInput}
+      setIguidePropertyIdInput={setIguidePropertyIdInput}
+      iguideWorkOrderIdInput={iguideWorkOrderIdInput}
+      setIguideWorkOrderIdInput={setIguideWorkOrderIdInput}
+      saveIguideIdentifiers={saveIguideIdentifiers}
+      isSavingIguideIdentifiers={isSavingIguideIdentifiers}
+      syncIguideNow={syncIguideNow}
+      isSyncingIguide={isSyncingIguide}
+      cubicasaSync={cubicasaSync}
+      cubicasaOrderIdInput={cubicasaOrderIdInput}
+      setCubicasaOrderIdInput={setCubicasaOrderIdInput}
+      cubicasaExternalIdInput={cubicasaExternalIdInput}
+      setCubicasaExternalIdInput={setCubicasaExternalIdInput}
+      saveCubicasaIdentifiers={saveCubicasaIdentifiers}
+      isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
+      syncCubicasaNow={syncCubicasaNow}
+      isSyncingCubicasa={isSyncingCubicasa}
+      createCubicasaOrderButton={createCubicasaOrderButton}
+    />
+  );
+
   return (
     <div className="space-y-6 w-full">
+      {providerSection}
       {/* Tour Links Section */}
       <Card>
         <CardHeader>
@@ -679,50 +727,6 @@ export function ShootDetailsTourTabView(props: any) {
         </Card>
       )}
       {propertySection}
-      <TourProvidersSection
-        shootId={shootId}
-        onShootUpdate={onShootUpdate}
-        isAdmin={isAdmin}
-        isClientView={isClientView}
-        show3dTours={show3dTours}
-        showMatterportSection={showMatterportSection}
-        showIguideSection={showIguideSection}
-        showZillowSection={showZillowSection}
-        visibleMatterportKeys={visibleMatterportKeys}
-        visibleIguideKeys={visibleIguideKeys}
-        tourLinks={tourLinks}
-        editing3DKey={editing3DKey}
-        editing3DValue={editing3DValue}
-        setEditing3DValue={setEditing3DValue}
-        isSaving3D={isSaving3D}
-        isDeleting3D={isDeleting3D}
-        startEdit3D={startEdit3D}
-        cancelEdit3D={cancelEdit3D}
-        save3DTour={save3DTour}
-        confirmDelete3D={confirmDelete3D}
-        copyLink={copyLink}
-        openLink={openLink}
-        shareLink={shareLink}
-        iguideSync={iguideSync}
-        iguidePropertyIdInput={iguidePropertyIdInput}
-        setIguidePropertyIdInput={setIguidePropertyIdInput}
-        iguideWorkOrderIdInput={iguideWorkOrderIdInput}
-        setIguideWorkOrderIdInput={setIguideWorkOrderIdInput}
-        saveIguideIdentifiers={saveIguideIdentifiers}
-        isSavingIguideIdentifiers={isSavingIguideIdentifiers}
-        syncIguideNow={syncIguideNow}
-        isSyncingIguide={isSyncingIguide}
-        cubicasaSync={cubicasaSync}
-        cubicasaOrderIdInput={cubicasaOrderIdInput}
-        setCubicasaOrderIdInput={setCubicasaOrderIdInput}
-        cubicasaExternalIdInput={cubicasaExternalIdInput}
-        setCubicasaExternalIdInput={setCubicasaExternalIdInput}
-        saveCubicasaIdentifiers={saveCubicasaIdentifiers}
-        isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
-        syncCubicasaNow={syncCubicasaNow}
-        isSyncingCubicasa={isSyncingCubicasa}
-        createCubicasaOrderButton={createCubicasaOrderButton}
-      />
       {/* QR Code Dialog */}
       <Dialog open={qrCodeDialog.open} onOpenChange={onQrDialogOpenChange}>
         <DialogContent className="sm:max-w-md">

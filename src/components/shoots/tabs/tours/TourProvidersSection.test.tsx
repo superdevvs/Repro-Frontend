@@ -131,10 +131,61 @@ describe('TourProvidersSection', () => {
 
     render(<TourProvidersSection {...props} />);
     const iguide = screen.getByTestId('tour-provider-iguide');
-    expect(within(iguide).getByText('Scanning')).toBeTruthy();
-    fireEvent.click(within(iguide).getAllByRole('button')[0]);
+    expect(within(iguide).getAllByText('ZIP scanning').length).toBeGreaterThan(0);
+    expect(within(iguide).getAllByRole('button')[0].getAttribute('aria-expanded')).toBe('true');
 
     expect(within(iguide).getByRole('button', { name: 'Download previous' })).toBeTruthy();
     expect(within(iguide).getByText('new.zip')).toBeTruthy();
+  });
+
+  it('auto-expands a ready offline package with Open iGUIDE as the primary action', () => {
+    const props = baseProps();
+    props.showMatterportSection = false;
+    props.showZillowSection = false;
+    props.iguideSync = getNormalizedIguideSync({
+      iguide_data: {
+        manual_offline_package: {
+          id: 'ready-package',
+          file_id: 88,
+          status: 'ready',
+          original_filename: 'offline-tour.zip',
+          size_bytes: 1048576,
+        },
+      },
+    });
+
+    render(<TourProvidersSection {...props} />);
+    const iguide = screen.getByTestId('tour-provider-iguide');
+
+    expect(within(iguide).getAllByRole('button')[0].getAttribute('aria-expanded')).toBe('true');
+    expect(within(iguide).getAllByText('ZIP ready').length).toBeGreaterThan(0);
+    expect(within(iguide).getByRole('button', { name: 'Open iGUIDE' })).toBeTruthy();
+    expect(within(iguide).getByText('offline-tour.zip')).toBeTruthy();
+  });
+
+  it('does not reveal an offline-only package to a non-admin staff role', () => {
+    const props = baseProps();
+    props.isAdmin = false;
+    props.isClientView = false;
+    props.show3dTours = false;
+    props.showIguideSection = false;
+    props.showMatterportSection = false;
+    props.showZillowSection = false;
+    props.visibleIguideKeys = [];
+    props.iguideSync = getNormalizedIguideSync({
+      iguide_data: {
+        manual_offline_package: {
+          id: 'private-package',
+          file_id: 88,
+          status: 'ready',
+          original_filename: 'private.zip',
+        },
+      },
+    });
+
+    render(<TourProvidersSection {...props} />);
+
+    expect(screen.queryByTestId('tour-provider-iguide')).toBeNull();
+    expect(screen.queryByText('private.zip')).toBeNull();
   });
 });

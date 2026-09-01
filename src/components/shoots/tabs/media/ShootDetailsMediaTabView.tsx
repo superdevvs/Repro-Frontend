@@ -13,6 +13,7 @@ import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
+import { canShowIguideMedia } from './iguideMediaVisibility';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   const {
@@ -105,6 +106,13 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
+  const showIguideMedia = canShowIguideMedia({
+    iguideUrl,
+    isAdmin,
+    isClient,
+    isEditor,
+    offlinePackage: iguideSync?.offlinePackage,
+  });
   const renderRawUploadsTab = () => (
     !isClient && (
       <TabsTrigger 
@@ -435,12 +443,12 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           Video ({uploadedVideos.length})
                         </button>
                       )}
-                      {!isEditor && iguideUrl && (
+                      {showIguideMedia && (
                         <button
                           onClick={() => setUploadedMediaTab('iguide')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
-                          iGuide
+                          iGUIDE
                         </button>
                       )}
                       {!isEditor && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
@@ -512,8 +520,16 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Videos',
                     )}
                   
-                  {uploadedMediaTab === 'iguide' && iguideUrl && (
-                    <IguideMediaPanel iguideUrl={iguideUrl} iguideSync={iguideSync} />
+                  {uploadedMediaTab === 'iguide' && showIguideMedia && (
+                    <IguideMediaPanel
+                      iguideUrl={iguideUrl}
+                      iguideSync={iguideSync}
+                      isAdmin={isAdmin}
+                      isClient={isClient}
+                      isEditor={isEditor}
+                      onShootUpdate={onShootUpdate}
+                      shootId={shoot.id}
+                    />
                   )}
                   
                   {uploadedMediaTab === 'floorplans' && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
@@ -564,7 +580,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       {/* iGuide floorplan links */}
                       {iguideFloorplans.length > 0 && (
                         <div className="m-2.5 border rounded-lg bg-card p-4">
-                          <h4 className="font-medium mb-3 text-sm">iGuide Floor Plans ({iguideFloorplans.length})</h4>
+                          <h4 className="font-medium mb-3 text-sm">iGUIDE Floor Plans ({iguideFloorplans.length})</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {iguideFloorplans.map((fp, idx) => (
                               <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
@@ -675,12 +691,12 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Video ({editedVideos.length})
                           </button>
                         )}
-                        {!isEditor && iguideUrl && (
+                        {showIguideMedia && (
                           <button
                             onClick={() => setEditedMediaTab('iguide')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                           >
-                            iGuide
+                          iGUIDE
                           </button>
                         )}
                         {!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
@@ -753,8 +769,16 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Videos',
                     )}
                   
-                  {editedMediaTab === 'iguide' && iguideUrl && (
-                    <IguideMediaPanel iguideUrl={iguideUrl} iguideSync={iguideSync} />
+                  {editedMediaTab === 'iguide' && showIguideMedia && (
+                    <IguideMediaPanel
+                      iguideUrl={iguideUrl}
+                      iguideSync={iguideSync}
+                      isAdmin={isAdmin}
+                      isClient={isClient}
+                      isEditor={isEditor}
+                      onShootUpdate={onShootUpdate}
+                      shootId={shoot.id}
+                    />
                   )}
                   
                   {editedMediaTab === 'floorplans' && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
@@ -804,7 +828,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       {/* iGuide floorplan links */}
                       {iguideFloorplans.length > 0 && (
                         <div className="m-2.5 border rounded-lg bg-card p-4">
-                          <h4 className="font-medium mb-3 text-sm">iGuide Floor Plans ({iguideFloorplans.length})</h4>
+                          <h4 className="font-medium mb-3 text-sm">iGUIDE Floor Plans ({iguideFloorplans.length})</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {iguideFloorplans.map((fp, idx) => (
                               <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">

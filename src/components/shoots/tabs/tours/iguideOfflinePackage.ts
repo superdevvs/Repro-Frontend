@@ -3,6 +3,7 @@ import {
   type NormalizedIguideOfflinePackage,
 } from '@/utils/shootTourData';
 import { API_BASE_URL } from '@/config/env';
+import API_ROUTES from '@/lib/api';
 import { getApiHeaders } from '@/services/api';
 
 export const IGUIDE_OFFLINE_PACKAGE_MAX_BYTES = 256 * 1024 * 1024;
@@ -77,15 +78,105 @@ export const parseIguideOfflinePackageResponse = (
 export const getIguidePackageStatusLabel = (offlinePackage: NormalizedIguideOfflinePackage) => {
   switch (offlinePackage.status) {
     case 'queued':
-      return 'Queued';
+      return 'ZIP queued';
     case 'scanning':
-      return 'Scanning';
+      return 'ZIP scanning';
     case 'ready':
-      return 'Ready';
+      return 'ZIP ready';
     case 'failed':
-      return 'Failed';
+      return 'ZIP failed';
     default:
-      return offlinePackage.exists ? 'Processing' : 'Not uploaded';
+      return offlinePackage.exists ? 'ZIP processing' : 'No ZIP uploaded';
+  }
+};
+
+export type IguideOfflineViewerLink = {
+  expiresAt: string;
+  url: string;
+};
+
+const getViewerLinkValue = (payload: unknown, ...keys: string[]) => {
+  const root = asRecord(payload);
+  const data = asRecord(root.data);
+
+  for (const key of keys) {
+    const value = data[key] ?? root[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+
+  return '';
+};
+
+const resolveViewerUrl = (url: string) => {
+  try {
+    return new URL(url, `${API_BASE_URL.replace(/\/$/, '')}/`).toString();
+  } catch {
+    return url;
+  }
+};
+
+/** Request a short-lived, package-scoped URL instead of exposing API auth in the viewer. */
+export const requestIguideOfflineViewerLink = async (
+  shootId: string | number,
+): Promise<IguideOfflineViewerLink> => {
+  const response = await fetch(API_ROUTES.integrations.iguide.offlinePackageViewLink(shootId), {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: '{}',
+  });
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // A malformed/non-JSON response is handled by the missing-link error below.
+  }
+
+  if (!response.ok) {
+    const root = asRecord(payload);
+    const data = asRecord(root.data);
+    throw new Error(String(data.message ?? data.error ?? root.message ?? root.error ?? 'Could not open the iGUIDE.'));
+  }
+
+  const url = getViewerLinkValue(payload, 'url', 'viewer_url', 'viewerUrl');
+  if (!url) {
+    throw new Error('The iGUIDE viewer link was not returned. Please try again.');
+  }
+
+  return {
+    url: resolveViewerUrl(url),
+    expiresAt: getViewerLinkValue(payload, 'expires_at', 'expiresAt'),
+  };
+};
+
+/**
+ * Opens a blank tab synchronously so popup blockers do not swallow the viewer
+ * while its short-lived URL is being issued by the API.
+ */
+export const openIguideOfflineViewer = async (shootId: string | number) => {
+  const viewerWindow = window.open('about:blank', '_blank');
+  if (viewerWindow) {
+    try {
+      viewerWindow.opener = null;
+    } catch {
+      // Some browsers expose a restricted WindowProxy; navigation still works.
+    }
+  }
+
+  try {
+    const link = await requestIguideOfflineViewerLink(shootId);
+    if (viewerWindow && !viewerWindow.closed) {
+      viewerWindow.location.replace(link.url);
+    } else {
+      const fallbackWindow = window.open(link.url, '_blank', 'noopener,noreferrer');
+      if (!fallbackWindow) {
+        throw new Error('Allow pop-ups for this site, then click Open iGUIDE again.');
+      }
+    }
+    return link;
+  } catch (error) {
+    if (viewerWindow && !viewerWindow.closed) viewerWindow.close();
+    throw error;
   }
 };
 

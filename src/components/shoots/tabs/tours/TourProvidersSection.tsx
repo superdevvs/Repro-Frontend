@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Check,
@@ -40,6 +40,7 @@ import {
   downloadIguideOfflinePackage,
   formatFileSize,
   getIguidePackageStatusLabel,
+  openIguideOfflineViewer,
 } from './iguideOfflinePackage';
 
 type ProviderId = 'matterport' | 'iguide' | 'cubicasa' | 'zillow';
@@ -318,23 +319,39 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     visibleMatterportKeys,
   } = props;
   const { toast } = useToast();
-  const [openProvider, setOpenProvider] = useState<ProviderId | null>(null);
+  const [openProvider, setOpenProvider] = useState<ProviderId | null>(
+    isAdmin && iguideSync.offlinePackage.exists ? 'iguide' : null,
+  );
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [offlinePackage, setOfflinePackage] = useState<NormalizedIguideOfflinePackage>(iguideSync.offlinePackage);
+  const [isOpeningIguide, setIsOpeningIguide] = useState(false);
+  const offlinePackageIdentityRef = useRef(
+    iguideSync.offlinePackage.id
+      || iguideSync.offlinePackage.fileId
+      || iguideSync.offlinePackage.originalFilename,
+  );
   const cubicasa = cubicasaSync || {};
   const cubicasaFloorplans = Array.isArray(cubicasa.floorplans) ? cubicasa.floorplans : [];
   const hasCubicasaData = Boolean(
     cubicasa.status || cubicasa.orderId || cubicasa.externalId || cubicasa.brandedUrl
       || cubicasa.unbrandedUrl || cubicasaFloorplans.length,
   );
+  const visibleOfflinePackage = isAdmin && offlinePackage.exists;
   const renderCubicasa = isClientView ? show3dTours && hasCubicasaData : true;
-  const renderIguide = showIguideSection || (!isClientView && (
-    Boolean(iguideSync.url) || iguideSync.floorplans.length > 0 || offlinePackage.exists
-  ));
+  const renderIguide = showIguideSection
+    || Boolean(iguideSync.url)
+    || iguideSync.floorplans.length > 0
+    || visibleOfflinePackage;
 
   useEffect(() => {
-    setOfflinePackage(iguideSync.offlinePackage);
-  }, [iguideSync.offlinePackage]);
+    const nextPackage = iguideSync.offlinePackage;
+    const nextIdentity = nextPackage.id || nextPackage.fileId || nextPackage.originalFilename;
+    if (isAdmin && nextPackage.exists && nextIdentity && nextIdentity !== offlinePackageIdentityRef.current) {
+      setOpenProvider('iguide');
+    }
+    offlinePackageIdentityRef.current = nextIdentity;
+    setOfflinePackage(nextPackage);
+  }, [iguideSync.offlinePackage, isAdmin]);
 
   useEffect(() => {
     if (!['queued', 'scanning'].includes(offlinePackage.status)) return undefined;
@@ -367,6 +384,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
   const downloadablePackage = offlinePackage.status === 'ready' && offlinePackage.fileId
     ? offlinePackage
     : previousReadyPackage;
+  const packageReady = offlinePackage.status === 'ready' && Boolean(offlinePackage.fileId);
   const packageStatusKind = offlinePackage.status === 'ready'
     ? 'ready'
     : offlinePackage.status === 'failed'
@@ -446,6 +464,22 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     }
   };
 
+  const openOfflinePackage = async () => {
+    if (!isAdmin || !packageReady || isOpeningIguide) return;
+    setIsOpeningIguide(true);
+    try {
+      await openIguideOfflineViewer(shootId);
+    } catch (error) {
+      toast({
+        title: 'Could not open iGUIDE',
+        description: error instanceof Error ? error.message : 'The viewer could not be opened.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsOpeningIguide(false);
+    }
+  };
+
   if (!showAnyProvider) return null;
 
   return (
@@ -501,12 +535,12 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
             title="iGUIDE"
             summary={iguideSync.url
               ? `${iguideDeliverableCount} deliverable${iguideDeliverableCount === 1 ? '' : 's'}${iguideSync.lastSyncedAt ? ` · synced ${formatSyncTime(iguideSync.lastSyncedAt)}` : ''}`
-              : offlinePackage.exists
+              : visibleOfflinePackage
                 ? `${iguidePackageLabel}${offlinePackage.originalFilename ? ` · ${offlinePackage.originalFilename}` : ''}`
                 : 'No tour or offline package'}
             icon={<Home className="h-4 w-4" />}
-            status={<ProviderStatus kind={iguideSync.url || offlinePackage.status === 'ready' ? 'ready' : packageStatusKind}>
-              {iguideSync.url ? 'Ready' : iguidePackageLabel}
+            status={<ProviderStatus kind={iguideSync.url || (visibleOfflinePackage && offlinePackage.status === 'ready') ? 'ready' : visibleOfflinePackage ? packageStatusKind : 'empty'}>
+              {iguideSync.url ? 'Ready' : visibleOfflinePackage ? iguidePackageLabel : 'Not set'}
             </ProviderStatus>}
             open={openProvider === 'iguide'}
             onToggle={(id) => setOpenProvider((current) => current === id ? null : id)}
@@ -518,9 +552,10 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
               >
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />Open
               </Button>
-            ) : !isClientView && downloadablePackage?.fileId ? (
-              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => void downloadOfflinePackage()}>
-                <Download className="mr-1 h-3.5 w-3.5" />Download
+            ) : isAdmin && packageReady ? (
+              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => void openOfflinePackage()} disabled={isOpeningIguide}>
+                {isOpeningIguide ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
+                {isOpeningIguide ? 'Opening' : 'Open iGUIDE'}
               </Button>
             ) : isAdmin ? (
               <Button
@@ -540,8 +575,13 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   key,
                   label: key === 'iguide_branded' ? 'Branded' : 'MLS',
                 })))}
-                {!isClientView && offlinePackage.exists && <DropdownMenuSeparator />}
-                {!isClientView && downloadablePackage?.fileId && (
+                {isAdmin && offlinePackage.exists && <DropdownMenuSeparator />}
+                {isAdmin && packageReady && (
+                  <DropdownMenuItem onSelect={() => void openOfflinePackage()}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" />Open offline iGUIDE
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && downloadablePackage?.fileId && (
                   <DropdownMenuItem onSelect={() => void downloadOfflinePackage()}>
                     <Download className="mr-2 h-3.5 w-3.5" />
                     {previousReadyPackage ? 'Download previous ZIP' : 'Download offline ZIP'}
@@ -561,7 +601,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
             )}
           >
             <div className="space-y-3">
-              {!isClientView && offlinePackage.exists && (
+              {isAdmin && offlinePackage.exists && (
                 <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-2.5 py-2">
                   <FileArchive className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
@@ -573,12 +613,20 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                       <p className="mt-1 text-[10px] text-destructive">{offlinePackage.error}</p>
                     )}
                   </div>
-                  {downloadablePackage?.fileId && (
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => void downloadOfflinePackage()}>
-                      <Download className="mr-1 h-3.5 w-3.5" />
-                      {previousReadyPackage ? 'Download previous' : 'Download'}
-                    </Button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {packageReady && (
+                      <Button size="sm" className="h-7 px-2 text-xs" onClick={() => void openOfflinePackage()} disabled={isOpeningIguide}>
+                        {isOpeningIguide ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
+                        Open
+                      </Button>
+                    )}
+                    {downloadablePackage?.fileId && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => void downloadOfflinePackage()}>
+                        <Download className="mr-1 h-3.5 w-3.5" />
+                        {previousReadyPackage ? 'Download previous' : 'Download'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -756,6 +804,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
         currentPackage={offlinePackage}
         onUploaded={(nextPackage) => {
           setOfflinePackage(nextPackage);
+          offlinePackageIdentityRef.current = nextPackage.id || nextPackage.fileId || nextPackage.originalFilename;
+          setOpenProvider('iguide');
           toast({
             title: 'iGUIDE ZIP uploaded',
             description: nextPackage.status === 'ready'

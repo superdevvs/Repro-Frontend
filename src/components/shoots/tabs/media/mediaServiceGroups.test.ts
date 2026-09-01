@@ -260,7 +260,7 @@ describe('provider-delivered floorplans keep their own section', () => {
       fpShoot,
     );
 
-    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'iGuide Floor Plans']);
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'iGUIDE Floor Plans']);
     expect(groups.map((group) => group.label)).not.toContain('Unassigned');
   });
 
@@ -280,7 +280,7 @@ describe('provider-delivered floorplans keep their own section', () => {
 
     expect(groups.map((group) => [group.label, group.files.length])).toEqual([
       ['CubiCasa Floor Plans', 1],
-      ['iGuide Floor Plans', 2],
+      ['iGUIDE Floor Plans', 2],
     ]);
   });
 

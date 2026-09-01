@@ -95,6 +95,7 @@ import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from '
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { canShowIguideMedia } from './iguideMediaVisibility';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -310,6 +311,13 @@ export function useShootDetailsMediaTab({
     isClientReleaseLocked: effectiveClientReleaseLocked,
     role,
   });
+  const showIguideMedia = canShowIguideMedia({
+    iguideUrl,
+    isAdmin,
+    isClient,
+    isEditor,
+    offlinePackage: iguideSync.offlinePackage,
+  });
   const clientEditedMediaTabs = useMemo(
     () =>
       [
@@ -317,8 +325,8 @@ export function useShootDetailsMediaTab({
         (shootHasVideoService || editedVideos.length > 0)
           ? { id: 'videos' as MediaSubTab, label: `Video (${editedVideos.length})` }
           : null,
-        !isEditor && iguideUrl
-          ? { id: 'iguide' as MediaSubTab, label: 'iGuide' }
+        showIguideMedia
+          ? { id: 'iguide' as MediaSubTab, label: 'iGUIDE' }
           : null,
         !isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0)
           ? {
@@ -355,8 +363,8 @@ export function useShootDetailsMediaTab({
       editedVideos.length,
       editedVirtualStaging.length,
       iguideFloorplans.length,
-      iguideUrl,
       isEditor,
+      showIguideMedia,
       shootHasVideoService,
     ],
   );

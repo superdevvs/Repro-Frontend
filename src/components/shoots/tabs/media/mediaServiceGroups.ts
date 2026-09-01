@@ -48,7 +48,7 @@ const isExtraFile = (file: MediaFile): boolean =>
  * applied to something it would misdescribe if that ever changes.
  */
 const PROVIDER_SECTION_LABELS: Record<string, string> = {
-  iguide: 'iGuide Floor Plans',
+  iguide: 'iGUIDE Floor Plans',
   cubicasa: 'CubiCasa Floor Plans',
 };
 
