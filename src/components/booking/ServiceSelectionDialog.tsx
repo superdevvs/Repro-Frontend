@@ -69,6 +69,9 @@ type ServiceSelectionDialogProps = {
   allowEmptySelection?: boolean;
   title?: string;
   description?: string;
+  contextualControls?: React.ReactNode;
+  renderServicePrice?: (service: ServiceSelectionOption, defaultLabel: string) => React.ReactNode;
+  selectionSummary?: React.ReactNode;
 };
 
 const FALLBACK_CATEGORY_NAME = 'More services';
@@ -150,6 +153,9 @@ export function ServiceSelectionDialog({
   allowEmptySelection = false,
   title = 'Select services',
   description = 'Pick the services for this shoot, compare prices quickly, then tap Done.',
+  contextualControls,
+  renderServicePrice,
+  selectionSummary,
 }: ServiceSelectionDialogProps) {
   const isMobile = useIsMobile();
   const [serviceSearchQuery, setServiceSearchQuery] = React.useState('');
@@ -396,7 +402,7 @@ export function ServiceSelectionDialog({
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className="text-base font-semibold leading-none tabular-nums text-foreground sm:text-lg">
-                        {displayPrice}
+                        {renderServicePrice ? renderServicePrice(service, displayPrice) : displayPrice}
                       </span>
                       <span
                         className={cn(
@@ -446,7 +452,7 @@ export function ServiceSelectionDialog({
     <>
       <div className={cn('min-w-0', !mobileDrawer && 'sm:hidden')}>
         <p className="text-sm font-semibold leading-tight">
-          {selectedServices.length} Selected · {formatPrice(selectedServicesTotal)}
+          {selectionSummary ?? `${selectedServices.length} Selected · ${formatPrice(selectedServicesTotal)}`}
         </p>
         {!allowEmptySelection && selectedServices.length <= 1 && (
           <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
@@ -455,7 +461,7 @@ export function ServiceSelectionDialog({
       {!mobileDrawer && (
         <div className="mr-auto hidden sm:block">
           <p className="text-sm text-muted-foreground">
-            {selectedServices.length} selected · {formatPrice(selectedServicesTotal)}
+            {selectionSummary ?? `${selectedServices.length} selected · ${formatPrice(selectedServicesTotal)}`}
           </p>
           {!allowEmptySelection && selectedServices.length <= 1 && (
             <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
@@ -480,6 +486,7 @@ export function ServiceSelectionDialog({
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription>{description}</DrawerDescription>
           </DrawerHeader>
+          {contextualControls}
           <div className="min-h-0 flex-1 overflow-hidden">{body(true)}</div>
           <DrawerFooter className="border-t border-border/80 bg-background/95 backdrop-blur [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))] supports-[backdrop-filter]:bg-background/85">
             {footer(true)}
@@ -498,6 +505,7 @@ export function ServiceSelectionDialog({
             {description}
           </DialogDescription>
         </DialogHeader>
+        {contextualControls}
         {body(false)}
         <DialogFooter className="flex-row items-center justify-between gap-2 border-t border-border/80 bg-background/95 px-6 py-4 backdrop-blur [padding-bottom:1rem] supports-[backdrop-filter]:bg-background/85">
           {footer(false)}

@@ -13,7 +13,6 @@ import {
 } from '@/utils/shootPhotographerAssignments';
 import { setNestedDraftValue } from './draftUtils';
 import {
-  buildScheduledAtIso,
   deriveMetricsFromAddress,
   deriveServiceCategoryId,
   deriveServiceCategoryName,
@@ -28,7 +27,6 @@ import {
   usePhotographerAssignmentOptions,
   usePhotographerDistanceAvailability,
 } from './shootOverviewEditorSupport';
-import { to12Hour } from '@/utils/availabilityUtils';
 import { calculatePricingBreakdown } from '@/utils/pricing';
 import type {
   AddressDetailsForLookup,
@@ -43,10 +41,16 @@ import type {
 } from './shootOverviewEditorSupport';
 import type {
   LegacyServiceItemRecord,
-  OverviewServiceItemPayload,
   ShootOverviewUpdatePayload,
   ShootWithLegacyOverviewFields,
 } from './shootOverviewUpdateTypes';
+import { useComplimentaryServiceMode } from './useComplimentaryServiceMode';
+import { applyOverviewServicePayload } from './shootOverviewServicePayload';
+import {
+  buildAvailabilitySegments,
+  formatAvailabilitySummary,
+  formatLocationLabel,
+} from './overviewPhotographerDisplayUtils';
 
 export function useShootOverviewEditor({
   shoot,
@@ -73,7 +77,9 @@ export function useShootOverviewEditor({
   });
   const [selectedClientId, setSelectedClientId] = useState(() => (shoot.client ? String(shoot.client.id) : ''));
   const [editPhotographers, setEditPhotographers] = useState<PhotographerPickerOption[]>([]);
-  const [selectedPhotographerIdEdit, setSelectedPhotographerIdEdit] = useState(() => (shoot.photographer ? String(shoot.photographer.id) : ''));
+  const [selectedPhotographerIdEdit, setSelectedPhotographerIdEdit] = useState(() => (
+    shoot.photographer?.id != null ? String(shoot.photographer.id) : ''
+  ));
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [photographerSearchOpen, setPhotographerSearchOpen] = useState(false);
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
@@ -140,6 +146,41 @@ export function useShootOverviewEditor({
 
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
   const isAdminOrRep = isAdmin || role === 'rep' || role === 'representative';
+  const {
+    state: {
+      enabled: isCompServiceMode,
+      selectedSourceServiceIds: selectedCompSourceServiceIds,
+      schedules: compServiceSchedules,
+      photographerIds: compServicePhotographers,
+      reasonCode: compReasonCode,
+      reasonNote: compReasonNote,
+      payPhotographer: payCompPhotographer,
+      paySalesRep: payCompSalesRep,
+    },
+    actions: {
+      setModeEnabled: setCompServiceMode,
+      toggleServiceSelection: toggleCompServiceSelection,
+      updateServiceSchedule: updateCompServiceSchedule,
+      setServicePhotographer: setCompServicePhotographer,
+      setReasonCode: setCompReasonCode,
+      setReasonNote: setCompReasonNote,
+      setPayPhotographer: setPayCompPhotographer,
+      setPaySalesRep: setPayCompSalesRep,
+      getServicePhotographer: getCompServicePhotographer,
+      markOrdinaryServiceMutationTouched,
+      validateBeforeSave: validateCompServicesBeforeSave,
+      buildPayload: buildCompServicePayload,
+      reset: resetCompServiceMode,
+    },
+    sourceServiceOptions: compSourceServiceOptions,
+    hasSelectedServices: hasComplimentaryServices,
+  } = useComplimentaryServiceMode({
+    shoot,
+    isAdmin,
+    isEditMode,
+    selectedPhotographerId: selectedPhotographerIdEdit,
+    toast,
+  });
 
   const resolveServicePrice = useCallback((service: ServiceOption, sqft: number | null, overrideValue?: string) => {
     const serviceWithPrice = { ...service, price: service.price ?? 0 };
@@ -282,7 +323,7 @@ export function useShootOverviewEditor({
     setAddressInput(shoot.location?.address || shoot.location?.fullAddress || legacyShoot.address || '');
     initializeMetricsFromShoot();
     if (shoot.client) setSelectedClientId(String(shoot.client.id));
-    if (shoot.photographer) setSelectedPhotographerIdEdit(String(shoot.photographer.id));
+    setSelectedPhotographerIdEdit(shoot.photographer?.id != null ? String(shoot.photographer.id) : '');
 
     const nextPerCategoryPhotographers: Record<string, string> = {};
     for (const group of photographerAssignments.groups) {
@@ -389,6 +430,8 @@ export function useShootOverviewEditor({
   const handleSave = useCallback(() => {
     if (!onSave) return;
 
+    if (!validateCompServicesBeforeSave()) return;
+
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     // The draft only ever holds display fields; the service payload keys below
     // are request-shaped, so the two types deliberately do not overlap.
@@ -461,81 +504,23 @@ export function useShootOverviewEditor({
       }
     }
 
-    const orderSchedule = {
-      date: formatDateForInput(updates.scheduledDate ?? shoot.scheduledDate),
-      time: formatTimeForInput(String(updates.time ?? shoot.time ?? '')) || '10:00',
-    };
-    const existingScheduleByServiceId = new Map<string, ServiceScheduleFields>();
-    [
-      ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
-      ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
-      ...((shoot.serviceObjects as unknown as LegacyServiceItemRecord[] | undefined) || []),
-    ].filter((item) => !isInvoiceAdjustmentServiceItem(item)).forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const serviceId = item.service_id ?? item.serviceId ?? item.id;
-      if (serviceId === null || serviceId === undefined) return;
-      const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-      if (!scheduledAt) return;
-      existingScheduleByServiceId.set(String(serviceId), {
-        date: formatDateForInput(scheduledAt),
-        time: formatTimeForInput(scheduledAt) || orderSchedule.time,
-      });
+    applyOverviewServicePayload({
+      updates,
+      shoot,
+      isAdmin,
+      omitStandardServices: hasComplimentaryServices,
+      selectedServiceIds,
+      serviceSchedules,
+      servicePrices,
+      servicePhotographerPays,
+      perCategoryPhotographers,
+      servicesList,
     });
-    const serviceItemsPayload = selectedServiceIds.map((serviceId) => {
-      const savedSchedule = serviceSchedules[serviceId] || orderSchedule;
-      const existingSchedule = existingScheduleByServiceId.get(serviceId);
-      const serviceSchedule =
-        existingSchedule &&
-        savedSchedule.date === orderSchedule.date &&
-        savedSchedule.time === orderSchedule.time
-          ? existingSchedule
-          : savedSchedule;
-      const serviceData: OverviewServiceItemPayload = {
-        service_id: Number(serviceId),
-        // Keep unscheduled services unscheduled: an empty date must NOT fall back
-        // to the order date. `buildScheduledAtIso` returns null for an empty date.
-        scheduled_at: serviceSchedule.date
-          ? buildScheduledAtIso(serviceSchedule.date, serviceSchedule.time)
-          : null,
-      };
-      const explicitPrice = servicePrices[serviceId];
-      if (isAdmin && explicitPrice !== undefined && explicitPrice !== '') {
-        const parsedPrice = Number(explicitPrice);
-        if (Number.isFinite(parsedPrice) && parsedPrice >= 0) {
-          serviceData.price = parsedPrice;
-        }
-      }
-      if (servicePhotographerPays[serviceId]) {
-        serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
-      }
-      return serviceData;
-    });
-    updates.service_items = serviceItemsPayload;
-    updates.services = serviceItemsPayload.map((serviceData) => ({
-      id: serviceData.service_id,
-      ...(serviceData.price !== undefined ? { price: serviceData.price } : {}),
-      ...(serviceData.quantity !== undefined ? { quantity: serviceData.quantity } : {}),
-      scheduled_at: serviceData.scheduled_at,
-      photographer_pay: serviceData.photographer_pay,
-    }));
 
-    const servicePhotographerAssignments: Array<{ service_id: number; photographer_id: number }> = [];
-    if (Object.keys(perCategoryPhotographers).length > 0 && selectedServiceIds.length > 0) {
-      for (const serviceId of selectedServiceIds) {
-        const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
-        if (!service) continue;
-        const categoryName = deriveServiceCategoryName(service);
-        const categoryKey = categoryName.trim().toLowerCase().replace(/s$/, '');
-        const photographerId = perCategoryPhotographers[categoryKey];
-        if (photographerId) {
-          servicePhotographerAssignments.push({
-            service_id: Number(serviceId),
-            photographer_id: Number(photographerId),
-          });
-        }
-      }
+    const complimentaryServiceOptions = buildCompServicePayload();
+    if (complimentaryServiceOptions) {
+      updates.complimentary_service_options = complimentaryServiceOptions;
     }
-    updates.service_photographers = servicePhotographerAssignments;
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
@@ -543,6 +528,7 @@ export function useShootOverviewEditor({
   }, [
     accessContactName,
     accessContactPhone,
+    buildCompServicePayload,
     editedShoot,
     lockboxCode,
     lockboxLocation,
@@ -553,12 +539,14 @@ export function useShootOverviewEditor({
     propertyMetricsEdit.beds,
     propertyMetricsEdit.sqft,
     isAdmin,
+    hasComplimentaryServices,
     selectedServiceIds,
     servicePhotographerPays,
     servicePrices,
     serviceSchedules,
     servicesList,
     shoot,
+    validateCompServicesBeforeSave,
   ]);
 
   // An UNSET service schedule must stay empty (UNASSIGNED) rather than
@@ -587,6 +575,7 @@ export function useShootOverviewEditor({
   }, [defaultServiceSchedule, isEditMode, selectedServiceIds]);
 
   const updateServiceSchedule = useCallback((serviceId: string, field: keyof ServiceScheduleFields, value: string) => {
+    markOrdinaryServiceMutationTouched();
     setServiceSchedules((current) => ({
       ...current,
       [serviceId]: {
@@ -594,7 +583,7 @@ export function useShootOverviewEditor({
         [field]: value,
       },
     }));
-  }, [defaultServiceSchedule]);
+  }, [defaultServiceSchedule, markOrdinaryServiceMutationTouched]);
 
   const handleCancel = useCallback(() => {
     setEditedShoot({});
@@ -602,8 +591,9 @@ export function useShootOverviewEditor({
     setPhotographerSearchOpen(false);
     setServiceModalSearch('');
     setSearchQuery('');
+    resetCompServiceMode();
     if (onCancel) onCancel();
-  }, [onCancel]);
+  }, [onCancel, resetCompServiceMode]);
 
   useEffect(() => {
     if (!isEditMode || !onRegisterEditActions) return;
@@ -652,6 +642,7 @@ export function useShootOverviewEditor({
 
   const toggleServiceSelection = useCallback((serviceId: string) => {
     serviceSelectionTouchedRef.current = true;
+    markOrdinaryServiceMutationTouched();
     setSelectedServiceIds((current) => {
       if (current.includes(serviceId)) {
         setServicePrices((prices) => {
@@ -668,7 +659,7 @@ export function useShootOverviewEditor({
       }
       return [...current, serviceId];
     });
-  }, []);
+  }, [markOrdinaryServiceMutationTouched]);
 
   useEffect(() => {
     const serviceSubtotal = selectedServiceIds.reduce((sum, serviceId) => {
@@ -859,14 +850,16 @@ export function useShootOverviewEditor({
   }, []);
 
   const openEditPhotographerPicker = useCallback((context: Exclude<PhotographerPickerContext, null>) => {
-    const initialSelection = context.categoryKey
-      ? perCategoryPhotographers[context.categoryKey] || selectedPhotographerIdEdit || ''
-      : selectedPhotographerIdEdit || '';
+    const initialSelection = context.complimentarySourceServiceId
+      ? getCompServicePhotographer(context.complimentarySourceServiceId)
+      : context.categoryKey
+        ? perCategoryPhotographers[context.categoryKey] || selectedPhotographerIdEdit || ''
+        : selectedPhotographerIdEdit || '';
     setPhotographerPickerContext(context);
     setSelectedPhotographerId(initialSelection);
     setSearchQuery('');
     setAssignPhotographerOpen(true);
-  }, [perCategoryPhotographers, selectedPhotographerIdEdit]);
+  }, [getCompServicePhotographer, perCategoryPhotographers, selectedPhotographerIdEdit]);
 
   const editModePhotographerRows = useMemo(() => {
     const groupedRows = photographerAssignments.groups.map((group) => {
@@ -926,7 +919,19 @@ export function useShootOverviewEditor({
         email: selectedPhotographer?.email || '',
       };
 
+      if (photographerPickerContext?.complimentarySourceServiceId) {
+        const sourceShootServiceId = photographerPickerContext.complimentarySourceServiceId;
+        setCompServicePhotographer(sourceShootServiceId, selectedPhotographerId);
+        toast({
+          title: 'Comp photographer updated',
+          description: `${nextPhotographer.name} is selected for this return-visit service.`,
+        });
+        closePhotographerPicker();
+        return;
+      }
+
       if (photographerPickerContext?.categoryKey) {
+        markOrdinaryServiceMutationTouched();
         const { categoryKey, categoryName } = photographerPickerContext;
         setPerCategoryPhotographers((current) => ({ ...current, [categoryKey]: selectedPhotographerId }));
         updateField(`perCategoryPhotographers.${categoryKey}`, selectedPhotographerId);
@@ -988,47 +993,15 @@ export function useShootOverviewEditor({
     isEditMode,
     onShootUpdate,
     photographerPickerContext,
+    markOrdinaryServiceMutationTouched,
     refreshShootMutations,
     resolvePhotographerDetails,
     selectedPhotographerId,
+    setCompServicePhotographer,
     shoot.id,
     toast,
     updateField,
   ]);
-
-  const formatLocationLabel = useCallback((location?: { address?: string; city?: string; state?: string; zip?: string }) => {
-    if (!location) return '';
-    return [location.address, location.city, location.state, location.zip]
-      .filter((part) => part && String(part).trim().length > 0)
-      .join(', ');
-  }, []);
-
-  const timeToMinutes = useCallback((time: string) => {
-    const [hours, minutes] = time.split(':').map(Number);
-    if (!Number.isFinite(hours)) return 0;
-    return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
-  }, []);
-
-  const buildAvailabilitySegments = useCallback((slots: Array<{ start_time: string; end_time: string }> = []) => {
-    const segments: boolean[] = [];
-    for (let hour = 8; hour < 20; hour += 1) {
-      const segmentStart = hour * 60;
-      const segmentEnd = (hour + 1) * 60;
-      const hasSlot = slots.some((slot) => {
-        const slotStart = timeToMinutes(slot.start_time);
-        const slotEnd = timeToMinutes(slot.end_time);
-        return slotStart < segmentEnd && slotEnd > segmentStart;
-      });
-      segments.push(hasSlot);
-    }
-    return segments;
-  }, [timeToMinutes]);
-
-  const formatAvailabilitySummary = useCallback((slots: Array<{ start_time: string; end_time: string }> = []) =>
-    slots
-      .slice(0, 3)
-      .map((slot) => `${to12Hour(slot.start_time)}-${to12Hour(slot.end_time)}`)
-      .join(', '), []);
 
   return {
     state: {
@@ -1049,6 +1022,14 @@ export function useShootOverviewEditor({
       serviceDialogOpen,
       servicePanelCategory,
       serviceModalSearch,
+      isCompServiceMode,
+      selectedCompSourceServiceIds,
+      compServiceSchedules,
+      compServicePhotographers,
+      compReasonCode,
+      compReasonNote,
+      payCompPhotographer,
+      payCompSalesRep,
       presenceOption,
       lockboxCode,
       lockboxLocation,
@@ -1079,6 +1060,13 @@ export function useShootOverviewEditor({
       setServiceDialogOpen,
       setServicePanelCategory,
       setServiceModalSearch,
+      setCompServiceMode,
+      toggleCompServiceSelection,
+      updateCompServiceSchedule,
+      setCompReasonCode,
+      setCompReasonNote,
+      setPayCompPhotographer,
+      setPayCompSalesRep,
       setPresenceOption,
       setLockboxCode,
       setLockboxLocation,
@@ -1111,6 +1099,7 @@ export function useShootOverviewEditor({
     effectiveSqft,
     serviceCategoryOptions,
     panelServices,
+    compSourceServiceOptions,
     filteredAndSortedPhotographers,
     editModePhotographerRows,
   };

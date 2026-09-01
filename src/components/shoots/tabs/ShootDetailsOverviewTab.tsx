@@ -99,6 +99,7 @@ import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useNavigate } from 'react-router-dom';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
+import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -455,6 +456,14 @@ export function ShootDetailsOverviewTab({
       serviceDialogOpen,
       servicePanelCategory,
       serviceModalSearch,
+      isCompServiceMode,
+      selectedCompSourceServiceIds,
+      compServiceSchedules,
+      compServicePhotographers,
+      compReasonCode,
+      compReasonNote,
+      payCompPhotographer,
+      payCompSalesRep,
       presenceOption,
       lockboxCode,
       lockboxLocation,
@@ -479,6 +488,13 @@ export function ShootDetailsOverviewTab({
       setServiceDialogOpen,
       setServicePanelCategory,
       setServiceModalSearch,
+      setCompServiceMode,
+      toggleCompServiceSelection,
+      updateCompServiceSchedule,
+      setCompReasonCode,
+      setCompReasonNote,
+      setPayCompPhotographer,
+      setPayCompSalesRep,
       setPresenceOption,
       setLockboxCode,
       setLockboxLocation,
@@ -508,6 +524,7 @@ export function ShootDetailsOverviewTab({
     effectiveSqft,
     serviceCategoryOptions,
     panelServices,
+    compSourceServiceOptions,
     filteredAndSortedPhotographers,
     editModePhotographerRows,
   } = useShootOverviewEditor({
@@ -963,6 +980,25 @@ export function ShootDetailsOverviewTab({
         isPhotographer={isPhotographer}
         isEditor={isEditor}
         isAdmin={['admin', 'superadmin', 'super_admin'].includes(role.trim().toLowerCase())}
+        complimentary={isComplimentaryReshootEnabled && ['admin', 'superadmin', 'super_admin'].includes(role.trim().toLowerCase()) ? {
+          enabled: isCompServiceMode,
+          onEnabledChange: setCompServiceMode,
+          sourceServices: compSourceServiceOptions,
+          selectedSourceServiceIds: selectedCompSourceServiceIds,
+          schedules: compServiceSchedules,
+          photographerIds: compServicePhotographers,
+          reasonCode: compReasonCode,
+          onReasonCodeChange: setCompReasonCode,
+          reasonNote: compReasonNote,
+          onReasonNoteChange: setCompReasonNote,
+          payPhotographer: payCompPhotographer,
+          onPayPhotographerChange: setPayCompPhotographer,
+          paySalesRep: payCompSalesRep,
+          onPaySalesRepChange: setPayCompSalesRep,
+          hasSalesRep: Boolean(shoot.client?.rep?.id ?? shoot.rep?.id),
+          toggleServiceSelection: toggleCompServiceSelection,
+          updateServiceSchedule: updateCompServiceSchedule,
+        } : undefined}
       />
 
       <OverviewClientSection

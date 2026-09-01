@@ -42,7 +42,6 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useUpload } from '@/context/UploadContext';
-import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 import { useShootDetailsScreen } from './modal/useShootDetailsScreen';
 import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions';
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
@@ -781,11 +780,6 @@ export function ShootDetailsModal({
           setIsDeclineModalOpen={setIsDeclineModalOpen}
           setIsEditMode={setIsEditMode}
           setIsDownloadDialogOpen={setIsDownloadDialogOpen}
-          canBookCompReshoot={isComplimentaryReshootEnabled && isAdmin && !isEditingManager}
-          onBookCompReshoot={() => {
-            onClose();
-            navigate(`/book-shoot?compReshootFrom=${encodeURIComponent(shoot.id)}`);
-          }}
           handleMarkOnHoldClick={handleMarkOnHoldClick}
           handleResumeFromHold={handleResumeFromHold}
           handleCancelShootClick={handleCancelShootClick}

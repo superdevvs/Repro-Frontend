@@ -45,6 +45,22 @@ export type OverviewServiceItemPayload = {
   photographer_pay?: number;
 };
 
+export type ComplimentaryServiceItemPayload = {
+  source_shoot_service_id: number;
+  service_id: number;
+  photographer_id: number;
+  scheduled_at: string;
+};
+
+export type ComplimentaryServiceOptionsPayload = {
+  idempotency_key: string;
+  reason_code: string;
+  reason_note?: string;
+  pay_photographer: boolean;
+  pay_sales_rep: boolean;
+  service_items: ComplimentaryServiceItemPayload[];
+};
+
 type OverviewServicePayload = Omit<OverviewServiceItemPayload, 'service_id'> & {
   id: number;
 };
@@ -55,4 +71,5 @@ export type ShootOverviewUpdatePayload = Omit<Partial<ShootData>, 'service_items
   service_items?: OverviewServiceItemPayload[];
   services?: OverviewServicePayload[];
   service_photographers?: Array<{ service_id: number; photographer_id: number }>;
+  complimentary_service_options?: ComplimentaryServiceOptionsPayload;
 };

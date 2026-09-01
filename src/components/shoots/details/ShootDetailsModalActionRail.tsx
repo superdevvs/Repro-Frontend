@@ -18,7 +18,6 @@ import {
   PlayCircle,
   Printer,
   Save,
-  RotateCcw,
   Send,
   Share2,
   Settings,
@@ -120,8 +119,6 @@ interface ShootDetailsModalActionRailProps {
   handleUploadEdits: () => void;
   handleGenerateShareLink: () => void;
   onClose: () => void;
-  canBookCompReshoot?: boolean;
-  onBookCompReshoot?: () => void;
 }
 
 export function ShootDetailsModalActionRail({
@@ -186,8 +183,6 @@ export function ShootDetailsModalActionRail({
   handleUploadEdits,
   handleGenerateShareLink,
   onClose,
-  canBookCompReshoot = false,
-  onBookCompReshoot,
 }: ShootDetailsModalActionRailProps) {
   const [activeDownloadControl, setActiveDownloadControl] = React.useState<
     'photographer_raw' | 'editor_raw' | 'progress' | null
@@ -269,17 +264,6 @@ export function ShootDetailsModalActionRail({
             </>
           ) : (
             <>
-              {canBookCompReshoot && onBookCompReshoot && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 border-amber-300 bg-amber-50 px-3 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-                  onClick={onBookCompReshoot}
-                >
-                  <RotateCcw className="mr-1 h-3 w-3" />
-                  <span>Book comp reshoot</span>
-                </Button>
-              )}
               {isAdminOrRep && isRequestedStatus && (
                 <>
                   <Button
@@ -464,20 +448,6 @@ export function ShootDetailsModalActionRail({
             </DialogDescription>
           </DialogHeader>
           <div className="px-3 pb-3 space-y-1">
-            {canBookCompReshoot && onBookCompReshoot && !isEditMode && (
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-muted"
-                onClick={() => {
-                  setIsMobileActionsOpen(false);
-                  onBookCompReshoot();
-                }}
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
-                  <RotateCcw className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                </div>
-                Book comp reshoot
-              </button>
-            )}
             {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"

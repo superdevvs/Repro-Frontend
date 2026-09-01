@@ -46,6 +46,7 @@ export type PhotographerPickerContext = {
   source: 'edit';
   categoryKey?: string;
   categoryName?: string;
+  complimentarySourceServiceId?: string;
 } | null;
 
 export type AddressDetailsForLookup = {

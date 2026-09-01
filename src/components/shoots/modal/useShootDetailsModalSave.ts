@@ -27,6 +27,7 @@ type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services'> & 
   services?: unknown[];
   service_items?: unknown[];
   service_photographers?: unknown[];
+  complimentary_service_options?: Record<string, unknown>;
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -422,6 +423,16 @@ export function useShootDetailsModalSave({
       if (hasOwn(updates, 'service_photographers') && Array.isArray(updates.service_photographers)) {
         payload.service_photographers = updates.service_photographers;
         console.log('💾 Service photographers update:', payload.service_photographers);
+      }
+
+      // A comp return visit is created atomically by the shoot PATCH endpoint.
+      // Keep this object separate from ordinary `services` so selecting the same
+      // source service again never replaces or reprices its original line.
+      if (hasOwn(updates, 'complimentary_service_options')) {
+        const complimentaryOptions = asRecord(updates.complimentary_service_options);
+        if (Object.keys(complimentaryOptions).length > 0) {
+          payload.complimentary_service_options = complimentaryOptions;
+        }
       }
       
       // Don't send empty payloads

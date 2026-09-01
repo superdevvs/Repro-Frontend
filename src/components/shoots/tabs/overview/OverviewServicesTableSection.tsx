@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format, parse } from 'date-fns';
 import { Plus, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ServiceSelectionDialog,
@@ -23,6 +24,9 @@ import type {
   PhotographerPickerOption,
   ServiceOption,
 } from './useShootOverviewEditor';
+import type { ComplimentarySourceServiceOption } from './useComplimentaryServiceMode';
+import { CompServiceModeControls } from '@/features/complimentary-reshoots/CompServiceModeControls';
+import type { CompReshootReasonCode } from '@/features/complimentary-reshoots/model';
 import {
   deriveRowStatuses,
   STATUS_DOT_CLASS,
@@ -64,6 +68,7 @@ export type OverviewServicesTableSectionProps = {
     source: 'edit';
     categoryKey?: string;
     categoryName?: string;
+    complimentarySourceServiceId?: string;
   }) => void;
 
   // Price + label formatting (from the parent composer)
@@ -85,6 +90,25 @@ export type OverviewServicesTableSectionProps = {
   isPhotographer: boolean;
   isEditor: boolean;
   isAdmin?: boolean;
+  complimentary?: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+    sourceServices: ComplimentarySourceServiceOption[];
+    selectedSourceServiceIds: string[];
+    schedules: Record<string, { date: string; time: string }>;
+    photographerIds: Record<string, string>;
+    reasonCode: CompReshootReasonCode | '';
+    onReasonCodeChange: (reason: CompReshootReasonCode) => void;
+    reasonNote: string;
+    onReasonNoteChange: (note: string) => void;
+    payPhotographer: boolean;
+    onPayPhotographerChange: (enabled: boolean) => void;
+    paySalesRep: boolean;
+    onPaySalesRepChange: (enabled: boolean) => void;
+    hasSalesRep: boolean;
+    toggleServiceSelection: (sourceShootServiceId: string) => void;
+    updateServiceSchedule: (sourceShootServiceId: string, field: 'date' | 'time', value: string) => void;
+  };
 };
 
 // Placeholder shown in Date/Time/Photographer/Price cells when the underlying
@@ -183,6 +207,7 @@ export function OverviewServicesTableSection(
     setServiceDialogOpen,
     toggleServiceSelection,
     effectiveSqft,
+    complimentary,
   } = props;
 
   // Ephemeral UI state: tracks which row's Services cell opened the picker so the
@@ -190,8 +215,12 @@ export function OverviewServicesTableSection(
   const [editingServiceRowId, setEditingServiceRowId] = useState<string | null>(null);
   const headerCells = getHeaderCells(props);
 
-  const selectedServicesForDialog = servicesList.filter((service) =>
-    selectedServiceIds.includes(String(service.id)),
+  const dialogServices = complimentary?.enabled ? complimentary.sourceServices : servicesList;
+  const dialogSelectedIds = complimentary?.enabled
+    ? complimentary.selectedSourceServiceIds
+    : selectedServiceIds;
+  const selectedServicesForDialog = dialogServices.filter((service) =>
+    dialogSelectedIds.includes(String(service.id)),
   );
   const canRemoveAllServices = Boolean(
     props.shoot.canRemoveAllServices ?? props.shoot.can_remove_all_services,
@@ -200,6 +229,24 @@ export function OverviewServicesTableSection(
   // Apply the dialog's multi-select result back to the editor by diffing against
   // the currently selected ids (matches the existing OverviewServicesSection flow).
   const handleSelectedServicesChange = (nextServices: ServiceSelectionOption[]) => {
+    if (complimentary?.enabled) {
+      const currentIds = new Set(complimentary.selectedSourceServiceIds.map(String));
+      const nextIds = new Set(nextServices.map((service) => String(service.id)));
+
+      complimentary.selectedSourceServiceIds.forEach((sourceShootServiceId) => {
+        if (!nextIds.has(sourceShootServiceId)) {
+          complimentary.toggleServiceSelection(sourceShootServiceId);
+        }
+      });
+      nextServices.forEach((service) => {
+        const sourceShootServiceId = String(service.id);
+        if (!currentIds.has(sourceShootServiceId)) {
+          complimentary.toggleServiceSelection(sourceShootServiceId);
+        }
+      });
+      return;
+    }
+
     if (nextServices.length === 0 && !canRemoveAllServices) return;
     const currentIds = new Set(selectedServiceIds.map(String));
     const nextIds = new Set(nextServices.map((service) => String(service.id)));
@@ -218,9 +265,17 @@ export function OverviewServicesTableSection(
     });
   };
 
-  const openServiceDialog = (rowId: string | null) => {
+  const openServiceDialog = (rowId: string | null, complimentaryMode?: boolean) => {
+    if (complimentary && complimentaryMode !== undefined) {
+      complimentary.onEnabledChange(complimentaryMode);
+    }
     setEditingServiceRowId(rowId);
     setServiceDialogOpen(true);
+  };
+
+  const handleCompModeChange = (enabled: boolean) => {
+    setEditingServiceRowId(null);
+    complimentary?.onEnabledChange(enabled);
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -232,9 +287,11 @@ export function OverviewServicesTableSection(
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
-      <div className={isEditMode ? 'overflow-x-auto' : 'overflow-visible'}>
-        <table className={`w-full text-[11px] ${isEditMode ? '' : 'table-fixed'}`}>
-          <thead>
+      <div className="overflow-visible">
+        <table
+          className={`w-full text-[11px] ${isEditMode ? 'block sm:table' : 'table-fixed'}`}
+        >
+          <thead className={isEditMode ? 'hidden sm:table-header-group' : undefined}>
             <tr className="text-left text-[11px] font-semibold uppercase text-muted-foreground">
               {/* Leading narrow column for the Delete_Control (edit mode only). In
                   read-only mode the status dot is rendered inside the Services
@@ -247,7 +304,7 @@ export function OverviewServicesTableSection(
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className={isEditMode ? 'block sm:table-row-group' : undefined}>
             {isEditMode
               ? renderEditRows(props, openServiceDialog)
               : renderReadonlyRows(props)}
@@ -258,12 +315,36 @@ export function OverviewServicesTableSection(
         <ServiceSelectionDialog
           open={serviceDialogOpen}
           onOpenChange={handleDialogOpenChange}
-          services={servicesList}
+          services={dialogServices}
           selectedServices={selectedServicesForDialog}
           onSelectedServicesChange={handleSelectedServicesChange}
           effectiveSqft={effectiveSqft}
-          allowEmptySelection={canRemoveAllServices}
-          title={editingServiceRowId ? 'Change service' : 'Add services'}
+          allowEmptySelection={Boolean(complimentary?.enabled) || canRemoveAllServices}
+          title={complimentary?.enabled
+            ? 'Select comp services'
+            : editingServiceRowId ? 'Change service' : 'Add services'}
+          description={complimentary?.enabled
+            ? 'Choose services from this shoot for the no-charge return visit.'
+            : undefined}
+          contextualControls={complimentary ? (
+            <CompServiceModeControls
+              enabled={complimentary.enabled}
+              onEnabledChange={handleCompModeChange}
+              reasonCode={complimentary.reasonCode}
+              onReasonCodeChange={complimentary.onReasonCodeChange}
+              reasonNote={complimentary.reasonNote}
+              onReasonNoteChange={complimentary.onReasonNoteChange}
+              payPhotographer={complimentary.payPhotographer}
+              onPayPhotographerChange={complimentary.onPayPhotographerChange}
+              paySalesRep={complimentary.paySalesRep}
+              onPaySalesRepChange={complimentary.onPaySalesRepChange}
+              hasSalesRep={complimentary.hasSalesRep}
+            />
+          ) : undefined}
+          renderServicePrice={complimentary?.enabled ? () => '$0' : undefined}
+          selectionSummary={complimentary?.enabled
+            ? `${complimentary.selectedSourceServiceIds.length} comp selected · Client $0`
+            : undefined}
         />
       )}
     </div>
@@ -370,7 +451,7 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
  */
 function renderEditRows(
   props: OverviewServicesTableSectionProps,
-  openServiceDialog: (rowId: string | null) => void,
+  openServiceDialog: (rowId: string | null, complimentaryMode?: boolean) => void,
 ) {
   const {
     shoot,
@@ -385,16 +466,21 @@ function renderEditRows(
     openEditPhotographerPicker,
     getServiceDisplayPrice,
     isClient,
+    complimentary,
   } = props;
   const headerCells = getHeaderCells(props);
   const showPhotographerColumn = !isPayView(props);
   const canRemoveAllServices = Boolean(
     shoot.canRemoveAllServices ?? shoot.can_remove_all_services,
   );
+  const mobileEditRowClass = [
+    'mb-2 grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-2 rounded-lg border p-2',
+    'last:mb-0 sm:mb-0 sm:table-row sm:border-0 sm:p-0',
+  ].join(' ');
 
   const addNewRow = (
-    <tr key="__add_new__">
-      <td colSpan={headerCells.length + 1} className="pt-2">
+    <tr key="__add_new__" className="block sm:table-row">
+      <td colSpan={headerCells.length + 1} className="block pt-2 sm:table-cell">
         <button
           type="button"
           data-testid="add-new-service"
@@ -408,12 +494,12 @@ function renderEditRows(
     </tr>
   );
 
-  if (selectedServiceIds.length === 0) {
+  if (selectedServiceIds.length === 0 && !complimentary?.selectedSourceServiceIds.length) {
     return [
-      <tr key="__empty__">
+      <tr key="__empty__" className="block sm:table-row">
         <td
           colSpan={headerCells.length + 1}
-          className="py-3 text-center text-muted-foreground"
+          className="block py-3 text-center text-muted-foreground sm:table-cell"
         >
           No services
         </td>
@@ -437,8 +523,8 @@ function renderEditRows(
       );
 
       return (
-        <tr key={serviceId} className="align-middle">
-          <td className="py-1.5 pr-2">
+        <tr key={serviceId} className={`${mobileEditRowClass} align-middle`}>
+          <td className="col-start-1 row-start-1 flex items-center py-1 sm:table-cell sm:py-1.5 sm:pr-2">
             <button
               type="button"
               data-testid="delete-control"
@@ -453,39 +539,39 @@ function renderEditRows(
               <X className="h-3 w-3" />
             </button>
           </td>
-          <td className="py-1.5 pr-2">
+          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
             <button
               type="button"
               data-testid="service-cell"
               className="block w-full truncate text-left font-medium text-foreground hover:underline"
-              onClick={() => openServiceDialog(serviceId)}
+              onClick={() => openServiceDialog(serviceId, false)}
             >
               {service.name}
             </button>
           </td>
-          <td className="py-1.5 pr-2 whitespace-nowrap">
+          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
             <ServiceDatePicker
               value={schedule.date}
               onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
-              triggerClassName="h-8 rounded-lg"
+              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
             />
           </td>
-          <td className="py-1.5 pr-2 whitespace-nowrap">
+          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
             <ServiceTimePicker
               value={schedule.time}
               options={buildServiceTimeOptions(schedule.time)}
               onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
-              triggerClassName="h-8 rounded-lg"
+              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
             />
           </td>
           {showPhotographerColumn && (
-            <td className="py-1.5 pr-2">
+            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 data-testid="photographer-cell"
-                className="h-8 max-w-full justify-start text-xs"
+                className="h-8 w-full max-w-full justify-start text-xs sm:w-auto"
                 onClick={() =>
                   openEditPhotographerPicker({
                     source: 'edit',
@@ -507,7 +593,7 @@ function renderEditRows(
               </Button>
             </td>
           )}
-          <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
+          <td className="col-start-4 row-start-1 block py-1 text-right font-medium text-muted-foreground sm:table-cell sm:py-1.5 sm:pl-1.5">
             {getServiceDisplayPrice(service)}
           </td>
         </tr>
@@ -515,5 +601,99 @@ function renderEditRows(
     })
     .filter((row): row is JSX.Element => row !== null);
 
-  return [...serviceRows, addNewRow];
+  const compServiceRows = (complimentary?.selectedSourceServiceIds ?? [])
+    .map((sourceShootServiceId) => {
+      if (!complimentary) return null;
+      const service = complimentary.sourceServices.find(
+        (option) => option.sourceShootServiceId === sourceShootServiceId,
+      );
+      if (!service) return null;
+
+      const schedule = complimentary.schedules[sourceShootServiceId] ?? DEFAULT_ROW_SCHEDULE;
+      const categoryName = deriveServiceCategoryName(service);
+      const categoryKey = normalizeShootServiceCategoryKey(categoryName);
+      const photographerId = complimentary.photographerIds[sourceShootServiceId]
+        || service.defaultPhotographerId
+        || selectedPhotographerIdEdit;
+      const photographer = resolvePhotographerDetails(photographerId);
+
+      return (
+        <tr
+          key={`comp-${sourceShootServiceId}`}
+          className={`${mobileEditRowClass} align-middle bg-amber-50/60 dark:bg-amber-950/15`}
+          data-testid={`comp-service-row-${sourceShootServiceId}`}
+        >
+          <td className="col-start-1 row-start-1 flex items-center py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <button
+              type="button"
+              aria-label={`Remove complimentary ${service.name}`}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-red-500 text-white hover:bg-red-600"
+              onClick={() => complimentary.toggleServiceSelection(sourceShootServiceId)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </td>
+          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <button
+              type="button"
+              className="block w-full truncate text-left font-medium text-foreground hover:underline"
+              onClick={() => openServiceDialog(sourceShootServiceId, true)}
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{service.name}</span>
+                <Badge className="h-4 shrink-0 rounded-full bg-amber-100 px-1.5 text-[9px] font-semibold uppercase text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200">
+                  Comp
+                </Badge>
+              </span>
+            </button>
+          </td>
+          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <ServiceDatePicker
+              value={schedule.date}
+              onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'date', value)}
+              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+            />
+          </td>
+          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <ServiceTimePicker
+              value={schedule.time}
+              options={buildServiceTimeOptions(schedule.time)}
+              onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'time', value)}
+              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+            />
+          </td>
+          {showPhotographerColumn && (
+            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 w-full max-w-full justify-start bg-background text-xs sm:w-auto"
+                onClick={() => openEditPhotographerPicker({
+                  source: 'edit',
+                  categoryKey,
+                  categoryName,
+                  complimentarySourceServiceId: sourceShootServiceId,
+                })}
+              >
+                <span className="block min-w-0 truncate text-left">
+                  <span className="block truncate">{photographer?.name || NOT_ASSIGNED}</span>
+                  {!isClient && photographer?.email && (
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {photographer.email}
+                    </span>
+                  )}
+                </span>
+              </Button>
+            </td>
+          )}
+          <td className="col-start-4 row-start-1 block py-1 text-right font-semibold text-amber-700 dark:text-amber-300 sm:table-cell sm:py-1.5 sm:pl-1.5">
+            $0
+          </td>
+        </tr>
+      );
+    })
+    .filter((row): row is JSX.Element => row !== null);
+
+  return [...serviceRows, ...compServiceRows, addNewRow];
 }
