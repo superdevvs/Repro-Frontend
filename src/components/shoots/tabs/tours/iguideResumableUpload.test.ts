@@ -200,6 +200,12 @@ describe('resumable iGUIDE upload', () => {
       if (init?.method === 'POST' && url.endsWith('/complete')) {
         return response(completedPayload(size), 202);
       }
+      if (init?.method === 'GET') {
+        return response(uploadPayload({
+          size,
+          received: Array.from({ length: Math.ceil(size / IGUIDE_RESUMABLE_CHUNK_BYTES) }, (_, index) => index),
+        }));
+      }
       throw new Error(`Unexpected request: ${init?.method} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -237,6 +243,58 @@ describe('resumable iGUIDE upload', () => {
     expect(result.status).toBe('queued');
   });
 
+  it('keeps three chunk XHRs in flight and confirms server state before finalizing', async () => {
+    const size = (IGUIDE_RESUMABLE_CHUNK_BYTES * 3) + 1;
+    const file = virtualFile(size);
+    const events: string[] = [];
+    const pending = new Map<number, MockChunkXMLHttpRequest>();
+    const progress: number[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'POST' && url.endsWith('/uploads')) {
+        events.push('create');
+        return response(uploadPayload({ size }), 201);
+      }
+      if (init?.method === 'GET') {
+        events.push('authoritative-status');
+        return response(uploadPayload({ size, received: [0, 1, 2, 3] }));
+      }
+      if (init?.method === 'POST' && url.endsWith('/complete')) {
+        events.push('complete');
+        return response(completedPayload(size), 202);
+      }
+      throw new Error(`Unexpected request: ${init?.method} ${url}`);
+    }));
+    MockChunkXMLHttpRequest.handler = (xhr) => {
+      const index = Number(xhr.url.match(/chunks\/(\d+)$/)?.[1]);
+      events.push(`put-${index}`);
+      pending.set(index, xhr);
+    };
+
+    const upload = uploadIguideOfflinePackageResumable({
+      file,
+      shootId: 9138,
+      retryDelaysMs: [0, 0, 0],
+      pollIntervalMs: 0,
+      onProgress: (value) => progress.push(value.percent),
+    });
+    await vi.waitFor(() => expect(MockChunkXMLHttpRequest.instances).toHaveLength(3));
+    expect(Array.from(pending.keys()).sort()).toEqual([0, 1, 2]);
+    expect(MockChunkXMLHttpRequest.instances.every((xhr) => xhr.timeout > 120_000)).toBe(true);
+
+    pending.get(2)?.succeed(uploadPayload({ size, received: [2] }));
+    await vi.waitFor(() => expect(MockChunkXMLHttpRequest.instances).toHaveLength(4));
+    pending.get(3)?.succeed(uploadPayload({ size, received: [2, 3] }));
+    pending.get(1)?.succeed(uploadPayload({ size, received: [1] }));
+    pending.get(0)?.succeed(uploadPayload({ size, received: [0] }));
+    await upload;
+
+    expect(events.indexOf('authoritative-status')).toBeGreaterThan(events.indexOf('put-3'));
+    expect(events.indexOf('complete')).toBeGreaterThan(events.indexOf('authoritative-status'));
+    expect(progress.every((value, index) => index === 0 || value >= progress[index - 1])).toBe(true);
+    expect(progress.at(-1)).toBe(100);
+  });
+
   it('falls back to an RFC 4122 UUID when randomUUID is unavailable', () => {
     vi.stubGlobal('crypto', {
       getRandomValues: vi.fn((bytes: Uint8Array) => {
@@ -253,10 +311,14 @@ describe('resumable iGUIDE upload', () => {
     const size = IGUIDE_RESUMABLE_CHUNK_BYTES + 1;
     const file = virtualFile(size);
     const firstController = new AbortController();
+    let statusReads = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === 'POST' && url.endsWith('/uploads')) return response(uploadPayload({ size }), 201);
-      if (init?.method === 'GET') return response(uploadPayload({ size, received: [0] }));
+      if (init?.method === 'GET') {
+        statusReads += 1;
+        return response(uploadPayload({ size, received: [0, 1] }));
+      }
       if (init?.method === 'POST' && url.endsWith('/complete')) return response(completedPayload(size), 202);
       throw new Error(`Unexpected request: ${init?.method} ${url}`);
     });
@@ -275,7 +337,7 @@ describe('resumable iGUIDE upload', () => {
         if (value.bytesConfirmed >= IGUIDE_RESUMABLE_CHUNK_BYTES) firstController.abort();
       },
     })).rejects.toBeInstanceOf(IguideUploadPausedError);
-    expect(getPersistedIguideUpload(22, file)?.receivedChunkIndexes).toEqual([0]);
+    expect(getPersistedIguideUpload(22, file)?.receivedChunkIndexes).toEqual([0, 1]);
 
     MockChunkXMLHttpRequest.instances = [];
     MockChunkXMLHttpRequest.handler = (xhr) => xhr.succeed(uploadPayload({ size, received: [0, 1] }));
@@ -286,8 +348,7 @@ describe('resumable iGUIDE upload', () => {
       pollIntervalMs: 0,
     });
 
-    expect(MockChunkXMLHttpRequest.instances).toHaveLength(1);
-    expect(MockChunkXMLHttpRequest.instances[0].url).toMatch(/chunks\/1$/);
+    expect(MockChunkXMLHttpRequest.instances).toHaveLength(0);
     expect(getPersistedIguideUpload(22, file)).toBeNull();
   });
 
@@ -310,7 +371,7 @@ describe('resumable iGUIDE upload', () => {
       }
       if (init?.method === 'GET') {
         statusReads += 1;
-        return response(activeSession([0]));
+        return response(activeSession(statusReads === 1 ? [0] : [0, 1]));
       }
       if (init?.method === 'POST' && url.endsWith('/complete')) return response(completedPayload(size), 202);
       throw new Error(`Unexpected request: ${init?.method} ${url}`);
@@ -340,7 +401,7 @@ describe('resumable iGUIDE upload', () => {
     });
 
     expect(initRequests).toBe(1);
-    expect(statusReads).toBe(1);
+    expect(statusReads).toBe(2);
     expect(MockChunkXMLHttpRequest.instances).toHaveLength(1);
     expect(MockChunkXMLHttpRequest.instances[0].url).toMatch(/chunks\/1$/);
   });
@@ -370,7 +431,7 @@ describe('resumable iGUIDE upload', () => {
     });
 
     expect(MockChunkXMLHttpRequest.instances).toHaveLength(1);
-    expect(statusReads).toBe(1);
+    expect(statusReads).toBe(2);
   });
 
   it.each([
@@ -440,8 +501,8 @@ describe('resumable iGUIDE upload', () => {
       status: 409,
     });
 
-    expect(MockChunkXMLHttpRequest.instances).toHaveLength(1);
-    expect(statusReads).toBe(1);
+    expect(MockChunkXMLHttpRequest.instances).toHaveLength(2);
+    expect(statusReads).toBe(2);
     expect(completeRequests).toBe(0);
   });
 
@@ -471,7 +532,7 @@ describe('resumable iGUIDE upload', () => {
       status: 409,
     });
 
-    expect(MockChunkXMLHttpRequest.instances).toHaveLength(1);
+    expect(MockChunkXMLHttpRequest.instances).toHaveLength(2);
     expect(completeRequests).toBe(0);
   });
 
@@ -489,6 +550,11 @@ describe('resumable iGUIDE upload', () => {
         }, 409);
       }
       if (init?.method === 'POST' && url.endsWith('/complete')) return response(completedPayload(size), 202);
+      if (init?.method === 'GET') return response(uploadPayload({
+        id: canonicalSession,
+        size,
+        received: [0, 1],
+      }));
       throw new Error(`Unexpected request: ${init?.method} ${url}`);
     }));
     MockChunkXMLHttpRequest.handler = (xhr) => xhr.succeed(uploadPayload({
@@ -674,7 +740,7 @@ describe('resumable iGUIDE upload', () => {
       if (init?.method === 'POST' && url.endsWith('/uploads')) return response(uploadPayload({ size }), 201);
       if (init?.method === 'GET') {
         statusReads += 1;
-        return response(uploadPayload({ size }));
+        return response(uploadPayload({ size, received: statusReads === 1 ? [] : [0] }));
       }
       if (init?.method === 'POST' && url.endsWith('/complete')) return response(completedPayload(size), 202);
       throw new Error(`Unexpected request: ${init?.method} ${url}`);
@@ -693,7 +759,7 @@ describe('resumable iGUIDE upload', () => {
       pollIntervalMs: 0,
     });
     expect(attempts).toBe(2);
-    expect(statusReads).toBe(1);
+    expect(statusReads).toBe(2);
 
     window.localStorage.clear();
     MockChunkXMLHttpRequest.instances = [];
@@ -742,7 +808,8 @@ describe('resumable iGUIDE upload', () => {
       }
       if (init?.method === 'GET') {
         statusReads += 1;
-        return response(statusReads === 1
+        if (statusReads === 1) return response(uploadPayload({ size, received: [0] }));
+        return response(statusReads === 2
           ? uploadPayload({ size, received: [0], status: 'finalizing' })
           : completedPayload(size));
       }
@@ -761,7 +828,7 @@ describe('resumable iGUIDE upload', () => {
       onProgress: (value) => phases.push(value.phase),
     });
 
-    expect(statusReads).toBe(2);
+    expect(statusReads).toBe(3);
     expect(phases).toContain('finalizing');
     expect(result.id).toBe('package-1');
   });

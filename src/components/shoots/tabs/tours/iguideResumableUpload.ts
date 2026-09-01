@@ -1,6 +1,10 @@
 import { API_ROUTES } from '@/lib/api';
 import { getApiHeaders } from '@/services/api';
 import type { NormalizedIguideOfflinePackage } from '@/utils/shootTourData';
+import {
+  mergeVerifiedIguideSessionProgress,
+  runIguideConcurrentUploadPool,
+} from './iguideConcurrentUploadPool';
 import { parseIguideOfflinePackageResponse } from './iguideOfflinePackage';
 import {
   IGUIDE_RESUMABLE_CHUNK_BYTES,
@@ -34,7 +38,9 @@ export type {
 } from './iguideResumableUploadContract';
 
 const MAX_REQUEST_ATTEMPTS = 4;
+const MAX_CONCURRENT_CHUNKS = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
+const CHUNK_REQUEST_TIMEOUT_MS = 300_000;
 const DEFAULT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000];
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const DEFAULT_MAX_POLLS = 450;
@@ -404,7 +410,7 @@ const xhrChunkOnce = ({
   )));
 
   xhr.open('PUT', API_ROUTES.integrations.iguide.offlinePackageUploads.chunk(shootId, sessionId, index));
-  xhr.timeout = REQUEST_TIMEOUT_MS;
+  xhr.timeout = CHUNK_REQUEST_TIMEOUT_MS;
   Object.entries({
     ...getApiHeaders(),
     'Content-Type': 'application/octet-stream',
@@ -445,71 +451,54 @@ const reconcileConfirmedChunk = (
   return false;
 };
 
-const verifyNewSessionChunks = async ({
-  attemptedChecksum,
-  attemptedIndex,
+type ChunkChecksumResolver = (index: number, signal?: AbortSignal) => Promise<string>;
+
+const verifySessionManifest = async ({
+  checksumFor,
+  dataMismatchMessage,
   file,
-  nextSession,
-  previousSession,
+  session,
   signal,
 }: {
-  attemptedChecksum: string;
-  attemptedIndex: number;
+  checksumFor: ChunkChecksumResolver;
+  dataMismatchMessage?: string;
   file: File;
-  nextSession: IguideUploadSession;
-  previousSession: IguideUploadSession;
+  session: IguideUploadSession;
   signal?: AbortSignal;
 }) => {
-  const previousIndexes = new Set(previousSession.receivedChunkIndexes);
-  const nextIndexes = new Set(nextSession.receivedChunkIndexes);
-  const previousByIndex = new Map(previousSession.receivedChunks.map((chunk) => [chunk.index, chunk]));
-  const nextByIndex = new Map<number, IguideReceivedChunk>();
-
-  for (const received of nextSession.receivedChunks) {
-    if (nextByIndex.has(received.index) || !nextIndexes.has(received.index)) {
+  const indexes = new Set(session.receivedChunkIndexes);
+  const byIndex = new Map<number, IguideReceivedChunk>();
+  for (const received of session.receivedChunks) {
+    if (byIndex.has(received.index) || !indexes.has(received.index)) {
       throw sessionConflict(
         'The server returned inconsistent upload progress. Discard the existing upload and start again.',
-        nextSession,
+        session,
       );
     }
-    nextByIndex.set(received.index, received);
+    byIndex.set(received.index, received);
+  }
+  if (byIndex.size !== indexes.size) {
+    throw sessionConflict(
+      'The server could not verify every uploaded chunk. Discard the existing upload and start again.',
+      session,
+    );
   }
 
-  for (const index of previousIndexes) {
-    const previous = previousByIndex.get(index);
-    const next = nextByIndex.get(index);
-    if (
-      !nextIndexes.has(index)
-      || !previous
-      || !next
-      || previous.sha256 !== next.sha256
-      || previous.sizeBytes !== next.sizeBytes
-    ) {
-      throw sessionConflict(
-        'The server changed previously verified upload progress. Discard the existing upload and start again.',
-        nextSession,
-      );
-    }
-  }
-
-  for (const index of Array.from(nextIndexes).sort((left, right) => left - right)) {
-    if (previousIndexes.has(index)) continue;
+  for (const index of Array.from(indexes).sort((left, right) => left - right)) {
     throwIfPaused(signal);
-    const received = nextByIndex.get(index);
-    const range = getIguideChunkRange(file.size, nextSession.chunkSizeBytes, index);
+    const received = byIndex.get(index);
+    const range = getIguideChunkRange(file.size, session.chunkSizeBytes, index);
     if (!received || received.sizeBytes !== range.size) {
       throw sessionConflict(
         `The server could not verify chunk ${index + 1}. Discard the existing upload and start again.`,
-        nextSession,
+        session,
       );
     }
-    const checksum = index === attemptedIndex
-      ? attemptedChecksum
-      : await sha256Blob(file.slice(range.start, range.endExclusive), signal);
-    if (received.sha256 !== checksum) {
+    if (received.sha256 !== await checksumFor(index, signal)) {
       throw sessionConflict(
-        `The server confirmed different data for chunk ${index + 1}. Discard the existing upload and start again.`,
-        nextSession,
+        dataMismatchMessage
+          ?? `The server confirmed different data for chunk ${index + 1}. Discard the existing upload and start again.`,
+        session,
       );
     }
   }
@@ -518,6 +507,7 @@ const verifyNewSessionChunks = async ({
 const uploadChunkWithReconciliation = async ({
   blob,
   checksum,
+  checksumFor,
   file,
   fileSize,
   index,
@@ -530,6 +520,7 @@ const uploadChunkWithReconciliation = async ({
 }: {
   blob: Blob;
   checksum: string;
+  checksumFor: ChunkChecksumResolver;
   file: File;
   fileSize: number;
   index: number;
@@ -554,12 +545,13 @@ const uploadChunkWithReconciliation = async ({
         shootId,
         signal,
       });
-      await verifyNewSessionChunks({
-        attemptedChecksum: checksum,
-        attemptedIndex: index,
+      if (uploaded.session.id !== session.id) {
+        throw sessionConflict('The server returned a different upload session.', uploaded.session);
+      }
+      await verifySessionManifest({
+        checksumFor,
         file,
-        nextSession: uploaded.session,
-        previousSession: currentSession,
+        session: uploaded.session,
         signal,
       });
       if (reconcileConfirmedChunk(uploaded.session, index, checksum, range.size)) return uploaded;
@@ -576,12 +568,13 @@ const uploadChunkWithReconciliation = async ({
 
       try {
         const reconciled = await showSession(shootId, currentSession.id, signal, retryDelaysMs);
-        await verifyNewSessionChunks({
-          attemptedChecksum: checksum,
-          attemptedIndex: index,
+        if (reconciled.session.id !== session.id) {
+          throw sessionConflict('The server returned a different upload session.', reconciled.session);
+        }
+        await verifySessionManifest({
+          checksumFor,
           file,
-          nextSession: reconciled.session,
-          previousSession: currentSession,
+          session: reconciled.session,
           signal,
         });
         currentSession = reconciled.session;
@@ -632,6 +625,7 @@ const assertUsableSession = (file: File, session: IguideUploadSession) => {
 const verifyReceivedChunks = async (
   file: File,
   session: IguideUploadSession,
+  checksumFor: ChunkChecksumResolver,
   signal?: AbortSignal,
   requireActiveVerification = false,
 ) => {
@@ -651,27 +645,13 @@ const verifyReceivedChunks = async (
     }
     return;
   }
-
-  const receivedByIndex = new Map<number, IguideReceivedChunk>();
-  for (const received of session.receivedChunks) {
-    if (receivedByIndex.has(received.index) || !confirmedIndexes.has(received.index)) {
-      throw sessionConflict('The existing upload has inconsistent saved progress. Discard it and start again.', session);
-    }
-    receivedByIndex.set(received.index, received);
-  }
-
-  for (const index of confirmedIndexes) {
-    throwIfPaused(signal);
-    const received = receivedByIndex.get(index);
-    const range = getIguideChunkRange(file.size, session.chunkSizeBytes, index);
-    if (!received || received.sizeBytes !== range.size) {
-      throw sessionConflict('The existing upload cannot be safely matched to this file. Discard it and start again.', session);
-    }
-    const checksum = await sha256Blob(file.slice(range.start, range.endExclusive), signal);
-    if (checksum !== received.sha256) {
-      throw sessionConflict('The existing upload contains different file data. Discard it and start again.', session);
-    }
-  }
+  await verifySessionManifest({
+    checksumFor,
+    dataMismatchMessage: 'The existing upload contains different file data. Discard it and start again.',
+    file,
+    session,
+    signal,
+  });
 };
 
 const completeWithReconciliation = async (
@@ -766,15 +746,18 @@ export const uploadIguideOfflinePackageResumable = async ({
   let envelope: UploadEnvelope | null = null;
   let adoptedConflict = false;
   let highestTransferred = Math.min(file.size, persisted?.receivedBytes ?? 0);
+  const inFlightLoaded = new Map<number, number>();
 
   const report = (
     phase: IguideResumableUploadPhase,
     session: IguideUploadSession | null,
-    currentLoaded = 0,
     chunkIndex: number | null = null,
   ) => {
     const confirmed = session ? getConfirmedIguideUploadBytes(file.size, session) : 0;
-    const candidate = Math.min(file.size, confirmed + Math.max(0, currentLoaded));
+    const confirmedIndexes = new Set(session?.receivedChunkIndexes ?? []);
+    const activeBytes = Array.from(inFlightLoaded.entries()).reduce((total, [index, loaded]) =>
+      total + (confirmedIndexes.has(index) ? 0 : Math.max(0, loaded)), 0);
+    const candidate = Math.min(file.size, confirmed + activeBytes);
     highestTransferred = Math.max(highestTransferred, candidate);
     const allChunksConfirmed = Boolean(session && session.receivedChunkIndexes.length >= session.totalChunks);
     const rawPercent = file.size > 0 ? Math.round((highestTransferred / file.size) * 100) : 0;
@@ -854,7 +837,21 @@ export const uploadIguideOfflinePackageResumable = async ({
   }
 
   assertUsableSession(file, envelope.session);
-  await verifyReceivedChunks(file, envelope.session, signal, adoptedConflict);
+  const chunkSize = envelope.session.chunkSizeBytes;
+  const checksumPromises = new Map<number, Promise<string>>();
+  const checksumFor: ChunkChecksumResolver = async (index, checksumSignal) => {
+    throwIfPaused(checksumSignal);
+    let pending = checksumPromises.get(index);
+    if (!pending) {
+      const range = getIguideChunkRange(file.size, chunkSize, index);
+      pending = sha256Blob(file.slice(range.start, range.endExclusive));
+      checksumPromises.set(index, pending);
+    }
+    const checksum = await pending;
+    throwIfPaused(checksumSignal);
+    return checksum;
+  };
+  await verifyReceivedChunks(file, envelope.session, checksumFor, signal, adoptedConflict);
   writePersisted(shootId, file, persistedFromSession(shootId, file, idempotencyKey, envelope.session));
 
   if (isComplete(envelope.session)) {
@@ -865,33 +862,55 @@ export const uploadIguideOfflinePackageResumable = async ({
   const sessionAlreadyFinalizing = !['created', 'uploading'].includes(envelope.session.status);
   if (!sessionAlreadyFinalizing) {
     report('uploading', envelope.session);
-    for (let index = 0; index < envelope.session.totalChunks; index++) {
-      throwIfPaused(signal);
-      if (envelope.session.receivedChunkIndexes.includes(index)) continue;
-      const range = getIguideChunkRange(file.size, envelope.session.chunkSizeBytes, index);
-      const blob = file.slice(range.start, range.endExclusive);
-      const checksum = await sha256Blob(blob, signal);
-      const confirmedBeforeChunk = getConfirmedIguideUploadBytes(file.size, envelope.session);
-      envelope = await uploadChunkWithReconciliation({
-        blob,
-        checksum,
-        file,
-        fileSize: file.size,
-        index,
-        range,
-        retryDelaysMs,
-        session: envelope.session,
-        shootId,
-        signal,
-        onLoaded: (loaded) => {
-          highestTransferred = Math.max(highestTransferred, confirmedBeforeChunk + loaded);
-          report('uploading', envelope?.session ?? null, loaded, index);
-        },
-      });
-      assertUsableSession(file, envelope.session);
-      writePersisted(shootId, file, persistedFromSession(shootId, file, idempotencyKey, envelope.session));
-      report('uploading', envelope.session, 0, index);
-    }
+    let mergedSession = envelope.session;
+    const missingIndexes = Array.from({ length: mergedSession.totalChunks }, (_, index) => index)
+      .filter((index) => !mergedSession.receivedChunkIndexes.includes(index));
+    await runIguideConcurrentUploadPool({
+      concurrency: MAX_CONCURRENT_CHUNKS,
+      items: missingIndexes,
+      signal,
+      run: async (index, poolSignal) => {
+        const range = getIguideChunkRange(file.size, chunkSize, index);
+        const blob = file.slice(range.start, range.endExclusive);
+        const checksum = await checksumFor(index, poolSignal);
+        inFlightLoaded.set(index, 0);
+        report('uploading', mergedSession);
+        try {
+          const uploaded = await uploadChunkWithReconciliation({
+            blob,
+            checksum,
+            checksumFor,
+            file,
+            fileSize: file.size,
+            index,
+            range,
+            retryDelaysMs,
+            session: mergedSession,
+            shootId,
+            signal: poolSignal,
+            onLoaded: (loaded) => {
+              inFlightLoaded.set(index, loaded);
+              report('uploading', mergedSession);
+            },
+          });
+          assertUsableSession(file, uploaded.session);
+          mergedSession = mergeVerifiedIguideSessionProgress(file.size, mergedSession, uploaded.session);
+          envelope = { payload: uploaded.payload, session: mergedSession };
+          writePersisted(shootId, file, persistedFromSession(shootId, file, idempotencyKey, mergedSession));
+        } finally {
+          inFlightLoaded.delete(index);
+          report('uploading', mergedSession);
+        }
+      },
+    });
+    throwIfPaused(signal);
+
+    const authoritative = await showSession(shootId, mergedSession.id, signal, retryDelaysMs);
+    assertUsableSession(file, authoritative.session);
+    await verifyReceivedChunks(file, authoritative.session, checksumFor, signal, true);
+    envelope = authoritative;
+    writePersisted(shootId, file, persistedFromSession(shootId, file, idempotencyKey, envelope.session));
+    report('uploading', envelope.session);
 
     const confirmed = getConfirmedIguideUploadBytes(file.size, envelope.session);
     if (confirmed !== file.size || envelope.session.receivedChunkIndexes.length !== envelope.session.totalChunks) {
