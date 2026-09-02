@@ -8,7 +8,7 @@ import { getDisplayMediaFilename } from './mediaPreviewUtils';
 
 interface UseMediaGridActionsOptions {
   canInteractSingleMedia: boolean;
-  canDownloadSingleMedia: boolean;
+  canDownloadSingleMedia: boolean | ((file: MediaFile) => boolean);
   isClient: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
   onToggleFavorite?: (fileId: string) => void;
@@ -103,6 +103,9 @@ export function useMediaGridActions({
 
   const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
     const showHiddenToggle = Boolean(toggleFileHidden) && !isClient;
+    const canDownloadFile = typeof canDownloadSingleMedia === 'function'
+      ? canDownloadSingleMedia(file)
+      : canDownloadSingleMedia;
     if (!canInteractSingleMedia && !showHiddenToggle) return null;
     const keepVisible = alwaysVisible || commentPopoverFileId === file.id;
 
@@ -118,7 +121,7 @@ export function useMediaGridActions({
           </button>
         )}
         {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
-        {canDownloadSingleMedia && onDownloadSingle && (
+        {canDownloadFile && onDownloadSingle && (
           <button
             className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
             onClick={(event) => { event.stopPropagation(); onDownloadSingle(file.id); }}

@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   Upload, 
-  Download,
   Image as ImageIcon,
   FileIcon,
   X,
@@ -59,7 +58,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { autoenhanceService, type EditingType } from '@/services/autoenhanceService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { isRawFile } from '@/services/rawPreviewService';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
@@ -67,8 +65,6 @@ import { MediaGrid } from './MediaGrid';
 import { MediaServiceSections } from './MediaServiceSections';
 import { ClientWorkInProgressPanel } from './ClientWorkInProgressPanel';
 import { MediaViewer } from './MediaViewer';
-import { ScanStatusBadge } from './ScanStatusBadge';
-import { useRescanFile } from '@/hooks/useRescanFile';
 import {
   getMediaImageUrl as getImageUrl,
   getMediaSrcSet as getSrcSet,
@@ -96,6 +92,7 @@ import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
+import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -880,6 +877,7 @@ export function useShootDetailsMediaTab({
     setDragOverTab,
   });
   const normalizedRole = String(role || '').trim().toLowerCase();
+  const isSuperadmin = normalizedRole === 'superadmin';
   const isSalesRep = ['salesrep', 'rep', 'representative'].includes(normalizedRole);
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
   const canDownloadSingleMedia =
@@ -889,78 +887,33 @@ export function useShootDetailsMediaTab({
     (isClient && !effectiveClientReleaseLocked);
   const canDownloadSingleMediaInActiveTab =
     canDownloadSingleMedia || (isSalesRep && displayTab === 'edited');
+  const canDownloadMediaFileInActiveTab = useCallback(
+    (file: MediaFile) => canDownloadSingleMediaInActiveTab
+      || (isClient && file.uses_watermark === false),
+    [canDownloadSingleMediaInActiveTab, isClient],
+  );
+  const currentViewerFile = viewerFiles[viewerIndex] ?? null;
   const canDownloadViewerSingleMedia =
     isAdmin ||
     isPhotographer ||
     (isEditor && viewerSourceTab === 'uploaded') ||
     (isClient && !effectiveClientReleaseLocked) ||
+    (isClient && currentViewerFile?.uses_watermark === false) ||
     (isSalesRep && viewerSourceTab === 'edited');
   const canViewFullSizeMedia =
-    isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked);
+    isAdmin ||
+    isEditor ||
+    isPhotographer ||
+    (isClient && !effectiveClientReleaseLocked) ||
+    (isClient && currentViewerFile?.uses_watermark === false);
 
-  // Virus-scan badge + retry-scan control (Req 15.5/15.8). Only admin-tier
-  // roles see the badge and may retry a failed scan; backend authorizes the
-  // rescan endpoint identically (`role:admin,superadmin,editing_manager`).
-  // The renderer is memoized so MediaGrid identity is stable and does not
-  // re-render every keystroke.
   const canViewScanStatus =
     isAdmin || ['superadmin', 'editing_manager'].includes(normalizedRole);
-  const rescanFile = useRescanFile();
-  const handleRescan = useCallback(
-    (fileId: string) => {
-      if (!shoot.id) return;
-      rescanFile.mutate(
-        { shootId: shoot.id, fileId },
-        {
-          onSuccess: (data) => {
-            toast({
-              title: 'Scan re-enqueued',
-              description: 'The file is being re-scanned.',
-            });
-            // The mutation already invalidates per-type and combined query
-            // keys; nothing else to do — the badge will flip to "Scanning"
-            // (quarantined) on the next refresh.
-            void data;
-          },
-          onError: (error) => {
-            const status = error?.response?.status;
-            const description = status === 409
-              ? 'Only files whose scan failed can be re-scanned.'
-              : (error?.response?.data?.message
-                ?? 'Could not retry the scan. Please try again.');
-            toast({
-              title: 'Could not retry scan',
-              description,
-              variant: 'destructive',
-            });
-          },
-        },
-      );
-    },
-    [rescanFile, shoot.id, toast],
-  );
-  const rescanningFileId = (rescanFile.isPending && rescanFile.variables)
-    ? String(rescanFile.variables.fileId)
-    : null;
-  const renderScanStatus = useMemo(() => {
-    if (!canViewScanStatus) {
-      return undefined;
-    }
-    return (file: MediaFile) => {
-      const status = file.scan_status ?? file.scanStatus ?? null;
-      if (!status) {
-        return null;
-      }
-      return (
-        <ScanStatusBadge
-          status={status}
-          onRetry={() => handleRescan(file.id)}
-          isRetrying={rescanningFileId === String(file.id)}
-          size="sm"
-        />
-      );
-    };
-  }, [canViewScanStatus, handleRescan, rescanningFileId]);
+  const renderScanStatus = useShootFileScanStatusRenderer({
+    shootId: shoot.id,
+    canViewScanStatus,
+    isSuperadmin,
+  });
 
   const editedSlideshowFiles = useMemo(() => {
     const eligibleFiles = clientVisibleEditedFiles.filter((file) => {
@@ -992,7 +945,6 @@ export function useShootDetailsMediaTab({
   const canStartSlideshowMedia =
     (isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked)) &&
     editedSlideshowFiles.length > 1;
-  const currentViewerFile = viewerFiles[viewerIndex] ?? null;
   const viewerMatchesEditedSlideshow = useMemo(() => {
     if (!currentViewerFile) {
       return false;
@@ -1217,10 +1169,10 @@ export function useShootDetailsMediaTab({
             toggleFileHidden={toggleFileHidden}
             separateExtras={separateExtras}
             canInteractSingleMedia={canInteractSingleMedia}
-            canDownloadSingleMedia={canDownloadSingleMediaInActiveTab}
+            canDownloadSingleMedia={canDownloadMediaFileInActiveTab}
             onToggleFavorite={handleToggleFavorite}
             onAddComment={handleAddComment}
-            onDownloadSingle={canDownloadSingleMediaInActiveTab ? handleDownloadSingleFile : undefined}
+            onDownloadSingle={(canDownloadSingleMediaInActiveTab || isClient) ? handleDownloadSingleFile : undefined}
             enableRawStacks={displayTab === 'uploaded'}
             rawStackSize={Number.isFinite(rawStackSize) && rawStackSize > 1 ? rawStackSize : null}
             renderScanStatus={renderScanStatus}

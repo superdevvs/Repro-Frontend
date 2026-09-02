@@ -458,3 +458,42 @@ export const downloadShootMediaFile = async ({
     filename,
   };
 };
+
+/**
+ * Superadmin-only recovery download for an original whose virus scanner was
+ * unavailable. This never uses the normal delivery endpoint, which remains
+ * fail-closed for every non-clean file.
+ */
+export const downloadScanFailedShootFile = async ({
+  shootId,
+  fileId,
+}: {
+  shootId: string | number;
+  fileId: string | number;
+}): Promise<{ filename: string }> => {
+  const headers = getApiHeaders();
+  headers.Accept = 'application/octet-stream, application/json';
+  delete headers['Content-Type'];
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/shoots/${shootId}/files/${fileId}/scan-failed-original`,
+    { method: 'GET', headers },
+  );
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!response.ok) {
+    if (contentType.includes('application/json')) {
+      const data = await extractJsonResponse(response);
+      throw new Error(data.message || data.error || 'Failed to download original');
+    }
+    throw new Error('Failed to download original');
+  }
+
+  const blob = await response.blob();
+  const filename =
+    getFilenameFromDisposition(response.headers.get('content-disposition')) ||
+    `shoot-${shootId}-scan-failed-file-${fileId}`;
+  downloadBlob(blob, filename);
+
+  return { filename };
+};

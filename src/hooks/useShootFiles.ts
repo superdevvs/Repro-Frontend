@@ -48,6 +48,7 @@ export interface MediaFile {
   watermarked_placeholder_path?: string;
   uses_watermark?: boolean;
   processed_at?: string;
+  processing_failed_at?: string;
   media_type?: string;
   /**
    * Post-capture treatment requested on this individual frame
@@ -188,6 +189,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   watermarked_placeholder_path: value.watermarked_placeholder_path,
   uses_watermark: Boolean(value.uses_watermark ?? value.usesWatermark),
   processed_at: value.processed_at,
+  processing_failed_at: value.processing_failed_at,
   media_type: value.media_type,
   treatment: value.treatment ?? null,
   media_source: value.media_source ?? value.mediaSource ?? null,

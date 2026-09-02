@@ -24,7 +24,7 @@ export interface MediaGridProps {
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
   separateExtras?: boolean;
   canInteractSingleMedia?: boolean;
-  canDownloadSingleMedia?: boolean;
+  canDownloadSingleMedia?: boolean | ((file: MediaFile) => boolean);
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onDownloadSingle?: (fileId: string) => void;

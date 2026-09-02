@@ -133,6 +133,9 @@ export function MediaGrid({
     onManualOrderChange,
   });
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
+  const canDownloadFile = (file: MediaFile) => typeof canDownloadSingleMedia === 'function'
+    ? canDownloadSingleMedia(file)
+    : canDownloadSingleMedia;
   const {
     getLatestCommentText,
     renderCommentAction,
@@ -730,7 +733,7 @@ export function MediaGrid({
             </button>
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {canDownloadSingleMedia && onDownloadSingle && (
+          {canDownloadFile(file) && onDownloadSingle && (
             <button
               className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={(e) => {
@@ -895,7 +898,7 @@ export function MediaGrid({
                 </button>
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {canDownloadSingleMedia && onDownloadSingle && (
+              {canDownloadFile(file) && onDownloadSingle && (
                 <button
                   className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
                   onClick={(e) => {
