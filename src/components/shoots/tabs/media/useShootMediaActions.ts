@@ -23,6 +23,7 @@ import {
   resolveUploadLanesForFiles,
 } from './mediaUploadUtils';
 import {
+  downloadScanFailedShootFile,
   downloadShootMediaFile,
   downloadShootRawFiles,
 } from '@/utils/shootMediaDownload';
@@ -404,7 +405,48 @@ export function useShootMediaActions({
       return;
     }
 
-    const fileCount = selectedFiles.size;
+    const selectedFileIds = Array.from(selectedFiles);
+    const filesById = new Map(
+      [...rawFiles, ...editedFiles].map((file) => [String(file.id), file]),
+    );
+    const recoveryFileIds = normalizedRole === 'superadmin'
+      ? selectedFileIds.filter((fileId) => {
+        const file = filesById.get(String(fileId));
+        return (file?.scan_status ?? file?.scanStatus) === 'failed';
+      })
+      : [];
+    const archiveFileIds = selectedFileIds.filter(
+      (fileId) => !recoveryFileIds.includes(fileId),
+    );
+
+    if (recoveryFileIds.length > 0) {
+      setDownloading(true);
+      try {
+        for (const fileId of recoveryFileIds) {
+          await downloadScanFailedShootFile({ shootId: shoot.id, fileId });
+        }
+        toast({
+          title: `${recoveryFileIds.length} original${recoveryFileIds.length === 1 ? '' : 's'} downloaded`,
+          description: 'Treat scan-failed files as untrusted until you verify them locally.',
+        });
+      } catch (error: unknown) {
+        toast({
+          title: 'Download failed',
+          description: error instanceof Error ? error.message : 'Failed to download file',
+          variant: 'destructive',
+        });
+        setDownloading(false);
+        return;
+      }
+
+      if (archiveFileIds.length === 0) {
+        setSelectedFiles(new Set());
+        setDownloading(false);
+        return;
+      }
+    }
+
+    const fileCount = archiveFileIds.length;
     const sizeLabel = size === 'small' ? 'MLS Optimized' : 'Print Resolution';
     const filename = `shoot-${shoot.id}-${size === 'small' ? 'mls-optimized' : 'print-resolution'}-${Date.now()}.zip`;
 
@@ -424,7 +466,7 @@ export function useShootMediaActions({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          file_ids: Array.from(selectedFiles),
+          file_ids: archiveFileIds,
           size: size === 'small' ? 'small' : 'original',
         }),
       });
@@ -820,10 +862,24 @@ export function useShootMediaActions({
     }
 
     try {
-      await downloadShootMediaFile({
-        shootId: shoot.id,
-        fileId,
-      });
+      const selectedFile = [...rawFiles, ...editedFiles]
+        .find((file) => String(file.id) === String(fileId));
+
+      if (
+        normalizedRole === 'superadmin'
+        && (selectedFile?.scan_status ?? selectedFile?.scanStatus) === 'failed'
+      ) {
+        await downloadScanFailedShootFile({ shootId: shoot.id, fileId });
+        toast({
+          title: 'Original downloaded',
+          description: 'Treat this file as untrusted until you verify it locally.',
+        });
+      } else {
+        await downloadShootMediaFile({
+          shootId: shoot.id,
+          fileId,
+        });
+      }
     } catch (error: unknown) {
       toast({
         title: 'Download failed',

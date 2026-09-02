@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useRescanFile } from '@/hooks/useRescanFile';
@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import { apiClient } from '@/services/api';
 import { isRawFile } from '@/services/rawPreviewService';
-import { downloadScanFailedShootFile } from '@/utils/shootMediaDownload';
 
 import { ScanStatusBadge } from './ScanStatusBadge';
 
@@ -26,7 +25,6 @@ export function useShootFileScanStatusRenderer({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const rescanFile = useRescanFile();
-  const [recoveringFileId, setRecoveringFileId] = useState<string | null>(null);
   const [rebuildingPreviewFileId, setRebuildingPreviewFileId] = useState<string | null>(null);
 
   const handleRescan = useCallback((fileId: string) => {
@@ -48,26 +46,6 @@ export function useShootFileScanStatusRenderer({
       },
     );
   }, [rescanFile, shootId, toast]);
-
-  const handleRecoveryDownload = useCallback(async (fileId: string) => {
-    if (!shootId || recoveringFileId) return;
-    setRecoveringFileId(fileId);
-    try {
-      await downloadScanFailedShootFile({ shootId, fileId });
-      toast({
-        title: 'Original downloaded',
-        description: 'Treat this file as untrusted until you verify it locally.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Could not download original',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRecoveringFileId(null);
-    }
-  }, [recoveringFileId, shootId, toast]);
 
   const handlePreviewRebuild = useCallback(async (fileId: string) => {
     if (!shootId || rebuildingPreviewFileId) return;
@@ -118,24 +96,6 @@ export function useShootFileScanStatusRenderer({
             isRetrying={rescanningFileId === fileId}
             size="sm"
           />
-          {isSuperadmin && status === 'failed' && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-5 gap-1 px-1.5 text-[10px] text-muted-foreground"
-              disabled={recoveringFileId === fileId}
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleRecoveryDownload(fileId);
-              }}
-            >
-              {recoveringFileId === fileId
-                ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                : <Download className="h-3 w-3" aria-hidden="true" />}
-              Download original
-            </Button>
-          )}
           {isSuperadmin && rawPreviewUnavailable && (
             <Button
               type="button"
@@ -160,11 +120,9 @@ export function useShootFileScanStatusRenderer({
   }, [
     canViewScanStatus,
     handlePreviewRebuild,
-    handleRecoveryDownload,
     handleRescan,
     isSuperadmin,
     rebuildingPreviewFileId,
-    recoveringFileId,
     rescanningFileId,
   ]);
 }
