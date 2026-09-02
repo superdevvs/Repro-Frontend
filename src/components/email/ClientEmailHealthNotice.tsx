@@ -100,36 +100,36 @@ export function ClientEmailHealthNotice({
     return (
       <section
         className={cn(
-          'w-full rounded-2xl border px-3.5 py-3 shadow-[0_12px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:max-w-[34rem]',
+          'w-full rounded-2xl border px-3 py-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:max-w-[34rem]',
           config.accentClasses,
           className,
         )}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex items-start gap-3">
-            <div className="mt-0.5 rounded-xl border border-current/15 bg-background/70 p-2">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex items-start gap-2.5">
+            <div className="mt-0.5 rounded-lg border border-current/15 bg-background/70 p-1.5">
               {emailHealth?.status === 'unverified' ? (
                 <MailCheck className="h-4 w-4" />
               ) : (
                 <AlertTriangle className="h-4 w-4" />
               )}
             </div>
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0 space-y-0.5">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold tracking-tight">{config.compactTitle}</p>
                 <EmailHealthBadge emailHealth={emailHealth} />
               </div>
-              <p className="text-xs leading-5 text-muted-foreground">{config.compactDescription}</p>
+              <p className="text-xs leading-4 text-muted-foreground">{config.compactDescription}</p>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+          <div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
             {config.showResend && onResendVerification && (
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
-                className="h-8 rounded-full px-3 text-xs font-semibold"
+                className="h-7 rounded-full px-2.5 text-xs font-semibold"
                 onClick={onResendVerification}
                 disabled={resendPending}
               >
@@ -141,7 +141,7 @@ export function ClientEmailHealthNotice({
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 rounded-full px-3 text-xs font-semibold"
+              className="h-7 rounded-full px-2.5 text-xs font-semibold"
               onClick={onManageEmail}
             >
               <Settings2 className="mr-1.5 h-3.5 w-3.5" />

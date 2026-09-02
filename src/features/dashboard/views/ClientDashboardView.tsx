@@ -410,11 +410,12 @@ export const ClientDashboardView = ({
   return (
     <>
       <DashboardLayout>
-        <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col gap-4 sm:gap-6">
+        <div className="-mt-3 flex flex-col gap-3 px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6">
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}
             action={clientEmailNotice}
+            alignActionTop
           />
           {isMobile ? clientMobileContent : clientDesktopContent}
         </div>

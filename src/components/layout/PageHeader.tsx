@@ -1,6 +1,8 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 interface PageHeaderProps {
   badge?: string;
   title: React.ReactNode;
@@ -8,6 +10,7 @@ interface PageHeaderProps {
   icon?: LucideIcon;
   iconText?: string;
   action?: React.ReactNode;
+  alignActionTop?: boolean;
 }
 
 export function PageHeader({ 
@@ -15,7 +18,8 @@ export function PageHeader({
   description, 
   icon: Icon, 
   iconText,
-  action 
+  action,
+  alignActionTop = false,
 }: PageHeaderProps) {
   const renderTitle = (value: React.ReactNode) => {
     if (typeof value !== 'string') return value;
@@ -33,7 +37,12 @@ export function PageHeader({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div
+        className={cn(
+          'flex flex-col items-start justify-between gap-4 sm:flex-row',
+          alignActionTop ? 'sm:items-start' : 'sm:items-center',
+        )}
+      >
         <div>
           <h1 className="text-3xl font-bold">{renderTitle(title)}</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
@@ -41,7 +50,11 @@ export function PageHeader({
           </p>
         </div>
         
-        {action && <div className="flex-shrink-0">{action}</div>}
+        {action && (
+          <div className={cn('flex-shrink-0', alignActionTop && 'w-full sm:w-auto')}>
+            {action}
+          </div>
+        )}
       </div>
       
       {Icon && iconText && (
@@ -53,4 +66,3 @@ export function PageHeader({
     </div>
   );
 }
-
