@@ -85,8 +85,20 @@ describe('useClientDeliveryNotifications', () => {
 
     expect(result.current.unseenCount).toBe(1);
     expect(result.current.entries.find((entry) => entry.id === 91)?.seenAt).not.toBeNull();
+    expect(result.current.latestUnseen).toMatchObject({
+      id: 90,
+      shootId: 500,
+      address: '500 Sync Street',
+    });
+
+    await act(async () => {
+      await expect(result.current.markSeen(90)).resolves.toBe(true);
+    });
+
+    expect(result.current.unseenCount).toBe(0);
+    expect(result.current.latestUnseen).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/client/delivery-notifications/91/seen'),
+      expect.stringContaining('/api/client/delivery-notifications/90/seen'),
       expect.objectContaining({ method: 'POST' }),
     );
   });

@@ -229,10 +229,22 @@ export const ClientDashboardView = ({
     }
     onOpenSupportEmail("Shoot assistance needed");
   };
+  const handleOpenLatestDelivery = async () => {
+    const notification = deliveryNotifications.latestUnseen;
+    if (!notification) return;
+    setClientShootsTab('completed');
+    onSetMobileClientTab('shoots');
+    await deliveryNotifications.markSeen(notification.id);
+    await onOpenDeliveredShoot(notification.shootId);
+  };
   const clientEmailNotice = (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
       {/* Account notices never sit next to each other - they stack and rotate. */}
-      <DashboardNoticeStack label="Account notices" stackWidthClassName="w-full sm:w-[34rem]">
+      <DashboardNoticeStack
+        label="Account notices"
+        stackWidthClassName="w-full sm:w-[34rem]"
+        equalizeLayerHeights
+      >
         <ClientEmailHealthNotice
           email={user?.email}
           emailHealth={normalizeEmailHealth(user?.email_health)}
@@ -242,6 +254,13 @@ export const ClientDashboardView = ({
           resendFeedback={clientEmailResendFeedback}
           variant="banner"
         />
+        {deliveryNotifications.latestUnseen ? (
+          <ClientDeliveryBanner
+            latest={deliveryNotifications.latestUnseen}
+            unseenCount={deliveryNotifications.unseenCount}
+            onOpen={handleOpenLatestDelivery}
+          />
+        ) : null}
       </DashboardNoticeStack>
       <DashboardOnboarding
         roleKey="client"
@@ -397,20 +416,6 @@ export const ClientDashboardView = ({
             description={DASHBOARD_DESCRIPTION}
             action={clientEmailNotice}
           />
-          {deliveryNotifications.latestUnseen ? (
-            <ClientDeliveryBanner
-              latest={deliveryNotifications.latestUnseen}
-              unseenCount={deliveryNotifications.unseenCount}
-              onOpen={async () => {
-                const notification = deliveryNotifications.latestUnseen;
-                if (!notification) return;
-                setClientShootsTab('completed');
-                onSetMobileClientTab('shoots');
-                await deliveryNotifications.markSeen(notification.id);
-                await onOpenDeliveredShoot(notification.shootId);
-              }}
-            />
-          ) : null}
           {isMobile ? clientMobileContent : clientDesktopContent}
         </div>
       </DashboardLayout>

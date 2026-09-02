@@ -62,6 +62,8 @@ export interface DashboardNoticeStackProps {
   className?: string;
   /** Deck footprint once two or more notices stack up. */
   stackWidthClassName?: string;
+  /** Stretch every visible layer to the tallest notice without changing single-notice layouts. */
+  equalizeLayerHeights?: boolean;
 }
 
 export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
@@ -70,6 +72,7 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
   intervalMs = DEFAULT_ROTATE_MS,
   className,
   stackWidthClassName = 'w-full sm:w-[19rem]',
+  equalizeLayerHeights = false,
 }) => {
   // `Children.toArray` already drops null / false / undefined branches. Children
   // that *render* nothing are filtered later, from measurements.
@@ -90,9 +93,15 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
     setMetrics((previous) => {
       const next = layerRefs.current.map<LayerMetrics>((node) => {
         if (!node) return EMPTY_METRICS;
+        const content = node.firstElementChild as HTMLElement | null;
         return {
           hasContent: node.childElementCount > 0 || Boolean(node.textContent?.trim()),
-          height: node.offsetHeight,
+          height: Math.max(
+            node.offsetHeight,
+            node.scrollHeight,
+            content?.offsetHeight ?? 0,
+            content?.scrollHeight ?? 0,
+          ),
         };
       });
       return sameMetrics(previous, next) ? previous : next;
@@ -143,6 +152,10 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
 
   const presentCount = presentIndices.length;
   const isDeck = presentCount > 1;
+  // Candidate layers must be measured at their final deck width. Measuring
+  // them side by side first makes responsive notices wrap, inflating the
+  // remembered tallest height before the actual deck is composed.
+  const usesLayerLayout = itemCount > 1;
 
   const presentIndicesRef = useRef(presentIndices);
   presentIndicesRef.current = presentIndices;
@@ -252,8 +265,8 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
       onBlurCapture={() => setPaused(false)}
     >
       <div
-        className={cn(isDeck ? cn('relative min-w-0', stackWidthClassName) : 'flex min-w-0 items-center')}
-        style={isDeck ? { height: deckHeight } : undefined}
+        className={cn(usesLayerLayout ? cn('relative min-w-0', stackWidthClassName) : 'flex min-w-0 items-center')}
+        style={usesLayerLayout && deckHeight ? { height: deckHeight } : undefined}
       >
         {items.map((item, index) => (
           <div
@@ -265,11 +278,17 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
             }}
             aria-hidden={isDeck && index !== activeIndex ? true : undefined}
             className={cn(
-              isDeck && 'absolute inset-x-0 top-0',
+              usesLayerLayout && 'absolute inset-x-0 top-0',
               isDeck && index !== activeIndex && 'pointer-events-none',
+              isDeck && equalizeLayerHeights && '[&>*]:h-full',
               isDeck && !prefersReducedMotion && 'transition-[transform,opacity] duration-500 ease-out',
             )}
-            style={getLayerStyle(index)}
+            style={{
+              ...getLayerStyle(index),
+              ...(isDeck && equalizeLayerHeights && tallestLayer > 0
+                ? { height: tallestLayer }
+                : {}),
+            }}
           >
             {item}
           </div>
