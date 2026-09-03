@@ -82,6 +82,31 @@ export const isChaseableInvoice = (invoice: Pick<InvoiceData, 'status' | 'balanc
   return typeof balance !== 'number' || !Number.isFinite(balance) || balance > 0.005;
 };
 
+/**
+ * Whether a superadmin can record settlement for an invoice.
+ *
+ * Issued invoices use `sent`, while part-paid invoices use `partial`; limiting
+ * the action to `pending`/`overdue` made Mark Paid disappear from the invoices
+ * that most often need it. Keep this stricter than the reminder rule: settlement
+ * requires a known positive balance and an explicitly payable status.
+ */
+// Exported for focused rule tests and shared by every InvoiceList presentation.
+// eslint-disable-next-line react-refresh/only-export-components
+export const isSettleableInvoice = (
+  invoice: Pick<InvoiceData, 'status' | 'balance' | 'amount'>,
+): boolean => {
+  const status = String(invoice.status || '').trim().toLowerCase();
+  if (!['sent', 'partial', 'unpaid', 'pending', 'overdue'].includes(status)) {
+    return false;
+  }
+
+  const balance = typeof invoice.balance === 'number' && Number.isFinite(invoice.balance)
+    ? invoice.balance
+    : invoice.amount;
+
+  return typeof balance === 'number' && Number.isFinite(balance) && balance > 0.005;
+};
+
 interface InvoiceListProps {
   data: {
     invoices: InvoiceData[];
@@ -453,7 +478,7 @@ export function InvoiceList({
             isMobile ? (
               <div className="space-y-2 p-3">
                 {paginatedInvoices.map((invoice) => {
-                  const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
+                  const showMarkAsPaid = isSuperAdmin && isSettleableInvoice(invoice);
                   const overpaymentAmount = getInvoiceOverpayment(invoice);
                   return (
                     <div key={invoice.id} className="rounded-xl border bg-card p-3">
@@ -592,7 +617,7 @@ export function InvoiceList({
                               View
                             </Button>
                             <InvoiceDownloadMenu invoice={invoice} onDownload={handleDownloadInvoice} />
-                            {isSuperAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
+                            {isSuperAdmin && isSettleableInvoice(invoice) && (
                               <Button
                                 variant="accent"
                                 size="sm"
@@ -800,7 +825,7 @@ function InvoiceGridCard({
   selected,
   onSelectedChange,
 }: InvoiceCardProps) {
-  const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
+  const showMarkAsPaid = isSuperAdmin && isSettleableInvoice(invoice);
   const amountFormatted = usdCurrencyFormatter.format(invoice.amount || 0);
   const overpaymentAmount = getInvoiceOverpayment(invoice);
 

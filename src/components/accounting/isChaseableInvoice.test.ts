@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isChaseableInvoice } from './InvoiceList';
+import { isChaseableInvoice, isSettleableInvoice } from './InvoiceList';
 
 /**
  * Which invoices offer "Send reminder".
@@ -69,5 +69,37 @@ describe('isChaseableInvoice', () => {
     expect(
       isChaseableInvoice(invoice('sent', { amount: undefined, balance: undefined })),
     ).toBe(true);
+  });
+});
+
+describe('isSettleableInvoice', () => {
+  it.each(['sent', 'partial', 'unpaid', 'pending', 'overdue'])(
+    'allows a superadmin to settle an outstanding %s invoice',
+    (status) => {
+      expect(isSettleableInvoice(invoice(status, { balance: 125 }))).toBe(true);
+    },
+  );
+
+  it.each(['paid', 'draft', 'cancelled', 'canceled', 'void', 'refunded'])(
+    'does not offer settlement for a %s invoice',
+    (status) => {
+      expect(isSettleableInvoice(invoice(status, { balance: 125 }))).toBe(false);
+    },
+  );
+
+  it('does not offer settlement when the remaining balance is zero', () => {
+    expect(isSettleableInvoice(invoice('sent', { amount: 400, balance: 0 }))).toBe(false);
+    expect(isSettleableInvoice(invoice('partial', { amount: 400, balance: 0 }))).toBe(false);
+  });
+
+  it('falls back to a known positive invoice amount when balance is unavailable', () => {
+    expect(isSettleableInvoice(invoice('sent', { amount: 400, balance: undefined }))).toBe(true);
+  });
+
+  it('rejects unknown or unusable financial state', () => {
+    expect(isSettleableInvoice(invoice('processing', { balance: 125 }))).toBe(false);
+    expect(
+      isSettleableInvoice(invoice('sent', { amount: undefined, balance: undefined })),
+    ).toBe(false);
   });
 });
