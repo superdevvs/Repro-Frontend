@@ -40,7 +40,7 @@ export default defineConfig({
     // Honor a dark-mode request via env (sets prefers-color-scheme: dark for the browser context).
     colorScheme: process.env.E2E_COLOR_SCHEME === 'dark' ? 'dark' : undefined,
     storageState,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
