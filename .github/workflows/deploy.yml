@@ -13,6 +13,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fail if env, key, or pem files are tracked
+        run: node scripts/check-tracked-secrets.mjs
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
