@@ -56,3 +56,7 @@ public/shoots/**
 *.crt
 *.cer
 *.jks
+
+# Vite config timestamp junk (local Vite cache dumps)
+vite.config.ts.timestamp-*.mjs
+
