@@ -60,3 +60,5 @@ public/shoots/**
 # Vite config timestamp junk (local Vite cache dumps)
 vite.config.ts.timestamp-*.mjs
 
+# npm-only alternate lockfile
+bun.lockb
