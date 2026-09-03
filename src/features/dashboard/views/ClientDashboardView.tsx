@@ -316,7 +316,10 @@ export const ClientDashboardView = ({
   );
 
   const clientInvoicesContent = (
-    <div data-onboarding-target="client-dashboard-invoices">
+    <div
+      data-onboarding-target="client-dashboard-invoices"
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <ClientInvoicesCard
         summary={clientBillingSummary}
         onViewAll={() => navigate("/accounting")}
@@ -329,7 +332,7 @@ export const ClientDashboardView = ({
   );
 
   const clientMetricsContent = (
-    <div data-onboarding-target="client-dashboard-metrics">
+    <div data-onboarding-target="client-dashboard-metrics" className="shrink-0">
       <RoleMetricTilesCard tiles={clientMetricTiles} />
     </div>
   );
@@ -381,7 +384,15 @@ export const ClientDashboardView = ({
       <div
         ref={clientDesktopLeftColumnRef}
         data-client-dashboard-left-column="true"
-        className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6"
+        className="md:col-span-3 flex min-h-0 flex-col gap-4 sm:gap-6 md:sticky md:top-6"
+        style={
+          clientDesktopShootsHeight
+            ? {
+                height: `${clientDesktopShootsHeight}px`,
+                maxHeight: `${clientDesktopShootsHeight}px`,
+              }
+            : undefined
+        }
       >
         {clientMetricsContent}
         {clientInvoicesContent}

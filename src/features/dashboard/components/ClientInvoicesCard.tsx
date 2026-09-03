@@ -8,7 +8,7 @@ import { currencyFormatter } from "@/utils/dashboardDerivedUtils";
 import type { ClientInvoicesCardProps } from "../types";
 
 export const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onViewAll, onPay }) => (
-  <Card className="flex flex-col gap-3 sm:gap-4">
+  <Card className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
     <div>
       <h2 className="text-base sm:text-lg font-bold text-foreground">Invoices & payments</h2>
       <p className="text-xs sm:text-sm text-muted-foreground">Stay current on outstanding balances.</p>
@@ -31,7 +31,7 @@ export const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary,
         </div>
       ))}
     </div>
-    <div className="grid gap-2">
+    <div className="mt-auto grid gap-2">
       <Button size="sm" className="text-xs sm:text-sm" onClick={onViewAll}>
         View all invoices
       </Button>
