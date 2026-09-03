@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -27,13 +30,6 @@ jobs:
 
       - name: Run quality gates
         run: npm run quality
-
-      - name: Store verified build
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist/
-          if-no-files-found: error
 
   build-and-deploy:
     needs: quality
