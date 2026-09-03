@@ -29,7 +29,7 @@ describe('DashboardNoticeStack', () => {
     vi.restoreAllMocks();
   });
 
-  it('equalizes layer heights and advances the visible notice every five seconds', () => {
+  it('equalizes layer heights and advances the visible notice every seven seconds', () => {
     render(
       <DashboardNoticeStack equalizeLayerHeights label="Account notices">
         <section data-notice-height="80">Verify your email</section>
@@ -48,7 +48,12 @@ describe('DashboardNoticeStack', () => {
     expect((emailLayer as HTMLElement & { inert: boolean }).inert).toBe(false);
     expect((deliveryLayer as HTMLElement & { inert: boolean }).inert).toBe(true);
 
-    act(() => vi.advanceTimersByTime(5000));
+    act(() => vi.advanceTimersByTime(6999));
+
+    expect(emailLayer).not.toHaveAttribute('aria-hidden');
+    expect(deliveryLayer).toHaveAttribute('aria-hidden', 'true');
+
+    act(() => vi.advanceTimersByTime(1));
 
     expect(emailLayer).toHaveAttribute('aria-hidden', 'true');
     expect(deliveryLayer).not.toHaveAttribute('aria-hidden');
@@ -74,7 +79,7 @@ describe('DashboardNoticeStack', () => {
     expect(emailLayer).not.toHaveAttribute('aria-hidden');
 
     fireEvent.pointerLeave(deck);
-    act(() => vi.advanceTimersByTime(5000));
+    act(() => vi.advanceTimersByTime(7000));
     expect(deliveryLayer).not.toHaveAttribute('aria-hidden');
 
     fireEvent.focusIn(deck);
@@ -82,7 +87,7 @@ describe('DashboardNoticeStack', () => {
     expect(deliveryLayer).not.toHaveAttribute('aria-hidden');
 
     fireEvent.focusOut(deck);
-    act(() => vi.advanceTimersByTime(5000));
+    act(() => vi.advanceTimersByTime(7000));
     expect(emailLayer).not.toHaveAttribute('aria-hidden');
   });
 

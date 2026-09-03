@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
  * Behaviour:
  * - 0 or 1 visible notice  -> renders inline exactly like before (no chrome).
  * - 2+ visible notices     -> only the front notice is fully shown, the rest sit
- *                             behind it, auto-advancing every 5s. Hovering or
+ *                             behind it, auto-advancing every 7s. Hovering or
  *                             focusing pauses the rotation, the mouse wheel and
  *                             the dot rail move through the deck manually.
  *
@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
  * and never take a slot in the deck.
  */
 
-const DEFAULT_ROTATE_MS = 5000;
+const DEFAULT_ROTATE_MS = 7000;
 /** Wheel delta that has to accumulate before the deck advances one card. */
 const WHEEL_STEP_THRESHOLD = 18;
 /** Minimum gap between two wheel-driven steps, keeps one flick from flying through the deck. */
