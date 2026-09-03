@@ -1,12 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  Bell,
+  Check,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  Inbox,
+  MapPin,
+  MoreHorizontal,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+  X,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -14,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,47 +39,87 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { API_BASE_URL } from '@/config/env';
-import { Check, Bell, MoreVertical, Search, Filter, X, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { DashboardClientRequest } from '@/types/dashboard';
 import { useRequestManager } from '@/context/RequestManagerContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import type { DashboardClientRequest } from '@/types/dashboard';
 
-type Severity = 'high' | 'medium' | 'low';
-
-const severityBadge = (severity: Severity) => {
-  switch (severity) {
-    case 'high':
-      return 'bg-destructive text-destructive-foreground border-destructive/30';
-    case 'medium':
-      return 'bg-amber-500 text-white border-amber-500/30 dark:bg-amber-600 dark:text-amber-50';
-    default:
-      return 'bg-slate-500 text-white border-slate-500/30 dark:bg-slate-600 dark:text-slate-50';
-  }
-};
-
-type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
-type SortOption = 'newest' | 'oldest' | 'severity' | 'client';
+type NormalizedStatus = 'open' | 'in-progress' | 'resolved' | 'dismissed';
 type RequestSection = 'active' | 'history';
+type ActiveStatusFilter = 'all' | 'open' | 'in-progress';
+type SortOption = 'newest' | 'oldest' | 'client';
 
 const HISTORY_PAGE_SIZE = 8;
 
-const statusToSeverity = (status?: string | null): Severity => {
-  const normalized = (status || '').toLowerCase();
-  if (normalized === 'resolved' || normalized === 'dismissed') return 'low';
-  if (normalized === 'in-progress' || normalized === 'in_progress') return 'medium';
-  return 'high';
-};
-
-const normalizeStatus = (status?: string | null) => {
+const normalizeStatus = (status?: string | null): NormalizedStatus => {
   const normalized = (status || '').toLowerCase();
   if (normalized === 'in_progress') return 'in-progress';
-  if (normalized === 'resolved' || normalized === 'dismissed' || normalized === 'in-progress' || normalized === 'open') {
+  if (
+    normalized === 'resolved' ||
+    normalized === 'dismissed' ||
+    normalized === 'in-progress' ||
+    normalized === 'open'
+  ) {
     return normalized;
   }
   return 'open';
 };
+
+const statusPresentation: Record<
+  NormalizedStatus,
+  { label: string; className: string; dotClassName: string }
+> = {
+  open: {
+    label: 'Needs review',
+    className: 'border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-300',
+    dotClassName: 'bg-rose-500',
+  },
+  'in-progress': {
+    label: 'In progress',
+    className: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    dotClassName: 'bg-amber-500',
+  },
+  resolved: {
+    label: 'Resolved',
+    className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    dotClassName: 'bg-emerald-500',
+  },
+  dismissed: {
+    label: 'Dismissed',
+    className: 'border-border bg-muted text-muted-foreground',
+    dotClassName: 'bg-muted-foreground',
+  },
+};
+
+const formatActivityTime = (value?: string | null) => {
+  if (!value) return 'No activity time';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently updated';
+  return formatDistanceToNow(date, { addSuffix: true });
+};
+
+const requestMatchesSearch = (request: DashboardClientRequest, query: string) => {
+  if (!query) return true;
+  const searchable = [
+    request.note,
+    request.raisedBy?.name,
+    request.shoot?.address,
+    request.shoot?.client?.name,
+    normalizeStatus(request.status),
+  ];
+  return searchable.some((value) => value?.toLowerCase().includes(query));
+};
+
+const sortRequests = (requests: DashboardClientRequest[], sortOption: SortOption) =>
+  [...requests].sort((a, b) => {
+    if (sortOption === 'client') {
+      return (a.shoot?.client?.name || '').localeCompare(b.shoot?.client?.name || '');
+    }
+
+    const firstTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    const secondTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    return sortOption === 'oldest' ? firstTime - secondTime : secondTime - firstTime;
+  });
 
 export const RequestManagerModal: React.FC = () => {
   const {
@@ -77,7 +134,7 @@ export const RequestManagerModal: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [activeStatusFilter, setActiveStatusFilter] = useState<ActiveStatusFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [activeSection, setActiveSection] = useState<RequestSection>('active');
   const [historyPage, setHistoryPage] = useState(1);
@@ -87,6 +144,8 @@ export const RequestManagerModal: React.FC = () => {
     if (!isOpen) {
       setActiveSection('active');
       setHistoryPage(1);
+      setSearchQuery('');
+      setActiveStatusFilter('all');
       return;
     }
 
@@ -100,7 +159,63 @@ export const RequestManagerModal: React.FC = () => {
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [searchQuery, severityFilter, sortOption]);
+  }, [activeSection, activeStatusFilter, searchQuery, sortOption]);
+
+  const availableRequests = useMemo(
+    () =>
+      requests.filter((request) => {
+        const shootId = request.shootId || request.shoot?.id;
+        return Boolean(shootId) && normalizeStatus(request.status) !== 'dismissed';
+      }),
+    [requests],
+  );
+
+  const allActiveRequests = useMemo(
+    () =>
+      availableRequests.filter(
+        (request) => !['resolved', 'dismissed'].includes(normalizeStatus(request.status)),
+      ),
+    [availableRequests],
+  );
+
+  const allHistoryRequests = useMemo(
+    () => availableRequests.filter((request) => normalizeStatus(request.status) === 'resolved'),
+    [availableRequests],
+  );
+
+  const filteredSectionRequests = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const sectionRequests = activeSection === 'active' ? allActiveRequests : allHistoryRequests;
+    const filtered = sectionRequests.filter((request) => {
+      const matchesStatus =
+        activeSection === 'history' ||
+        activeStatusFilter === 'all' ||
+        normalizeStatus(request.status) === activeStatusFilter;
+      return matchesStatus && requestMatchesSearch(request, normalizedQuery);
+    });
+    return sortRequests(filtered, sortOption);
+  }, [activeSection, activeStatusFilter, allActiveRequests, allHistoryRequests, searchQuery, sortOption]);
+
+  const totalHistoryPages = Math.max(
+    1,
+    Math.ceil(filteredSectionRequests.length / HISTORY_PAGE_SIZE),
+  );
+
+  const visibleRequests = useMemo(() => {
+    if (activeSection === 'active') return filteredSectionRequests;
+    const safePage = Math.min(historyPage, totalHistoryPages);
+    const startIndex = (safePage - 1) * HISTORY_PAGE_SIZE;
+    return filteredSectionRequests.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+  }, [activeSection, filteredSectionRequests, historyPage, totalHistoryPages]);
+
+  useEffect(() => {
+    setHistoryPage((previous) => Math.min(previous, totalHistoryPages));
+  }, [totalHistoryPages]);
+
+  const selectedRequest =
+    visibleRequests.find((request) => String(request.id) === String(selectedRequestId)) ??
+    visibleRequests[0] ??
+    null;
 
   const handleMarkResolved = async (request: DashboardClientRequest) => {
     const shootId = request.shootId || request.shoot?.id;
@@ -127,9 +242,7 @@ export const RequestManagerModal: React.FC = () => {
         body: JSON.stringify({ status: 'resolved' }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to mark request as resolved');
-      }
+      if (!response.ok) throw new Error('Failed to mark request as resolved');
 
       const json = await response.json();
       updateRequest(requestId, {
@@ -141,7 +254,7 @@ export const RequestManagerModal: React.FC = () => {
         window.dispatchEvent(new CustomEvent('shoot-request-updated'));
       }
       toast({
-        title: 'Request Resolved',
+        title: 'Request resolved',
         description: 'The request has been moved to history.',
       });
     } catch (error) {
@@ -180,14 +293,9 @@ export const RequestManagerModal: React.FC = () => {
         body: JSON.stringify({ status: 'dismissed' }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to dismiss request');
-      }
+      if (!response.ok) throw new Error('Failed to dismiss request');
 
-      updateRequest(requestId, {
-        status: 'dismissed',
-        updatedAt: new Date().toISOString(),
-      });
+      updateRequest(requestId, { status: 'dismissed', updatedAt: new Date().toISOString() });
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('shoot-request-updated'));
       }
@@ -207,75 +315,17 @@ export const RequestManagerModal: React.FC = () => {
   };
 
   const handleNotifyConcerned = (recipient: 'photographer' | 'editor' | 'management') => {
-    const recipientName = recipient === 'photographer' ? 'Photographer' : 
-                          recipient === 'editor' ? 'Editor' : 
-                          'Management';
+    const recipientName =
+      recipient === 'photographer'
+        ? 'Photographer'
+        : recipient === 'editor'
+          ? 'Editor'
+          : 'Management';
     toast({
-      title: "Notification Sent",
+      title: 'Notification sent',
       description: `${recipientName} has been notified about this request.`,
-      variant: "default",
     });
   };
-
-  const filteredAndSortedRequests = useMemo(() => {
-    let filtered = requests.filter((request) => {
-      const shootId = request.shootId || request.shoot?.id;
-      return Boolean(shootId) && normalizeStatus(request.status) !== 'dismissed';
-    });
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(request =>
-        request.note.toLowerCase().includes(query) ||
-        request.raisedBy?.name?.toLowerCase().includes(query) ||
-        request.shoot?.address?.toLowerCase().includes(query) ||
-        request.status?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply severity filter
-    if (severityFilter !== 'all') {
-      filtered = filtered.filter(request => statusToSeverity(request.status) === severityFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortOption) {
-        case 'newest':
-          return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
-        case 'oldest':
-          return new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime();
-        case 'severity': {
-          const severityOrder = { high: 3, medium: 2, low: 1 };
-          return severityOrder[statusToSeverity(b.status)] - severityOrder[statusToSeverity(a.status)];
-        }
-        case 'client':
-          return (a.shoot?.client?.name || '').localeCompare(b.shoot?.client?.name || '');
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  }, [requests, searchQuery, severityFilter, sortOption]);
-
-  const activeRequests = useMemo(
-    () => filteredAndSortedRequests.filter((request) => !['resolved', 'dismissed'].includes(normalizeStatus(request.status))),
-    [filteredAndSortedRequests],
-  );
-
-  const historyRequests = filteredAndSortedRequests;
-  const totalHistoryPages = Math.max(1, Math.ceil(historyRequests.length / HISTORY_PAGE_SIZE));
-  const paginatedHistoryRequests = useMemo(() => {
-    const safePage = Math.min(historyPage, totalHistoryPages);
-    const startIndex = (safePage - 1) * HISTORY_PAGE_SIZE;
-    return historyRequests.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
-  }, [historyPage, historyRequests, totalHistoryPages]);
-
-  useEffect(() => {
-    setHistoryPage((prev) => Math.min(prev, totalHistoryPages));
-  }, [totalHistoryPages]);
 
   const handleViewShoot = async (request: DashboardClientRequest) => {
     const result = await openRequestShoot(request);
@@ -306,279 +356,385 @@ export const RequestManagerModal: React.FC = () => {
     navigate(`/shoots/${shootId}#requests`);
   };
 
-  const visibleRequests = activeSection === 'active' ? activeRequests : paginatedHistoryRequests;
+  const resultSummary = `${visibleRequests.length} of ${
+    activeSection === 'active' ? allActiveRequests.length : allHistoryRequests.length
+  }`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={closeModal}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="text-2xl font-bold">Request Manager</DialogTitle>
-          <DialogDescription>
-            Manage and track all requests across your shoots
-          </DialogDescription>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
+      <DialogContent className="flex h-[92dvh] w-[calc(100vw-1rem)] max-w-6xl flex-col gap-0 overflow-hidden p-0 sm:h-[86vh] sm:max-w-6xl">
+        <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-4 pr-14 text-left sm:px-6 sm:py-5 sm:pr-16">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <DialogTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
+                Request Manager
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-xs sm:text-sm">
+                Review client requests, coordinate the team, and close the loop.
+              </DialogDescription>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+              <span className="text-foreground">{allActiveRequests.length}</span> active
+              <span className="px-1.5 text-border">·</span>
+              <span className="text-foreground">{allHistoryRequests.length}</span> resolved
+            </p>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Filters and Search */}
-          <div className="px-6 py-4 border-b space-y-3">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={activeSection === 'active' ? 'default' : 'outline'}
-                className="rounded-full"
-                onClick={() => setActiveSection('active')}
-              >
-                Active ({activeRequests.length})
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={activeSection === 'history' ? 'default' : 'outline'}
-                className="rounded-full"
-                onClick={() => setActiveSection('history')}
-              >
-                History ({historyRequests.length})
-              </Button>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search requests..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                    onClick={() => setSearchQuery('')}
+        <div className="shrink-0 border-b border-border/70 px-4 py-3 sm:px-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex items-center gap-1 border-b border-border/60 lg:border-b-0">
+              {(['active', 'history'] as const).map((section) => {
+                const isActive = section === activeSection;
+                const count = section === 'active' ? allActiveRequests.length : allHistoryRequests.length;
+                return (
+                  <button
+                    key={section}
+                    type="button"
+                    onClick={() => setActiveSection(section)}
+                    className={cn(
+                      'relative min-h-9 px-3 text-sm font-semibold capitalize text-muted-foreground transition-colors',
+                      'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors',
+                      isActive
+                        ? 'text-foreground after:bg-primary'
+                        : 'hover:text-foreground after:bg-transparent',
+                    )}
                   >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <Select value={severityFilter} onValueChange={(value) => setSeverityFilter(value as SeverityFilter)}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Severity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="severity">By Severity</SelectItem>
-                  <SelectItem value="client">By Client</SelectItem>
-                </SelectContent>
-              </Select>
+                    {section}
+                    <span
+                      className={cn(
+                        'ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]',
+                        isActive ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>
-                {activeSection === 'active'
-                  ? `Showing ${activeRequests.length} active of ${historyRequests.length} total requests`
-                  : `Showing ${visibleRequests.length} of ${historyRequests.length} total requests`}
-              </span>
+
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search requests"
+                placeholder="Search note, address, client..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-9 pl-9 pr-9"
+              />
+              {searchQuery ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Clear search"
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              ) : null}
+            </div>
+
+            <div
+              className={cn(
+                'grid gap-2 lg:contents',
+                activeSection === 'active' ? 'grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {activeSection === 'active' ? (
+                <Select
+                  value={activeStatusFilter}
+                  onValueChange={(value) => setActiveStatusFilter(value as ActiveStatusFilter)}
+                >
+                  <SelectTrigger aria-label="Filter request status" className="h-9 w-full lg:w-[10rem]">
+                    <SlidersHorizontal className="mr-2 h-3.5 w-3.5" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All active</SelectItem>
+                    <SelectItem value="open">Needs review</SelectItem>
+                    <SelectItem value="in-progress">In progress</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
+
+              <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+                <SelectTrigger aria-label="Sort requests" className="h-9 w-full lg:w-[9.5rem]">
+                  <Clock3 className="mr-2 h-3.5 w-3.5" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="client">Client name</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+        </div>
 
-          {/* Issues List */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {visibleRequests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="text-muted-foreground mb-2">
-                  {historyRequests.length === 0 ? (
-                    <>
-                      <p className="text-lg font-medium mb-1">No requests found</p>
-                      <p className="text-sm">All clear! No requests to manage.</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-lg font-medium mb-1">
-                        {activeSection === 'active' ? 'No active requests' : 'No matching requests'}
-                      </p>
-                      <p className="text-sm">
-                        {activeSection === 'active'
-                          ? 'Everything active has been cleared.'
-                          : 'Try adjusting your filters or search query.'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleRequests.map((request) => {
-                  const requestId = String(request.id);
-                  const severity = statusToSeverity(request.status);
-                  const statusLabel = normalizeStatus(request.status);
-                  const isResolved = statusLabel === 'resolved';
-                  return (
-                  <div
-                    key={requestId}
-                    className={cn(
-                      'rounded-xl border p-4 bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer',
-                      selectedRequestId === requestId && 'border-primary ring-2 ring-inset ring-primary/20',
-                      severity === 'high' 
-                        ? 'border-destructive/40 bg-destructive/5 dark:bg-destructive/10' 
-                        : severity === 'medium'
-                        ? 'border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/10 dark:border-amber-500/40'
-                        : 'border-border bg-card'
+        <div className="grid min-h-0 flex-1 grid-rows-[minmax(13rem,0.9fr)_minmax(15rem,1.1fr)] md:grid-cols-[minmax(18rem,0.9fr)_minmax(22rem,1.1fr)] md:grid-rows-1">
+          <section aria-label="Request queue" className="flex min-h-0 flex-col bg-muted/[0.12]">
+            <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {activeSection === 'active' ? 'Active queue' : 'Resolved history'}
+              </p>
+              <span className="text-xs text-muted-foreground">{resultSummary}</span>
+            </div>
+
+            <div data-request-list className="min-h-0 flex-1 overflow-y-auto">
+              {visibleRequests.length === 0 ? (
+                <div className="flex h-full min-h-44 flex-col items-center justify-center px-6 text-center">
+                  <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-muted text-muted-foreground">
+                    {allActiveRequests.length + allHistoryRequests.length === 0 ? (
+                      <CheckCircle2 className="h-5 w-5" />
+                    ) : (
+                      <Inbox className="h-5 w-5" />
                     )}
-                    onClick={() => selectRequest(requestId)}
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                            {request.note}
-                          </p>
-                        </div>
+                  </span>
+                  <p className="text-sm font-semibold text-foreground">
+                    {allActiveRequests.length + allHistoryRequests.length === 0
+                      ? 'All clear'
+                      : 'No matching requests'}
+                  </p>
+                  <p className="mt-1 max-w-64 text-xs leading-relaxed text-muted-foreground">
+                    {allActiveRequests.length + allHistoryRequests.length === 0
+                      ? 'There are no requests to manage right now.'
+                      : 'Adjust the search or filter to see more results.'}
+                  </p>
+                </div>
+              ) : (
+                visibleRequests.map((request) => {
+                  const requestId = String(request.id);
+                  const normalizedStatus = normalizeStatus(request.status);
+                  const presentation = statusPresentation[normalizedStatus];
+                  const isSelected = String(selectedRequest?.id) === requestId;
+                  return (
+                    <button
+                      key={requestId}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => selectRequest(requestId)}
+                      className={cn(
+                        'group relative w-full border-b border-border/55 px-4 py-3 text-left transition-colors',
+                        'focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
+                        isSelected ? 'bg-primary/[0.07]' : 'hover:bg-muted/45',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute inset-y-2 left-0 w-0.5 rounded-r-full transition-colors',
+                          isSelected ? 'bg-primary' : 'bg-transparent',
+                        )}
+                      />
+                      <div className="flex items-start gap-3">
                         <span
                           className={cn(
-                            'px-2.5 py-1 rounded-full text-[11px] font-semibold flex-shrink-0 whitespace-nowrap border',
-                            severityBadge(severity)
+                            'mt-1.5 h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_3px_hsl(var(--background))]',
+                            presentation.dotClassName,
                           )}
-                        >
-                          {severity}
-                        </span>
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                              {request.note}
+                            </p>
+                            <MoreHorizontal className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                          <p className="mt-1.5 truncate text-xs text-muted-foreground">
+                            {request.shoot?.address || `Shoot #${request.shootId}`}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground/80">
+                            <span className="truncate">
+                              {request.shoot?.client?.name || request.raisedBy?.name || 'Client request'}
+                            </span>
+                            <span className="shrink-0">
+                              {formatActivityTime(request.updatedAt || request.createdAt)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span className="truncate">
-                          {request.raisedBy?.name ? `${request.raisedBy.name} • ` : ''}
-                          {statusLabel || 'Needs review'}
-                        </span>
-                        {request.updatedAt && (
-                          <span className="text-[10px] text-muted-foreground/70 flex-shrink-0">
-                            Updated {new Date(request.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await handleViewShoot(request);
-                          }}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          View Shoot
-                        </Button>
-                        {!isResolved && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                            disabled={updatingRequestId === requestId}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleMarkResolved(request);
-                            }}
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            {updatingRequestId === requestId ? 'Resolving...' : 'Mark Resolved'}
-                          </Button>
-                        )}
-                        {isResolved && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                            disabled={updatingRequestId === requestId}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleDismissResolved(request);
-                            }}
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            {updatingRequestId === requestId ? 'Closing...' : 'Dismiss'}
-                          </Button>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Bell className="h-3 w-3 mr-1" />
-                              Notify
-                              <MoreVertical className="h-3 w-3 ml-0.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned('photographer')}>
-                              <Bell className="h-4 w-4 mr-2" />
-                              Notify Photographer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned('editor')}>
-                              <Bell className="h-4 w-4 mr-2" />
-                              Notify Editor
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned('management')}>
-                              <Bell className="h-4 w-4 mr-2" />
-                              Notify Management
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </div>
+                    </button>
                   );
-                })}
-              </div>
-            )}
-            {activeSection === 'history' && historyRequests.length > HISTORY_PAGE_SIZE && (
-              <div className="mt-4 flex items-center justify-between border-t pt-4">
-                <p className="text-sm text-muted-foreground">
+                })
+              )}
+            </div>
+
+            {activeSection === 'history' && filteredSectionRequests.length > HISTORY_PAGE_SIZE ? (
+              <div className="flex shrink-0 items-center justify-between border-t border-border/60 px-3 py-2">
+                <span className="text-xs text-muted-foreground">
                   Page {Math.min(historyPage, totalHistoryPages)} of {totalHistoryPages}
-                </p>
-                <div className="flex items-center gap-2">
+                </span>
+                <div className="flex items-center gap-1">
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
                     disabled={historyPage <= 1}
-                    onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                    onClick={() => setHistoryPage((previous) => Math.max(1, previous - 1))}
                   >
                     Previous
                   </Button>
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
                     disabled={historyPage >= totalHistoryPages}
-                    onClick={() => setHistoryPage((prev) => Math.min(totalHistoryPages, prev + 1))}
+                    onClick={() =>
+                      setHistoryPage((previous) => Math.min(totalHistoryPages, previous + 1))
+                    }
                   >
                     Next
                   </Button>
                 </div>
               </div>
+            ) : null}
+          </section>
+
+          <section aria-label="Request details" className="flex min-h-0 flex-col border-t border-border/70 bg-background md:border-l md:border-t-0">
+            {selectedRequest ? (
+              <>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+                  {(() => {
+                    const requestId = String(selectedRequest.id);
+                    const normalizedStatus = normalizeStatus(selectedRequest.status);
+                    const presentation = statusPresentation[normalizedStatus];
+                    return (
+                      <div className="mx-auto max-w-2xl">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            Request #{requestId}
+                          </p>
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                              presentation.className,
+                            )}
+                          >
+                            <span className={cn('h-1.5 w-1.5 rounded-full', presentation.dotClassName)} />
+                            {presentation.label}
+                          </span>
+                        </div>
+
+                        <h2 className="mt-4 text-lg font-semibold leading-snug tracking-tight text-foreground sm:text-xl">
+                          {selectedRequest.note}
+                        </h2>
+
+                        <dl className="mt-6 divide-y divide-border/60 border-y border-border/60">
+                          <div className="grid grid-cols-[1.25rem_5.5rem_1fr] items-start gap-2 py-3 text-sm">
+                            <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                            <dt className="text-muted-foreground">Property</dt>
+                            <dd className="min-w-0 text-right font-medium text-foreground">
+                              {selectedRequest.shoot?.address || `Shoot #${selectedRequest.shootId}`}
+                            </dd>
+                          </div>
+                          <div className="grid grid-cols-[1.25rem_5.5rem_1fr] items-start gap-2 py-3 text-sm">
+                            <UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                            <dt className="text-muted-foreground">Client</dt>
+                            <dd className="min-w-0 text-right font-medium text-foreground">
+                              {selectedRequest.shoot?.client?.name || 'Not available'}
+                            </dd>
+                          </div>
+                          <div className="grid grid-cols-[1.25rem_5.5rem_1fr] items-start gap-2 py-3 text-sm">
+                            <Bell className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                            <dt className="text-muted-foreground">Raised by</dt>
+                            <dd className="min-w-0 text-right font-medium text-foreground">
+                              {selectedRequest.raisedBy?.name || 'Client'}
+                              {selectedRequest.raisedBy?.role ? (
+                                <span className="ml-1 font-normal text-muted-foreground">
+                                  · {selectedRequest.raisedBy.role}
+                                </span>
+                              ) : null}
+                            </dd>
+                          </div>
+                          <div className="grid grid-cols-[1.25rem_5.5rem_1fr] items-start gap-2 py-3 text-sm">
+                            <Clock3 className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                            <dt className="text-muted-foreground">Activity</dt>
+                            <dd className="min-w-0 text-right font-medium text-foreground">
+                              {formatActivityTime(selectedRequest.updatedAt || selectedRequest.createdAt)}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="shrink-0 border-t border-border/70 bg-background/95 px-4 py-3 sm:px-6">
+                  <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:flex sm:items-center">
+                    <Button
+                      type="button"
+                      className="col-span-2 sm:flex-1"
+                      onClick={() => void handleViewShoot(selectedRequest)}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open shoot
+                    </Button>
+
+                    {normalizeStatus(selectedRequest.status) === 'resolved' ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="sm:flex-1"
+                        disabled={updatingRequestId === String(selectedRequest.id)}
+                        onClick={() => void handleDismissResolved(selectedRequest)}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        {updatingRequestId === String(selectedRequest.id) ? 'Dismissing...' : 'Dismiss'}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="sm:flex-1"
+                        disabled={updatingRequestId === String(selectedRequest.id)}
+                        onClick={() => void handleMarkResolved(selectedRequest)}
+                      >
+                        <Check className="mr-2 h-4 w-4" />
+                        {updatingRequestId === String(selectedRequest.id) ? 'Resolving...' : 'Resolve'}
+                      </Button>
+                    )}
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto sm:px-3">
+                          <Bell className="mr-2 h-4 w-4" />
+                          Notify
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleNotifyConcerned('photographer')}>
+                          Notify photographer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleNotifyConcerned('editor')}>
+                          Notify editor
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleNotifyConcerned('management')}>
+                          Notify management
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full min-h-48 flex-col items-center justify-center px-6 text-center">
+                <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-muted text-muted-foreground">
+                  <Inbox className="h-5 w-5" />
+                </span>
+                <p className="text-sm font-semibold text-foreground">Select a request</p>
+                <p className="mt-1 max-w-64 text-xs leading-relaxed text-muted-foreground">
+                  Choose a request from the queue to review its property and available actions.
+                </p>
+              </div>
             )}
-          </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
-
-
-
