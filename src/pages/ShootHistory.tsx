@@ -1,8 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { SharedShootCard } from '@/components/shoots/SharedShootCard'
 import { ShootHistoryModalHost } from '@/components/shoots/history/ShootHistoryModalHost'
+import { ShootHistoryLoadingPanel } from '@/components/shoots/history/ShootHistoryLoadingPanel'
 import { HistoryAggregateCard, HistoryRow } from '@/components/shoots/history/ShootHistoryHistoryRows'
 import { CompletedAlbumCard, CompletedShootListRow, HoldOnShootCard, ScheduledShootListRow } from '@/components/shoots/history/ShootHistoryOperationalRows'
 import { ShootHistoryView } from '@/components/shoots/history/ShootHistoryView'
@@ -21,7 +20,7 @@ import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
-import { Calendar as CalendarIcon, CheckCircle2, Loader2, PauseCircle, Star, Trash2 } from 'lucide-react'
+import { Calendar as CalendarIcon, CheckCircle2, PauseCircle, Star, Trash2 } from 'lucide-react'
 import {
   DEFAULT_OPERATIONAL_FILTERS,
   HISTORY_ALLOWED_ROLES,
@@ -36,6 +35,11 @@ import {
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
+import {
+  getStripeConfirmationFailureMessage,
+  isStripeSessionPaymentRecorded,
+  type StripeConfirmationResult,
+} from '@/utils/stripeConfirmation'
 
 const READY_STATUS_KEYS = [
   'ready',
@@ -52,24 +56,6 @@ const DELIVERED_STATUS_KEYS = [
   'finalised',
   'finalized',
 ]
-
-const ShootHistoryLoadingPanel = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 12 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.28, ease: 'easeOut' }}
-    className="flex min-h-[320px] items-center justify-center rounded-2xl border border-border/60 bg-card/80 p-8 shadow-sm"
-  >
-    <div className="flex flex-col items-center gap-4 text-center">
-      <div className="rounded-[999px] bg-blue-100 px-4 py-2 text-slate-900 shadow-sm dark:bg-blue-500/20 dark:text-blue-100">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm font-medium">Loading shoot history...</span>
-        </div>
-      </div>
-    </div>
-  </motion.div>
-)
 
 const normalizeShootServices = (services: unknown): string[] => {
   if (!Array.isArray(services)) {
@@ -97,47 +83,10 @@ const normalizeShootServices = (services: unknown): string[] => {
     .filter((service): service is string => Boolean(service))
 }
 
-const MobileOperationalSkeleton = ({ count = 3 }: { count?: number }) => (
-  <div className="space-y-3 md:hidden">
-    {Array.from({ length: count }).map((_, index) => (
-      <div key={index} className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-        <Skeleton className="h-44 w-full rounded-none" />
-        <div className="space-y-4 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-5 w-3/4 rounded-md" />
-              <Skeleton className="h-4 w-1/2 rounded-md" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-20 rounded-md" />
-              <Skeleton className="h-4 w-16 rounded-md" />
-            </div>
-          </div>
-          <div className="space-y-2 border-t border-border/50 pt-3">
-            <Skeleton className="h-3 w-20 rounded-md" />
-            <div className="flex gap-2">
-              <Skeleton className="h-6 w-24 rounded-full" />
-              <Skeleton className="h-6 w-28 rounded-full" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 border-t border-border/50 pt-3">
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-16 rounded-md" />
-              <Skeleton className="h-4 w-24 rounded-md" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-24 rounded-md" />
-              <Skeleton className="h-4 w-20 rounded-md" />
-            </div>
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-)
-
 const ShootHistory: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handledStripeSessionRef = useRef<string | null>(null)
   const { toast } = useToast()
   const { role, user } = useAuth()
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -323,6 +272,67 @@ const ShootHistory: React.FC = () => {
     formatDatePref,
     formatTime,
   })
+
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id')
+    if (searchParams.get('payment') !== 'success' || !sessionId) return
+    if (handledStripeSessionRef.current === sessionId) return
+
+    handledStripeSessionRef.current = sessionId
+    let cancelled = false
+
+    const confirmHostedPayment = async () => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+        const response = await fetch(`${API_BASE_URL}/api/payments/stripe-session/confirm`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(payload?.message || payload?.error || 'Unable to confirm Stripe payment.')
+        }
+        if (cancelled) return
+
+        const confirmation = (payload?.data || payload) as StripeConfirmationResult
+        if (!isStripeSessionPaymentRecorded(confirmation, sessionId)) {
+          throw new Error(getStripeConfirmationFailureMessage(
+            confirmation,
+            sessionId,
+            'Stripe has not confirmed this payment as paid yet.',
+          ))
+        }
+
+        await refreshActiveTabData()
+        toast({
+          title: 'Payment successful',
+          description: 'Your Stripe payment has been confirmed.',
+        })
+
+        const nextParams = new URLSearchParams(searchParams)
+        nextParams.delete('payment')
+        nextParams.delete('session_id')
+        setSearchParams(nextParams, { replace: true })
+      } catch (error) {
+        if (cancelled) return
+        toast({
+          title: 'Unable to confirm payment',
+          description: error instanceof Error ? error.message : 'Please refresh and try again.',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    void confirmHostedPayment()
+    return () => {
+      cancelled = true
+    }
+  }, [refreshActiveTabData, searchParams, setSearchParams, toast])
 
   // Compute masonry column count from actual container width (accounts for sidebar)
   const getMasonryCols = () => {

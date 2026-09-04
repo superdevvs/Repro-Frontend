@@ -91,6 +91,7 @@ export function SquarePaymentDialog({
   }, []);
 
   const handlePaymentSuccess = (payment: SquarePaymentSuccessPayload) => {
+    setPendingChargeRemainder(null);
     setSuccessfulPayment(payment);
     if (onPaymentSuccess) {
       onPaymentSuccess(payment);
@@ -104,6 +105,7 @@ export function SquarePaymentDialog({
 
   const handleClose = () => {
     if (!successfulPayment) {
+      setPendingChargeRemainder(null);
       onClose();
     }
   };
@@ -135,9 +137,13 @@ export function SquarePaymentDialog({
   };
 
   const handleChargeRemainderViaStripe = useCallback(() => {
+    const amountToCharge = pendingChargeRemainder;
+    if (amountToCharge === null) {
+      return;
+    }
     setPendingChargeRemainder(null);
-    formRef.current?.chargeOutstandingViaStripe();
-  }, []);
+    formRef.current?.chargeOutstandingViaStripe(amountToCharge);
+  }, [pendingChargeRemainder]);
 
   const handleSkipRemainder = () => {
     setPendingChargeRemainder(null);

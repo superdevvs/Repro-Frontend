@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -55,7 +56,7 @@ interface ActivityLogEntry {
   action: string;
   type: 'email' | 'payment' | 'upload' | 'finalize' | 'note' | 'status_change' | 'sync' | 'tour' | 'other';
   description: string;
-  details?: any;
+  details?: unknown;
   metadata?: Record<string, unknown>;
 }
 
@@ -127,20 +128,31 @@ const toOptionalNumber = (value: unknown): number | undefined => {
   return Number.isFinite(normalized) ? normalized : undefined;
 };
 
-const normalizeActivityEntry = (item: any): ActivityLogEntry => ({
-  id: item.id || `activity-${Date.now()}-${Math.random()}`,
-  timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
-  actor: item.user ? {
-    id: item.user.id || item.user_id,
-    name: item.user.name || 'System',
-    role: item.user.role,
-  } : (item.actor || null),
-  action: item.action || 'unknown',
-  type: determineActivityType(item.action || ''),
-  description: item.description || item.message || item.details || 'Activity logged',
-  details: item.metadata || item.details,
-  metadata: item.metadata,
-});
+const normalizeActivityEntry = (item: unknown): ActivityLogEntry => {
+  const source = toRecord(item) ?? {};
+  const user = toRecord(source.user);
+  const suppliedActor = toRecord(source.actor);
+  const actorSource = user ?? suppliedActor;
+  const action = toOptionalString(source.action) ?? 'unknown';
+  const metadata = toRecord(source.metadata) ?? undefined;
+
+  return {
+    id: toOptionalString(source.id) ?? `activity-${Date.now()}-${Math.random()}`,
+    timestamp: toOptionalString(source.created_at ?? source.timestamp ?? source.createdAt)
+      ?? new Date().toISOString(),
+    actor: actorSource ? {
+      id: toOptionalString(actorSource.id ?? source.user_id) ?? 'system',
+      name: toOptionalString(actorSource.name) ?? 'System',
+      role: toOptionalString(actorSource.role),
+    } : null,
+    action,
+    type: determineActivityType(action),
+    description: toOptionalString(source.description ?? source.message ?? source.details)
+      ?? 'Activity logged',
+    details: metadata ?? source.details,
+    metadata,
+  };
+};
 
 function determineActivityType(action: string): ActivityLogEntry['type'] {
   const lower = action.toLowerCase();
@@ -209,13 +221,16 @@ export function ShootDetailsActivityLogTab({
   const [loading, setLoading] = useState(true);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [pendingRefundEntry, setPendingRefundEntry] = useState<ActivityLogEntry | null>(null);
+  const [refundOperationId, setRefundOperationId] = useState('');
+  const [refundOperationPaymentId, setRefundOperationPaymentId] = useState('');
   const [refundAmountInput, setRefundAmountInput] = useState('');
   const [refundingEntryId, setRefundingEntryId] = useState<string | null>(null);
+  const embeddedActivityLogs = (shoot as ShootData & { activityLogs?: unknown }).activityLogs;
 
   useEffect(() => {
     // Check if activity logs are already in shoot data
-    if ((shoot as any).activityLogs && Array.isArray((shoot as any).activityLogs)) {
-      const activitiesData = (shoot as any).activityLogs;
+    if (Array.isArray(embeddedActivityLogs)) {
+      const activitiesData = embeddedActivityLogs;
       const transformed = activitiesData.map(normalizeActivityEntry);
       
       setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
@@ -225,7 +240,7 @@ export function ShootDetailsActivityLogTab({
     }
 
     void loadActivities();
-  }, [shoot.id, (shoot as any).activityLogs]);
+  }, [shoot.id, embeddedActivityLogs]);
 
   const loadActivities = async () => {
     setLoading(true);
@@ -260,7 +275,7 @@ export function ShootDetailsActivityLogTab({
       setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       ));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading activity log:', error);
       // Silently handle errors - don't show error to user
       setActivities([]);
@@ -358,6 +373,10 @@ export function ShootDetailsActivityLogTab({
 
   const refundAmountError = useMemo(() => {
     if (!pendingRefundEntry) return '';
+    const normalizedInput = refundAmountInput.trim();
+    if (!/^\d+(?:\.\d{1,2})?$/.test(normalizedInput)) {
+      return 'Use no more than two decimal places.';
+    }
     const parsed = Number.parseFloat(refundAmountInput);
     if (!Number.isFinite(parsed)) return 'Enter an amount to refund.';
     if (parsed <= 0) return 'Refund amount must be greater than zero.';
@@ -390,21 +409,35 @@ export function ShootDetailsActivityLogTab({
         },
         body: JSON.stringify({
           payment_id: refundablePayment.paymentId,
+          // Keep this stable while the dialog remains open. If the HTTP
+          // response is lost, the retry resolves the same Stripe refund.
+          refund_operation_id: refundOperationId,
           // Operator-entered amount; the server caps it at the unrefunded remainder.
           amount: Number.parseFloat(refundAmountInput),
         }),
       });
 
       const bodyText = await response.text();
-      let payload: any = null;
+      let payload: Record<string, unknown> | null = null;
       try {
-        payload = bodyText ? JSON.parse(bodyText) : null;
+        payload = bodyText ? toRecord(JSON.parse(bodyText)) : null;
       } catch {
         payload = null;
       }
 
       if (!response.ok) {
-        throw new Error(payload?.error || payload?.message || bodyText || 'Refund failed.');
+        const terminalStatus = toOptionalString(payload?.refund_status)?.toLowerCase();
+        if (terminalStatus && ['failed', 'canceled', 'cancelled'].includes(terminalStatus)) {
+          // A terminal Stripe result can be retried deliberately, but it must
+          // use a new operation ID. Rotate now while keeping the dialog usable.
+          setRefundOperationId(uuidv4());
+          setRefundOperationPaymentId(refundablePayment.paymentId);
+        }
+        throw new Error(
+          toOptionalString(payload?.error ?? payload?.message)
+            ?? toOptionalString(bodyText)
+            ?? 'Refund failed.',
+        );
       }
 
       toast({
@@ -415,10 +448,12 @@ export function ShootDetailsActivityLogTab({
       await loadActivities();
       await Promise.resolve(onShootUpdate());
       setPendingRefundEntry(null);
-    } catch (error: any) {
+      setRefundOperationId('');
+      setRefundOperationPaymentId('');
+    } catch (error: unknown) {
       toast({
         title: 'Refund failed',
-        description: error?.message || 'Unable to process the refund.',
+        description: error instanceof Error ? error.message : 'Unable to process the refund.',
         variant: 'destructive',
       });
     } finally {
@@ -577,7 +612,17 @@ export function ShootDetailsActivityLogTab({
                                           variant="outline"
                                           size="sm"
                                           disabled={refundingEntryId === entry.id}
-                                          onClick={() => setPendingRefundEntry(entry)}
+                                          onClick={() => {
+                                            const payment = getPaymentActionDetails(entry);
+                                            if (payment && (
+                                              payment.paymentId !== refundOperationPaymentId
+                                              || !refundOperationId
+                                            )) {
+                                              setRefundOperationId(uuidv4());
+                                              setRefundOperationPaymentId(payment.paymentId);
+                                            }
+                                            setPendingRefundEntry(entry);
+                                          }}
                                         >
                                           {refundingEntryId === entry.id ? 'Refunding...' : 'Refund Charge'}
                                         </Button>

@@ -14,16 +14,13 @@ import {
   triggerShootHistoryRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
+import {
+  getStripeConfirmationFailureMessage,
+  isStripeSessionPaymentRecorded,
+  type StripeConfirmationResult,
+} from '@/utils/stripeConfirmation';
 
-type PaymentConfirmationResult = {
-  last_payment_amount?: number | string | null;
-  return_to?: string | null;
-  payment_status?: string | null;
-  remaining_balance?: number | string | null;
-  total_paid?: number | string | null;
-  reconciled?: boolean | null;
-  session_id?: string | null;
-};
+type PaymentConfirmationResult = StripeConfirmationResult;
 
 const toFiniteNumber = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') {
@@ -90,18 +87,12 @@ export default function AuthenticatedPaymentReturnPage() {
 
         const data = (response.data?.data || response.data) as PaymentConfirmationResult;
         const confirmedAmount = toFiniteNumber(data.last_payment_amount);
-        const remainingBalance = toFiniteNumber(data.remaining_balance);
-        const paymentStatus = (data.payment_status ?? '').toString().toLowerCase();
-
-        const isPaidByStatus = paymentStatus === 'paid' || paymentStatus === 'succeeded';
-        const isPaidByBalance = remainingBalance !== null && remainingBalance <= 0.01;
-        const isPaidByAmount = confirmedAmount !== null && confirmedAmount > 0;
-        const isPaidByReconcile = data.reconciled === true;
-
-        if (!isPaidByStatus && !isPaidByBalance && !isPaidByAmount && !isPaidByReconcile) {
-          // The backend did not indicate a successful payment. Surface a generic error so the
-          // client knows to retry or contact support rather than assume success.
-          throw new Error('Your payment could not be confirmed yet. Please refresh or contact support if this persists.');
+        if (!isStripeSessionPaymentRecorded(data, sessionId)) {
+          throw new Error(getStripeConfirmationFailureMessage(
+            data,
+            sessionId,
+            'Your payment could not be confirmed yet. Please refresh or contact support if this persists.',
+          ));
         }
 
         setLastPaymentAmount(confirmedAmount ?? null);

@@ -171,8 +171,15 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
         }
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || 'Failed to create checkout');
-      const url = json?.url || json?.checkout_url || json?.data?.url;
+      const validationMessage = Object.values(json?.errors ?? {})
+        .flatMap((value) => Array.isArray(value) ? value : [value])
+        .find((value): value is string => typeof value === 'string');
+      if (!res.ok) throw new Error(validationMessage || json?.message || json?.error || 'Failed to create checkout');
+      const url = json?.checkoutUrl
+        || json?.url
+        || json?.checkout_url
+        || json?.data?.checkoutUrl
+        || json?.data?.url;
       if (!url) throw new Error('Checkout URL not returned');
       const launchMode = openCheckoutLink(url);
       toast(getCheckoutLaunchToastCopy(launchMode));

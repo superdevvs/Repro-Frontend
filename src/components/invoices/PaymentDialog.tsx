@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { CreditCard, CheckIcon, Banknote, MapPin, Package, Loader2 } from "lucide-react";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
-import { StripePaymentForm } from '@/components/payments/StripePaymentForm';
+import { StripePaymentForm, type StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
 
@@ -30,6 +30,7 @@ interface PaymentDialogProps {
   shootServices?: string[];
   clientEmail?: string;
   clientName?: string;
+  shootId?: string | number;
 }
 
 export function PaymentDialog({ 
@@ -41,9 +42,10 @@ export function PaymentDialog({
   shootServices,
   clientEmail,
   clientName,
+  shootId,
 }: PaymentDialogProps) {
   const { toast } = useToast();
-  const [paymentMethod, setPaymentMethod] = useState<string>("square");
+  const [paymentMethod, setPaymentMethod] = useState<string>("stripe");
   const [loading, setLoading] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   
@@ -64,7 +66,18 @@ export function PaymentDialog({
     }
   }, [invoice]);
 
+  useEffect(() => {
+    if (isOpen) {
+      setPaymentMethod('stripe');
+    }
+  }, [isOpen]);
+
   if (!invoice) return null;
+
+  const resolvedShootId = shootId
+    ?? invoice.shoot_id
+    ?? invoice.shoot?.id
+    ?? invoice.items?.find((item) => item.shoot_id !== null && item.shoot_id !== undefined)?.shoot_id;
 
   const alreadyPaidAmount = Math.max(
     invoice.amountPaid ?? (invoice.balance !== undefined ? invoice.amount - invoice.balance : 0),
@@ -73,18 +86,18 @@ export function PaymentDialog({
   const outstandingAmount = Math.max(invoice.balance ?? (invoice.amount - alreadyPaidAmount), 0);
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
-  const handleStripePaymentSuccess = async () => {
+  const handleStripePaymentSuccess = async (payment: StripePaymentSuccessPayload) => {
     try {
       if (onPaymentComplete) {
         await onPaymentComplete({
           invoiceId: invoice.id,
           paymentMethod: 'stripe',
-          amount: outstandingAmount,
+          amount: payment.amount,
         });
       }
       toast({
         title: "Payment Successful",
-        description: `Payment of $${outstandingAmount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
+        description: `Payment of $${payment.amount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
         variant: "default",
       });
       onClose();
@@ -171,6 +184,7 @@ export function PaymentDialog({
               <StripePaymentForm
                 amount={outstandingAmount}
                 currency="USD"
+                shootId={resolvedShootId !== undefined ? String(resolvedShootId) : undefined}
                 shootAddress={shootAddress}
                 shootServices={shootServices}
                 clientEmail={clientEmail}

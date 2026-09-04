@@ -20,6 +20,7 @@ import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNot
 import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
+import type { UserData } from "@/types/auth";
 import type { ShootData } from "@/types/shoots";
 import type { useToast } from "@/hooks/use-toast";
 import { normalizeEmailHealth } from "@/utils/emailHealth";
@@ -67,7 +68,7 @@ interface ClientDashboardViewProps {
   refresh: () => void | Promise<void>;
   shootDetailsModal: React.ReactNode;
   toast: ToastFn;
-  user: any;
+  user: UserData | null;
   onManageClientEmail: () => void;
   onOpenSupportEmail: (subject: string, body?: string) => void;
   onResendClientVerification: () => void | Promise<void>;
@@ -554,7 +555,7 @@ export const ClientDashboardView = ({
           amount={(shootToPay.data.payment?.totalQuote ?? 0) - (shootToPay.data.payment?.totalPaid ?? 0)}
           shootId={shootToPay.data.id}
           shootAddress={shootToPay.summary.addressLine}
-          shootServices={shootToPay.summary.services?.map((s: any) => typeof s === "string" ? s : s?.name || s?.label || String(s)).filter(Boolean) || []}
+          shootServices={shootToPay.summary.services?.map((service) => service.label).filter(Boolean) || []}
           serviceItems={shootToPayServiceItems}
           shootDate={shootToPay.data.scheduledDate}
           shootTime={shootToPay.data.time}
@@ -733,7 +734,7 @@ export const ClientDashboardView = ({
           amount={selectedShootsForPayment.reduce((sum, record) =>
             sum + ((record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0)), 0
           )}
-          shootId={selectedShootsForPayment.map(r => r.data.id).join(",")}
+          shootIds={selectedShootsForPayment.map((record) => String(record.data.id))}
           shootAddress={`${selectedShootsForPayment.length} shoots selected`}
           shootServices={[`${selectedShootsForPayment.length} shoots`]}
           clientName={user?.name}

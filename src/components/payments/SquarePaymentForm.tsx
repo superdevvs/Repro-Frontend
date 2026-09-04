@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, Tag, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, XCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
@@ -27,15 +27,15 @@ import {
   triggerShootHistoryRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { getCurrentReturnTo, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
+import {
+  getStripeConfirmationFailureMessage,
+  isStripeSessionPaymentRecorded,
+  isStripeSessionRefundedAsStale,
+} from '@/utils/stripeConfirmation';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { formatServiceItemStatus } from '@/utils/shootServiceItems';
 import { getPaymentErrorMessage } from './paymentErrorMessage';
-import {
-  getCompletedPaymentTotal,
-  type CouponValidationResponse,
-  type PaymentSessionConfirmationResponse,
-  type ShootPaymentStatusResponse,
-} from './squarePaymentModel';
+import type { PaymentSessionConfirmationResponse } from './squarePaymentModel';
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
   destroy: () => void;
@@ -52,7 +52,7 @@ export interface SquarePaymentFormHandle {
    * Programmatically open Stripe checkout for whatever amount is currently
    * configured. Used by SquarePaymentDialog to chain Cash → Stripe.
    */
-  chargeOutstandingViaStripe: () => void;
+  chargeOutstandingViaStripe: (amountOverride?: number) => void;
 }
 
 interface SquarePaymentFormProps {
@@ -125,12 +125,6 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const checkoutSessionIdRef = useRef<string | null>(null);
 
-  // Discount code state
-  const [couponCode, setCouponCode] = useState('');
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState<string | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; discountType: 'percentage' | 'fixed' } | null>(null);
-
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(amount);
   const [paymentAmountInput, setPaymentAmountInput] = useState(amount.toFixed(2));
@@ -199,9 +193,16 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
   const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
   useImperativeHandle(ref, () => ({
-    chargeOutstandingViaStripe: () => {
-      if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
+    chargeOutstandingViaStripe: (amountOverride?: number) => {
+      const requestedAmount = amountOverride ?? effectivePaymentAmount;
+      if (requestedAmount <= 0 || requestedAmount > outstandingAmount) {
         return;
+      }
+      if (amountOverride !== undefined) {
+        setPaymentScope('full');
+        setPaymentAmount(requestedAmount);
+        setPaymentAmountInput(requestedAmount.toFixed(2));
+        setIsPartialPaymentMode(requestedAmount < outstandingAmount);
       }
       blurActiveElement();
       setShowConfirmationDialog(true);
@@ -275,6 +276,12 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
       const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
 
       const isBulk = shootIds && shootIds.length > 0;
+      if (!isBulk && !shootId) {
+        throw new Error('This payment is missing its shoot reference. Refresh the page and try again.');
+      }
+      if (!STRIPE_PUBLISHABLE_KEY) {
+        throw new Error('Stripe is not configured for this site.');
+      }
       const url = isBulk
         ? `${API_BASE_URL}/api/payments/stripe-multiple-shoots-embedded`
         : `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`;
@@ -298,9 +305,9 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
         },
       });
 
-      if (!response.data?.clientSecret) {
+      if (!response.data?.clientSecret || !response.data?.sessionId) {
         setStripeLoading(false);
-        throw new Error('No client secret returned');
+        throw new Error('Stripe did not return a complete checkout session.');
       }
 
       checkoutSessionIdRef.current = response.data.sessionId || null;
@@ -336,7 +343,20 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
           waitForMount();
         } catch (mountErr) {
           console.error('Stripe embedded checkout mount error:', mountErr);
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          if (embeddedCheckoutRef.current) {
+            embeddedCheckoutRef.current.destroy();
+            embeddedCheckoutRef.current = null;
+          }
+          checkoutSessionIdRef.current = null;
           setEmbeddedCheckoutLoading(false);
+          setStripeLoading(false);
+          setShowCheckoutDialog(false);
+          onCheckoutActiveChange?.(false);
+          setStripeError('Stripe checkout could not be loaded. Please try again.');
         }
       });
 
@@ -362,26 +382,59 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     const isBulk = shootIds && shootIds.length > 0;
 
+    const stopForStaleRefund = (
+      confirmation: PaymentSessionConfirmationResponse | null,
+      activeSessionId: string | null,
+    ): boolean => {
+      if (!isStripeSessionRefundedAsStale(confirmation, activeSessionId)) {
+        return false;
+      }
+
+      const message = getStripeConfirmationFailureMessage(
+        confirmation,
+        activeSessionId,
+        'The Stripe charge was refunded because the invoice balance changed.',
+      );
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      setStripeLoading(false);
+      setShowCheckoutDialog(false);
+      onCheckoutActiveChange?.(false);
+      checkoutSessionIdRef.current = null;
+      if (embeddedCheckoutRef.current) {
+        embeddedCheckoutRef.current.destroy();
+        embeddedCheckoutRef.current = null;
+      }
+      setStripeError(message);
+      toast({ title: 'Payment refunded', description: message, variant: 'destructive' });
+      onPaymentError?.(new Error(message));
+
+      return true;
+    };
+
     pollingIntervalRef.current = setInterval(async () => {
       try {
         const token = authTokenRef.current;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
         if (isBulk) {
-          // Poll each shoot and check if any payment was made
-          const results = await Promise.all(
-            shootIds.map((id) =>
-              axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`, { headers }).catch(() => null)
-            )
-          );
-          let totalCurrentDue = 0;
-          for (const res of results) {
-            if (!res) continue;
-            const d = (res.data?.data || res.data) as ShootPaymentStatusResponse;
-            const paid = getCompletedPaymentTotal(d.payments);
-            totalCurrentDue += Math.max(Number(d.total_quote || 0) - paid, 0);
-          }
-          if (totalCurrentDue < outstandingAmount) {
+          const activeSessionId = checkoutSessionIdRef.current;
+          const confirmationResponse = activeSessionId
+            ? await axios.post(
+                `${API_BASE_URL}/api/payments/stripe-session/confirm`,
+                { session_id: activeSessionId },
+                { headers },
+              ).catch(() => null)
+            : null;
+          const confirmationData = confirmationResponse
+            ? ((confirmationResponse.data?.data || confirmationResponse.data) as PaymentSessionConfirmationResponse)
+            : null;
+
+          if (isStripeSessionPaymentRecorded(confirmationData, activeSessionId)) {
+            const parsedProcessedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
+            const processedAmount = Number.isFinite(parsedProcessedAmount)
+              ? parsedProcessedAmount
+              : effectivePaymentAmount;
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
             setStripeLoading(false);
@@ -390,16 +443,24 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
             checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
             triggerPostPaymentRefreshes();
-            toast({ title: 'Payment Successful', description: `Bulk payment has been processed via Stripe.` });
-            if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
+            toast({ title: 'Payment Successful', description: 'Bulk payment has been processed via Stripe.' });
+            if (onPaymentSuccess) {
+              onPaymentSuccess({
+                status: 'success',
+                amount: processedAmount,
+                returnTo: sanitizeRelativeReturnTo(confirmationData?.return_to ?? null),
+              });
+            }
           }
+          if (stopForStaleRefund(confirmationData, activeSessionId)) return;
         } else {
           let confirmationData: PaymentSessionConfirmationResponse | null = null;
+          const activeSessionId = checkoutSessionIdRef.current;
 
-          if (shootId && checkoutSessionIdRef.current) {
+          if (shootId && activeSessionId) {
             const confirmationResponse = await axios.post(
               `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`,
-              { session_id: checkoutSessionIdRef.current },
+              { session_id: activeSessionId },
               { headers }
             ).catch(() => null);
 
@@ -408,15 +469,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
               : null;
           }
 
-          const statusRes = await axios.get(
-            `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
-            { headers }
-          );
-          const shootData = (statusRes.data?.data || statusRes.data) as ShootPaymentStatusResponse;
-          const totalPaid = getCompletedPaymentTotal(shootData.payments);
-          const currentDue = Number(shootData.total_quote || 0) - totalPaid;
-
-          if (currentDue < outstandingAmount) {
+          if (isStripeSessionPaymentRecorded(confirmationData, activeSessionId)) {
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
             setStripeLoading(false);
@@ -424,7 +477,10 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
             onCheckoutActiveChange?.(false);
             checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
-            const processedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
+            const parsedProcessedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
+            const processedAmount = Number.isFinite(parsedProcessedAmount)
+              ? parsedProcessedAmount
+              : effectivePaymentAmount;
             const resolvedReturnTo = sanitizeRelativeReturnTo(confirmationData?.return_to ?? null);
 
             triggerPostPaymentRefreshes();
@@ -437,6 +493,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
               });
             }
           }
+          if (stopForStaleRefund(confirmationData, activeSessionId)) return;
         }
       } catch {
         // Ignore polling errors, will retry
@@ -762,102 +819,6 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
             </div>
           )}
 
-          {/* Discount Code Input */}
-          <div className="p-3 border rounded-lg bg-muted/30">
-            <Label htmlFor="couponCode" className="text-xs flex items-center gap-1 mb-2">
-              <Tag className="h-3 w-3" />
-              Discount Code (Optional)
-            </Label>
-            {appliedCoupon ? (
-              <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                    {appliedCoupon.code} - {appliedCoupon.discountType === 'percentage' 
-                      ? `${appliedCoupon.discount}% off` 
-                      : `$${appliedCoupon.discount.toFixed(2)} off`}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-red-600 hover:text-red-700"
-                  onClick={() => {
-                    setAppliedCoupon(null);
-                    setCouponCode('');
-                    setCouponError(null);
-                  }}
-                >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Remove
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <Input
-                  id="couponCode"
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value.toUpperCase());
-                    setCouponError(null);
-                  }}
-                  placeholder="Enter discount code"
-                  className="h-9 text-sm flex-1"
-                  disabled={couponLoading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  disabled={!couponCode.trim() || couponLoading}
-                  onClick={async () => {
-                    if (!couponCode.trim()) return;
-                    setCouponLoading(true);
-                    setCouponError(null);
-                    try {
-                      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                      const res = await axios.post<CouponValidationResponse>(
-                        `${API_BASE_URL}/api/coupons/validate`,
-                        { code: couponCode.trim(), amount: effectivePaymentAmount },
-                        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-                      );
-                      if (res.data.valid) {
-                        setAppliedCoupon({
-                          code: couponCode.trim(),
-                          discount: res.data.discount || res.data.discount_amount || 0,
-                          discountType: res.data.discount_type || 'fixed',
-                        });
-                        toast({ title: 'Discount Applied!', description: `Discount of ${res.data.discount_type === 'percentage' ? `${res.data.discount}%` : `$${res.data.discount}`} applied.` });
-                      } else {
-                        setCouponError(res.data.message || 'Invalid discount code');
-                      }
-                    } catch (err) {
-                      setCouponError(getPaymentErrorMessage(err, 'Failed to validate discount code'));
-                    } finally {
-                      setCouponLoading(false);
-                    }
-                  }}
-                >
-                  {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                </Button>
-              </div>
-            )}
-            {couponError && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <XCircle className="h-3 w-3" />
-                {couponError}
-              </p>
-            )}
-            {appliedCoupon && (
-              <p className="text-xs text-green-600 mt-2">
-                New total: <span className="font-bold">${Math.max(0, effectivePaymentAmount - (appliedCoupon.discountType === 'percentage' ? effectivePaymentAmount * appliedCoupon.discount / 100 : appliedCoupon.discount)).toFixed(2)}</span>
-              </p>
-            )}
-          </div>
-
           {/* Stripe Error */}
           {stripeError && (
             <div className="p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
@@ -947,7 +908,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Confirm Payment</DialogTitle>
-            <DialogDescription>You'll be redirected to Stripe to complete payment</DialogDescription>
+            <DialogDescription>You'll complete payment securely with Stripe below.</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 py-3">

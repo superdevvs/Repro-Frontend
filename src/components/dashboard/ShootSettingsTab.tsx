@@ -17,10 +17,11 @@ import { DollarSignIcon as DSIcon } from "lucide-react";
 import { ShootData, ShootGhostUser } from "@/types/shoots";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
-import { DollarSignIcon, ExternalLink, Sparkles, X } from "lucide-react";
+import { DollarSignIcon, ExternalLink, X } from "lucide-react";
 import { API_BASE_URL } from '@/config/env';
 
 import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/invoices/PaymentDialog";
+import { ShootAutoEditSettings } from '@/components/dashboard/ShootAutoEditSettings';
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 import { formatPaymentMethod } from '@/utils/paymentUtils';
 
@@ -241,9 +242,6 @@ export function ShootSettingsTab({
   const [isFinalized, setIsFinalized] = useState<boolean>(() => Boolean(settingsShoot.meta?.finalized));
   const [downloadableMode, setDownloadableMode] = useState<DownloadableMode>(() => resolveDownloadableMode(shoot));
   const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!settingsShoot?.payment?.totalPaid);
-  const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!settingsShoot?.auto_edit_enabled);
-  const [autoEditStyle, setAutoEditStyle] = useState<string>(() => settingsShoot?.auto_edit_preferences?.style || 'signature');
-  const [autoEditType, setAutoEditType] = useState<string>(() => settingsShoot?.auto_edit_preferences?.editing_type || 'enhance');
   const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!(settingsShoot?.is_private_listing || settingsShoot?.isPrivateListing));
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
   const [isSavingFeaturedHero, setIsSavingFeaturedHero] = useState(false);
@@ -274,9 +272,6 @@ export function ShootSettingsTab({
     setIsFinalized(Boolean(currentSettings.meta?.finalized));
     setDownloadableMode(resolveDownloadableMode(shoot));
     setIsMarkedPaid(Boolean(currentSettings.payment?.totalPaid));
-    setAutoEditEnabled(Boolean(currentSettings.auto_edit_enabled));
-    setAutoEditStyle(currentSettings.auto_edit_preferences?.style || 'signature');
-    setAutoEditType(currentSettings.auto_edit_preferences?.editing_type || 'enhance');
     setIsPrivateExclusive(Boolean(currentSettings.is_private_listing || currentSettings.isPrivateListing));
     setIsFeaturedShoot(resolveFeaturedState(shoot));
     setTimezone(currentSettings.timezone || 'America/New_York');
@@ -663,14 +658,26 @@ export function ShootSettingsTab({
 
     let updatedInvoice = localInvoice;
     if (localInvoice && String(localInvoice.id) === String(invoiceId)) {
+      const currentPaid = Math.max(Number(localInvoice.amountPaid ?? 0), 0);
+      const currentBalance = Math.max(
+        Number(localInvoice.balance ?? (localInvoice.amount - currentPaid)),
+        0,
+      );
+      const appliedAmount = Math.min(Math.max(Number(payload.amount ?? currentBalance), 0), currentBalance);
+      const nextAmountPaid = Math.min(currentPaid + appliedAmount, localInvoice.amount);
+      const nextBalance = Math.max(localInvoice.amount - nextAmountPaid, 0);
+      const isFullyPaid = nextBalance <= 0.01;
       updatedInvoice = {
         ...localInvoice,
-        status: 'paid' as InvoiceData['status'],
+        status: isFullyPaid ? 'paid' : 'pending',
         paymentMethod,
         paymentDetails: paymentDetails ?? localInvoice.paymentDetails,
-        paidAt: paymentDate ?? localInvoice.paidAt,
+        amountPaid: nextAmountPaid,
+        balance: nextBalance,
+        paidAt: isFullyPaid ? (paymentDate ?? localInvoice.paidAt) : localInvoice.paidAt,
       };
       setLocalInvoice(updatedInvoice);
+      setIsMarkedPaid(isFullyPaid);
     }
 
     // notify parent
@@ -1253,153 +1260,7 @@ export function ShootSettingsTab({
             </div>
 
             {/* Auto-Edit Option */}
-            <div className="border rounded-lg p-3.5 space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Auto-Edit
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Automatically edit photos when uploaded using preset preferences
-                  </div>
-                </div>
-                <Switch
-                  checked={autoEditEnabled}
-                  onCheckedChange={async (checked: boolean) => {
-                    setAutoEditEnabled(checked);
-                    try {
-                      const base = API_BASE_URL;
-                      const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
-                      
-                      const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
-                        method: 'PATCH',
-                        headers: {
-                          'Accept': 'application/json',
-                          'Content-Type': 'application/json',
-                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify({ 
-                          auto_edit_enabled: checked,
-                          auto_edit_preferences: checked ? {
-                            editing_type: autoEditType,
-                            style: autoEditStyle,
-                            auto_perspective: true,
-                            sky_replacement: true,
-                          } : null,
-                        }),
-                      });
-                      
-                      if (!res.ok) throw new Error(`Server ${res.status}`);
-                      onUpdate?.({ auto_edit_enabled: checked });
-                      sonnerToast.success(checked ? 'Auto-edit enabled' : 'Auto-edit disabled');
-                    } catch (err) {
-                      console.error('Auto-edit toggle failed', err);
-                      sonnerToast.error('Failed to update auto-edit setting');
-                      setAutoEditEnabled(!checked); // Revert on error
-                    }
-                  }}
-                  className="flex-shrink-0"
-                />
-              </div>
-              
-              {autoEditEnabled && (
-                <div className="space-y-3 pt-3 border-t">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Editing Type</Label>
-                    <Select
-                      value={autoEditType}
-                      onValueChange={async (value) => {
-                        setAutoEditType(value);
-                        try {
-                          const base = API_BASE_URL;
-                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
-                          
-                          const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
-                            method: 'PATCH',
-                            headers: {
-                              'Accept': 'application/json',
-                              'Content-Type': 'application/json',
-                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                            },
-                            body: JSON.stringify({ 
-                              auto_edit_preferences: {
-                                editing_type: value,
-                                style: autoEditStyle,
-                                auto_perspective: true,
-                                sky_replacement: true,
-                              },
-                            }),
-                          });
-                          
-                          if (!res.ok) throw new Error(`Server ${res.status}`);
-                          onUpdate?.({ auto_edit_preferences: { editing_type: value, style: autoEditStyle } });
-                        } catch (err) {
-                          console.error('Failed to update auto-edit type', err);
-                          sonnerToast.error('Failed to update editing type');
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="enhance">Enhance</SelectItem>
-                        <SelectItem value="sky_replace">Sky Replace</SelectItem>
-                        <SelectItem value="remove_object">Remove Object</SelectItem>
-                        <SelectItem value="color_correct">Color Correct</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-xs">Enhancement Style</Label>
-                    <Select
-                      value={autoEditStyle}
-                      onValueChange={async (value) => {
-                        setAutoEditStyle(value);
-                        try {
-                          const base = API_BASE_URL;
-                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
-                          
-                          const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
-                            method: 'PATCH',
-                            headers: {
-                              'Accept': 'application/json',
-                              'Content-Type': 'application/json',
-                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                            },
-                            body: JSON.stringify({ 
-                              auto_edit_preferences: {
-                                editing_type: autoEditType,
-                                style: value,
-                                auto_perspective: true,
-                                sky_replacement: true,
-                              },
-                            }),
-                          });
-                          
-                          if (!res.ok) throw new Error(`Server ${res.status}`);
-                          onUpdate?.({ auto_edit_preferences: { editing_type: autoEditType, style: value } });
-                        } catch (err) {
-                          console.error('Failed to update auto-edit style', err);
-                          sonnerToast.error('Failed to update enhancement style');
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="signature">Signature</SelectItem>
-                        <SelectItem value="natural">Natural</SelectItem>
-                        <SelectItem value="twilight">Twilight</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ShootAutoEditSettings shoot={settingsShoot} onUpdate={onUpdate} />
           </div>
         </div>
       )}
@@ -1410,6 +1271,7 @@ export function ShootSettingsTab({
         isOpen={paymentDialogOpen}
         onClose={() => setPaymentDialogOpen(false)}
         onPaymentComplete={handlePaymentComplete}
+        shootId={shoot.id}
         shootAddress={shoot?.location?.fullAddress || shoot?.location?.address}
         shootServices={Array.isArray(shoot.services) ? (shoot.services as unknown[]).map(resolveServiceName).filter(Boolean) : []}
         clientName={shoot?.client?.name}

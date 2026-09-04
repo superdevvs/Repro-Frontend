@@ -1,4 +1,5 @@
 import { parseLocalYmd } from '@/utils/shootLocalDate';
+import type { StripeConfirmationResult } from '@/utils/stripeConfirmation';
 
 export type ReceiptDetails = {
   payment_id?: number;
@@ -55,10 +56,9 @@ export interface ShootDetails {
   receipt?: ReceiptDetails | null;
 }
 
-export type PaymentConfirmationResult = {
-  last_payment_amount?: number | string | null;
-  return_to?: string | null;
+export type PaymentConfirmationResult = StripeConfirmationResult & {
   receipt?: ReceiptDetails | null;
+  shoot?: ShootDetails | null;
 };
 
 export interface EmbeddedCheckoutInstance {
