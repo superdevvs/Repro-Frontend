@@ -1,4 +1,4 @@
-export const PRIVACY_EFFECTIVE_DATE = 'April 16, 2026';
+export const PRIVACY_EFFECTIVE_DATE = 'September 5, 2026';
 export const CONTACT_EMAIL = 'contact@reprophotos.com';
 export const WEBSITE_URL = 'https://reprophotos.com';
 
@@ -155,6 +155,34 @@ export const privacySections: PrivacySection[] = [
     heading: '9. Third-Party Services and Integrations',
     paragraphs: [
       'The Platform relies on third-party providers for services such as payments, file storage, messaging, scheduling, analytics, and related infrastructure. Those providers process information under their own terms and privacy policies.',
+    ],
+    subSections: [
+      {
+        title: 'Optional Google Calendar connection',
+        paragraphs: [
+          'If you choose to connect a Google account, we request permission to identify that account and synchronize shoots assigned to your photographer account with Google Calendar. Google presents the requested permissions before you authorize the connection, including permission to view and edit calendar events. We receive the connected Google account email address and authorization credentials. We use the email address to identify the connected account in the Platform. Authorized administrators managing the photographer account may also see this email address and the connection status.',
+        ],
+      },
+      {
+        title: 'How shoot synchronization uses Google Calendar',
+        paragraphs: [
+          'We send assigned-shoot information to the connected Google calendar to create and maintain appointment events. Depending on the appointment, this may include dates, times, timezones, property addresses, client or on-site contact information, service details, relevant shoot and access instructions, reminders, and a link to the shoot in the Platform. We update these events when the dashboard schedule changes and remove events that no longer apply to the connected photographer. Cancelled appointments may remain in the calendar with a cancellation label.',
+          'Changes flow from the Platform to Google Calendar. This integration does not import unrelated personal Google Calendar events into the Platform.',
+        ],
+      },
+      {
+        title: 'Google connection data we store',
+        paragraphs: [
+          'We store the connected Google email address, calendar identifier, access and refresh tokens, token expiry, synchronization status and errors, and Google event identifiers linked to our shoot records. Access and refresh tokens are encrypted in the application database. These records support the calendar connection and allow us to update previously created events, including when you are not actively using the Platform.',
+        ],
+      },
+      {
+        title: 'Revoking access and requesting removal',
+        paragraphs: [
+          'You may revoke the Platform’s Google access through the third-party connections settings in your Google Account. Revocation prevents future authorized synchronization. It does not automatically remove events already written to Google Calendar or delete the Platform’s stored connection records.',
+          `To request removal of Google integration data, contact ${CONTACT_EMAIL}. When we process a calendar disconnection, the Platform attempts to remove the associated synchronized events and revoke authorization, and removes the stored connection and event mappings. If Google cannot be reached or access has already been revoked, previously created calendar events may need to be removed directly from Google Calendar.`,
+        ],
+      },
     ],
   },
   {
