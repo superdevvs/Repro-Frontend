@@ -102,6 +102,9 @@ export default defineConfig(({ mode }) => ({
   // statements serialize those objects into production browser diagnostics.
   esbuild: {
     drop: mode === 'production' ? ['console', 'debugger'] : [],
+    // jsPDF aliases the browser global, so its error logger is not matched by
+    // esbuild's direct console removal. Suppress that known diagnostic namespace.
+    pure: mode === 'production' ? ['globalObject.console.error', 'globalObject.console.error.apply'] : [],
   },
   server: {
     host: "localhost",
@@ -130,6 +133,19 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    mode === 'production' && {
+      name: 'private-jspdf-diagnostics',
+      enforce: 'pre' as const,
+      transform(code: string, id: string) {
+        // The published jsPDF entry is already minified, so its browser-global
+        // alias no longer has a stable name. Annotate just its diagnostic calls.
+        if (!normalizeModuleId(id).includes('/node_modules/jspdf/dist/jspdf.es')) return null;
+        return {
+          code: code.replace(/\b([A-Za-z_$][\w$]*\.console\.error(?:\.apply)?)\s*\(/g, '/* @__PURE__ */ $1('),
+          map: null,
+        };
+      },
+    },
     react(),
     mode === 'development' &&
     componentTagger(),
