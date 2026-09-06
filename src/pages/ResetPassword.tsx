@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
+import { accountPasswordError } from '@/utils/accountPassword';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -56,8 +57,9 @@ export default function ResetPassword() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    const passwordError = accountPasswordError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 

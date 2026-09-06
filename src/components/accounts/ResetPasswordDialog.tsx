@@ -88,8 +88,9 @@ export function ResetPasswordDialog({
   const handleUpdatePassword = async () => {
     setError("");
     
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
+    const passwordError = accountPasswordError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     
@@ -231,3 +232,4 @@ export function ResetPasswordDialog({
     </Dialog>
   );
 }
+import { accountPasswordError } from '@/utils/accountPassword';

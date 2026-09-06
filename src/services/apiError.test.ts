@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { attachPublicApiError, normalizeApiError } from './apiError';
 
 const serverId = '6922f56b-9985-48e7-bf01-ce8b35914187';
@@ -35,12 +35,16 @@ describe('public API errors', () => {
       .toMatchObject({ message: 'Please check the information you entered.', requestId: undefined, errors: undefined });
   });
 
-  it('prefers authoritative response headers without changing the session', () => {
+  it('prefers authoritative response headers and signals verification without changing the session', () => {
+    const listener = vi.fn();
+    window.addEventListener('email-verification-required', listener);
     localStorage.setItem('authToken', 'existing-session');
     const result = attachPublicApiError({ response: { status: 403,
-      data: { code: 'forbidden', message: 'You do not have permission to perform this action.', request_id: 'stale-value' },
+      data: { code: 'email_verification_required', message: 'Verify your email to continue.', request_id: 'stale-value' },
       headers: { 'x-request-id': serverId } } });
     expect(result.requestId).toBe(serverId);
+    expect(listener).toHaveBeenCalledOnce();
     expect(localStorage.getItem('authToken')).toBe('existing-session');
+    window.removeEventListener('email-verification-required', listener);
   });
 });

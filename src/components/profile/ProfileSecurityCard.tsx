@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/lib/sonner-toast';
+import { accountPasswordError } from '@/utils/accountPassword';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import {
   beginTwoFactorSetup,
@@ -209,8 +210,9 @@ export function ProfileSecurityCard() {
   const changePassword = async (event: React.FormEvent) => {
     event.preventDefault();
     setPasswordError(null);
-    if (passwordForm.next.length < 8) {
-      setPasswordError('Use at least 8 characters for your new password.');
+    const nextPasswordError = accountPasswordError(passwordForm.next);
+    if (nextPasswordError) {
+      setPasswordError(nextPasswordError);
       return;
     }
     if (passwordForm.next !== passwordForm.confirmation) {

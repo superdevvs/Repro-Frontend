@@ -249,8 +249,8 @@ export const registerSchema = z
     state: z.string().optional(),
     zip: z.string().optional(),
     country: z.string().optional(),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirmPassword: z.string().min(6, 'Please confirm your password'),
+    password: z.string().refine(value => !accountPasswordError(value), value => ({ message: accountPasswordError(value) ?? 'Invalid password' })),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
     terms: z.boolean().refine((value) => value === true, {
       message: 'You must agree to the Terms & Conditions',
     }),
@@ -272,4 +272,4 @@ export type RegisterFormProps = {
   onStepChange?: (step: 1 | 2) => void;
   isActive?: boolean;
 };
-
+import { accountPasswordError } from '@/utils/accountPassword';

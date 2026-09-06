@@ -10,6 +10,7 @@ import MobileMenu from './MobileMenu';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
 
 // Stash the context on globalThis so Vite HMR doesn't create duplicate context
@@ -88,7 +89,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           <ErrorBoundary>
             <main className={`flex-1 min-w-0 min-h-0 ${isStudioWorkspace ? 'overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={isStudioWorkspace ? 'flex h-full min-h-0 flex-col' : 'flex flex-col min-h-full'}>
-                {children || <Outlet />}
+                <EmailVerificationNotice>{children || <Outlet />}</EmailVerificationNotice>
               </PageTransition>
               {!shouldHideFooter && (
                 <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">

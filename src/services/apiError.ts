@@ -55,5 +55,8 @@ export function attachPublicApiError(value: unknown): PublicApiError {
     value.publicError = normalized;
     value.message = normalized.message;
   }
+  if (normalized.status === 403 && normalized.code === 'email_verification_required' && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('email-verification-required'));
+  }
   return normalized;
 }

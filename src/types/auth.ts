@@ -114,6 +114,13 @@ export interface UserData {
   isActive?: boolean;
   metadata?: UserMetadata;
   email_health?: EmailHealth;
+  email_verification?: {
+    enrolled: boolean;
+    verified: boolean;
+    reminder: boolean;
+    required: boolean;
+    enforce_at: string | null;
+  };
   legal_status?: LegalStatus;
   pending_address_change?: {
     id?: number;
