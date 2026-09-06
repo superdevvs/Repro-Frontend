@@ -278,3 +278,23 @@ These selector-driven checks remain `blocked` until the Onboarding_System expose
 - [ ] `shoot-status-badge` — shoot status badge.
 - [ ] `submit-to-editor-button` — submit-to-editor action control.
 - [ ] `finalize-delivery-button` — finalize-delivery action control.
+
+### V4 Studio: isolated browser integration
+
+Run the V4 flows without a backend or real account:
+
+```sh
+npm run test:e2e -- e2e/studio-v4.e2e.ts e2e/studio-navigation.e2e.ts --workers=2
+```
+
+The fixtures require a loopback base URL, seed an explicitly synthetic local session,
+and intercept every `/api/` request. Protected shoot previews require the fixture
+bearer header and serve committed local image bytes. No request falls through to
+a live API, and no production credentials or storage state are needed.
+
+Coverage includes shoot authorization, exact media selection, draft creation without
+generation, save/submit/poll recovery, history and single-photo revisions, and the
+six-frame review gate before a 30-second reel. Desktop and 390px mobile checks assert
+page bounds and visible primary actions. Stable light/dark screenshots are saved in
+the corresponding `test-results/` case directories. Provider rendering remains a
+backend integration concern; these tests verify the UI and HTTP contract.

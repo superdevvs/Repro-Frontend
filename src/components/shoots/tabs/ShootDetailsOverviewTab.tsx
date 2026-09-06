@@ -78,6 +78,7 @@ import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsM
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewAccessSection } from './overview/OverviewAccessSection';
+import { OverviewAiStudioSection } from './overview/OverviewAiStudioSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
@@ -951,6 +952,9 @@ export function ShootDetailsOverviewTab({
             />
           ) : undefined
         }
+      />
+      <OverviewAiStudioSection shootId={shoot.id} isClient={isClient}
+        isClientReleaseLocked={isClientReleaseLocked} isEditMode={isEditMode}
       />
 
       <OverviewServicesTableSection

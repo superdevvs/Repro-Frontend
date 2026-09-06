@@ -492,7 +492,7 @@ export function ShootDetailsModalBody({
                   />
                 )}
                 {canOpenAiEdit && !isRequestedStatus && handleOpenAiEdit && (
-                  <RailIconAction icon={Sparkles} label="AI Edit" tone="ai" onClick={handleOpenAiEdit} />
+                  <RailIconAction icon={Sparkles} label="AI Studio" tone="ai" onClick={handleOpenAiEdit} />
                 )}
                 {showMmmPunchoutButtons && canStartMmmPunchout && (
                   <Button

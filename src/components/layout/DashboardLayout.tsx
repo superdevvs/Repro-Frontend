@@ -39,9 +39,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
-  const contentPadding = useCompactShell ? 'p-3 pb-20' : 'p-3';
+  const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
+  const contentPadding = useCompactShell ? (isStudioWorkspace ? 'p-0 pb-20' : 'p-3 pb-20') : 'p-3';
   const shouldHideFooter =
-    hideFooter ||
+    hideFooter || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms';
   
@@ -85,8 +86,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
-            <main className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
-              <PageTransition className="flex flex-col min-h-full">
+            <main className={`flex-1 min-w-0 min-h-0 ${isStudioWorkspace ? 'overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
+              <PageTransition className={isStudioWorkspace ? 'flex h-full min-h-0 flex-col' : 'flex flex-col min-h-full'}>
                 {children || <Outlet />}
               </PageTransition>
               {!shouldHideFooter && (

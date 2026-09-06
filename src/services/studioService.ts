@@ -537,6 +537,7 @@ export const studioService = {
     files: File[],
     workflow: WorkflowId,
     onProgress?: UploadProgressHandler,
+    endpoint = '/studio/uploads',
   ): Promise<UploadResult> {
     const accepted: UploadedMedia[] = [];
     const rejected: RejectedUpload[] = [];
@@ -548,7 +549,7 @@ export const studioService = {
       formData.append('files[]', file);
 
       try {
-        const response = await apiClient.post('/studio/uploads', formData, {
+        const response = await apiClient.post(endpoint, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (event) => {
             const total = event.total ?? (file.size > 0 ? file.size : 0);

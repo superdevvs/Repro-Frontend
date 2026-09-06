@@ -36,6 +36,8 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { computePhotographerPayForShoot, formatPay } from '@/utils/photographerPay';
 import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { usePermission } from '@/hooks/usePermission';
+import { buildShootStudioHref } from '@/components/studio/shootStudioDeepLink';
 import { useShoots } from '@/context/shootsContextState';
 import { useShootRealtime } from '@/hooks/use-shoot-realtime';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
@@ -87,6 +89,7 @@ export function ShootDetailsModal({
   const queryClient = useQueryClient();
   const { role: authRole, user } = useAuth();
   const { toast } = useToast();
+  const { can, isLoading: permissionsLoading } = usePermission();
   const { updateShoot } = useShoots();
   const { formatTemperature, formatTime } = useUserPreferences();
   const [activeTab, setActiveTab] = useState<ShootDetailsTabId>(initialTab);
@@ -266,12 +269,11 @@ export function ShootDetailsModal({
     () => getShootClientReleaseAccess(shoot, isClient),
     [isClient, shoot],
   );
-  const canOpenAiEdit = useMemo(
-    () =>
-      ['admin', 'superadmin', 'editing_manager'].includes((currentUserRole || '').toLowerCase()) &&
-      rawFileCount > 0,
-    [currentUserRole, rawFileCount],
-  );
+  const imageStudioHref = shoot
+    ? buildShootStudioHref({ shootId: shoot.id, media: 'images', presetId: 'listing-ready' })
+    : null;
+  const canOpenAiEdit = !permissionsLoading && can('ai-editing', 'view') &&
+    !clientReleaseAccess.isClientReleaseLocked && Boolean(imageStudioHref);
   const hasInflightShootUploads = useMemo(
     () => activeUploads.some((u) => u.shootId === String(shoot?.id) && u.status === 'uploading'),
     [activeUploads, shoot?.id],
@@ -295,16 +297,12 @@ export function ShootDetailsModal({
     editedMediaCount,
   }), [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
   const handleOpenAiEdit = useCallback(() => {
-    if (typeof window === 'undefined' || !shoot?.id) {
+    if (!canOpenAiEdit || isEditMode || !imageStudioHref) {
       return;
     }
-
-    window.dispatchEvent(
-      new CustomEvent('shoot-ai-edit-open', {
-        detail: { shootId: String(shoot.id) },
-      }),
-    );
-  }, [shoot?.id]);
+    onClose();
+    navigate(imageStudioHref);
+  }, [canOpenAiEdit, imageStudioHref, isEditMode, navigate, onClose]);
 
   const handleTabChange = (value: string) => {
     const selectedTab = visibleTabs.find((tab) => tab.id === value);

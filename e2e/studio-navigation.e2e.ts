@@ -1,38 +1,30 @@
 import { expect, test } from '@playwright/test';
 
-import { loginAsAdmin } from './helpers/auth';
+import { installStudioFixtures } from './helpers/studio-v4-fixtures';
 
 test.describe('AI Editing Studio shell', () => {
-  test('keeps one application sidebar and navigates from the workspace page buttons', async ({
-    page,
-  }) => {
-    await loginAsAdmin(page);
+  test('keeps one application sidebar across media modes and editing history', async ({ page, baseURL }) => {
+    await installStudioFixtures(page, baseURL);
     await page.goto('/ai-editing?d=command-center');
 
     await expect(page.getByTestId('application-sidebar')).toHaveCount(1);
-    await expect(page.getByRole('tablist', { name: 'Studio media mode' })).toHaveCount(0);
-    const pageNavigation = page.getByRole('navigation', { name: 'Studio pages' });
-    await expect(pageNavigation).toBeVisible({ timeout: 30_000 });
-    await expect(pageNavigation.getByRole('button')).toHaveCount(3);
-    await expect(pageNavigation.getByRole('button', { name: /Studio home/i })).toHaveAttribute(
+    const mediaNavigation = page.getByRole('navigation', { name: 'Media type' });
+    await expect(mediaNavigation).toBeVisible();
+    await expect(mediaNavigation.getByRole('button')).toHaveCount(3);
+    await expect(mediaNavigation.getByRole('button', { name: /^studio$/i })).toHaveAttribute(
       'aria-current',
       'page',
     );
 
-    await pageNavigation.getByRole('button', { name: /Photo studio/i }).click();
-    await expect(page).toHaveURL(/d=photo-enhancement/);
-
-    await page.goBack();
-    await expect(page).toHaveURL(/d=command-center/);
-    await expect(pageNavigation).toBeVisible({ timeout: 30_000 });
-
-    await pageNavigation.getByRole('button', { name: /Video studio/i }).click();
-    await expect(page).toHaveURL(/d=listing-video/);
-
-    await page.goto('/ai-editing?d=video-cleanup');
-    await page.reload();
-    await expect(page).toHaveURL(/d=video-cleanup/);
+    await mediaNavigation.getByRole('button', { name: /^image$/i }).click();
+    await expect(mediaNavigation.getByRole('button', { name: /^image$/i })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('combobox', { name: 'Editing preset' })).toContainText('Listing ready');
+    await mediaNavigation.getByRole('button', { name: /^video$/i }).click();
+    await expect(page.getByRole('combobox', { name: 'Editing preset' })).toContainText('Walkthrough');
+    await page.getByRole('button', { name: 'Editing history' }).click();
+    await expect(page.getByRole('heading', { name: 'Your editing history' })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to Studio' }).click();
+    await expect(page.getByRole('textbox', { name: 'Describe your edit' })).toBeVisible();
     await expect(page.getByTestId('application-sidebar')).toHaveCount(1);
-    await expect(page.getByRole('tablist', { name: 'Studio media mode' })).toHaveCount(0);
   });
 });
