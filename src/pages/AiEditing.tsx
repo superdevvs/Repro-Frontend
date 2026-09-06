@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -9,6 +9,7 @@ import { sourceMedia, studioError, studioWorkspaceService, workspaceSources } fr
 import { StudioHome, type HomeView } from '@/components/studio/v4/StudioHome';
 import { MediaPicker } from '@/components/studio/v4/MediaPicker';
 import { findPreset, initialConfig } from '@/components/studio/v4/presets';
+import { createWorkspaceRefresh, newestWorkspace } from '@/components/studio/v4/workspaceRefresh';
 import type { V4Config, V4Media, V4Preset, V4Workspace, V4WorkspaceProps } from '@/components/studio/v4/types';
 import { PhotoWorkspace } from '@/components/ai-editing/v4/PhotoWorkspace';
 import { VideoWorkspace } from '@/components/ai-editing/v4/VideoWorkspace';
@@ -67,11 +68,12 @@ export default function AiEditing() {
     // A new URL entry replaces selection; picker edits do not restart authorization.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entryKey]);
-  const refreshWorkspace = useCallback(async (id: string) => {
-    const epoch = operationEpoch.current;
-    try { const next = await studioWorkspaceService.get(id); if (currentId.current === id && operationEpoch.current === epoch) { setWorkspace(next); setError(null); } }
-    catch (e) { if (currentId.current === id && operationEpoch.current === epoch) setError(studioError(e)); }
-  }, []);
+  const refreshWorkspace = useMemo(() => createWorkspaceRefresh({
+    fetchWorkspace: id => studioWorkspaceService.get(id),
+    currentScope: () => ({ id: currentId.current, epoch: operationEpoch.current }),
+    onWorkspace: next => setWorkspace(current => newestWorkspace(current, next)),
+    onError: reason => setError(reason ? studioError(reason) : null),
+  }), []);
   useEffect(() => {
     if (!workspaceId) { setWorkspace(null); return; }
     let active = true; setLoading(true); setError(null); setWorkspace(null);
@@ -93,7 +95,7 @@ export default function AiEditing() {
     const targetId = currentId.current;
     operationEpoch.current += 1;
     lock.current = true; setBusy(true); setError(null);
-    try { const next = await operation(); if (currentId.current === next.id) { setWorkspace(next); setMedia(next.media); } void refreshHistory(); }
+    try { const next = await operation(); if (currentId.current === next.id) { setWorkspace(current => newestWorkspace(current, next)); setMedia(next.media); } void refreshHistory(); }
     catch (e) {
       // A failed response may follow a committed save or queued job. Reconcile
       // its version/status before Retry, while useWorkspaceDraft retains edits.
@@ -117,7 +119,7 @@ export default function AiEditing() {
     const saved = await studioWorkspaceService.update(workspace.id, { config, version: workspace.version });
     // Saving and queueing are separate requests. Retain the committed version even
     // if queueing fails, so Retry cannot overwrite a newer draft or fail as stale.
-    if (currentId.current === saved.id) setWorkspace(saved);
+    if (currentId.current === saved.id) setWorkspace(current => newestWorkspace(current, saved));
     return studioWorkspaceService.run(saved.id, action);
   });
   const props: V4WorkspaceProps | null = workspace ? {
