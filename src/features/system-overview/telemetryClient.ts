@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/config/env';
 import { findCatalogPageByRoute } from '@/features/system-overview/catalog';
+import { telemetryLabel, telemetryPayload, telemetryRoute } from './telemetryPrivacy';
 
 type TelemetryAuthState = {
   isAuthenticated: boolean;
@@ -80,7 +81,7 @@ export const setTelemetryAuthState = (next: TelemetryAuthState) => {
 };
 
 export const setTelemetryRoute = (route: string) => {
-  currentRoute = route;
+  currentRoute = telemetryRoute(route);
 };
 
 const isTelemetryDisabled = () => Date.now() < telemetryDisabledUntil;
@@ -104,7 +105,7 @@ const buildHeaders = () => {
     'Content-Type': 'application/json',
     Authorization: token ? `Bearer ${token}` : '',
     'X-System-Session-Id': getTelemetrySessionId(),
-    'X-System-Current-Route': currentRoute,
+    'X-System-Current-Route': telemetryRoute(currentRoute),
     'X-Trace-Id': createTraceId(),
   };
 };
@@ -112,9 +113,19 @@ const buildHeaders = () => {
 const enqueue = (event: ClientTelemetryEvent) => {
   if (!authState.isAuthenticated || isTelemetryDisabled()) return;
   queue.push({
-    ...event,
-    routePath: event.routePath ?? currentRoute,
-    pageKey: event.pageKey ?? findCatalogPageByRoute(currentRoute)?.pageKey,
+    type: event.type,
+    routePath: telemetryRoute(event.routePath ?? currentRoute),
+    pageKey: telemetryLabel(event.pageKey ?? findCatalogPageByRoute(currentRoute)?.pageKey),
+    componentName: telemetryLabel(event.componentName),
+    actionName: telemetryLabel(event.actionName),
+    blockerState: telemetryLabel(event.blockerState),
+    blockerType: telemetryLabel(event.blockerType),
+    severity: telemetryLabel(event.severity),
+    traceId: typeof event.traceId === 'string' && /^[0-9a-f-]{36}$/i.test(event.traceId) ? event.traceId : undefined,
+    message: ['error', 'blocker'].includes(event.type) ? 'A browser operation could not be completed.' : undefined,
+    blockerMessage: ['error', 'blocker'].includes(event.type) ? 'A browser operation could not be completed.' : undefined,
+    errorClass: event.type === 'error' ? 'ClientOperationError' : undefined,
+    payload: telemetryPayload(event.payload),
     occurredAt: event.occurredAt ?? new Date().toISOString(),
   });
 
@@ -211,7 +222,7 @@ export const trackTelemetryRouteChange = (nextRoute: string) => {
     );
   }
 
-  currentRoute = nextRoute;
+  currentRoute = telemetryRoute(nextRoute);
   activeComponentNames = nextPage?.components ?? [];
 
   enqueue({

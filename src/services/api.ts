@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { attachPublicApiError } from './apiError';
 import {
   createTraceId,
   getCurrentTelemetryRoute,
@@ -291,7 +292,7 @@ window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestIni
     headers.set('X-System-Current-Route', telemetryHeaders['X-System-Current-Route']);
 
     return _originalFetch.call(window, input, { ...init, headers }).then(async (response) => {
-      const traceId = headers.get('X-Trace-Id') || telemetryHeaders['X-Trace-Id'];
+      const traceId = response.headers.get('X-Request-Id') || response.headers.get('X-Trace-Id') || undefined;
       if (isTelemetryCall) {
         return response;
       }
@@ -309,6 +310,13 @@ window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestIni
           emitLocalMutationEvents(method, url);
         }
       } else if (!response.ok) {
+        if (response.status === 403) {
+          try {
+            attachPublicApiError({ response: { status: response.status, data: await response.clone().json() } });
+          } catch {
+            // Non-JSON errors remain available to their original fetch caller.
+          }
+        }
         trackTelemetryBlocker('fetch-error', `${method.toUpperCase()} ${normalizeApiPath(url)} failed`, {
           statusCode: response.status,
         }, traceId);
@@ -317,8 +325,8 @@ window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestIni
       return response;
     }).catch((error) => {
       if (!isTelemetryCall) {
-        trackTelemetryError(error?.message || 'Fetch request failed', error?.name || 'FetchError', {
-          url,
+        trackTelemetryError('Fetch request failed', 'FetchError', {
+          path: normalizeApiPath(url),
           method,
         }, telemetryHeaders['X-Trace-Id']);
       }
@@ -363,7 +371,7 @@ axios.interceptors.response.use(
       return response;
     }
 
-    const traceId = response.config?.headers?.['X-Trace-Id'] || response.headers?.['x-trace-id'];
+    const traceId = response.headers?.['x-request-id'] || response.headers?.['x-trace-id'];
     emitLocalMutationEvents(
       response.config?.method,
       response.config?.url,
@@ -383,12 +391,13 @@ axios.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const traceId = error?.config?.headers?.['X-Trace-Id'];
-    trackTelemetryError(error?.message || 'Axios request failed', error?.name || 'AxiosError', {
-      url: error?.config?.url,
+    const publicError = attachPublicApiError(error);
+    trackTelemetryError('API request failed', 'ApiError', {
+      path: normalizeApiPath(error?.config?.url, error?.config?.baseURL),
       method: error?.config?.method,
-      statusCode: error?.response?.status,
-    }, Array.isArray(traceId) ? traceId[0] : traceId);
+      statusCode: publicError.status,
+      code: publicError.code,
+    }, publicError.requestId);
     return Promise.reject(error);
   },
 );
@@ -425,7 +434,7 @@ apiClient.interceptors.request.use((config) => {
     config.headers.set('X-System-Session-Id', telemetryHeaders['X-System-Session-Id']);
     config.headers.set('X-System-Current-Route', telemetryHeaders['X-System-Current-Route']);
   } catch (error) {
-    console.warn('Failed to attach auth token', error);
+    // A local header preparation error must not expose token storage or request data.
   }
 
   return config;
@@ -438,7 +447,7 @@ apiClient.interceptors.response.use(
       return response;
     }
 
-    const traceId = response.config?.headers?.['X-Trace-Id'] || response.headers?.['x-trace-id'];
+    const traceId = response.headers?.['x-request-id'] || response.headers?.['x-trace-id'];
     emitLocalMutationEvents(
       response.config?.method,
       response.config?.url,
@@ -458,55 +467,25 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const traceId = error?.config?.headers?.['X-Trace-Id'];
+    const publicError = attachPublicApiError(error);
+    const traceId = publicError.requestId;
     const normalizedPath = normalizeApiPath(error?.config?.url, error?.config?.baseURL);
     if (error?.response?.status) {
       trackTelemetryBlocker(
         'api-error',
         `${String(error?.config?.method || 'get').toUpperCase()} ${normalizedPath} failed`,
-        { statusCode: error.response.status },
+        { statusCode: publicError.status, code: publicError.code },
         Array.isArray(traceId) ? traceId[0] : traceId,
       );
     } else {
       trackTelemetryError(
-        error?.message || 'API request failed',
-        error?.name || 'AxiosError',
-        { url: error?.config?.url, method: error?.config?.method },
+        'API request failed',
+        'ApiError',
+        { path: normalizedPath, method: error?.config?.method, code: publicError.code },
         Array.isArray(traceId) ? traceId[0] : traceId,
       );
     }
 
-    // Log network errors for debugging
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-      const fullUrl = error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown';
-      console.error('🚨 Network Error - Request never reached backend:', {
-        fullUrl,
-        url: error.config?.url,
-        method: error.config?.method,
-        baseURL: error.config?.baseURL,
-        message: error.message,
-        code: error.code,
-      });
-      console.error('💡 Troubleshooting:', {
-        '1. Backend running?': 'Check: http://localhost:8000/api/ping',
-        '2. API_BASE_URL': import.meta.env.VITE_API_URL || 'Using default (localhost:8000)',
-        '3. CORS issue?': 'Check browser console for CORS errors',
-        '4. Wrong port?': 'Verify backend port matches VITE_API_PORT or VITE_API_URL',
-      });
-    }
-    
-    // Log other errors
-    if (error.response) {
-      console.error('API Error Response:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data,
-        url: error.config?.url,
-        fullUrl: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
-      });
-    }
-    
     return Promise.reject(error);
   }
 );
-

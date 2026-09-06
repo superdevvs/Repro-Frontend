@@ -98,6 +98,11 @@ const noKeepAliveAgent = new http.Agent({ keepAlive: false, maxSockets: 20 });
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Axios errors retain headers/body for callers. Never let legacy console
+  // statements serialize those objects into production browser diagnostics.
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
   server: {
     host: "localhost",
     port: 5173,
