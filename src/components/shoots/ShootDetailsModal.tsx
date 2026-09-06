@@ -773,6 +773,8 @@ export function ShootDetailsModal({
           isMobileActionsOpen={isMobileActionsOpen}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
           canSendManualNotification={canSendManualNotification}
+          canOpenAiEdit={canOpenAiEdit && !isCancelledOrDeclined}
+          handleOpenAiEdit={handleOpenAiEdit}
           onOpenManualNotification={() => setIsManualNotificationOpen(true)}
           setIsApprovalModalOpen={setIsApprovalModalOpen}
           setIsDeclineModalOpen={setIsDeclineModalOpen}

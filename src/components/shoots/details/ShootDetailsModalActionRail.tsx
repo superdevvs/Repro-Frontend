@@ -21,6 +21,7 @@ import {
   Send,
   Share2,
   Settings,
+  Sparkles,
   Upload,
   X,
   XCircle,
@@ -99,6 +100,8 @@ interface ShootDetailsModalActionRailProps {
   isMobileActionsOpen: boolean;
   setIsMobileActionsOpen: (open: boolean) => void;
   canSendManualNotification: boolean;
+  canOpenAiEdit?: boolean;
+  handleOpenAiEdit?: () => void;
   onOpenManualNotification: () => void;
   setIsApprovalModalOpen: (open: boolean) => void;
   setIsDeclineModalOpen: (open: boolean) => void;
@@ -163,6 +166,8 @@ export function ShootDetailsModalActionRail({
   isMobileActionsOpen,
   setIsMobileActionsOpen,
   canSendManualNotification,
+  canOpenAiEdit = false,
+  handleOpenAiEdit,
   onOpenManualNotification,
   setIsApprovalModalOpen,
   setIsDeclineModalOpen,
@@ -448,6 +453,20 @@ export function ShootDetailsModalActionRail({
             </DialogDescription>
           </DialogHeader>
           <div className="px-3 pb-3 space-y-1">
+            {canOpenAiEdit && handleOpenAiEdit && !isEditMode && !isRequestedStatus && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleOpenAiEdit();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                AI Studio
+              </button>
+            )}
             {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"

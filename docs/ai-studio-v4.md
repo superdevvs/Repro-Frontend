@@ -6,7 +6,7 @@ V4 replaces the `/ai-editing` page with a responsive, persisted editing workspac
 
 Open `/ai-editing`, choose a shoot or upload photos, choose a preset, and continue to its editor. The composer places the small image stack immediately to the right of the address. Presets and history have their own searchable views. Staff can also expand Previous edits to retrieve outputs from the earlier system.
 
-Shoot Overview includes photo and video preset entry points. These authorize and load the selected shoot into Studio without starting a paid generation. A workspace draft is created when the user continues; generation is a separate explicit action.
+Use the existing AI Editing / AI Studio action in the shoot details controls (or the mobile Actions menu) to authorize and load the current shoot into Studio. Choose image or video presets inside Studio. The Overview content has no separate AI editing section. A workspace draft is created when the user continues; generation is a separate explicit action.
 
 Photo editing supports individual selections, multiple shoots, full-shoot enhancement, adjustments, before/after comparison, version review, suggested-area feedback, drawing, revision, download and sharing. Presets include listing ready, color correction, twilight, green grass and virtual staging.
 
@@ -35,12 +35,12 @@ From `frontend/`, start Vite:
 npm run dev -- --host 127.0.0.1
 ```
 
-Stop these local services with `docker compose -f docker/compose.studio-local.yml down` from `backend/`, and stop the Vite terminal. Production deployment and a supervised worker must be configured separately; no remote deployment or database migration was performed.
+Stop these local services with `docker compose -f docker/compose.studio-local.yml down` from `backend/`, and stop the Vite terminal. Production is deployed at `https://reprodashboard.com/ai-editing` with its migration and dedicated supervised Studio worker. See the backend runtime documentation for the worker installer and deployment checks.
 
 ## Verification
 
 - Production frontend build, TypeScript, changed-scope ESLint, file-size and bundle-size checks passed.
-- 129 focused frontend tests passed, including editor state, version delivery/download, source scope, Overview links, long drawing gestures and legacy output access.
+- Focused frontend tests passed, including editor state, version delivery/download, source scope, shoot entry links, long drawing gestures and legacy output access.
 - Nine isolated Playwright flows passed on desktop and mobile with authenticated image previews, real attachment bytes and strict draft version checks. Screenshot checks cover both dashboard themes.
 - Backend regression and permission checks passed; see `backend/docs/studio-workspaces-v4-verification.md` for exact suites.
 - Live provider checks produced a photo edit, AI image extension, OpenAI detections and a five-second Kling start/end-conditioned clip. FFmpeg rendered actual video with transitions and graphic text at the requested dimensions and duration.
