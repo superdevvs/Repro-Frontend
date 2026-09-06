@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -28,7 +28,6 @@ import {
   UploadCloudIcon,
   CloudIcon,
   PlusIcon,
-  BoxIcon,
   MonitorIcon,
   SaveIcon,
   SendIcon,
@@ -39,7 +38,7 @@ import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useShoots } from '@/context/shootsContextState';
 import { useUpload } from '@/context/UploadContext';
-import { useDropboxFilePicker } from './useDropboxFilePicker';
+
 
 interface FileUploaderProps {
   shootId?: string;
@@ -89,30 +88,12 @@ const [uploading, setUploading] = useState(false);
 const [progress, setProgress] = useState(0);
 const [notes, setNotes] = useState(initialNotes);
 const [notesChanged, setNotesChanged] = useState(false);
-const [uploadMethod, setUploadMethod] = useState<'local' | 'dropbox' | 'google'>('local');
+const [uploadMethod, setUploadMethod] = useState<'local' | 'google'>('local');
 const [showMissingPhotosWarning, setShowMissingPhotosWarning] = useState(false);
 const [missingPhotosCount, setMissingPhotosCount] = useState(0);
 
-const handleDropboxFilesAdded = useCallback((downloadedFiles: File[]) => {
-  setFiles((current) => [...current, ...downloadedFiles]);
-}, []);
-const handleDropboxDisconnect = useCallback(() => setUploadMethod('local'), []);
-const {
-  auth: dropboxAuth,
-  files: dropboxFiles,
-  selectedFiles: selectedDropboxFiles,
-  loadingFiles: loadingDropboxFiles,
-  connect: connectDropbox,
-  toggleFile: toggleDropboxFileSelection,
-  selectAll: selectAllDropboxFiles,
-  addSelectedFiles: addSelectedDropboxFiles,
-  disconnect: disconnectDropbox,
-} = useDropboxFilePicker({
-  active: uploadMethod === 'dropbox',
-  onFilesAdded: handleDropboxFilesAdded,
-  onDisconnect: handleDropboxDisconnect,
-});
-  
+useEffect(() => { localStorage.removeItem('dropbox_access_token'); }, []);
+
 // Calculate expected file count based on photo count and bracket mode
 const expectedFileCount = useMemo(() => {
   if (!expectedPhotoCount || expectedPhotoCount <= 0) return 0;
@@ -524,17 +505,7 @@ const expectedFileCount = useMemo(() => {
             Local Upload
           </Button>
           
-          <Button 
-            variant={uploadMethod === 'dropbox' ? 'default' : 'outline'} 
-            size="sm"
-            onClick={connectDropbox}
-            className="flex-1"
-          >
-            <BoxIcon className="h-4 w-4 mr-2" />
-            Dropbox
-          </Button>
-          
-          {/* <Button 
+{/* <Button
             variant={uploadMethod === 'google' ? 'default' : 'outline'} 
             size="sm"
             onClick={connectGoogleDrive}
@@ -571,51 +542,6 @@ const expectedFileCount = useMemo(() => {
               <ArrowUpIcon className="h-4 w-4 mr-2" />
               Select Files
             </Button>
-          </div>
-        )}
-        
-        {uploadMethod === 'dropbox' && (
-          <div className="border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <BoxIcon className="h-5 w-5 text-blue-600" />
-                <h3 className="font-medium">Dropbox Files</h3>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setFiles([])}>
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                Select All
-              </Button>
-            </div>
-            
-            <div className="border rounded p-3 mb-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <ImageIcon className="h-5 w-5 text-blue-500 mr-2" />
-                <span>client_project_photo.jpg</span>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => setFiles([...files, new File([], 'client_project_photo.jpg')])}>
-                <PlusIcon className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="border rounded p-3 mb-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <FilmIcon className="h-5 w-5 text-purple-500 mr-2" />
-                <span>property_tour.mov</span>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => setFiles([...files, new File([], 'property_tour.mov')])}>
-                <PlusIcon className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="border rounded p-3 flex items-center justify-between">
-              <div className="flex items-center">
-                <FileIcon className="h-5 w-5 text-gray-500 mr-2" />
-                <span>listings_package.zip</span>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => setFiles([...files, new File([], 'listings_package.zip')])}>
-                <PlusIcon className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
         )}
         

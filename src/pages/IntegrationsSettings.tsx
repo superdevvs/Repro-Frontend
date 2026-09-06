@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 // Import these conditionally or use them only in the full page component
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { StudioDropboxConnectionPanel } from '@/components/integrations/StudioDropboxConnectionPanel';
 import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
@@ -230,6 +231,7 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
 
 // Export the content component for use in Settings page
 export const IntegrationsSettingsContent = () => {
+  const [integrationSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Zillow/Bridge Settings
@@ -264,17 +266,6 @@ export const IntegrationsSettingsContent = () => {
   const [testingIguide, setTestingIguide] = useState(false);
   const [iguideTestResult, setIguideTestResult] = useState<any>(null);
 
-  // Dropbox Settings
-  const [dropboxSettings, setDropboxSettings] = useState({
-    clientId: '',
-    clientSecret: '',
-    accessToken: '',
-    refreshToken: '',
-    enabled: false,
-  });
-  const [testingDropbox, setTestingDropbox] = useState(false);
-  const [dropboxTestResult, setDropboxTestResult] = useState<any>(null);
-
   // MMM Settings
   const [mmmSettings, setMmmSettings] = useState<MmmSettings>(normalizeMmmSettings());
   const [testingMmm, setTestingMmm] = useState(false);
@@ -294,12 +285,11 @@ export const IntegrationsSettingsContent = () => {
     try {
       // Try to load from database settings first
       try {
-        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes, reproApiRes] = await Promise.all([
+        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, mmmRes, reproApiRes] = await Promise.all([
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow.address_overrides')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.bright_mls')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.iguide')).catch(() => null),
-          apiClient.get(API_ROUTES.admin.settings.get('integrations.dropbox')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.mmm')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.repro_api')).catch(() => null),
         ]);
@@ -318,10 +308,6 @@ export const IntegrationsSettingsContent = () => {
 
         if (iguideRes?.data?.success && iguideRes.data.data?.value) {
           setIguideSettings({ ...iguideRes.data.data.value, enabled: iguideRes.data.data.value.enabled ?? true });
-        }
-
-        if (dropboxRes?.data?.success && dropboxRes.data.data?.value) {
-          setDropboxSettings({ ...dropboxRes.data.data.value, enabled: dropboxRes.data.data.value.enabled ?? false });
         }
 
         if (mmmRes?.data?.success && mmmRes.data.data?.value) {
@@ -455,13 +441,6 @@ export const IntegrationsSettingsContent = () => {
         'iGUIDE API credentials',
       );
 
-      // Save Dropbox settings
-      await storeAdminSetting(
-        'integrations.dropbox',
-        dropboxSettings,
-        'Dropbox storage integration',
-      );
-
       // Save MMM settings
       await storeAdminSetting(
         'integrations.mmm',
@@ -555,24 +534,6 @@ export const IntegrationsSettingsContent = () => {
     }
   };
 
-  const testDropboxConnection = async () => {
-    setTestingDropbox(true);
-    setDropboxTestResult(null);
-    try {
-      const response = await apiClient.post(API_ROUTES.integrations.testConnection, {
-        service: 'dropbox',
-      });
-      setDropboxTestResult(response.data);
-    } catch (error: any) {
-      setDropboxTestResult({
-        success: false,
-        message: error.response?.data?.message || 'Connection test failed',
-      });
-    } finally {
-      setTestingDropbox(false);
-    }
-  };
-
   const testMmmConnection = async () => {
     setTestingMmm(true);
     setMmmTestResult(null);
@@ -595,7 +556,7 @@ export const IntegrationsSettingsContent = () => {
 
   return (
     <div className="space-y-6">
-        <Tabs defaultValue="zillow" className="w-full">
+        <Tabs defaultValue={integrationSearchParams.has('dropbox') ? 'dropbox' : 'zillow'} className="w-full">
             <TabsList className="grid w-full max-w-6xl grid-cols-6">
               <TabsTrigger value="dropbox">
                 <Upload className="mr-2 h-4 w-4" />
@@ -625,152 +586,8 @@ export const IntegrationsSettingsContent = () => {
 
             {/* Dropbox Storage Settings */}
             <TabsContent value="dropbox" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Dropbox Storage</CardTitle>
-                      <CardDescription>
-                        Configure Dropbox for photo storage. When enabled, uploads go to Dropbox. When disabled, local storage is used.
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="dropbox-enabled">Enabled</Label>
-                      <Switch
-                        id="dropbox-enabled"
-                        checked={dropboxSettings.enabled}
-                        onCheckedChange={(checked) =>
-                          setDropboxSettings({ ...dropboxSettings, enabled: checked })
-                        }
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-md bg-blue-50 dark:bg-blue-950 p-3 mb-4">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      <strong>Storage Mode:</strong> {dropboxSettings.enabled ? 'Dropbox Cloud Storage' : 'Local Server Storage'}
-                    </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                      {dropboxSettings.enabled 
-                        ? 'Photos will be uploaded to Dropbox folders organized by shoot address.' 
-                        : 'Photos will be stored locally on the server.'}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="dropbox-client-id">App Key (Client ID)</Label>
-                      <Input
-                        id="dropbox-client-id"
-                        type="text"
-                        value={dropboxSettings.clientId}
-                        onChange={(e) =>
-                          setDropboxSettings({ ...dropboxSettings, clientId: e.target.value })
-                        }
-                        placeholder="Enter Dropbox App Key"
-                        disabled={!dropboxSettings.enabled}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dropbox-client-secret">App Secret</Label>
-                      <Input
-                        id="dropbox-client-secret"
-                        type="password"
-                        value={dropboxSettings.clientSecret}
-                        onChange={(e) =>
-                          setDropboxSettings({ ...dropboxSettings, clientSecret: e.target.value })
-                        }
-                        placeholder="Enter Dropbox App Secret"
-                        disabled={!dropboxSettings.enabled}
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="dropbox-access-token">Access Token</Label>
-                      <Input
-                        id="dropbox-access-token"
-                        type="password"
-                        value={dropboxSettings.accessToken}
-                        onChange={(e) =>
-                          setDropboxSettings({ ...dropboxSettings, accessToken: e.target.value })
-                        }
-                        placeholder="Enter Dropbox Access Token"
-                        disabled={!dropboxSettings.enabled}
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="dropbox-refresh-token">Refresh Token (Optional)</Label>
-                      <Input
-                        id="dropbox-refresh-token"
-                        type="password"
-                        value={dropboxSettings.refreshToken}
-                        onChange={(e) =>
-                          setDropboxSettings({ ...dropboxSettings, refreshToken: e.target.value })
-                        }
-                        placeholder="Enter Dropbox Refresh Token (for automatic token refresh)"
-                        disabled={!dropboxSettings.enabled}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-md bg-muted p-3">
-                    <p className="text-xs text-muted-foreground">
-                      <strong>Folder Structure:</strong>
-                    </p>
-                    <ul className="text-xs text-muted-foreground mt-1 space-y-1">
-                      <li>• RAW uploads: <code>/Photo Editing/To-Do/[shoot-address]/raw/</code></li>
-                      <li>• Extra photos: <code>/Photo Editing/To-Do/[shoot-address]/extra/</code></li>
-                      <li>• Edited photos: <code>/Photo Editing/Completed/[shoot-address]-edited/</code></li>
-                    </ul>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Test Connection</p>
-                      <p className="text-xs text-muted-foreground">
-                        Verify your Dropbox credentials are working
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={testDropboxConnection}
-                      disabled={testingDropbox || !dropboxSettings.enabled}
-                    >
-                      {testingDropbox ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Testing...
-                        </>
-                      ) : (
-                        'Test Connection'
-                      )}
-                    </Button>
-                  </div>
-
-                  {dropboxTestResult && (
-                    <div
-                      className={`flex items-center gap-2 p-3 rounded-md ${
-                        dropboxTestResult.success
-                          ? 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100'
-                          : 'bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100'
-                      }`}
-                    >
-                      {dropboxTestResult.success ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                      <p className="text-sm">
-                        {dropboxTestResult.message || dropboxTestResult.data?.message}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <StudioDropboxConnectionPanel />
             </TabsContent>
-
             {/* Zillow/Bridge Settings */}
             <TabsContent value="zillow" className="mt-6">
               <Card>

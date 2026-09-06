@@ -12,3 +12,15 @@
 *.webp binary
 *.woff binary
 *.woff2 binary
+
+# Environment files and local operational artifacts never belong in releases.
+.env export-ignore
+.env.* export-ignore
+.env.example -export-ignore
+*.pem export-ignore
+*.key export-ignore
+*.p12 export-ignore
+*.pfx export-ignore
+*.jks export-ignore
+/output export-ignore
+/quarantine* export-ignore
