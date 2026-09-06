@@ -23,14 +23,14 @@ export function MediaPicker({ open, onClose, selected, preset, onSelect }: Props
   const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => { if (open) { setSelection(selected); setError(null); } }, [open, selected]);
   useEffect(() => {
-    if (!open) return;
+    if (!open || active) return;
     let current = true;
+    setLoading(true); setError(null);
     const timer = window.setTimeout(() => {
-      setLoading(true); setError(null);
       studioService.searchShoots(search).then(items => { if (current) setShoots(items); }).catch(e => { if (current) setError(studioError(e)); }).finally(() => { if (current) setLoading(false); });
     }, 250);
     return () => { current = false; window.clearTimeout(timer); };
-  }, [search, open]);
+  }, [search, open, active]);
   useEffect(() => {
     if (!active || !open) return;
     let current = true; setLoading(true); setPhotos([]); setError(null);
@@ -77,7 +77,7 @@ export function MediaPicker({ open, onClose, selected, preset, onSelect }: Props
         {error && <p role="alert" className="shrink-0 whitespace-pre-line bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {loading ? <div className="flex h-36 items-center justify-center gap-2 text-muted-foreground"><Loader2 size={18} className="animate-spin" />Loading media…</div> : active ? <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">{photos.map(m => <button key={m.id} onClick={() => toggle(m)} aria-pressed={selection.some(s => s.id === m.id)} className="group min-w-0 text-left"><div className={`relative aspect-[4/3] overflow-hidden rounded-xl border-2 bg-muted/30 ${selection.some(s => s.id === m.id) ? 'border-primary' : 'border-transparent'}`}><StudioImage src={m.thumbnailUrl} alt={m.name} className="h-full w-full object-contain" /><span className={`absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-md border ${selection.some(s => s.id === m.id) ? 'border-primary bg-primary text-white' : 'border-white/60 bg-black/40'}`}>{selection.some(s => s.id === m.id) && <Check size={14} />}</span></div><p className="mt-2 truncate text-xs">{m.name}</p></button>)}</div> : <div className="grid gap-3 sm:grid-cols-2">{shoots.map(shoot => <article key={shoot.id} className="overflow-hidden rounded-xl border bg-card"><button className="relative block aspect-[2/1] w-full bg-muted/30" onClick={() => { setActive(shoot); setLabels(prev => ({ ...prev, [shoot.id]: shoot.address || shoot.label })); }}>{shoot.thumbnailUrl ? <StudioImage src={shoot.thumbnailUrl} alt="" className="h-full w-full object-cover" /> : <FolderOpen className="absolute inset-0 m-auto text-muted-foreground" size={32} />}<span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[10px] text-white">Browse photos <ChevronRight size={10} className="inline" /></span></button><div className="flex items-center gap-2 p-3"><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-medium">{shoot.address || shoot.label}</h3><p className="truncate text-xs text-muted-foreground">{shoot.location}</p></div><Button variant="outline" size="sm" onClick={() => void selectShoot(shoot)}>{selection.some(m => m.shootId === shoot.id) ? <Check size={16} /> : 'Add shoot'}</Button></div></article>)}</div>}
-          {!loading && !(active ? photos : shoots).length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><ImagePlus size={30} className="text-muted-foreground" /><p className="text-sm">{active ? 'No compatible media in this shoot.' : search ? 'No shoots match your search.' : 'Your shoot library is empty.'}</p><Button variant="outline" onClick={() => fileInput.current?.click()}>Upload media</Button></div>}
+          {!loading && !error && !(active ? photos : shoots).length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><ImagePlus size={30} className="text-muted-foreground" /><p className="text-sm">{active ? 'No compatible media in this shoot.' : search.trim() ? 'No shoots match your search.' : 'No shoots are available to your account yet.'}</p><Button variant="outline" onClick={() => fileInput.current?.click()}>Upload media</Button></div>}
         </div>
       </section>
     </div>
