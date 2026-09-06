@@ -5,7 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { fetchCurrentUserPermissions } from '@/services/permissionService';
 
 interface PermissionsContextType {
-  can: (resource: string, action: string, conditions?: Record<string, any>) => boolean;
+  can: (resource: string, action: string, conditions?: Record<string, unknown>) => boolean;
   userPermissions: PermissionRule[];
   permissionIds: string[];
   isLoading: boolean;
@@ -20,6 +20,8 @@ const defaultContext: PermissionsContextType = {
 
 const PermissionsContext = createContext<PermissionsContextType>(defaultContext);
 
+// The public context hook intentionally lives beside its provider.
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePermissions = () => useContext(PermissionsContext);
 
 interface PermissionsProviderProps {
@@ -89,8 +91,10 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
     isLoading ||
     (isAuthenticated && Boolean(role) && loadedScope !== currentScope);
 
-  const can = (resource: string, action: string, conditions?: Record<string, any>): boolean => {
+  const can = (resource: string, action: string, conditions?: Record<string, unknown>): boolean => {
     if (effectiveIsLoading || !isAuthenticated) return false;
+    // Client Studio access is paused, including previously granted/cached permissions.
+    if (role === 'client' && resource === 'ai-editing') return false;
     if (role === 'superadmin') return true;
 
     // Check if user has the required permission

@@ -4,6 +4,8 @@ V4 replaces the `/ai-editing` page with a responsive, persisted editing workspac
 
 ## Use it
 
+Client access is currently paused. AI Editing navigation, shoot actions and direct Studio access are available only to staff with the existing permissions. Client drafts and outputs are retained.
+
 Open `/ai-editing`, choose a shoot or upload photos, choose a preset, and continue to its editor. The composer places the small image stack immediately to the right of the address. Presets and history have their own searchable views. Staff can also expand Previous edits to retrieve outputs from the earlier system.
 
 Use the existing AI Editing / AI Studio action in the shoot details controls (or the mobile Actions menu) to authorize and load the current shoot into Studio. Choose image or video presets inside Studio. The Overview content has no separate AI editing section. A workspace draft is created when the user continues; generation is a separate explicit action.
