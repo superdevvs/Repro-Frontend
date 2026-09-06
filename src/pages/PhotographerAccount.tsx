@@ -26,21 +26,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
 import { approvedAddressFromUser } from '@/pages/applyApprovedPhotographerAddress';
 import { canResendUserVerification } from '@/utils/emailHealth';
-import { API_BASE_URL } from '@/config/env';
-import { Camera, ExternalLink, Eye, FileText, Settings, ShieldCheck, Upload, User, Wrench } from 'lucide-react';
+import { Camera, ExternalLink, Eye, Settings, ShieldCheck, User, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import { EquipmentVerificationDialog } from '@/components/equipment/EquipmentVerificationDialog';
@@ -61,13 +52,14 @@ import {
 } from '@/components/profile/PhotographerPreferenceForms';
 import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
+import { TaxDocumentCard } from '@/components/profile/TaxDocumentCard';
 
 const readStoredBoolean = (value: unknown, fallback: boolean) => (
   typeof value === 'boolean' ? value : fallback
 );
 
 const PhotographerAccount = () => {
-  const { user, setUser, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const {
     preferences: displayPreferences,
@@ -82,13 +74,6 @@ const PhotographerAccount = () => {
   const savedPreferences = userMetadata.preferences && typeof userMetadata.preferences === 'object'
     ? userMetadata.preferences as Record<string, unknown>
     : {};
-  const taxInfoSubmitted = Boolean(userMetadata.tax_document_submitted_at || userMetadata.tax_document_url);
-  const taxDocumentName = String(userMetadata.tax_document_name ?? '');
-  const taxSubmittedAt = String(userMetadata.tax_document_submitted_at ?? '');
-  const [taxDialogOpen, setTaxDialogOpen] = useState(false);
-  const [selectedTaxDocument, setSelectedTaxDocument] = useState<File | null>(null);
-  const [taxNotes, setTaxNotes] = useState('');
-  const [isTaxSubmitting, setIsTaxSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'personal';
     return new URLSearchParams(window.location.search).get('tab') || 'personal';
@@ -233,46 +218,6 @@ const PhotographerAccount = () => {
         description: error instanceof Error ? error.message : 'Failed to update profile.',
         variant: 'destructive',
       });
-    }
-  };
-
-  const handleTaxDocumentSubmit = async () => {
-    if (!selectedTaxDocument) {
-      toast({ title: 'Choose a document', description: 'Please select a file to upload.', variant: 'destructive' });
-      return;
-    }
-    setIsTaxSubmitting(true);
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) throw new Error('Not authenticated');
-
-      const payload = new FormData();
-      payload.append('document', selectedTaxDocument);
-      if (taxNotes.trim()) payload.append('notes', taxNotes.trim());
-
-      const response = await fetch(`${API_BASE_URL}/api/profile/tax-document`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-        body: payload,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to submit document');
-
-      if (data.user && user) {
-        setUser({ ...user, ...data.user });
-      }
-      setSelectedTaxDocument(null);
-      setTaxNotes('');
-      setTaxDialogOpen(false);
-      toast({ title: 'Document submitted', description: 'Your document has been uploaded successfully.' });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to upload document.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsTaxSubmitting(false);
     }
   };
 
@@ -717,35 +662,7 @@ const PhotographerAccount = () => {
                   )}
                 />
                 <DefaultBracketModeField control={personalInfoForm.control} />
-                <div className="flex items-start justify-between gap-4 rounded-md border p-4">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="taxInfo" className="flex items-center gap-1.5">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      Tax / License Document
-                    </Label>
-                    <p className="text-sm text-muted-foreground">W-9, business license, or equivalent documentation</p>
-                    {taxDocumentName && (
-                      <p className="text-xs text-muted-foreground">
-                        {taxDocumentName}
-                        {taxSubmittedAt ? ` • Submitted ${new Date(taxSubmittedAt).toLocaleDateString()}` : ''}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={taxInfoSubmitted ? 'outline' : 'destructive'}>
-                      {taxInfoSubmitted ? 'Submitted' : 'Required'}
-                    </Badge>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={taxInfoSubmitted ? 'outline' : 'default'}
-                      onClick={() => setTaxDialogOpen(true)}
-                    >
-                      <Upload className="mr-1.5 h-3.5 w-3.5" />
-                      {taxInfoSubmitted ? 'Update' : 'Upload'}
-                    </Button>
-                  </div>
-                </div>
+                <TaxDocumentCard key={user?.id} />
                 <p className="text-xs text-muted-foreground">
                   The Weekly Invoice toggle is saved with your profile. Use the Save Changes button on the Personal Info tab.
                 </p>
@@ -810,56 +727,6 @@ const PhotographerAccount = () => {
         viewerLabel="photographer"
       />
 
-      <Dialog open={taxDialogOpen} onOpenChange={(open) => {
-        setTaxDialogOpen(open);
-        if (!open) {
-          setSelectedTaxDocument(null);
-          setTaxNotes('');
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload Tax / License Document</DialogTitle>
-            <DialogDescription>
-              W-9, business license, or any equivalent documentation. PDF, PNG, or JPG up to 10 MB.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="tax-doc-file">Document</Label>
-              <Input
-                id="tax-doc-file"
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg"
-                onChange={(e) => setSelectedTaxDocument(e.target.files?.[0] ?? null)}
-              />
-              {selectedTaxDocument && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedTaxDocument.name} · {(selectedTaxDocument.size / 1024).toFixed(0)} KB
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tax-doc-notes">Notes (optional)</Label>
-              <Textarea
-                id="tax-doc-notes"
-                value={taxNotes}
-                onChange={(e) => setTaxNotes(e.target.value)}
-                placeholder="Anything we should know about this document"
-                className="min-h-[72px] resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaxDialogOpen(false)} disabled={isTaxSubmitting}>
-              Cancel
-            </Button>
-            <Button onClick={handleTaxDocumentSubmit} disabled={isTaxSubmitting || !selectedTaxDocument}>
-              {isTaxSubmitting ? 'Uploading…' : 'Upload Document'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 };
