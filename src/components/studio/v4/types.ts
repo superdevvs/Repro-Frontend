@@ -1,3 +1,4 @@
+import type { StudioCapabilities } from '@/services/studioProviderService';
 export type StudioMediaKind = 'image' | 'video' | 'raw';
 export type StudioRatio = '9:16' | '16:9' | '1:1' | '4:5';
 export interface V4Media { id: string; shootId?: number; fileId?: number; mediaRef?: string; url: string; thumbnailUrl: string; name: string; kind: StudioMediaKind }
@@ -20,15 +21,17 @@ export interface V4Workspace {
   createdAt: string; updatedAt: string;
 }
 export interface V4Region { x: number; y: number; width: number; height: number }
-export interface V4Feedback { mediaId: string; prompt: string; region?: V4Region; drawing?: { x: number; y: number }[][] }
+export interface V4Feedback { mediaId: string; prompt: string; region?: V4Region; drawing?: { x: number; y: number }[][]; referenceMediaIds?: string[] }
 export interface V4Segment { id: string; label: string; region: V4Region }
 export interface V4WorkspaceProps {
   workspace: V4Workspace; preset: V4Preset; busy: boolean; error: string | null;
+  capabilities?: StudioCapabilities | null;
   onBack: () => void; onChangeMedia: () => void;
   onSave: (config: V4Config) => Promise<void>;
   onGenerate: (config: V4Config) => Promise<void>;
   onPrepare: (config: V4Config) => Promise<void>;
   onRefine: (feedback: V4Feedback) => Promise<void>;
+  onUpscale?: (mediaId: string, outputId: string) => Promise<void>;
   onCancel: () => Promise<void>; onRefresh: () => void;
   onDetect: (mediaId: string) => Promise<V4Segment[]>;
 }

@@ -14,6 +14,30 @@ const makeProps = (): V4WorkspaceProps => ({
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('photo generation scope and selected versions', () => {
+  it('upscales the selected older version only when the server reports the service ready', async () => {
+    const props = makeProps();
+    props.workspace.status = 'completed';
+    props.workspace.outputs = [1, 2].map(version => ({ id: `a-v${version}`, mediaId: 'a', version, status: 'completed', url: `https://media.test/v${version}.jpg`, kind: 'image' }));
+    props.onUpscale = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<PhotoWorkspace {...props} />);
+    expect(screen.getByRole('button', { name: 'Upscale version 2' })).toBeDisabled();
+    props.capabilities = { presets: {}, revision: { ready: true, referenceImages: true }, upscale: { ready: true }, outpaint: { ready: true } };
+    rerender(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Version 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upscale version 1' }));
+    await waitFor(() => expect(props.onUpscale).toHaveBeenCalledWith('a', 'a-v1'));
+    expect(screen.queryByText(/fotello/i)).not.toBeInTheDocument();
+  });
+
+  it('disables generation for an unconfigured photo service', () => {
+    const props = makeProps();
+    props.capabilities = { presets: { 'listing-ready': { ready: false, reason: 'An administrator needs to configure this edit.' } }, revision: { ready: true, referenceImages: false }, upscale: { ready: false }, outpaint: { ready: true } };
+    const { container } = render(<PhotoWorkspace {...props} />);
+    expect(container.querySelector('.v4-editor-desktop-actions button[data-variant=primary]')).toBeDisabled();
+    expect(screen.getByText('An administrator needs to configure this edit.')).toBeVisible();
+    expect(props.onGenerate).not.toHaveBeenCalled();
+  });
+
   it('allows deselecting the last photo without silently selecting the full shoot', () => {
     const props = makeProps();
     const { container } = render(<PhotoWorkspace {...props} />);

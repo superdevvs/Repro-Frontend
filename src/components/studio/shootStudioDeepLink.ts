@@ -7,6 +7,8 @@ const presetMedia = {
   'color-correction': 'images',
   twilight: 'images',
   'green-grass': 'images',
+  'sky-replacement': 'images',
+  'perspective-correction': 'images',
   'virtual-staging': 'images',
   'full-shoot': 'images',
   walkthrough: 'videos',

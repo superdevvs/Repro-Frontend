@@ -42,10 +42,11 @@ export interface StudioFixtures {
   denyShoot: boolean;
 }
 
-export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = []): Promise<StudioFixtures> {
+export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = [], role: 'admin' | 'superadmin' = 'admin'): Promise<StudioFixtures> {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Mocked Studio tests require a loopback E2E_BASE_URL; they must never target a deployed app.');
   }
+  const testUser = { ...user, role };
   const state: StudioFixtures = {
     requests: [], unexpectedStudioRequests: [], workspaces: new Map(initial.map(w => [w.id, structuredClone(w)])),
     failures: { create: 0, update: 0, generate: 0, poll: 0, revise: 0, download: 0 }, denyShoot: false,
@@ -55,7 +56,7 @@ export async function installStudioFixtures(page: Page, baseURL: string | undefi
     localStorage.setItem('theme', 'light');
     localStorage.setItem('authToken', 'local-playwright-fixture-not-a-real-token');
     localStorage.setItem('user', JSON.stringify(testUser));
-  }, user);
+  }, testUser);
   const reply = (route: Route, data: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
   const data = (route: Route, value: unknown) => reply(route, { success: true, data: value });
   const fail = (route: Route, operation: keyof StudioFixtures['failures']) => {
@@ -79,11 +80,15 @@ export async function installStudioFixtures(page: Page, baseURL: string | undefi
       return route.fulfill({ status: 200, contentType: 'image/webp', path: resolve(process.cwd(), 'public/studio-assets/hero-after.webp') });
     }
 
-    if (path === '/user') return reply(route, user);
+    if (path === '/user') return reply(route, testUser);
     if (path === '/me/permissions') return reply(route, {
       permissionIds: ['ai-editing:view', 'ai-editing:create', 'ai-editing:update', 'shoots:view', 'dashboard:view', 'book-shoot:create', 'availability:view'],
       permissions: ['view', 'create', 'update'].map(action => ({ resource: 'ai-editing', action }))
         .concat([{ resource: 'shoots', action: 'view' }, { resource: 'dashboard', action: 'view' }, { resource: 'book-shoot', action: 'create' }, { resource: 'availability', action: 'view' }]),
+    });
+    if (path === '/studio/workspaces/capabilities') return data(route, {
+      presets: Object.fromEntries(['listing-ready', 'color-correction', 'full-shoot', 'twilight', 'virtual-staging', 'green-grass', 'sky-replacement', 'perspective-correction', 'walkthrough', 'property-reel', 'social-teaser'].map(id => [id, { ready: true }])),
+      revision: { ready: true, referenceImages: true }, upscale: { ready: true }, outpaint: { ready: true },
     });
     if (path === '/studio/workspaces/sources/resolve') {
       if (state.denyShoot) return reply(route, {

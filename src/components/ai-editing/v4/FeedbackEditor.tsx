@@ -4,7 +4,8 @@ import { BoxSelect, Brush, Loader2, ScanSearch, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import type { V4Feedback, V4Region, V4Segment } from '@/components/studio/v4/types';
+import type { V4Feedback, V4Media, V4Region, V4Segment } from '@/components/studio/v4/types';
+import { ReferencePhotoPicker } from './ReferencePhotoPicker';
 import { clampUnit, containRect, regionFromPoints } from './workspaceLogic';
 import { MAX_DRAWING_STROKES, MAX_STROKE_POINTS, prepareDrawingFeedback, simplifyStroke } from './drawingFeedback';
 
@@ -14,13 +15,16 @@ let detectionAccount: string | null = null;
 interface FeedbackEditorProps {
   mediaId: string; name: string; imageUrl: string; busy: boolean;
   detectOnOpen?: boolean;
+  referenceMedia?: V4Media[]; referenceImagesEnabled?: boolean;
+  revisionReady?: boolean; unavailableReason?: string;
   onClose: () => void; onSubmit: (feedback: V4Feedback) => Promise<void>;
   onDetect: (mediaId: string) => Promise<V4Segment[]>;
 }
 
-export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = false, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
+export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = false, referenceMedia = [], referenceImagesEnabled = false, revisionReady = true, unavailableReason, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
   const [tool, setTool] = useState<'box' | 'draw' | 'objects'>('box');
   const [prompt, setPrompt] = useState('');
+  const [referenceMediaIds, setReferenceMediaIds] = useState<string[]>([]);
   const [region, setRegion] = useState<V4Region>();
   const [drawing, setDrawing] = useState<Point[][]>([]);
   const [segments, setSegments] = useState<V4Segment[]>([]);
@@ -109,22 +113,27 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = f
   }, [detectOnOpen, busy, detect]);
   const chooseSegment = (segment: V4Segment) => { setRegion(segment.region); setTool('objects'); promptInput.current?.focus(); };
   const submit = async () => {
+    if (!revisionReady) return;
     if (!prompt.trim() || busy || sending) return;
     setSending(true); setError('');
-    try { await onSubmit({ mediaId, prompt: prompt.trim(), region: region && region.width > .005 && region.height > .005 ? region : undefined, drawing: prepareDrawingFeedback(drawing) }); onClose(); }
+    try { await onSubmit({ mediaId, prompt: prompt.trim(), region: region && region.width > .005 && region.height > .005 ? region : undefined, drawing: prepareDrawingFeedback(drawing), ...(referenceImagesEnabled && referenceMediaIds.length ? { referenceMediaIds } : {}) }); onClose(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not submit the revision. Your feedback is still here.'); }
     finally { setSending(false); }
   };
 
   return <Dialog open onOpenChange={open => { if (!open && !sending) onClose(); }}><DialogContent className="v4-editor-dialog v4-feedback-dialog"><DialogTitle>Refine {name}</DialogTitle><DialogDescription>Mark an area and describe the change. Your original stays available.</DialogDescription>
+    <div className="v4-feedback-scroll">
     <div className="v4-feedback-tools"><Button variant="outline" aria-pressed={tool === 'box'} onClick={() => setTool('box')}><BoxSelect />Select area</Button><Button variant="outline" aria-pressed={tool === 'draw'} onClick={() => setTool('draw')}><Brush />Draw</Button><Button variant="outline" aria-pressed={tool === 'objects'} disabled={detecting || busy} onClick={() => void detect()}>{detecting ? <Loader2 className="animate-spin" /> : <ScanSearch />}Find objects</Button><Button variant="ghost" disabled={!region && !drawing.length} onClick={() => { if (drawing.length) setDrawing(previous => previous.slice(0, -1)); else setRegion(undefined); }}><Undo2 />Undo</Button></div>
     <div className="v4-feedback-image" ref={surface}><StudioImage src={imageUrl} alt={name} onLoad={event => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
       <div className="v4-feedback-drawing" data-tool={tool} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} aria-label="Draw feedback on the image"><canvas ref={canvas} />{tool === 'objects' && segments.map(segment => <button type="button" className="v4-object-area" key={segment.id} aria-label={`Select suggested ${segment.label} area`} aria-pressed={region === segment.region} onClick={() => chooseSegment(segment)} style={{ left: `${segment.region.x * 100}%`, top: `${segment.region.y * 100}%`, width: `${segment.region.width * 100}%`, height: `${segment.region.height * 100}%` }}><span>{segment.label}</span></button>)}{region && <span className="v4-feedback-region" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }} />}</div>
     </div>
     {tool === 'draw' && <p className="v4-muted" role="status">{drawing.length >= MAX_DRAWING_STROKES ? '20 strokes added. Undo a stroke to draw more.' : `${drawing.length} of ${MAX_DRAWING_STROKES} strokes used`}</p>}
     {segments.length > 0 && <div className="v4-feedback-suggestions"><span>AI suggested areas · hover or tap to select</span>{segments.map(segment => <Button key={segment.id} size="sm" variant="outline" onClick={() => chooseSegment(segment)}>{segment.label}</Button>)}</div>}
+    {referenceImagesEnabled && <ReferencePhotoPicker media={referenceMedia.filter(item => item.id !== mediaId && item.kind !== 'video')} selected={referenceMediaIds} onChange={setReferenceMediaIds} disabled={busy || sending || !revisionReady} />}
     <label className="v4-field">Describe the change<Textarea ref={promptInput} value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Keep the window shape. Recover the view outside." maxLength={4000} rows={3} /></label>
+    {!revisionReady && <p className="text-sm text-muted-foreground">{unavailableReason || 'Revisions are not configured yet.'}</p>}
     {error && <p className="v4-inline-error" role="alert">{error}</p>}
-    <div className="v4-dialog-actions"><Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button><Button data-variant="primary" disabled={!prompt.trim() || busy || sending} onClick={() => void submit()}>{sending || busy ? <Loader2 className="animate-spin" /> : null}Generate revision</Button></div>
+    </div>
+    <div className="v4-dialog-actions"><Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button><Button data-variant="primary" disabled={!revisionReady || !prompt.trim() || busy || sending} onClick={() => void submit()}>{sending || busy ? <Loader2 className="animate-spin" /> : null}Generate revision</Button></div>
   </DialogContent></Dialog>;
 }

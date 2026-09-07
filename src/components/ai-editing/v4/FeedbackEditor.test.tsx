@@ -11,6 +11,28 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('suggested-area photo feedback', () => {
+  it('sends at most four existing workspace reference IDs and preserves them after a failed request', async () => {
+    const media = Array.from({ length: 5 }, (_, index) => ({ id: `ref-${index}`, name: `Reference ${index + 1}`, kind: 'image' as const, url: 'https://media.test/reference.jpg', thumbnailUrl: 'https://media.test/reference.jpg' }));
+    const onSubmit = vi.fn().mockRejectedValue(new Error('Try again.'));
+    render(<FeedbackEditor mediaId="base" name="Living room" imageUrl="https://media.test/living.jpg" busy={false} referenceMedia={media} referenceImagesEnabled onDetect={vi.fn()} onSubmit={onSubmit} onClose={vi.fn()} />);
+    screen.getByText('Reference photos · 0 of 4').closest('details')!.open = true;
+    for (let index = 0; index < 4; index++) fireEvent.click(screen.getByRole('button', { name: `Reference Reference ${index + 1}` }));
+    expect(screen.getByRole('button', { name: 'Reference Reference 5' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Describe the change'), { target: { value: 'Match the lighting in the reference photos.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate revision' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ referenceMediaIds: ['ref-0', 'ref-1', 'ref-2', 'ref-3'] })));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Try again.');
+    expect(screen.getByRole('button', { name: 'Reference Reference 1' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('cannot submit a revision when its service is unavailable', () => {
+    const onSubmit = vi.fn();
+    render(<FeedbackEditor mediaId="base" name="Living room" imageUrl="https://media.test/living.jpg" busy={false} revisionReady={false} unavailableReason="Revisions are not configured." onDetect={vi.fn()} onSubmit={onSubmit} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Describe the change'), { target: { value: 'Improve the ceiling.' } });
+    expect(screen.getByRole('button', { name: 'Generate revision' })).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('detects once, exposes image overlay selection, focuses feedback, and submits the selected normalized box', async () => {
     const region = { x: .2, y: .1, width: .3, height: .4 };
     const onDetect = vi.fn().mockResolvedValue([{ id: 'window', label: 'Window', region }]);

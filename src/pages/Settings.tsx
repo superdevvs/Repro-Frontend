@@ -34,6 +34,7 @@ import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvent
 import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
 import { NotificationPreferencesCard } from '@/components/settings/NotificationPreferencesCard';
 import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
+import { AiEditingProviderSettings } from '@/components/settings/AiEditingProviderSettings';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -49,6 +50,7 @@ type TabValue =
   | 'integrations'
   | 'watermark'
   | 'robbie'
+  | 'ai-editing'
   | 'service-areas'
   | 'overview';
 
@@ -163,6 +165,7 @@ const Settings = () => {
     if (canViewRobbieSettings) {
       tabs.push('robbie');
     }
+    if (role === 'superadmin') tabs.push('ai-editing');
     if (canViewServiceAreas) {
       tabs.push('service-areas');
     }
@@ -480,7 +483,7 @@ const Settings = () => {
 
   // Auto-expanding tabs configuration
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>, { icon: typeof User; label: string }> = {
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>, { icon: typeof User; label: string }> = {
       profile: { icon: User, label: 'Profile' },
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
@@ -489,11 +492,11 @@ const Settings = () => {
     };
 
     const mappedTabs: AutoExpandingTab[] = availableTabs
-      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'service-areas' && tab !== 'overview')
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'ai-editing' && tab !== 'service-areas' && tab !== 'overview')
       .map((tab) => ({
         value: tab,
-        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>].icon,
-        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'service-areas' | 'overview'>].label,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>].label,
       }));
 
     if (availableTabs.includes('integrations')) {
@@ -520,6 +523,7 @@ const Settings = () => {
       });
     }
 
+    if (availableTabs.includes('ai-editing')) mappedTabs.push({ value: 'ai-editing', icon: Camera, label: 'AI Editing' });
     if (availableTabs.includes('service-areas')) {
       mappedTabs.push({
         value: 'service-areas',
@@ -933,6 +937,7 @@ const Settings = () => {
               </TabsContent>
             )}
 
+            {role === 'superadmin' && <TabsContent value="ai-editing" className="space-y-6"><AiEditingProviderSettings /></TabsContent>}
             {canViewServiceAreas && (
               <TabsContent value="service-areas" className="space-y-6">
                 <div>

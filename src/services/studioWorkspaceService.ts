@@ -20,6 +20,9 @@ export const studioWorkspaceService = {
   async revise(id: string, input: V4Feedback): Promise<V4Workspace> {
     return (await apiClient.post(`${path(id)}/revisions`, input)).data.data;
   },
+  async upscale(id: string, mediaId: string, outputId: string): Promise<V4Workspace> {
+    return (await apiClient.post(`${path(id)}/upscale`, { mediaId, outputId })).data.data;
+  },
   async detect(id: string, mediaId: string): Promise<V4Segment[]> {
     return (await apiClient.post(`${path(id)}/segments`, { mediaId })).data.data;
   },

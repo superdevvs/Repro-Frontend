@@ -13,6 +13,7 @@ import { createWorkspaceRefresh, newestWorkspace } from '@/components/studio/v4/
 import type { V4Config, V4Media, V4Preset, V4Workspace, V4WorkspaceProps } from '@/components/studio/v4/types';
 import { PhotoWorkspace } from '@/components/ai-editing/v4/PhotoWorkspace';
 import { VideoWorkspace } from '@/components/ai-editing/v4/VideoWorkspace';
+import { presetAvailability, studioProviderService, type StudioCapabilities } from '@/services/studioProviderService';
 
 /** Shares the dashboard shell and persists edits before running provider jobs. */
 export default function AiEditing() {
@@ -34,6 +35,10 @@ export default function AiEditing() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<StudioCapabilities | null>(null);
+  const [capabilitiesError, setCapabilitiesError] = useState(false);
+  const refreshCapabilities = useCallback(async () => { try { setCapabilities(await studioProviderService.capabilities()); setCapabilitiesError(false); } catch { setCapabilitiesError(true); } }, []);
+  useEffect(() => { let active = true; setCapabilities(null); void studioProviderService.capabilities().then(next => { if (active) { setCapabilities(next); setCapabilitiesError(false); } }).catch(() => { if (active) setCapabilitiesError(true); }); return () => { active = false; }; }, [user?.id]);
   const lock = useRef(false);
   const operationEpoch = useRef(0);
   const requestId = useRef(crypto.randomUUID());
@@ -105,6 +110,8 @@ export default function AiEditing() {
     finally { lock.current = false; setBusy(false); }
   };
   const start = async (prompt: string, chosen = preset) => {
+    const availability = presetAvailability(chosen.id, capabilities);
+    if (!availability.ready) { setError(availability.reason || 'This edit is not available yet.'); return; }
     if (!media.length) { setPicker(true); return; }
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(null);
@@ -123,21 +130,23 @@ export default function AiEditing() {
     return studioWorkspaceService.run(saved.id, action);
   });
   const props: V4WorkspaceProps | null = workspace ? {
-    workspace, preset: findPreset(workspace.presetId), busy, error, onBack: back, onChangeMedia: () => {
+    workspace, preset: findPreset(workspace.presetId), busy, error, capabilities, onBack: back, onChangeMedia: () => {
       if (['preparing', 'generating'].includes(workspace.status)) setError('Wait for this job to finish, or cancel it before changing the source media.');
       else setPicker(true);
     },
     onSave: config => mutate(() => studioWorkspaceService.update(workspace.id, { config, version: workspace.version })),
     onGenerate: config => saveAndRun(config, 'generate'), onPrepare: config => saveAndRun(config, 'prepare'),
     onRefine: feedback => mutate(() => studioWorkspaceService.revise(workspace.id, feedback)),
+    onUpscale: (mediaId, outputId) => mutate(() => studioWorkspaceService.upscale(workspace.id, mediaId, outputId)),
     onCancel: () => mutate(() => studioWorkspaceService.run(workspace.id, 'cancel')),
     onRefresh: () => void refreshWorkspace(workspace.id), onDetect: mediaId => studioWorkspaceService.detect(workspace.id, mediaId),
   } : null;
   return <DashboardLayout hideFooter>
     <div className={workspaceId ? 'flex h-full min-h-0 flex-col' : 'min-w-0'}>
+      {capabilitiesError && <div role="status" className="mx-auto mb-3 flex w-full max-w-[1132px] items-center gap-3 rounded-lg border p-3 text-sm"><span className="flex-1">Additional editing options could not be checked.</span><Button variant="ghost" size="sm" onClick={() => void refreshCapabilities()}>Retry</Button></div>}
       {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="animate-spin" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
         {(error || historyError) && <div role="alert" className="mx-auto mb-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm"><AlertCircle size={17} className="shrink-0 text-destructive" /><span className="flex-1">{error || historyError}</span><Button variant="ghost" size="sm" onClick={() => workspaceId ? void refreshWorkspace(workspaceId) : void refreshHistory()}><RefreshCw size={14} className="mr-1" />Retry</Button>{workspaceId && <Button variant="outline" size="sm" onClick={back}>Back</Button>}</div>}
-        {!workspaceId && <StudioHome name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
+        {!workspaceId && <StudioHome capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
       </>}
     </div>
     <MediaPicker open={picker} onClose={() => setPicker(false)} selected={media} preset={preset} onSelect={(items, name) => {
