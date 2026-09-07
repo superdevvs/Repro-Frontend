@@ -15,21 +15,8 @@ import { useServices } from '@/hooks/useServices';
 import { getCategorySpecialtyId } from '@/utils/photographerSpecialties';
 import {
   notificationsSchema,
-  specialtiesSchema,
   type NotificationsFormValues,
-  type SpecialtiesFormValues,
 } from '@/pages/photographerAccountSchemas';
-
-const PROPERTY_TYPES = [
-  'Single Family',
-  'Multi-Family',
-  'Condo/Townhouse',
-  'Apartment',
-  'Vacant Land',
-  'Office',
-  'Retail',
-  'Industrial',
-] as const;
 
 const readStringList = (value: unknown): string[] => (
   Array.isArray(value)
@@ -53,8 +40,6 @@ const readPreferences = (metadata: Record<string, unknown>) => (
 
 export function PhotographerSpecialtiesForm() {
   const { user } = useAuth();
-  const { saveProfile } = useSelfProfileSave();
-  const { toast } = useToast();
   const metadata = readMetadata(user?.metadata);
   const { data: categoriesData, isLoading: categoriesLoading, isError: categoriesError } = useServiceCategories();
   const { data: servicesData, isLoading: servicesLoading, isError: servicesError } = useServices({ scope: 'public' });
@@ -76,133 +61,45 @@ export function PhotographerSpecialtiesForm() {
     });
     return Array.from(groups.values()).sort((left, right) => left.label.localeCompare(right.label));
   }, [categoriesData, servicesData]);
-  const form = useForm<SpecialtiesFormValues>({
-    resolver: zodResolver(specialtiesSchema),
-    defaultValues: {
-      specialties: readStringList(metadata.specialties),
-      property_types: readStringList(metadata.property_types),
-    },
-  });
-
-  useEffect(() => {
-    const nextMetadata = readMetadata(user?.metadata);
-    const storedSpecialties = readStringList(nextMetadata.specialties);
-    const normalizedSpecialties = storedSpecialties.map((value) => {
-      if (value.startsWith('category:') || value.startsWith('category-name:')) return value;
-      const matchingCategory = specialtyOptions.find((option) => option.label.toLowerCase() === value.toLowerCase());
-      if (matchingCategory) return matchingCategory.id;
-      const matchingService = (servicesData ?? []).find((service) => String(service.id) === value);
-      return matchingService
-        ? getCategorySpecialtyId({ id: matchingService.category_id, name: matchingService.category })
-        : value;
-    });
-    form.reset({
-      specialties: Array.from(new Set(normalizedSpecialties)),
-      property_types: readStringList(nextMetadata.property_types),
-    });
-  }, [form, servicesData, specialtyOptions, user?.metadata]);
-
-  const handleSubmit = async (data: SpecialtiesFormValues) => {
-    try {
-      const result = await saveProfile({
-        specialties: data.specialties,
-        property_types: data.property_types,
-      });
-      if (!result.reauthRequired) {
-        toast({
-          title: 'Specialties updated',
-          description: result.message || 'Your photography specialties have been saved.',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Unable to save specialties',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const updateSelection = (field: 'specialties' | 'property_types', value: string, checked: boolean) => {
-    const currentValues = form.getValues(field);
-    form.setValue(
-      field,
-      checked ? [...currentValues, value] : currentValues.filter((entry) => entry !== value),
-      { shouldDirty: true, shouldValidate: true },
-    );
-  };
+  const assignedSpecialties = Array.from(new Set(readStringList(metadata.specialties).map((value) => {
+    const category = specialtyOptions.find((option) => option.id === value || option.label.toLowerCase() === value.toLowerCase());
+    if (category) return category.label;
+    const service = (servicesData ?? []).find((entry) => String(entry.id) === value);
+    return service?.category || value;
+  })));
+  const propertyTypes = readStringList(metadata.property_types);
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Photography Services</CardTitle>
-            <CardDescription>Select all the services you provide as a photographer</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {(categoriesLoading || servicesLoading) && (
-                <p className="col-span-full text-sm text-muted-foreground">Loading available service categories…</p>
-              )}
-              {(categoriesError || servicesError) && (
-                <p className="col-span-full text-sm text-destructive">Service categories could not be loaded. Your saved selections have not been changed.</p>
-              )}
-              {!categoriesLoading && !servicesLoading && !categoriesError && !servicesError && specialtyOptions.length === 0 && (
-                <p className="col-span-full text-sm text-muted-foreground">No active service categories are available.</p>
-              )}
-              {specialtyOptions.map((specialty) => (
-                <div key={specialty.id} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={`specialty-${specialty.id}`}
-                    value={specialty.id}
-                    checked={form.watch('specialties').includes(specialty.id)}
-                    onChange={(event) => updateSelection('specialties', specialty.id, event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label htmlFor={`specialty-${specialty.id}`} className="text-sm">{specialty.label}</label>
-                </div>
-              ))}
-            </div>
-            {form.formState.errors.specialties?.message && (
-              <p className="mt-3 text-sm font-medium text-destructive">
-                {form.formState.errors.specialties.message}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Property Experience</CardTitle>
-            <CardDescription>Keep a saved record of the property types you have experience photographing</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {PROPERTY_TYPES.map((propertyType) => (
-                <div key={propertyType} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={`property-${propertyType}`}
-                    value={propertyType}
-                    checked={form.watch('property_types').includes(propertyType)}
-                    onChange={(event) => updateSelection('property_types', propertyType, event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label htmlFor={`property-${propertyType}`} className="text-sm">{propertyType}</label>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter className="border-t pt-4 flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Saving...' : 'Save Specialties'}
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </Form>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Service Capabilities</CardTitle>
+          <CardDescription>Managed by your admin. Contact an administrator to request a change to your assigned specialties.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(categoriesLoading || servicesLoading) && <p className="text-sm text-muted-foreground">Loading service names...</p>}
+          {(categoriesError || servicesError) && <p className="text-sm text-muted-foreground">Service names could not be loaded. Your saved assignments are shown below.</p>}
+          {assignedSpecialties.length ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Assigned specialties">
+              {assignedSpecialties.map((label) => <li key={label} className="rounded-full bg-muted px-3 py-1 text-sm">{label}</li>)}
+            </ul>
+          ) : <p className="text-sm text-muted-foreground">No specialties have been assigned yet.</p>}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Property Experience</CardTitle>
+          <CardDescription>Managed by your admin. Contact an administrator to update the property types on your account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {propertyTypes.length ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Assigned property experience">
+              {propertyTypes.map((label) => <li key={label} className="rounded-full bg-muted px-3 py-1 text-sm">{label}</li>)}
+            </ul>
+          ) : <p className="text-sm text-muted-foreground">No property experience has been recorded yet.</p>}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

@@ -85,6 +85,7 @@ export const createAccountFormSchema = (viewerRole?: string, isEditing = false) 
   bio: z.string().optional(),
   isActive: z.boolean().default(true),
   specialties: z.array(z.string()).optional(),
+  propertyTypes: z.array(z.string()).optional(),
   editingCapabilities: z.array(z.string()).optional(),
   travelRange: z.number().optional(),
   travelRangeUnit: z.enum(['miles', 'km']).optional(),
@@ -235,5 +236,4 @@ export interface AccountFormProps {
   onSubmit: (data: AccountFormValues) => void;
   initialData?: AccountFormUser;
 }
-
 

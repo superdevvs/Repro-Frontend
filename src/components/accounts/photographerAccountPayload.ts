@@ -3,14 +3,15 @@ import type { AccountFormValues } from './accountFormModel';
 /**
  * Photographer-only payload/metadata mapping for the admin account form.
  *
- * Extracted verbatim from `useAccountFormController` to keep that module under
- * the repository file-size limit. Field names, guards and ordering are
- * unchanged; callers still apply this only for the photographer role.
+ * Admins can assign or clear capabilities. Other account editors omit those
+ * fields so unrelated edits preserve the server's managed assignments.
+ * Callers apply this mapping only for the photographer role.
  */
 export function applyPhotographerAccountPayload(
   values: AccountFormValues,
   metadataPayload: Record<string, unknown>,
-  payload: { default_bracket_mode?: 3 | 5 },
+  payload: { default_bracket_mode?: 3 | 5; specialties?: string[]; propertyTypes?: string[] },
+  canManageCapabilities: boolean,
 ): void {
   if (values.pilotLicenseFile) {
     metadataPayload.pilotLicenseFile = values.pilotLicenseFile;
@@ -27,8 +28,14 @@ export function applyPhotographerAccountPayload(
   if (values.insuranceFileName) {
     metadataPayload.insuranceFileName = values.insuranceFileName;
   }
-  if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
-    metadataPayload.specialties = values.specialties;
+  if (canManageCapabilities) {
+    metadataPayload.specialties = values.specialties ?? [];
+    metadataPayload.property_types = values.propertyTypes ?? [];
+  } else {
+    delete metadataPayload.specialties;
+    delete metadataPayload.property_types;
+    delete payload.specialties;
+    delete payload.propertyTypes;
   }
   if (values.travelRange !== undefined) {
     metadataPayload.travel_range = values.travelRange;

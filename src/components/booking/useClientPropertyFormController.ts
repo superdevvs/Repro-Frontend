@@ -339,6 +339,10 @@ export const useClientPropertyFormController = ({
   };
 
   const formSchema = isClientAccount ? clientAccountPropertyFormSchema : adminPropertyFormSchema;
+  const initialPropertyDetails = initialData.propertyDetails ?? initialData.property_details;
+  const initialSqft = Number(initialData.sqft ?? initialPropertyDetails?.sqft
+    ?? initialPropertyDetails?.squareFeet ?? initialPropertyDetails?.square_feet
+    ?? initialPropertyDetails?.livingArea ?? initialPropertyDetails?.living_area ?? 0);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -351,7 +355,7 @@ export const useClientPropertyFormController = ({
         propertyZip: initialData.propertyZip || '',
         bedRooms: initialData.bedRooms || 0,
         bathRooms: initialData.bathRooms || 0,
-        sqft: initialData.sqft || 0,
+        sqft: Number.isFinite(initialSqft) ? initialSqft : 0,
         propertyType: initialData.propertyType || 'residential',
         listingType: initialData.listingType || undefined,
         propertyInfo: initialData.propertyInfo || '',
@@ -374,7 +378,7 @@ export const useClientPropertyFormController = ({
         propertyZip: initialData.propertyZip || '',
         bedRooms: initialData.bedRooms || 0,
         bathRooms: initialData.bathRooms || 0,
-        sqft: initialData.sqft || 0,
+        sqft: Number.isFinite(initialSqft) ? initialSqft : 0,
         propertyType: initialData.propertyType || 'residential',
         listingType: initialData.listingType || undefined,
         propertyInfo: initialData.propertyInfo || '',
@@ -389,7 +393,7 @@ export const useClientPropertyFormController = ({
         photographerNotes: initialData.photographerNotes || '',
         editorNotes: initialData.editorNotes || '',
       }
-    ), [initialData, isClientAccount]),
+    ), [initialData, initialSqft, isClientAccount]),
   });
 
   const showMissingFieldStroke = (name: keyof AdminFormValues) =>
@@ -502,33 +506,12 @@ export const useClientPropertyFormController = ({
   }, [initialData, completeAddress]);
 
   const watchedSqft = form.watch('sqft');
-  const derivedSqftFromDetails = React.useMemo(() => {
-    const details = propertyDetailsData;
-    if (!details) return null;
-    return (
-      details.sqft ??
-      details.squareFeet ??
-      details.livingArea ??
-      details.living_area ??
-      null
-    );
-  }, [propertyDetailsData]);
-
+  // Lookup values seed the field. From then on, the visible field is the
+  // authority for pricing, including an intentional clear while editing it.
   const effectiveSqft = React.useMemo(() => {
-    const numericFormSqft =
-      typeof watchedSqft === 'number'
-        ? watchedSqft
-        : watchedSqft
-        ? parseFloat(watchedSqft)
-        : NaN;
-    if (!Number.isNaN(numericFormSqft) && numericFormSqft > 0) {
-      return numericFormSqft;
-    }
-    if (derivedSqftFromDetails && Number(derivedSqftFromDetails) > 0) {
-      return Number(derivedSqftFromDetails);
-    }
-    return null;
-  }, [watchedSqft, derivedSqftFromDetails]);
+    const numericFormSqft = Number(watchedSqft);
+    return Number.isFinite(numericFormSqft) && numericFormSqft > 0 ? numericFormSqft : null;
+  }, [watchedSqft]);
 
   const buildPropertyDraftData = React.useCallback(
     (
@@ -544,7 +527,8 @@ export const useClientPropertyFormController = ({
         ...(values || {}),
       } satisfies Partial<FormValues>;
       const currentCompleteAddress = overrides?.completeAddress ?? completeAddress;
-      const currentPropertyDetails = overrides?.propertyDetailsData ?? propertyDetailsData;
+      const currentPropertyDetails = overrides && 'propertyDetailsData' in overrides
+        ? overrides.propertyDetailsData : propertyDetailsData;
       const currentPresenceOption = overrides?.presenceOption ?? presenceOption;
       const normalizedComplete =
         currentCompleteAddress ||
@@ -562,8 +546,9 @@ export const useClientPropertyFormController = ({
           return undefined;
         }
         const numericValue = Number(value);
-        return Number.isNaN(numericValue) ? undefined : numericValue;
+        return Number.isFinite(numericValue) ? numericValue : undefined;
       };
+      const currentSqft = toOptionalNumber(currentValues.sqft);
       const mergedPropertyDetails = {
         ...(currentPropertyDetails || {}),
         presenceOption: currentPresenceOption,
@@ -575,7 +560,11 @@ export const useClientPropertyFormController = ({
         accessContactPhone: currentValues.accessContactPhone?.trim() || undefined,
         bedrooms: toOptionalNumber(currentValues.bedRooms),
         bathrooms: toOptionalNumber(currentValues.bathRooms),
-        sqft: toOptionalNumber(currentValues.sqft),
+        sqft: currentSqft,
+        squareFeet: currentSqft,
+        square_feet: currentSqft,
+        livingArea: currentSqft,
+        living_area: currentSqft,
         propertyType: currentValues.propertyType || undefined,
         listingType: currentValues.listingType || undefined,
       };

@@ -32,6 +32,7 @@ import { AccountEquipmentFields } from './AccountEquipmentFields';
 import { AccountInsuranceFields } from './AccountInsuranceFields';
 import { AccountRoleSettings } from './AccountRoleSettings';
 import { AdminDefaultBracketModeField } from './AdminDefaultBracketModeField';
+import { AccountPhotographerCapabilityFields } from './AccountPhotographerCapabilityFields';
 export function AccountFormView({ controller }: { controller: AccountFormController }) {
   const {
     open, onOpenChange, initialData, avatarUrl, setAvatarUrl, adminsAndReps,
@@ -772,66 +773,11 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
             {currentRole === "photographer" && (
               <>
                 <AdminDefaultBracketModeField control={form.control} />
-                <FormField
+                <AccountPhotographerCapabilityFields
                   control={form.control}
-                  name="specialties"
-                  render={({ field }) => {
-                    const valueArray: string[] = Array.isArray(field.value) ? field.value : [];
-                    const toggle = (categoryId: string, serviceIds: string[]) => {
-                      const selected = valueArray.includes(categoryId) || serviceIds.some((id) => valueArray.includes(id));
-                      const categoryServiceIds = new Set(serviceIds);
-                      if (selected) {
-                        field.onChange(valueArray.filter((value) => value !== categoryId && !categoryServiceIds.has(value)));
-                        return;
-                      }
-                      field.onChange([
-                        ...valueArray.filter((value) => !categoryServiceIds.has(value)),
-                        categoryId,
-                      ]);
-                    };
-                    return (
-                      <FormItem>
-                        <FormLabel>Service Capabilities</FormLabel>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Select categories this photographer can shoot
-                        </p>
-                        {isLoadingCategoryCapabilities ? (
-                          <div className="flex items-center gap-2 py-4 text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">Loading categories...</span>
-                          </div>
-                        ) : categoryCapabilityOptions.length === 0 ? (
-                          <p className="text-sm text-muted-foreground py-2">
-                            No categories configured. Add services in Scheduling Settings.
-                          </p>
-                        ) : (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {categoryCapabilityOptions.map((category) => {
-                              const serviceIds = category.services.map((service) => service.id);
-                              const active = valueArray.includes(category.id) || serviceIds.some((id) => valueArray.includes(id));
-                              return (
-                                <button
-                                  key={category.id}
-                                  type="button"
-                                  onClick={() => toggle(category.id, serviceIds)}
-                                  title={`${category.services.length} services`}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-full text-sm border transition",
-                                    active
-                                      ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
-                                      : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
-                                  )}
-                                >
-                                  {category.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  categories={categoryCapabilityOptions}
+                  isLoading={isLoadingCategoryCapabilities}
+                  canManage={controller.canManageCapabilities}
                 />
                 {}
                 <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-4">

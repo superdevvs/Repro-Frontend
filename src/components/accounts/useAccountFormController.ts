@@ -27,6 +27,7 @@ import {
   type FormRole,
 } from './accountFormModel';
 import { applyPhotographerAccountPayload } from './photographerAccountPayload';
+import { canManagePhotographerCapabilities } from '@/utils/photographerCapabilities';
 
 export function useAccountFormController({
   open,
@@ -46,7 +47,8 @@ export function useAccountFormController({
   );
   const hasAutoSelectedDefaultServiceGroupRef = React.useRef(false);
   const { toast } = useToast();
-  const { role: viewerRole, user: currentUser } = useAuth();
+  const { role: viewerRole, user: currentUser, isImpersonating } = useAuth();
+  const canManageCapabilities = canManagePhotographerCapabilities(currentUser?.role, isImpersonating);
   const useDesktopAvatarPicker = useMediaQuery("(min-width: 768px)");
   const permission = usePermission();
   const clientsPermission = permission.forResource('clients');
@@ -75,6 +77,7 @@ export function useAccountFormController({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          propertyTypes: [],
           editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
@@ -175,6 +178,7 @@ export function useAccountFormController({
           companyNotes: initialData.companyNotes || "",
           isActive: initialData.isActive !== undefined ? initialData.isActive : true,
           specialties: (initialData.metadata?.specialties as string[]) ?? initialData.specialties ?? [],
+          propertyTypes: (initialData.metadata?.property_types as string[]) ?? [],
           editingCapabilities: (initialData.metadata?.editing_capabilities as string[])
             ?? initialData.editingCapabilities
             ?? (role === 'editor' ? ['photo', 'video'] : []),
@@ -240,6 +244,7 @@ export function useAccountFormController({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          propertyTypes: [],
           editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
@@ -537,7 +542,7 @@ export function useAccountFormController({
       }
     }
     if (values.role === 'photographer') {
-      applyPhotographerAccountPayload(values, metadataPayload, payload);
+      applyPhotographerAccountPayload(values, metadataPayload, payload, canManageCapabilities);
     }
     if (Object.keys(metadataPayload).length) {
       payload.metadata = metadataPayload;
@@ -584,7 +589,7 @@ export function useAccountFormController({
         if (avatarUrl && !avatarUrl.startsWith('blob:')) {
           formData.append('avatar', avatarUrl);
         }
-        if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
+        if (canManageCapabilities && values.role === 'photographer' && Array.isArray(values.specialties)) {
           formData.append('specialties', JSON.stringify(values.specialties));
         }
         if (values.role === 'photographer' && values.defaultBracketMode) {
@@ -722,7 +727,7 @@ export function useAccountFormController({
       formData.append('role', values.role || 'client');
       if (values.timezone) formData.append('timezone', values.timezone);
       if (values.bio) formData.append('bio', values.bio);
-        if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
+        if (canManageCapabilities && values.role === 'photographer' && Array.isArray(values.specialties)) {
           formData.append('specialties', JSON.stringify(values.specialties));
         }
       if (values.role === 'photographer' && values.defaultBracketMode) {
@@ -980,6 +985,7 @@ export function useAccountFormController({
     isSalesRepViewer,
     roleSelectionDisabled,
     canManageRoles,
+    canManageCapabilities,
     canCreateSalesRep,
     canEditSensitiveRepFields,
     canEditClientRep,
