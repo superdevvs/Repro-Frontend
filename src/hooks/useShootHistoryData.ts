@@ -1,3 +1,4 @@
+import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
@@ -223,6 +224,8 @@ export function useShootHistoryData({
   const [deleteShootId, setDeleteShootId] = useState<string | number | null>(null)
   const [deleteShootTarget, setDeleteShootTarget] = useState<ShootData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [downloadingShootIds, setDownloadingShootIds] = useState<Set<string>>(new Set())
+  const downloadingShootIdsRef = useRef(new Set<string>())
   const [operationalData, setOperationalData] = useState<ShootData[]>([])
   const [historyRecords, setHistoryRecords] = useState<ShootHistoryRecord[]>([])
   const [historyAggregates, setHistoryAggregates] = useState<ShootHistoryServiceAggregate[]>([])
@@ -997,8 +1000,9 @@ export function useShootHistoryData({
     return !isSalesRepRole(role)
   }, [activeTab, role])
 
-  const handleDownloadShoot = useCallback((shoot: ShootData, _type: 'full' | 'web') => {
-    if (!canDownloadHistoryShoot(shoot)) {
+  const handleDownloadShoot = useCallback(async (shoot: ShootData, _type: 'full' | 'web') => {
+    const shootId = String(shoot.id)
+    if (!canDownloadHistoryShoot(shoot) || downloadingShootIdsRef.current.has(shootId)) {
       return
     }
 
@@ -1011,23 +1015,27 @@ export function useShootHistoryData({
       return
     }
 
-    void (async () => {
-      try {
-        const result = await downloadShootRawFiles({
-          shootId: shoot.id,
-        })
-        toast({
-          title: 'Download started',
-          description: result.message || 'Raw files downloading now.',
-        })
-      } catch (error) {
-        toast({
-          title: 'Download failed',
-          description: error instanceof Error ? error.message : 'Please try again.',
-          variant: 'destructive',
-        })
-      }
-    })()
+    downloadingShootIdsRef.current.add(shootId)
+    setDownloadingShootIds(new Set(downloadingShootIdsRef.current))
+    try {
+      const result = await downloadShootRawFiles({
+        shootId: shoot.id,
+        address: getShootDownloadAddress(shoot),
+      })
+      toast({
+        title: 'Download started',
+        description: result.message || 'Raw files downloading now.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      downloadingShootIdsRef.current.delete(shootId)
+      setDownloadingShootIds(new Set(downloadingShootIdsRef.current))
+    }
   }, [activeTab, canDownloadHistoryShoot, isEditor, toast])
 
   const handlePublishMls = useCallback(
@@ -1171,6 +1179,7 @@ export function useShootHistoryData({
     handleCopyHistory,
     handlePublishMls,
     canDownloadHistoryShoot,
+    downloadingShootIds,
     handleDownloadShoot,
   }
 }

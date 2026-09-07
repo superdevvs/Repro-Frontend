@@ -334,7 +334,8 @@ export function ShootDetailsPageHeader({
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                   onClick={onDownload}
-                  disabled={isDownloadDisabled}
+                  disabled={isDownloadDisabled || isDownloading}
+                  aria-busy={isDownloading}
                 >
                   {isDownloading ? (
                     <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />

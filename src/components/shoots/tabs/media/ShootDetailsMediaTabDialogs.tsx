@@ -30,6 +30,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    downloadingFileIds,
     showAiEditDialog,
     setShowAiEditDialog,
     selectedFiles,
@@ -71,6 +72,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         onAddComment={onAddComment}
         onToggleHidden={onToggleHidden}
         onDownloadSingle={onDownloadSingle}
+        downloadingFileIds={downloadingFileIds}
       />
 
       {/* AI Edit Dialog */}

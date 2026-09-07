@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Eye, EyeOff, Heart, MessageSquare } from 'lucide-react';
+import { Download, Eye, EyeOff, Heart, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +13,8 @@ interface UseMediaGridActionsOptions {
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
-  onDownloadSingle?: (fileId: string) => void;
+  onDownloadSingle?: (fileId: string) => void | Promise<void>;
+  downloadingFileIds?: ReadonlySet<string>;
 }
 
 export function useMediaGridActions({
@@ -24,6 +25,7 @@ export function useMediaGridActions({
   onToggleFavorite,
   onAddComment,
   onDownloadSingle,
+  downloadingFileIds,
 }: UseMediaGridActionsOptions) {
   const [commentPopoverFileId, setCommentPopoverFileId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
@@ -101,13 +103,33 @@ export function useMediaGridActions({
     );
   };
 
+  const renderDownloadAction = (file: MediaFile, className: string) => {
+    const allowed = typeof canDownloadSingleMedia === 'function'
+      ? canDownloadSingleMedia(file) : canDownloadSingleMedia;
+    if (!allowed || !onDownloadSingle) return null;
+    const downloading = downloadingFileIds?.has(String(file.id)) ?? false;
+    return (
+      <button
+        className={className}
+        onClick={(event) => { event.stopPropagation(); onDownloadSingle(file.id); }}
+        title={downloading ? 'Downloading image' : 'Download image'}
+        aria-label="Download image"
+        disabled={downloading}
+        aria-busy={downloading}
+      >
+        {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      </button>
+    );
+  };
+
   const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
     const showHiddenToggle = Boolean(toggleFileHidden) && !isClient;
     const canDownloadFile = typeof canDownloadSingleMedia === 'function'
       ? canDownloadSingleMedia(file)
       : canDownloadSingleMedia;
-    if (!canInteractSingleMedia && !showHiddenToggle) return null;
-    const keepVisible = alwaysVisible || commentPopoverFileId === file.id;
+    if (!canInteractSingleMedia && !showHiddenToggle && !(canDownloadFile && onDownloadSingle)) return null;
+    const downloading = downloadingFileIds?.has(String(file.id)) ?? false;
+    const keepVisible = alwaysVisible || downloading || commentPopoverFileId === file.id;
 
     return (
       <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${keepVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -121,15 +143,7 @@ export function useMediaGridActions({
           </button>
         )}
         {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
-        {canDownloadFile && onDownloadSingle && (
-          <button
-            className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
-            onClick={(event) => { event.stopPropagation(); onDownloadSingle(file.id); }}
-            title="Download image"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </button>
-        )}
+        {renderDownloadAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
         {showHiddenToggle && (
           <button
             className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_hidden ? 'bg-yellow-500/90 text-white opacity-100' : 'bg-black/55 text-white'}`}
@@ -143,5 +157,5 @@ export function useMediaGridActions({
     );
   };
 
-  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions };
+  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions, renderDownloadAction };
 }

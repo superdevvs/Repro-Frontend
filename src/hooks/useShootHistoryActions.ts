@@ -1,3 +1,4 @@
+import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
@@ -581,7 +582,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
         shootId: shoot.id,
         type: archiveConfig.mediaType,
         size: archiveConfig.size,
-        address: shoot.location?.address,
+        address: getShootDownloadAddress(shoot),
       })
       toast({ title: 'Download started', description: 'Your download should begin shortly.' })
     } catch (error) {

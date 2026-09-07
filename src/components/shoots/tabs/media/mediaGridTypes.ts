@@ -27,7 +27,8 @@ export interface MediaGridProps {
   canDownloadSingleMedia?: boolean | ((file: MediaFile) => boolean);
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
-  onDownloadSingle?: (fileId: string) => void;
+  onDownloadSingle?: (fileId: string) => void | Promise<void>;
+  downloadingFileIds?: ReadonlySet<string>;
   enableRawStacks?: boolean;
   rawStackSize?: number | null;
   renderScanStatus?: (file: MediaFile) => React.ReactNode | null;

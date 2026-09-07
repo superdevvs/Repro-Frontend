@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
+import { useRef, useState } from 'react';
 import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
@@ -67,6 +68,7 @@ export function useShootDetailsModalActions({
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const downloadingRef = useRef(false);
   const [downloadStatusMessage, setDownloadStatusMessage] = useState('Preparing your files...');
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [isStartingMmmPunchout, setIsStartingMmmPunchout] = useState(false);
@@ -139,13 +141,15 @@ export function useShootDetailsModalActions({
   };
 
   const handleEditorDownloadRaw = async () => {
-    if (!shoot) return;
+    if (!shoot || downloadingRef.current) return;
+    downloadingRef.current = true;
 
     try {
       setIsDownloading(true);
       const result = await downloadShootRawFiles({
         shootId: shoot.id,
         fileIds: selectedFileIds,
+        address: getShootDownloadAddress(shoot),
       });
 
       toast({
@@ -161,6 +165,7 @@ export function useShootDetailsModalActions({
         variant: 'destructive',
       });
     } finally {
+      downloadingRef.current = false;
       setIsDownloading(false);
     }
   };
@@ -227,7 +232,8 @@ export function useShootDetailsModalActions({
     size: 'original' | 'small',
     options: { shootServiceId?: string | number | null; label?: string } = {},
   ) => {
-    if (!shoot) return;
+    if (!shoot || downloadingRef.current) return;
+    downloadingRef.current = true;
 
     try {
       setIsDownloading(true);
@@ -242,10 +248,11 @@ export function useShootDetailsModalActions({
         type: downloadType,
         size,
         shootServiceId: options.shootServiceId,
-        address: shoot.location?.address,
+        address: getShootDownloadAddress(shoot),
         onPreparing: ({ message }) => {
           setDownloadStatusMessage(message);
         },
+        onDownloading: () => setDownloadStatusMessage('Downloading your files...'),
       });
       setIsDownloadDialogOpen(false);
       toast({
@@ -266,12 +273,14 @@ export function useShootDetailsModalActions({
         variant: 'destructive',
       });
     } finally {
+      downloadingRef.current = false;
       setIsDownloading(false);
     }
   };
 
   const handleDownloadFile = async (fileId: string | number, label = 'file') => {
-    if (!shoot) return;
+    if (!shoot || downloadingRef.current) return;
+    downloadingRef.current = true;
 
     try {
       setIsDownloading(true);
@@ -293,6 +302,7 @@ export function useShootDetailsModalActions({
         variant: 'destructive',
       });
     } finally {
+      downloadingRef.current = false;
       setIsDownloading(false);
     }
   };

@@ -53,6 +53,7 @@ export function useMediaViewerController({
   onAddComment,
   onToggleHidden,
   onDownloadSingle,
+  downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
   const { toast } = useToast();
@@ -75,22 +76,21 @@ export function useMediaViewerController({
   const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
-  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const activeDownloads = useRef(new Set<string>());
+  const [localDownloadingIds, setLocalDownloadingIds] = useState<ReadonlySet<string>>(new Set());
   const handleDownloadSingle = useCallback(async (fileId: string) => {
     const normalizedFileId = String(fileId);
-    if (!onDownloadSingle || downloadingFileId === normalizedFileId) return;
-    const startedAt = Date.now();
-    setDownloadingFileId(normalizedFileId);
+    if (!onDownloadSingle || activeDownloads.current.has(normalizedFileId) || downloadingFileIds?.has(normalizedFileId)) return;
+    activeDownloads.current.add(normalizedFileId);
+    setLocalDownloadingIds(new Set(activeDownloads.current));
     try {
       await onDownloadSingle(normalizedFileId);
     } finally {
-      const remainingFeedbackMs = Math.max(0, 400 - (Date.now() - startedAt));
-      if (remainingFeedbackMs > 0) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, remainingFeedbackMs));
-      }
-      setDownloadingFileId((current) => current === normalizedFileId ? null : current);
+      activeDownloads.current.delete(normalizedFileId);
+      setLocalDownloadingIds(new Set(activeDownloads.current));
     }
-  }, [downloadingFileId, onDownloadSingle]);
+  }, [downloadingFileIds, onDownloadSingle]);
+  const activeDownloadingFileIds = new Set([...localDownloadingIds, ...(downloadingFileIds ?? [])]);
   const [commentDraft, setCommentDraft] = useState('');
   const [showFileDetails, setShowFileDetails] = useState(true);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
@@ -854,7 +854,7 @@ export function useMediaViewerController({
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
-    downloadingFileId,
+    downloadingFileIds: activeDownloadingFileIds,
     handleDownloadSingle,
     onShootUpdate,
     toast,

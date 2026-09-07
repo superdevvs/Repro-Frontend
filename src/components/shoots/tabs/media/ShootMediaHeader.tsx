@@ -309,11 +309,11 @@ export function ShootMediaHeader({
                     <Button
                       size="sm"
                       className="h-7 text-[11px] px-2"
-                      disabled={downloading}
+                      disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
                       onClick={() => handleEditorDownloadRaw(false)}
                       title={`Download ${selectedFiles.size} raw file(s)`}
                     >
-                      <Download className="h-3.5 w-3.5 mr-1" />
+                      {downloading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
                       <span>Download</span>
                       {selectedFiles.size > 0 && (
                         <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current ml-1">
@@ -324,8 +324,8 @@ export function ShootMediaHeader({
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="icon" className="h-7 w-7 relative" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
-                          <Download className="h-3.5 w-3.5" />
+                        <Button size="icon" className="h-7 w-7 relative" disabled={downloading} aria-busy={downloading} aria-label="Download selected files" title={`Download ${selectedFiles.size} file(s)`}>
+                          {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                           {selectedFiles.size > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                               {selectedFiles.size}
@@ -432,11 +432,11 @@ export function ShootMediaHeader({
                 <Button
                   size="sm"
                   className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
-                  disabled={downloading}
+                  disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
                   onClick={() => handleEditorDownloadRaw(false)}
                   title={`Download ${selectedFiles.size} raw file(s)`}
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                   <span>Download</span>
                   {selectedFiles.size > 0 && (
                     <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
@@ -450,10 +450,10 @@ export function ShootMediaHeader({
                     <Button
                       size="sm"
                       className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
-                      disabled={downloading}
+                      disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
                       title={`Download ${selectedFiles.size} file(s)`}
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                       <span>Download</span>
                       {selectedFiles.size > 0 && (
                         <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">

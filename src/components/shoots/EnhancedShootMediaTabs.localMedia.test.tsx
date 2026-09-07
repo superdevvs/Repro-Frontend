@@ -1,11 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import { EnhancedShootMediaTabs } from './EnhancedShootMediaTabs';
 
 const session = vi.hoisted(() => ({ accessToken: 'local-session' }));
 const toast = vi.hoisted(() => vi.fn());
+const archiveDownload = vi.hoisted(() => vi.fn());
+vi.mock('@/utils/shootMediaDownload', () => ({ downloadShootMediaArchive: archiveDownload }));
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), isAxiosError: vi.fn(() => false) } }));
 vi.mock('@/services/api', () => ({ getApiHeaders: () => ({}) }));
 vi.mock('@/components/auth', () => ({ useAuth: () => ({ session }) }));
@@ -27,6 +29,24 @@ describe('shoot media stays available without Dropbox', () => {
     vi.mocked(axios.post).mockResolvedValue({ data: { success_count: 1 } });
   });
   afterEach(cleanup);
+
+  it('keeps the RAW ZIP button spinning until download completion', async () => {
+    let finish!: () => void;
+    archiveDownload.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<EnhancedShootMediaTabs shootId="42" address="12 Oak Street, Austin, TX 78701" canUploadRaw />);
+    await screen.findByRole('img', { name: 'front.jpg' });
+    const button = screen.getByRole('button', { name: 'Download RAW (ZIP)' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(archiveDownload).toHaveBeenCalledTimes(1);
+    expect(archiveDownload).toHaveBeenCalledWith({ shootId: '42', type: 'raw', address: '12 Oak Street, Austin, TX 78701' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button.querySelector('.animate-spin')).not.toBeNull();
+    await act(async () => { finish(); });
+    expect(button).toBeEnabled();
+    expect(button.querySelector('.animate-spin')).toBeNull();
+  });
 
   it('renders the local thumbnail and reloads media after a local upload', async () => {
     const countsUpdated = vi.fn();

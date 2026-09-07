@@ -851,6 +851,7 @@ export function useShootDetailsMediaTab({
     handleToggleFavorite,
     handleAddComment,
     handleDownloadSingleFile,
+    downloadingFileIds,
   } = useShootMediaActions({
     shoot,
     role,
@@ -1173,6 +1174,7 @@ export function useShootDetailsMediaTab({
             onToggleFavorite={handleToggleFavorite}
             onAddComment={handleAddComment}
             onDownloadSingle={(canDownloadSingleMediaInActiveTab || isClient) ? handleDownloadSingleFile : undefined}
+            downloadingFileIds={downloadingFileIds}
             enableRawStacks={displayTab === 'uploaded'}
             rawStackSize={Number.isFinite(rawStackSize) && rawStackSize > 1 ? rawStackSize : null}
             renderScanStatus={renderScanStatus}
@@ -1354,6 +1356,7 @@ export function useShootDetailsMediaTab({
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}
         onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
+        downloadingFileIds={downloadingFileIds}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}
         selectedFiles={selectedFiles}

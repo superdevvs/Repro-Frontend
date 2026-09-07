@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Archive,
   Download,
@@ -16,7 +16,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { cn } from '@/lib/utils';
 import type { ShootData, ShootFileData, ShootTourLinkValue } from '@/types/shoots';
 import type { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
@@ -45,8 +44,8 @@ interface ShootDownloadCenterDialogProps {
   canDownloadWholeShoot?: boolean;
   canAccessTours?: boolean;
   onOpenChange: (open: boolean) => void;
-  onDownloadArchive: (size: ShootMediaDownloadSize, target?: DownloadTarget) => void;
-  onDownloadFile?: (fileId: string | number, label?: string) => void;
+  onDownloadArchive: (size: ShootMediaDownloadSize, target?: DownloadTarget) => void | Promise<void>;
+  onDownloadFile?: (fileId: string | number, label?: string) => void | Promise<void>;
 }
 
 const PHOTO_SIZE_OPTIONS: Array<{
@@ -202,6 +201,20 @@ export function ShootDownloadCenterDialog({
   onDownloadArchive,
   onDownloadFile,
 }: ShootDownloadCenterDialogProps) {
+  const [activeDownload, setActiveDownload] = useState<string | null>(null);
+  const activeDownloadRef = useRef(false);
+  const downloadBusy = isDownloading || activeDownload !== null;
+  const runDownload = async (key: string, action: () => void | Promise<void>) => {
+    if (isDownloading || activeDownloadRef.current) return;
+    activeDownloadRef.current = true;
+    setActiveDownload(key);
+    try {
+      await action();
+    } finally {
+      activeDownloadRef.current = false;
+      setActiveDownload(null);
+    }
+  };
   const downloadModel = useMemo(() => {
     const canSeeWholeShoot = !isClient || canDownloadWholeShoot;
     const canSeeTours = !isClient || canAccessTours;
@@ -307,10 +320,13 @@ export function ShootDownloadCenterDialog({
           key={option.size}
           variant="outline"
           className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left"
-          disabled={disabled || isDownloading}
-          onClick={() => onDownloadArchive(option.size, target)}
+          disabled={disabled || downloadBusy}
+          aria-busy={activeDownload === `archive-${target.shootServiceId ?? 'all'}-${option.size}`}
+          onClick={() => void runDownload(`archive-${target.shootServiceId ?? 'all'}-${option.size}`, () => onDownloadArchive(option.size, target))}
         >
-          <Download className="mr-2 h-4 w-4 shrink-0" />
+          {activeDownload === `archive-${target.shootServiceId ?? 'all'}-${option.size}`
+            ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            : <Download className="mr-2 h-4 w-4 shrink-0" />}
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium break-words">{option.label}</span>
             <span className="block text-xs text-muted-foreground break-words">{option.description}</span>
@@ -340,16 +356,20 @@ export function ShootDownloadCenterDialog({
           size="sm"
           variant="outline"
           className="h-8 shrink-0 px-2"
-          disabled={isDownloading}
+          disabled={downloadBusy}
+          aria-label={`Download ${download.label}`}
+          aria-busy={activeDownload === download.id}
           onClick={() => {
             if (download.fileId && onDownloadFile) {
-              onDownloadFile(download.fileId, download.label);
+              void runDownload(download.id, () => onDownloadFile(download.fileId!, download.label));
               return;
             }
             if (download.href) startExternalDownload(download.href);
           }}
         >
-          <Download className="h-3.5 w-3.5" />
+          {activeDownload === download.id
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Download className="h-3.5 w-3.5" />}
         </Button>
       </div>
     );
@@ -373,18 +393,11 @@ export function ShootDownloadCenterDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {isDownloading ? (
-            <div className="space-y-4 px-5 py-5">
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <div className="space-y-1">
-                  <div className="font-medium">Preparing your files</div>
-                  <div className="text-sm text-muted-foreground">{downloadStatusMessage}</div>
-                </div>
-              </div>
-              <HorizontalLoader message="Your download will start automatically when the archive is ready." />
+          {downloadBusy && (
+            <div role="status" className="px-5 pt-3 text-sm text-muted-foreground">
+              {downloadStatusMessage}
             </div>
-          ) : (
+          )}
             <div className="min-h-0 overflow-y-auto px-5 py-4">
               {!hasDownloads ? (
                 <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
@@ -461,7 +474,6 @@ export function ShootDownloadCenterDialog({
                 </div>
               )}
             </div>
-          )}
 
           <div className="flex justify-end border-t px-5 py-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

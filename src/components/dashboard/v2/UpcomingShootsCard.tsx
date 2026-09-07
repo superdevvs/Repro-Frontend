@@ -1,3 +1,4 @@
+import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
@@ -30,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
-import { downloadShootRawFiles, startSameWindowDownload } from '@/utils/shootMediaDownload';
+import { downloadShootRawFiles } from '@/utils/shootMediaDownload';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { Button } from '@/components/ui/button';
@@ -310,6 +311,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const { toast } = useToast();
   const [shareLinkBusyId, setShareLinkBusyId] = useState<number | null>(null);
   const [downloadBusyId, setDownloadBusyId] = useState<number | null>(null);
+  const downloadBusyRef = useRef(false);
 
   const handleEditorCopyShareLink = useCallback(
     async (event: React.MouseEvent, shootId: number) => {
@@ -349,13 +351,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const handleEditorDownloadRaw = useCallback(
     async (event: React.MouseEvent, shootId: number) => {
       event.stopPropagation();
-      if (downloadBusyId) return;
+      if (downloadBusyRef.current) return;
+      downloadBusyRef.current = true;
       setDownloadBusyId(shootId);
       try {
-        const result = await downloadShootRawFiles({ shootId });
-        if (result.mode === 'redirect') {
-          startSameWindowDownload(result.url);
-        }
+        const source = shoots.find((shoot) => shoot.id === shootId);
+        const result = await downloadShootRawFiles({ shootId, address: source ? getShootDownloadAddress(source) : undefined });
         toast({
           title: 'Download started',
           description: result.message || 'Your raw files download has started.',
@@ -367,10 +368,11 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
           variant: 'destructive',
         });
       } finally {
+        downloadBusyRef.current = false;
         setDownloadBusyId(null);
       }
     },
-    [downloadBusyId, toast],
+    [shoots, toast],
   );
 
   useEffect(() => {
@@ -1270,7 +1272,8 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             <button
                               type="button"
                               onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)}
-                              disabled={downloadBusyId === shoot.id}
+                              disabled={downloadBusyId !== null}
+                              aria-busy={downloadBusyId === shoot.id}
                               title="Download raw files"
                               className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
@@ -1427,7 +1430,8 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               variant="outline"
                               className="h-8 rounded-full px-3 text-xs"
                               onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)}
-                              disabled={downloadBusyId === shoot.id}
+                              disabled={downloadBusyId !== null}
+                              aria-busy={downloadBusyId === shoot.id}
                             >
                               {downloadBusyId === shoot.id ? (
                                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

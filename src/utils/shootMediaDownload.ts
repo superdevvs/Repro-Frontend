@@ -1,5 +1,15 @@
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { buildShootZipFilename, parseDownloadFilename } from './shootDownloadFilename';
+import {
+  ArchiveTooLargeForBuffer,
+  fetchApiDownload,
+  readArchiveBlob,
+  saveDownloadBlob as downloadBlob,
+  validateApiDownloadUrl,
+  validateDownloadUrl,
+  waitForArchive,
+} from './shootDownloadTransfer';
 
 export type ShootMediaDownloadType = 'raw' | 'edited';
 export type ShootMediaDownloadSize = 'original' | 'small';
@@ -21,6 +31,8 @@ type ResolveShootMediaArchiveRequestOptions = {
   address?: string | null;
   headers?: HeadersInit;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
+  onDownloading?: () => void;
+  signal?: AbortSignal;
   redirectMode?: 'new-tab' | 'same-tab';
   requestUrl: string;
   shootId?: string | number;
@@ -61,37 +73,7 @@ export const getShootMediaDownloadSizeLabel = (
   }
 };
 
-const sanitizeFilenameSegment = (value?: string | null) => {
-  const normalized = (value || 'shoot').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-  return normalized.replace(/^_+|_+$/g, '') || 'shoot';
-};
-
-const downloadBlob = (blob: Blob, filename: string) => {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  link.parentNode?.removeChild(link);
-  window.URL.revokeObjectURL(url);
-};
-
-const getFilenameFromDisposition = (contentDisposition: string | null) => {
-  if (!contentDisposition) return null;
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    try {
-      return decodeURIComponent(utf8Match[1]);
-    } catch {
-      return utf8Match[1];
-    }
-  }
-
-  const basicMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
-  return basicMatch?.[1] || null;
-};
+const getFilenameFromDisposition = parseDownloadFilename;
 
 const emitShootMediaDownloadStarted = ({
   shootId,
@@ -117,47 +99,15 @@ const emitShootMediaDownloadStarted = ({
   );
 };
 
-const sleep = (time: number) => new Promise((resolve) => {
-  window.setTimeout(resolve, time);
-});
-
 export const startSameWindowDownload = (url: string) => {
   const iframe = document.createElement('iframe');
   iframe.style.display = 'none';
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.src = url;
+  iframe.src = validateDownloadUrl(url);
   document.body.appendChild(iframe);
   window.setTimeout(() => {
     iframe.remove();
   }, 60_000);
-};
-
-const renderDownloadWindow = (
-  downloadWindow: Window | null,
-  title: string,
-  message: string,
-) => {
-  if (!downloadWindow || downloadWindow.closed) {
-    return;
-  }
-
-  try {
-    downloadWindow.document.open();
-    downloadWindow.document.write(
-      `<title>${title}</title><div style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:32px;line-height:1.5;color:#0f172a"><h2 style="margin:0 0 12px">${title}</h2><p style="margin:0;color:#475569">${message}</p></div>`,
-    );
-    downloadWindow.document.close();
-  } catch {
-    // Ignore cross-window update failures after navigation.
-  }
-};
-
-const navigateDownloadWindow = (
-  downloadWindow: Window | null,
-  redirectMode: 'new-tab' | 'same-tab',
-  url: string,
-) => {
-  startSameWindowDownload(url);
 };
 
 const extractJsonResponse = async (response: Response) => {
@@ -176,8 +126,11 @@ const extractRawJsonResponse = async (response: Response) => {
 const buildRawDownloadFilename = (
   shootId: string | number,
   contentDisposition: string | null,
+  address?: string | null,
 ) => {
-  return getFilenameFromDisposition(contentDisposition) || `shoot-${shootId}-raw-files.zip`;
+  const supplied = getFilenameFromDisposition(contentDisposition);
+  return (supplied && (!address || !/^shoot-\d+-raw-files\.zip$/i.test(supplied)) ? supplied : null)
+    || buildShootZipFilename(address, 'raw-files', shootId);
 };
 
 export const buildShootDownloadFilename = (
@@ -185,41 +138,63 @@ export const buildShootDownloadFilename = (
   type: ShootMediaDownloadType,
   size?: ShootMediaDownloadSize,
 ) => {
-  const base = sanitizeFilenameSegment(address);
-  const parts = [base];
+  return buildShootZipFilename(address, `${type}-${size ?? 'original'}`);
+};
 
-  if (type === 'raw') {
-    parts.push('full');
-  } else {
-    parts.push('web');
+/** Legacy ready links use no API credentials; the new API streams archives directly. */
+const downloadReadyAsset = async (url: string, fallbackFilename: string, signal?: AbortSignal) => {
+  const safeUrl = validateDownloadUrl(url);
+  let sameApiOrigin = false;
+  try { validateApiDownloadUrl(safeUrl); sameApiOrigin = true; } catch { /* Provider link: native handoff. */ }
+  if (!sameApiOrigin) {
+    startSameWindowDownload(safeUrl);
+    return { mode: 'redirect' as const, url: safeUrl };
   }
-
-  if (size === 'small') {
-    parts.push('mls_compliant');
+  let response: Response;
+  try {
+    response = await fetch(safeUrl, { credentials: 'omit', redirect: 'error', signal });
+  } catch (error) {
+    // Older static-storage links may not expose CORS. The canonical ready URL
+    // can still be handled by the browser, without forwarding API credentials.
+    if (!(error instanceof TypeError) || signal?.aborted) throw error;
+    startSameWindowDownload(safeUrl);
+    return { mode: 'redirect' as const, url: safeUrl };
   }
-
-  return `${parts.join('_')}.zip`;
+  if (!response.ok || /application\/json|text\/html/i.test(response.headers.get('Content-Type') || '')) {
+    throw new Error('The file could not be downloaded. Please try again.');
+  }
+  try {
+    const blob = await readArchiveBlob(response);
+    const urlName = new URL(safeUrl).pathname.split('/').pop();
+    const filename = parseDownloadFilename(response.headers.get('Content-Disposition'))
+      || (urlName ? parseDownloadFilename(`attachment; filename*=UTF-8''${urlName}`) : null)
+      || fallbackFilename;
+    downloadBlob(blob, filename);
+    return { mode: 'blob' as const, filename };
+  } catch (error) {
+    if (!(error instanceof ArchiveTooLargeForBuffer)) throw error;
+    startSameWindowDownload(safeUrl);
+    return { mode: 'redirect' as const, url: safeUrl };
+  }
 };
 
 export const resolveShootMediaArchiveRequest = async ({
   address,
   headers,
   onPreparing,
-  redirectMode = 'new-tab',
+  onDownloading,
+  signal,
   requestUrl,
   shootId,
   size,
   type,
 }: ResolveShootMediaArchiveRequestOptions): Promise<ShootMediaArchiveDownloadResult> => {
-  let currentUrl = requestUrl;
+  let currentUrl = validateApiDownloadUrl(requestUrl);
   let waited = false;
-  const downloadWindow = null;
+  const startedAt = Date.now();
 
   while (true) {
-    const response = await fetch(currentUrl, {
-      method: 'GET',
-      headers,
-    });
+    const response = await fetchApiDownload(currentUrl, headers, signal);
 
     const contentType = response.headers.get('content-type') || '';
 
@@ -227,11 +202,9 @@ export const resolveShootMediaArchiveRequest = async ({
       if (contentType.includes('application/json')) {
         const errorData = await extractJsonResponse(response);
         const message = errorData.message || errorData.error || 'Failed to download media';
-        renderDownloadWindow(downloadWindow, 'Download Unavailable', message);
         throw new Error(message);
       }
 
-      renderDownloadWindow(downloadWindow, 'Download Unavailable', 'Failed to download media');
       throw new Error('Failed to download media');
     }
 
@@ -239,44 +212,46 @@ export const resolveShootMediaArchiveRequest = async ({
       const data = await extractJsonResponse(response);
 
       if (data?.type === 'redirect' && data?.url) {
-        navigateDownloadWindow(downloadWindow, redirectMode, data.url);
+        onDownloading?.();
+        const result = await downloadReadyAsset(data.url, buildShootDownloadFilename(address, type, size), signal);
         emitShootMediaDownloadStarted({ shootId, type, size });
-        return { mode: 'redirect', url: data.url, waited };
+        return { ...result, waited };
       }
 
       if (data?.type === 'preparing') {
         waited = true;
         const preparingState = {
           message: data.message || 'Preparing your files.',
-          pollAfterMs: data.poll_after_ms ?? 3000,
+          pollAfterMs: Math.max(1000, Math.min(10_000, Number(data.poll_after_ms) || 3000)),
         };
 
         onPreparing?.(preparingState);
-        renderDownloadWindow(
-          downloadWindow,
-          'Preparing Download',
-          `${preparingState.message} This tab will update automatically.`,
-        );
-
-        currentUrl = data.status_url || currentUrl;
-        await sleep(preparingState.pollAfterMs);
+        currentUrl = validateApiDownloadUrl(data.status_url || currentUrl);
+        if (Date.now() - startedAt > 15 * 60_000) throw new Error('The archive is still preparing. Please try again shortly.');
+        await waitForArchive(preparingState.pollAfterMs, signal);
         continue;
       }
 
-      renderDownloadWindow(downloadWindow, 'Download Unavailable', 'Unexpected response format');
       throw new Error(data?.message || 'Unexpected response format');
     }
 
-    if (downloadWindow && !downloadWindow.closed) {
-      downloadWindow.close();
-    }
-
-    const blob = await response.blob();
+    if (/text\/html/i.test(contentType)) throw new Error('The archive could not be downloaded. Please try again.');
+    onDownloading?.();
     const suggestedFilename =
       getFilenameFromDisposition(response.headers.get('content-disposition')) ||
       buildShootDownloadFilename(address, type, size);
 
-    downloadBlob(blob, suggestedFilename);
+    try {
+      const blob = await readArchiveBlob(response);
+      downloadBlob(blob, suggestedFilename);
+    } catch (error) {
+      const nativeUrl = response.headers.get('X-Archive-Download-Url');
+      if (!(error instanceof ArchiveTooLargeForBuffer) || !nativeUrl) throw error;
+      const url = validateDownloadUrl(nativeUrl);
+      startSameWindowDownload(url);
+      emitShootMediaDownloadStarted({ shootId, type, size });
+      return { mode: 'redirect', url, waited };
+    }
     emitShootMediaDownloadStarted({ shootId, type, size });
     return { mode: 'blob', filename: suggestedFilename, waited };
   }
@@ -289,6 +264,8 @@ export const downloadShootMediaArchive = async ({
   shootServiceId,
   address,
   onPreparing,
+  onDownloading,
+  signal,
   includeExtras,
   mediaTypes,
 }: {
@@ -298,6 +275,8 @@ export const downloadShootMediaArchive = async ({
   shootServiceId?: string | number | null;
   address?: string | null;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
+  onDownloading?: () => void;
+  signal?: AbortSignal;
   includeExtras?: boolean;
   mediaTypes?: string[];
 }) => {
@@ -326,6 +305,8 @@ export const downloadShootMediaArchive = async ({
       Accept: 'application/json, application/zip, application/octet-stream',
     },
     onPreparing,
+    onDownloading,
+    signal,
     redirectMode: 'same-tab',
     requestUrl: `${API_BASE_URL}/api/shoots/${shootId}/media/download-zip?${params.toString()}`,
     shootId,
@@ -337,9 +318,13 @@ export const downloadShootMediaArchive = async ({
 export const downloadShootRawFiles = async ({
   shootId,
   fileIds,
+  address,
+  onDownloading,
 }: {
   shootId: string | number;
   fileIds?: Array<string | number>;
+  address?: string | null;
+  onDownloading?: () => void;
 }): Promise<ShootRawMediaDownloadResult> => {
   const headers = getApiHeaders();
   headers.Accept = 'application/json, application/zip, application/octet-stream';
@@ -354,12 +339,9 @@ export const downloadShootRawFiles = async ({
   }
 
   const queryString = queryParams.toString();
-  const response = await fetch(
+  const response = await fetchApiDownload(
     `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw${queryString ? `?${queryString}` : ''}`,
-    {
-      method: 'GET',
-      headers,
-    },
+    headers,
   );
 
   const contentType = response.headers.get('content-type') || '';
@@ -377,11 +359,11 @@ export const downloadShootRawFiles = async ({
     const data = await extractRawJsonResponse(response);
 
     if (data.type === 'redirect' && data.url) {
-      startSameWindowDownload(data.url);
+      onDownloading?.();
+      const result = await downloadReadyAsset(data.url, buildRawDownloadFilename(shootId, null, address));
       emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
       return {
-        mode: 'redirect',
-        url: data.url,
+        ...result,
         message: data.message,
         fileCount: data.file_count,
       };
@@ -390,10 +372,13 @@ export const downloadShootRawFiles = async ({
     throw new Error(data.message || 'Download failed');
   }
 
+  if (/text\/html/i.test(contentType)) throw new Error('The ZIP could not be downloaded. Please try again.');
+  onDownloading?.();
   const blob = await response.blob();
   const filename = buildRawDownloadFilename(
     shootId,
     response.headers.get('content-disposition'),
+    address,
   );
   downloadBlob(blob, filename);
   emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
@@ -407,20 +392,19 @@ export const downloadShootRawFiles = async ({
 export const downloadShootMediaFile = async ({
   shootId,
   fileId,
+  onDownloading,
 }: {
   shootId: string | number;
   fileId: string | number;
+  onDownloading?: () => void;
 }): Promise<ShootSingleMediaDownloadResult> => {
   const headers = getApiHeaders();
   headers.Accept = 'application/json, application/octet-stream';
   delete headers['Content-Type'];
 
-  const response = await fetch(
+  const response = await fetchApiDownload(
     `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/download`,
-    {
-      method: 'GET',
-      headers,
-    },
+    headers,
   );
 
   const contentType = response.headers.get('content-type') || '';
@@ -440,13 +424,12 @@ export const downloadShootMediaFile = async ({
       throw new Error(data.message || 'Download link not available');
     }
 
-    startSameWindowDownload(data.url);
-    return {
-      mode: 'redirect',
-      url: data.url,
-    };
+    onDownloading?.();
+    return downloadReadyAsset(data.url, `shoot-${shootId}-file-${fileId}`);
   }
 
+  if (/text\/html/i.test(contentType)) throw new Error('The file could not be downloaded. Please try again.');
+  onDownloading?.();
   const blob = await response.blob();
   const filename =
     getFilenameFromDisposition(response.headers.get('content-disposition')) ||

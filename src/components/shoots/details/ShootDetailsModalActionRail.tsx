@@ -192,15 +192,18 @@ export function ShootDetailsModalActionRail({
   const [activeDownloadControl, setActiveDownloadControl] = React.useState<
     'photographer_raw' | 'editor_raw' | 'progress' | null
   >(null);
+  const downloadControlBusy = React.useRef(false);
   const runDownloadControl = React.useCallback(
     (control: 'photographer_raw' | 'editor_raw' | 'progress', action: () => void | Promise<void>) => {
-      if (activeDownloadControl === control) return;
+      if (downloadControlBusy.current) return;
+      downloadControlBusy.current = true;
       setActiveDownloadControl(control);
-      void Promise.resolve(action()).finally(() => {
+      void Promise.resolve().then(action).finally(() => {
+        downloadControlBusy.current = false;
         setActiveDownloadControl((current) => current === control ? null : current);
       });
     },
-    [activeDownloadControl],
+    [],
   );
   const handleProgressMediaDownload = () => activeMediaDisplayTab === 'edited'
     ? handleDownloadMedia('original')
@@ -352,13 +355,14 @@ export function ShootDetailsModalActionRail({
                   className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                   onClick={() => runDownloadControl('progress', handleProgressMediaDownload)}
                   disabled={isProgressDownloadDisabled}
+                  aria-busy={activeDownloadControl === 'progress'}
                 >
                   {activeDownloadControl === 'progress' ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   ) : (
                     <Download className="h-3 w-3 mr-1" />
                   )}
-                  <span>{activeDownloadControl === 'progress' ? 'Preparing…' : 'Downloads'}</span>
+                  <span>{activeDownloadControl === 'progress' ? 'Downloading…' : 'Downloads'}</span>
                 </Button>
               )}
               {showPublishToBrightMls && (
@@ -390,13 +394,14 @@ export function ShootDetailsModalActionRail({
                   className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                   onClick={() => runDownloadControl('photographer_raw', () => handleDownloadMedia('original'))}
                   disabled={activeDownloadControl === 'photographer_raw'}
+                  aria-busy={activeDownloadControl === 'photographer_raw'}
                 >
                   {activeDownloadControl === 'photographer_raw' ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   ) : (
                     <Download className="h-3 w-3 mr-1" />
                   )}
-                  <span>{activeDownloadControl === 'photographer_raw' ? 'Preparing…' : 'Download RAW'}</span>
+                  <span>{activeDownloadControl === 'photographer_raw' ? 'Downloading…' : 'Download RAW'}</span>
                 </Button>
               )}
               {isEditor && (
@@ -416,13 +421,14 @@ export function ShootDetailsModalActionRail({
                     className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                     onClick={() => runDownloadControl('editor_raw', handleEditorDownloadRaw)}
                     disabled={isEditorDownloadDisabled}
+                    aria-busy={activeDownloadControl === 'editor_raw'}
                   >
                     {activeDownloadControl === 'editor_raw' ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     ) : (
                       <Download className="h-3 w-3 mr-1" />
                     )}
-                    <span>{activeDownloadControl === 'editor_raw' ? 'Preparing…' : 'Download'}</span>
+                    <span>{activeDownloadControl === 'editor_raw' ? 'Downloading…' : 'Download'}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -613,10 +619,10 @@ export function ShootDetailsModalActionRail({
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
                 onClick={() => {
-                  setIsMobileActionsOpen(false);
                   runDownloadControl('progress', handleProgressMediaDownload);
                 }}
                 disabled={isProgressDownloadDisabled}
+                aria-busy={activeDownloadControl === 'progress'}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   {activeDownloadControl === 'progress' ? (
@@ -625,7 +631,7 @@ export function ShootDetailsModalActionRail({
                     <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
                 </div>
-                {activeDownloadControl === 'progress' ? 'Preparing…' : 'Downloads'}
+                {activeDownloadControl === 'progress' ? 'Downloading…' : 'Downloads'}
               </button>
             )}
             {showMmmPunchoutButtons && !isEditMode && canStartMmmPunchout && (
@@ -665,10 +671,10 @@ export function ShootDetailsModalActionRail({
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {
-                  setIsMobileActionsOpen(false);
                   runDownloadControl('editor_raw', handleEditorDownloadRaw);
                 }}
                 disabled={isEditorDownloadDisabled}
+                aria-busy={activeDownloadControl === 'editor_raw'}
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   {activeDownloadControl === 'editor_raw' ? (
@@ -677,7 +683,7 @@ export function ShootDetailsModalActionRail({
                     <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
                 </div>
-                {activeDownloadControl === 'editor_raw' ? 'Preparing…' : 'Download'}
+                {activeDownloadControl === 'editor_raw' ? 'Downloading…' : 'Download'}
               </button>
             )}
             {isEditor && !isEditMode && (

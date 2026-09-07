@@ -162,6 +162,7 @@ export const CompletedShootListRow = ({
   shoot,
   onSelect,
   onDownload,
+  isDownloading = false,
   isSuperAdmin = false,
   isAdmin = false,
   isClient = false,
@@ -178,7 +179,8 @@ export const CompletedShootListRow = ({
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
-  onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
+  onDownload?: (shoot: ShootData, type: 'full' | 'web') => void | Promise<void>
+  isDownloading?: boolean
   isSuperAdmin?: boolean
   isAdmin?: boolean
   isClient?: boolean
@@ -295,8 +297,8 @@ export const CompletedShootListRow = ({
               </h3>
               <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                 {onDownload && (
-                  <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onDownload(shoot, 'full')} title="Downloads">
-                    <Download className="h-3.5 w-3.5" />
+                  <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onDownload(shoot, 'full')} title={isDownloading ? 'Preparing download…' : 'Downloads'} aria-label="Downloads" disabled={isDownloading} aria-busy={isDownloading}>
+                    {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                   </Button>
                 )}
               </div>
@@ -582,9 +584,9 @@ export const CompletedShootListRow = ({
                       e.stopPropagation()
                       onDownload(shoot, 'full')
                     }}
-                    title="Downloads"
+                    title={isDownloading ? 'Preparing download…' : 'Downloads'} aria-label="Downloads" disabled={isDownloading} aria-busy={isDownloading}
                   >
-                    <Download className="h-3.5 w-3.5" />
+                    {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                     <span className="hidden sm:inline">Downloads</span>
                   </Button>
                 )}

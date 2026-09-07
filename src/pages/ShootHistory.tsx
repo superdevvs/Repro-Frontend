@@ -242,6 +242,7 @@ const ShootHistory: React.FC = () => {
     handlePublishMls,
     canDownloadHistoryShoot,
     handleDownloadShoot,
+    downloadingShootIds,
     setApprovalModalShoot,
     setDeclineModalShoot,
     setEditModalShoot,
@@ -718,6 +719,7 @@ const ShootHistory: React.FC = () => {
                   shoot={shoot}
                   onSelect={handleShootSelect}
                   onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+                  isDownloading={downloadingShootIds.has(String(shoot.id))}
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
@@ -750,6 +752,7 @@ const ShootHistory: React.FC = () => {
             shoot={shoot}
             onSelect={handleShootSelect}
             onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+            isDownloading={downloadingShootIds.has(String(shoot.id))}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
@@ -766,7 +769,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -887,6 +890,7 @@ const ShootHistory: React.FC = () => {
                   shoot={shoot}
                   onSelect={handleShootSelect}
                   onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+                  isDownloading={downloadingShootIds.has(String(shoot.id))}
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
@@ -920,6 +924,7 @@ const ShootHistory: React.FC = () => {
             shoot={shoot}
             onSelect={handleShootSelect}
             onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
+            isDownloading={downloadingShootIds.has(String(shoot.id))}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
@@ -937,7 +942,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {

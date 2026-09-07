@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Download,
+  Loader2,
   Upload,
   Image as ImageIcon,
   AlertTriangle,
@@ -31,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface EnhancedShootMediaTabsProps {
   shootId: string;
+  address?: string;
   rawPhotoCount?: number;
   editedPhotoCount?: number;
   extraPhotoCount?: number;
@@ -46,6 +48,7 @@ interface EnhancedShootMediaTabsProps {
 
 export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   shootId,
+  address,
   rawPhotoCount = 0,
   editedPhotoCount = 0,
   extraPhotoCount = 0,
@@ -93,6 +96,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloadingType, setDownloadingType] = useState<'raw' | 'edited' | null>(null);
+  const downloadBusyRef = useRef(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [totalUploadCount, setTotalUploadCount] = useState(0);
@@ -305,10 +310,14 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   };
 
   const handleDownloadZip = async (type: 'raw' | 'edited') => {
+    if (downloadBusyRef.current) return;
+    downloadBusyRef.current = true;
+    setDownloadingType(type);
     try {
       await downloadShootMediaArchive({
         shootId,
         type,
+        address,
       });
       toast({
         title: 'Download Started',
@@ -321,6 +330,9 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
         description: 'Failed to download ZIP file',
         variant: 'destructive',
       });
+    } finally {
+      downloadBusyRef.current = false;
+      setDownloadingType(null);
     }
   };
 
@@ -418,8 +430,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                     </span>
                   )}
                 </CardTitle>
-                <Button onClick={() => handleDownloadZip('raw')} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
+                <Button onClick={() => handleDownloadZip('raw')} variant="outline" size="sm" disabled={downloadingType !== null} aria-busy={downloadingType === 'raw'}>
+                  {downloadingType === 'raw' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                   Download RAW (ZIP)
                 </Button>
               </div>
@@ -508,8 +520,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                 <CardTitle className="text-lg">
                   Edited Media · {counts.edited_photo_count} / {counts.expected_final_count} delivered
                 </CardTitle>
-                <Button onClick={() => handleDownloadZip('edited')} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
+                <Button onClick={() => handleDownloadZip('edited')} variant="outline" size="sm" disabled={downloadingType !== null} aria-busy={downloadingType === 'edited'}>
+                  {downloadingType === 'edited' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                   Download Edited (ZIP)
                 </Button>
               </div>
@@ -570,5 +582,4 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     </div>
   );
 };
-
 

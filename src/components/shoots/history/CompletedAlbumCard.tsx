@@ -159,6 +159,7 @@ export const CompletedAlbumCard = ({
   shoot,
   onSelect,
   onDownload,
+  isDownloading = false,
   isSuperAdmin = false,
   isAdmin = false,
   isClient = false,
@@ -175,7 +176,8 @@ export const CompletedAlbumCard = ({
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
-  onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
+  onDownload?: (shoot: ShootData, type: 'full' | 'web') => void | Promise<void>
+  isDownloading?: boolean
   isSuperAdmin?: boolean
   isAdmin?: boolean
   isClient?: boolean
@@ -352,7 +354,7 @@ export const CompletedAlbumCard = ({
         </div>
 
         {/* Download and Delete buttons */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={`absolute bottom-3 right-3 flex items-center gap-2 ${isDownloading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
           {onDownload && (
             <Button
               size="sm"
@@ -362,9 +364,9 @@ export const CompletedAlbumCard = ({
                 e.stopPropagation()
                 onDownload(shoot, 'full')
               }}
-              title="Downloads"
+              title={isDownloading ? 'Preparing download…' : 'Downloads'} aria-label="Downloads" disabled={isDownloading} aria-busy={isDownloading}
             >
-              <Download className="h-4 w-4" />
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           )}
           {/* Delete button - Only for admin/superadmin */}

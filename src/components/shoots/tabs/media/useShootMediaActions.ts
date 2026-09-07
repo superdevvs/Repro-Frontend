@@ -1,4 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { buildShootZipFilename, getShootDownloadAddress, parseDownloadFilename } from '@/utils/shootDownloadFilename';
+import { useShootMediaDownloadState } from './useShootMediaDownloadState';
 import type { QueryClient } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -143,6 +145,10 @@ export function useShootMediaActions({
   setDragOverTab,
 }: UseShootMediaActionsParams) {
   const { user } = useAuth();
+  const {
+    downloadingFileIds, beginFileDownload, finishFileDownload,
+    beginBatchDownload, finishBatchDownload, clearPopupUrl, keepPopupUrl,
+  } = useShootMediaDownloadState();
   const normalizedRole = String(role || '').trim().toLowerCase();
   const isEditorRole = normalizedRole === 'editor';
   const canSubmitAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(normalizedRole);
@@ -405,6 +411,7 @@ export function useShootMediaActions({
       return;
     }
 
+    if (!beginBatchDownload()) return;
     const selectedFileIds = Array.from(selectedFiles);
     const filesById = new Map(
       [...rawFiles, ...editedFiles].map((file) => [String(file.id), file]),
@@ -436,25 +443,30 @@ export function useShootMediaActions({
           variant: 'destructive',
         });
         setDownloading(false);
+        finishBatchDownload();
         return;
       }
 
       if (archiveFileIds.length === 0) {
         setSelectedFiles(new Set());
         setDownloading(false);
+        finishBatchDownload();
         return;
       }
     }
 
     const fileCount = archiveFileIds.length;
     const sizeLabel = size === 'small' ? 'MLS Optimized' : 'Print Resolution';
-    const filename = `shoot-${shoot.id}-${size === 'small' ? 'mls-optimized' : 'print-resolution'}-${Date.now()}.zip`;
+    const fallbackFilename = buildShootZipFilename(
+      getShootDownloadAddress(shoot), size === 'small' ? 'selected-mls' : 'selected-print', shoot.id,
+    );
+    clearPopupUrl();
 
     setDownloadPopup({
       visible: true,
       status: 'processing',
       blobUrl: null,
-      filename,
+      filename: fallbackFilename,
       fileCount,
       sizeLabel,
     });
@@ -465,6 +477,7 @@ export function useShootMediaActions({
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/download`, {
         method: 'POST',
         headers,
+        redirect: 'error',
         body: JSON.stringify({
           file_ids: archiveFileIds,
           size: size === 'small' ? 'small' : 'original',
@@ -476,15 +489,17 @@ export function useShootMediaActions({
       }
 
       const blob = await response.blob();
+      if (!blob.size) throw new Error('The downloaded ZIP was empty.');
+      const filename = parseDownloadFilename(response.headers.get('content-disposition')) || fallbackFilename;
       const blobUrl = window.URL.createObjectURL(blob);
-      setDownloadPopup((prev) => ({ ...prev, status: 'ready', blobUrl }));
+      if (!keepPopupUrl(blobUrl)) return;
+      setDownloadPopup((prev) => ({ ...prev, status: 'ready', blobUrl, filename }));
 
       const anchor = document.createElement('a');
       anchor.href = blobUrl;
       anchor.download = filename;
       document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
+      try { anchor.click(); } finally { anchor.remove(); }
 
       setSelectedFiles(new Set());
     } catch {
@@ -495,6 +510,7 @@ export function useShootMediaActions({
         variant: 'destructive',
       });
     } finally {
+      finishBatchDownload();
       setDownloading(false);
     }
   };
@@ -510,9 +526,7 @@ export function useShootMediaActions({
   };
 
   const closeDownloadPopup = (downloadPopup: DownloadPopupState) => {
-    if (downloadPopup.blobUrl) {
-      window.URL.revokeObjectURL(downloadPopup.blobUrl);
-    }
+    clearPopupUrl(downloadPopup.blobUrl);
     setDownloadPopup(resetDownloadPopup());
   };
 
@@ -527,11 +541,13 @@ export function useShootMediaActions({
       return;
     }
 
+    if (!beginBatchDownload()) return;
     setDownloading(true);
     try {
       const result = await downloadShootRawFiles({
         shootId: shoot.id,
         fileIds: downloadAll ? undefined : fileIds,
+        address: getShootDownloadAddress(shoot),
       });
 
       toast({
@@ -548,6 +564,7 @@ export function useShootMediaActions({
         variant: 'destructive',
       });
     } finally {
+      finishBatchDownload();
       setDownloading(false);
     }
   };
@@ -861,6 +878,8 @@ export function useShootMediaActions({
       }
     }
 
+    const normalizedFileId = String(fileId);
+    if (!beginFileDownload(normalizedFileId)) return;
     try {
       const selectedFile = [...rawFiles, ...editedFiles]
         .find((file) => String(file.id) === String(fileId));
@@ -886,10 +905,13 @@ export function useShootMediaActions({
         description: error instanceof Error ? error.message : 'Failed to download file',
         variant: 'destructive',
       });
+    } finally {
+      finishFileDownload(normalizedFileId);
     }
   };
 
   return {
+    downloadingFileIds,
     handleDirectDrop,
     handleTabDragEnter,
     handleTabDragLeave,

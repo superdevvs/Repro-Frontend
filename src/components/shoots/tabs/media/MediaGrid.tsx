@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -51,6 +51,7 @@ export function MediaGrid({
   onToggleFavorite,
   onAddComment,
   onDownloadSingle,
+  downloadingFileIds,
   enableRawStacks = false,
   rawStackSize = null,
   renderScanStatus,
@@ -133,13 +134,11 @@ export function MediaGrid({
     onManualOrderChange,
   });
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
-  const canDownloadFile = (file: MediaFile) => typeof canDownloadSingleMedia === 'function'
-    ? canDownloadSingleMedia(file)
-    : canDownloadSingleMedia;
   const {
     getLatestCommentText,
     renderCommentAction,
     renderSingleMediaActions,
+    renderDownloadAction,
   } = useMediaGridActions({
     canInteractSingleMedia,
     canDownloadSingleMedia,
@@ -148,6 +147,7 @@ export function MediaGrid({
     onToggleFavorite,
     onAddComment,
     onDownloadSingle,
+    downloadingFileIds,
   });
 
   const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false, stack?: MediaStack) => {
@@ -733,18 +733,7 @@ export function MediaGrid({
             </button>
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {canDownloadFile(file) && onDownloadSingle && (
-            <button
-              className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDownloadSingle(file.id);
-              }}
-              title="Download image"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </button>
-          )}
+          {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
           {toggleFileHidden && !isClient && (
             <button
               className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
@@ -898,18 +887,7 @@ export function MediaGrid({
                 </button>
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {canDownloadFile(file) && onDownloadSingle && (
-                <button
-                  className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDownloadSingle(file.id);
-                  }}
-                  title="Download image"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-              )}
+              {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
               {toggleFileHidden && !isClient && (
                 <button
                   className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${

@@ -22,6 +22,7 @@ export interface MediaViewerProps {
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
   onDownloadSingle?: (fileId: string) => void | Promise<void>;
+  downloadingFileIds?: ReadonlySet<string>;
   onShootUpdate?: () => void;
 }
 

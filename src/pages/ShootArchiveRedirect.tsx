@@ -1,14 +1,18 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { resolveShootMediaArchiveRequest } from '@/utils/shootMediaDownload';
 
 export default function ShootArchiveRedirect() {
   const [searchParams] = useSearchParams();
   const [message, setMessage] = React.useState('Preparing your files. You will be redirected automatically.');
   const [error, setError] = React.useState<string | null>(null);
+  const [complete, setComplete] = React.useState(false);
 
   React.useEffect(() => {
+    setError(null);
+    setComplete(false);
+    setMessage('Preparing your files. Your download will start automatically.');
     const requestUrl = searchParams.get('url');
     if (!requestUrl) {
       setError('This download link is invalid.');
@@ -27,17 +31,25 @@ export default function ShootArchiveRedirect() {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
 
     void resolveShootMediaArchiveRequest({
       requestUrl,
+      signal: controller.signal,
       redirectMode: 'same-tab',
       type: requestType,
       size: requestSize,
+      onDownloading: () => { if (!cancelled) setMessage('Downloading your files.'); },
       onPreparing: ({ message: nextMessage }) => {
         if (!cancelled) {
           setMessage(nextMessage);
         }
       },
+    }).then(() => {
+      if (!cancelled) {
+        setComplete(true);
+        setMessage('Your download has started. Check your browser downloads for the file.');
+      }
     }).catch((err) => {
       if (!cancelled) {
         setError(err instanceof Error ? err.message : 'Unable to prepare this download.');
@@ -46,6 +58,7 @@ export default function ShootArchiveRedirect() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [searchParams]);
 
@@ -60,9 +73,9 @@ export default function ShootArchiveRedirect() {
         ) : (
           <div className="space-y-3 text-center">
             <div className="flex justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              {complete ? <CheckCircle2 className="h-8 w-8 text-primary" /> : <Loader2 className="h-8 w-8 animate-spin text-primary" />}
             </div>
-            <h1 className="text-xl font-semibold">Preparing Download</h1>
+            <h1 className="text-xl font-semibold">{complete ? 'Download Started' : 'Downloading Files'}</h1>
             <p className="text-sm text-muted-foreground">{message}</p>
           </div>
         )}
