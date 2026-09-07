@@ -676,11 +676,11 @@ export function useShootOverviewEditor({
     const normalizedTaxRate = rawTaxRate > 1 ? rawTaxRate / 100 : rawTaxRate;
     const pricing = calculatePricingBreakdown({
       serviceSubtotal,
-      discountType: editedShoot.payment?.discountType ?? shoot.payment?.discountType ?? null,
-      discountValue: editedShoot.payment?.discountValue ?? shoot.payment?.discountValue ?? null,
+      discountType: editedShoot.payment?.discountType !== undefined ? editedShoot.payment.discountType : shoot.payment?.discountType ?? null,
+      discountValue: editedShoot.payment?.discountValue !== undefined ? editedShoot.payment.discountValue : shoot.payment?.discountValue ?? null,
       taxRate: normalizedTaxRate,
     });
-    const automaticTotal = Number((pricing.totalQuote + invoiceAdjustmentTotal).toFixed(2));
+    const automaticTotal = Number(Math.max(pricing.totalQuote + invoiceAdjustmentTotal, 0).toFixed(2));
     const adjustedTotal = editedShoot.adminAdjustedTotalQuote;
     const displayedTotal = adjustedTotal !== null
       && adjustedTotal !== undefined
@@ -689,8 +689,6 @@ export function useShootOverviewEditor({
       : automaticTotal;
 
     updateField('payment.serviceSubtotal', pricing.serviceSubtotal);
-    updateField('payment.discountType', pricing.discountType);
-    updateField('payment.discountValue', pricing.discountValue);
     updateField('payment.discountAmount', pricing.discountAmount);
     updateField('payment.discountedSubtotal', pricing.discountedSubtotal);
     updateField('payment.baseQuote', pricing.discountedSubtotal);

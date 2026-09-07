@@ -229,7 +229,7 @@ export function PaymentSuccessReceipt({
                     </div>
                   )}
 
-                  {invoiceAdjustmentsTotal > 0.005 && (
+                  {Math.abs(invoiceAdjustmentsTotal) > 0.005 && (
                     <div className="flex items-center justify-between text-sm text-slate-600">
                       <span>Invoice adjustments</span>
                       <span className="font-medium text-slate-900">{formatCurrency(invoiceAdjustmentsTotal, receiptCurrency)}</span>

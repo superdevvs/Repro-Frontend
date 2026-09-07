@@ -446,7 +446,7 @@ export function Navbar() {
                   size="sm"
                   className={cn(
                     'h-9 px-3 text-sm font-medium',
-                    pathname === item.to || pathname.startsWith(item.to + '/')
+                    pathname === item.to || pathname.startsWith(item.to + '/') || (role === 'photographer' && item.to === '/settings' && pathname === '/photographer-account')
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}

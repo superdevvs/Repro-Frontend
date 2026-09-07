@@ -300,7 +300,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     const amountValue = Number(miscAmount);
     const quantityValue = miscQuantity ? Number(miscQuantity) : 1;
 
-    if (!miscDescription.trim() || !Number.isFinite(amountValue)) {
+    if (!miscDescription.trim() || !miscAmount.trim() || !Number.isFinite(amountValue)) {
       toast({
         title: 'Missing info',
         description: 'Enter a description and amount for the adjustment.',

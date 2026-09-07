@@ -55,7 +55,7 @@ export function InvoiceAdjustmentEditor({
             {isEditing ? 'Edit adjustment' : 'Add invoice adjustment'}
           </p>
           <p className="text-xs text-muted-foreground">
-            Misc extras and charges. Mark "Bill client" to add it to the amount the client owes.
+            Add charges or discounts. Use a negative amount, such as -30.00, for a discount.
           </p>
         </div>
         <div className="flex gap-2">
@@ -96,12 +96,19 @@ export function InvoiceAdjustmentEditor({
           <Input
             id="misc-amount"
             type="number"
-            min="0"
             step="0.01"
+            aria-describedby="misc-amount-help"
             value={amount}
-            onChange={(event) => onAmountChange(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              onAmountChange(value);
+              if (Number(value) < 0 && Number(amount) >= 0) onBillsClientChange(true);
+            }}
             placeholder="0.00"
           />
+          <p id="misc-amount-help" className="text-[11px] text-muted-foreground">
+            Positive = charge. Negative = discount.
+          </p>
         </div>
         <div className="space-y-1">
           <Label htmlFor="misc-quantity" className="text-xs">Qty</Label>
@@ -175,7 +182,7 @@ export function InvoiceAdjustmentEditor({
           disabled={isSaving}
         />
         <Label htmlFor="misc-bills-client" className="text-xs font-normal cursor-pointer">
-          Bill client / include in payable amount
+          Apply to client balance
           <span className="block text-[11px] text-muted-foreground">
             Off = appears on the invoice/PDF only and does not change what the client owes.
           </span>

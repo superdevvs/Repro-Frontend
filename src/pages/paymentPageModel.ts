@@ -107,8 +107,5 @@ export function formatPaymentScheduledAt(dateValue?: string, timeValue?: string)
 
 export function resolvePaymentInvoiceAdjustmentsTotal(shoot?: ShootDetails | null) {
   if (!shoot) return 0;
-  return Math.max(
-    Number(shoot.invoice_adjustments_total ?? shoot.invoiceAdjustmentsTotal ?? 0) || 0,
-    0,
-  );
+  return Number(shoot.invoice_adjustments_total ?? shoot.invoiceAdjustmentsTotal ?? 0) || 0;
 }

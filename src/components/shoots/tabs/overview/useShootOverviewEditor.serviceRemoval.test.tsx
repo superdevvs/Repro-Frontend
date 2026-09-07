@@ -57,6 +57,26 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('previews a changed discount and lets a booked discount be removed', async () => {
+    const discountedShoot = {
+      ...shoot,
+      payment: { ...shoot.payment, discountType: 'fixed' as const, discountValue: 30, discountAmount: 30, taxRate: 0.06 },
+    };
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: discountedShoot, isAdmin: true, role: 'admin', isEditMode: true,
+      onSave: vi.fn(), onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.editedShoot.payment?.baseQuote).toBe(220));
+    act(() => result.current.actions.updateField('payment.discountValue', 40));
+    await waitFor(() => expect(result.current.state.editedShoot.payment?.totalQuote).toBe(222.6));
+    act(() => {
+      result.current.actions.updateField('payment.discountType', null);
+      result.current.actions.updateField('payment.discountValue', null);
+    });
+    await waitFor(() => expect(result.current.state.editedShoot.payment?.totalQuote).toBe(265));
+    expect(result.current.state.editedShoot.payment?.discountAmount).toBe(0);
+  });
+
   it('keeps an intentional empty selection and leaves retained prices and quantities to the server', async () => {
     const onSave = vi.fn();
     const { result } = renderHook(() => useShootOverviewEditor({

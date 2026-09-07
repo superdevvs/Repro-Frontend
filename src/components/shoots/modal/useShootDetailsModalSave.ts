@@ -213,6 +213,15 @@ export function useShootDetailsModalSave({
       if (hasOwn(updates, 'adminAdjustedTotalQuote')) {
         payload.admin_adjusted_total_quote = toNullableNumber(updates.adminAdjustedTotalQuote);
       }
+      // Send discount inputs only when deliberately changed. The server computes
+      // the discount amount, tax and total from the booked service prices.
+      if (updates.payment && (
+        (hasOwn(updates.payment, 'discountType') && (updates.payment.discountType ?? null) !== (shoot.payment?.discountType ?? null))
+        || (hasOwn(updates.payment, 'discountValue') && (updates.payment.discountValue ?? null) !== (shoot.payment?.discountValue ?? null))
+      )) {
+        payload.discount_type = updates.payment.discountType ?? null;
+        payload.discount_value = toNullableNumber(updates.payment.discountValue) ?? null;
+      }
       
       // Property details (beds, baths, sqft, access info)
       if (hasOwn(updates, 'propertyDetails')) {

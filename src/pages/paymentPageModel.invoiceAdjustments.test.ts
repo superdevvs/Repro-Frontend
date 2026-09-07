@@ -17,8 +17,8 @@ describe('resolvePaymentInvoiceAdjustmentsTotal', () => {
     expect(resolvePaymentInvoiceAdjustmentsTotal(shoot({ invoice_adjustments_total: 20 }))).toBe(20);
   });
 
-  it('supports normalized camel-case data and never renders a negative charge', () => {
+  it('supports normalized camel-case data and preserves discount adjustments', () => {
     expect(resolvePaymentInvoiceAdjustmentsTotal(shoot({ invoiceAdjustmentsTotal: 12.5 }))).toBe(12.5);
-    expect(resolvePaymentInvoiceAdjustmentsTotal(shoot({ invoice_adjustments_total: -10 }))).toBe(0);
+    expect(resolvePaymentInvoiceAdjustmentsTotal(shoot({ invoice_adjustments_total: -10 }))).toBe(-10);
   });
 });

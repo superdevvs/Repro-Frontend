@@ -22,6 +22,22 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootDetailsModalSave comp forwarding', () => {
+  it('forwards changed discount inputs without client-computed prices', async () => {
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
+      canNotifyClient: false, canNotifyPhotographer: false,
+    }));
+    await act(async () => {
+      await result.current.handleSaveChanges({
+        payment: { ...shoot.payment, discountType: 'fixed', discountValue: 30, discountAmount: 30, baseQuote: 95, totalQuote: 95 },
+      });
+    });
+    expect(submitShootServiceMutation).toHaveBeenCalledWith(expect.objectContaining({
+      payload: { discount_type: 'fixed', discount_value: 30 },
+    }));
+  });
+
   beforeEach(() => {
     localStorage.setItem('authToken', 'test-token');
     vi.mocked(submitShootServiceMutation).mockResolvedValue({

@@ -548,7 +548,7 @@ export default function PaymentPage() {
                       <span>-${(shoot?.discount_amount || 0).toFixed(2)}</span>
                     </div>
                   )}
-                  {invoiceAdjustmentsTotal > 0.005 && (
+                  {Math.abs(invoiceAdjustmentsTotal) > 0.005 && (
                     <div className="flex justify-between text-sm text-gray-400">
                       <span>Invoice adjustments</span>
                       <span>${invoiceAdjustmentsTotal.toFixed(2)}</span>
@@ -706,7 +706,7 @@ export default function PaymentPage() {
                             <span className="text-emerald-400">-{formatCurrency(shoot?.discount_amount || 0)}</span>
                           </div>
                         )}
-                        {invoiceAdjustmentsTotal > 0.005 && (
+                        {Math.abs(invoiceAdjustmentsTotal) > 0.005 && (
                           <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
                             <span className="text-gray-500">Invoice adjustments</span>
                             <span>{formatCurrency(invoiceAdjustmentsTotal)}</span>

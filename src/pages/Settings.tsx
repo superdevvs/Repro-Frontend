@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -33,6 +33,7 @@ import { getOnboardingConfig, type RoleKey } from '@/features/dashboard/config/d
 import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvents';
 import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
 import { NotificationPreferencesCard } from '@/components/settings/NotificationPreferencesCard';
+import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -956,4 +957,13 @@ const Settings = () => {
   );
 };
 
-export default Settings;
+function SettingsPage() {
+  const { user, role } = useAuth();
+  const [searchParams] = useSearchParams();
+  if ((role || user?.role) === 'photographer') {
+    return <Navigate to={photographerSettingsDestination(searchParams)} replace />;
+  }
+  return <Settings />;
+}
+
+export default SettingsPage;

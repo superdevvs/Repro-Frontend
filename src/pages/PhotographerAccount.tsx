@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import {
@@ -22,17 +21,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
-import { approvedAddressFromUser } from '@/pages/applyApprovedPhotographerAddress';
 import { canResendUserVerification } from '@/utils/emailHealth';
-import { Camera, ExternalLink, Eye, Settings, ShieldCheck, User, Wrench } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bell, CalendarDays, Camera, ExternalLink, Eye, Settings, ShieldCheck, User, Wrench } from 'lucide-react';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import { EquipmentVerificationDialog } from '@/components/equipment/EquipmentVerificationDialog';
 import {
@@ -41,7 +36,6 @@ import {
   type PhotographerEquipment,
   uploadPhotographerVerificationPhotos,
 } from '@/services/photographerEquipmentService';
-import { DefaultBracketModeField } from '@/components/accounts/DefaultBracketModeField';
 import {
   personalInfoSchema,
   type PersonalInfoFormValues,
@@ -52,11 +46,11 @@ import {
 } from '@/components/profile/PhotographerPreferenceForms';
 import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
-import { TaxDocumentCard } from '@/components/profile/TaxDocumentCard';
 
-const readStoredBoolean = (value: unknown, fallback: boolean) => (
-  typeof value === 'boolean' ? value : fallback
-);
+import { PhotographerWorkSettings } from '@/components/profile/PhotographerWorkSettings';
+import { resolvePhotographerAccountTab } from '@/pages/photographerAccountNavigation';
+import { getOnboardingConfig } from '@/features/dashboard/config/dashboardOnboardingConfig';
+import { requestDashboardOnboardingReplay } from '@/lib/dashboardOnboardingEvents';
 
 const PhotographerAccount = () => {
   const { user, logout } = useAuth();
@@ -68,62 +62,57 @@ const PhotographerAccount = () => {
   } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
   const { isResendingVerification, resendVerification, resendFeedback } = useResendVerificationEmail();
-  const pendingAddress = user?.pending_address_change;
   const canResendVerification = canResendUserVerification(undefined, user ?? {});
   const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
   const savedPreferences = userMetadata.preferences && typeof userMetadata.preferences === 'object'
     ? userMetadata.preferences as Record<string, unknown>
     : {};
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window === 'undefined') return 'personal';
-    return new URLSearchParams(window.location.search).get('tab') || 'personal';
-  });
+  const onboarding = savedPreferences[getOnboardingConfig('photographer').onboardingKey] as { eligible?: boolean } | undefined;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = resolvePhotographerAccountTab(searchParams);
   const [equipments, setEquipments] = useState<PhotographerEquipment[]>([]);
   const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
+  const [equipmentLoadFailed, setEquipmentLoadFailed] = useState(false);
   const [equipmentUploads, setEquipmentUploads] = useState<Record<number, File[]>>({});
   const [uploadingEquipmentId, setUploadingEquipmentId] = useState<number | null>(null);
   const [verificationEquipment, setVerificationEquipment] = useState<PhotographerEquipment | null>(null);
-  const verificationSearchParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const verificationSearchParams = searchParams;
   const expectedPhotographerId = verificationSearchParams?.get('photographer_id') || verificationSearchParams?.get('photographer');
-  const isEquipmentVerificationLink = verificationSearchParams?.get('verify') === 'equipment' || verificationSearchParams?.get('tab') === 'equipments';
+  const isEquipmentVerificationLink = activeTab === 'equipments';
   const isWrongEquipmentVerificationAccount = isEquipmentVerificationLink
     && (user?.role !== 'photographer' || Boolean(expectedPhotographerId && String(user?.id) !== expectedPhotographerId));
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (value === 'personal') {
-        url.searchParams.delete('tab');
-      } else {
-        url.searchParams.set('tab', value);
-      }
-      window.history.replaceState({}, '', url.toString());
-    }
+    const params = new URLSearchParams(searchParams);
+    params.delete('verify');
+    params.set('tab', value);
+    setSearchParams(params, { replace: true });
   };
 
-  const fetchEquipments = async () => {
+  const fetchEquipments = useCallback(async () => {
     setIsEquipmentLoading(true);
+    setEquipmentLoadFailed(false);
     try {
       const data = await listMyPhotographerEquipments();
       setEquipments(data);
     } catch (error) {
+      setEquipmentLoadFailed(true);
       console.error('Failed to load photographer equipments', error);
       toast({
-        title: 'Unable to load equipments',
+        title: 'Unable to load equipment',
         description: 'Please refresh and try again.',
         variant: 'destructive',
       });
     } finally {
       setIsEquipmentLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (activeTab === 'equipments' && user?.role === 'photographer' && !isWrongEquipmentVerificationAccount) {
       fetchEquipments();
     }
-  }, [activeTab, isWrongEquipmentVerificationAccount, user?.role]);
+  }, [activeTab, fetchEquipments, isWrongEquipmentVerificationAccount, user?.id, user?.role]);
 
   const handleEquipmentVerificationUpload = async (equipmentId: number) => {
     const photos = equipmentUploads[equipmentId] || [];
@@ -161,20 +150,10 @@ const PhotographerAccount = () => {
       name: user?.name || '',
       email: user?.email || '',
       phone: user?.phone || '',
-      bio: String(savedPreferences.bio ?? ''),
+      company: user?.company || '',
+      bio: String(savedPreferences.bio ?? user?.bio ?? ''),
       portfolioWebsite: String(savedPreferences.portfolioWebsite ?? ''),
       currentPassword: '',
-      address: user?.address || '',
-      city: user?.city || '',
-      state: user?.state || '',
-      zip: user?.zipcode || '',
-      travelRange: Number(userMetadata.travel_range ?? 25),
-      travelRangeUnit: (userMetadata.travel_range_unit as 'miles' | 'km') ?? 'miles',
-      weeklyInvoice: readStoredBoolean(savedPreferences.weeklyInvoice, true),
-      // 5x remains the product default when the photographer has stated no preference.
-      defaultBracketMode: Number(
-        (user as { default_bracket_mode?: number | null } | undefined)?.default_bracket_mode ?? 5,
-      ) === 3 ? 3 : 5,
     },
   });
 
@@ -185,30 +164,17 @@ const PhotographerAccount = () => {
         email: data.email,
         current_password: data.email !== user?.email ? data.currentPassword : undefined,
         phone_number: data.phone,
-        address: data.address,
-        city: data.city,
-        state: data.state,
-        zip: data.zip,
-        travel_range: data.travelRange,
-        travel_range_unit: data.travelRangeUnit,
-        // A real column rather than a metadata preference, because the bracket resolver
-        // reads it directly when seeding a new assignment.
-        default_bracket_mode: data.defaultBracketMode,
+        company_name: data.company || null,
+        bio: data.bio || null,
         preferences: {
           bio: data.bio || null,
           portfolioWebsite: data.portfolioWebsite || null,
-          weeklyInvoice: data.weeklyInvoice,
         },
       });
       personalInfoForm.setValue('currentPassword', '');
-      const approved = approvedAddressFromUser(result.user);
-      personalInfoForm.setValue('address', approved.address);
-      personalInfoForm.setValue('city', approved.city);
-      personalInfoForm.setValue('state', approved.state);
-      personalInfoForm.setValue('zip', approved.zip);
       if (!result.reauthRequired) {
         toast({
-          title: approved.pending ? 'Address submitted for approval' : 'Profile updated',
+          title: 'Profile updated',
           description: result.message || 'Your personal information has been updated successfully.',
         });
       }
@@ -264,23 +230,39 @@ const PhotographerAccount = () => {
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
         <PageHeader
-          title="Settings"
-          description="Manage your photographer profile and preferences"
+          title="My Account"
+          description="Your profile, work preferences, equipment, and account security in one place."
+          action={
+            <div className="flex flex-wrap gap-2">
+              {onboarding?.eligible && (
+                <Button asChild variant="outline">
+                  <Link to="/dashboard" onClick={() => requestDashboardOnboardingReplay('photographer')}>Replay dashboard tour</Link>
+                </Button>
+              )}
+              <Button asChild variant="outline">
+                <Link to="/availability"><CalendarDays className="mr-2 h-4 w-4" />Manage Availability</Link>
+              </Button>
+            </div>
+          }
         />
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <AutoExpandingTabsList
-            tabs={[
-              { value: 'personal', icon: User, label: 'Personal Info' },
+          <TabsList aria-label="Photographer account sections" className="flex h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+            {[
+              { value: 'personal', icon: User, label: 'Profile' },
+              { value: 'work', icon: Settings, label: 'Work settings' },
               { value: 'specialties', icon: Camera, label: 'Specialties' },
-              { value: 'equipments', icon: Wrench, label: 'Equipments' },
-              { value: 'notifications', icon: Settings, label: 'Preferences' },
+              { value: 'equipments', icon: Wrench, label: 'Equipment' },
+              { value: 'notifications', icon: Bell, label: 'Notifications' },
               { value: 'security', icon: ShieldCheck, label: 'Security' },
-            ]}
-            value={activeTab}
-            className="mb-6"
-          />
-                  
+            ].map(({ value, icon: Icon, label }) => (
+              <TabsTrigger key={value} value={value} className="gap-2 rounded-full bg-muted px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
           {/* Personal Info Tab */}
           <TabsContent value="personal" className="space-y-4">
             {/* Profile picture + identity badge (matches Settings.tsx pattern) */}
@@ -369,6 +351,17 @@ const PhotographerAccount = () => {
                             />
                             <FormField
                               control={personalInfoForm.control}
+                              name="company"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Company</FormLabel>
+                                  <FormControl><Input placeholder="Your company name" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={personalInfoForm.control}
                               name="portfolioWebsite"
                               render={({ field }) => (
                                 <FormItem>
@@ -423,120 +416,11 @@ const PhotographerAccount = () => {
                   </CardContent>
                 </Card>
 
-                {/* Location card */}
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Location</CardTitle>
-                    <CardDescription>Used to assign you nearby shoots</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                          {pendingAddress?.status === 'pending' && (
-                            <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                              Address change pending admin approval
-                              {pendingAddress.city ? `: ${[pendingAddress.street_address, pendingAddress.city, pendingAddress.state, pendingAddress.zip].filter(Boolean).join(', ')}` : '.'}
-                            </div>
-                          )}
-                          <FormField
-                            control={personalInfoForm.control}
-                            name="address"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Street Address</FormLabel>
-                                <FormControl><Input placeholder="123 Main St" {...field} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            <FormField
-                              control={personalInfoForm.control}
-                              name="city"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>City</FormLabel>
-                                  <FormControl><Input placeholder="City" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={personalInfoForm.control}
-                              name="state"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>State</FormLabel>
-                                  <FormControl><Input placeholder="State" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={personalInfoForm.control}
-                              name="zip"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>ZIP Code</FormLabel>
-                                  <FormControl><Input placeholder="ZIP" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          {/* Travel Range slider with miles/km toggle */}
-                          <FormField
-                            control={personalInfoForm.control}
-                            name="travelRange"
-                            render={({ field }) => {
-                              const unit = personalInfoForm.watch('travelRangeUnit');
-                              return (
-                                <FormItem className="rounded-md border p-4">
-                                  <div className="flex items-center justify-between">
-                                    <FormLabel className="!m-0">Travel Range</FormLabel>
-                                    <div className="flex items-center gap-1 rounded-md bg-muted p-0.5">
-                                      {(['miles', 'km'] as const).map((u) => (
-                                        <button
-                                          key={u}
-                                          type="button"
-                                          onClick={() => personalInfoForm.setValue('travelRangeUnit', u)}
-                                          className={cn(
-                                            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                                            unit === u
-                                              ? 'bg-primary text-primary-foreground shadow-sm'
-                                              : 'text-muted-foreground hover:text-foreground',
-                                          )}
-                                        >
-                                          {u === 'miles' ? 'Miles' : 'Km'}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <FormDescription>How far you're willing to travel from your address for shoots</FormDescription>
-                                  <FormControl>
-                                    <Slider
-                                      min={1}
-                                      max={100}
-                                      step={1}
-                                      value={[Number(field.value) || 25]}
-                                      onValueChange={(v) => field.onChange(v[0])}
-                                      className="pt-2"
-                                    />
-                                  </FormControl>
-                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>1 {unit}</span>
-                                    <span className="text-sm font-semibold text-foreground">{Number(field.value) || 25} {unit}</span>
-                                    <span>100 {unit}</span>
-                                  </div>
-                                  <FormMessage />
-                                </FormItem>
-                              );
-                            }}
-                          />
-                  </CardContent>
-                  <CardFooter className="border-t pt-4 flex justify-end">
-                    <Button type="submit">Save Changes</Button>
-                  </CardFooter>
-                </Card>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={personalInfoForm.formState.isSubmitting}>
+                    {personalInfoForm.formState.isSubmitting ? 'Saving...' : 'Save Profile'}
+                  </Button>
+                </div>
               </form>
             </Form>
           </TabsContent>
@@ -549,10 +433,16 @@ const PhotographerAccount = () => {
                   {/* Equipments Tab */}
                   <TabsContent value="equipments">
                     <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Review equipment assigned by your admin and upload photos when verification is requested.</p>
                       {isEquipmentLoading ? (
-                        <div className="rounded-md border p-6 text-sm text-muted-foreground">Loading equipments...</div>
+                        <div className="rounded-md border p-6 text-sm text-muted-foreground">Loading equipment...</div>
+                      ) : equipmentLoadFailed ? (
+                        <div className="space-y-3 rounded-md border p-6">
+                          <p className="text-sm text-destructive">Equipment could not be loaded. Please try again.</p>
+                          <Button type="button" variant="outline" onClick={() => void fetchEquipments()}>Retry</Button>
+                        </div>
                       ) : equipments.length === 0 ? (
-                        <div className="rounded-md border p-6 text-sm text-muted-foreground">No equipments assigned.</div>
+                        <div className="rounded-md border p-6 text-sm text-muted-foreground">No equipment is assigned to you. There is nothing to verify. Assigned equipment will appear here.</div>
                       ) : (
                         equipments.map((equipment) => {
                           const referencePhotos = equipment.photos.filter((photo) => photo.type === 'admin_reference');
@@ -635,45 +525,14 @@ const PhotographerAccount = () => {
                     </div>
                   </TabsContent>
 
-          {/* Preferences Tab */}
-          <TabsContent value="notifications" className="space-y-4">
-            {/* Business / Documents card */}
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Business</CardTitle>
-                <CardDescription>Invoicing preferences and required documents</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <FormField
-                  control={personalInfoForm.control}
-                  name="weeklyInvoice"
-                  render={({ field }) => (
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="weeklyInvoice">Weekly Invoice</Label>
-                        <p className="text-sm text-muted-foreground">Receive weekly payment summaries</p>
-                      </div>
-                      <Switch
-                        id="weeklyInvoice"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </div>
-                  )}
-                />
-                <DefaultBracketModeField control={personalInfoForm.control} />
-                <TaxDocumentCard key={user?.id} />
-                <p className="text-xs text-muted-foreground">
-                  The Weekly Invoice toggle is saved with your profile. Use the Save Changes button on the Personal Info tab.
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="work" className="space-y-4">
+            <PhotographerWorkSettings key={user?.id} />
 
             {/* Display preferences card */}
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="text-base">Display</CardTitle>
-                <CardDescription>How dates, times, and temperatures appear across the dashboard</CardDescription>
+                <CardDescription>How times and temperatures appear across the dashboard. Changes save automatically.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between rounded-md border p-4">
@@ -705,7 +564,9 @@ const PhotographerAccount = () => {
               </CardContent>
             </Card>
 
-            {/* Notifications card */}
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-4">
             <PhotographerNotificationPreferencesForm />
           </TabsContent>
 

@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
@@ -38,14 +39,11 @@ const resolveDiscountAmount = (payment?: ShootData['payment'] | null): number =>
 const resolveInvoiceAdjustmentsTotal = (payment?: ShootData['payment'] | null): number => {
   if (!payment) return 0;
   const raw = payment as unknown as Record<string, unknown>;
-  return Math.max(
-    Number(
+  return Number(
       payment.invoiceAdjustmentsTotal ??
         (raw.invoice_adjustments_total as number | string | undefined) ??
         0,
-    ) || 0,
-    0,
-  );
+    ) || 0;
 };
 
 type OverviewPaymentSummarySectionProps = {
@@ -90,8 +88,7 @@ export function OverviewPaymentSummarySection({
   const cancellationFee = Number(shoot.payment?.cancellationFee || shoot.payment?.totalQuote || 0);
   const shouldShowCancelledServiceCharges = isCancellationFeeOnly && originalServiceSubtotal > 0;
 
-  // Discount derived from the client's pricing settings; informational (not
-  // directly editable) but surfaced so the breakdown reconciles with the total.
+  // The shoot's booked discount is independent of later client account changes.
   const discountAmount = resolveDiscountAmount(shoot.payment);
   const editedDiscountAmount = resolveDiscountAmount(
     (editedShoot.payment as ShootData['payment'] | undefined) ?? shoot.payment,
@@ -102,8 +99,10 @@ export function OverviewPaymentSummarySection({
   const editedInvoiceAdjustmentsTotal = resolveInvoiceAdjustmentsTotal(
     (editedShoot.payment as ShootData['payment'] | undefined) ?? shoot.payment,
   );
-  const hasInvoiceAdjustments = invoiceAdjustmentsTotal > 0.005;
-  const hasEditedInvoiceAdjustments = editedInvoiceAdjustmentsTotal > 0.005;
+  const hasInvoiceAdjustments = Math.abs(invoiceAdjustmentsTotal) > 0.005;
+  const hasEditedInvoiceAdjustments = Math.abs(editedInvoiceAdjustmentsTotal) > 0.005;
+  const editedPayment = editedShoot.payment ?? shoot.payment;
+  const canEditDiscount = isAdmin && shoot.shootType !== 'complimentary_reshoot';
   const serviceSubtotal = Number(shoot.payment?.serviceSubtotal ?? shoot.payment?.baseQuote ?? 0) || 0;
   const editedServiceSubtotal = Number(
     editedShoot.payment?.serviceSubtotal
@@ -115,7 +114,7 @@ export function OverviewPaymentSummarySection({
   const editedBaseQuote = Number(editedShoot.payment?.baseQuote ?? shoot.payment?.baseQuote ?? 0) || 0;
   const editedTaxAmount = Number(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0) || 0;
   const automaticEditedTotal = Number(
-    (editedBaseQuote + editedTaxAmount + editedInvoiceAdjustmentsTotal).toFixed(2),
+    Math.max(editedBaseQuote + editedTaxAmount + editedInvoiceAdjustmentsTotal, 0).toFixed(2),
   );
   const adjustedTotal = editedShoot.adminAdjustedTotalQuote;
   const hasAdjustedTotal = adjustedTotal !== null
@@ -144,6 +143,44 @@ export function OverviewPaymentSummarySection({
       <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
       {isEditMode && canViewFullBreakdown ? (
         <div className="space-y-1.5 text-xs">
+          {canEditDiscount && (
+            <div className="space-y-1.5 pb-2">
+              <Label htmlFor="shoot-discount-type" className="text-xs">Client discount</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  id="shoot-discount-type"
+                  value={editedPayment?.discountType || 'none'}
+                  onChange={(event) => {
+                    updateField('adminAdjustedTotalQuote', null);
+                    updateField('payment.discountType', event.target.value === 'none' ? null : event.target.value);
+                    if (event.target.value === 'none') updateField('payment.discountValue', null);
+                  }}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="none">No discount</option>
+                  <option value="fixed">Amount ($)</option>
+                  <option value="percent">Percent (%)</option>
+                </select>
+                <Input
+                  aria-label="Client discount value"
+                  type="number"
+                  min="0"
+                  max={editedPayment?.discountType === 'percent' ? 100 : undefined}
+                  step="0.01"
+                  disabled={!editedPayment?.discountType}
+                  value={editedPayment?.discountValue ?? ''}
+                  placeholder="0.00"
+                  onChange={(event) => {
+                    updateField('adminAdjustedTotalQuote', null);
+                    const value = Math.max(Number(event.target.value) || 0, 0);
+                    updateField('payment.discountValue', editedPayment?.discountType === 'percent' ? Math.min(value, 100) : value);
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Applies to this shoot. Tax and totals update when saved.</p>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Services:</span>
             <span>${editedServiceSubtotal.toFixed(2)}</span>
@@ -180,7 +217,7 @@ export function OverviewPaymentSummarySection({
               <Input
                 aria-label="Adjusted Total"
                 type="number"
-                min={editedInvoiceAdjustmentsTotal}
+                min={Math.max(editedInvoiceAdjustmentsTotal, 0)}
                 step="0.01"
                 placeholder={automaticEditedTotal.toFixed(2)}
                 value={hasAdjustedTotal ? String(adjustedTotal) : ''}

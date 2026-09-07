@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
-import type { PersonalInfoFormValues } from '@/pages/photographerAccountSchemas';
+import type { PhotographerWorkSettingsValues } from '@/pages/photographerAccountSchemas';
 
 /**
  * The photographer's own "Default HDR bracket mode" preference control.
@@ -16,7 +16,7 @@ import type { PersonalInfoFormValues } from '@/pages/photographerAccountSchemas'
 export function DefaultBracketModeField({
   control,
 }: {
-  control: Control<PersonalInfoFormValues>;
+  control: Control<PhotographerWorkSettingsValues>;
 }) {
   return (
     /* Capture preference, not a rule. It seeds the execution value when a

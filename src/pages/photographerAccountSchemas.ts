@@ -12,9 +12,14 @@ export const personalInfoSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
   phone: z.string().min(10, { message: 'Please enter a valid phone number.' }),
+  company: z.string().optional(),
   bio: z.string().optional(),
   portfolioWebsite: z.string().optional().or(z.literal('')),
   currentPassword: z.string().optional().or(z.literal('')),
+});
+
+export const photographerWorkSettingsSchema = z.object({
+  timezone: z.string().min(1).max(100),
   address: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),
   state: z.string().optional().or(z.literal('')),
@@ -39,5 +44,6 @@ export const notificationsSchema = z.object({
 });
 
 export type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
+export type PhotographerWorkSettingsValues = z.infer<typeof photographerWorkSettingsSchema>;
 export type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
 export type NotificationsFormValues = z.infer<typeof notificationsSchema>;

@@ -132,7 +132,7 @@ export const useMobileMenu = () => {
       to: "/settings",
       icon: "Settings",
       label: "Settings",
-      isActive: pathname === '/settings',
+      isActive: pathname === '/settings' || (role === 'photographer' && pathname === '/photographer-account'),
       visible: permission.can('settings', 'view'),
     },
     {

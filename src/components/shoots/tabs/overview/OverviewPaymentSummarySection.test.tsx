@@ -18,6 +18,24 @@ const makeShoot = (): ShootData => ({
 } as ShootData);
 
 describe('OverviewPaymentSummarySection invoice adjustments', () => {
+  it('lets an admin enter a shoot discount and shows negative invoice adjustments', () => {
+    const shoot = makeShoot();
+    shoot.payment = { ...shoot.payment, discountType: 'fixed', discountValue: 30, invoiceAdjustmentsTotal: -30 };
+    const updateField = vi.fn();
+    render(<OverviewPaymentSummarySection
+      isEditMode isAdmin isRep={false} isClient={false} isClientReleaseLocked={false}
+      editedShoot={shoot} shoot={shoot} paymentTotalPaid={0} paymentBalance={76} updateField={updateField}
+    />);
+
+    expect(screen.getByText('$-30.00')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Client discount value'), { target: { value: '40' } });
+    expect(updateField).toHaveBeenCalledWith('payment.discountValue', 40);
+    expect(updateField).toHaveBeenCalledWith('adminAdjustedTotalQuote', null);
+    fireEvent.change(screen.getByLabelText('Client discount'), { target: { value: 'none' } });
+    expect(updateField).toHaveBeenCalledWith('payment.discountType', null);
+    expect(updateField).toHaveBeenCalledWith('payment.discountValue', null);
+  });
+
   it('shows the adjustment as a separate order-total line', () => {
     const shoot = makeShoot();
     render(
