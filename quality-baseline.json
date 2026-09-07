@@ -146,7 +146,6 @@
           "src/services/autoenhanceService.ts": 6,
           "src/services/cubicasaService.ts": 3,
           "src/services/dashboardService.ts": 1,
-          "src/services/dropboxMediaService.ts": 1,
           "src/services/studioService.test.ts": 1,
           "src/services/studioService.ts": 2,
           "src/types/ai.ts": 3,

@@ -11,7 +11,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { useUpload } from '@/context/UploadContext';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { finalizeEditedUploadQueue, getMediaUploadErrorMessage } from '@/services/dropboxMediaService';
+import { finalizeEditedUploadQueue, getMediaUploadErrorMessage } from '@/services/shootMediaService';
 import {
   UploadDropzone,
   UploadProgressCard,

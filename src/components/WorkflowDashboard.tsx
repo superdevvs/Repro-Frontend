@@ -13,7 +13,6 @@ interface WorkflowFile {
   id: number;
   filename: string;
   workflow_stage: string;
-  dropbox_path: string;
   file_size: number;
   uploaded_at: string;
   moved_to_completed_at?: string;

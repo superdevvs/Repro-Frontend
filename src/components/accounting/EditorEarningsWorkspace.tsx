@@ -50,7 +50,7 @@ import {
   type EditorEarningsAdminResponse,
   type EditorEarningsDetail,
 } from '@/services/invoiceService';
-import { fetchShootMedia } from '@/services/dropboxMediaService';
+import { fetchShootMedia } from '@/services/shootMediaService';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import { EditorSelfEarningsPanel } from './EditorSelfEarningsPanel';
 import type { EditorShootGroup, ShootMediaState } from './editorEarningsTypes';

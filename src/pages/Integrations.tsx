@@ -1,10 +1,8 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { integrationsReturnPath } from '@/services/studioDropbox';
+import { Navigate } from 'react-router-dom';
 
 const Integrations = () => {
-  const { search } = useLocation();
   // Redirect to Settings page with integrations tab
-  return <Navigate to={integrationsReturnPath(search)} replace />;
+  return <Navigate to="/settings?tab=integrations" replace />;
 };
 
 export default Integrations;

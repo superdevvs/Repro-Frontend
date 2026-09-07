@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
 // Import these conditionally or use them only in the full page component
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { StudioDropboxConnectionPanel } from '@/components/integrations/StudioDropboxConnectionPanel';
 import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Home, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -231,7 +230,6 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
 
 // Export the content component for use in Settings page
 export const IntegrationsSettingsContent = () => {
-  const [integrationSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Zillow/Bridge Settings
@@ -556,12 +554,8 @@ export const IntegrationsSettingsContent = () => {
 
   return (
     <div className="space-y-6">
-        <Tabs defaultValue={integrationSearchParams.has('dropbox') ? 'dropbox' : 'zillow'} className="w-full">
-            <TabsList className="grid w-full max-w-6xl grid-cols-6">
-              <TabsTrigger value="dropbox">
-                <Upload className="mr-2 h-4 w-4" />
-                Dropbox
-              </TabsTrigger>
+        <Tabs defaultValue="zillow" className="w-full">
+            <TabsList className="grid w-full max-w-6xl grid-cols-5">
               <TabsTrigger value="zillow">
                 <Home className="mr-2 h-4 w-4" />
                 Zillow
@@ -584,10 +578,6 @@ export const IntegrationsSettingsContent = () => {
               </TabsTrigger>
             </TabsList>
 
-            {/* Dropbox Storage Settings */}
-            <TabsContent value="dropbox" className="mt-6">
-              <StudioDropboxConnectionPanel />
-            </TabsContent>
             {/* Zillow/Bridge Settings */}
             <TabsContent value="zillow" className="mt-6">
               <Card>
@@ -1515,5 +1505,4 @@ const IntegrationsSettings = () => {
 };
 
 export default IntegrationsSettings;
-
 

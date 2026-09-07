@@ -61,7 +61,6 @@ const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetai
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
 const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
-const DropboxCallback = lazy(() => import('./components/DropboxCallback'));
 const AddressLookupDemo = lazy(() => import('./components/AddressLookupDemo'));
 const ClientPortal = lazy(() => import('./components/clients/ClientPortal'));
 const BookShootWithAddressLookup = lazy(() => import('./components/BookShootWithAddressLookup'));
@@ -354,11 +353,6 @@ const AppRoutes = () => {
         </PageTransition>
       } />
 
-      <Route path="/dropbox-callback" element={
-        <PageTransition>
-          <DropboxCallback />
-        </PageTransition>
-      } />
       {/* Public client-facing tour pages (accept ?shootId=) */}
       <Route path="/tour/branded" element={
         <PageTransition>

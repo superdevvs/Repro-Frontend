@@ -63,7 +63,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
     if (open) {
       setAccountInitial(mapClientToAccount(formData, isEditing));
     }
-     
+
   }, [open, formData, isEditing]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,8 +116,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
     }
   };
 
-  const handleExternalUpload = (source: 'google-drive' | 'dropbox') => {
-    const serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
+  const handleGoogleDriveUpload = () => {
+    const serviceName = 'Google Drive';
 
     toast({
       title: `Connecting to ${serviceName}`,
@@ -125,9 +125,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
     });
 
     setTimeout(() => {
-      const placeholderUrl = source === 'google-drive'
-        ? 'https://ui.shadcn.com/avatars/02.png'
-        : 'https://ui.shadcn.com/avatars/03.png';
+      const placeholderUrl = 'https://ui.shadcn.com/avatars/02.png';
 
       setFormData(prev => ({
         ...prev,
@@ -296,7 +294,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                     type="button"
                     variant="outline"
                     className="w-full justify-start"
-                    onClick={() => handleExternalUpload('google-drive')}
+                    onClick={handleGoogleDriveUpload}
                   >
                     <img
                       src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/2295px-Google_Drive_icon_%282020%29.svg.png"
@@ -305,19 +303,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                     />
                     Upload from Google Drive
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => handleExternalUpload('dropbox')}
-                  >
-                    <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Dropbox_Icon.svg/1200px-Dropbox_Icon.svg.png"
-                      alt="Dropbox"
-                      className="mr-2 h-4 w-4"
-                    />
-                    Upload from Dropbox
-                  </Button>
+
                 </div>
               </div>
             )}

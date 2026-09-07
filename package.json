@@ -74,7 +74,6 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
-    "dropbox": "^10.34.0",
     "embla-carousel-react": "^8.3.0",
     "framer-motion": "^12.6.3",
     "iconsax-react": "^0.0.8",

@@ -94,7 +94,6 @@ export const systemOverviewCatalog: SystemDomainCatalog[] = [
         components: ['ShootDetails', 'ShootDetailTabs', 'ShootDetailsMediaTab'],
         apis: ['/api/shoots/{shoot}', '/api/editing-requests', '/api/images/{file}/status'],
         services: ['ShootController', 'EditingRequestController', 'ImageProcessingController'],
-        externals: ['Dropbox'],
       },
     ],
   },
@@ -219,7 +218,7 @@ export const systemOverviewCatalog: SystemDomainCatalog[] = [
     id: 'Integrations',
     label: 'Integrations',
     icon: 'plug',
-    description: 'MLS, Dropbox, publishing, third-party sync, and external delivery links.',
+    description: 'MLS, publishing, third-party sync, and external delivery links.',
     pages: [
       {
         id: 'integrations-settings',
@@ -227,9 +226,9 @@ export const systemOverviewCatalog: SystemDomainCatalog[] = [
         route: '/integrations',
         pageKey: 'integrations',
         components: ['Integrations', 'IntegrationsSettingsContent', 'ToursSection'],
-        apis: ['/api/integrations/test-connection', '/api/integrations/dropbox/status', '/api/dropbox/connect'],
-        services: ['IntegrationController', 'DropboxAuthController'],
-        externals: ['Dropbox', 'Bright MLS', 'iGUIDE', 'MMM'],
+        apis: ['/api/integrations/test-connection'],
+        services: ['IntegrationController'],
+        externals: ['Bright MLS', 'iGUIDE', 'MMM'],
       },
       {
         id: 'integrations-mls-queue',

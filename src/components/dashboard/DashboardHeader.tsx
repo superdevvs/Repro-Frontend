@@ -93,7 +93,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <HardDriveIcon className="h-5 w-5 text-primary" />
             <span className="text-base font-medium text-foreground">12.4 GB</span>
-            <span className="text-muted-foreground">• Dropbox</span>
             <span className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">↑ 5%</span>
           </div>
 

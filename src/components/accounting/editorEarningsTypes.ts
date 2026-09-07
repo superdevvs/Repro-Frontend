@@ -1,5 +1,5 @@
 import type { EditorEarningsDetail } from '@/services/invoiceService';
-import type { DropboxMediaFile } from '@/services/dropboxMediaService';
+import type { ShootMediaFile } from '@/services/shootMediaService';
 
 export type EditorEarningsLineItem = EditorEarningsDetail['line_items'][number];
 
@@ -15,7 +15,7 @@ export type ResolveEffectiveEditorEarning = (
 
 export type ShootMediaState = {
   status: 'loading' | 'loaded' | 'error';
-  items: DropboxMediaFile[];
+  items: ShootMediaFile[];
 };
 
 export type EditorShootActivity = {

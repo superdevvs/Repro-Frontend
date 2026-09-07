@@ -20,8 +20,8 @@ import {
   uploadExtraPhotos,
   uploadEditedPhotos,
   getMediaUploadErrorMessage,
-  type DropboxMediaFile,
-} from '@/services/dropboxMediaService';
+  type ShootMediaFile,
+} from '@/services/shootMediaService';
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
 import { MissingPhotosAlert, PhotoCountsSummary } from './MissingPhotosAlert';
 import { BracketModeSelector, type BracketMode } from './BracketModeSelector';
@@ -86,10 +86,10 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   });
   
   const [activeTab, setActiveTab] = useState('raw');
-  const [rawFiles, setRawFiles] = useState<DropboxMediaFile[]>([]);
-  const [editedFiles, setEditedFiles] = useState<DropboxMediaFile[]>([]);
-  const [extraFiles, setExtraFiles] = useState<DropboxMediaFile[]>([]);
-  const [flaggedFiles, setFlaggedFiles] = useState<DropboxMediaFile[]>([]);
+  const [rawFiles, setRawFiles] = useState<ShootMediaFile[]>([]);
+  const [editedFiles, setEditedFiles] = useState<ShootMediaFile[]>([]);
+  const [extraFiles, setExtraFiles] = useState<ShootMediaFile[]>([]);
+  const [flaggedFiles, setFlaggedFiles] = useState<ShootMediaFile[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -324,7 +324,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     }
   };
 
-  const renderMediaGrid = (files: DropboxMediaFile[]) => {
+  const renderMediaGrid = (files: ShootMediaFile[]) => {
     if (loading) {
       return <div className="text-center py-8 text-muted-foreground">Loading files...</div>;
     }

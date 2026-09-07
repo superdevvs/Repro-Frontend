@@ -104,7 +104,7 @@ export const StatsCardGrid: React.FC<StatsCardGridProps> = ({
       <StatsCard
         title="Storage"
         value="12.4 GB"
-        description="Dropbox, AWS S3"
+        description="Shoot media storage"
         icon={<HardDriveIcon className="h-5 w-5" />}
         trend="up"
         trendValue="5%"

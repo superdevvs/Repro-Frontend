@@ -107,7 +107,7 @@ interface UploadDropzoneProps {
   sourceImport?: UploadSourceImportConfig;
 }
 
-type UploadSourceProvider = 'dropbox' | 'google_drive' | 'google_photos' | 'onedrive';
+type UploadSourceProvider = 'google_drive' | 'google_photos' | 'onedrive';
 
 interface UploadSourceImportConfig {
   shootId: string | number;
@@ -143,7 +143,6 @@ interface UploadSourceItem {
 }
 
 const SOURCE_PROVIDER_LABELS: Record<UploadSourceProvider, string> = {
-  dropbox: 'Dropbox',
   google_drive: 'Google Drive',
   google_photos: 'Google Photos',
   onedrive: 'OneDrive',
@@ -364,7 +363,6 @@ function UploadSourceActions({
     { id: 'device', label: 'From device', icon: Folder, onClick: onBrowse },
     { id: 'link', label: 'From link', icon: Link, onClick: () => setLinkOpen(true) },
     { id: 'camera', label: 'Camera', icon: Camera, onClick: () => setCameraOpen(true) },
-    { id: 'dropbox', label: 'Dropbox', icon: Cloud, onClick: () => setBrowserProvider('dropbox') },
     { id: 'google_drive', label: 'Google Drive', icon: HardDrive, onClick: () => setBrowserProvider('google_drive') },
     { id: 'google_photos', label: 'Google Photos', icon: Images, onClick: () => setBrowserProvider('google_photos') },
     { id: 'onedrive', label: 'OneDrive', icon: Cloud, onClick: () => setBrowserProvider('onedrive') },
@@ -678,9 +676,7 @@ function CloudSourceDialog({
   };
 
   const openFolder = (item: UploadSourceItem) => {
-    if (provider === 'dropbox') {
-      loadItems({ path: item.path || '' });
-    } else if (provider === 'google_photos') {
+    if (provider === 'google_photos') {
       loadItems({ album_id: item.id });
     } else {
       loadItems({ folder_id: item.id });

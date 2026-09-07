@@ -218,21 +218,6 @@ export function MediaLinksSection({
         </span>
       </div>
       <div className="space-y-2 text-xs">
-        {(shoot as any).dropbox_raw_folder && (
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">RAW Photos:</span>
-            <a
-              href={(shoot as any).dropbox_raw_folder}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-1"
-            >
-              <span>Open Dropbox</span>
-              <Link2 className="h-3 w-3" />
-            </a>
-          </div>
-        )}
-
         {loading ? (
           <div className="flex items-center justify-center py-2">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

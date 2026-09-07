@@ -186,7 +186,7 @@ export function ShootCard(props: ShootCardProps) {
   if (isNewProps) {
     const { shoot } = props;
     const mediaImages = getMediaImages(shoot.media);
-    const hasDropboxFiles = shoot.dropboxPaths?.rawFolder || shoot.dropboxPaths?.editedFolder;
+    const hasMediaFiles = mediaImages.length > 0 || (shoot.rawPhotoCount ?? 0) > 0 || (shoot.editedPhotoCount ?? 0) > 0;
     const heroImage = normalizeImageUrl(shoot.heroImage) || (mediaImages.length > 0 ? mediaImages[0] : null);
     
     return (
@@ -204,7 +204,7 @@ export function ShootCard(props: ShootCardProps) {
             />
             <div className="absolute bottom-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
               {mediaImages.length > 0 ? mediaImages.length : shoot.editedPhotoCount || 0} photos
-              {hasDropboxFiles && (
+              {hasMediaFiles && (
                 <Folder className="h-3 w-3 text-blue-600" />
               )}
             </div>
@@ -266,12 +266,12 @@ export function ShootCard(props: ShootCardProps) {
             </div>
           )}
           
-          {/* Dropbox Photo Counts */}
+          {/* Shoot Photo Counts */}
           {(shoot.rawPhotoCount !== undefined || shoot.editedPhotoCount !== undefined) && (
             <div className="mt-3 pt-3 border-t space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
-                  {shoot.dropboxPaths?.rawFolder && (
+                  {(shoot.rawPhotoCount ?? 0) > 0 && (
                     <Folder className="h-3 w-3 text-muted-foreground" />
                   )}
                   <span className="text-muted-foreground">RAW:</span>
@@ -297,7 +297,7 @@ export function ShootCard(props: ShootCardProps) {
               {shoot.editedPhotoCount !== undefined && (
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    {shoot.dropboxPaths?.editedFolder && (
+                    {(shoot.editedPhotoCount ?? 0) > 0 && (
                       <Folder className="h-3 w-3 text-muted-foreground" />
                     )}
                     <span className="text-muted-foreground">Edited:</span>

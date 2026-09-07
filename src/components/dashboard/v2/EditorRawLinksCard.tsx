@@ -45,7 +45,7 @@ const getRawFileCount = (shoot: ShootData) => {
 };
 
 const hasRawAssets = (shoot: ShootData) =>
-  getRawFileCount(shoot) > 0 || Boolean(shoot.dropboxPaths?.rawFolder);
+  getRawFileCount(shoot) > 0;
 
 const getShootTimestamp = (shoot: ShootData) => {
   const value = shoot.updatedAt || shoot.createdAt || shoot.completedDate || shoot.scheduledDate;

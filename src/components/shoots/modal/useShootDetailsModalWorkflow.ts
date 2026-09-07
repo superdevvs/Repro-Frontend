@@ -6,7 +6,7 @@ import {
   approveEditingReview,
   finalizeEditedUploadQueue,
   finalizeRawUploadQueue,
-} from '@/services/dropboxMediaService';
+} from '@/services/shootMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';

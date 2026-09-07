@@ -25,7 +25,7 @@ export function AvatarUploader({
     const file = event.target.files?.[0];
     if (file) {
       console.log("File selected:", file.name, file.type, file.size);
-      
+
       // Check file type
       if (!file.type.startsWith('image/')) {
         toast({
@@ -35,7 +35,7 @@ export function AvatarUploader({
         });
         return;
       }
-      
+
       // Check file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast({
@@ -45,13 +45,13 @@ export function AvatarUploader({
         });
         return;
       }
-      
+
       // Create URL for preview
       const url = URL.createObjectURL(file);
       console.log("Created object URL:", url);
       onAvatarChange(url);
       onShowUploadOptions(false);
-      
+
       toast({
         title: 'File uploaded',
         description: `${file.name} has been uploaded successfully.`,
@@ -61,28 +61,26 @@ export function AvatarUploader({
     }
   };
 
-  const handleExternalUpload = (source: 'google-drive' | 'dropbox') => {
+  const handleGoogleDriveUpload = () => {
     // In a real app, this would launch the respective picker
     // For demo purposes, we'll just show a toast and use a placeholder
-    const serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
-    
+    const serviceName = 'Google Drive';
+
     // Simulate loading state
     toast({
       title: `Connecting to ${serviceName}`,
       description: `Opening ${serviceName} file picker...`,
     });
-    
+
     // Mock successful upload with a placeholder avatar after a short delay
     setTimeout(() => {
       // In a real implementation, you would get the URL from the API response
-      const placeholderUrl = source === 'google-drive'
-        ? 'https://ui.shadcn.com/avatars/02.png'  // Different image for each source
-        : 'https://ui.shadcn.com/avatars/03.png';
-      
+      const placeholderUrl = 'https://ui.shadcn.com/avatars/02.png';
+
       console.log("Image URL being set:", placeholderUrl);
       onAvatarChange(placeholderUrl);
       onShowUploadOptions(false);
-      
+
       toast({
         title: 'File uploaded',
         description: `Image from ${serviceName} has been uploaded successfully.`,
@@ -114,7 +112,7 @@ export function AvatarUploader({
           </Button>
         </div>
       </div>
-      
+
       {showUploadOptions && (
         <div className="bg-card border rounded-md p-3 relative">
           <Button 
@@ -149,7 +147,7 @@ export function AvatarUploader({
               type="button"
               variant="outline" 
               className="w-full justify-start"
-              onClick={() => handleExternalUpload('google-drive')}
+              onClick={handleGoogleDriveUpload}
             >
               <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/2295px-Google_Drive_icon_%282020%29.svg.png" 
                 alt="Google Drive" 
@@ -157,18 +155,7 @@ export function AvatarUploader({
               />
               Upload from Google Drive
             </Button>
-            <Button 
-              type="button"
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => handleExternalUpload('dropbox')}
-            >
-              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Dropbox_Icon.svg/2202px-Dropbox_Icon.svg.png" 
-                alt="Dropbox" 
-                className="mr-2 h-4 w-4" 
-              />
-              Upload from Dropbox
-            </Button>
+
           </div>
         </div>
       )}

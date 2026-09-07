@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
-export interface DropboxMediaFile {
+export interface ShootMediaFile {
   id: string;
   name: string;
   path: string;
@@ -11,8 +11,8 @@ export interface DropboxMediaFile {
   thumbnail_link: string | null;
 }
 
-export interface DropboxMediaResponse {
-  data: DropboxMediaFile[];
+export interface ShootMediaResponse {
+  data: ShootMediaFile[];
   counts: {
     raw_photo_count: number;
     edited_photo_count: number;
@@ -285,7 +285,7 @@ export const fetchShootMedia = async (
   shootId: string,
   type: 'raw' | 'edited' | 'extra',
   token: string
-): Promise<DropboxMediaResponse> => {
+): Promise<ShootMediaResponse> => {
   const response = await axios.get(`${API_BASE_URL}/api/shoots/${shootId}/media`, {
     params: { type },
     headers: {
@@ -383,7 +383,7 @@ export const downloadMediaZip = async (
 };
 
 /**
- * Get temporary Dropbox link for a media file thumbnail
+ * Get an authenticated media download URL for a file thumbnail.
  */
 export const getMediaThumbnail = async (
   shootId: string,
@@ -407,25 +407,3 @@ export const getMediaThumbnail = async (
     return null;
   }
 };
-
-/**
- * Archive a shoot manually (admin only)
- */
-export const archiveShoot = async (
-  shootId: string,
-  token: string
-): Promise<any> => {
-  const response = await axios.post(
-    `${API_BASE_URL}/api/shoots/${shootId}/archive`,
-    {},
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  return response.data;
-};
-
