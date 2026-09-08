@@ -10,6 +10,8 @@ import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
 import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 import { InvoiceAdjustmentEditor } from './InvoiceAdjustmentEditor';
+import { resolveInvoicePricingDisplay } from '@/utils/invoicePricingSummary';
+import { writeInvoicePdfSummary } from './invoicePdfSummary';
 import {
   collectLinkedInvoiceShoots,
   firstInvoicePartyText as firstText,
@@ -183,9 +185,8 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   };
   const propertyAddress = getPropertyAddress();
   
-  const total = Number(invoiceData.total ?? invoiceData.amount ?? 0);
-  const tax = Number(invoiceData.tax ?? 0);
-  const subtotal = Number(invoiceData.subtotal ?? Math.max(total - tax, 0));
+  const pricing = useMemo(() => resolveInvoicePricingDisplay(invoiceData), [invoiceData]);
+  const { total } = pricing;
   const status = invoiceData.status || 'pending';
   const documentType = invoiceData.documentType ?? invoiceData.document_type ?? null;
   const paymentRequired = invoiceData.paymentRequired ?? invoiceData.payment_required;
@@ -621,95 +622,11 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       yPos += 12;
 
       // ===== SUMMARY SECTION =====
-      const summaryValueX = colTotal;
-      const summaryLabelX = summaryValueX - 78;
-      const summaryValueLeftX = summaryLabelX + 34;
-      const summaryValueMaxWidth = summaryValueX - summaryValueLeftX;
-
-      const writeSummaryCurrencyRow = (label: string, value: string, color?: [number, number, number]) => {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(color?.[0] ?? 0, color?.[1] ?? 0, color?.[2] ?? 0);
-        doc.text(label, summaryLabelX, yPos);
-        doc.text(value, summaryValueX, yPos, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-        yPos += 8;
-      };
-
-      const writeSummaryDetailRow = (label: string, value: string) => {
-        const valueLines = doc.splitTextToSize(value, summaryValueMaxWidth) as string[];
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(60, 60, 60);
-        doc.text(label, summaryLabelX, yPos);
-        doc.setTextColor(0, 0, 0);
-        doc.text(valueLines, summaryValueLeftX, yPos);
-        doc.setTextColor(0, 0, 0);
-        yPos += Math.max(8, valueLines.length * 5 + 3);
-      };
-
-      writeSummaryCurrencyRow('SUBTOTAL:', formatCurrency(subtotal));
-
-      if (tax > 0) {
-        writeSummaryCurrencyRow('TAX:', formatCurrency(tax));
-      }
-
-      // Prior Payment if paid
-      if (isPaid && paidAmount > 0) {
-        writeSummaryCurrencyRow('PRIOR PAYMENT:', `-${formatCurrency(paidAmount)}`, [0, 128, 0]);
-      }
-
-      if (overpaymentAmount > 0) {
-        writeSummaryCurrencyRow('REFUND/CREDIT DUE:', formatCurrency(overpaymentAmount), [180, 83, 9]);
-      }
-
-      if (isPaid && paymentMethodLabel !== 'N/A') {
-        writeSummaryDetailRow('METHOD:', paymentMethodLabel);
-      }
-
-      if (isPaid && paymentBreakdown) {
-        writeSummaryDetailRow('SPLIT:', paymentBreakdown);
-      }
-
-      if (isPaid && paidAt) {
-        writeSummaryDetailRow('PAID ON:', formatDateTime(paidAt));
-      }
-
-      // Grand Total line
-      doc.setDrawColor(180, 180, 180);
-      doc.line(summaryLabelX, yPos - 1, summaryValueX, yPos - 1);
-      yPos += 7;
-      
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text('GRAND TOTAL:', summaryLabelX, yPos);
-      const grandTotal = total;
-      doc.text(formatCurrency(grandTotal), summaryValueX, yPos, { align: 'right' });
-
-      // ===== TOTAL DUE/PAYMENT (Large, left side) =====
-      yPos += 12;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(
-        isComplimentaryReceipt
-          ? 'COMPLIMENTARY RECEIPT'
-          : isPaid ? 'TOTAL PAYMENT' : 'TOTAL DUE',
-        margin,
-        yPos,
-      );
-      
-      doc.setFontSize(24);
-      if (isComplimentaryReceipt) {
-        doc.setTextColor(30, 64, 175);
-        doc.text(formatCurrency(0), margin, yPos + 12);
-      } else if (isPaid) {
-        doc.setTextColor(0, 128, 0);
-        doc.text(formatCurrency(paidAmount), margin, yPos + 12);
-      } else {
-        doc.setTextColor(30, 64, 175);
-        doc.text(formatCurrency(total), margin, yPos + 12);
-      }
-      doc.setTextColor(0, 0, 0);
+      writeInvoicePdfSummary(doc, {
+        y: yPos, margin, pricingRows: pricing.rows, itemAmountNote: pricing.itemAmountNote, total, isPaid, isComplimentaryReceipt,
+        paidAmount, overpaymentAmount, paymentMethodLabel, paymentBreakdown,
+        paidAtLabel: paidAt ? formatDateTime(paidAt) : null, formatCurrency,
+      });
 
       // ===== FOOTER =====
       const footerY = pageHeight - 30;
@@ -741,7 +658,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isComplimentaryReceipt, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, propertyAddress, resolvePhotographerName, subtotal, tax, total]);
+  }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isComplimentaryReceipt, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, overpaymentAmount, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, pricing.itemAmountNote, pricing.rows, propertyAddress, resolvePhotographerName, total]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -933,6 +850,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 )}
               </tbody>
             </table>
+            {pricing.itemAmountNote && <p className="mt-3 text-xs text-muted-foreground">{pricing.itemAmountNote}</p>}
           </div>
 
           {isPaid && (
@@ -959,16 +877,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
           {/* Summary Section */}
           <div className="flex justify-end">
             <div className="w-80 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-medium text-foreground">{formatCurrency(subtotal)}</span>
-              </div>
-              {tax > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax:</span>
-                  <span className="font-medium text-foreground">{formatCurrency(tax)}</span>
+              {pricing.rows.map((row) => (
+                <div key={row.key} className="flex justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">{row.label}</span>
+                  <span className="font-medium text-foreground">{formatCurrency(row.amount)}</span>
                 </div>
-              )}
+              ))}
               {isPaid && paidAmount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-green-600 dark:text-green-400">Prior Payment:</span>
@@ -996,4 +910,3 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     </Dialog>
   );
 }
-

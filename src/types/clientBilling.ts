@@ -1,3 +1,5 @@
+import type { InvoicePricingBreakdown } from './invoice';
+
 export type ClientBillingSource = 'invoice' | 'shoot_balance';
 export type ClientBillingBucket = 'due_now' | 'upcoming' | 'paid' | 'no_payment_required';
 export type ClientBillingStatus = 'paid' | 'pending' | 'overdue' | 'no_payment_required';
@@ -70,6 +72,11 @@ export interface ClientBillingItem {
   amount: number;
   amountPaid: number;
   balance: number;
+  subtotal?: number | string;
+  tax?: number | string;
+  total?: number | string;
+  pricingBreakdown?: InvoicePricingBreakdown | null;
+  pricing_breakdown?: InvoicePricingBreakdown | null;
   status: ClientBillingStatus;
   rawStatus?: string | null;
   bucket: ClientBillingBucket;

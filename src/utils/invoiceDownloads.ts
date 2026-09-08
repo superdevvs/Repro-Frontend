@@ -9,6 +9,7 @@ import type {
   InvoiceParty,
   InvoiceShootRef,
 } from '@/types/invoice';
+import { resolveInvoicePricingDisplay } from '@/utils/invoicePricingSummary';
 
 type JsPdfDocument = import('jspdf').jsPDF;
 
@@ -36,6 +37,8 @@ type NormalizedInvoice = {
   dueDate: string;
   status: string;
   lines: NormalizedInvoiceLine[];
+  pricingRows: ReturnType<typeof resolveInvoicePricingDisplay>['rows'];
+  itemAmountNote: string | null;
   subtotal: number;
   tax: number;
   total: number;
@@ -213,6 +216,7 @@ const normalizeInvoice = (invoice: DownloadableInvoice): NormalizedInvoice => {
   const tax = toMoney(source.tax ?? source.tax_amount ?? source.sales_tax);
   const subtotal = toMoney(source.subtotal ?? source.subtotal_amount, lineTotal || Math.max((totalHint ?? 0) - tax, 0));
   const total = toMoney(source.total ?? source.amount ?? source.total_amount, subtotal + tax);
+  const pricingDisplay = resolveInvoicePricingDisplay({ ...source, subtotal, tax, total });
   const amountPaid = toMoney(source.amountPaid ?? source.amount_paid ?? source.paid_amount);
   const balance = Math.max(
     0,
@@ -244,6 +248,8 @@ const normalizeInvoice = (invoice: DownloadableInvoice): NormalizedInvoice => {
     ),
     status: firstText(source.status, 'pending').replace(/[_-]+/g, ' '),
     lines,
+    pricingRows: pricingDisplay.rows,
+    itemAmountNote: pricingDisplay.itemAmountNote,
     subtotal,
     tax,
     total,
@@ -425,23 +431,42 @@ const renderInvoice = (doc: JsPdfDocument, invoice: NormalizedInvoice): void => 
     doc.line(margin, y, pageWidth - margin, y);
   });
 
-  const summaryHeight = invoice.notes ? 122 : 94;
-  if (y + summaryHeight > contentBottom) {
+  const summaryRows: Array<[string, number]> = [
+    ...invoice.pricingRows.map(({ label, amount }): [string, number] => [label.replace(/:$/, ''), amount]),
+    ['Total', invoice.total],
+    ['Paid', invoice.amountPaid],
+    ['Balance', invoice.balance],
+  ];
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const itemAmountNoteLines = invoice.itemAmountNote
+    ? doc.splitTextToSize(invoice.itemAmountNote, pageWidth - (margin * 2)) as string[]
+    : [];
+  const itemAmountNoteHeight = itemAmountNoteLines.length ? (itemAmountNoteLines.length * 11) + 8 : 0;
+  const noteLines = invoice.notes
+    ? (doc.splitTextToSize(invoice.notes, 310) as string[]).slice(0, 4)
+    : [];
+  const notesOffset = (summaryRows.length * 15) + 7;
+  const summaryHeight = noteLines.length
+    ? notesOffset + 13 + ((noteLines.length - 1) * 11) + 10
+    : ((summaryRows.length - 1) * 15) + 12;
+  if (y + 16 + itemAmountNoteHeight + summaryHeight > contentBottom) {
     doc.addPage();
     y = addBrandHeader(doc, invoice, true);
   } else {
     y += 16;
   }
 
-  const summaryLabelX = pageWidth - margin - 138;
+  if (itemAmountNoteLines.length) {
+    doc.setTextColor(85, 85, 85);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(itemAmountNoteLines, margin, y);
+    y += itemAmountNoteHeight;
+  }
+
+  const summaryLabelX = pageWidth - margin - 178;
   const summaryValueX = pageWidth - margin;
-  const summaryRows: Array<[string, number]> = [
-    ['Subtotal', invoice.subtotal],
-    ['Tax', invoice.tax],
-    ['Total', invoice.total],
-    ['Paid', invoice.amountPaid],
-    ['Balance', invoice.balance],
-  ];
   summaryRows.forEach(([label, amount], index) => {
     const rowY = y + (index * 15);
     const emphasized = label === 'Total' || label === 'Balance';
@@ -452,14 +477,13 @@ const renderInvoice = (doc: JsPdfDocument, invoice: NormalizedInvoice): void => 
     doc.text(formatCurrency(amount), summaryValueX, rowY, { align: 'right' });
   });
 
-  if (invoice.notes) {
-    const notesY = y + 82;
+  if (noteLines.length) {
+    const notesY = y + notesOffset;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text('Notes', margin, notesY);
     doc.setFont('helvetica', 'normal');
-    const noteLines = doc.splitTextToSize(invoice.notes, 310) as string[];
-    doc.text(noteLines.slice(0, 4), margin, notesY + 13);
+    doc.text(noteLines, margin, notesY + 13);
   }
 };
 

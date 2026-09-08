@@ -6,6 +6,7 @@ import { API_BASE_URL } from '@/config/env';
 import { MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { blurActiveElement } from '../dialogFocusUtils';
 import type { PaymentDetails } from '@/utils/paymentUtils';
+import type { InvoicePricingBreakdown } from '@/types/invoice';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 
 interface ToastApi {
@@ -52,6 +53,8 @@ type InvoiceResponseLike = {
   paid_at?: string;
   items?: InvoiceItem[];
   subtotal?: number | string;
+  pricing_breakdown?: InvoicePricingBreakdown | null;
+  pricingBreakdown?: InvoicePricingBreakdown | null;
   tax?: number | string;
 };
 
@@ -187,7 +190,7 @@ export function useShootDetailsModalPayments({
           || 'N/A',
         date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
         dueDate,
-        amount: Number(invoiceData.total || invoiceData.amount || 0),
+        amount: Number(invoiceData.total ?? invoiceData.amount ?? 0),
         status: normalizedStatus,
         services: invoiceData.items
           ?.map((item: InvoiceItem) => item.description)
@@ -197,9 +200,10 @@ export function useShootDetailsModalPayments({
         paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
         paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,
         items: invoiceData.items || [],
-        subtotal: Number(invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0),
+        subtotal: Number(invoiceData.subtotal ?? invoiceData.total ?? invoiceData.amount ?? 0),
+        pricingBreakdown: invoiceData.pricing_breakdown ?? invoiceData.pricingBreakdown ?? null,
         tax: Number(invoiceData.tax || 0),
-        total: Number(invoiceData.total || invoiceData.amount || 0),
+        total: Number(invoiceData.total ?? invoiceData.amount ?? 0),
         shoot: invoiceData.shoot || undefined,
         shoots: invoiceData.shoots || undefined,
       };

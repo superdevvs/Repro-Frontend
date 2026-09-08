@@ -1,4 +1,5 @@
 import { apiClient } from '@/services/api';
+import type { InvoicePricingBreakdown } from '@/types/invoice';
 import type {
   ClientBillingItem,
   ClientBillingResponse,
@@ -23,6 +24,7 @@ export interface ClientBillingInvoiceViewData {
   documentType?: string | null;
   paymentRequired: boolean;
   subtotal: number;
+  pricingBreakdown?: InvoicePricingBreakdown | null;
   tax: number;
   total: number;
   services: string[];
@@ -101,6 +103,7 @@ export const fetchClientBilling = async (): Promise<ClientBillingResponse> => {
 export const toClientBillingInvoiceViewData = (
   item: ClientBillingItem,
 ): ClientBillingInvoiceViewData => {
+  const pricingBreakdown = item.pricingBreakdown ?? item.pricing_breakdown ?? null;
   const displayNumber =
     item.number ||
     (item.source === 'shoot_balance' && item.shootId != null
@@ -124,9 +127,10 @@ export const toClientBillingInvoiceViewData = (
     status: item.status,
     documentType: item.documentType,
     paymentRequired: item.paymentRequired !== false,
-    subtotal: item.amount,
-    tax: 0,
-    total: item.amount,
+    subtotal: toNumber(item.subtotal ?? pricingBreakdown?.subtotal ?? item.amount),
+    tax: toNumber(item.tax ?? pricingBreakdown?.tax ?? 0),
+    total: toNumber(item.total ?? pricingBreakdown?.total ?? item.amount),
+    pricingBreakdown,
     services: item.services || [],
     items: item.items,
     shoot: item.shoot,

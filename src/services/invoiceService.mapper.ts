@@ -172,6 +172,7 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
     overpaymentAmount,
     overpayment_amount: overpaymentAmount,
     subtotal,
+    pricingBreakdown: invoice.pricing_breakdown ?? invoice.pricingBreakdown ?? null,
     tax,
     total: baseAmount,
     status: (normalizedStatus as InvoiceData['status']) || 'pending',

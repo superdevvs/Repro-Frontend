@@ -1,6 +1,7 @@
 import type { InvoiceShootRef } from '@/utils/invoiceUtils';
 import type { InvoiceItem, InvoiceParty } from '@/utils/invoiceUtils';
 import type { PaymentDetails } from '@/utils/paymentUtils';
+import type { InvoicePricingBreakdown } from '@/types/invoice';
 
 export type InvoiceApiRecord = {
   id?: string | number;
@@ -12,6 +13,8 @@ export type InvoiceApiRecord = {
   due_date?: string;
   billing_period_end?: string;
   subtotal?: number | string;
+  pricing_breakdown?: InvoicePricingBreakdown | null;
+  pricingBreakdown?: InvoicePricingBreakdown | null;
   subtotal_amount?: number | string;
   tax?: number | string;
   tax_amount?: number | string;

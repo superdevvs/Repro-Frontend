@@ -1,5 +1,19 @@
 import type { PaymentDetails } from "@/utils/paymentUtils";
 
+/** Saved invoice pricing; totals already include these reductions. */
+export interface InvoicePricingBreakdown {
+  line_amount_basis?: 'gross' | 'net' | 'mixed' | 'unknown';
+  discount_source?: string;
+  service_subtotal?: number | string;
+  discount_amount?: number | string;
+  pricing_adjustment_amount?: number | string;
+  invoice_adjustments_total?: number | string;
+  subtotal_before_discount?: number | string;
+  subtotal?: number | string;
+  tax?: number | string;
+  total?: number | string;
+}
+
 export interface InvoiceParty {
   id?: number | string;
   name?: string;
@@ -79,6 +93,8 @@ export interface InvoiceData {
   overpaymentAmount?: number;
   overpayment_amount?: number;
   subtotal?: number;
+  pricingBreakdown?: InvoicePricingBreakdown | null;
+  pricing_breakdown?: InvoicePricingBreakdown | null;
   tax?: number;
   total?: number;
   issueDate?: string;
