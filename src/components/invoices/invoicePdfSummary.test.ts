@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { jsPDF } from 'jspdf';
 import { resolveInvoicePricingDisplay } from '@/utils/invoicePricingSummary';
 import { writeInvoicePdfSummary } from './invoicePdfSummary';
+
+const { jsPDF } = await import('jspdf');
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 const pricing = resolveInvoicePricingDisplay({

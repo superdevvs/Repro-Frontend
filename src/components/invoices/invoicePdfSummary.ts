@@ -1,5 +1,6 @@
-import type { jsPDF } from 'jspdf';
 import type { InvoicePricingSummaryRow } from '@/utils/invoicePricingSummary';
+
+type JsPdfDocument = import('jspdf').jsPDF;
 
 interface InvoicePdfSummaryOptions {
   y: number;
@@ -18,7 +19,7 @@ interface InvoicePdfSummaryOptions {
 }
 
 /** Keep the pricing and payment summary together above the final-page footer. */
-export const writeInvoicePdfSummary = (doc: jsPDF, options: InvoicePdfSummaryOptions) => {
+export const writeInvoicePdfSummary = (doc: JsPdfDocument, options: InvoicePdfSummaryOptions) => {
   const { margin, total, isPaid, isComplimentaryReceipt, paidAmount, overpaymentAmount, formatCurrency } = options;
   const valueX = doc.internal.pageSize.getWidth() - margin;
   const labelX = valueX - 78;
