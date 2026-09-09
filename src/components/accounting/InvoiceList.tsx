@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InvoiceStatusTabs } from '@/components/accounting/InvoiceStatusTabs';
 import { Card } from '@/components/ui/card';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from '@/components/accounting/InvoiceDateFilterToolbar';
@@ -391,87 +391,75 @@ export function InvoiceList({
   return (
     <div className="w-full">
       <Card className="mb-6">
-        <div className="border-b p-3">
-          <div className="flex items-start gap-2 sm:items-center sm:justify-between">
-            <Tabs
-              value={activeTab}
-              className="min-w-0 flex-1 sm:w-auto"
-              onValueChange={(value) => setActiveTab(value as typeof activeTab)}
-            >
-              <div className="overflow-x-auto pb-1 sm:pb-0">
-                <TabsList className="inline-flex min-w-max">
-                  <TabsTrigger value="all" className="py-1 text-sm">All Invoices</TabsTrigger>
-                  <TabsTrigger value="pending" className="py-1 text-sm">Pending</TabsTrigger>
-                  <TabsTrigger value="paid" className="py-1 text-sm">Paid</TabsTrigger>
-                  <TabsTrigger value="overdue" className="py-1 text-sm">Overdue</TabsTrigger>
-                </TabsList>
-              </div>
-            </Tabs>
+        <div className="flex flex-wrap items-center gap-2 border-b p-3">
+          <InvoiceStatusTabs
+            value={activeTab}
+            className="min-w-0 flex-1 sm:flex-none"
+            onValueChange={setActiveTab}
+          />
 
-            <div className="flex items-center gap-1 text-xs">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 sm:hidden"
-                    aria-label="View options"
-                    title="View options"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40 sm:hidden">
-                  <DropdownMenuLabel>View Mode</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleViewModeChange('list')}>
-                    <span>List view</span>
-                    {viewMode === 'list' && <Check className="ml-auto h-4 w-4" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleViewModeChange('grid')}>
-                    <span>Grid view</span>
-                    {viewMode === 'grid' && <Check className="ml-auto h-4 w-4" />}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="ml-auto flex shrink-0 items-center gap-1 text-xs lg:order-last lg:ml-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 sm:hidden"
+                  aria-label="View options"
+                  title="View options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40 sm:hidden">
+                <DropdownMenuLabel>View Mode</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleViewModeChange('list')}>
+                  <span>List view</span>
+                  {viewMode === 'list' && <Check className="ml-auto h-4 w-4" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleViewModeChange('grid')}>
+                  <span>Grid view</span>
+                  {viewMode === 'grid' && <Check className="ml-auto h-4 w-4" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              <div className="hidden sm:flex items-center gap-1">
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  aria-label="List view"
-                  className="h-8 px-2.5"
-                  onClick={() => handleViewModeChange('list')}
-                >
-                  List
-                </Button>
-                <Button
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  aria-label="Grid view"
-                  className="h-8 px-2.5"
-                  onClick={() => handleViewModeChange('grid')}
-                >
-                  Grid
-                </Button>
-              </div>
+            <div className="hidden sm:flex items-center gap-1">
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-label="List view"
+                className="h-8 px-2.5"
+                onClick={() => handleViewModeChange('list')}
+              >
+                List
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-label="Grid view"
+                className="h-8 px-2.5"
+                onClick={() => handleViewModeChange('grid')}
+              >
+                Grid
+              </Button>
             </div>
           </div>
+          <InvoiceDateFilterToolbar
+            filter={dateFilter}
+            onFilterChange={setDateFilter}
+            resultCount={filteredInvoices.length}
+            selectedCount={selectedInvoices.length}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onExport={handleExport}
+            onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
+            resultNoun="invoice"
+            className="order-last rounded-none border-0 bg-transparent p-0 lg:order-none lg:ml-auto lg:w-auto lg:flex-[0_1_auto]"
+            exportDisabled={loading}
+            exporting={exporting}
+          />
         </div>
-
-        <InvoiceDateFilterToolbar
-          filter={dateFilter}
-          onFilterChange={setDateFilter}
-          resultCount={filteredInvoices.length}
-          selectedCount={selectedInvoices.length}
-          onClearSelection={() => setSelectedIds(new Set())}
-          onExport={handleExport}
-          onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
-          resultNoun="invoice"
-          className="rounded-none border-x-0 border-t-0"
-          exportDisabled={loading}
-          exporting={exporting}
-        />
 
         <div>
           {viewMode === 'list' ? (
