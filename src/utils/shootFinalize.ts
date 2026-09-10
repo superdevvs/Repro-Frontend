@@ -46,6 +46,13 @@ const hasCompletedFile = (shoot: ShootData | null | undefined): boolean =>
     ),
   );
 
+const hasRawFile = (shoot: ShootData | null | undefined): boolean =>
+  Boolean(
+    shoot?.files?.some((file) =>
+      String(file.workflowStage ?? file.workflow_stage ?? '').toLowerCase() === 'todo',
+    ),
+  );
+
 const readNoMediaCapability = (
   shoot: ShootData | null | undefined,
 ): boolean | undefined => {
@@ -83,7 +90,13 @@ export const canFinaliseShoot = (shoot: ShootData | null | undefined): boolean =
 
   const status = normalizeStatus(shoot);
   const hasEditedMedia = readEditedMediaCount(shoot) > 0 || hasCompletedFile(shoot);
-  return NORMAL_FINALISE_STATUSES.includes(status) && hasEditedMedia;
+  // Admins can upload finished media directly while a shoot is scheduled. The
+  // finalize endpoint supports this edited-only path without raw submission.
+  const hasScheduledEditsWithoutRaw = status === 'scheduled'
+    && readRawMediaCount(shoot) === 0
+    && !hasRawFile(shoot);
+  return (NORMAL_FINALISE_STATUSES.includes(status) || hasScheduledEditsWithoutRaw)
+    && hasEditedMedia;
 };
 
 /**

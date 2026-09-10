@@ -110,6 +110,39 @@ describe('buildFinalizeRequestBody', () => {
 });
 
 describe('canFinaliseShoot', () => {
+  it('offers normal finalization for scheduled shoots with directly uploaded edits', () => {
+    for (const status of ['scheduled', 'booked']) {
+      const shoot = makeShoot({ status, rawPhotoCount: 0, editedPhotoCount: 29 });
+
+      expect(canFinaliseShoot(shoot)).toBe(true);
+      expect(isFastForwardFinalise(shoot)).toBe(false);
+      expect(buildFinalizeRequestBody(shoot)).toEqual({ final_status: 'admin_verified' });
+    }
+  });
+
+  it('recognizes completed files when the edited counter has not refreshed yet', () => {
+    expect(canFinaliseShoot(makeShoot({
+      files: [{ id: 'photo-1', filename: 'edited.jpg', workflow_stage: 'completed' }],
+    }))).toBe(true);
+  });
+
+  it('keeps scheduled shoots in the submission workflow when raw files exist', () => {
+    expect(canFinaliseShoot(makeShoot({ rawPhotoCount: 1, editedPhotoCount: 29 }))).toBe(false);
+    for (const stageField of ['workflow_stage', 'workflowStage']) {
+      expect(canFinaliseShoot(makeShoot({
+        rawPhotoCount: 0,
+        editedPhotoCount: 29,
+        files: [{ id: 'raw-1', filename: 'raw.jpg', [stageField]: 'todo' }],
+      }))).toBe(false);
+    }
+  });
+
+  it('does not extend edited-only finalization to held or terminal shoots', () => {
+    for (const status of ['on_hold', 'requested', 'cancelled', 'declined', 'delivered']) {
+      expect(canFinaliseShoot(makeShoot({ status, editedPhotoCount: 29 }))).toBe(false);
+    }
+  });
+
   it('supports both capability-approved no-media and ordinary edited-media finalisation', () => {
     expect(
       canFinaliseShoot(makeShoot({ status: 'editing', canFinalizeNoMedia: true })),
