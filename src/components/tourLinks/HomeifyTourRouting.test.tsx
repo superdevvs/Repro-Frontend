@@ -15,6 +15,13 @@ vi.mock('./homeify/HomeifyTour', () => ({
   ),
 }));
 
+vi.mock('./landor/LandorThemeRouter', () => ({
+  LandorThemeRouter: ({ data }: { data: PublicTourData }) => (
+    <div data-testid={`${data.tourStyle}-tour`} data-variant={data.variant}>
+      {data.stats.beds} bedrooms
+    </div>
+  ),
+}));
 vi.mock('./landor/LandorTour', () => ({
   LandorTour: ({ data }: { data: PublicTourData }) => (
     <div data-testid="landor-tour" data-variant={data.variant}>
@@ -32,7 +39,7 @@ vi.mock('@/lib/tourTracking', () => ({
 }));
 
 const fetchMock = vi.fn();
-const layouts = ['homeify', 'landor'] as const;
+const layouts = ['homeify', 'landor', 'landor-estate', 'landor-living'] as const;
 const payload = {
   shoot: { id: 42, address: '42 Redwood Avenue', city: 'Austin', state: 'TX' },
   photos: ['https://example.test/property.jpg'],
@@ -100,6 +107,8 @@ describe.each([
   it.each([
     ['homeify', 'landor'],
     ['landor', 'homeify'],
+    ['landor-estate', 'landor'],
+    ['landor-living', 'homeify'],
   ])('previews %s over saved %s', async (preview, saved) => {
     window.history.replaceState({}, '', `/?shootId=42&layout=${preview}`);
     respond({ ...payload, tour_style: saved });

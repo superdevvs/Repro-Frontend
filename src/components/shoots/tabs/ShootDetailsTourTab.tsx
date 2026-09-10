@@ -104,6 +104,8 @@ export function ShootDetailsTourTab({
   // Tour style state
   const [tourStyle, setTourStyle] = useState<string>('default');
   const [isSavingTourStyle, setIsSavingTourStyle] = useState(false);
+  const [tourPalette, setTourPalette] = useState<string>('repro');
+  const [isSavingTourPalette, setIsSavingTourPalette] = useState(false);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
   const [embedForm, setEmbedForm] = useState({ title: '', branded: '', mls: '' });
   const [editingEmbedId, setEditingEmbedId] = useState<string | null>(null);
@@ -203,6 +205,10 @@ export function ShootDetailsTourTab({
       sourceTourLinks?.tour_style ||
       shootTourData.tour_style ||
       'default';
+    const palette =
+      sourceTourLinks?.tour_palette ||
+      shootTourData.tour_palette ||
+      'repro';
     const rawEmbeds = Array.isArray(sourceTourLinks?.embeds)
       ? sourceTourLinks?.embeds
       : [];
@@ -236,6 +242,7 @@ export function ShootDetailsTourTab({
         video_generic: normalizedTourLinks.video_generic,
       },
       style,
+      palette,
       embeds: normalizedEmbeds,
       featuredEmbedId: featuredId || '',
       settings: {
@@ -257,6 +264,7 @@ export function ShootDetailsTourTab({
     );
     setVideoLinkValue((prev) => (prev === '' ? prev : ''));
     setTourStyle((prev) => (prev === initialTourState.style ? prev : initialTourState.style));
+    setTourPalette((prev) => (prev === initialTourState.palette ? prev : initialTourState.palette));
     setEmbeds((prev) =>
       JSON.stringify(prev) === JSON.stringify(initialTourState.embeds)
         ? prev
@@ -992,6 +1000,52 @@ export function ShootDetailsTourTab({
       setIsSavingTourStyle(false);
     }
   };
+  const saveTourPalette = async (palette: string) => {
+    setIsSavingTourPalette(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const currentTourLinks = sourceTourLinks;
+      const updatedTourLinks = {
+        ...currentTourLinks,
+        tour_palette: palette,
+      };
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ tour_links: updatedTourLinks }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save color palette' }));
+        throw new Error(errorData.message || 'Failed to save color palette');
+      }
+      const responseData = await res.json().catch(() => ({}));
+      const savedShoot = responseData.data || responseData;
+      if (savedShoot?.tour_links?.tour_palette) {
+        setTourPalette(savedShoot.tour_links.tour_palette);
+      }
+      toast({
+        title: 'Success',
+        description: 'Color palette saved successfully. Refresh tour pages to see the change.',
+      });
+      onShootUpdate();
+    } catch (err: unknown) {
+      console.error('Save tour palette failed', err);
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err, 'Failed to save color palette. Please try again.'),
+        variant: 'destructive',
+      });
+      const previousPalette = String(sourceTourLinks.tour_palette || shootTourData.tour_palette || 'repro');
+      setTourPalette(previousPalette);
+    } finally {
+      setIsSavingTourPalette(false);
+    }
+  };
+
   const confirmDelete3D = async (key: Managed3DLinkKey) => {
     if (!isAdmin) {
       toast({
@@ -1292,6 +1346,10 @@ export function ShootDetailsTourTab({
       setTourStyle={setTourStyle}
       saveTourStyle={saveTourStyle}
       isSavingTourStyle={isSavingTourStyle}
+      tourPalette={tourPalette}
+      setTourPalette={setTourPalette}
+      saveTourPalette={saveTourPalette}
+      isSavingTourPalette={isSavingTourPalette}
       embeds={embeds}
       embedForm={embedForm}
       setEmbedForm={setEmbedForm}

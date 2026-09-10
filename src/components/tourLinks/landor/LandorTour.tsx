@@ -7,12 +7,15 @@ import { showMissingTourImage, preventTourImageDownloadGesture } from '../shared
 import { LandorMedia } from './LandorMedia';
 import { hasLandorMedia } from './landorMediaModel';
 import './landor.css';
+import './landorThemes/landorThemes.css';
+import type { PublicTourPalette } from './landorPalettes';
+import { resolvePublicTourPalette } from './landorPalettes';
 
 const titleCase = (value: unknown) => String(value ?? '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const hasValue = (value: unknown) => value !== null && value !== undefined && String(value).trim() !== '';
 
 /** Landor's project-details presentation, driven entirely by the shared public tour model. */
-export function LandorTour({ data }: { data: PublicTourData }) {
+export function LandorTour({ data, palette: paletteProp }: { data: PublicTourData; palette?: PublicTourPalette }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const shareTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -26,6 +29,7 @@ export function LandorTour({ data }: { data: PublicTourData }) {
   const hero = data.heroSlides[0];
   const secondary = data.heroSlides[1] || hero;
   const hasMedia = hasLandorMedia(data);
+  const palette = resolvePublicTourPalette(paletteProp ?? data.tourPalette, typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('palette') : null);
   const price = formatTourPrice(property.price);
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
   const facts = [
@@ -64,7 +68,7 @@ export function LandorTour({ data }: { data: PublicTourData }) {
 
   if (data.locked || !shoot) return <main className="landor-tour landor-unavailable"><House size={42} /><h1>{data.locked ? 'This tour is locked' : 'Property tour unavailable'}</h1><p>{data.locked ? data.lockedMessage : 'Please check the property link and try again.'}</p></main>;
 
-  return <div className="landor-tour" id="landor-top">
+  return <div className="landor-tour" id="landor-top" data-palette={palette}>
     <a className="landor-skip" href="#overview">Skip to property details</a>
     <div className="landor-banner">
       {hero && <img className="landor-banner-photo" src={hero} alt="" loading="eager" draggable={false} onError={showMissingTourImage} onContextMenu={preventTourImageDownloadGesture} />}

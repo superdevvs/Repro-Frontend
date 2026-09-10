@@ -19,10 +19,10 @@ import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData } from './publicTourData';
-import { resolvePublicTourStyle } from './publicTourStyle';
+import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 
 const HomeifyTour = lazy(() => import('./homeify/HomeifyTour').then((module) => ({ default: module.HomeifyTour })));
-const LandorTour = lazy(() => import('./landor/LandorTour').then((module) => ({ default: module.LandorTour })));
+const LandorThemeRouter = lazy(() => import('./landor/LandorThemeRouter').then((module) => ({ default: module.LandorThemeRouter })));
 
 interface ShootData {
   id: number;
@@ -314,11 +314,11 @@ export function MlsCompliant() {
   }
 
   const resolvedStyle = resolvePublicTourStyle(tourStyle, new URLSearchParams(window.location.search).get('layout'));
-  if (rawPayload && (resolvedStyle === 'homeify' || resolvedStyle === 'landor')) {
-    const TourLayout = resolvedStyle === 'landor' ? LandorTour : HomeifyTour;
+  if (rawPayload && (resolvedStyle === 'homeify' || isLandorTourStyle(resolvedStyle))) {
+    const TourLayout = isLandorTourStyle(resolvedStyle) ? LandorThemeRouter : HomeifyTour;
     return (
       <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-background" role="status">Loading property tour...</div>}>
-        <TourLayout data={normalizePublicTourData(rawPayload, 'mls')} />
+        <TourLayout data={{ ...normalizePublicTourData(rawPayload, 'mls'), tourStyle: resolvedStyle }} />
       </Suspense>
     );
   }

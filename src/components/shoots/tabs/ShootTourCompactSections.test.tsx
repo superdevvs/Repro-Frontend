@@ -68,6 +68,10 @@ describe('compact Tours sections', () => {
         setTourStyle={vi.fn()}
         saveTourStyle={vi.fn()}
         isSavingTourStyle={false}
+        tourPalette="repro"
+        setTourPalette={vi.fn()}
+        saveTourPalette={vi.fn()}
+        isSavingTourPalette={false}
         embeds={[{
           id: 'embed-1',
           title: 'Neighbourhood map',

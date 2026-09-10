@@ -78,6 +78,7 @@ export interface PublicTourData {
   featuredEmbedId: string;
   tourSettings: { realtor_info: string; autoplay: boolean; header_position: string; tour_version: string };
   tourStyle: string;
+  tourPalette: string;
   showGarage: boolean;
   locked: boolean;
   lockedMessage: string;
@@ -232,7 +233,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
       realtor_info: branded ? text(links.realtor_info) : '', autoplay: flag(links.autoplay),
       header_position: text(links.header_position) || 'center', tour_version: text(links.tour_version) || 'standard',
     },
-    tourStyle: text(root.tour_style, links.tour_style) || 'default', showGarage, locked,
+    tourStyle: text(root.tour_style, links.tour_style) || 'default', tourPalette: text(root.tour_palette, links.tour_palette) || 'repro', showGarage, locked,
     lockedMessage: locked ? text(root.message) || 'Payment required to unlock this tour.' : '',
     empty: !locked && !shoot && !photos.length && !heroPhotos.length && !videos.length && !videoLink
       && !floorplans.length && !embeds.length && !iguide.inlineUrl && !matterportUrl,

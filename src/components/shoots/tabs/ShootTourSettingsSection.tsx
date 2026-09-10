@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { LANDOR_THEMES, landorThemeLabel } from '@/components/tourLinks/landor/landorRegistry';
+import { PUBLIC_TOUR_PALETTES } from '@/components/tourLinks/landor/landorPalettes';
 
 export type TourEmbed = {
   id: string;
@@ -52,6 +54,10 @@ type ShootTourSettingsSectionProps = {
   setTourStyle: (value: string) => void;
   saveTourStyle: (value: string) => void | Promise<void>;
   isSavingTourStyle: boolean;
+  tourPalette: string;
+  setTourPalette: (value: string) => void;
+  saveTourPalette: (value: string) => void | Promise<void>;
+  isSavingTourPalette: boolean;
   embeds: TourEmbed[];
   embedForm: TourEmbedForm;
   setEmbedForm: React.Dispatch<React.SetStateAction<TourEmbedForm>>;
@@ -89,6 +95,10 @@ export function ShootTourSettingsSection({
   setTourStyle,
   saveTourStyle,
   isSavingTourStyle,
+  tourPalette,
+  setTourPalette,
+  saveTourPalette,
+  isSavingTourPalette,
   embeds,
   embedForm,
   setEmbedForm,
@@ -115,14 +125,15 @@ export function ShootTourSettingsSection({
 
   const featuredEmbed = embeds.find((embed) => embed.id === featuredEmbedId);
   const settingsSummary = [
-    tourStyle === 'landor' ? 'Signature' : titleCase(tourStyle || 'default'),
+    LANDOR_THEMES.some((theme) => theme.id === tourStyle) ? landorThemeLabel(tourStyle) : titleCase(tourStyle || 'default'),
+    titleCase(tourPalette || 'repro'),
     `${titleCase(tourSettings.header_position || 'center')} header`,
     titleCase(tourSettings.tour_version || 'standard'),
   ].join(' · ');
   const embedsSummary = embeds.length
     ? `${embeds.length} embed${embeds.length === 1 ? '' : 's'}${featuredEmbed ? ` · Featured: ${featuredEmbed.title}` : ''}`
     : 'No embeds added';
-  const isSaving = isSavingTourStyle || isSavingTourSettings || savingEmbeds;
+  const isSaving = isSavingTourStyle || isSavingTourPalette || isSavingTourSettings || savingEmbeds;
 
   return (
     <section
@@ -153,7 +164,7 @@ export function ShootTourSettingsSection({
 
         <CollapsibleContent id="tour-settings-panel">
           <div className="space-y-3 border-t bg-muted/10 p-3">
-            <div className="grid gap-2.5 sm:grid-cols-3">
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <Label className={settingLabelClassName}>Tour style</Label>
                 <Select
@@ -171,7 +182,29 @@ export function ShootTourSettingsSection({
                     <SelectItem value="default">Default</SelectItem>
                     <SelectItem value="neo">Neo</SelectItem>
                     <SelectItem value="homeify">Homeify</SelectItem>
-                    <SelectItem value="landor">Signature</SelectItem>
+                    {LANDOR_THEMES.map((theme) => (
+                      <SelectItem key={theme.id} value={theme.id}>{theme.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className={settingLabelClassName}>Color palette</Label>
+                <Select
+                  value={tourPalette || 'repro'}
+                  onValueChange={(value) => {
+                    setTourPalette(value);
+                    void saveTourPalette(value);
+                  }}
+                  disabled={!isAdmin || isSavingTourPalette}
+                >
+                  <SelectTrigger className={selectTriggerClassName} aria-label="Color palette">
+                    <SelectValue placeholder="Select palette" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PUBLIC_TOUR_PALETTES.map((palette) => (
+                      <SelectItem key={palette.id} value={palette.id}>{palette.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -47,6 +47,10 @@ export function ShootDetailsTourTabView(props: any) {
     setTourStyle,
     saveTourStyle,
     isSavingTourStyle,
+    tourPalette,
+    setTourPalette,
+    saveTourPalette,
+    isSavingTourPalette,
     embeds,
     embedForm,
     setEmbedForm,
@@ -493,6 +497,10 @@ export function ShootDetailsTourTabView(props: any) {
           setTourStyle={setTourStyle}
           saveTourStyle={saveTourStyle}
           isSavingTourStyle={isSavingTourStyle}
+          tourPalette={tourPalette}
+          setTourPalette={setTourPalette}
+          saveTourPalette={saveTourPalette}
+          isSavingTourPalette={isSavingTourPalette}
           embeds={embeds}
           embedForm={embedForm}
           setEmbedForm={setEmbedForm}
