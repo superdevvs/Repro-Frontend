@@ -1,0 +1,136 @@
+@font-face{font-family:Homeify Jost;src:url('/fonts/homeify/jost-regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:Homeify Jost;src:url('/fonts/homeify/jost-semibold.ttf') format('truetype');font-weight:600 800;font-display:swap}
+@font-face{font-family:Homeify Marcellus;src:url('/fonts/homeify/marcellus.ttf') format('truetype');font-weight:400;font-display:swap}
+
+/* Homeify single-property design, scoped so theme styles never reach the dashboard. */
+.homeify-tour{--homeify-accent:#ae5935;--homeify-ink:#092837;--homeify-muted:#66727a;--background:0 0% 100%;--foreground:201 72% 13%;--card:0 0% 100%;--card-foreground:201 72% 13%;--muted:210 20% 96%;--muted-foreground:210 10% 43%;--primary:201 72% 13%;--primary-foreground:0 0% 100%;--border:210 13% 91%;position:fixed;inset:0;overflow:auto;scroll-behavior:smooth;scroll-padding-top:110px;background:#f7f8f9;color:var(--homeify-ink);font-family:Homeify Jost,Arial,sans-serif;font-size:16px;line-height:1.6;color-scheme:light;isolation:isolate}
+.homeify-tour *{box-sizing:border-box}
+.homeify-tour h1,.homeify-tour h2,.homeify-tour h3{font-family:Homeify Marcellus,Georgia,serif;font-weight:400;color:var(--homeify-ink);letter-spacing:-.035em;line-height:1.25}
+.homeify-tour a{color:inherit;text-decoration:none}
+.homeify-tour button{font:inherit}
+.homeify-tour button:not(:disabled),.homeify-tour a{touch-action:manipulation}
+.homeify-tour :focus-visible{outline:3px solid var(--homeify-accent);outline-offset:4px}
+.homeify-tour section,.homeify-tour [id]{scroll-margin-top:112px}
+.homeify-container{max-width:1350px;padding:0 30px;margin:0 auto}
+.homeify-header{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1px solid #edf0f1}
+.homeify-header-inner{min-height:91px;display:flex;align-items:center;justify-content:space-between;gap:26px}
+.homeify-brand{display:flex;gap:12px;align-items:center;min-width:0;font-family:Homeify Marcellus,Georgia,serif;font-size:22px;line-height:1.2}
+.homeify-brand-icon{border:1px solid #dfe5e8;padding:9px;display:flex;border-radius:50%;color:var(--homeify-accent)}
+.homeify-brand>span:last-child{max-width:260px;overflow-wrap:anywhere}
+.homeify-brand small{display:block;font:10px Homeify Jost,Arial,sans-serif;letter-spacing:1.3px;text-transform:uppercase;color:var(--homeify-muted);margin-top:6px}
+.homeify-logo{width:auto;max-width:130px;max-height:46px;object-fit:contain}
+.homeify-nav{display:flex;align-items:center;gap:25px;margin-left:auto}
+.homeify-nav a{font-size:14px;white-space:nowrap;border-bottom:1px solid transparent;padding:8px 0}
+.homeify-nav a:hover{color:var(--homeify-accent);border-color:var(--homeify-accent)}
+.homeify-header-actions{display:flex;gap:15px;align-items:center}
+.homeify-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:#092837;color:#fff!important;border:1px solid #092837;padding:13px 20px;border-radius:4px;font-size:14px;font-weight:600;transition:background .2s,color .2s;min-height:46px}
+.homeify-button:hover{background:#164253}
+.homeify-button-outline{color:#092837!important;background:transparent;border-color:#d7dfe2}
+.homeify-button-outline:hover{background:#f0f4f5}
+.homeify-menu{display:none;background:none;border:0;padding:10px}
+.homeify-property-heading{display:flex;justify-content:space-between;gap:24px;padding:42px 0 30px}
+.homeify-eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:1.7px;color:var(--homeify-muted);margin-bottom:15px}
+.homeify-eyebrow span{color:#869095}
+.homeify-property-heading h1{font-size:clamp(30px,3vw,42px);margin:0 0 10px}
+.homeify-address{display:flex;align-items:center;gap:8px;font-size:16px;color:var(--homeify-muted);margin:0 0 18px}
+.homeify-tags{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.homeify-tags>span{font-size:11px;letter-spacing:.6px;padding:5px 12px;border-radius:3px;border:1px solid #dce2e5;background:#fff;text-transform:uppercase}
+.homeify-tags .homeify-status{border-color:#e3eadf;background:#f0f5ed;display:flex;align-items:center;gap:7px;color:#406641}
+.homeify-status i{width:5px;height:5px;border-radius:50%;background:#65885a}
+.homeify-heading-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;position:relative;min-width:115px}
+.homeify-price{font-family:Homeify Marcellus,Georgia,serif;font-size:32px;margin-bottom:17px}
+.homeify-share-actions{display:flex;gap:8px}
+.homeify-icon-button{width:43px;height:43px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #dce2e5;border-radius:4px;color:#092837}
+.homeify-icon-button:hover{border-color:var(--homeify-accent);color:var(--homeify-accent)}
+.homeify-share-status{font-size:12px;margin-top:8px;max-width:210px;text-align:right}
+.homeify-gallery{margin-bottom:38px}
+.homeify-hero{position:relative;aspect-ratio:1290/670;background:#e5e9eb;overflow:hidden;border-radius:6px}
+.homeify-hero:after{content:'';position:absolute;inset:55% 0 0;background:linear-gradient(transparent,#0008);pointer-events:none}
+.homeify-hero-photo{width:100%;height:100%;display:block;border:0;background:none;padding:0;cursor:zoom-in}
+.homeify-hero-image{width:100%;height:100%;object-fit:cover;display:block}
+.homeify-gallery-arrow{position:absolute;z-index:2;top:50%;transform:translateY(-50%);width:45px;height:45px;border:0;background:var(--homeify-accent);color:#fff;display:flex;align-items:center;justify-content:center;border-radius:2px}
+.homeify-gallery-arrow:hover{filter:brightness(1.12)}
+.homeify-prev{left:24px}.homeify-next{right:24px}
+.homeify-photo-count{position:absolute;bottom:28px;left:30px;z-index:2;color:#fff;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:2px}
+.homeify-gallery-open{position:absolute;bottom:25px;right:26px;z-index:2;display:flex;align-items:center;gap:8px;background:#fff;color:#092837;border:0;border-radius:3px;padding:12px 18px;font-size:13px!important;min-height:43px}
+.homeify-thumbnails{display:flex;gap:10px;overflow:auto;margin-top:10px;padding:2px 2px 8px;scrollbar-width:thin;scrollbar-color:#bec9ce transparent}
+.homeify-thumb{position:relative;flex:0 0 calc((100% - 40px)/5);height:113px;border:2px solid transparent;border-radius:4px;padding:0;overflow:hidden;background:#e5e9eb;opacity:.65;transition:opacity .2s}
+.homeify-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.homeify-thumb.is-active{border-color:var(--homeify-accent);opacity:1}
+.homeify-thumb:hover{opacity:1}
+.homeify-gallery-empty{min-height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#edf0f2;border:1px dashed #cbd5db;border-radius:6px;color:var(--homeify-muted)}
+.homeify-content-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:28px;align-items:start;padding-bottom:45px}
+.homeify-main-column,.homeify-sidebar{min-width:0}
+.homeify-sidebar{position:sticky;top:118px}
+.homeify-panel{padding:28px;background:#fff;border:1px solid #e9edef;border-radius:5px;margin:0 0 24px;overflow:hidden}
+.homeify-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-bottom:19px;margin-bottom:23px;border-bottom:1px solid #edf0f1}
+.homeify-panel h2{font-size:24px;margin:0}
+.homeify-subtle{font-size:12px;color:var(--homeify-muted)}
+.homeify-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px 12px}
+.homeify-stat{display:flex;align-items:center;gap:10px;min-width:0}
+.homeify-stat-icon{display:flex;flex:0 0 42px;height:46px;align-items:center;justify-content:center;border-radius:7px;background:#fff4ef;color:var(--homeify-accent)}
+.homeify-stat strong{display:block;font-size:20px;font-weight:400;line-height:1.15;white-space:nowrap}
+.homeify-stat div>span{display:block;color:var(--homeify-muted);font-size:11px;margin-top:5px;white-space:nowrap}
+.homeify-description p{font-size:16px;line-height:1.9;color:#657077;white-space:pre-line;overflow-wrap:anywhere}
+.homeify-details{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;font-size:14px}
+.homeify-details>div{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #f0f2f3}
+.homeify-details dt{color:var(--homeify-muted)}
+.homeify-details dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.homeify-kicker{display:block;font-size:10px;letter-spacing:1.4px;color:var(--homeify-accent);margin:0 0 12px;font-weight:600}
+.homeify-contact{padding:30px}
+.homeify-contact h2,.homeify-explore h2{font-size:30px;line-height:1.25;letter-spacing:-.04em;margin-bottom:12px}
+.homeify-muted{font-size:14px;color:var(--homeify-muted);margin:0;line-height:1.8}
+.homeify-agent{display:flex;align-items:center;gap:13px;padding:22px 0;margin:4px 0 15px;border-bottom:1px solid #edf0f1}
+.homeify-agent img,.homeify-avatar{width:53px;height:53px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;flex:0 0 53px;background:#f4eae3;color:var(--homeify-accent);font-size:17px}
+.homeify-agent strong{display:block;font-weight:600;font-size:16px}
+.homeify-agent div>span{display:block;font-size:12px;color:var(--homeify-muted)}
+.homeify-agent-notes{white-space:pre-line;overflow-wrap:anywhere;font-size:13px;color:var(--homeify-muted);margin:20px 0 0}
+.homeify-contact>.homeify-button{width:100%;margin-top:10px}
+.homeify-explore{background:#edf1f1;border-color:#e4eaea;padding:29px}
+.homeify-explore h2{font-size:26px}
+.homeify-explore-links{margin-top:22px}
+.homeify-explore-links>a{display:flex;align-items:center;gap:13px;padding:17px 0;border-top:1px solid #dbe2e3}
+.homeify-explore-links>a>span{flex:1;font-size:14px}
+.homeify-explore-links small{display:block;font-size:11px;color:var(--homeify-muted);margin-top:3px}
+.homeify-explore-links>a:hover{color:var(--homeify-accent)}
+.homeify-sidebar-note{display:flex;gap:8px;align-items:center;font-size:11px;color:#7b878d;padding:0 8px}
+.homeify-location-content{display:flex;justify-content:space-between;align-items:center;gap:20px}
+.homeify-location-address{margin:0 0 4px;font-size:19px;font-family:Homeify Marcellus,Georgia,serif}
+.homeify-map{width:100%;height:320px;border:0;margin-top:24px;border-radius:4px}
+.homeify-media-stack{display:grid;gap:20px}
+.homeify-video{width:100%;aspect-ratio:16/9;display:block;border:0;background:#092837;border-radius:4px}
+.homeify-text-link{display:inline-flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
+.homeify-shared-media>section{max-width:none;padding:0;margin:0}
+.homeify-shared-media h2{font-family:Homeify Marcellus,Georgia,serif;font-weight:400;font-size:24px}
+.homeify-floorplans:empty{display:none}
+.homeify-floorplans>section{max-width:none;margin:0 0 24px;padding:28px;background:white;border:1px solid #e9edef;border-radius:5px}
+.homeify-floorplans h2{font-size:24px;border-bottom:1px solid #edf0f1;padding-bottom:19px;margin-bottom:23px}
+.homeify-floorplans>section>div{grid-template-columns:1fr}
+.homeify-floorplans>section>div>div{border-radius:3px;box-shadow:none;border-color:#edf0f1}
+.homeify-footer{background:#092837;color:#fff;padding:33px 0}
+.homeify-footer>.homeify-container{display:flex;align-items:center;gap:14px}
+.homeify-footer span{font-family:Homeify Marcellus,Georgia,serif;font-size:20px}
+.homeify-footer small{display:block;font:11px Homeify Jost,Arial,sans-serif;color:#b0c0c7;margin-top:4px}
+.homeify-footer a{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px}
+.homeify-up{transform:rotate(180deg)}
+.homeify-skip{position:fixed;top:-100px;left:20px;padding:12px;background:#fff;z-index:100}
+.homeify-skip:focus{top:12px}
+.homeify-unavailable{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;gap:20px}
+.homeify-unavailable h1{font-size:32px}
+
+/* Dialog portals sit outside the scoped tour root. */
+.homeify-lightbox{position:fixed!important;inset:0!important;left:0!important;top:0!important;transform:none!important;width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;margin:0!important;padding:54px 65px 45px!important;display:flex!important;flex-direction:column;border-radius:0!important;border:0!important;background:#08151cf5!important;color:#fff!important;font:14px Homeify Jost,Arial,sans-serif;gap:8px!important;z-index:80!important}
+.homeify-lightbox>button:last-child{right:22px;top:20px;color:#fff;width:36px;height:36px;display:grid;place-items:center;background:#ffffff18;border-radius:50%;opacity:1}
+.homeify-lightbox-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+.homeify-lightbox-image{max-width:100%;max-height:100%;height:100%;object-fit:contain;user-select:none}
+.homeify-lightbox-caption{display:flex;justify-content:center;gap:12px;text-align:center;color:#ced8dc;font-size:13px;padding:10px;margin:0 auto}
+.homeify-lightbox-arrow{position:fixed;top:50%;transform:translateY(-50%);width:42px;height:50px;display:grid;place-items:center;background:#ffffff15;color:#fff;border:1px solid #ffffff30;border-radius:3px}
+.homeify-lightbox-arrow.homeify-prev{left:12px}.homeify-lightbox-arrow.homeify-next{right:12px}
+.homeify-lightbox :focus-visible{outline:2px solid #fff;outline-offset:4px}
+
+@media(min-width:1600px){.homeify-property-heading{padding-top:55px}}
+@media(max-width:1150px){.homeify-nav{gap:17px}.homeify-brand{font-size:19px}.homeify-header-contact{padding:11px 13px}.homeify-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.homeify-content-grid{grid-template-columns:minmax(0,1.8fr) minmax(0,1fr);gap:22px}.homeify-panel{padding:24px}.homeify-contact h2{font-size:27px}}
+@media(max-width:900px){.homeify-header-inner{min-height:78px;gap:16px}.homeify-header-contact{display:none}.homeify-nav{gap:18px}.homeify-container{padding:0 22px}.homeify-content-grid{grid-template-columns:1fr}.homeify-sidebar{position:static;display:grid;grid-template-columns:1fr 1fr;gap:20px}.homeify-sidebar-note{display:none}.homeify-panel{margin-bottom:20px}.homeify-thumb{height:90px}.homeify-property-heading{padding-top:31px}.homeify-tour{scroll-padding-top:90px}}
+@media(max-width:620px){.homeify-container{padding:0 18px}.homeify-header-inner{min-height:76px}.homeify-brand{font-size:18px;gap:9px}.homeify-brand-icon{padding:7px}.homeify-brand small{font-size:8px;letter-spacing:1px;max-width:230px}.homeify-menu{display:flex}.homeify-nav{display:none;position:absolute;top:76px;left:0;right:0;background:#fff;padding:15px 22px 22px;border-bottom:1px solid #e1e7ea;box-shadow:0 8px 20px #09283710;gap:8px}.homeify-nav.is-open{display:grid;grid-template-columns:repeat(2,1fr)}.homeify-nav a{padding:12px;font-size:15px}.homeify-property-heading{padding:28px 0 23px;gap:8px;position:relative}.homeify-property-heading h1{font-size:30px;max-width:290px;line-height:1.2}.homeify-eyebrow{font-size:9px;letter-spacing:1.1px;margin-bottom:13px;gap:5px}.homeify-address{font-size:13px;margin-bottom:14px;gap:5px;max-width:270px}.homeify-tags>span{font-size:9px;padding:4px 9px}.homeify-heading-right{min-width:36px;align-items:flex-end;justify-content:flex-start;padding-top:35px}.homeify-share-actions{flex-direction:column;gap:6px}.homeify-icon-button{width:35px;height:35px}.homeify-icon-button svg{width:16px}.homeify-price{font-size:19px;position:absolute;right:0;top:0;white-space:nowrap}.homeify-share-status{position:absolute;top:100%;right:0;background:#fff;z-index:5;min-width:130px}.homeify-hero{aspect-ratio:4/3;border-radius:4px}.homeify-gallery-arrow{width:32px;height:36px}.homeify-prev{left:10px}.homeify-next{right:10px}.homeify-photo-count{bottom:19px;left:15px;font-size:10px;letter-spacing:1px}.homeify-gallery-open{bottom:12px;right:12px;font-size:11px!important;padding:8px 10px;min-height:35px;gap:5px}.homeify-gallery-open svg{width:15px}.homeify-thumb{height:65px;flex-basis:calc((100% - 24px)/4)}.homeify-thumbnails{gap:8px;margin-top:8px}.homeify-gallery{margin-bottom:24px}.homeify-panel{padding:21px;border-radius:4px;margin-bottom:18px}.homeify-panel-heading{padding-bottom:16px;margin-bottom:20px;gap:8px}.homeify-panel h2{font-size:23px}.homeify-subtle{font-size:10px;text-align:right}.homeify-stats{gap:22px 16px}.homeify-stat{gap:9px}.homeify-stat strong{font-size:21px}.homeify-stat-icon{flex-basis:38px;height:43px}.homeify-details{grid-template-columns:1fr;font-size:14px}.homeify-details>div{padding:11px 0}.homeify-sidebar{display:block}.homeify-contact h2,.homeify-explore h2{font-size:30px}.homeify-content-grid{gap:0;padding-bottom:12px}.homeify-location-content{display:block}.homeify-location-content>.homeify-button{margin-top:20px;width:100%}.homeify-location-address{font-size:19px}.homeify-footer{padding:26px 0}.homeify-footer>.homeify-container{gap:9px}.homeify-footer span{font-size:15px}.homeify-footer small{font-size:9px}.homeify-footer a{font-size:10px;gap:3px;white-space:nowrap}.homeify-footer>.homeify-container>svg{width:21px;flex-shrink:0}.homeify-floorplans>section{padding:21px}.homeify-lightbox{padding:63px 10px 30px!important}.homeify-lightbox-arrow{width:32px;height:42px;top:auto;bottom:18px}.homeify-lightbox-caption{font-size:11px;max-width:75%;align-self:center}.homeify-lightbox-stage{max-height:calc(100dvh - 145px)}}
+@media(prefers-reduced-motion:reduce){.homeify-tour{scroll-behavior:auto}.homeify-tour *{transition:none!important;animation:none!important}}
+@media print{.homeify-tour{position:static;overflow:visible;background:white;font-size:12px}.homeify-header,.homeify-nav,.homeify-share-actions,.homeify-gallery-arrow,.homeify-gallery-open,.homeify-thumbnails,.homeify-sidebar,.homeify-footer,.homeify-video,.homeify-map{display:none!important}.homeify-container{padding:0}.homeify-content-grid{display:block}.homeify-hero{max-height:350px}.homeify-panel{break-inside:avoid;border:0;padding:16px 0}.homeify-property-heading{padding:12px 0}.homeify-main-column .homeify-panel-heading{margin-bottom:10px}.homeify-tour a[href]:after{content:none}}

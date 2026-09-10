@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,12 @@ import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
-import { resolvePublicIguideSources } from './publicIguideModel';
+import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
+import { normalizePublicTourData } from './publicTourData';
+import { resolvePublicTourStyle } from './publicTourStyle';
+
+const HomeifyTour = lazy(() => import('./homeify/HomeifyTour').then((module) => ({ default: module.HomeifyTour })));
+const LandorTour = lazy(() => import('./landor/LandorTour').then((module) => ({ default: module.LandorTour })));
 
 interface ShootData {
   id: number;
@@ -78,7 +83,7 @@ export function BrandedPage() {
   const [branding, setBranding] = useState<BrandingData | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [showGarage, setShowGarage] = useState(false);
-  const [floorplans, setFloorplans] = useState<any[]>([]);
+  const [floorplans, setFloorplans] = useState<unknown[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
   const [iguideOpenUrl, setIguideOpenUrl] = useState<string | null>(null);
@@ -94,6 +99,8 @@ export function BrandedPage() {
   const [tourStyle, setTourStyle] = useState<string>('default');
   const [heroIndex, setHeroIndex] = useState(0);
   const [lockedMessage, setLockedMessage] = useState<string | null>(null);
+  const [rawPayload, setRawPayload] = useState<unknown>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,6 +114,7 @@ export function BrandedPage() {
 
         const hasAddressParams = Boolean(address && city && state);
         if (!shootId && !hasAddressParams) {
+          setLoadError('This property tour could not be found.');
           setLoading(false);
           return;
         }
@@ -134,6 +142,8 @@ export function BrandedPage() {
           return;
         }
 
+        if (!res.ok) throw new Error('Unable to load this property tour.');
+        setRawPayload(data);
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
@@ -155,14 +165,16 @@ export function BrandedPage() {
         const style = data?.tour_style || data?.tour_links?.tour_style || 'default';
         setTourStyle(style);
 
-        const rawEmbeds = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
+        const rawEmbeds: unknown[] = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
         const embedKey = shootId || [address, city, state, zip].filter(Boolean).join('-');
-        setEmbeds(rawEmbeds.map((embed: any, index: number) => ({
-          id: embed?.id || `embed-${embedKey}-${index}`,
-          title: embed?.title || `Embed ${index + 1}`,
-          branded: embed?.branded || embed?.branded_embed || embed?.url || '',
-          mls: embed?.mls || embed?.mls_embed || '',
-        })));
+        setEmbeds(rawEmbeds.map((value, index) => {
+          const embed = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+          return {
+            id: typeof embed.id === 'string' && embed.id ? embed.id : `embed-${embedKey}-${index}`,
+            title: typeof embed.title === 'string' && embed.title ? embed.title : `Embed ${index + 1}`,
+            ...resolvePublicEmbedSources(embed, 'branded'),
+          };
+        }));
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
         setTourSettings({
           realtor_info: data?.tour_links?.realtor_info || '',
@@ -174,6 +186,7 @@ export function BrandedPage() {
       }
       } catch (err) {
         console.error('Error fetching tour data:', err);
+        setLoadError('Unable to load this property tour. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -322,7 +335,28 @@ export function BrandedPage() {
     );
   }
 
-  if (tourStyle === 'neo') {
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+        <div className="max-w-md rounded-3xl border border-border bg-card p-8 text-center" role="alert">
+          <h1 className="text-2xl font-semibold">Tour unavailable</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const resolvedStyle = resolvePublicTourStyle(tourStyle, new URLSearchParams(window.location.search).get('layout'));
+  if (rawPayload && (resolvedStyle === 'homeify' || resolvedStyle === 'landor')) {
+    const TourLayout = resolvedStyle === 'landor' ? LandorTour : HomeifyTour;
+    return (
+      <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-background" role="status">Loading property tour...</div>}>
+        <TourLayout data={normalizePublicTourData(rawPayload, 'branded')} />
+      </Suspense>
+    );
+  }
+
+  if (resolvedStyle === 'neo') {
     return <NeoTour />;
   }
 

@@ -115,7 +115,7 @@ export function ShootTourSettingsSection({
 
   const featuredEmbed = embeds.find((embed) => embed.id === featuredEmbedId);
   const settingsSummary = [
-    titleCase(tourStyle || 'default'),
+    tourStyle === 'landor' ? 'Signature' : titleCase(tourStyle || 'default'),
     `${titleCase(tourSettings.header_position || 'center')} header`,
     titleCase(tourSettings.tour_version || 'standard'),
   ].join(' · ');
@@ -170,6 +170,8 @@ export function ShootTourSettingsSection({
                   <SelectContent>
                     <SelectItem value="default">Default</SelectItem>
                     <SelectItem value="neo">Neo</SelectItem>
+                    <SelectItem value="homeify">Homeify</SelectItem>
+                    <SelectItem value="landor">Signature</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
