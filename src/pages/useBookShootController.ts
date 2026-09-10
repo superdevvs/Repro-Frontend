@@ -19,7 +19,8 @@ import { BOOK_ANOTHER_SHOOT_NAV_TARGET, clearBookingFormCache } from '@/utils/bo
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
 import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
-import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
+import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
+import { buildBookShootServiceSchedule } from './bookShootServiceSchedule';
 import { createComplimentaryReshoot } from '@/features/complimentary-reshoots/api';
 import { useCompReshootBooking } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
@@ -393,15 +394,6 @@ export const useBookShootController = () => {
       const orderTime = time24Hour || toBackendTime(time);
       try {
       const scheduleSource = isEditMode ? editingScheduleSource : null;
-      const resolveServiceScheduledAt = (serviceId: string) => {
-        const customSchedule = serviceSchedules[serviceId];
-        const serviceDate = customSchedule?.date || orderDate;
-        const serviceTime = toBackendTime(customSchedule?.time || orderTime || time);
-        return serviceDate && serviceTime
-          ? buildShootScheduleTimestamp(serviceDate, serviceTime, scheduleSource?.timezone,
-              findServiceScheduleTimestamp(scheduleSource, serviceId))
-          : null;
-      };
       const servicesPayload = selectedServices.map(service => {
         const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
         const compMapping = isCompReshootMode ? compReshoot.serviceMappings[service.id] : undefined;
@@ -411,7 +403,7 @@ export const useBookShootController = () => {
         const servicePayload: Record<string, unknown> = {
           id: service.id,
           photographer_id: assignedPhotographerId,
-          scheduled_at: resolveServiceScheduledAt(service.id),
+          scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, scheduleSource),
           is_deliverable: true,
         };
 
