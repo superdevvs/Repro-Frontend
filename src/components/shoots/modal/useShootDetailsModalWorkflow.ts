@@ -11,6 +11,7 @@ import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
+import { buildResumeScheduleTimestamp } from '@/utils/shootResumeSchedule';
 
 type PendingAction = 'hold' | 'cancel' | null;
 
@@ -346,30 +347,8 @@ export function useShootDetailsModalWorkflow({
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      let scheduledDate: Date;
-      if (shoot.scheduledDate && !isNaN(new Date(shoot.scheduledDate).getTime())) {
-        scheduledDate = new Date(shoot.scheduledDate);
-        const now = new Date();
-        if (scheduledDate <= now) {
-          scheduledDate = new Date();
-          scheduledDate.setDate(scheduledDate.getDate() + 1);
-          scheduledDate.setHours(10, 0, 0, 0);
-        }
-      } else {
-        scheduledDate = new Date();
-        scheduledDate.setDate(scheduledDate.getDate() + 1);
-        scheduledDate.setHours(10, 0, 0, 0);
-      }
-
-      if (shoot.time) {
-        const timeParts = shoot.time.split(':');
-        const hours = parseInt(timeParts[0]) || 10;
-        const minutes = parseInt(timeParts[1]) || 0;
-        scheduledDate.setHours(hours, minutes, 0, 0);
-      }
-
       const payload: Record<string, unknown> = {
-        scheduled_at: scheduledDate.toISOString(),
+        scheduled_at: buildResumeScheduleTimestamp(shoot),
       };
 
       if (shoot.photographer?.id) {

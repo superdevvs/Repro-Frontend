@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from "@/hooks/use-toast";
 import { useShoots } from '@/context/shootsContextState';
@@ -25,11 +28,12 @@ interface RescheduleDialogProps {
 }
 
 export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: RescheduleDialogProps) {
+  const schedule = getShootSchedule(shoot);
   const [date, setDate] = useState<Date | undefined>(
-    shoot.scheduledDate ? new Date(shoot.scheduledDate) : undefined
+    schedule.date ? parseLocalYmd(schedule.date) : undefined
   );
   const [time, setTime] = useState<string>(
-    shoot.time || "10:00 AM"
+    schedule.time ? formatTimeForDisplay(schedule.time) : "10:00 AM"
   );
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,8 +62,6 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     setIsSubmitting(true);
     
     try {
-      const originalDate = new Date(shoot.scheduledDate);
-      
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('Authentication token missing');
@@ -152,7 +154,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
                 <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="text-sm">
                   <span className="font-medium">
-                    {shoot.scheduledDate ? format(new Date(shoot.scheduledDate), 'MMMM d, yyyy') : 'Not scheduled'}
+                    {schedule.date ? format(parseLocalYmd(schedule.date), 'MMMM d, yyyy') : 'Not scheduled'}
                   </span>
                 </div>
               </div>
@@ -160,7 +162,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="text-sm">
-                  <span className="font-medium">{shoot.time || 'No time set'}</span>
+                  <span className="font-medium">{schedule.time ? formatTimeForDisplay(schedule.time) : 'No time set'}</span>
                 </div>
               </div>
               

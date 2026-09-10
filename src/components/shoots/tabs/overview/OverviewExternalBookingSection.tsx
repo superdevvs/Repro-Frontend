@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarClock, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import type { ShootData } from '@/types/shoots';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 type ExternalBookingMappingStatus =
   | 'fully_mapped'
@@ -57,14 +58,6 @@ const getStatusLabel = (status: ExternalBookingMappingStatus | null | undefined)
   );
 };
 
-const toIsoTime = (value?: string | null) => {
-  if (!value) return null;
-  // `scheduled_at` is a datetime; extract the HH:mm portion when present so the
-  // shared time formatter renders it consistently with the rest of the modal.
-  const match = String(value).match(/[T\s](\d{2}:\d{2})/);
-  return match ? match[1] : null;
-};
-
 export const OverviewExternalBookingSection = forwardRef<
   HTMLDivElement,
   OverviewExternalBookingSectionProps
@@ -109,15 +102,16 @@ export const OverviewExternalBookingSection = forwardRef<
     return services.map((service) => {
       const photographerName = service.photographer?.name || null;
       const scheduledAt = service.scheduled_at ?? service.scheduledAt ?? null;
+      const schedule = getShootSchedule({ scheduled_at: scheduledAt, timezone: shoot.timezone });
       return {
         id: service.id,
         name: service.name || 'Service',
         photographerName,
-        scheduledDate: scheduledAt ? formatDate(scheduledAt) : null,
-        scheduledTime: toIsoTime(scheduledAt) ? formatTime(toIsoTime(scheduledAt)) : null,
+        scheduledDate: schedule.date ? formatDate(schedule.date) : null,
+        scheduledTime: schedule.time ? formatTime(schedule.time) : null,
       };
     });
-  }, [shoot.serviceObjects, formatDate, formatTime]);
+  }, [shoot.serviceObjects, shoot.timezone, formatDate, formatTime]);
 
   const status = shoot.external_booking_mapping_status ?? null;
   const statusLabel = getStatusLabel(status);

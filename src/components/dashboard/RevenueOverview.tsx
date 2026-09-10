@@ -17,7 +17,9 @@ import {
 } from 'recharts';
 import { ShootData } from '@/types/shoots';
 import { TimeRange } from '@/utils/dateUtils';
-import { format, parseISO, getMonth, getYear } from 'date-fns';
+import { getMonth, getYear } from 'date-fns';
+import { calendarDay } from '@/lib/date';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 interface RevenueOverviewProps {
   shoots: ShootData[];
@@ -43,9 +45,7 @@ export const RevenueOverview: React.FC<RevenueOverviewProps> = ({ shoots, timeRa
     const paidShoots = shoots.filter(shoot => {
       if (!shoot.payment?.totalPaid) return false;
       
-      const shootDate = typeof shoot.scheduledDate === 'string'
-        ? parseISO(shoot.scheduledDate)
-        : new Date(shoot.scheduledDate);
+      const shootDate = calendarDay(getShootSchedule(shoot).date);
         
       return getYear(shootDate) === currentYear;
     });
@@ -53,9 +53,7 @@ export const RevenueOverview: React.FC<RevenueOverviewProps> = ({ shoots, timeRa
     // Aggregate revenue by month
     paidShoots.forEach(shoot => {
       try {
-        const shootDate = typeof shoot.scheduledDate === 'string'
-          ? parseISO(shoot.scheduledDate) 
-          : new Date(shoot.scheduledDate);
+        const shootDate = calendarDay(getShootSchedule(shoot).date);
           
         const monthIndex = getMonth(shootDate);
         const amount = shoot.payment?.totalPaid || 0;

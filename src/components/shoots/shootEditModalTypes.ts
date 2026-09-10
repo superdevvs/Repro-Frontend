@@ -154,6 +154,7 @@ export type ServiceApiRecord = {
 };
 
 export interface ShootDetails {
+  timezone?: string | null;
   id: number;
   canRemoveAllServices?: boolean;
   can_remove_all_services?: boolean;

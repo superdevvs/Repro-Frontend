@@ -5,6 +5,7 @@ import { initialClientsData } from '@/data/clientsData';
 import { useShoots } from '@/context/shootsContextState';
 import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 export const useClientsData = () => {
   const { shoots } = useShoots();
@@ -48,7 +49,7 @@ export const useClientsData = () => {
               const cid = String(s.client?.id ?? s.client_id ?? '');
               if (!cid) continue;
               counts[cid] = (counts[cid] || 0) + 1;
-              const d = s.scheduled_date || s.scheduledDate || s.created_at || s.updated_at || '';
+              const d = getShootSchedule(s).date || s.created_at || s.updated_at || '';
               if (d) {
                 const prev = last[cid];
                 if (!prev || new Date(d) > new Date(prev)) {
@@ -100,15 +101,14 @@ export const useClientsData = () => {
       
       shoots.forEach(shoot => {
         const clientName = shoot.client.name;
+        const scheduledDate = getShootSchedule(shoot).date;
         if (!clientShootCounts.has(clientName)) {
-          clientShootCounts.set(clientName, { count: 1, lastDate: shoot.scheduledDate });
+          clientShootCounts.set(clientName, { count: 1, lastDate: scheduledDate });
         } else {
           const current = clientShootCounts.get(clientName)!;
           current.count++;
-          const currentDate = new Date(current.lastDate);
-          const shootDate = new Date(shoot.scheduledDate);
-          if (shootDate > currentDate) {
-            current.lastDate = shoot.scheduledDate;
+          if (scheduledDate > current.lastDate) {
+            current.lastDate = scheduledDate;
           }
           clientShootCounts.set(clientName, current);
         }

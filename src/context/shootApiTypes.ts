@@ -280,6 +280,12 @@ export type ApiShoot = {
   editorAssignments?: unknown[];
   scheduled_at?: string;
   scheduledAt?: string;
+  cancellation_fee_window?: boolean;
+  cancellationFeeWindow?: boolean;
+  scheduled_instant?: string | null;
+  scheduledInstant?: string | null;
+  schedule_timezone?: string | null;
+  scheduleTimezone?: string | null;
   scheduledDate?: string;
   photographer_email?: string;
   photographerEmail?: string;

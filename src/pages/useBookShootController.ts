@@ -19,6 +19,7 @@ import { BOOK_ANOTHER_SHOOT_NAV_TARGET, clearBookingFormCache } from '@/utils/bo
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
 import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
+import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { createComplimentaryReshoot } from '@/features/complimentary-reshoots/api';
 import { useCompReshootBooking } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
@@ -58,7 +59,7 @@ export const useBookShootController = () => {
   const isClientAccount = Boolean(user && (user.role as string) === 'client');
   const roleCanCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const {
-    isEditMode, setIsEditMode, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
+    isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
     clients, setClients, client, setClient, address, setAddress, city, setCity, state,
     setState, zip, setZip, date, setDate, time, setTime, photographer, setPhotographer,
     servicePhotographers, setServicePhotographers, serviceSchedules, setServiceSchedules,
@@ -390,11 +391,16 @@ export const useBookShootController = () => {
       const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
       const orderDate = date ? toDateInputValue(date) : shootDate.toISOString().split('T')[0];
       const orderTime = time24Hour || toBackendTime(time);
+      try {
+      const scheduleSource = isEditMode ? editingScheduleSource : null;
       const resolveServiceScheduledAt = (serviceId: string) => {
         const customSchedule = serviceSchedules[serviceId];
         const serviceDate = customSchedule?.date || orderDate;
         const serviceTime = toBackendTime(customSchedule?.time || orderTime || time);
-        return serviceDate && serviceTime ? `${serviceDate} ${serviceTime}` : null;
+        return serviceDate && serviceTime
+          ? buildShootScheduleTimestamp(serviceDate, serviceTime, scheduleSource?.timezone,
+              findServiceScheduleTimestamp(scheduleSource, serviceId))
+          : null;
       };
       const servicesPayload = selectedServices.map(service => {
         const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
@@ -462,7 +468,8 @@ export const useBookShootController = () => {
             : 'has_product';
       const isNoChargeShoot = totalQuote <= 0.01 || effectiveShootType !== 'standard';
       const scheduledAt = date && time24Hour 
-        ? `${orderDate} ${time24Hour}`
+        ? buildShootScheduleTimestamp(orderDate, time24Hour, scheduleSource?.timezone,
+            scheduleSource?.scheduled_at || scheduleSource?.scheduledAt || scheduleSource?.start_time)
         : null;
       const effectiveClientId = isClientAccount ? user?.id : client;
       const payload = {
@@ -525,7 +532,6 @@ export const useBookShootController = () => {
         created_by: user?.name || user?.email || 'System', // Use available user info
         is_client_request: isClientAccount,
       };
-      try {
         const token = localStorage.getItem('authToken');
         const requestUrl = isEditMode && editShootId
           ? `${API_BASE_URL}/api/shoots/${editShootId}`
@@ -682,7 +688,7 @@ export const useBookShootController = () => {
         } else {
           toast({
             title: "Error",
-            description: `Failed to create shoot (${String(errorResponse.status || 'Unknown error')}). Please check the console for details.`,
+            description: error instanceof Error ? error.message : `Failed to save shoot (${String(errorResponse.status || 'Unknown error')}). Please try again.`,
             variant: "destructive"
           });
         }

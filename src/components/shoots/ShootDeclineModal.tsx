@@ -17,6 +17,9 @@ import { X, Loader2, AlertTriangle, MapPin, User, DollarSign, Layers, Calendar }
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { format } from 'date-fns';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 interface ShootDetails {
   id: number;
@@ -27,6 +30,11 @@ interface ShootDetails {
   client?: { id: number; name: string; email?: string };
   services?: Array<{ id: number; name: string; price?: number }>;
   scheduledAt?: string;
+  scheduled_at?: string;
+  scheduledDate?: string;
+  scheduled_date?: string;
+  time?: string;
+  timezone?: string | null;
   totalQuote?: number;
   location?: { address?: string; city?: string; state?: string; zip?: string };
 }
@@ -138,7 +146,7 @@ export function ShootDeclineModal({
   const clientEmail = shootDetails?.client?.email || '';
   const services = shootDetails?.services || [];
   const totalQuote = shootDetails?.totalQuote || (shootDetails as any)?.payment?.totalQuote || 0;
-  const scheduledAt = shootDetails?.scheduledAt || (shootDetails as any)?.scheduled_at;
+  const schedule = getShootSchedule(shootDetails ?? {});
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -197,13 +205,14 @@ export function ShootDeclineModal({
                   </div>
                 </div>
 
-                {scheduledAt && (
+                {schedule.date && (
                   <>
                     <Separator />
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">
-                        Requested: {format(new Date(scheduledAt), 'MMM d, yyyy h:mm a')}
+                        Requested: {format(parseLocalYmd(schedule.date), 'MMM d, yyyy')}
+                        {schedule.time ? ` ${formatTimeForDisplay(schedule.time)}` : ''}
                       </span>
                     </div>
                   </>

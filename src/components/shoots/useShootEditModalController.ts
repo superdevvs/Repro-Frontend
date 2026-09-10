@@ -14,6 +14,9 @@ import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerA
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import { buildWallClockIso } from '@/utils/wallClockDateTime';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getShootInvoiceAdjustmentTotal } from '@/utils/shootServiceItems';
 import {
   addInvoiceAdjustmentToCatalogTotal,
@@ -26,7 +29,7 @@ import {
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
-import { extractLookupPropertyDetails, formatDateForInputValue, formatTimeForInputValue, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type SelectedServiceSource, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
+import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type SelectedServiceSource, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
 export function useShootEditModalController({
   isOpen,
   onClose,
@@ -170,22 +173,8 @@ export function useShootEditModalController({
               property_details: shoot.property_details,
             })
           );
-          const dateStr = shoot.scheduled_date || shoot.scheduledDate;
-          if (dateStr) {
-            const dateOnly = dateStr.split(/[T\s]/)[0];
-            const date = new Date(`${dateOnly}T12:00:00`);
-            if (!isNaN(date.getTime())) {
-              setScheduledDate(date);
-            }
-          } else {
-            const scheduledAt = shoot.start_time || shoot.scheduled_at || shoot.scheduledAt;
-            if (scheduledAt) {
-              const date = new Date(scheduledAt);
-              if (!isNaN(date.getTime())) {
-                setScheduledDate(date);
-              }
-            }
-          }
+          const orderSchedule = getShootSchedule({ ...shoot, scheduled_at: shoot.scheduled_at || shoot.scheduledAt || shoot.start_time });
+          if (orderSchedule.date) setScheduledDate(parseLocalYmd(orderSchedule.date));
           const normalizedTime =
             normalizeTimeValue(
               shoot.time_label ||
@@ -193,7 +182,7 @@ export function useShootEditModalController({
                 shoot.time ||
                 shoot.scheduled_time ||
                 shoot.scheduledTime
-            ) || null;
+            ) || orderSchedule.time || null;
           if (normalizedTime) {
             setScheduledTime(normalizedTime);
             setTimeOptions(buildTimeOptions(normalizedTime));
@@ -218,16 +207,14 @@ export function useShootEditModalController({
               const serviceId = getShootEditCatalogServiceId(item);
               if (!serviceId) return;
               const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-              const date = formatDateForInputValue(scheduledAt);
-              const time = formatTimeForInputValue(scheduledAt);
+              const { date, time } = getShootSchedule({ scheduled_at: scheduledAt, timezone: shoot.timezone });
               if (date || time) {
                 scheduleByServiceId.set(String(serviceId), { date, time });
               }
             });
-            const orderScheduledAt = shoot.start_time || shoot.scheduled_at || shoot.scheduledAt || shoot.scheduled_date || shoot.scheduledDate;
             const fallbackSchedule = {
-              date: formatDateForInputValue(orderScheduledAt),
-              time: normalizedTime || formatTimeForInputValue(orderScheduledAt) || '10:00',
+              date: orderSchedule.date,
+              time: normalizedTime || orderSchedule.time || '10:00',
             };
             const nextServiceSchedules: Record<string, ServiceScheduleFields> = {};
             serviceSource.forEach((service: SelectedServiceSource & Record<string, unknown>) => {
@@ -235,10 +222,11 @@ export function useShootEditModalController({
               const normalizedServiceId = getShootEditCatalogServiceId(service);
               if (!normalizedServiceId) return;
               const directScheduledAt = service.scheduled_at ?? service.scheduledAt;
+              const directSchedule = getShootSchedule({ scheduled_at: directScheduledAt, timezone: shoot.timezone });
               nextServiceSchedules[normalizedServiceId] =
                 scheduleByServiceId.get(normalizedServiceId) || {
-                  date: formatDateForInputValue(directScheduledAt) || fallbackSchedule.date,
-                  time: formatTimeForInputValue(directScheduledAt) || fallbackSchedule.time,
+                  date: directSchedule.date || fallbackSchedule.date,
+                  time: directSchedule.time || fallbackSchedule.time,
                 };
             });
             setServiceSchedules(nextServiceSchedules);
@@ -609,19 +597,20 @@ export function useShootEditModalController({
       });
       return null;
     }
-    const [hours, minutes] = scheduledTime.split(':').map(Number);
-    const scheduledAt = new Date(scheduledDate);
-    scheduledAt.setHours(hours, minutes, 0, 0);
+    const scheduledDay = format(scheduledDate, 'yyyy-MM-dd');
+    const scheduledAt = buildShootScheduleTimestamp(scheduledDay, scheduledTime,
+      shootDetails?.timezone, shootDetails?.scheduled_at || shootDetails?.scheduledAt);
     const serviceItemsPayload = Array.from(selectedServiceIds).map(id => {
       const service = availableServices.find(s => s.id?.toString() === id);
       const serviceSchedule = serviceSchedules[id] || {
-        date: format(scheduledAt, 'yyyy-MM-dd'),
+        date: scheduledDay,
         time: scheduledTime,
       };
-      const serviceScheduledAt = buildScheduledAtIso(
-        serviceSchedule.date || format(scheduledAt, 'yyyy-MM-dd'),
+      const serviceScheduledAt = buildShootScheduleTimestamp(
+        serviceSchedule.date || scheduledDay,
         serviceSchedule.time || scheduledTime,
-      ) || scheduledAt.toISOString();
+        shootDetails?.timezone, findServiceScheduleTimestamp(shootDetails, id),
+      ) || scheduledAt;
       const catName = service
         ? typeof service.category === 'string'
           ? service.category
@@ -644,7 +633,7 @@ export function useShootEditModalController({
       city: city.trim(),
       state: state.trim(),
       zip: zip.trim(),
-      scheduled_at: scheduledAt.toISOString(),
+      scheduled_at: scheduledAt,
       alternate_scheduled_date: alternateDate || null,
       alternate_time: alternateDate && alternateTime ? alternateTime : null,
       shoot_notes: shootNotes.trim(),
@@ -724,11 +713,11 @@ export function useShootEditModalController({
     confirmationToken?: string | null;
   }) => {
     if (isSubmitting || isLoading) return;
-    const payload = buildApprovalPayload();
-    if (!payload) return;
-    setScheduleError(null);
-    setIsSubmitting(true);
     try {
+      const payload = buildApprovalPayload();
+      if (!payload) return;
+      setScheduleError(null);
+      setIsSubmitting(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const approvalPayload = {
         ...payload,

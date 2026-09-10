@@ -432,6 +432,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,
     startTime: start ? start.toISOString() : null,
+    scheduledInstant: shoot.scheduledInstant ?? shoot.scheduled_instant ?? null,
     addressLine: location.address || "No address on file",
     cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),
     status: shoot.status || null,

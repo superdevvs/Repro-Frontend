@@ -31,6 +31,7 @@ import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImport
 import { ShootData } from '@/types/shoots';
 import type { InvoiceViewDialogInvoice } from '@/types/invoice';
 import { formatWorkflowStatus } from '@/utils/status';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -42,7 +43,7 @@ const formatDeleteDate = (value?: string) => {
   if (!value) return 'Not scheduled';
 
   try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(parseLocalYmd(value));
   } catch {
     return value;
   }

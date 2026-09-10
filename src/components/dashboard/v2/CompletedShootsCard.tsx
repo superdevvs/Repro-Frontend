@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { Card } from './SharedComponents';
+import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 
 interface CompletedShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -53,11 +53,14 @@ interface SlideshowProps {
   addressLine: string;
   clientName: string | null;
   startTime: string | null;
+  scheduledLocalDate?: string | null;
+  timeLabel?: string | null;
 }
 
-const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, clientName, startTime }) => {
+const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, clientName, startTime, scheduledLocalDate, timeLabel }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const scheduleLabel = formatDashboardShootSchedule({ startTime, scheduledLocalDate, timeLabel });
 
   useEffect(() => {
     if (images.length <= 1 || isPaused) return;
@@ -95,9 +98,9 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
         <p className="text-xs sm:text-sm font-semibold truncate">{addressLine}</p>
         <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
           <span>{clientName || 'Client TBD'}</span>
-          {startTime && (
+          {scheduleLabel && (
             <span className="text-white/60">
-              {format(new Date(startTime), 'MMM d • h:mm a')}
+              {scheduleLabel}
             </span>
           )}
         </div>
@@ -154,6 +157,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {
             const images = getShootImages(shoot);
+            const scheduleLabel = formatDashboardShootSchedule(shoot);
             return (
               <div
                 key={shoot.id}
@@ -177,9 +181,9 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                     <p className="text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
                     <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
                       <span>{shoot.clientName || 'Client TBD'}</span>
-                      {shoot.startTime && (
+                      {scheduleLabel && (
                         <span className="text-white/60">
-                          {format(new Date(shoot.startTime), 'MMM d • h:mm a')}
+                          {scheduleLabel}
                         </span>
                       )}
                     </div>

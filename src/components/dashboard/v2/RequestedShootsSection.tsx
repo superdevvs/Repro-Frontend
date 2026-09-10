@@ -29,6 +29,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 
 interface RequestedShootsSectionProps {
   shoots: DashboardShootSummary[];
@@ -88,8 +89,8 @@ const groupShootsByDate = (shoots: DashboardShootSummary[]) => {
 };
 
 const isShootInPast = (shoot: DashboardShootSummary) => {
-  if (!shoot.startTime) return false;
-  const shootDate = new Date(shoot.startTime);
+  const shootDate = getDashboardShootDisplayDate(shoot);
+  if (!shootDate) return false;
   const today = startOfDay(new Date());
   return !isSameDay(shootDate, today) && !isAfter(shootDate, today);
 };
@@ -301,7 +302,8 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                       </span>
                       <div className="w-16 sm:w-20 rounded-xl sm:rounded-2xl border border-border bg-background text-center py-2 sm:py-3 shadow-sm flex-shrink-0">
                         {(() => {
-                          const formattedTime = shoot.timeLabel ? formatTime(shoot.timeLabel) : '--';
+                          const rawTime = getDashboardShootDisplayTime(shoot);
+                          const formattedTime = rawTime ? formatTime(rawTime) : '--';
                           const parts = formattedTime.split(' ');
                           return (
                             <>

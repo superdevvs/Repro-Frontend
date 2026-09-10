@@ -57,6 +57,7 @@ export interface DashboardShootSummaryResponse {
   day_label?: string | null;
   time_label?: string | null;
   start_time?: string | null;
+  scheduled_instant?: string | null;
   address_line?: string | null;
   city_state_zip?: string | null;
   status?: string | null;
@@ -203,11 +204,12 @@ export interface DashboardShootSummary {
   timeLabel: string | null;
   /**
    * The shoot's intended LOCAL calendar day (YYYY-MM-DD). Use this for date
-   * display so it never drifts across browser timezones. `startTime` is the
-   * absolute instant and must only be used for chronological sorting.
+   * display so it never drifts across browser timezones. Legacy `startTime`
+   * may contain a local wall clock; use `scheduledInstant` for timed windows.
    */
   scheduledLocalDate: string | null;
   startTime: string | null;
+  scheduledInstant?: string | null;
   addressLine: string;
   cityStateZip: string;
   status: string | null;
@@ -292,4 +294,3 @@ export interface DashboardOverview {
   workflow: DashboardWorkflow;
   pendingCancellations: DashboardCancellationItem[];
 }
-

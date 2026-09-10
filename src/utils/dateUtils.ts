@@ -1,6 +1,7 @@
 
 import { ShootData } from "@/types/shoots";
-import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isBefore, isAfter, isSameDay, parseISO } from "date-fns";
+import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isBefore, isAfter, isSameDay } from "date-fns";
+import { calendarDay } from '@/lib/date';
 
 export type TimeRange = 'day' | 'week' | 'month' | 'year';
 
@@ -26,9 +27,7 @@ export const filterShootsByDateRange = (shoots: ShootData[], timeRange: TimeRang
   
   return shoots.filter(shoot => {
     // Ensure we're working with a valid date
-    const shootDate = typeof shoot.scheduledDate === 'string'
-      ? parseISO(shoot.scheduledDate)
-      : new Date(shoot.scheduledDate);
+    const shootDate = calendarDay(shoot.scheduledDate);
     
     return !isBefore(shootDate, startDate) && !isAfter(shootDate, endDate);
   });
@@ -49,9 +48,7 @@ export const normalizeDate = (date: Date): Date => {
 export const getScheduledTodayShoots = (shoots: ShootData[]): ShootData[] => {
   const today = normalizeDate(new Date());
   return shoots.filter(shoot => {
-    const shootDate = typeof shoot.scheduledDate === 'string'
-      ? parseISO(shoot.scheduledDate)
-      : new Date(shoot.scheduledDate);
+    const shootDate = calendarDay(shoot.scheduledDate);
     return isSameDay(shootDate, today);
   });
 };

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ interface RescheduleRequestsPanelProps {
 
 const formatDate = (value?: string | null) => {
   if (!value) return '—';
-  const parsed = new Date(value);
+  const parsed = parseLocalYmd(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return format(parsed, 'MMM d, yyyy');
 };

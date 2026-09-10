@@ -24,7 +24,10 @@ import type {
   ServicePackage,
   ServiceScheduleMap,
 } from './bookShootModel';
-import { asRecord, toDateInputValue } from './bookShootModel';
+import { asRecord } from './bookShootModel';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 type BookShootWorkflowOptions = {
   user: ReturnType<typeof useAuth>['user'];
@@ -34,6 +37,17 @@ type BookShootWorkflowOptions = {
   clientCompanyFromUrl: string | null;
   editShootId: string | null;
   canAdjustBookingAmount: boolean;
+};
+
+type EditingScheduleSource = {
+  timezone?: string | null;
+  scheduled_at?: string;
+  scheduledAt?: string;
+  start_time?: string;
+  serviceItems?: unknown;
+  service_items?: unknown;
+  serviceObjects?: unknown;
+  services?: unknown;
 };
 
 export const useBookShootWorkflow = ({
@@ -46,6 +60,7 @@ export const useBookShootWorkflow = ({
   canAdjustBookingAmount,
 }: BookShootWorkflowOptions) => {
   const [isEditMode, setIsEditMode] = useState(false);
+  const [editingScheduleSource, setEditingScheduleSource] = useState<EditingScheduleSource | null>(null);
   const [editShootLoading, setEditShootLoading] = useState(false);
   const [canRemoveAllServicesForEdit, setCanRemoveAllServicesForEdit] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -610,6 +625,7 @@ export const useBookShootWorkflow = ({
           headers: { Authorization: `Bearer ${token}` }
         });
         const shootData = response.data?.data || response.data;
+        setEditingScheduleSource(shootData || null);
         if (shootData) {
           setCanRemoveAllServicesForEdit(Boolean(
             shootData.canRemoveAllServices ?? shootData.can_remove_all_services,
@@ -626,17 +642,9 @@ export const useBookShootWorkflow = ({
           if (shootData.photographer_id) {
             setPhotographer(shootData.photographer_id.toString());
           }
-          if (shootData.scheduled_at || shootData.scheduledAt) {
-            const scheduledDate = new Date(shootData.scheduled_at || shootData.scheduledAt);
-            if (!isNaN(scheduledDate.getTime())) {
-              setDate(scheduledDate);
-              let hours = scheduledDate.getHours();
-              const minutes = scheduledDate.getMinutes().toString().padStart(2, '0');
-              const ampm = hours >= 12 ? 'PM' : 'AM';
-              hours = hours % 12 || 12;
-              setTime(`${hours}:${minutes} ${ampm}`);
-            }
-          }
+          const orderSchedule = getShootSchedule(shootData);
+          if (orderSchedule.date) setDate(parseLocalYmd(orderSchedule.date));
+          if (orderSchedule.time) setTime(formatTimeForDisplay(orderSchedule.time));
           if (shootData.services && Array.isArray(shootData.services) && packages.length > 0) {
             const matchedServices = shootData.services
               .map((value: unknown) => {
@@ -664,11 +672,14 @@ export const useBookShootWorkflow = ({
               }
               const scheduledValue = svc.scheduled_at || svc.scheduledAt;
               if (svcId && scheduledValue) {
-                const serviceDate = new Date(scheduledValue);
-                if (!Number.isNaN(serviceDate.getTime())) {
+                const serviceSchedule = getShootSchedule({
+                  scheduled_at: scheduledValue,
+                  timezone: shootData.timezone,
+                });
+                if (serviceSchedule.date && serviceSchedule.time) {
                   svcSchedules[svcId] = {
-                    date: toDateInputValue(serviceDate),
-                    time: `${String(serviceDate.getHours()).padStart(2, '0')}:${String(serviceDate.getMinutes()).padStart(2, '0')}`,
+                    date: serviceSchedule.date,
+                    time: serviceSchedule.time,
                   };
                 }
               }
@@ -702,7 +713,7 @@ export const useBookShootWorkflow = ({
     }
   }, [editShootId, packagesLoading, packages, toast]);
   return {
-    isEditMode, setIsEditMode, editShootLoading, canRemoveAllServicesForEdit, packages, setPackages, packagesLoading,
+    isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, setPackages, packagesLoading,
     setPackagesLoading, clients, setClients, client, setClient, address, setAddress,
     city, setCity, state, setState, zip, setZip, date, setDate, time, setTime,
     photographer, setPhotographer, servicePhotographers, setServicePhotographers,

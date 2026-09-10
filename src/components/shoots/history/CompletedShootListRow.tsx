@@ -201,9 +201,9 @@ export const CompletedShootListRow = ({
   const formatTime = formatTimeForDisplay
   const { theme } = useTheme()
   const [imgErrored, setImgErrored] = React.useState(false)
-  const formatDisplayDateLocal = (value?: string | null) => {
+  const formatDisplayDateLocal = (value?: string | null, isScheduledDate = false) => {
     if (!value) return '—'
-    try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
+    try { return formatDatePref(isScheduledDate ? value : new Date(value)) } catch { return value ?? '—' }
   }
   const heroImage = resolveShootThumbnail(shoot, 'thumb')
   const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
@@ -309,7 +309,7 @@ export const CompletedShootListRow = ({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <CalendarIcon className="h-3.5 w-3.5" />
-                <span>{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
+                <span>{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
               </span>
               {shoot.time && shoot.time !== 'TBD' && (
                 <span className="flex items-center gap-1.5">
@@ -434,7 +434,7 @@ export const CompletedShootListRow = ({
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:justify-end min-[1180px]:gap-3 min-[1180px]:text-sm">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-                <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
+                <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
               </div>
               {shoot.time && shoot.time !== 'TBD' && (
                 <div className="flex items-center gap-2">
@@ -620,4 +620,3 @@ export const CompletedShootListRow = ({
     </Card>
   )
 }
-

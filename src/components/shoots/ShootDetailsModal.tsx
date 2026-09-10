@@ -366,29 +366,9 @@ export function ShootDetailsModal({
     return <Badge className={statusInfo.className}>{statusInfo.label}</Badge>;
   };
 
-  // Check if shoot is within 3-4 hours of scheduled time
-  const isWithinCancellationFeeWindow = useMemo(() => {
-    if (!shoot?.scheduledDate || !shoot?.time) return false;
-    
-    try {
-      // Parse scheduled date and time
-      const scheduledDate = new Date(shoot.scheduledDate);
-      const [hours, minutes] = shoot.time.split(':').map(Number);
-      scheduledDate.setHours(hours, minutes || 0, 0, 0);
-      
-      // Get current time
-      const now = new Date();
-      
-      // Calculate time difference in hours
-      const hoursUntilShoot = (scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-      
-      // Check if within 3-4 hours (between 0 and 4 hours)
-      return hoursUntilShoot >= 0 && hoursUntilShoot <= 4;
-    } catch (error) {
-      console.error('Error calculating cancellation fee window:', error);
-      return false;
-    }
-  }, [shoot?.scheduledDate, shoot?.time]);
+  // The server resolves the shoot/photographer timezone before checking the window.
+  const isWithinCancellationFeeWindow =
+    shoot?.cancellationFeeWindow ?? shoot?.cancellation_fee_window ?? false;
 
   const {
     isOnHoldDialogOpen,

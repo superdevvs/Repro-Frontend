@@ -5,13 +5,17 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/hooks/useWeatherData', () => ({
   useWeatherData: () => ({ temperature: '20', condition: 'Cloudy', distance: '5' }),
 }))
+vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }))
 
 import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
 import { HoldOnShootCard } from '@/components/shoots/history/HoldOnShootCard'
 import { ScheduledShootListRow } from '@/components/shoots/history/ScheduledShootListRow'
 import { ShootListRow } from '@/components/shoots/history/ShootListRow'
-import type { ShootData } from '@/types/shoots'
+import { CompletedAlbumCard } from '@/components/shoots/history/CompletedAlbumCard'
+import { CompletedShootListRow } from '@/components/shoots/history/CompletedShootListRow'
+import { HistoryRow } from '@/components/shoots/history/ShootHistoryHistoryRows'
+import type { ShootData, ShootHistoryRecord } from '@/types/shoots'
 
 /**
  * Integration test for task 2.3 — modal/row time-formatting wiring.
@@ -55,6 +59,35 @@ const renderWithPreferences = (ui: React.ReactElement) =>
   render(<UserPreferencesProvider>{ui}</UserPreferencesProvider>)
 
 describe('Shoot History row time-formatting wiring (task 2.3)', () => {
+  it.each([HoldOnShootCard, CompletedAlbumCard, CompletedShootListRow])(
+    'preserves the scheduled day and 10 AM when the API serializes the day at UTC midnight',
+    (Component) => {
+      const shoot = buildShoot({ scheduledDate: '2026-09-09T00:00:00.000000Z', time: '10:00:00' })
+      const { container } = renderWithPreferences(<Component shoot={shoot} onSelect={vi.fn()} />)
+      expect(container.textContent).toContain('9 September 2026')
+      expect(container.textContent).toContain('10:00 AM')
+    },
+  )
+
+  it('preserves the scheduled day in historical records', () => {
+    const { container } = renderWithPreferences(
+      <HistoryRow record={{ id: 86, scheduledDate: '2026-09-09T00:00:00.000000Z', status: 'delivered' } as unknown as ShootHistoryRecord} />,
+    )
+    expect(container.textContent).toContain('9 September 2026')
+  })
+
+  it.each([CompletedAlbumCard, CompletedShootListRow])(
+    'continues formatting actual completion timestamps in the viewer timezone',
+    (Component) => {
+      const completedDate = '2026-09-09T00:30:00Z'
+      const shoot = buildShoot({ scheduledDate: '2026-09-09', completedDate })
+      const instant = new Date(completedDate)
+      const expectedDate = `${instant.getDate()} ${instant.toLocaleString('en-US', { month: 'long' })} ${instant.getFullYear()}`
+      const { container } = renderWithPreferences(<Component shoot={shoot} onSelect={vi.fn()} />)
+      expect(container.textContent).toContain(expectedDate)
+    },
+  )
+
   it('renders Shoot #1 canonical 07:00:00 as 7:00 AM in HoldOnShootCard', () => {
     const shoot = buildShoot({ time: '07:00:00', holdStatus: 'on_hold' })
     const { container } = renderWithPreferences(

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { formatDashboardShootSchedule, getDashboardShootDisplayDate } from '@/utils/dashboardShootSchedule';
 import { format, startOfDay, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
@@ -85,8 +86,8 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
     const today = startOfDay(now);
     
     return shoots.filter((shoot) => {
-      if (!shoot.startTime) return true; // Include shoots without dates
-      const shootDate = new Date(shoot.startTime);
+      const shootDate = getDashboardShootDisplayDate(shoot);
+      if (!shootDate) return true;
       
       switch (filter) {
         case 'today':
@@ -159,15 +160,13 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                               // Pick contextual timestamp based on column
                               let ts: string | null = null;
                               if (columnKey === 'booked' || columnKey === 'scheduled') {
-                                ts = shoot.startTime;
+                                return formatDashboardShootSchedule(shoot) || 'TBD';
                               } else if (columnKey === 'raw_upload') {
-                                ts = shoot.submittedForReviewAt || shoot.startTime;
+                                ts = shoot.submittedForReviewAt || null;
                               } else if (columnKey === 'editing') {
-                                ts = shoot.submittedForReviewAt || shoot.startTime;
+                                ts = shoot.submittedForReviewAt || null;
                               } else if (columnKey === 'ready' || columnKey === 'delivered') {
-                                ts = shoot.deliveryDeadline || shoot.startTime;
-                              } else {
-                                ts = shoot.startTime;
+                                ts = shoot.deliveryDeadline || null;
                               }
                               if (ts) {
                                 const date = new Date(ts);
@@ -175,9 +174,9 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                                   return `${format(date, 'MMM d')} • ${format(date, 'h:mm a')}`;
                                 }
                               }
-                              return shoot.timeLabel || 'TBD';
+                              return formatDashboardShootSchedule(shoot) || 'TBD';
                             } catch {
-                              return shoot.timeLabel || 'TBD';
+                              return formatDashboardShootSchedule(shoot) || 'TBD';
                             }
                           })()}
                         </p>

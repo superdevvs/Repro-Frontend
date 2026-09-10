@@ -9,6 +9,7 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { to12Hour } from '@/utils/availabilityUtils';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
+import { getShootSchedule } from '@/utils/shootSchedule';
 import {
   buildWallClockIso,
   formatDateForWallClockInput,
@@ -203,10 +204,10 @@ const formatDateForInputOrEmpty = (dateString?: string | null) => {
 // Build the per-service schedule fields from a raw `scheduled_at`. When there is
 // no value the schedule stays EMPTY (date + time both ''), which the
 // ServiceDatePicker/ServiceTimePicker render as "Select date"/"Select time".
-export const buildServiceScheduleFields = (scheduledAt?: string | null): ServiceScheduleFields => {
-  const date = formatDateForInputOrEmpty(scheduledAt);
+export const buildServiceScheduleFields = (scheduledAt?: string | null, timezone?: string | null): ServiceScheduleFields => {
+  const { date, time } = getShootSchedule({ scheduled_at: scheduledAt, timezone });
   if (!date) return { date: '', time: '' };
-  return { date, time: formatTimeForInput(scheduledAt) || '10:00' };
+  return { date, time: time || '10:00' };
 };
 
 export const formatTimeForInput = (value?: string | null) => {
@@ -599,7 +600,7 @@ export function useOverviewLookupData(
           const serviceId = item.service_id ?? item.serviceId;
           if (serviceId === null || serviceId === undefined) return;
           const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-          scheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(optionalString(scheduledAt)));
+          scheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(optionalString(scheduledAt), shoot.timezone));
         });
         serviceSource.forEach((value) => {
           if (!value || typeof value !== 'object') return;
@@ -608,7 +609,7 @@ export function useOverviewLookupData(
           if (!serviceId || !currentServiceIds.includes(serviceId)) return;
           const serviceScheduledAt = service.scheduled_at ?? service.scheduledAt;
           nextServiceSchedules[serviceId] =
-            scheduleByServiceId.get(serviceId) || buildServiceScheduleFields(optionalString(serviceScheduledAt));
+            scheduleByServiceId.get(serviceId) || buildServiceScheduleFields(optionalString(serviceScheduledAt), shoot.timezone);
           const serviceRecord = mergedServices.find((serviceOption: ServiceOption) => serviceOption.id === serviceId);
           const basePrice = serviceRecord
             ? resolveServicePrice(serviceRecord, effectiveSqft).basePrice

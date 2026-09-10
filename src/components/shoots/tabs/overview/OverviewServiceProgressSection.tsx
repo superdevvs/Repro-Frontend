@@ -15,6 +15,7 @@ import {
   formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
 import { CalendarClock } from 'lucide-react';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 type OverviewServiceProgressSectionProps = {
   shoot: ShootData;
@@ -147,7 +148,11 @@ const getCheckpointTooltipAlign = (position: number) => {
 export function OverviewServiceProgressSection({
   shoot,
 }: OverviewServiceProgressSectionProps) {
-  const serviceItems = getShootServiceItems(shoot).filter((item) => !item.isInvoiceAdjustment);
+  const serviceItems = getShootServiceItems(shoot).filter((item) => !item.isInvoiceAdjustment)
+    .map((item) => {
+      const schedule = getShootSchedule({ scheduled_at: item.scheduledAt, timezone: shoot.timezone });
+      return { ...item, scheduledAt: schedule.date ? `${schedule.date}T${schedule.time || '00:00'}:00` : null };
+    });
 
   if (serviceItems.length === 0) {
     return null;

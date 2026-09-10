@@ -198,9 +198,9 @@ export const CompletedAlbumCard = ({
   const formatTime = formatTimeForDisplay
   const { theme } = useTheme()
   const [imgErrored, setImgErrored] = React.useState(false)
-  const formatDisplayDateLocal = (value?: string | null) => {
+  const formatDisplayDateLocal = (value?: string | null, isScheduledDate = false) => {
     if (!value) return '—'
-    try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
+    try { return formatDatePref(isScheduledDate ? value : new Date(value)) } catch { return value ?? '—' }
   }
   const heroImage = resolveShootThumbnail(shoot, 'thumb')
   const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
@@ -407,7 +407,7 @@ export const CompletedAlbumCard = ({
           <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-              <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
+              <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
             </div>
             {shoot.time && shoot.time !== 'TBD' && (
               <div className="flex items-center gap-2">
@@ -518,5 +518,4 @@ export const CompletedAlbumCard = ({
     </Card>
   )
 }
-
 

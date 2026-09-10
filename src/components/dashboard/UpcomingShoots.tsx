@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 import { ArrowRightIcon, CameraIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShoots } from '@/context/shootsContextState';
-import { compareAsc, format, parseISO } from 'date-fns';
+import { compareAsc, format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -31,12 +32,12 @@ export function UpcomingShoots({ className }: UpcomingShootsProps) {
       if (shoot.status !== 'scheduled') return false;
       
       // Only include shoots scheduled for today or in the future
-      const shootDate = parseISO(shoot.scheduledDate);
+      const shootDate = parseLocalYmd(shoot.scheduledDate);
       return compareAsc(shootDate, today) >= 0;
     })
     .sort((a, b) => {
       // Sort by date, earliest first
-      return compareAsc(parseISO(a.scheduledDate), parseISO(b.scheduledDate));
+      return compareAsc(parseLocalYmd(a.scheduledDate), parseLocalYmd(b.scheduledDate));
     })
     // For mobile, show fewer shoots
     .slice(0, isMobile ? 3 : 6);
@@ -80,7 +81,7 @@ export function UpcomingShoots({ className }: UpcomingShootsProps) {
                       </p>
                       <div className={`flex flex-wrap gap-2 ${isMobile ? 'mt-1' : 'mt-2'}`}>
                         <Badge variant="outline" className={`${isMobile ? 'text-xs py-0 h-5' : ''}`}>
-                          {format(parseISO(shoot.scheduledDate), 'MMM d, yyyy')}
+                          {format(parseLocalYmd(shoot.scheduledDate), 'MMM d, yyyy')}
                         </Badge>
                         <Badge variant="outline" className={`text-xs bg-primary/10 ${isMobile ? 'py-0 h-5' : ''}`}>
                           ${shoot.payment.totalQuote}

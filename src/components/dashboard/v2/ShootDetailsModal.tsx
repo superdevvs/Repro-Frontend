@@ -33,6 +33,7 @@ import { formatWorkflowStatus } from '@/utils/status';
 import { cn } from '@/lib/utils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { RawImagePreview } from '@/components/media/RawImagePreview';
+import { getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 
 interface ShootDetailsModalProps {
   shoot: DashboardShootSummary | null;
@@ -200,6 +201,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
   const statusText = formatWorkflowStatus(detail?.workflow_status || shoot.workflowStatus || shoot.status);
   const services = splitServices(shoot.services);
   const mediaFiles = MEDIA_PLACEHOLDERS(shoot.id);
+  const scheduledDisplayTime = getDashboardShootDisplayTime(shoot);
 
   return (
     <Dialog open={Boolean(shoot)} onOpenChange={onClose}>
@@ -240,7 +242,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     <div className="flex items-center gap-2 text-primary text-xs font-semibold mb-1">
                       <Calendar size={14} /> Date & time
                     </div>
-                    <p className="font-semibold text-foreground">{shoot.timeLabel ? formatTime(shoot.timeLabel) : 'TBD'}</p>
+                    <p className="font-semibold text-foreground">{scheduledDisplayTime ? formatTime(scheduledDisplayTime) : 'TBD'}</p>
                     {detail?.scheduled_date && (
                       <p className="text-xs text-muted-foreground">
                         {formatDate(detail.scheduled_date)}

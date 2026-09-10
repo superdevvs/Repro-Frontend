@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import type { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { User, Camera, Building, DollarSign, List, Info, Clock, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
@@ -38,7 +39,7 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
 
   if (!shoot) return null;
 
-  const formattedDate = shoot.scheduledDate ? format(new Date(shoot.scheduledDate), 'EEEE, MMMM dd, yy') : 'Not Scheduled';
+  const formattedDate = shoot.scheduledDate ? format(parseLocalYmd(shoot.scheduledDate), 'EEEE, MMMM dd, yy') : 'Not Scheduled';
   const amountDue = shoot.payment.totalQuote - shoot.payment.totalPaid;
   const isPaid = amountDue <= 0.01; // Use a small epsilon for float comparison
 

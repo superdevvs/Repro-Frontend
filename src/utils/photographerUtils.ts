@@ -1,30 +1,30 @@
 import { ShootData } from '@/types/shoots';
+import { addDays, startOfDay } from 'date-fns';
+import { calendarDay } from '@/lib/date';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 // Helper function to determine photographer status based on recent activity
 export const determinePhotographerStatus = (photographerName: string, allShoots: ShootData[]): 'available' | 'busy' | 'offline' => {
   // Get current date
-  const today = new Date();
+  const today = startOfDay(new Date());
   
   // Find recent and upcoming shoots for this photographer
-  const recentShoots = allShoots.filter(shoot => 
-    shoot.photographer.name === photographerName && 
-    new Date(shoot.scheduledDate) <= today
-  ).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+  const scheduledDays = allShoots
+    .filter(shoot => shoot.photographer.name === photographerName)
+    .map(shoot => calendarDay(getShootSchedule(shoot).date))
+    .filter(date => !Number.isNaN(date.getTime()));
+  const recentDays = scheduledDays.filter(date => date <= today)
+    .sort((a, b) => b.getTime() - a.getTime());
   
-  const upcomingShoots = allShoots.filter(shoot =>
-    shoot.photographer.name === photographerName &&
-    new Date(shoot.scheduledDate) > today &&
-    new Date(shoot.scheduledDate) < new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
-  );
+  const hasUpcomingShoots = scheduledDays.some(date => date > today && date < addDays(today, 7));
   
   // If no recent shoots in the last 30 days, consider offline
-  if (recentShoots.length === 0 || 
-      (recentShoots[0] && new Date(recentShoots[0].scheduledDate).getTime() < today.getTime() - 30 * 24 * 60 * 60 * 1000)) {
+  if (recentDays.length === 0 || recentDays[0] < addDays(today, -30)) {
     return 'offline';
   }
   
   // If has upcoming shoots in the next 7 days, consider busy
-  if (upcomingShoots.length > 0) {
+  if (hasUpcomingShoots) {
     return 'busy';
   }
   

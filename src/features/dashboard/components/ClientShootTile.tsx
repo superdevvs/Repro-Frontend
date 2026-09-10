@@ -10,6 +10,7 @@ import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
+import { getDashboardShootDisplayTime } from "@/utils/dashboardShootSchedule";
 
 import type { ClientShootTileProps } from "../types";
 import { getClientDeliveredMedia } from "../utils";
@@ -46,7 +47,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
     : scheduledLocalDate
       ? formatDate(scheduledLocalDate)
       : "Date TBD";
-  const timeLabel = formatTime(summary.timeLabel || data.time || (variant === "completed" ? "Delivered" : "Time TBD"));
+  const timeLabel = formatTime(getDashboardShootDisplayTime({ ...summary, timeLabel: summary.timeLabel || data.time }) || (variant === "completed" ? "Delivered" : "Time TBD"));
   const services = data.services?.length ? data.services : summary.services.map((service) => service.label);
   const instructions = getSpecialInstructions(data);
   const statusLabel = formatWorkflowStatus(summary.workflowStatus || summary.status);

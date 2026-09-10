@@ -1,9 +1,10 @@
 import type React from 'react';
-import { addDays, endOfWeek, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
+import { addDays, endOfDay, endOfWeek, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { Camera, Film, Home, Map as MapIcon, Sparkles } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import type { WeatherInfo } from '@/services/weatherService';
+import { getDashboardShootDisplayDate } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 export interface ShootsTabsCardProps {
@@ -130,19 +131,12 @@ export const defaultFilters: FiltersState = {
   },
 };
 
-export const parseShootDate = (shoot: DashboardShootSummary) =>
-  shoot.startTime ? new Date(shoot.startTime) : null;
+export const parseShootDate = getDashboardShootDisplayDate;
 
 // Local-day Date for DISPLAY (month/day/weekday tiles). Sourced from the shoot's
 // intended local calendar day so it never drifts across browser timezones; the
-// absolute `startTime` instant is only a fallback / used for sorting.
-export const getSummaryLocalDate = (shoot: DashboardShootSummary): Date | null => {
-  if (shoot.scheduledLocalDate) {
-    const local = parseLocalYmd(shoot.scheduledLocalDate);
-    if (!Number.isNaN(local.getTime())) return local;
-  }
-  return shoot.startTime ? new Date(shoot.startTime) : null;
-};
+// Legacy timestamp fallbacks retain the booked day rather than the viewer's day.
+export const getSummaryLocalDate = getDashboardShootDisplayDate;
 
 export const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) => {
   if (!filters.dateRange) return true;
@@ -156,7 +150,7 @@ export const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersS
     case 'tomorrow':
       return isSameDay(shootDate, addDays(today, 1));
     case 'next7':
-      return isWithinInterval(shootDate, { start: today, end: addDays(today, 7) });
+      return isWithinInterval(shootDate, { start: startOfDay(today), end: endOfDay(addDays(today, 7)) });
     case 'week':
       return isWithinInterval(shootDate, {
         start: startOfWeek(today, { weekStartsOn: 0 }),
@@ -165,8 +159,8 @@ export const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersS
     case 'custom': {
       const { from, to } = filters.customRange;
       if (!from && !to) return true;
-      const start = from ? new Date(from) : undefined;
-      const end = to ? new Date(to) : undefined;
+      const start = from ? startOfDay(parseLocalYmd(from)) : undefined;
+      const end = to ? endOfDay(parseLocalYmd(to)) : undefined;
       if (start && end) return isWithinInterval(shootDate, { start, end });
       if (start) return isAfter(shootDate, start) || isSameDay(shootDate, start);
       if (end) return isAfter(end, shootDate) || isSameDay(shootDate, end);
@@ -212,10 +206,8 @@ export const countActiveFilters = (filters: FiltersState) => {
 };
 
 export const isShootInPast = (shoot: DashboardShootSummary) => {
-  if (!shoot.startTime) return false;
-  const shootDate = new Date(shoot.startTime);
+  const shootDate = getDashboardShootDisplayDate(shoot);
+  if (!shootDate) return false;
   const today = startOfDay(new Date());
   return !isSameDay(shootDate, today) && !isAfter(shootDate, today);
 };
-
-

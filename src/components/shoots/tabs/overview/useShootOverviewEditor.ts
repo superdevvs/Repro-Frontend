@@ -400,7 +400,7 @@ export function useShootOverviewEditor({
       ids.push(serviceId);
       const scheduledAt = item.scheduled_at ?? item.scheduledAt;
       // Keep unscheduled services EMPTY instead of fabricating the order date.
-      schedules[serviceId] = buildServiceScheduleFields(scheduledAt);
+      schedules[serviceId] = buildServiceScheduleFields(scheduledAt, shoot.timezone);
       const serviceName = item.name ?? item.service_name ?? item.serviceName;
       if (serviceName) {
         fallbackServices.push({
@@ -507,18 +507,27 @@ export function useShootOverviewEditor({
       }
     }
 
-    applyOverviewServicePayload({
-      updates,
-      shoot,
-      isAdmin,
-      omitStandardServices: hasComplimentaryServices,
-      selectedServiceIds,
-      serviceSchedules,
-      servicePrices,
-      servicePhotographerPays,
-      perCategoryPhotographers,
-      servicesList,
-    });
+    try {
+      applyOverviewServicePayload({
+        updates,
+        shoot,
+        isAdmin,
+        omitStandardServices: hasComplimentaryServices,
+        selectedServiceIds,
+        serviceSchedules,
+        servicePrices,
+        servicePhotographerPays,
+        perCategoryPhotographers,
+        servicesList,
+      });
+    } catch (error) {
+      toast({
+        title: 'Schedule needs attention',
+        description: error instanceof Error ? error.message : 'Unable to save this schedule.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const complimentaryServiceOptions = buildCompServicePayload();
     if (complimentaryServiceOptions) {
@@ -549,6 +558,7 @@ export function useShootOverviewEditor({
     serviceSchedules,
     servicesList,
     shoot,
+    toast,
     validateCompServicesBeforeSave,
   ]);
 

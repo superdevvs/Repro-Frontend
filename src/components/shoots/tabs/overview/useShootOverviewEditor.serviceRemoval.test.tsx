@@ -57,6 +57,27 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('keeps edits open and explains a nonexistent daylight-saving time without saving', async () => {
+    const onSave = vi.fn();
+    const toast = vi.fn();
+    const zonedShoot = { ...shoot, timezone: 'America/New_York' };
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: zonedShoot,
+      isAdmin: true, role: 'admin', isEditMode: true,
+      onSave, onShootUpdate: vi.fn(), toast,
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    act(() => {
+      result.current.actions.updateServiceSchedule('10', 'date', '2026-03-08');
+      result.current.actions.updateServiceSchedule('10', 'time', '02:30');
+    });
+    act(() => result.current.actions.handleSave());
+    expect(onSave).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({
+      description: expect.stringContaining('does not exist'), variant: 'destructive',
+    }));
+  });
+
   it('previews a changed discount and lets a booked discount be removed', async () => {
     const discountedShoot = {
       ...shoot,

@@ -11,6 +11,7 @@ import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Loader2, MapPin, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 interface CancellationShoot {
   id: number;
@@ -158,7 +159,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
   const formatDate = (s: CancellationShoot) => {
     if (!s.scheduledDate) return null;
     try {
-      return format(new Date(s.scheduledDate), 'MMM d, yyyy') + (s.time ? ` at ${s.time}` : '');
+      return format(parseLocalYmd(s.scheduledDate), 'MMM d, yyyy') + (s.time ? ` at ${s.time}` : '');
     } catch {
       return s.scheduledDate;
     }

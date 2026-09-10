@@ -77,6 +77,28 @@ describe('getVisibleClientContact', () => {
     expect(isWithinPhotographerContactWindow(localOnlyShoot)).toBe(false);
   });
 
+  it.each(['scheduledInstant', 'scheduled_instant'] as const)(
+    'uses %s for contact-window boundaries when a legacy timestamp carries the wrong offset',
+    (field) => {
+      const legacyShoot = {
+        scheduledAt: '2026-09-09T10:00:00Z',
+        scheduledDate: '2026-09-09',
+        time: '10:00:00',
+        timezone: null,
+        [field]: '2026-09-09T14:00:00Z',
+      };
+
+      at('2026-09-09T11:59:59Z');
+      expect(isWithinPhotographerContactWindow(legacyShoot)).toBe(false);
+      at('2026-09-09T12:00:00Z');
+      expect(isWithinPhotographerContactWindow(legacyShoot)).toBe(true);
+      at('2026-09-09T17:00:00Z');
+      expect(isWithinPhotographerContactWindow(legacyShoot)).toBe(true);
+      at('2026-09-09T17:00:01Z');
+      expect(isWithinPhotographerContactWindow(legacyShoot)).toBe(false);
+    },
+  );
+
   it('hides the phone for editors and keeps full contact for privileged roles', () => {
     at('2026-07-04T17:30:00.000Z');
 

@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isPast, isSameDay } from 'date-fns';
 import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, Loader2, MapPin } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
+import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import {
   Select,
   SelectContent,
@@ -66,9 +68,10 @@ export const PhotographerAssignmentModal: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'compatible'>('all');
 
   const parseShootDate = (shoot: DashboardShootSummary): Date | null => {
-    if (!shoot.startTime) return null;
-    const parsed = new Date(shoot.startTime);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    const parsed = getDashboardShootDisplayDate(shoot);
+    const minutes = timeToMinutes(getDashboardShootDisplayTime(shoot));
+    if (parsed && minutes !== null) parsed.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+    return parsed;
   };
 
   const formatSlotTime = (value?: string | null) => {
@@ -123,7 +126,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
   const isShootCompatibleWithDate = (shoot: DashboardShootSummary, targetDate: Date) => {
     const shootDate = parseShootDate(shoot);
     if (!shootDate || !isSameDay(shootDate, targetDate)) return false;
-    const shootStart = timeToMinutes(shoot.startTime || shoot.timeLabel);
+    const shootStart = timeToMinutes(getDashboardShootDisplayTime(shoot));
     if (shootStart === null) return false;
     const shootEnd = shootStart + 120;
     return getAvailabilitySlotsForDate(targetDate, 'available').some((slot) => {
@@ -320,7 +323,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
       const slotEndMinutes = endHour * 60;
 
       const bookedShoot = bookedShoots.find(shoot => {
-        const shootStart = timeToMinutes(shoot.startTime || shoot.timeLabel);
+        const shootStart = timeToMinutes(getDashboardShootDisplayTime(shoot));
         if (shootStart === null) return false;
         return rangesOverlap(slotStartMinutes, slotEndMinutes, shootStart, shootStart + 120);
       });
@@ -347,7 +350,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
           id: bookedShoot.id,
           address: bookedShoot.addressLine,
           client: bookedShoot.clientName || 'Client TBD',
-          time: bookedShoot.timeLabel || format(parseShootDate(bookedShoot) || selectedDate, 'h:mm a'),
+          time: formatTimeForDisplay(getDashboardShootDisplayTime(bookedShoot)),
         } : undefined,
       });
     }
@@ -759,7 +762,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                                 </Badge>
                                 <Badge variant="outline" className="gap-1 text-[11px]">
                                   <Clock className="h-3 w-3" />
-                                  {shoot.timeLabel || (shootDate ? format(shootDate, 'h:mm a') : 'Time TBD')}
+                                  {getDashboardShootDisplayTime(shoot) ? formatTimeForDisplay(getDashboardShootDisplayTime(shoot)) : 'Time TBD'}
                                 </Badge>
                                 {isReassignment && (
                                   <Badge variant="secondary" className="text-[11px]">
@@ -827,5 +830,4 @@ export const PhotographerAssignmentModal: React.FC = () => {
     </Dialog>
   );
 };
-
 

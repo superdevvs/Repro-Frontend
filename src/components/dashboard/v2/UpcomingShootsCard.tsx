@@ -1,7 +1,7 @@
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDays, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
+import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { getDashboardShootDisplayDate, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 
@@ -173,19 +174,12 @@ const groupShoots = (shoots: DashboardShootSummary[]) =>
     return acc;
   }, {});
 
-const parseShootDate = (shoot: DashboardShootSummary) =>
-  shoot.startTime ? new Date(shoot.startTime) : null;
+const parseShootDate = getDashboardShootDisplayDate;
 
 // Local-day Date for DISPLAY (month/day/weekday tiles + day grouping). Sourced
 // from the shoot's intended local calendar day so it never drifts across browser
-// timezones; the absolute `startTime` instant is only a fallback.
-const getSummaryLocalDate = (shoot: DashboardShootSummary): Date | null => {
-  if (shoot.scheduledLocalDate) {
-    const local = parseLocalYmd(shoot.scheduledLocalDate);
-    if (!Number.isNaN(local.getTime())) return local;
-  }
-  return shoot.startTime ? new Date(shoot.startTime) : null;
-};
+// timezones; legacy timestamp fallbacks retain their booked calendar day.
+const getSummaryLocalDate = getDashboardShootDisplayDate;
 
 const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) => {
   if (!filters.dateRange) return true;
@@ -199,7 +193,7 @@ const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) =
     case 'tomorrow':
       return isSameDay(shootDate, addDays(today, 1));
     case 'next7':
-      return isWithinInterval(shootDate, { start: today, end: addDays(today, 7) });
+      return isWithinInterval(shootDate, { start: startOfDay(today), end: endOfDay(addDays(today, 7)) });
     case 'week':
       return isWithinInterval(shootDate, {
         start: startOfWeek(today, { weekStartsOn: 0 }),
@@ -208,8 +202,8 @@ const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) =
     case 'custom': {
       const { from, to } = filters.customRange;
       if (!from && !to) return true;
-      const start = from ? new Date(from) : undefined;
-      const end = to ? new Date(to) : undefined;
+      const start = from ? startOfDay(parseLocalYmd(from)) : undefined;
+      const end = to ? endOfDay(parseLocalYmd(to)) : undefined;
       if (start && end) return isWithinInterval(shootDate, { start, end });
       if (start) return isAfter(shootDate, start) || isSameDay(shootDate, start);
       if (end) return isAfter(end, shootDate) || isSameDay(shootDate, end);
@@ -1222,17 +1216,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             const shootDate = getSummaryLocalDate(shoot);
                             const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--';
                             const dayStr = shootDate ? String(shootDate.getDate()) : '';
-                            const rawTime =
-                              shoot.timeLabel ||
-                              (shoot.startTime
-                                ? (() => {
-                                    const date = new Date(shoot.startTime);
-                                    if (isNaN(date.getTime())) return null;
-                                    const hh = date.getHours().toString().padStart(2, '0');
-                                    const mm = date.getMinutes().toString().padStart(2, '0');
-                                    return `${hh}:${mm}`;
-                                  })()
-                                : null);
+                            const rawTime = getDashboardShootDisplayTime(shoot);
                             const formattedTime = rawTime ? formatTime(rawTime) : '--';
                             return (
                               <>
@@ -1314,8 +1298,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           {isPhotographerRole ? (
                             <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
                               {(() => {
-                                if (!shoot.clientPhone || !shoot.startTime) return null;
-                                const shootStart = new Date(shoot.startTime).getTime();
+                                if (!shoot.clientPhone) return null;
+                                const shootStart = getDashboardShootStartInstantMs(shoot);
+                                if (shootStart === null) return null;
                                 const now = Date.now();
                                 const oneHourBefore = shootStart - 60 * 60 * 1000;
                                 if (now >= oneHourBefore && now <= shootStart) {
@@ -1355,17 +1340,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             const shootDate = getSummaryLocalDate(shoot);
                             const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
                             const dayStr = shootDate ? String(shootDate.getDate()) : '';
-                            const rawTime =
-                              shoot.timeLabel ||
-                              (shoot.startTime
-                                ? (() => {
-                                    const date = new Date(shoot.startTime);
-                                    if (isNaN(date.getTime())) return null;
-                                    const hh = date.getHours().toString().padStart(2, '0');
-                                    const mm = date.getMinutes().toString().padStart(2, '0');
-                                    return `${hh}:${mm}`;
-                                  })()
-                                : null);
+                            const rawTime = getDashboardShootDisplayTime(shoot);
                             const formattedTime = rawTime ? formatTime(rawTime) : '--';
                             return (
                               <>
@@ -1470,8 +1445,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                                 • {shoot.clientName || 'Client TBD'}
                               </span>
                               {(() => {
-                                if (!shoot.clientPhone || !shoot.startTime) return null;
-                                const shootStart = new Date(shoot.startTime).getTime();
+                                if (!shoot.clientPhone) return null;
+                                const shootStart = getDashboardShootStartInstantMs(shoot);
+                                if (shootStart === null) return null;
                                 const now = Date.now();
                                 const oneHourBefore = shootStart - 60 * 60 * 1000;
                                 if (now >= oneHourBefore && now <= shootStart) {

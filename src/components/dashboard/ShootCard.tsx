@@ -23,6 +23,7 @@ import {
   Folder
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { ShootData } from '@/types/shoots';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { formatWorkflowStatus } from '@/utils/status';
@@ -116,7 +117,7 @@ export function ShootCard(props: ShootCardProps) {
   
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
+      return format(parseLocalYmd(dateString), 'MMM dd, yyyy');
     } catch (error) {
       return 'Invalid date';
     }
@@ -145,7 +146,7 @@ export function ShootCard(props: ShootCardProps) {
   const weatherAddress = isNewProps ? props.shoot.location.fullAddress || props.shoot.location.address : props.address;
   const weatherTime = isNewProps ? props.shoot.time : props.time;
   const weatherDateValue = isNewProps ? props.shoot.scheduledDate : props.date;
-  const parsedWeatherDate = weatherDateValue ? new Date(weatherDateValue) : undefined;
+  const parsedWeatherDate = weatherDateValue ? parseLocalYmd(weatherDateValue) : undefined;
   const weatherDate =
     parsedWeatherDate && !Number.isNaN(parsedWeatherDate.getTime()) ? parsedWeatherDate : undefined;
   const { temperature: weatherTemperature, condition: weatherCondition } = useWeatherData({
@@ -256,7 +257,7 @@ export function ShootCard(props: ShootCardProps) {
           
           <div className="flex items-center text-sm mb-2">
             <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-            <span>{format(new Date(shoot.scheduledDate), "MMM dd, yyyy")}</span>
+            <span>{format(parseLocalYmd(shoot.scheduledDate), "MMM dd, yyyy")}</span>
           </div>
           
           {weather && (

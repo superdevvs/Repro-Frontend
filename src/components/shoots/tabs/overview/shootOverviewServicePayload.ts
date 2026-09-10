@@ -1,7 +1,8 @@
 import type { ShootData } from '@/types/shoots';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
+import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import {
-  buildScheduledAtIso,
+  buildServiceScheduleFields,
   deriveServiceCategoryName,
   formatDateForInput,
   formatTimeForInput,
@@ -62,10 +63,7 @@ export function applyOverviewServicePayload({
     const serviceId = item.service_id ?? item.serviceId ?? item.id;
     const scheduledAt = item.scheduled_at ?? item.scheduledAt;
     if (serviceId === null || serviceId === undefined || !scheduledAt) return;
-    existingScheduleByServiceId.set(String(serviceId), {
-      date: formatDateForInput(scheduledAt),
-      time: formatTimeForInput(scheduledAt) || orderSchedule.time,
-    });
+    existingScheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(scheduledAt, shoot.timezone));
   });
 
   const serviceItems = selectedServiceIds.map((serviceId) => {
@@ -79,7 +77,8 @@ export function applyOverviewServicePayload({
     const item: OverviewServiceItemPayload = {
       service_id: Number(serviceId),
       // An empty service date is intentionally kept unscheduled.
-      scheduled_at: schedule.date ? buildScheduledAtIso(schedule.date, schedule.time) : null,
+      scheduled_at: schedule.date ? buildShootScheduleTimestamp(schedule.date, schedule.time,
+        shoot.timezone, findServiceScheduleTimestamp(shoot, serviceId)) : null,
     };
     const explicitPrice = servicePrices[serviceId];
     if (isAdmin && explicitPrice !== undefined && explicitPrice !== '') {

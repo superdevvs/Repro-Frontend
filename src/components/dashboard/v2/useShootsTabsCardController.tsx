@@ -13,6 +13,7 @@ import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
+import { getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import {
   DATE_RANGE_OPTIONS,
   SERVICE_ICON_MAP,
@@ -511,11 +512,7 @@ export function useShootsTabsCardController({
   const getShootDateParts = (shoot: DashboardShootSummary) => {
     const shootDate = getSummaryLocalDate(shoot);
     const validDate = shootDate && !Number.isNaN(shootDate.getTime()) ? shootDate : null;
-    const rawTime =
-      shoot.timeLabel ||
-      (validDate
-        ? `${validDate.getHours().toString().padStart(2, '0')}:${validDate.getMinutes().toString().padStart(2, '0')}`
-        : null);
+    const rawTime = getDashboardShootDisplayTime(shoot);
     return {
       month: validDate ? validDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--',
       day: validDate ? String(validDate.getDate()) : '--',
@@ -601,17 +598,7 @@ export function useShootsTabsCardController({
                 const shootDate = getSummaryLocalDate(shoot);
                 const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--';
                 const dayStr = shootDate ? String(shootDate.getDate()) : '';
-                const rawTime =
-                  shoot.timeLabel ||
-                  (shoot.startTime
-                    ? (() => {
-                        const date = new Date(shoot.startTime);
-                        if (isNaN(date.getTime())) return null;
-                        const hh = date.getHours().toString().padStart(2, '0');
-                        const mm = date.getMinutes().toString().padStart(2, '0');
-                        return `${hh}:${mm}`;
-                      })()
-                    : null);
+                const rawTime = getDashboardShootDisplayTime(shoot);
                 const formattedTime = rawTime ? formatTime(rawTime) : '--';
                 return (
                   <>
@@ -665,8 +652,9 @@ export function useShootsTabsCardController({
               {isPhotographerRole ? (
                 <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
                   {(() => {
-                    if (!shoot.clientPhone || !shoot.startTime) return null;
-                    const shootStart = new Date(shoot.startTime).getTime();
+                    if (!shoot.clientPhone) return null;
+                    const shootStart = getDashboardShootStartInstantMs(shoot);
+                    if (shootStart === null) return null;
                     const now = Date.now();
                     const oneHourBefore = shootStart - 60 * 60 * 1000;
                     if (now >= oneHourBefore && now <= shootStart) {
@@ -702,17 +690,7 @@ export function useShootsTabsCardController({
                 const shootDate = getSummaryLocalDate(shoot);
                 const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
                 const dayStr = shootDate ? String(shootDate.getDate()) : '';
-                const rawTime =
-                  shoot.timeLabel ||
-                  (shoot.startTime
-                    ? (() => {
-                        const date = new Date(shoot.startTime);
-                        if (isNaN(date.getTime())) return null;
-                        const hh = date.getHours().toString().padStart(2, '0');
-                        const mm = date.getMinutes().toString().padStart(2, '0');
-                        return `${hh}:${mm}`;
-                      })()
-                    : null);
+                const rawTime = getDashboardShootDisplayTime(shoot);
                 const formattedTime = rawTime ? formatTime(rawTime) : '--';
                 return (
                   <>
@@ -770,8 +748,9 @@ export function useShootsTabsCardController({
                     • {shoot.clientName || 'Client TBD'}
                   </span>
                   {(() => {
-                    if (!shoot.clientPhone || !shoot.startTime) return null;
-                    const shootStart = new Date(shoot.startTime).getTime();
+                    if (!shoot.clientPhone) return null;
+                    const shootStart = getDashboardShootStartInstantMs(shoot);
+                    if (shootStart === null) return null;
                     const now = Date.now();
                     const oneHourBefore = shootStart - 60 * 60 * 1000;
                     if (now >= oneHourBefore && now <= shootStart) {

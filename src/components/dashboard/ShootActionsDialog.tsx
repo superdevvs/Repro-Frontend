@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ShootData } from '@/types/shoots';
@@ -117,7 +118,7 @@ export function ShootActionsDialog({ shoot, isOpen, onClose }: ShootActionsDialo
               Client: {shoot.client.name}
             </p>
             <p className="text-sm">
-              Date: {new Date(shoot.scheduledDate).toLocaleDateString()}
+              Date: {parseLocalYmd(shoot.scheduledDate).toLocaleDateString()}
               {shoot.time ? ` at ${shoot.time}` : ''}
             </p>
             <p className="text-sm font-medium">

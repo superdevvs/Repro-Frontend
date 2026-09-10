@@ -36,10 +36,11 @@ import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/Servic
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import {
   buildWallClockIso,
-  formatDateForWallClockInput,
-  formatTimeForWallClockInput,
 } from '@/utils/wallClockDateTime';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 
 interface Photographer {
   id: string | number;
@@ -97,6 +98,7 @@ interface ShootDetails {
   service_items?: Array<Record<string, unknown>>;
   scheduledAt?: string;
   scheduled_at?: string;
+  timezone?: string | null;
   scheduledDate?: string;
   scheduled_date?: string;
   start_time?: string;
@@ -201,20 +203,8 @@ const getServiceCategoryKey = (value: unknown): string => {
 };
 
 const resolveScheduledDate = (shoot?: ShootDetails | null): Date | null => {
-  const scheduledDate = shoot?.scheduled_date || shoot?.scheduledDate;
-  if (scheduledDate) {
-    const dateOnly = scheduledDate.split('T')[0];
-    const date = new Date(`${dateOnly}T12:00:00`);
-    if (!Number.isNaN(date.getTime())) return date;
-  }
-
-  const scheduledIso = shoot?.start_time || shoot?.scheduled_at || shoot?.scheduledAt;
-  if (scheduledIso) {
-    const date = new Date(scheduledIso);
-    if (!Number.isNaN(date.getTime())) return date;
-  }
-
-  return null;
+  const schedule = getShootSchedule({ ...shoot, scheduled_at: shoot?.scheduled_at || shoot?.scheduledAt || shoot?.start_time });
+  return schedule.date ? parseLocalYmd(schedule.date) : null;
 };
 
 const normalizeAvailabilitySlots = (value: unknown): AvailabilitySlot[] => {
@@ -343,14 +333,6 @@ export function ShootApprovalModal({
     return null;
   };
 
-  const formatDateForInputValue = (raw?: unknown): string => {
-    return formatDateForWallClockInput(raw);
-  };
-
-  const formatTimeForInputValue = (raw?: unknown): string => {
-    return formatTimeForWallClockInput(raw);
-  };
-
   const buildScheduledAtIso = useCallback((dateValue?: string, timeValue?: string): string | null => {
     return buildWallClockIso(dateValue, normalizeTimeValue(timeValue || scheduledTime) || '10:00');
   }, [scheduledTime]);
@@ -468,7 +450,7 @@ export function ShootApprovalModal({
                 shoot.time ||
                 shoot.scheduled_time ||
                 shoot.scheduledTime
-            ) || null;
+            ) || getShootSchedule(shoot).time || null;
 
           if (normalizedTime) {
             setScheduledTime(normalizedTime);
@@ -510,8 +492,7 @@ export function ShootApprovalModal({
               service.scheduledAt ??
               itemSchedule?.scheduled_at ??
               itemSchedule?.scheduledAt;
-            const date = formatDateForInputValue(rawScheduledAt);
-            const time = formatTimeForInputValue(rawScheduledAt);
+            const { date, time } = getShootSchedule({ scheduled_at: rawScheduledAt, timezone: shoot.timezone });
             if (date || time) {
               nextServiceSchedules[serviceId] = { date, time };
             }
@@ -555,13 +536,11 @@ export function ShootApprovalModal({
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      // Combine date and time
-      const [hours, minutes] = scheduledTime.split(':').map(Number);
-      const scheduledAt = new Date(scheduledDate);
-      scheduledAt.setHours(hours, minutes, 0, 0);
+      const scheduledAt = buildShootScheduleTimestamp(format(scheduledDate, 'yyyy-MM-dd'), scheduledTime,
+        shootDetails?.timezone, shootDetails?.scheduled_at || shootDetails?.scheduledAt || shootDetails?.start_time);
 
       const payload: Record<string, unknown> = {
-        scheduled_at: scheduledAt.toISOString(),
+        scheduled_at: scheduledAt,
       };
 
       // Submit the alternate (backup) schedule so the backend persists it via
@@ -601,7 +580,7 @@ export function ShootApprovalModal({
       }
 
       if (Array.isArray(shootDetails?.services)) {
-        const defaultDate = format(scheduledAt, 'yyyy-MM-dd');
+        const defaultDate = format(scheduledDate, 'yyyy-MM-dd');
         const serviceItemsPayload = shootDetails.services.reduce((items: Array<Record<string, unknown>>, service) => {
           if (!isShootServiceDetails(service)) return items;
           const serviceId = Number(getServiceIdentifier(service));
@@ -609,7 +588,8 @@ export function ShootApprovalModal({
           const categoryKey = getServiceCategoryKey(service);
           const selectedPhotographerId = perCategoryPhotographers[categoryKey] || photographerId || null;
           const schedule = serviceSchedules[String(serviceId)] || {};
-          const serviceScheduledAt = buildScheduledAtIso(schedule.date || defaultDate, schedule.time || scheduledTime) || scheduledAt.toISOString();
+          const serviceScheduledAt = buildShootScheduleTimestamp(schedule.date || defaultDate, schedule.time || scheduledTime,
+            shootDetails.timezone, findServiceScheduleTimestamp(shootDetails, serviceId)) || scheduledAt;
           items.push({
             service_id: serviceId,
             scheduled_at: serviceScheduledAt,

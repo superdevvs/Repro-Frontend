@@ -4,7 +4,6 @@ import {
   format,
   addDays,
   startOfWeek,
-  getHours,
   isToday,
   isSameDay,
 } from 'date-fns';
@@ -18,6 +17,9 @@ import { ShootData } from '@/types/shoots';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, MapPinIcon, UserIcon, ClockIcon } from 'lucide-react';
 import { ShootDetail } from './ShootDetail';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 interface CalendarProps {
   className?: string;
@@ -51,16 +53,15 @@ export function Calendar({ className, height = 400 }: CalendarProps) {
   }, []);
 
   const events = useMemo(() => {
-    const eventsForWeek = shoots.filter(shoot =>
-      days.some(day => isSameDay(new Date(shoot.scheduledDate), day))
-    );
+    const eventsForWeek = shoots.map(shoot => ({ shoot, schedule: getShootSchedule(shoot) }))
+      .filter(({ schedule }) => days.some(day => isSameDay(parseLocalYmd(schedule.date), day)));
 
     return hours.map(hour => {
       return days.map(day => {
-        return eventsForWeek.filter(shoot => {
-          const shootDate = new Date(shoot.scheduledDate);
-          return isSameDay(shootDate, day) && getHours(shootDate) === hour;
-        });
+        return eventsForWeek.filter(({ schedule }) =>
+          isSameDay(parseLocalYmd(schedule.date), day)
+          && Number(schedule.time.split(':')[0]) === hour
+        ).map(({ shoot }) => shoot);
       });
     });
   }, [days, hours, shoots]);
@@ -138,9 +139,7 @@ export function Calendar({ className, height = 400 }: CalendarProps) {
                 return (
                   <div key={day.toISOString()} className="h-8 xs:h-10 sm:h-12 md:h-14 px-0.5 relative">
                     {eventsAtThisTime.map((event, idx) => {
-                      // Extract and format the time from the scheduledDate
-                      const shootTime = new Date(event.scheduledDate);
-                      const formattedTime = format(shootTime, 'h:mm a');
+                      const formattedTime = formatTimeForDisplay(getShootSchedule(event).time);
                       
                       return (
                         <div

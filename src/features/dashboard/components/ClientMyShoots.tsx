@@ -13,6 +13,7 @@ import {
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import { shootDataToSummary } from "@/utils/dashboardDerivedUtils";
 import { SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT } from "@/utils/shootMediaDownload";
+import { getDashboardShootDisplayDate } from "@/utils/dashboardShootSchedule";
 
 import type { ClientMyShootsProps } from "../types";
 import { getClientDeliveredMedia } from "../utils";
@@ -244,8 +245,9 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                     const deliveredMedia = getClientDeliveredMedia(record.data);
                     const coverPhoto = deliveredMedia.coverPhoto;
                     const photoCount = deliveredMedia.count;
-                    const dateLabel = summary.startTime
-                      ? format(new Date(summary.startTime), "d MMM yyyy")
+                    const scheduledDate = getDashboardShootDisplayDate(summary);
+                    const dateLabel = scheduledDate
+                      ? format(scheduledDate, "d MMM yyyy")
                       : "No date";
                     const paymentStatus = summary.paymentStatus ?? "unpaid";
                     return (

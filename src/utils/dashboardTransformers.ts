@@ -25,6 +25,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   // extract it as the intended local calendar day so display never drifts.
   scheduledLocalDate: extractLocalYmd(shoot.start_time) ?? null,
   startTime: shoot.start_time ?? null,
+  scheduledInstant: shoot.scheduled_instant ?? null,
   addressLine: shoot.address_line ?? 'No address on file',
   cityStateZip: shoot.city_state_zip ?? '',
   status: shoot.status ?? null,

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import {
   Dialog,
   DialogContent,
@@ -469,7 +470,7 @@ export function BulkActionsDialog({
                   const paymentStatus = isUnpaid(shoot) ? 'Unpaid' : 'Paid';
                   const heroImage = getHeroImage(shoot);
                   const scheduledDate = shoot.scheduledDate
-                    ? format(new Date(shoot.scheduledDate), 'MMM d, yyyy')
+                    ? format(parseLocalYmd(shoot.scheduledDate), 'MMM d, yyyy')
                     : 'Date TBD';
 
                   return (

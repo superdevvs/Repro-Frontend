@@ -190,7 +190,7 @@ export const HoldOnShootCard = ({
   const formatTime = formatTimeForDisplay
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
-    try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
+    try { return formatDatePref(value) } catch { return value ?? '—' }
   }
   const rawShootStatus = String(shoot.workflowStatus ?? shoot.status ?? '').trim().toLowerCase()
   const visibleClient = getVisibleClientContact({
@@ -367,4 +367,3 @@ export const HoldOnShootCard = ({
     </Card>
   )
 }
-

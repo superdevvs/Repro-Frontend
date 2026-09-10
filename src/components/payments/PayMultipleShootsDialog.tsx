@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ShootData } from '@/types/shoots';
 import { DollarSign, FileText, CreditCard, Loader2, MapPin, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
@@ -278,8 +279,8 @@ export function PayMultipleShootsDialog({
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Calendar className="h-3 w-3" />
                                     <span>
-                                      {shoot.scheduledDate && !isNaN(new Date(shoot.scheduledDate).getTime())
-                                        ? format(new Date(shoot.scheduledDate), 'MMM d, yyyy')
+                                      {shoot.scheduledDate && !isNaN(parseLocalYmd(shoot.scheduledDate).getTime())
+                                        ? format(parseLocalYmd(shoot.scheduledDate), 'MMM d, yyyy')
                                         : 'Date TBD'}
                                     </span>
                                     <span>•</span>

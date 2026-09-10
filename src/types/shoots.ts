@@ -538,6 +538,12 @@ export interface ShootData {
     focal?: string | null;
   }>;
   timezone?: string | null;
+  cancellationFeeWindow?: boolean;
+  cancellation_fee_window?: boolean;
+  scheduledInstant?: string | null;
+  scheduled_instant?: string | null;
+  scheduleTimezone?: string | null;
+  schedule_timezone?: string | null;
   mlsImageWidth?: number | null;
   mls_image_width?: number | null;
   listingType?: 'for_sale' | 'for_rent';

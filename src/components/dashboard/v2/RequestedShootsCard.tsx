@@ -8,6 +8,8 @@ import { formatWorkflowStatus } from '@/utils/status';
 import { ShootApprovalModal } from '@/components/shoots/ShootApprovalModal';
 import { ShootDeclineModal } from '@/components/shoots/ShootDeclineModal';
 import { cn } from '@/lib/utils';
+import { getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 interface RequestedShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -98,7 +100,7 @@ export function RequestedShootsCard({
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
                       <span>{shoot.dayLabel}</span>
-                      {shoot.timeLabel && <span className="text-muted-foreground">at {shoot.timeLabel}</span>}
+                      {getDashboardShootDisplayTime(shoot) && <span className="text-muted-foreground">at {formatTimeForDisplay(getDashboardShootDisplayTime(shoot))}</span>}
                     </div>
                   )}
                 </div>

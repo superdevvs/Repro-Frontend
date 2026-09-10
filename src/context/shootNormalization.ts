@@ -12,6 +12,8 @@ import type {
 } from './shootApiTypes';
 import { normalizeShootCompReshootFields } from '@/features/complimentary-reshoots/normalizeShootCompReshoot';
 import { normalizeShootNotes } from './shootNotesNormalization';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import { calendarDay } from '@/lib/date';
 
 export type { ApiShoot } from './shootApiTypes';
 
@@ -54,7 +56,7 @@ const isCompletedShoot = (shoot: ShootData): boolean => {
 
 const isUpcomingShoot = (shoot: ShootData): boolean => {
   if (!shoot?.scheduledDate) return false;
-  const scheduledTime = Date.parse(shoot.scheduledDate);
+  const scheduledTime = calendarDay(shoot.scheduledDate).getTime();
   if (Number.isNaN(scheduledTime)) return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -244,39 +246,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     shoot.editing_completed_at ||
     shoot.admin_verified_at ||
     shoot.completed_date;
-  const scheduledAtValue =
-    shoot.scheduled_at ||
-    shoot.scheduledAt ||
-    null;
-  const normalizedScheduledDate = (() => {
-    if (shoot.scheduled_date) {
-      return shoot.scheduled_date;
-    }
-    if (shoot.scheduledDate) {
-      return String(shoot.scheduledDate);
-    }
-    if (scheduledAtValue) {
-      try {
-        return new Date(String(scheduledAtValue)).toISOString().slice(0, 10);
-      } catch {
-        return '';
-      }
-    }
-    return '';
-  })();
-  const normalizedTime = (() => {
-    if (shoot.time) {
-      return shoot.time;
-    }
-    if (scheduledAtValue) {
-      try {
-        return new Date(String(scheduledAtValue)).toISOString().slice(11, 16);
-      } catch {
-        return '';
-      }
-    }
-    return '';
-  })();
+  const schedule = getShootSchedule(shoot);
   const isPrivateListing =
     typeof shoot.is_private_listing === 'boolean'
       ? Boolean(shoot.is_private_listing)
@@ -765,8 +735,15 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
   return {
     id: String(shoot.id),
-    scheduledDate: normalizedScheduledDate,
-    time: normalizedTime,
+    scheduledDate: schedule.date,
+    time: schedule.time,
+    timezone: typeof shoot.timezone === 'string' ? shoot.timezone : null,
+    cancellationFeeWindow: toOptionalBoolean(shoot.cancellation_fee_window, shoot.cancellationFeeWindow),
+    cancellation_fee_window: toOptionalBoolean(shoot.cancellation_fee_window, shoot.cancellationFeeWindow),
+    scheduledInstant: shoot.scheduled_instant ?? shoot.scheduledInstant ?? null,
+    scheduled_instant: shoot.scheduled_instant ?? shoot.scheduledInstant ?? null,
+    scheduleTimezone: shoot.schedule_timezone ?? shoot.scheduleTimezone ?? null,
+    schedule_timezone: shoot.schedule_timezone ?? shoot.scheduleTimezone ?? null,
     client: {
       id: client.id ? String(client.id) : undefined,
       name: client.name || 'Client',

@@ -15,10 +15,7 @@ import {
 import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
-import {
-  formatDateForWallClockInput,
-  formatTimeForWallClockInput,
-} from '@/utils/wallClockDateTime';
+import { getShootSchedule } from '@/utils/shootSchedule';
 import { to12Hour } from '@/utils/availabilityUtils';
 import type {
   PhotographerPickerOption,
@@ -176,8 +173,8 @@ const deriveServiceCategoryName = (service: ServiceOption): string => {
  * Formats a service's `scheduledAt` into a human-readable date (e.g. "Jan 5, 2025"),
  * using wall-clock semantics. Returns null when there is no parseable date.
  */
-const formatDisplayDate = (value?: string | null): string | null => {
-  const wallClockDate = formatDateForWallClockInput(value);
+const formatDisplayDate = (value?: string | null, timezone?: string | null): string | null => {
+  const wallClockDate = getShootSchedule({ scheduled_at: value, timezone }).date;
   if (!wallClockDate) return null;
   try {
     const parsed = parse(wallClockDate, 'yyyy-MM-dd', new Date());
@@ -192,8 +189,8 @@ const formatDisplayDate = (value?: string | null): string | null => {
  * Formats a service's `scheduledAt` into a 12-hour time (e.g. "10:00 AM").
  * Returns null when there is no parseable time.
  */
-const formatDisplayTime = (value?: string | null): string | null => {
-  const wallClockTime = formatTimeForWallClockInput(value);
+const formatDisplayTime = (value?: string | null, timezone?: string | null): string | null => {
+  const wallClockTime = getShootSchedule({ scheduled_at: value, timezone }).time;
   if (!wallClockTime) return null;
   return to12Hour(wallClockTime) || null;
 };
@@ -383,8 +380,8 @@ function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
   return serviceItems.map((item) => {
     const status: ServiceRowStatus = statuses.get(item.id) ?? 'unfinished';
     const dotClass = STATUS_DOT_CLASS[status];
-    const dateDisplay = formatDisplayDate(item.scheduledAt);
-    const timeDisplay = formatDisplayTime(item.scheduledAt);
+    const dateDisplay = formatDisplayDate(item.scheduledAt, props.shoot.timezone);
+    const timeDisplay = formatDisplayTime(item.scheduledAt, props.shoot.timezone);
     const label = formatServiceLabel(item.source) || item.name;
     const source = item.source;
     const sourceItemId = String(item.shootServiceId || item.id);

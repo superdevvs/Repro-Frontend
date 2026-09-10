@@ -110,7 +110,7 @@ export const HistoryRow = memo(({
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{formatDisplayDatePref(record.scheduledDate)}</span>
+              <span className="font-medium">{record.scheduledDate ? formatDatePref(record.scheduledDate) : '—'}</span>
             </div>
             <Badge
               variant="outline"

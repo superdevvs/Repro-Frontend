@@ -108,34 +108,12 @@ export const buildWeatherLocationQuery = (shoot: ShootData | null): string | nul
 
 export const buildWeatherDateTime = (shoot: ShootData | null): string | undefined => {
   if (!shoot) return undefined;
-  const startTime = asCompatibleShoot(shoot).startTime;
-  if (typeof startTime === 'string' && !Number.isNaN(Date.parse(startTime))) {
-    return new Date(startTime).toISOString();
-  }
-  if (!shoot.scheduledDate) return undefined;
-
-  const target = new Date(shoot.scheduledDate);
-  if (Number.isNaN(target.getTime())) {
-    const parsed = new Date(`${shoot.scheduledDate} ${shoot.time || '12:00'}`);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-  }
-
-  const time = shoot.time || '12:00';
-  const twelveHour = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  const twentyFourHour = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (twelveHour) {
-    let hours = parseInt(twelveHour[1], 10);
-    const minutes = parseInt(twelveHour[2], 10);
-    const period = twelveHour[3].toUpperCase();
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    target.setHours(hours, minutes, 0, 0);
-  } else if (twentyFourHour) {
-    target.setHours(parseInt(twentyFourHour[1], 10), parseInt(twentyFourHour[2], 10), 0, 0);
-  } else {
-    target.setHours(12, 0, 0, 0);
-  }
-  return target.toISOString();
+  // Weather needs an actual instant. Legacy booking clocks and dashboard
+  // startTime values are not UTC instants, and the viewer's zone cannot resolve them.
+  const instant = shoot.scheduledInstant ?? shoot.scheduled_instant;
+  return instant && !Number.isNaN(Date.parse(instant))
+    ? new Date(instant).toISOString()
+    : undefined;
 };
 
 interface SubmitCapabilityInput {

@@ -6,6 +6,8 @@ type ShootLike = {
   scheduled_date?: string | null;
   scheduledAt?: string | null;
   scheduled_at?: string | null;
+  scheduledInstant?: string | null;
+  scheduled_instant?: string | null;
   time?: string | null;
   timezone?: string | null;
 };
@@ -126,14 +128,17 @@ const zonedWallTimeToMs = (ymd: string, minutesFromMidnight: number, timezone?: 
 /**
  * The shoot's start as an absolute instant.
  *
- * `scheduledAt` is authoritative when it carries an offset; otherwise the local
- * `scheduledDate` + `time` pair is anchored in the shoot's own timezone (never
- * the viewer's).
+ * Prefer the server-resolved `scheduledInstant`: legacy `scheduledAt` values
+ * may carry a UTC offset while storing a local wall clock. Older responses
+ * retain their existing timestamp and local date/time fallbacks.
  */
 export const getShootStartInstantMs = (shoot?: ShootLike | null): number | null => {
   if (!shoot) return null;
 
-  const absolute = parseAbsoluteInstant(shoot.scheduledAt) ?? parseAbsoluteInstant(shoot.scheduled_at);
+  const absolute = parseAbsoluteInstant(shoot.scheduledInstant)
+    ?? parseAbsoluteInstant(shoot.scheduled_instant)
+    ?? parseAbsoluteInstant(shoot.scheduledAt)
+    ?? parseAbsoluteInstant(shoot.scheduled_at);
   if (absolute !== null) return absolute;
 
   const shootLocalDate = getShootLocalDate(shoot);
