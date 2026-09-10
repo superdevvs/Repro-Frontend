@@ -243,7 +243,7 @@ export function EditorSelfEarningsPanel({
             ) : (
               paginatedShoots.map((row) => {
                 const isSelected = row.shootId === selectedShootId;
-                const dateLabel = formatShortDate(row.scheduledDate) || 'Date TBD';
+                const dateLabel = formatShortDate(row.scheduledDate, true) || 'Date TBD';
                 const serviceLabel = row.services[0]
                   ? row.services.length > 1
                     ? `${row.services[0]} +${row.services.length - 1}`
@@ -415,7 +415,7 @@ export function EditorSelfEarningsPanel({
                         </Badge>
                       </div>
                       <div className="mt-1 truncate text-sm text-muted-foreground">
-                        {formatShortDate(selectedShoot.scheduledDate) || 'Date TBD'}
+                        {formatShortDate(selectedShoot.scheduledDate, true) || 'Date TBD'}
                         {selectedShoot.city ? ` \u00B7 ${selectedShoot.city}` : ''}
                         {selectedShoot.client ? ` \u00B7 ${selectedShoot.client}` : ''}
                       </div>
@@ -683,4 +683,3 @@ export function EditorSelfEarningsPanel({
   );
 
 }
-

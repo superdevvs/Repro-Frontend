@@ -1,3 +1,5 @@
+import { calendarDay } from '@/lib/date';
+
 export const formatEditorCurrency = (amount: number | string | undefined) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
 
@@ -8,9 +10,9 @@ export const formatEditorTimestamp = (value?: string | null) => {
   return parsed.toLocaleString();
 };
 
-export const formatEditorShortDate = (value?: string | null) => {
+export const formatEditorShortDate = (value?: string | null, scheduled = false) => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const parsed = scheduled ? calendarDay(value) : new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };

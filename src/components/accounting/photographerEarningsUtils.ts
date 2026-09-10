@@ -1,4 +1,6 @@
 import { ShootData } from '@/types/shoots';
+import { calendarDay } from '@/lib/date';
+import { getShootSchedule } from '@/utils/shootSchedule';
 import { getShootPhotographerAssignments } from '@/utils/shootPhotographerAssignments';
 import { calculatePhotographerPay } from '@/utils/servicePricing';
 import {
@@ -123,18 +125,13 @@ export const getShootCompletedDate = (shoot: ShootData) => {
     parseDate(legacyShoot.completed_date) ||
     parseDate(legacyShoot.editing_completed_at) ||
     parseDate(legacyShoot.admin_verified_at) ||
-    (isCompletedShoot(shoot) ? parseDate(shoot.scheduledDate) : null)
+    (isCompletedShoot(shoot) ? getShootScheduledDate(shoot) : null)
   );
 };
 
 export const getShootScheduledDate = (shoot: ShootData) => {
-  const legacyShoot = shoot as ShootData & Record<string, unknown>;
-  return (
-    parseDate(shoot.scheduledDate) ||
-    parseDate(legacyShoot.scheduled_date) ||
-    parseDate(legacyShoot.scheduled_at) ||
-    parseDate(legacyShoot.scheduledAt)
-  );
+  const date = calendarDay(getShootSchedule(shoot).date);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 export const isShootAssignedToPhotographer = (shoot: ShootData, user: UserLike) => {

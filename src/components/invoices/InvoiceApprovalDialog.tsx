@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { calendarDay } from '@/lib/date';
 import { CheckCircle2, Loader2, Plus, ReceiptText, Trash2 } from 'lucide-react';
 
 import { Logo } from '@/components/layout/Logo';
@@ -83,10 +84,10 @@ const formatCurrency = (value: number | string | null | undefined) => {
   );
 };
 
-const formatShortDate = (value?: string | null) => {
+const formatShortDate = (value?: string | null, scheduled = false) => {
   if (!value) return '';
   try {
-    return format(new Date(value), 'M/d/yy');
+    return format(scheduled ? calendarDay(value) : new Date(value), 'M/d/yy');
   } catch {
     return '';
   }
@@ -435,7 +436,7 @@ export function InvoiceApprovalDialog({
       return <span className="text-xs uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">Expense</span>;
     }
     const shoot = resolveShoot?.(item) || null;
-    const dateLabel = formatShortDate(getShootDate(shoot)) || '';
+    const dateLabel = formatShortDate(getShootDate(shoot), Boolean(shoot?.scheduled_date)) || '';
     const address = formatShootAddress(shoot);
     if (!dateLabel && !address) {
       return <span className="text-sm text-muted-foreground">—</span>;
