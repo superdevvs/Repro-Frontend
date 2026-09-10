@@ -1,0 +1,375 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  3.1 Header Style 1
+/*----------------------------------------*/
+
+.tp-header{
+    &-wrap{
+        padding: 0 70px;
+        @media #{$x4l,$x3l}{
+            padding: 0 45px;
+        }
+        @media #{$xxl,$xl}{
+            padding: 0px;
+        }
+        @media #{$lg}{
+            padding: 0 40px;
+        }
+        @media #{$md}{
+            padding: 0 20px;
+        }
+        @media #{$xs}{
+            padding: 0 15px;
+        }
+        @media #{$sm}{
+            padding: 0 25px;
+        }
+    }
+    &-menu{
+        border-radius: 60px;
+        padding: 0px 10px;
+        display: inline-block;
+        @media #{$xxl}{
+            transform: translateX(0);
+        }
+        @media #{$xxl}{
+            transform: translateX(-10px);
+        }
+        & ul{
+            & li{
+                list-style: none;
+                display: inline-block;
+                margin: 0 19px;
+                position: relative;
+                    @media #{$xl}{
+                        margin: 0 13px;
+                    }
+                & a{
+                    display: inline-block;
+                    font-size: 17px;
+                    font-weight: 600;
+                    color: var(--tp-theme-color);
+                    padding: 17.5px 0;
+                    line-height: 1.5;
+                    position: relative;
+                    line-height: 1;
+                    transform: translateY(-2px);
+                    &::before{
+                        position: absolute;
+                        content: "";
+                        background-color: var(--tp-secoundery-color);
+                        width: 0;
+                        height: 1.5px;
+                        border-radius: 10px;
+                        bottom: 12px;
+                        left: auto;
+                        right: 0;
+                        @include transition(.3s);
+                    }
+                }
+                & .sub-menu{
+                    position: absolute;
+                    width: 280px;
+                    transition: opacity 0.3s, transform 0.3s, visibility 0.3s ease;
+                    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08);
+                    background-color: var(--tp-white-color);
+                    padding: 22px 0;
+                    border-radius: 20px;
+                    left: -32px;
+                    opacity: 0;
+                    visibility: hidden;
+                    top: 110%;
+                    @include transition(.3s);
+                    & li{
+                        margin: 0;
+                        display: block;
+                        text-align: start;
+                        & a{
+                           padding: 11px 37px;
+                           position: relative;
+                           display: block;
+                             &::before{
+                                display: none;
+                             }
+                            & span{
+                                display: inline-block;
+                                position: relative;
+                                &::before{
+                                    position: absolute;
+                                    content: "";
+                                    background-color: var(--tp-secoundery-color);
+                                    width: 0;
+                                    height: 1.5px;
+                                    border-radius: 10px;
+                                    bottom: -4px;
+                                    left: auto;
+                                    right: 0;
+                                    @include transition(.3s);
+                                }
+                            }
+                        }
+                        &:hover{
+                            & > a{
+                                & span{
+                                    &::before{
+                                        width: 100%;
+                                        left: 0;
+                                        right: auto;
+                                    }
+                                }
+                            }
+                        }
+                        & .sub-menu{
+                            left: 101%;
+                            top: 50%;
+                            width: 100%;
+                            opacity: 0;
+                            visibility: hidden;
+                        }
+                        &:hover{
+                            & .sub-menu{
+                                top: 0;
+                                opacity: 1;
+                                visibility: visible;
+                            }
+                        }
+                    }
+                }
+                &:hover{
+                    & > a{
+                        &::before{
+                            width: 100%;
+                            left: 0;
+                            right: auto;
+                        }
+                    }
+                    & .sub-menu{
+                        opacity: 1;
+                        visibility: visible;
+                        top: 105%;
+                    }
+                }
+                
+            }
+        }
+        &-grey{
+            background-color: var(--tp-gray-color);
+        }
+        &-white{
+            & ul{
+                & li{
+                    & a{
+                        color: var(--tp-white-color);
+                    }
+                    & .sub-menu{
+                        & li{
+                            & a{
+                              color: var(--tp-theme-color); 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        &-border{
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 100px;
+        }
+    }
+    &-border{
+        &-gray{
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        &-white{
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+        }
+        
+    }
+    &-cta{
+        @media #{$x4l,$x3l}{
+           margin-left: -30px;
+        }
+        @media #{$xxl}{
+           margin-left: 0;
+        }
+        @media #{$xxl}{
+           margin-left: -50px;
+        }
+        &-phone{
+            @media #{$x3l}{
+              margin-right: 20px;
+            }
+            @media #{$xxl}{
+              margin-right: 15px;
+            }
+            @media #{$xl}{
+              margin-right: 20px;
+            }
+        }
+    }
+    &-area{
+        &.container-wide,& .container-wide{
+            @media #{$x4l,$x3l,$xxl}{
+                padding: 0 20px;
+            }
+            @media #{$xl}{
+                padding: 0 20px;
+            }
+            @media #{$lg}{
+                padding: 0 15px;
+            }
+            @media #{$md}{
+                padding: 0 10px;
+            }
+        }
+        &.tp-header-spacing-3 {
+            padding-top: 20px;
+            @media #{$lg,$md,$xs,$sm}{
+                padding-top: 0;
+            }
+        }
+    }
+    &-spacing{
+        padding: 28px 0;
+        @media #{$lg,$md}{
+           padding: 20px 0;
+        }
+        @media #{$xs,$sm}{
+           padding: 15px 0;
+        }
+        &-2{
+            padding: 19px 0;
+        }
+        &-4{
+           padding: 20px 0;
+            @media #{$xs,$sm}{
+                padding: 10px;
+            }
+        }
+    }
+    &-logo{
+        & img{
+            @media #{$xs,$sm}{
+               max-width: 120px;
+            }
+        }
+    }
+    &-transparent{
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
+    }
+    &-top{
+        padding: 4px 30px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        padding-bottom: 7px;
+        z-index: 2;
+        position: relative;
+        @media #{$xs,$sm}{
+            padding: 5px;
+            margin: 0 10px;
+        }
+        &-cta{
+            grid-gap: 40px;
+            @media #{$xs}{
+                display: block;
+                text-align: center;
+            }
+            @media #{$sm}{
+                justify-content: center;
+            }
+            & a {
+                display: inline-block;
+                font-size: 14px;
+                color: var(--tp-theme-color);
+                line-height: 1;
+                &:hover{
+                    color: var(--tp-orange-color);
+                }
+                & span{
+                    color: var(--tp-body-color);
+                    transform: translateY(-1px);
+                    margin-right: 3px;
+                }
+            }
+        }
+    }
+    &-social{
+        display: flex;
+        grid-gap: 10px;
+        & a{
+            &:hover{
+                color: var(--tp-orange-color);
+            }
+        }
+        &-wrap{
+            grid-gap: 20px;
+            @media #{$xs,$sm}{
+                justify-content: center;
+            }
+        }
+    }
+}
+
+.header-sticky {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 1;
+    width: 100%;
+    z-index: 10;
+    visibility: visible;
+    background: var(--tp-white-color);
+    box-shadow: 0 2px 6px 0 rgba(19, 19, 22, 0.08);
+    animation: 0.95s ease 0s normal forwards 1 running headerSlideDown;
+    -webkit-animation: 0.95s ease 0s normal forwards 1 running headerSlideDown;
+    & .tp-header-border-white,& .tp-header-border-gray {
+        border-color: transparent;
+    }
+    &.tp-bg-gray{
+        background-color: var(--tp-gray-color);
+    }
+    &.sticky-black{
+        background-color: rgba(19, 19, 22, 1);
+        & .tp-header-border-white{
+            border-color: transparent;
+        }
+        & .tp-header-menu{
+            & ul{
+                & li{
+                    & .sub-menu{
+                        background-color: var(--tp-theme-color);
+                        & li{
+                            & a{
+                                color: var(--tp-white-color);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    & .tp-header-spacing{
+        padding: 12px 0;
+    }
+    &.media{
+        padding: 12px 0;
+        @media #{$xxl}{
+            padding: 12px 20px;
+        }
+        @media #{$xl}{
+            padding: 12px 20px;
+        }
+        @media #{$lg}{
+            padding: 12px 15px;
+        }
+        @media #{$md,$xs,$sm}{
+            padding: 12px 10px;
+        }
+    }
+}

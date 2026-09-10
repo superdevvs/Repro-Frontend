@@ -1,0 +1,108 @@
+@use '../utils' as *;
+
+/*----------------------------------------*/
+/*  2.3 Section Title Css Here
+/*----------------------------------------*/
+
+.tp-section{
+    &-sub{
+        &-title{
+            display: inline-block; 
+            font-weight: 500;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 30px;
+            line-height: 1;
+            padding: 5px 14px;
+            @media #{$xs}{
+                font-size: 15px;
+                padding: 6px 10px;
+            }
+            &-sec{
+                border-color: rgba(255, 255, 255, 0.35);
+                color: var(--tp-secoundery-color);
+            }
+            &-trd{
+                background-color: var(--tp-secoundery-color);
+                border-color: transparent;
+            }
+            &-land{
+                font-size: 20px;
+            }
+        }
+    }
+    &-title{
+        font-size: 55px;
+        @media #{$xl}{
+          font-size: 50px;
+        }
+        @media #{$lg}{
+          font-size: 40px;
+          & br{
+            display: none;
+          }
+        }
+        @media #{$md,$xs,$sm}{
+          font-size: 35px;
+          & br{
+            display: none;
+          }
+        }
+        & span{
+            font-family: var(--tp-playfair-font);
+            font-style: italic;
+            margin-left: 10px;
+            display: inline-block;
+        }
+        &-mid{
+            font-size: 40px;
+            @media #{$md}{
+                font-size: 35px;
+                & br{
+                    display: none;
+                }
+            }
+            @media #{$xs}{
+                font-size: 33px;
+                & br{
+                    display: none;
+                }
+            }
+        }
+        &-mid-2{
+            font-size: 60px;
+            line-height: 1.1;
+            @media #{$xl}{
+            font-size: 50px;
+            }
+            @media #{$lg}{
+            font-size: 40px;
+            & br{
+                display: none;
+            }
+            }
+            @media #{$md,$xs,$sm}{
+                font-size: 35px;
+                & br{
+                    display: none;
+                }
+            }
+        }
+        &-larg{
+            font-size: 100px;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            @media #{$xl}{
+               font-size: 85px;
+            }
+            @media #{$lg}{
+               font-size: 80px;
+            }
+            @media #{$md}{
+               font-size: 60px;
+            }
+            @media #{$xs,$sm}{
+               font-size: 50px;
+            }
+        }
+    }
+}

@@ -1,0 +1,70 @@
+// @use "sass:selector";
+
+// tp-root
+@mixin tp-root($child) {
+    @at-root #{selector.unify(&, $child)} {
+      @content;
+    }
+}
+
+// // placeholder input
+@mixin tp-placeholder {
+    &::-webkit-input-placeholder {
+        @content;
+    }
+    &:-moz-placeholder {
+        @content;
+    }
+    &::-moz-placeholder {
+        @content;
+    }
+    &:-ms-input-placeholder {
+        @content;
+    }
+}
+
+// transition
+@mixin transition($args) { 
+    -webkit-transition: $args; 
+    -moz-transition: $args; 
+    -ms-transition: $args; 
+    -o-transition: $args; 
+    transition: $args; 
+  }
+
+// transform
+@mixin transform($transforms) {
+    -moz-transform: $transforms;
+    -o-transform: $transforms;
+    -ms-transform: $transforms;
+    -webkit-transform: $transforms;
+    transform: $transforms;
+}
+
+// Flexbox center
+@mixin flex-center() {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+} 
+
+// hover-border
+@mixin hover-border(){
+    transition: all 0.3s ease;
+    background-image: linear-gradient(to right, var(--tp-theme-color) 0%, var(--tp-theme-color) 100%);
+    background-position: 0 calc(100% - 0em);
+    background-size: 0 1px;
+    transition: background-size 0.25s cubic-bezier(0.785, 0.135, 0.15, 0.86) 0s;
+    background-repeat: no-repeat;
+    text-decoration: none;
+    &:hover{
+        background-size: 100% 1px;
+    }
+}
+
+@mixin tpshake(){
+    animation-name: tpshake;
+    animation-timing-function: ease-in-out;
+    animation-duration: 0.4s;
+    animation-iteration-count: 1;
+}

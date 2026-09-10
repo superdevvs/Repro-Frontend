@@ -1,0 +1,135 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  8.7 Misson Css Here
+/*----------------------------------------*/
+
+.tp-misson{
+    &-spacing{
+        padding-top: 350px;
+        padding-bottom: 460px;
+        margin-bottom: 170px;
+        @media #{$xl}{
+           padding-bottom: 400px;
+           margin-bottom: 100px;
+        }
+        @media #{$lg}{
+            padding-top: 260px;
+            padding-bottom: 350px;
+            margin-bottom: 100px;
+        }
+        @media #{$md}{
+            padding: 200px 0;
+            margin-bottom: 100px;
+        }
+        @media #{$xs,$sm}{
+            padding: 70px 0;
+            margin-bottom: 0;
+        }
+    }
+    &-shape{
+        & img{
+            @media #{$lg}{
+               max-width: 85%;
+            }
+            @media #{$md}{
+                max-width: 20%;
+            }
+        }
+        &-1{
+            top: 110px;
+            left: -223px;
+            @media #{$x3l}{
+                top: 73px;
+                left: -127px;
+            }
+            @media #{$xxl,$xl}{
+                top: 70px;
+                left: 0;
+            }
+            @media #{$xl}{
+                left: -31px;
+            }
+            @media #{$lg,$md}{
+                left: 0;
+                top: 0;
+            }
+        }
+        &-2{
+            top: 0;
+            right: 29%;
+        }
+        &-3{
+            top: 41%;
+            right: -230px;
+            @media #{$x3l}{
+                top: 48%;
+                right: -125px;
+            }
+            @media #{$xxl}{
+                top: 50%;
+                right: 0;
+            }
+            @media #{$xl}{
+                right: -31px;
+            }
+            @media #{$lg,$md}{
+                right: 0;
+                top: 65px;
+            }
+        }
+        &-4{
+            bottom: 0;
+            right: 21%;
+            @media #{$lg}{
+                bottom: 55px;
+                right: 34%;
+            }
+        }
+        &-5{
+            left: 0;
+            bottom: 170px;
+            @media #{$lg}{  
+                bottom: 100px;
+            }
+            @media #{$md}{  
+                bottom: 20px;
+            }
+        }
+        &-back{
+            left: 50%;
+            z-index: -1;
+            transform: translateX(-50%);
+            top: 64px;
+            @media #{$xl}{
+                max-width: 70%;
+            }
+            @media #{$lg}{
+                max-width: 60%;
+            }
+            @media #{$md}{
+                top: 25%;
+                max-width: 55%;
+            }
+        }
+    }
+    &-title{
+        @media #{$xl}{
+          font-size: 75px;
+        }
+        @media #{$lg,$md}{
+          font-size: 55px;
+        }
+        @media #{$xs}{
+          font-size: 35px;
+        }
+        @media #{$sm}{
+          font-size: 44px;
+        }
+    }
+    &-heading{
+        @media #{$lg,$md,$xs,$sm}{
+           margin-left: 0;
+        }
+    }
+}

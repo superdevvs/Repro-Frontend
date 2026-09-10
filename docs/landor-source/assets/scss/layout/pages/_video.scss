@@ -1,0 +1,95 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  8.1 Video Css Here
+/*----------------------------------------*/
+
+.tp-video{
+	&-title {
+		font-size: 50px;
+	}
+	&-play {
+		@include flex-center();
+		grid-gap: 10px;
+		width: 140px;
+		height: 140px;
+		background-color: var(--tp-gray-color);
+		border-radius: 50%;
+		color: var(--tp-theme-color);
+		&:hover{
+			background-color: var(--tp-secoundery-color);
+		}
+		@media #{$xs,$sm}{
+			width: 100px;
+			height: 100px;
+			grid-gap: 5px;
+		}
+		&-spacing {
+			padding: 195px 0;
+			padding-left: 50px;
+			@media #{$md}{
+			padding-top: 100px;
+			display: flex;
+			justify-content: center;
+			}
+			@media #{$xs,$sm}{
+				padding: 70px 0;
+				display: flex;
+				justify-content: center;
+			}
+		}
+	}
+	&-spacing {
+		@media #{$lg,$md}{
+			padding: 100px 0;
+		}
+		@media #{$xs,$sm}{
+			padding-bottom: 0;
+			padding-top: 70px;
+		}
+	}
+	&-shape{
+		&-1{
+			top: 44%;
+			left: 0;
+		}
+		&-2{
+			top: 110px;
+			left: 225px;
+		}
+		&-3{
+			top: 0;
+			right: 225px;
+			@media #{$lg}{
+				top: -60px;
+				right: 73px;
+			}
+		}
+		&-4{
+			right: 0;
+			bottom: 128px;
+			@media #{$md}{
+				bottom: auto;
+				top: 0;
+			}
+		}
+		&-5{
+			bottom: 0;
+			right: 35%;
+			@media #{$lg}{
+				bottom: -40px;
+			}
+			@media #{$md}{
+				bottom: -57px;
+				right: 11%;
+			}
+		}
+	}
+	&-heading{
+		@media #{$xs,$sm}{
+			text-align: center;
+		}
+	}
+}
+
+

@@ -1,0 +1,123 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  7.5 Cta Css Here
+/*----------------------------------------*/
+
+.tp-cta{
+    &-phone{
+        & a{
+            color: var(--tp-theme-color);
+            font-weight: 600;
+            &:hover{
+                & samp{
+                    text-decoration: underline;
+                }
+            }
+        }
+        &-icon{
+            width: 52px;
+            height: 52px;
+            background-color: var(--tp-theme-color);
+            color: var(--tp-white-color);
+            text-align: center;
+            border-radius: 50px;
+            @include flex-center();
+            &-mid{
+                width: 38px;
+                height: 38px;
+            }
+            &-border{
+                background-color: transparent;
+                border: 1px solid #FFFFFF;
+            }
+            &-white{
+                background-color: var(--tp-white-color);
+                color: var(--tp-theme-color);
+            }
+        }
+        &-mid{
+            & a{
+                &:hover{
+                    text-decoration: underline;
+                }
+            }
+        }
+    }
+    &-spacing {
+        min-height: 820px;
+        display: flex;
+        align-items: center;
+        @media #{$lg}{
+          min-height: 650px;
+        }
+        @media #{$md}{
+          min-height: 550px;
+        }
+        @media #{$xs,$sm}{
+          min-height: 500px;
+          border-radius: 0;
+        }
+        @media #{$sm}{
+          min-height: 400px;
+        }
+    }
+    &-title{
+        font-size: 80px;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        @media #{$lg,$md}{
+          font-size: 65px;
+        }
+        @media #{$xs,$sm}{
+          font-size: 45px;
+          & img{
+            max-width: 28%;
+          }
+        }
+    }
+    &-heading {
+        display: inline-block;
+        padding-bottom: 33px;
+        margin-bottom: 48px;
+        @media #{$xs,$sm}{
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+    }
+    &-border {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+    }
+    &-content {
+        display: flex;
+        grid-gap: 80px;
+        align-items: center;
+        @media #{$xs}{
+            display: block;
+        }
+        & p{
+            @media #{$xs,$sm}{
+                margin-bottom: 20px;
+               & br{
+                display: none;
+               }
+            }
+            @media #{$sm}{
+                margin-bottom: 0;
+            }
+        }
+    }
+    &-shape{
+        left: 0;
+        top: 0;
+        & img{
+            mix-blend-mode: color-burn;
+        }
+    }
+    &-button{
+        @media #{$xs,$sm}{
+           flex: 0 0 auto;
+        } 
+    }
+}
+

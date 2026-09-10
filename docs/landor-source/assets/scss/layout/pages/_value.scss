@@ -1,0 +1,164 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  8.9 Value Css Here
+/*----------------------------------------*/
+
+.tp-value{
+  &-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--tp-secoundery-color);
+    border-radius: 100px;
+    color: var(--tp-theme-color);
+    @include transition(.3s);
+    &-wrap{
+      & p{
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 18px;
+        font-weight: 500;
+
+      }
+    }
+  }
+  &-item {
+   width: 100%;
+   height: 100%;
+    padding: 60px 45px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 45px;
+    margin-left: -1px;
+    margin-bottom: -1px;
+    @media #{$lg,$md}{
+        padding: 30px;
+    }
+    @media #{$xs}{
+        padding: 20px;
+    }
+    &:hover{
+      & .tp-value-icon{
+        background-color: var(--tp-white-color);
+        &-wrap{
+          & p{
+            color: var(--tp-white-color);
+          }
+        }
+      }
+    }
+  }
+  &-title {
+    font-size: 20px;
+    margin-bottom: 5px;
+    @media #{$lg,$md}{
+      font-size: 18px;
+    }
+  }
+  &-content{
+    & p{
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+  &-left{
+    &-border{
+      border-left:  1px solid rgba(255, 255, 255, 0.1);
+      & > .col-xl-6:first-child .tp-value-item{
+        padding-top: 145px;
+        @media #{$xl,$lg,$md,$sm,$xs}{
+          padding-top: 60px;
+        }
+      }
+      & > .col-xl-6:last-child .tp-value-item{
+          padding-bottom: 145px;
+          @media #{$xl,$lg,$md,$sm,$xs}{
+            padding-bottom: 60px;
+          }
+        }
+    }
+  }
+  &-spacing{
+    @media #{$x4l,$x3l}{
+        margin: 0 20px;
+    }
+    @media #{$xxl,$xl,$lg,$md,$xs,$sm}{
+      margin: 0;
+    }
+    @media #{$xs,$sm}{
+        padding: 0 12px;
+        padding-top: 70px;
+        border-radius: 0;
+    }
+    &-2{
+      padding-top: 150px;
+      padding-bottom: 120px;
+      @media #{$lg}{
+         padding-top: 120px;
+         padding-bottom: 90px;
+      }
+      @media #{$md}{
+         padding-top: 100px;
+         padding-bottom: 70px;
+      }
+      @media #{$xs,$sm}{
+         padding-top: 70px;
+         padding-bottom: 40px;
+      }
+    }
+  }
+  &-heading{
+      padding-top: 150px;
+      padding-left: 125px;
+      @media #{$xxl,$xl}{
+       padding-left: 0;
+      }
+      @media #{$lg,$md}{
+        padding-top: 100px;
+        padding-left: 50px;
+      }
+      @media #{$sm,$xs}{
+        padding-top: 0;
+        padding-left: 0;
+      }
+  }
+}
+.tpvalue {
+	background: var(--tp-white-color);
+	padding: 45px 50px;
+    @media #{$lg,$md,$xs,$sm}{
+        padding: 30px;
+    }
+    &__title{
+      & a{
+        @include hover-border();
+      }
+      @media #{$lg}{
+        font-size: 22px;
+      } 
+      @media #{$md,$xs,$sm}{
+        font-size: 20px;
+        margin-bottom: 30px;
+      } 
+    }
+    &__icon{
+      @media #{$md,$xs,$sm}{
+        margin-bottom: 30px;
+        & img{
+          width: 90px;
+          height: 90px;
+        }
+      } 
+    }
+    &:hover{
+      & .tpvalue__icon{
+        & img{
+          @include tpshake();
+        }
+      }
+    }
+}
+
+
+
+

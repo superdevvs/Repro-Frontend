@@ -1,0 +1,101 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  8.2 Faq Css Here
+/*----------------------------------------*/
+
+.tp-faq{
+    background: #F5F5F5;
+    border-radius: 20px;
+    padding: 10px;
+    &-item{
+       border-radius: 10px;
+       margin-bottom: 10px;
+       background-color: var(--tp-white-color);
+        &:last-child{
+           margin-bottom: 0;
+        }
+    }
+    &-body{
+        padding: 32px 30px;
+        padding-top: 0;
+        @media #{$xs,$sm}{
+            padding: 10px 15px;
+            padding-top: 0;
+        }
+        & p{
+            @media #{$xs,$sm}{
+                font-size: 15px;
+                line-height: 1.5;
+            }
+        }
+    }
+    &-arrow{
+        border-color: transparent;
+        height: 30px;
+        width: 30px;
+        flex: 0 0 auto;
+        display: inline-block;
+        border-radius: 30px;
+        position: relative;
+        background-color: var(--tp-orange-color);
+        @include transition(.3s);
+        &::before{
+            position: absolute;
+             content: "\f068";
+            font-family: "Font Awesome 6 Pro";
+            font-weight: 900;
+            color: var(--tp-theme-color);
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+            z-index: 1;
+            font-size: 15px;
+            color: var(--tp-white-color);
+            @include transition(.3s);
+        }
+    }
+    &-button {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        width: 100%;
+        text-align: start;
+        padding: 20px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        @media #{$xs,$sm}{
+            font-size: 16px;
+            padding: 10px 15px;
+        }
+        &.collapsed{
+            & .tp-faq-arrow{
+                border: 1px solid #000000;
+                background-color: transparent;
+                &::before{
+                   content: "\2b";
+                   color: var(--tp-theme-color);
+                }
+            }
+        }
+    }
+    &-spacing{
+        @media #{$lg,$md}{
+            padding: 100px 0;
+        }
+        @media #{$xs,$sm}{
+            padding: 70px 0;
+        }
+    }
+    &-heading{
+        @media #{$md,$sm,$xs}{
+            margin-bottom: 30px;
+        }
+    }
+    &-btn{
+        @media #{$md,$sm,$xs}{
+            padding-top: 25px;
+        }
+    }
+}

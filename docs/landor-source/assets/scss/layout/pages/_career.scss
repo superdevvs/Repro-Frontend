@@ -1,0 +1,360 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  9.1 Career Css Here
+/*----------------------------------------*/
+
+.tp-career{
+    &-heading{
+        @media #{$sm,$xs}{
+            margin-bottom: 35px;
+        }
+    }
+    &-card{
+        padding: 37px 40px;
+        min-height: 300px;
+        @media #{$lg}{
+            padding: 30px 20px;
+        }
+        @media #{$md,$xs,$sm}{
+           min-height: auto;
+        }
+        @media #{$xs,$sm}{
+           padding: 25px;
+        }
+        &-deg{
+            font-size: 18px;
+            line-height: 1.3;
+        }
+        &-main{
+            @media #{$md,$sm,$xs}{
+              padding-bottom: 10px;
+            }
+        }
+        &-authors{
+            @media #{$xs,$sm}{
+               margin-bottom: 10px;
+               & img{
+                max-width: 60%;
+               }
+            }  
+        }
+    }
+    &-slider{
+        padding: 55px 60px;
+        padding-bottom: 63px;
+        position: relative;
+        z-index: 1;
+        @media #{$xs,$sm}{
+           padding: 25px;
+        }  
+        &::before{
+            position: absolute;
+            content: "";
+            background-color: #E6641C;
+            mix-blend-mode: darken;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        &-author{
+            @media #{$lg,$xs,$sm}{
+               padding-top: 10px;
+            }  
+            &-img{
+                & img{
+                    border-radius: 50%;
+                }
+            }
+            &-info{
+                & p{
+                    font-size: 14px;
+                }
+            }
+        }
+        &-nav {
+            bottom: 50px;
+            right: 50px;
+            grid-gap: 5px;
+        }
+        &-wrap{
+            & p{
+                @media #{$lg,$md,$sm,$xs}{
+                    & br{
+                        display: none;
+                    }
+                }  
+            }
+        }
+        &-icons{
+            @media #{$xs,$sm}{
+               margin-bottom: 15px;
+            }  
+        }
+    }
+    &-box{
+        &-icon {
+            width: 80px;
+            height: 80px;
+            background-color: var(--tp-gray-color);
+            border-radius: 50%;
+            @include flex-center();
+            @media #{$lg,$md,$sm,$xs}{
+               width: 60px;
+               height: 60px;
+               margin-right: 10px;
+               & svg{
+                width: 25px;
+               }
+            }
+        }
+        &-link {
+            letter-spacing: -0.02em;
+            &:hover{
+                color: var(--tp-orange-color);
+            }
+        }
+        &-title{
+            @media #{$lg}{
+               font-size: 22px;
+            }
+            @media #{$xs,$sm}{
+               font-size: 20px;
+            }
+        }
+        &-info{
+            & p{
+                @media #{$lg,$md,$sm,$xs}{
+                  margin-bottom: 0;
+                }
+            }
+        }
+    }
+    &-spacing{
+        padding-top: 145px;
+        padding-bottom: 130px;
+        @media #{$lg}{
+           padding-top: 120px;
+           padding-bottom: 90px;
+        }
+        @media #{$md}{
+           padding-top: 100px;
+           padding-bottom: 70px;
+        }
+        @media #{$sm,$xs}{
+           padding-top: 70px;
+           padding-bottom: 40px;
+        }
+        &-2{
+            @media #{$lg}{
+                padding-bottom: 90px;
+            }
+            @media #{$md}{
+                padding-bottom: 70px;
+            }
+            @media #{$sm,$xs}{
+                padding-bottom: 40px;
+            }
+        }
+    }
+    &-apply{
+        &-form{
+            & input,& textarea {
+                height: 64px;
+                border-radius: 10px;
+                background: var(--tp-white-color);
+                border-color: transparent;
+                margin-bottom: 10px;
+                @media #{$xs,$sm}{
+                    height: 60px;
+                }
+                &:focus{
+                    border-color: var(--tp-black-color);
+                }
+                &::placeholder{
+                    font-weight: 400;
+                }
+                &::-moz-placeholder{
+                    font-weight: 400;
+                }
+            }
+            & textarea{
+                height: 140px;
+            }
+            & button {
+                font-weight: 500;
+                letter-spacing: -0.02em;
+                background: var(--tp-theme-color);
+                color: var(--tp-white-color);
+                display: block;
+                width: 100%;
+                border-radius: 10px;
+                padding: 18px;
+                @media #{$xs,$sm}{
+                   padding: 16px;
+                } 
+                & svg{
+                    margin-left: 5px;
+                }
+            }
+        }
+        &-box{
+            padding: 40px;
+            padding-top: 32px;
+            @media #{$lg,$xs}{
+                padding: 20px;
+                padding-top: 12px;
+            }
+        }
+        &-shape {
+            right: 0;
+            bottom: 0;
+        }
+    }
+    &-details{
+        &-list{
+            @media #{$lg,$md}{
+                margin-bottom: 30px;
+            } 
+            @media #{$xs,$sm}{
+                margin-bottom: 20px;
+            } 
+            &-title{
+                font-size: 36px;
+                @media #{$lg,$md,$xs,$sm}{
+                    font-size: 30px;
+                    margin-bottom: 10px;
+                }
+            }  
+            & ul{
+                & li{
+                    list-style: none;
+                    & svg{
+                        margin-right: 5px;
+                    }
+                    &:not(:last-child){
+                        margin-bottom: 5px;
+                    }
+                    & span{
+                        font-weight: 500;
+                        color: var(--tp-theme-color);
+                    }
+                }
+            } 
+        }
+        &-nav{
+            & a {
+                font-weight: 500;
+                color: var(--tp-theme-color);
+                background-color: var(--tp-gray-color);
+                border-radius: 44px;
+                display: flex;
+                align-items: center;
+                grid-gap: 6px;
+                width: fit-content;
+                padding: 14px 21px;
+                line-height: 1;
+                &:hover{
+                    background-color: var(--tp-theme-color);
+                    color: var(--tp-white-color);
+                }
+            }
+        }
+        &-wrap{
+            @media #{$lg}{
+                padding-left: 20px;
+            }
+            @media #{$md,$sm,$xs}{
+                padding-left: 0;
+            }
+        }
+        &-heading{
+            @media #{$lg}{
+                margin-bottom: 30px;
+            }
+            @media #{$xs,$sm}{
+                margin-bottom: 20px;
+            }
+        }
+    }
+}
+.tpcarjob{
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    padding: 47px 50px;
+    @include transition(.3s);
+    @media #{$md,$xs,$sm}{
+      padding: 20px;
+    }
+    &__title {
+        font-size: 36px;
+        @media #{$lg,$md}{
+           font-size: 30px;
+        }
+        @media #{$sm,$xs}{
+           font-size: 25px;
+        }
+        & a{
+            &:hover{
+                color: var(--tp-orange-color);
+            }
+        }
+    }
+    &__cta{
+        @media #{$md,$xs,$sm}{
+          margin-bottom: 15px;
+        }  
+       & span{
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            color: var(--tp-theme-color);
+            font-size: 17px;
+            grid-gap: 10px;
+            & svg{
+                color: var(--tp-orange-color);
+            }
+       } 
+    }
+    &__link{
+        & a{
+            display: inline-block;
+            line-height: 1;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            width: fit-content;
+            color: var(--tp-theme-color);
+            background: var(--tp-gray-color);
+            border-radius: 30px;
+            padding: 15px 24px;  
+            @media #{$sm,$xs}{
+                font-size: 15px;
+                padding: 12px 18px;
+            }
+            & svg{
+                margin-left: 5px;
+                @media #{$sm,$xs}{
+                    width: 6px;
+                }
+            } 
+        }
+    }
+    &__main{
+        @media #{$md,$xs,$sm}{
+          flex-wrap: wrap;
+          padding-top: 0;
+        }   
+    }
+    &:hover{
+        background-color: var(--tp-gray-color);
+        border-color: transparent;
+        & .tpcarjob__link{
+            & a{
+                background-color: var(--tp-secoundery-color);
+            }
+        }
+    }
+}

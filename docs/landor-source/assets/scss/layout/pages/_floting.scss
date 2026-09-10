@@ -1,0 +1,123 @@
+@use '../../utils' as *;
+
+/*----------------------------------------*/
+/*  7.3 Floting Css Here
+/*----------------------------------------*/
+
+.tp-floting{
+	&-card{
+		&-title {
+			font-size: 180px;
+			letter-spacing: -0.04em;
+			font-weight: 800;
+			@media #{$lg}{
+			  font-size: 120px;
+			  margin-bottom: 20px;
+			}
+			@media #{$md}{
+			  font-size: 100px;
+			  margin-bottom: 20px;
+			}
+			@media #{$xs,$sm}{
+			  font-size: 70px;
+			  margin-bottom: 10px;
+			}
+		}
+		&-content{
+			& p{
+				font-size: 30px;
+				letter-spacing: -0.02em;
+				line-height: 1.2;
+				width: 50%;
+				color: var(--tp-theme-color);
+				@media #{$lg}{
+				  font-size: 25px;
+				}
+				@media #{$md}{
+				  font-size: 20px;
+				}
+				@media #{$xs,$sm}{
+				  font-size: 18px;
+				  & br{
+					display: none;
+				  }
+				}
+			}
+		}
+		&-main {
+			min-height: 1080px;
+			@media #{$lg}{
+				min-height: 850px;
+			}
+			@media #{$md}{
+				min-height: 550px;
+			}
+			@media #{$xs,$sm}{
+				min-height: 680px;
+			}
+		}
+		&-img{
+			&-placeholder{
+				font-size: 18px;
+			}
+			&-item{
+				&-1{
+					left: 0;
+					bottom: 50px;
+				}
+				&-2{
+					bottom: 270px;
+					left: 26%;
+					@media #{$xl}{
+						top: 450px;
+					}
+					@media #{$lg}{
+						bottom: 40%;
+						left: 42%;
+					}
+					@media #{$md}{
+						bottom: 0;
+						left: 0;
+					}
+					@media #{$xs,$sm}{
+						bottom: 220px;
+						left: 0;
+					}
+				}
+				&-3{
+					top: 18%;
+					right: 300px;
+					@media #{$xl}{
+						top: 33%;
+						right: 240px;
+					}
+				}
+				&-4{
+					top: 24%;
+					right: 0;
+					@media #{$xs,$sm}{
+						top: auto;
+						right: 0;
+						bottom: 0;
+					}
+				}
+				&-5{
+					right: 0;
+					bottom: 0;
+				}
+			}
+		}
+		&-area{
+			padding-top: 215px;
+			padding-bottom: 150px;
+			@media #{$md}{
+				padding-top: 150px;
+				padding-bottom: 100px;
+			}
+			@media #{$xs,$sm}{
+				padding-top: 50px;
+				padding-bottom: 70px;
+			}
+		}
+	}
+}

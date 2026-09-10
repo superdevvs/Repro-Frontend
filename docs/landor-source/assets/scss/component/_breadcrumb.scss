@@ -1,0 +1,85 @@
+@use '../utils' as *;
+
+/*----------------------------------------*/
+/*  2.6 Breadcrumb Css Here
+/*----------------------------------------*/
+
+.tp-breadcrumb{
+	min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    @media #{$md}{
+        min-height: 430px;
+    }
+    @media #{$xs,$sm}{
+        min-height: 350px;
+    }
+    &-menu {
+        position: relative;
+        grid-gap: 15px;
+        @media #{$md,$xs,$sm}{
+           padding-top: 20px;
+           margin-bottom: 5px;
+        }
+        & span {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--tp-white-color);
+            @media #{$xs,$sm}{
+                font-size: 15px;
+            }
+            & a{
+                &:hover{
+                    color: var(--tp-secoundery-color);
+                }
+            }
+        }
+        &::before{
+            position: absolute;
+            content: "";
+            background-color: rgba(255, 255, 255, 0.25);
+            width: 1720px;
+            height: 1px;
+            top: 0;
+            left: -208px;
+            @media #{$x4l}{
+                width: 1600px;
+                left: -163px;
+            }
+            @media #{$x3l}{
+                width: 1500px;
+                left: -85px;
+            }
+            @media #{$xxl,$xl,$lg,$md,$sm,$xs}{
+                width: 100%;
+                left: 0;
+            }
+        }
+    }
+    &-title {
+        font-size: 80px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        @media #{$lg}{
+            font-size: 70px;
+        }
+        @media #{$md}{
+            font-size: 60px;
+        }
+        @media #{$xs,$sm}{
+            font-size: 50px;
+        }
+    }
+    &-shape {
+        left: 0;
+        bottom: 0;
+        mix-blend-mode: color-burn;
+        z-index: -1;
+        height: 100%;
+        & img{
+            height: 100%;
+        }
+    }
+}
+

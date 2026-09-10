@@ -1,0 +1,210 @@
+@use '../utils' as *;
+
+/*----------------------------------------*/
+/*  2.3 Button Css Here
+/*----------------------------------------*/
+
+.tp-btn {
+	display: flex;
+    align-items: center;
+    grid-gap: 15px;
+	background-color: var(--tp-secoundery-color);
+	font-weight: 600;
+	color: var(--tp-theme-color);
+    padding: 8px 8px 8px 25px;
+	line-height: 1;
+	border-radius: 52px;
+    width: fit-content;
+    height: 52px;
+    @media #{$md,$xs,$sm}{
+        padding: 6px 6px 6px 20px;
+        grid-gap: 5px;
+        height: 43px;
+        font-size: 15px;
+    }
+    &-icon{
+        width: 36px;
+        height: 36px;
+        display: inline-block;
+        background-color: transparent;
+        color: var(--tp-white-color);
+        text-align: center;
+        line-height: 34px;
+        border-radius: 50px;
+        position: relative;
+        &::before{
+            position: absolute;
+            content: "";
+            background-color: var(--tp-theme-color);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+            @include transition(.3s);   
+        }
+        & svg{
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            @include transition(.3s);
+            transition-delay: .1s;
+        }
+    }
+    &-border{
+        background-color: transparent;
+        border: 1px solid var(--tp-theme-color);
+        &-white{
+            border-color: var(--tp-white-color);
+            color: var(--tp-white-color);
+            & .tp-btn-icon{
+                &::before{
+                    background-color: var(--tp-white-color);
+                }
+                & svg{
+                    color: var(--tp-theme-color);
+                }
+            }
+            &:hover{
+                color: var(--tp-white-color);
+            }
+        }
+    }
+    &-white{
+        background-color: var(--tp-white-color);
+    }
+    &-submit {
+        background-color: var(--tp-white-color);
+        line-height: 1;
+        width: 100%;
+        border-radius: 56px;
+        padding: 19px;
+        font-weight: 600;
+        color: var(--tp-theme-color);
+        &:hover{
+            background-color: var(--tp-secoundery-color);
+        }
+        @media #{$xs,$sm}{
+            padding: 15px;
+        }
+        &-2 {
+            background: var(--tp-secoundery-color);
+            width: auto;
+            padding: 22px 66px;
+            &:hover{
+                background-color: var(--tp-gray-color);
+            }
+        }
+    }
+    &-black {
+        background-color: var(--tp-theme-color);
+        color: var(--tp-white-color);
+        & .tp-btn-icon{
+            &::before{
+                background-color: var(--tp-white-color);
+            }
+            & svg{
+                color: var(--tp-theme-color);
+            }
+        }
+    }
+    &-orange {
+        background-color: var(--tp-orange-color);
+        color: var(--tp-white-color);
+        & .tp-btn-icon{
+            &::before{
+                background-color: var(--tp-white-color);
+            }
+            & svg{
+                color: var(--tp-theme-color);
+            }
+        }
+        &:hover{
+            color: var(--tp-white-color);
+        }
+    }
+    &-swiper {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 54px;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        @include transition(.3s);
+        &:hover{
+            background-color: var(--tp-secoundery-color);
+            border-color: transparent;
+        }
+        &-short{
+            width: 40px;
+            height: 40px;
+            border-color: transparent;
+            background-color: var(--tp-white-color);
+            color: var(--tp-theme-color);   
+        }
+    }
+    &-circle{
+        height: 140px;
+        width: 140px;
+        background: var(--tp-theme-color);
+        @include flex-center();
+        border-radius: 140px;
+        color: var(--tp-white-color);
+        @media #{$xl}{
+           height: 110px;
+           width: 110px;
+           & svg{
+            width: 25px;
+           }
+        }
+        @media #{$lg,$md}{
+           height: 80px;
+           width: 80px;
+           & svg{
+            width: 20px;
+           }
+        }
+        @media #{$xs,$sm}{
+           height: 60px;
+           width: 60px;
+           & svg{
+            width: 15px;
+           }
+        }
+        &:hover{
+            background-color: var(--tp-secoundery-color);
+            color: var(--tp-theme-color);
+        }
+    }
+    &:hover{
+        padding: 8px 8px 8px 25px;
+        @media #{$md,$xs,$sm}{
+            padding: 6px 6px 6px 20px;
+        }
+        & .tp-btn-icon{
+            &::before{
+                width: 36px;
+                height: 36px;
+                @media #{$md,$xs,$sm}{
+                    width: 25px;
+                    height: 25px;
+                }
+            }
+            & svg{
+                opacity: 1;
+                visibility: visible;
+                position: relative;
+                z-index: 1;
+                transform: translateY(0);
+                @media #{$md,$xs,$sm}{
+                    width: 8px;
+                    height: 8px;
+                }
+            }
+        }
+    }
+}
+
+

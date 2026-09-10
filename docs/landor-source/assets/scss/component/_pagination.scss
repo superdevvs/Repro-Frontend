@@ -1,0 +1,43 @@
+@use '../utils' as *;
+
+/*----------------------------------------*/
+/*  2.4 Pagination Css Here
+/*----------------------------------------*/
+
+.tp-pagination{
+	& ul{
+		display: flex;
+		align-items: center;
+		grid-gap: 6px;
+		& li{
+			list-style: none;
+			 & a{ 
+				display: inline-block;
+				border: 1px solid rgba(0, 0, 0, 0.1);
+				border-radius: 4px;
+				font-weight: 500;
+                height: 44px;
+                min-width: 44px;
+				padding: 13px 17px;
+				line-height: 1;
+                text-align: center;
+				& svg{
+					margin-left: 5px;
+				}
+				&:hover,&.active{
+					background-color: var(--tp-secoundery-color);
+					color: var(--tp-theme-color);
+					border-color: transparent;
+				}
+			 }
+			&:first-child > {
+				& a{
+					& svg{
+						margin-left: 0;
+						margin-right: 5px;
+					}
+				}
+			}
+		}
+	}
+}
