@@ -21,6 +21,7 @@ import {
   toStringMap,
   type LooseRecord,
 } from '@/components/shoots/tabs/shootDetailsTourTabUtils';
+import { resolvePublicTourPalette } from '@/components/tourLinks/landor/landorPalettes';
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
   isAdmin: boolean;
@@ -44,6 +45,7 @@ type ManagedVideoLinkKey =
 
 type TourLinkSource = LooseRecord & {
   tour_style?: string;
+  tour_palette?: string;
   embeds?: unknown[];
   featured_embed_id?: string;
   featured_embed?: string;
@@ -206,10 +208,10 @@ export function ShootDetailsTourTab({
       sourceTourLinks?.tour_style ||
       shootTourData.tour_style ||
       'default';
-    const palette =
-      sourceTourLinks?.tour_palette ||
-      shootTourData.tour_palette ||
-      'repro';
+    const palette = resolvePublicTourPalette(
+      sourceTourLinks?.tour_palette ?? shootTourData.tour_palette,
+      null,
+    );
     const rawEmbeds = Array.isArray(sourceTourLinks?.embeds)
       ? sourceTourLinks?.embeds
       : [];
@@ -255,7 +257,7 @@ export function ShootDetailsTourTab({
         show_garage: Boolean(sourceTourLinks?.show_garage),
       },
     };
-  }, [normalizedTourLinks, shoot.id, shootTourData.tour_style, sourceTourLinks]);
+  }, [normalizedTourLinks, shoot.id, shootTourData.tour_style, shootTourData.tour_palette, sourceTourLinks]);
 
   useEffect(() => {
     setTourLinks((prev) =>
