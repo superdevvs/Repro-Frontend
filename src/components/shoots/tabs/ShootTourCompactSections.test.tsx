@@ -109,7 +109,7 @@ describe('compact Tours sections', () => {
 
     expect(section).toHaveClass('overflow-hidden', 'rounded-lg');
     expect(header).toHaveClass('min-h-[58px]');
-    expect(screen.getByText('Default · Center header · Standard')).toBeInTheDocument();
+    expect(screen.getByText('Default · Repro · Center header · Standard')).toBeInTheDocument();
     expect(screen.getByLabelText('Tour style')).toHaveClass('h-8');
     expect(screen.getByLabelText('Header position')).toHaveClass('h-8');
     expect(screen.getByLabelText('Tour version')).toHaveClass('h-8');
