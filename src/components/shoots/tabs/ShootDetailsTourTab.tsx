@@ -58,6 +58,7 @@ type TourLinkSource = LooseRecord & {
 type ShootTourCompat = ShootData & {
   tour_links?: LooseRecord;
   tour_style?: string;
+  tour_palette?: string;
   bedrooms?: string | number | null;
   bedRooms?: string | number | null;
   bathrooms?: string | number | null;

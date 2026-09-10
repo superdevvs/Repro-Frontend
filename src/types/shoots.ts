@@ -642,6 +642,7 @@ export interface ShootData {
     video_mls?: string;
     video_generic?: string;
     tour_style?: string;
+    tour_palette?: string;
     realtor_client_id?: string | number | null;
     realtor_client?: ShootRealtorClient | null;
     [key: string]: ShootTourLinkValue;
