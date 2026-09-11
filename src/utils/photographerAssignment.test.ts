@@ -7,8 +7,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAssignmentGroups,
+  buildServicePhotographerAssignments,
   photographerRequiredServices,
   requiresPerServiceAssignment,
+  resolveServicePhotographerId,
   selectedServicesRequirePhotographer,
   type AssignableService,
 } from './photographerAssignment';
@@ -130,5 +132,18 @@ describe('requiresPerServiceAssignment', () => {
       svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
       svc('gg', 'Green Grass Enhancement', 'Digital Enhancements', false),
     ])).toBe(false);
+  });
+});
+
+describe('booking photographer payloads', () => {
+  it('does not copy a photographer onto digital extras', () => {
+    const photos = svc('p', '25 HDR Photos', 'Photos', true);
+    const staging = svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false);
+
+    expect(resolveServicePhotographerId(photos, { p: '11' }, '99')).toBe('11');
+    expect(resolveServicePhotographerId(staging, { vs: '11' }, '99')).toBeNull();
+    expect(buildServicePhotographerAssignments([photos, staging], { p: '11', vs: '11' })).toEqual([
+      { service_id: 'p', photographer_id: '11' },
+    ]);
   });
 });

@@ -76,3 +76,33 @@ export function requiresPerServiceAssignment(
 ): boolean {
   return photographerRequiredServices(selectedServices).length > 1;
 }
+
+export function resolveServicePhotographerId(
+  service: Pick<AssignableService, 'id' | 'photographer_required'>,
+  servicePhotographers: Record<string, string> | null | undefined,
+  photographer?: string | null,
+): string | null {
+  if (!serviceRequiresPhotographer(service)) {
+    return null;
+  }
+
+  return servicePhotographers?.[service.id] || photographer || null;
+}
+
+export function buildServicePhotographerAssignments(
+  selectedServices: ReadonlyArray<Pick<AssignableService, 'id' | 'photographer_required'>>,
+  servicePhotographers: Record<string, string> | null | undefined,
+): Array<{ service_id: string; photographer_id: string }> | undefined {
+  const assignments = Object.entries(servicePhotographers ?? {})
+    .filter(([serviceId, photographerId]) => {
+      if (!photographerId) return false;
+      const service = selectedServices.find((item) => String(item.id) === String(serviceId));
+      return Boolean(service) && serviceRequiresPhotographer(service);
+    })
+    .map(([serviceId, photographerId]) => ({
+      service_id: serviceId,
+      photographer_id: photographerId,
+    }));
+
+  return assignments.length > 0 ? assignments : undefined;
+}
