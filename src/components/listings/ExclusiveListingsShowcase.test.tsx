@@ -249,7 +249,7 @@ describe('ExclusiveListingsShowcase', () => {
   it('keeps the selected property inspector visible in compact map mode', async () => {
     render(<ControlledShowcase listings={[listingA, listingB]} />)
     await screen.findByTestId('pin-A')
-    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('lg:top-4', 'lg:right-4')
     expect(screen.getByText('Featured Listing')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Browse listings (2)' })).not.toBeInTheDocument()
   })

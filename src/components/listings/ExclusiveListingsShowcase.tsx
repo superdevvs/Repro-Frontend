@@ -569,7 +569,7 @@ export function ExclusiveListingsShowcase({
         {inspectorOpen ? 'Close listings' : `Browse listings (${listings.length})`}
       </Button>}
       {(inspectorOpen || !compactMode || !hasListings || !hasMappedListings) && <aside id="exclusive-listing-browser"
-        className="absolute inset-x-3 bottom-16 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-24 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
+        className="absolute inset-x-3 bottom-16 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
         data-testid="listing-inspector-overlay"
         data-map-overlay="inspector"
       >
