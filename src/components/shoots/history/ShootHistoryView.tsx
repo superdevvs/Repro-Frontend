@@ -102,6 +102,8 @@ export type ShootHistoryViewProps = {
   setIsBulkActionsOpen: React.Dispatch<React.SetStateAction<boolean>>
   viewMode: 'grid' | 'list' | 'map'
   setViewMode: React.Dispatch<React.SetStateAction<'grid' | 'list' | 'map'>>
+  gridColumns: 3 | 4
+  setGridColumns: React.Dispatch<React.SetStateAction<3 | 4>>
   historyFilters: HistoryFiltersState
   setHistoryFilters: React.Dispatch<React.SetStateAction<HistoryFiltersState>>
   operationalFiltersOpen: boolean
@@ -388,6 +390,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     setIsBulkActionsOpen,
     viewMode,
     setViewMode,
+    gridColumns,
+    setGridColumns,
     historyFilters,
     setHistoryFilters,
     operationalFiltersOpen,
@@ -430,6 +434,14 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
+  const selectGrid = (columns: 3 | 4) => {
+    setGridColumns(columns)
+    if (activeTab === 'history') {
+      setHistoryFilters((prev) => ({ ...prev, viewAs: 'grid' }))
+    } else {
+      setViewMode('grid')
+    }
+  }
   const hasOperationalFiltersApplied =
     operationalServicesSelected ||
     Boolean(operationalFilters.search) ||
@@ -448,7 +460,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Shoot History</h1>
@@ -470,7 +482,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="sm:hidden w-52">
-              <DropdownMenuItem onClick={() => (activeTab === 'history' ? setHistoryFilters((prev) => ({ ...prev, viewAs: 'grid' })) : setViewMode('grid'))}>
+              <DropdownMenuItem onClick={() => selectGrid(4)}>
                 <Grid3X3 className="mr-2 h-4 w-4" />
                 Grid view
               </DropdownMenuItem>
@@ -528,7 +540,20 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                 setViewMode(value as 'grid' | 'list' | 'map')
               }}
             >
-              <ToggleGroupItem value="grid" aria-label="Grid view">
+              <ToggleGroupItem
+                value="grid"
+                aria-label="Grid view"
+                aria-description={gridColumns === 3 ? 'Compact grid. Click to restore four columns.' : 'Double-click or press Shift+Enter for a compact three-column grid.'}
+                title={gridColumns === 3 ? 'Click for 4 cards per row' : 'Double-click for 3 cards per row · Shift+Enter'}
+                onClick={() => selectGrid(4)}
+                onDoubleClick={() => selectGrid(3)}
+                onKeyDown={(event) => {
+                  if (event.shiftKey && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault()
+                    selectGrid(3)
+                  }
+                }}
+              >
                 <Grid3X3 className="h-4 w-4" />
               </ToggleGroupItem>
               <ToggleGroupItem value="list" aria-label="List view">

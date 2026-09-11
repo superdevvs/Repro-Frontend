@@ -56,6 +56,8 @@ export interface GoogleInfoWindowOptions {
 }
 
 interface GoogleMarkerOptions {
+  clickable?: boolean
+  visible?: boolean
   icon?: string
   map: GoogleMapInstance
   optimized?: boolean
@@ -64,6 +66,15 @@ interface GoogleMarkerOptions {
 }
 
 export interface GoogleMapsApi {
+  LatLng: new (lat: number, lng: number) => object
+  OverlayView: new () => {
+    onAdd: () => void
+    draw: () => void
+    onRemove: () => void
+    setMap: (map: GoogleMapInstance | null) => void
+    getPanes: () => { overlayMouseTarget: HTMLElement } | null
+    getProjection: () => { fromLatLngToDivPixel: (position: object) => { x: number; y: number } | null }
+  }
   InfoWindow: new (options?: GoogleInfoWindowOptions) => GoogleInfoWindowInstance
   LatLngBounds: new () => GoogleLatLngBounds
   Map: new (element: HTMLElement, options: GoogleMapOptions) => GoogleMapInstance

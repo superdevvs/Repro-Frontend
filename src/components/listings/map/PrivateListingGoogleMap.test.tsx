@@ -121,7 +121,17 @@ const createMapsApi = (): GoogleMapsApi => {
     extend() {}
   }
 
+  class OverlayView {
+    onAdd = () => {}
+    onRemove = () => {}
+    draw = () => {}
+    setMap(map: object | null) { if (map) { this.onAdd(); this.draw() } else this.onRemove() }
+    getPanes() { return { overlayMouseTarget: document.body } }
+    getProjection() { return { fromLatLngToDivPixel: () => ({ x: 100, y: 100 }) } }
+  }
   return {
+    OverlayView,
+    LatLng: class { constructor(public lat: number, public lng: number) {} },
     InfoWindow: InfoWindowInstance,
     LatLngBounds,
     Map: MapInstance,
@@ -133,7 +143,7 @@ const createMapsApi = (): GoogleMapsApi => {
         return { remove: () => { record.removed = true } }
       },
       clearInstanceListeners: () => undefined,
-      trigger: () => undefined,
+      trigger: (instance: object, name: string) => markerRecords[markerInstances.indexOf(instance)]?.handlers.get(name)?.(),
     },
   } as unknown as GoogleMapsApi
 }
@@ -218,9 +228,12 @@ describe('PrivateListingGoogleMap', () => {
     })).toBeInTheDocument()
     expect(markerRecords).toHaveLength(1)
     expect(markerRecords[0].options.position).toEqual({ lat: 30.2672, lng: -97.7431 })
-    expect(markerRecords[0].options.icon).toContain('data:image/svg+xml')
+    expect(markerRecords[0].options).toEqual(expect.objectContaining({ visible: false, clickable: false }))
+    expect((await screen.findByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' })).querySelector('img')).not.toBeNull()
     expect(fitBoundsCalls).toHaveLength(1)
-    expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 372, bottom: 64, left: 64 })
+    expect(fitBoundsCalls[0][1]).toEqual({ top: 120, right: 64, bottom: 80, left: 64 })
+    expect(screen.queryByRole('region', { name: 'Selected listing 100 Congress Avenue' })).not.toBeInTheDocument()
+    act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
 
     const selectedPreview = await screen.findByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
@@ -238,19 +251,18 @@ describe('PrivateListingGoogleMap', () => {
     expect(infoWindowRecords[1].content as HTMLElement).toHaveClass('repro-google-map-popup')
     expect(infoWindowRecords[1].openCalls).toHaveLength(1)
     expect(infoWindowRecords[1].openCalls[0]).toEqual(expect.objectContaining({
-      anchor: markerInstances[0],
+      anchor: markerInstances.at(-1),
       shouldFocus: false,
     }))
     expect(setCenterCalls.at(-1)).toEqual({ lat: 30.2672, lng: -97.7431 })
-    const selectedImageShell = within(selectedPreview).getByRole('img').parentElement
-    expect(selectedImageShell).toHaveClass('h-12', 'lg:h-28')
+    expect(within(selectedPreview).queryByRole('img')).not.toBeInTheDocument()
 
     act(() => screen.getByRole('button', { name: 'Close selected listing preview' }).click())
     await waitFor(() => expect(screen.queryByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
     })).not.toBeInTheDocument())
 
-    act(() => markerRecords[0].handlers.get('click')?.())
+    act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
     expect(await screen.findByRole('region', {
       name: 'Selected listing 100 Congress Avenue',
     })).toBeInTheDocument()
@@ -261,6 +273,8 @@ describe('PrivateListingGoogleMap', () => {
     expect(setZoomCalls).toEqual([13, 11])
 
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+    expect(markerRecords).toHaveLength(1)
+    expect(infoWindowRecords[1].openCalls[0].anchor).toBe(markerInstances[0])
   })
 
   it('moves the initially selected preview below the measured toolbar safe area', async () => {
@@ -305,6 +319,8 @@ describe('PrivateListingGoogleMap', () => {
       'listing-1',
     )
 
+    await waitFor(() => expect(markerRecords.length).toBeGreaterThan(0))
+    act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
     await screen.findByRole('region', { name: 'Selected listing 100 Congress Avenue' })
     expect(panByCalls).toHaveLength(0)
     const popupReady = oneTimeListenerRecords.find(
@@ -352,6 +368,8 @@ describe('PrivateListingGoogleMap', () => {
       />,
     )
 
+    await waitFor(() => expect(markerRecords.length).toBeGreaterThan(0))
+    act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
     await screen.findByRole('region', { name: 'Selected listing 100 Congress Avenue' })
     const selectedInfoWindow = infoWindowRecords[1]
     await waitFor(() => expect(selectedInfoWindow.openCalls).toHaveLength(1))
@@ -390,10 +408,7 @@ describe('PrivateListingGoogleMap', () => {
       anchor: markerInstances[hoveredMarkerIndex],
       shouldFocus: false,
     }))
-    expect(infoWindowRecords[1].openCalls).toHaveLength(1)
-    expect(infoWindowRecords[1].openCalls[0].anchor).not.toBe(
-      infoWindowRecords[0].openCalls[0].anchor,
-    )
+    expect(infoWindowRecords[1].openCalls).toHaveLength(0)
   })
 
   it('disables obscured Google controls and hides business POIs in both themes', async () => {

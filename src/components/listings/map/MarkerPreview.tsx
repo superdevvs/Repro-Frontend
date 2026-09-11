@@ -41,6 +41,8 @@ export interface MarkerPreviewProps {
   className?: string
   /** Use a shorter image/content stack below the desktop map breakpoint. */
   responsiveCompact?: boolean
+  compact?: boolean
+  onLayout?: () => void
 }
 
 /**
@@ -57,7 +59,10 @@ export function MarkerPreview({
   onSelectListing,
   className,
   responsiveCompact = false,
+  compact = false,
+  onLayout,
 }: MarkerPreviewProps) {
+  React.useLayoutEffect(() => { onLayout?.() }, [listing, onLayout])
   const imageUrl = resolveCardImage(listing.heroImage, resolveImageUrl, DEFAULT_PLACEHOLDER_IMAGE)
   const price = priceDisplay(listing.price, formatPrice)
   const locationLine = formatLocationLine(listing)
@@ -74,6 +79,23 @@ export function MarkerPreview({
       (currentIndex + offset + locationListings.length) % locationListings.length
     onSelectListing?.(locationListings[nextIndex].id)
   }
+
+  if (compact) return (
+    <div className={cn('w-60 rounded-lg border border-border bg-card p-3 text-card-foreground shadow-lg', className)}>
+      <p className="pr-6 text-sm font-semibold leading-snug">{address}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{locationLine}</p>
+      <p className="mt-2 inline-block rounded bg-blue-600 px-2 py-1 text-sm font-semibold text-white">{price}</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {[listing.bedrooms ? `${listing.bedrooms} beds` : '', listing.bathrooms ? `${listing.bathrooms} baths` : '', listing.sqft ? `${listing.sqft.toLocaleString()} sq ft` : ''].filter(Boolean).join(' · ')}
+      </p>
+      {hasMultipleShoots && <div className="mt-2 flex items-center justify-between">
+        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Previous shoot at this location" onClick={() => selectOffset(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <span className="text-xs">{currentIndex + 1} of {locationListings.length} shoots</span>
+        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Next shoot at this location" onClick={() => selectOffset(1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>}
+      <Button size="sm" variant="link" className="mt-1 h-auto p-0 text-xs" onClick={() => onOpenListing?.(listing)}>View Details <ExternalLink className="ml-1 h-3 w-3" /></Button>
+    </div>
+  )
 
   return (
     <Card

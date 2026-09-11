@@ -169,6 +169,7 @@ export const HoldOnShootCard = ({
   onSendToEditing,
   shouldHideClientDetails = false,
   viewerRole,
+  compact = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -183,6 +184,7 @@ export const HoldOnShootCard = ({
   onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
   viewerRole?: string
+  compact?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -224,8 +226,8 @@ export const HoldOnShootCard = ({
       className="cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-lg transition-all bg-card/50 backdrop-blur-sm group"
       onClick={() => onSelect(shoot)}
     >
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-4 mb-4">
+      <div className={compact ? 'p-4' : 'p-5'}>
+        <div className={cn('flex items-start justify-between gap-4', compact ? 'mb-3' : 'mb-4')}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Badge className={cn(holdStatusConfig.bgColor, holdStatusConfig.color)}>

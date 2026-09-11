@@ -17,6 +17,7 @@ import { ShootMapView } from '@/components/shoots/history/ShootHistoryMapView'
 import { useShootHistoryFilters } from '@/hooks/useShootHistoryFilters'
 import { useShootHistoryData } from '@/hooks/useShootHistoryData'
 import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
+import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
@@ -335,11 +336,9 @@ const ShootHistory: React.FC = () => {
     }
   }, [refreshActiveTabData, searchParams, setSearchParams, toast])
 
-  // Compute masonry column count from actual container width (accounts for sidebar)
-  const getMasonryCols = () => {
-    const cw = gridContainerRef.current?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 1024)
-    return cw <= 479 ? 1 : cw <= 719 ? 2 : cw <= 960 ? 3 : 4
-  }
+  const [gridColumns, setGridColumns] = useState<3 | 4>(4)
+  const masonryColumnCount = useShootHistoryGridColumns(gridContainerRef, gridColumns)
+  const compactGrid = gridColumns === 3 && masonryColumnCount === 3
 
   // Filter operational data based on sub-tabs
   const filteredOperationalData = useMemo(() => {
@@ -587,7 +586,7 @@ const ShootHistory: React.FC = () => {
         return dateB - dateA
       })
       // Distribute items round-robin into columns for masonry with correct L-R order
-      const numCols = getMasonryCols()
+      const numCols = masonryColumnCount
       const columns: ShootData[][] = Array.from({ length: numCols }, () => [])
       sortedData.forEach((shoot, i) => columns[i % numCols].push(shoot))
 
@@ -597,6 +596,7 @@ const ShootHistory: React.FC = () => {
             <div key={colIdx} className="masonry-grid-col">
               {colItems.map((shoot) => (
                 <SharedShootCard
+                  compact={compactGrid}
                   key={shoot.id}
                   shoot={shoot}
                   role={role}
@@ -647,7 +647,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -705,7 +705,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = getMasonryCols()
+      const numCols = masonryColumnCount
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
       filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
@@ -715,6 +715,7 @@ const ShootHistory: React.FC = () => {
             <div key={colIdx} className="masonry-grid-col">
               {colItems.map((shoot) => (
                 <CompletedAlbumCard
+                  compact={compactGrid}
                   key={shoot.id}
                   shoot={shoot}
                   onSelect={handleShootSelect}
@@ -769,7 +770,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -800,7 +801,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = getMasonryCols()
+      const numCols = masonryColumnCount
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
       filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
@@ -809,7 +810,8 @@ const ShootHistory: React.FC = () => {
           {cols.map((colItems, colIdx) => (
             <div key={colIdx} className="masonry-grid-col">
               {colItems.map((shoot) => (
-                <HoldOnShootCard 
+                <HoldOnShootCard
+                  compact={compactGrid}
                   key={shoot.id} 
                   shoot={shoot} 
                   onSelect={handleShootSelect}
@@ -858,7 +860,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   const featuredContent = useMemo(() => {
     if (loading && activeTab === 'featured') {
@@ -876,7 +878,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = getMasonryCols()
+      const numCols = masonryColumnCount
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
       filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
@@ -886,6 +888,7 @@ const ShootHistory: React.FC = () => {
             <div key={colIdx} className="masonry-grid-col">
               {colItems.map((shoot) => (
                 <CompletedAlbumCard
+                  compact={compactGrid}
                   key={shoot.id}
                   shoot={shoot}
                   onSelect={handleShootSelect}
@@ -942,7 +945,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -999,7 +1002,7 @@ const ShootHistory: React.FC = () => {
     const paginatedRecords = historyRecords
 
     if (historyFilters.viewAs === 'grid') {
-      const numCols = getMasonryCols()
+      const numCols = masonryColumnCount
       const histCols: ShootHistoryRecord[][] = Array.from({ length: numCols }, () => [])
       paginatedRecords.forEach((record, i) => histCols[i % numCols].push(record))
 
@@ -1088,7 +1091,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
+  }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
 
   const {
     operationalServicesSelected,
@@ -1120,6 +1123,8 @@ const ShootHistory: React.FC = () => {
           setIsBulkActionsOpen={setIsBulkActionsOpen}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          gridColumns={gridColumns}
+          setGridColumns={setGridColumns}
           historyFilters={historyFilters}
           setHistoryFilters={setHistoryFilters}
           operationalFiltersOpen={operationalFiltersOpen}

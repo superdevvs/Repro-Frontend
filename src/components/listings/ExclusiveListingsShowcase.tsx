@@ -11,7 +11,7 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, List, X, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -84,6 +84,7 @@ export interface ShowcaseListing {
  */
 interface ExclusiveListingsShowcaseProps {
   listings: ShowcaseListing[]
+  compactMode?: boolean
   resolveImageUrl: (value: string | null | undefined) => string | null
   formatPrice: (price: number | undefined | null) => string
   onOpenListing: (listing: ShowcaseListing) => void
@@ -98,6 +99,7 @@ export const hasCoords = (l: ShowcaseListing): boolean =>
 
 interface ListingMapCanvasProps {
   listings: ShowcaseListing[]
+  compactMode?: boolean
   selectedListingId: string | null
   onSelectListing: (id: string) => void
   showMarkerLabels: boolean
@@ -150,6 +152,7 @@ const LazyListingMapCanvas = lazy(() =>
 
     const ListingMapCanvas: ComponentType<ListingMapCanvasProps> = ({
       listings,
+      compactMode = true,
       selectedListingId,
       onSelectListing,
       showMarkerLabels,
@@ -166,28 +169,19 @@ const LazyListingMapCanvas = lazy(() =>
 
       const markers = useMemo(() => buildMarkers(listings), [listings])
       const center = useMemo(
-        () => getMapCenter(markers, selectedListingId),
-        [markers, selectedListingId],
+        (): [number, number] => {
+          const point = getMapCenter(markers, null)
+          return [point.lng, point.lat]
+        },
+        [markers],
       )
       const zoom = markers.length > 1 ? 10 : 13
 
-      // The listing panel overlays the map: a 340px rail on the right from `lg`
-      // up, and a bottom sheet taking ~42% of the height below that. Fitting has
-      // to reserve that space, otherwise a pin lands under the panel or gets
-      // pushed toward the edge, which reads as "the listing is in the outer area".
-      const getFitPadding = useCallback(() => {
-        if (typeof window === 'undefined') return 64
-        const isDesktop = window.innerWidth >= 1024
-        if (isDesktop) {
-          return { top: 80, right: 372, bottom: 64, left: 64 }
-        }
-        return {
-          top: 72,
-          right: 32,
-          bottom: Math.round(window.innerHeight * 0.42) + 24,
-          left: 32,
-        }
-      }, [])
+      const getFitPadding = useCallback(() => compactMode
+        ? { top: 120, right: 64, bottom: 80, left: 64 }
+        : window.innerWidth >= 1024
+          ? { top: 80, right: 372, bottom: 64, left: 64 }
+          : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }, [compactMode])
 
       // Recenter on the loaded mapped listings (R8.2).
       const handleRecenter = useCallback(() => {
@@ -195,6 +189,17 @@ const LazyListingMapCanvas = lazy(() =>
         if (coords.length === 0) return
         mapRef.current?.recenter(coords, { padding: getFitPadding() })
       }, [getFitPadding, markers])
+
+      useEffect(() => {
+        if (!canvasRef.current || typeof ResizeObserver === 'undefined') return
+        let frame = 0
+        const observer = new ResizeObserver(() => {
+          cancelAnimationFrame(frame)
+          frame = requestAnimationFrame(handleRecenter)
+        })
+        observer.observe(canvasRef.current)
+        return () => { cancelAnimationFrame(frame); observer.disconnect() }
+      }, [handleRecenter])
 
       // Fit all currently displayed locations after the map has initialized and
       // whenever background geocoding, search, or filters change the pin set.
@@ -250,7 +255,7 @@ const LazyListingMapCanvas = lazy(() =>
         <div ref={canvasRef} className="relative h-full w-full bg-background">
           <Map
             ref={mapRef}
-            center={[center.lng, center.lat]}
+            center={center}
             zoom={zoom}
             theme={theme}
             showMarkerLabels={showMarkerLabels}
@@ -259,11 +264,12 @@ const LazyListingMapCanvas = lazy(() =>
             <MapControls
               position="bottom-left"
               showZoom
-              className="!bottom-[45%] !left-3 rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:!bottom-4 lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:border-slate-300/80 [&_button]:bg-white/76 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:border-white/10 dark:[&_button]:bg-slate-950/55"
+              className="!bottom-4 !left-3 rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:!bottom-4 lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:border-slate-300/80 [&_button]:bg-white/76 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:border-white/10 dark:[&_button]:bg-slate-950/55"
             />
             {/* Custom pins + hover/selected previews; shared selection (R10). */}
             <CustomPinMarkers
               listings={listings}
+              compactMode={compactMode}
               selectedListingId={selectedListingId}
               onSelectListing={onSelectListing}
               showLabels={showMarkerLabels}
@@ -319,6 +325,7 @@ export function ExclusiveListingsShowcase({
   onSelectListing: onSelectListingProp,
   showMarkerLabels: showMarkerLabelsProp,
   controlsOverlay,
+  compactMode = true,
 }: ExclusiveListingsShowcaseProps) {
   const { theme } = useTheme()
   const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '').trim()
@@ -389,6 +396,7 @@ export function ExclusiveListingsShowcase({
     () => listings.filter(hasCoords).length,
     [listings],
   )
+  const [inspectorOpen, setInspectorOpen] = useState(!compactMode)
   const hasListings = listings.length > 0
   const hasMappedListings = mappedListingCount > 0
   const selectedListing = useMemo(
@@ -481,6 +489,7 @@ export function ExclusiveListingsShowcase({
             <LazyPrivateListingGoogleMap
               apiKey={googleMapsApiKey}
               listings={listings}
+              compactMode={compactMode}
               selectedListingId={selectedListingId}
               onSelectListing={handleSelectListing}
               showMarkerLabels={showMarkerLabels}
@@ -495,6 +504,7 @@ export function ExclusiveListingsShowcase({
         ) : (
           <LazyListingMapCanvas
             listings={listings}
+            compactMode={compactMode}
             selectedListingId={selectedListingId}
             onSelectListing={handleSelectListing}
             showMarkerLabels={showMarkerLabels}
@@ -509,7 +519,7 @@ export function ExclusiveListingsShowcase({
 
       {googleMapError && googleMapsApiKey ? (
         <div
-          className="absolute bottom-4 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-300/70 bg-background/95 px-3 py-2 text-xs shadow-lg backdrop-blur"
+          className="absolute bottom-16 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-300/70 bg-background/95 px-3 py-2 text-xs shadow-lg backdrop-blur lg:bottom-4"
           role="status"
           aria-live="polite"
         >
@@ -527,7 +537,7 @@ export function ExclusiveListingsShowcase({
 
       {controlsOverlay ? (
         <div
-          className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:right-[332px] lg:top-4 2xl:right-[372px]"
+          className={`pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:top-4 ${compactMode ? 'lg:right-4' : 'lg:right-[332px] 2xl:right-[372px]'}`}
           data-testid="map-controls-overlay"
           data-map-overlay="controls"
         >
@@ -535,8 +545,16 @@ export function ExclusiveListingsShowcase({
         </div>
       ) : null}
 
-      <aside
-        className="absolute inset-x-3 bottom-3 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:inset-y-4 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
+      {compactMode && <Button
+        type="button" variant="secondary" size="sm"
+        className="absolute bottom-4 right-4 z-30 gap-2 shadow-lg"
+        aria-expanded={inspectorOpen} aria-controls="exclusive-listing-browser"
+        onClick={() => setInspectorOpen((open) => !open)}>
+        {inspectorOpen ? <X className="h-4 w-4" /> : <List className="h-4 w-4" />}
+        {inspectorOpen ? 'Close listings' : `Browse listings (${listings.length})`}
+      </Button>}
+      {(inspectorOpen || !hasListings || !hasMappedListings) && <aside id="exclusive-listing-browser"
+        className="absolute inset-x-3 bottom-16 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-24 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
         data-testid="listing-inspector-overlay"
         data-map-overlay="inspector"
       >
@@ -638,7 +656,7 @@ export function ExclusiveListingsShowcase({
             )}
           </div>
         </ScrollArea>
-      </aside>
+      </aside>}
     </section>
   )
 }

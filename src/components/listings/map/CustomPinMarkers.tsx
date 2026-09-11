@@ -1,21 +1,4 @@
-// Custom pin markers for the Exclusive Listings Map Tab.
-//
-// `CustomPinMarkers` replaces the old `ListingPillMarkers`. For each mapped
-// listing it renders a custom teardrop/location-pin SVG (NOT a rounded pill)
-// as a Leaflet marker, with:
-//   - an optional price/short label chip attached to the pin (R10.2)
-//   - a hover `MarkerPreview` popup summarizing the listing (R10.3)
-//   - a click that selects the listing via `onSelectListing` (R10.4)
-//   - a recolored + enlarged pin for the selected listing relative to the
-//     unselected pins (R10.6)
-//   - a `MarkerPreview` popup opened for the currently selected listing (R10.8)
-//
-// It imperatively manages Leaflet markers/popups (rendering React into each
-// via `createRoot`) and therefore returns `null`. It MUST be used inside a
-// `<Map>` because it consumes `useMap()`.
-//
-// Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.6
-
+// Photo markers and on-demand listing details for the fallback map.
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import {
@@ -26,7 +9,10 @@ import {
   type Popup as LeafletPopup,
 } from 'leaflet'
 
-import { cn } from '@/lib/utils'
+import { StandardListingPin } from './StandardListingPinMarker'
+import { ListingPhotoMarker } from './ListingPhotoMarker'
+import { resolveCardImage } from '@/lib/listing-presentation/card'
+import './listingPhotoMarkers.css'
 import { useMap, useShowMarkerLabels } from '@/components/ui/map'
 import {
   buildMarkerLocationGroups,
@@ -37,6 +23,7 @@ import { type ShowcaseListing } from '@/components/listings/ExclusiveListingsSho
 
 export interface CustomPinMarkersProps {
   /** The listings to map; one pin is rendered per mapped listing (R10.1). */
+  compactMode?: boolean
   listings: ShowcaseListing[]
   /** The currently selected listing id, shared across map + sidebar. */
   selectedListingId: string | null
@@ -55,81 +42,6 @@ export interface CustomPinMarkersProps {
   formatPrice: (price: number | undefined | null) => string
   /** Optional call-to-action invoked from a preview's "View Details" action. */
   onOpenListing?: (listing: ShowcaseListing) => void
-}
-
-// Brand colors (consistent with the previous ListingPillMarkers component).
-const SELECTED_COLOR = '#d74432' // brand red for the selected pin (R10.6)
-const UNSELECTED_COLOR_LIGHT = '#1f5aa6' // brand blue (light theme)
-const UNSELECTED_COLOR_DARK = '#3b82f6' // brand blue (dark theme)
-
-// Pin sizes (px). The selected pin is enlarged relative to the others (R10.6).
-const PIN_SIZE_UNSELECTED = 34
-const PIN_SIZE_SELECTED = 46
-
-interface CustomPinProps {
-  label: string
-  showLabel: boolean
-  selected: boolean
-  color: string
-  count: number
-  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
-}
-
-/**
- * Presentational custom pin: a teardrop/location-pin SVG with an optional label
- * chip above it. Rendered imperatively into each Leaflet marker element.
- */
-function CustomPin({ label, showLabel, selected, color, count, onClick }: CustomPinProps) {
-  const size = selected ? PIN_SIZE_SELECTED : PIN_SIZE_UNSELECTED
-
-  return (
-    <div className="flex select-none flex-col items-center" style={{ pointerEvents: 'auto' }}>
-      {showLabel && (
-        <span
-          className="mb-1 max-w-[140px] truncate rounded-full px-2 py-0.5 text-[11px] font-semibold text-white shadow-md"
-          style={{ backgroundColor: color }}
-        >
-          {label}
-        </span>
-      )}
-      <button
-        type="button"
-        aria-label={`Select ${label}`}
-        aria-pressed={selected}
-        onClick={onClick}
-        className={cn(
-          'group relative block cursor-pointer border-0 bg-transparent p-0 leading-none outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:-translate-y-0.5',
-        )}
-      >
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          style={{
-            filter: 'drop-shadow(0 6px 10px rgba(15, 23, 42, 0.35))',
-            display: 'block',
-          }}
-        >
-          {/* Teardrop / location-pin body */}
-          <path
-            d="M12 1.5c-4.14 0-7.5 3.36-7.5 7.5 0 5.34 6.43 12.31 6.71 12.6a1.08 1.08 0 0 0 1.58 0c.28-.29 6.71-7.26 6.71-12.6 0-4.14-3.36-7.5-7.5-7.5Z"
-            fill={color}
-            stroke="#ffffff"
-            strokeWidth={1.5}
-          />
-          {/* Inner dot */}
-          <circle cx="12" cy="9" r="3" fill="#ffffff" />
-        </svg>
-        {count > 1 ? (
-          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-blue-600 px-1 text-[10px] font-bold leading-none text-white shadow-md">
-            {count}
-          </span>
-        ) : null}
-      </button>
-    </div>
-  )
 }
 
 interface PopupHandle {
@@ -167,6 +79,7 @@ function scheduleUnmount(root: Root) {
  */
 export function CustomPinMarkers({
   listings,
+  compactMode = true,
   selectedListingId,
   onSelectListing,
   showLabels,
@@ -211,7 +124,24 @@ export function CustomPinMarkers({
 
   const markerEntriesRef = React.useRef<MarkerEntry[]>([])
   const hoverPopupRef = React.useRef<PopupHandle | null>(null)
+  const [previewRequested, setPreviewRequested] = React.useState(compactMode ? 0 : 1)
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout>>()
+  const cancelClose = React.useCallback(() => { clearTimeout(closeTimerRef.current) }, [])
   const selectedPopupRef = React.useRef<PopupHandle | null>(null)
+
+  const updatePopup = React.useCallback((handle: PopupHandle) => {
+    const rect = handle.container.getBoundingClientRect()
+    if (rect.height > 0 && map) {
+      const point = map.latLngToContainerPoint(handle.popup.getLatLng())
+      const size = map.getSize()
+      const left = Math.max(16, Math.min(point.x - rect.width / 2, size.x - rect.width - 16))
+      const top = Math.max(120, Math.min(point.y - 74 - rect.height, size.y - rect.height - 24))
+      // Keep details inside the viewport without moving the photo out from
+      // underneath the pointer, which would dismiss a hover preview.
+      handle.popup.options.offset = [left + rect.width / 2 - point.x, top + rect.height - point.y]
+    }
+    handle.popup.update()
+  }, [map])
 
   const openHoverPopup = React.useCallback(
     (
@@ -219,28 +149,34 @@ export function CustomPinMarkers({
       relatedListings: ShowcaseListing[],
       lngLat: [number, number],
     ) => {
+      cancelClose()
       const handle = hoverPopupRef.current
       if (!handle || !map) return
       const { resolveImageUrl: resolve, formatPrice: format, onOpenListing: open } =
         latestRef.current
       handle.root.render(
-        <MarkerPreview
+        <MarkerPreview compact={compactMode}
+          onLayout={() => updatePopup(handle)}
           listing={listing}
           resolveImageUrl={resolve}
           formatPrice={format}
           onOpenListing={open}
           relatedListings={relatedListings}
-          onSelectListing={latestRef.current.onSelectListing}
+          onSelectListing={(id) => {
+            setPreviewRequested((version) => version + 1)
+            latestRef.current.onSelectListing(id)
+          }}
         />,
       )
       handle.popup.setLatLng([lngLat[1], lngLat[0]]).openOn(map)
     },
-    [map],
+    [map, cancelClose, updatePopup, compactMode],
   )
 
   const closeHoverPopup = React.useCallback(() => {
-    hoverPopupRef.current?.popup.remove()
-  }, [])
+    cancelClose()
+    closeTimerRef.current = setTimeout(() => hoverPopupRef.current?.popup.remove(), 200)
+  }, [cancelClose])
 
   // Create the two shared popups (hover + selected) once per map instance.
   React.useEffect(() => {
@@ -250,11 +186,15 @@ export function CustomPinMarkers({
       const container = document.createElement('div')
       const root = createRoot(container)
       const popup = createLeafletPopup({
-        offset: [0, -28],
+        offset: [0, compactMode ? -74 : -28],
         closeButton,
-        closeOnClick: false,
+        closeOnClick: true,
+        autoPan: false,
+        autoPanPaddingTopLeft: [16, 120],
+        autoPanPaddingBottomRight: [16, 24],
         className: 'listing-marker-popup',
-        maxWidth: 600,
+        minWidth: compactMode ? 240 : 256,
+        maxWidth: compactMode ? 240 : 320,
       })
       popup.setContent(container)
       return { popup, container, root }
@@ -262,10 +202,15 @@ export function CustomPinMarkers({
 
     const hover = makePopup(false)
     const selected = makePopup(true)
+    hover.container.addEventListener("mouseenter", cancelClose)
+    hover.container.addEventListener("mouseleave", closeHoverPopup)
+    hover.container.addEventListener("focusin", cancelClose)
+    hover.container.addEventListener("focusout", closeHoverPopup)
     hoverPopupRef.current = hover
     selectedPopupRef.current = selected
 
     return () => {
+      cancelClose()
       hover.popup.remove()
       selected.popup.remove()
       scheduleUnmount(hover.root)
@@ -273,22 +218,19 @@ export function CustomPinMarkers({
       hoverPopupRef.current = null
       selectedPopupRef.current = null
     }
-  }, [map])
+  }, [map, cancelClose, closeHoverPopup, compactMode])
 
   // Render / re-render the pins whenever the marker set, selection, or label
   // visibility changes.
   React.useEffect(() => {
     if (!map) return
 
-    const isDark =
-      typeof document !== 'undefined' &&
-      document.documentElement.classList.contains('dark')
-    const unselectedColor = isDark ? UNSELECTED_COLOR_DARK : UNSELECTED_COLOR_LIGHT
-
     const clearEntries = () => {
       markerEntriesRef.current.forEach(({ marker, root, element, handleEnter, handleLeave }) => {
         element.removeEventListener('mouseenter', handleEnter)
         element.removeEventListener('mouseleave', handleLeave)
+        element.removeEventListener('focusin', handleEnter)
+        element.removeEventListener('focusout', handleLeave)
         marker.remove()
         scheduleUnmount(root)
       })
@@ -302,7 +244,6 @@ export function CustomPinMarkers({
         group.listings.find((listing) => listing.id === selectedListingId) ??
         group.listings[0]
       const selected = group.listings.some((listing) => listing.id === selectedListingId)
-      const color = selected ? SELECTED_COLOR : unselectedColor
       const lngLat: [number, number] = [group.coords.lng, group.coords.lat]
       const label = markerLabel(selectedListing)
 
@@ -311,23 +252,29 @@ export function CustomPinMarkers({
       element.style.zIndex = selected ? '30' : '10'
 
       const root = createRoot(element)
-      root.render(
-        <CustomPin
-          label={label}
-          showLabel={showLabelsResolved}
-          selected={selected}
-          color={color}
-          count={group.listings.length}
-          onClick={(event) => {
-            event.stopPropagation()
-            latestRef.current.onSelectListing(selectedListing.id)
-          }}
-        />,
-      )
+      const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation()
+        cancelClose()
+        hoverPopupRef.current?.popup.remove()
+        setPreviewRequested((version) => version + 1)
+        latestRef.current.onSelectListing(selectedListing.id)
+      }
+      root.render(compactMode ? (
+        <ListingPhotoMarker
+          address={selectedListing.fullAddress || selectedListing.address || 'Private listing'}
+          imageUrl={resolveCardImage(selectedListing.heroImage, latestRef.current.resolveImageUrl)}
+          label={label} showLabel={showLabelsResolved} selected={selected}
+          count={group.listings.length} onClick={handleClick}
+        />
+      ) : (
+        <StandardListingPin label={label} showLabel={showLabelsResolved} selected={selected}
+          color={selected ? '#d74432' : '#3b82f6'} count={group.listings.length} onClick={handleClick} />
+      ))
 
       const handleEnter = () => {
         // The selected listing already has its own (persistent) popup.
-        if (selected) return
+        const selectedPopup = selectedPopupRef.current?.popup
+        if (selected && selectedPopup && map.hasLayer(selectedPopup)) return
         const listing = latestRef.current.listingsById.get(selectedListing.id)
         if (!listing) return
         openHoverPopup(listing, group.listings, lngLat)
@@ -336,14 +283,16 @@ export function CustomPinMarkers({
 
       element.addEventListener('mouseenter', handleEnter)
       element.addEventListener('mouseleave', handleLeave)
+      element.addEventListener('focusin', handleEnter)
+      element.addEventListener('focusout', handleLeave)
 
-      const iconHeight = selected ? PIN_SIZE_SELECTED + 30 : PIN_SIZE_UNSELECTED + 30
+      const iconHeight = compactMode ? 70 : selected ? 76 : 64
       const mapMarker = createLeafletMarker([lngLat[1], lngLat[0]], {
         icon: divIcon({
           html: element,
           className: 'listing-pin-marker',
-          iconSize: [160, iconHeight],
-          iconAnchor: [80, iconHeight],
+          iconSize: [compactMode ? 64 : 160, iconHeight],
+          iconAnchor: [compactMode ? 32 : 80, iconHeight],
           popupAnchor: [0, -iconHeight],
         }),
         keyboard: false,
@@ -360,7 +309,7 @@ export function CustomPinMarkers({
     })
 
     return clearEntries
-  }, [map, locationGroups, selectedListingId, showLabelsResolved, openHoverPopup, closeHoverPopup])
+  }, [map, locationGroups, selectedListingId, showLabelsResolved, openHoverPopup, closeHoverPopup, cancelClose, compactMode])
 
   // Open / update the selected-listing preview popup (R10.8); close it when no
   // listing is selected or the selection is no longer mapped.
@@ -371,7 +320,7 @@ export function CustomPinMarkers({
     const { resolveImageUrl: resolve, formatPrice: format, onOpenListing: open } =
       latestRef.current
 
-    if (!selectedListingId) {
+    if (!previewRequested || !selectedListingId) {
       handle.popup.remove()
       return
     }
@@ -386,7 +335,8 @@ export function CustomPinMarkers({
     }
 
     handle.root.render(
-      <MarkerPreview
+      <MarkerPreview compact={compactMode}
+        onLayout={() => updatePopup(handle)}
         listing={listing}
         resolveImageUrl={resolve}
         formatPrice={format}
@@ -398,7 +348,7 @@ export function CustomPinMarkers({
     handle.popup
       .setLatLng([group.coords.lat, group.coords.lng])
       .openOn(map)
-  }, [map, selectedListingId, locationGroups, listingsById])
+  }, [map, selectedListingId, locationGroups, listingsById, previewRequested, updatePopup, compactMode])
 
   return null
 }

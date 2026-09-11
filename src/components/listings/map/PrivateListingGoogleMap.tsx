@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { Loader2, Minus, Plus, X } from 'lucide-react'
 
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
+import { createPinIcon } from './standardListingPinIcon'
+import { createGooglePhotoMarker } from './googlePhotoMarker'
 import { MarkerPreview } from '@/components/listings/map/MarkerPreview'
 import type { ShowcaseListing } from '@/components/listings/ExclusiveListingsShowcase'
 import {
@@ -20,8 +22,8 @@ import {
   DEFAULT_MAP_CENTER,
   buildMarkerLocationGroups,
   buildMarkers,
-  getMapCenter,
   markerLabel,
+  getMapCenter,
   type MarkerLocationGroup,
 } from '@/lib/listing-presentation/markers'
 import { cn } from '@/lib/utils'
@@ -54,9 +56,11 @@ interface ListingMarkerEntry {
   group: MarkerLocationGroup
   listeners: GoogleMapsListener[]
   marker: GoogleMarkerInstance
+  removePhoto: () => void
 }
 
 export interface PrivateListingGoogleMapProps {
+  compactMode?: boolean
   apiKey?: string
   className?: string
   formatPrice: (price: number | undefined | null) => string
@@ -71,9 +75,6 @@ export interface PrivateListingGoogleMapProps {
   theme: PrivateListingMapTheme
 }
 
-const SELECTED_PIN_COLOR = '#d74432'
-const LIGHT_PIN_COLOR = '#1f5aa6'
-const DARK_PIN_COLOR = '#3b82f6'
 const MAP_EDGE_GAP_PX = 16
 const SELECTED_PREVIEW_TOOLBAR_GAP_PX = 64
 
@@ -164,50 +165,11 @@ const getSelectedPreviewPan = (
   return { x, y }
 }
 
-const getFitPadding = (): MapPadding => {
-  if (typeof window === 'undefined') {
-    return { top: 80, right: 372, bottom: 64, left: 64 }
-  }
-  if (window.innerWidth >= 1024) {
-    return { top: 80, right: 372, bottom: 64, left: 64 }
-  }
-  return {
-    top: 72,
-    right: 32,
-    bottom: Math.round(window.innerHeight * 0.42) + 24,
-    left: 32,
-  }
-}
-
-const createPinIcon = (
-  label: string,
-  count: number,
-  selected: boolean,
-  showLabel: boolean,
-  theme: PrivateListingMapTheme,
-): string => {
-  const color = selected
-    ? SELECTED_PIN_COLOR
-    : theme === 'dark'
-      ? DARK_PIN_COLOR
-      : LIGHT_PIN_COLOR
-  const pinSize = selected ? 46 : 36
-  const width = showLabel ? 168 : 64
-  const height = showLabel ? 78 : 58
-  const pinTop = showLabel ? 28 : 4
-  const pinLeft = (width - pinSize) / 2
-  const scale = pinSize / 24
-  const chipWidth = Math.min(152, Math.max(58, label.length * 7 + 20))
-  const chipLeft = (width - chipWidth) / 2
-  const countMarkup = count > 1
-    ? `<circle cx="${pinLeft + pinSize - 3}" cy="${pinTop + 5}" r="10" fill="#2563eb" stroke="#fff" stroke-width="2"/><text x="${pinLeft + pinSize - 3}" y="${pinTop + 8.5}" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700" fill="#fff">${count}</text>`
-    : ''
-  const labelMarkup = showLabel
-    ? `<rect x="${chipLeft}" y="1" width="${chipWidth}" height="23" rx="11.5" fill="${color}"/><text x="${width / 2}" y="16.5" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="700" fill="#fff">${label}</text>`
-    : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${labelMarkup}<g transform="translate(${pinLeft} ${pinTop}) scale(${scale})" style="filter:drop-shadow(0 6px 8px rgba(15,23,42,.36))"><path fill="${color}" stroke="#fff" stroke-width="1.5" d="M12 1.5c-4.14 0-7.5 3.36-7.5 7.5 0 5.34 6.43 12.31 6.71 12.6a1.08 1.08 0 0 0 1.58 0c.28-.29 6.71-7.26 6.71-12.6 0-4.14-3.36-7.5-7.5-7.5Z"/><circle cx="12" cy="9" r="3" fill="#fff"/></g>${countMarkup}</svg>`
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
+const getFitPadding = (compactMode: boolean): MapPadding => compactMode
+  ? { top: 120, right: 64, bottom: 80, left: 64 }
+  : window.innerWidth >= 1024
+    ? { top: 80, right: 372, bottom: 64, left: 64 }
+    : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }
 
 const scheduleUnmount = (root: Root) => {
   Promise.resolve().then(() => {
@@ -221,12 +183,14 @@ const scheduleUnmount = (root: Root) => {
 
 const createPopup = (maps: GoogleMapsApi, verticalOffset: number): PopupHandle => {
   const container = document.createElement('div')
+  container.className = 'repro-google-map-popup'
   const root = createRoot(container)
   const pixelOffset = maps.Size
     ? new maps.Size(0, verticalOffset)
     : undefined
   const infoWindow = new maps.InfoWindow({
-    headerContent: 'Private listing',
+    headerDisabled: true,
+    disableAutoPan: true,
     maxWidth: 320,
     pixelOffset,
     zIndex: 30,
@@ -268,6 +232,7 @@ const normalizeMappedListings = (listings: ShowcaseListing[]): ShowcaseListing[]
 export function PrivateListingGoogleMap({
   apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '',
   className,
+  compactMode = true,
   formatPrice,
   listings,
   onLoadError,
@@ -300,7 +265,10 @@ export function PrivateListingGoogleMap({
   const [retryVersion, setRetryVersion] = React.useState(0)
   const [drawAreaActive, setDrawAreaActive] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [previewRequested, setPreviewRequested] = React.useState(!compactMode)
   const [dismissedPreviewId, setDismissedPreviewId] = React.useState<string | null>(null)
+  const previewStateRef = React.useRef({ previewRequested, dismissedPreviewId })
+  previewStateRef.current = { previewRequested, dismissedPreviewId }
 
   onLoadErrorRef.current = onLoadError
   themeRef.current = theme
@@ -333,11 +301,11 @@ export function PrivateListingGoogleMap({
     previewPositionFramesRef.current = []
   }, [])
 
-  const positionSelectedPreview = React.useCallback(() => {
+  const positionSelectedPreview = React.useCallback((targetPopup?: PopupHandle) => {
     const canvas = canvasRef.current
     const mapElement = mapElementRef.current
     const map = mapRef.current
-    const popup = selectedPopupRef.current
+    const popup = targetPopup ?? selectedPopupRef.current
     if (!canvas || !mapElement || !map || !popup) return
 
     const workspace = canvas.closest<HTMLElement>('[data-map-workspace]')
@@ -359,12 +327,12 @@ export function PrivateListingGoogleMap({
     if (x !== 0 || y !== 0) map.panBy(x, y)
   }, [])
 
-  const scheduleSelectedPreviewPosition = React.useCallback(() => {
+  const scheduleSelectedPreviewPosition = React.useCallback((targetPopup?: PopupHandle) => {
     cancelSelectedPreviewPosition()
     const firstFrame = window.requestAnimationFrame(() => {
       const secondFrame = window.requestAnimationFrame(() => {
         previewPositionFramesRef.current = []
-        positionSelectedPreview()
+        positionSelectedPreview(targetPopup)
       })
       previewPositionFramesRef.current = [secondFrame]
     })
@@ -377,7 +345,8 @@ export function PrivateListingGoogleMap({
     selectedPreviewIdleListenerRef.current?.remove()
     selectedPreviewIdleListenerRef.current = null
     cancelSelectedPreviewPosition()
-    markersRef.current.forEach(({ listeners, marker }) => {
+    markersRef.current.forEach(({ listeners, marker, removePhoto }) => {
+      removePhoto()
       listeners.forEach((listener) => listener.remove())
       marker.setMap(null)
     })
@@ -429,14 +398,14 @@ export function PrivateListingGoogleMap({
 
     const bounds = new maps.LatLngBounds()
     markerGroups.forEach((group) => bounds.extend(group.coords))
-    ;(map as GoogleMapWithEdgePadding).fitBounds(bounds, getFitPadding())
+    ;(map as GoogleMapWithEdgePadding).fitBounds(bounds, getFitPadding(compactMode))
     idleListenerRef.current = maps.event.addListenerOnce(map, 'idle', () => {
       const zoom = map.getZoom()
       const maximumZoom = markerGroups.length === 1 ? 13 : 15
       if (typeof zoom === 'number' && zoom > maximumZoom) map.setZoom(maximumZoom)
       idleListenerRef.current = null
     })
-  }, [markerGroups])
+  }, [markerGroups, compactMode])
 
   React.useEffect(() => {
     let cancelled = false
@@ -534,13 +503,10 @@ export function PrivateListingGoogleMap({
       const listing =
         group.listings.find((candidate) => candidate.id === selectedListingId) ?? group.listings[0]
       const marker = new mapsApi.Marker({
-        icon: createPinIcon(
-          markerLabel(listing),
-          group.listings.length,
-          selected,
-          showMarkerLabels,
-          theme,
-        ),
+        clickable: !compactMode,
+        visible: !compactMode,
+        // Native marker remains the popup anchor; the visible photo is an HTML overlay.
+        icon: compactMode ? 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="70"></svg>') : createPinIcon(markerLabel(listing), group.listings.length, selected, showMarkerLabels, theme),
         map,
         optimized: false,
         position: group.coords,
@@ -550,32 +516,44 @@ export function PrivateListingGoogleMap({
         marker.addListener('click', () => {
           closeHoverPopup()
           setDismissedPreviewId(null)
+          setPreviewRequested(true)
           latestRef.current.onSelectListing(listing.id)
         }),
         marker.addListener('mouseover', () => {
-          if (selected) return
+          const preview = previewStateRef.current
+          if (selected && preview.previewRequested && preview.dismissedPreviewId !== listing.id) return
           cancelHoverClose()
           const popup = hoverPopupRef.current
           if (!popup) return
           setPopupTitle(popup, listing)
           popup.root.render(
-            <MarkerPreview
+            <MarkerPreview compact={compactMode}
               listing={listing}
               relatedListings={group.listings}
               resolveImageUrl={latestRef.current.resolveImageUrl}
               formatPrice={latestRef.current.formatPrice}
               onOpenListing={latestRef.current.onOpenListing}
-              onSelectListing={latestRef.current.onSelectListing}
+              onSelectListing={(id) => {
+                setPreviewRequested(true)
+                latestRef.current.onSelectListing(id)
+              }}
             />,
           )
           popup.infoWindow.open({ anchor: marker, map, shouldFocus: false })
+          scheduleSelectedPreviewPosition(popup)
         }),
         marker.addListener('mouseout', scheduleHoverClose),
       ]
-      markersRef.current.push({ group, listeners, marker })
+      const removePhoto = compactMode ? createGooglePhotoMarker({
+        maps: mapsApi, map, listing, count: group.listings.length, selected,
+        showLabel: showMarkerLabels, resolveImageUrl: latestRef.current.resolveImageUrl,
+        onClick: () => mapsApi.event.trigger(marker, 'click'),
+        onEnter: () => mapsApi.event.trigger(marker, 'mouseover'),
+        onLeave: scheduleHoverClose,
+      }) : () => undefined
+      markersRef.current.push({ group, listeners, marker, removePhoto })
     })
 
-    fitAllLocations()
     return clearMarkers
   }, [
     cancelHoverClose,
@@ -584,11 +562,15 @@ export function PrivateListingGoogleMap({
     fitAllLocations,
     mapsApi,
     markerGroups,
+    compactMode,
     selectedListingId,
     scheduleHoverClose,
+    scheduleSelectedPreviewPosition,
     showMarkerLabels,
     theme,
   ])
+
+  React.useEffect(() => { if (mapsApi) fitAllLocations() }, [mapsApi, fitAllLocations])
 
   React.useEffect(() => {
     const map = mapRef.current
@@ -596,7 +578,8 @@ export function PrivateListingGoogleMap({
     if (!mapsApi || !map || !popup) return
 
     if (
-      !selectedMappedListing
+      !previewRequested
+      || !selectedMappedListing
       || !selectedMarkerGroup
       || dismissedPreviewId === selectedMappedListing.id
     ) {
@@ -629,11 +612,11 @@ export function PrivateListingGoogleMap({
 
     popup.root.render(
       <div
-        className="relative w-64"
+        className={compactMode ? 'relative w-60' : 'relative w-64'}
         role="region"
         aria-label={`Selected listing ${previewLabel}`}
       >
-        <MarkerPreview
+        <MarkerPreview compact={compactMode}
           listing={selectedMappedListing}
           relatedListings={selectedMarkerGroup.listings}
           resolveImageUrl={latestRef.current.resolveImageUrl}
@@ -686,6 +669,8 @@ export function PrivateListingGoogleMap({
   }, [
     cancelSelectedPreviewPosition,
     dismissedPreviewId,
+    compactMode,
+    previewRequested,
     mapsApi,
     scheduleSelectedPreviewPosition,
     selectedMappedListing,
@@ -802,7 +787,7 @@ export function PrivateListingGoogleMap({
       {isReady ? (
         <>
           <div
-            className="absolute bottom-[45%] left-3 z-30 flex flex-col rounded-xl border border-slate-300/80 bg-white/88 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:bottom-4 lg:left-4 dark:border-white/15 dark:bg-slate-950/82 dark:text-white"
+            className="absolute bottom-4 left-3 z-30 flex flex-col rounded-xl border border-slate-300/80 bg-white/88 p-1 text-slate-700 shadow-xl backdrop-blur-xl lg:bottom-4 lg:left-4 dark:border-white/15 dark:bg-slate-950/82 dark:text-white"
             role="group"
             aria-label="Map zoom controls"
           >

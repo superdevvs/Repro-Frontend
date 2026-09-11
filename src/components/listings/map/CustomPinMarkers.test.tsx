@@ -51,6 +51,7 @@ const h = vi.hoisted(() => {
   }
 
   class FakePopup {
+    update() { return this }
     setLatLng() {
       return this
     }
@@ -63,7 +64,8 @@ const h = vi.hoisted(() => {
     remove() {}
   }
 
-  return { markerInstances, FakeMarker, FakePopup }
+  const map = { __fakeMap: true, hasLayer: () => false }
+  return { markerInstances, FakeMarker, FakePopup, map }
 })
 
 vi.mock('leaflet', () => ({
@@ -79,17 +81,13 @@ vi.mock('leaflet', () => ({
 // Provide a truthy fake map and a fixed label flag so the component does not
 // need a real <Map> ancestor.
 vi.mock('@/components/ui/map', () => ({
-  useMap: () => ({ __fakeMap: true }),
+  useMap: () => h.map,
   useShowMarkerLabels: () => false,
 }))
 
 // Import AFTER the mocks are registered.
 import { CustomPinMarkers } from './CustomPinMarkers'
 import { type ShowcaseListing } from '@/components/listings/ExclusiveListingsShowcase'
-
-// Brand colors mirrored from CustomPinMarkers (selected vs unselected light).
-const SELECTED_COLOR = '#d74432'
-const UNSELECTED_COLOR_LIGHT = '#1f5aa6'
 
 const resolveImageUrl = (value: string | null | undefined): string | null => value ?? null
 const formatPrice = (price: number | undefined | null): string =>
@@ -144,20 +142,6 @@ const sameLocationListing = makeListing({
   longitude: -97.74,
 })
 
-function svgOf(element: HTMLElement | undefined): SVGSVGElement {
-  const svg = element?.querySelector('svg')
-  if (!svg) throw new Error('pin SVG not found in marker element')
-  return svg as SVGSVGElement
-}
-
-function pinFill(element: HTMLElement | undefined): string | null {
-  return svgOf(element).querySelector('path')?.getAttribute('fill') ?? null
-}
-
-function pinSize(element: HTMLElement | undefined): number {
-  return Number(svgOf(element).getAttribute('width'))
-}
-
 async function renderMarkers(onSelectListing = vi.fn()) {
   render(
     <CustomPinMarkers
@@ -196,7 +180,7 @@ describe('CustomPinMarkers', () => {
     expect(h.markerInstances).toHaveLength(2)
   })
 
-  it('R10.6: the selected pin is recolored, enlarged, and elevated relative to an unselected pin', async () => {
+  it('renders compact photos with a selected outline and a higher stacking order', async () => {
     await renderMarkers()
 
     const [first, second] = h.markerInstances
@@ -205,16 +189,13 @@ describe('CustomPinMarkers', () => {
     const unselectedEl = second.element
 
     // Sanity: the two markers map to the expected listings via their button label.
-    expect(selectedEl?.querySelector('button')).toHaveAttribute('aria-label', 'Select $1.5M')
-    expect(unselectedEl?.querySelector('button')).toHaveAttribute('aria-label', 'Select $850K')
+    expect(selectedEl?.querySelector('button')).toHaveAttribute('aria-label', `Select ${selectedListing.fullAddress}`)
+    expect(unselectedEl?.querySelector('button')).toHaveAttribute('aria-label', `Select ${unselectedListing.fullAddress}`)
 
-    // Recolor: selected pin uses brand red; unselected uses brand blue.
-    expect(pinFill(selectedEl)).toBe(SELECTED_COLOR)
-    expect(pinFill(unselectedEl)).toBe(UNSELECTED_COLOR_LIGHT)
-    expect(pinFill(selectedEl)).not.toBe(pinFill(unselectedEl))
-
-    // Enlarge: selected pin SVG is strictly larger than the unselected one.
-    expect(pinSize(selectedEl)).toBeGreaterThan(pinSize(unselectedEl))
+    expect(selectedEl?.querySelector('img')).not.toBeNull()
+    expect(unselectedEl?.querySelector('img')).not.toBeNull()
+    expect(selectedEl?.querySelector('button')).toHaveAttribute('data-selected', 'true')
+    expect(unselectedEl?.querySelector('button')).toHaveAttribute('data-selected', 'false')
 
     // Elevate: selected pin container has a higher stacking order.
     expect(Number(selectedEl?.style.zIndex)).toBeGreaterThan(
@@ -238,6 +219,17 @@ describe('CustomPinMarkers', () => {
 
     expect(onSelectListing).toHaveBeenCalledTimes(1)
     expect(onSelectListing).toHaveBeenCalledWith('listing-2')
+  })
+
+  it('keeps the selected photo marker mounted when opening its preview repeatedly', async () => {
+    await renderMarkers()
+    const button = h.markerInstances[0].element?.querySelector('button')
+
+    await act(async () => { button?.click() })
+    await act(async () => { button?.click() })
+
+    expect(h.markerInstances).toHaveLength(2)
+    expect(h.markerInstances[0].element?.querySelector('button')).toBe(button)
   })
 
   it('renders one counted pin for multiple shoots at the same property', async () => {

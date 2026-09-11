@@ -48,6 +48,7 @@ interface SharedShootCardProps {
   onSendToEditing?: (shoot: ShootData) => void | Promise<void>;
   shouldHideClientDetails?: boolean;
   hideHeroImage?: boolean;
+  compact?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -99,6 +100,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   onSendToEditing,
   shouldHideClientDetails = false,
   hideHeroImage = false,
+  compact = false,
 }) => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
@@ -185,7 +187,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
     >
       {/* Hero Image */}
       {heroImage && (
-        <div className="relative h-56 w-full overflow-hidden">
+        <div className={cn('relative w-full overflow-hidden', compact ? 'h-40' : 'h-56')}>
           <img src={heroImage} alt={shoot.location.address} className="h-full w-full object-cover" loading="lazy" />
         
         {/* Status Badge - Left */}
@@ -276,7 +278,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       )}
 
       {/* Card Content */}
-      <div className="p-5 xl:p-6 space-y-5 flex flex-col">
+      <div className={cn('flex flex-col', compact ? 'p-4 space-y-3' : 'p-5 xl:p-6 space-y-5')}>
         {/* Address & Date Header */}
         <div className="space-y-2">
           <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">

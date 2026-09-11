@@ -173,6 +173,7 @@ export const CompletedAlbumCard = ({
   onApproveFeatured,
   shouldHideClientDetails = false,
   viewerRole,
+  compact = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
@@ -191,6 +192,7 @@ export const CompletedAlbumCard = ({
   onApproveFeatured?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
   viewerRole?: string
+  compact?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   // Route shoot-time display through the shared Time_Formatter so canonical
@@ -244,7 +246,7 @@ export const CompletedAlbumCard = ({
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className="relative h-64 overflow-hidden bg-muted">
+      <div className={cn('relative overflow-hidden bg-muted', compact ? 'h-40' : 'h-64')}>
         <img
           src={displayImage}
           alt={showPlaceholder ? 'No images yet' : shoot.location.address}
@@ -388,7 +390,7 @@ export const CompletedAlbumCard = ({
       </div>
 
       {/* Card Content */}
-      <div className="p-5 xl:p-6 space-y-5">
+      <div className={compact ? 'p-4 space-y-3' : 'p-5 xl:p-6 space-y-5'}>
         <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
           <div className="flex-1 min-w-0">
             <h3
@@ -518,4 +520,3 @@ export const CompletedAlbumCard = ({
     </Card>
   )
 }
-

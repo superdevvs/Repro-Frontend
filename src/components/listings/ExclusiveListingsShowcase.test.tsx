@@ -221,6 +221,16 @@ function getCard(container: HTMLElement, id: string): HTMLElement {
 }
 
 describe('ExclusiveListingsShowcase', () => {
+  it('starts with an unobstructed map and lets the user open and close the listing browser', async () => {
+    render(<ControlledShowcase listings={[listingA, listingB]} />)
+    await screen.findByTestId('pin-A')
+    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close listings' }))
+    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+  })
+
   it('fits the map to every displayed mapped location', async () => {
     render(<ControlledShowcase listings={[listingA, listingB]} />)
 
@@ -270,6 +280,7 @@ describe('ExclusiveListingsShowcase', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pin-A')).toHaveAttribute('data-selected', 'true')
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
     expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'true')
     expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'false')
 

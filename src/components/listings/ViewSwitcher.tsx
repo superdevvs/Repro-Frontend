@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutGrid, List, Map } from 'lucide-react'
+import { LayoutGrid, List, Map, Image } from 'lucide-react'
 
 import {
   Tooltip,
@@ -10,7 +10,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-export type ViewMode = 'showcase' | 'grid' | 'list'
+export type ViewMode = 'showcase' | 'grid' | 'list' | 'compact'
 
 export interface ViewSwitcherProps {
   viewMode: ViewMode
@@ -30,11 +30,12 @@ const VIEW_OPTIONS: ViewOption[] = [
   { value: 'showcase', label: 'Map view', tooltip: 'Map view', Icon: Map },
   { value: 'grid', label: 'Grid view', tooltip: 'Grid view', Icon: LayoutGrid },
   { value: 'list', label: 'List view', tooltip: 'List view', Icon: List },
+  { value: 'compact', label: 'Compact mode', tooltip: 'Compact mode', Icon: Image },
 ]
 
 /**
- * Segmented Map/Grid/List view switcher (R6).
- * Renders a single toggle-group with three items; the item matching `viewMode`
+ * Segmented Map/Grid/List/Compact view switcher (R6).
+ * Renders a single toggle-group with four items; the item matching `viewMode`
  * shows a strong blue active state (R6.2). Selecting an item calls `onChange`
  * with the corresponding value (R6.3), and each item exposes a hover tooltip
  * naming the view (R6.4).
@@ -79,6 +80,8 @@ export function ViewSwitcher({
                   'dark:data-[state=on]:bg-blue-500 dark:data-[state=on]:text-white',
                   variant === 'overlay' &&
                     'text-slate-600 hover:bg-slate-200 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
+                  value === 'compact' && 'ml-1 rounded-l-none border-l border-border',
+                  viewMode === value && 'bg-blue-600 text-white shadow-sm hover:bg-blue-600 hover:text-white dark:bg-blue-500 dark:text-white',
                 )}
               >
                 <Icon className="h-4 w-4" />

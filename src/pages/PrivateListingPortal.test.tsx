@@ -444,6 +444,24 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 
+  it('switches from the standard map to compact mode and exposes compact mode beside List', async () => {
+    const user = userEvent.setup()
+    renderPortal()
+    await waitForLoaded()
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Compact mode' }))
+    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Compact mode' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('radio', { name: 'List view' }))
+    const switcher = screen.getByTestId('listing-browse-view-switcher')
+    const list = within(switcher).getByRole('button', { name: 'List view' })
+    const compact = within(switcher).getByRole('button', { name: 'Compact mode' })
+    expect(list.nextElementSibling).toBe(compact)
+    await user.click(compact)
+    expect(await screen.findByTestId('showcase-map-canvas')).toBeInTheDocument()
+    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+  })
+
   it('R4.3 + R5.3: applying a filter updates the summary and listings without a network call', async () => {
     const user = userEvent.setup()
     renderPortal()
