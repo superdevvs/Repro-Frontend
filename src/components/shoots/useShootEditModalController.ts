@@ -656,7 +656,7 @@ export function useShootEditModalController({
       && photographerId
       && photographerId !== 'unassigned'
       && availableServices.some((service) =>
-        selectedServiceIds.includes(String(service.id)) && service.photographer_required !== false
+        selectedServiceIds.has(String(service.id)) && service.photographer_required !== false
       )
     ) {
       payload.photographer_id = Number(photographerId);
