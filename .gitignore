@@ -48,6 +48,7 @@ public/shoots/**
 # Local QA output: browser screenshots and verification logs. These are
 # evidence for a review, never part of a release.
 /output/
+.tmp-map-preview/
 # Certificate and key material must never be committed.
 *.pem
 *.key
