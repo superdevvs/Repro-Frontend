@@ -61,6 +61,7 @@ interface ListingMarkerEntry {
 
 export interface PrivateListingGoogleMapProps {
   compactMode?: boolean
+  onToggleCompactMode?: () => void
   apiKey?: string
   className?: string
   formatPrice: (price: number | undefined | null) => string
@@ -165,11 +166,9 @@ const getSelectedPreviewPan = (
   return { x, y }
 }
 
-const getFitPadding = (compactMode: boolean): MapPadding => compactMode
-  ? { top: 120, right: 64, bottom: 80, left: 64 }
-  : window.innerWidth >= 1024
-    ? { top: 80, right: 372, bottom: 64, left: 64 }
-    : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }
+const getFitPadding = (): MapPadding => window.innerWidth >= 1024
+  ? { top: 80, right: 372, bottom: 64, left: 64 }
+  : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }
 
 const scheduleUnmount = (root: Root) => {
   Promise.resolve().then(() => {
@@ -233,6 +232,7 @@ export function PrivateListingGoogleMap({
   apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '',
   className,
   compactMode = true,
+  onToggleCompactMode,
   formatPrice,
   listings,
   onLoadError,
@@ -378,6 +378,11 @@ export function PrivateListingGoogleMap({
     setDismissedPreviewId(null)
   }, [selectedListingId])
 
+  React.useEffect(() => {
+    setPreviewRequested(!compactMode)
+    setDismissedPreviewId(null)
+  }, [compactMode])
+
   const reportLoadError = React.useCallback((error: Error) => {
     setLoadError(error)
     setIsReady(false)
@@ -398,7 +403,7 @@ export function PrivateListingGoogleMap({
 
     const bounds = new maps.LatLngBounds()
     markerGroups.forEach((group) => bounds.extend(group.coords))
-    ;(map as GoogleMapWithEdgePadding).fitBounds(bounds, getFitPadding(compactMode))
+    ;(map as GoogleMapWithEdgePadding).fitBounds(bounds, getFitPadding())
     idleListenerRef.current = maps.event.addListenerOnce(map, 'idle', () => {
       const zoom = map.getZoom()
       const maximumZoom = markerGroups.length === 1 ? 13 : 15
@@ -818,11 +823,13 @@ export function PrivateListingGoogleMap({
             onRecenter={fitAllLocations}
             onToggleDrawArea={() => setDrawAreaActive((value) => !value)}
             onToggleLabels={onToggleLabels}
+            onToggleCompactMode={onToggleCompactMode}
+            compactMode={compactMode}
             onToggleFullscreen={handleToggleFullscreen}
             showLabels={showMarkerLabels}
             drawAreaActive={drawAreaActive}
             isFullscreen={isFullscreen}
-            className="!bottom-[6.75rem] !left-4 hidden border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:flex dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:text-slate-700 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:text-slate-200"
+            className="!bottom-[6.75rem] !left-3 border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:text-slate-700 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:text-slate-200"
           />
         </>
       ) : null}

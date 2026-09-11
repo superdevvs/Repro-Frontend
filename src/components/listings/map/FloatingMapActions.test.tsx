@@ -24,6 +24,7 @@ const ACTION_NAMES = [
   'Draw area',
   'Toggle property labels',
   'Fullscreen map',
+  'Compact mode',
 ] as const
 
 function setup() {
@@ -32,8 +33,9 @@ function setup() {
     onToggleDrawArea: vi.fn(),
     onToggleLabels: vi.fn(),
     onToggleFullscreen: vi.fn(),
+    onToggleCompactMode: vi.fn(),
   }
-  const utils = render(<FloatingMapActions {...handlers} />)
+  const utils = render(<FloatingMapActions {...handlers} position="bottom-left" />)
   return { ...utils, handlers }
 }
 
@@ -50,7 +52,7 @@ describe('FloatingMapActions', () => {
     }
 
     // Exactly four action buttons render — no more, no less.
-    expect(screen.getAllByRole('button')).toHaveLength(4)
+    expect(screen.getAllByRole('button')).toHaveLength(5)
   })
 
   it('R8.1: each action button exposes the tooltip text as its accessible name', () => {
@@ -96,5 +98,22 @@ describe('FloatingMapActions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Fullscreen map' }))
     expect(handlers.onToggleFullscreen).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: 'Compact mode' }))
+    expect(handlers.onToggleCompactMode).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses a minimize icon, tooltip, and pressed state for the compact map action', async () => {
+    const user = userEvent.setup()
+    const { handlers, rerender } = setup()
+    const compact = screen.getByRole('button', { name: 'Compact mode' })
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(compact.querySelector('svg')).toHaveClass('lucide-minimize2')
+    expect(compact.querySelector('.lucide-image')).toBeNull()
+    expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
+    await user.hover(compact)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Compact mode')
+    rerender(<FloatingMapActions {...handlers} compactMode position="bottom-left" />)
+    expect(compact).toHaveAttribute('aria-pressed', 'true')
   })
 })

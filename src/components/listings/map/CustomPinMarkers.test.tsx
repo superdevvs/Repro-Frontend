@@ -174,6 +174,32 @@ afterEach(() => {
 })
 
 describe('CustomPinMarkers', () => {
+  it('switches between standard pins and compact photos on the same map', async () => {
+    const props = {
+      listings: [selectedListing],
+      selectedListingId: selectedListing.id,
+      onSelectListing: vi.fn(),
+      showLabels: true,
+      resolveImageUrl,
+      formatPrice,
+    }
+    const { rerender } = render(<CustomPinMarkers {...props} compactMode={false} />)
+    await waitFor(() => expect(h.markerInstances.at(-1)?.element?.querySelector('svg')).not.toBeNull())
+    expect(h.markerInstances.at(-1)?.element?.querySelector('img')).toBeNull()
+
+    rerender(<CustomPinMarkers {...props} compactMode />)
+    await waitFor(() => expect(h.markerInstances.at(-1)?.element?.querySelector('img')).not.toBeNull())
+    const photoButton = h.markerInstances.at(-1)?.element?.querySelector('button')
+    expect(photoButton).toHaveAttribute('aria-pressed', 'true')
+    await act(async () => { photoButton?.click() })
+    expect(props.onSelectListing).toHaveBeenCalledWith(selectedListing.id)
+
+    rerender(<CustomPinMarkers {...props} compactMode={false} />)
+    await waitFor(() => expect(h.markerInstances.at(-1)?.element?.querySelector('svg')).not.toBeNull())
+    expect(h.markerInstances.at(-1)?.element?.querySelector('img')).toBeNull()
+    expect(h.markerInstances.at(-1)?.element?.querySelector('button')).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('R10.1: creates exactly one marker per mapped listing (none for unmapped)', async () => {
     await renderMarkers()
     // Two mapped listings → two markers; the unmapped listing is excluded.

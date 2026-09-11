@@ -31,7 +31,7 @@ import type {
   Suggestion,
 } from '@/lib/listing-presentation/types'
 
-export type MapTabViewMode = 'showcase' | 'grid' | 'list' | 'compact'
+export type MapTabViewMode = 'showcase' | 'grid' | 'list'
 
 export interface MapTabToolbarProps {
   /** Number of listings represented by the current map result set. */

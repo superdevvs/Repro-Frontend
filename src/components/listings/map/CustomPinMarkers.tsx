@@ -125,6 +125,9 @@ export function CustomPinMarkers({
   const markerEntriesRef = React.useRef<MarkerEntry[]>([])
   const hoverPopupRef = React.useRef<PopupHandle | null>(null)
   const [previewRequested, setPreviewRequested] = React.useState(compactMode ? 0 : 1)
+  React.useEffect(() => {
+    setPreviewRequested(compactMode ? 0 : 1)
+  }, [compactMode])
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout>>()
   const cancelClose = React.useCallback(() => { clearTimeout(closeTimerRef.current) }, [])
   const selectedPopupRef = React.useRef<PopupHandle | null>(null)

@@ -20,6 +20,7 @@ import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
+import { HoverCopyValue } from '@/components/shoots/HoverCopyValue'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
@@ -242,19 +243,20 @@ export const CompletedAlbumCard = ({
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-xl transition-all group bg-card/50 backdrop-blur-sm"
+      className={cn('overflow-hidden cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-xl transition-all group bg-card/50 backdrop-blur-sm', compact && 'shoot-glass-card')}
+      style={compact ? { '--shoot-glass-image': `url(${JSON.stringify(displayImage)})` } as React.CSSProperties : undefined}
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className={cn('relative overflow-hidden bg-muted', compact ? 'h-40' : 'h-64')}>
+      <div className={cn('relative overflow-hidden', compact ? 'shoot-glass-hero' : 'h-64 bg-muted')}>
         <img
           src={displayImage}
           alt={showPlaceholder ? 'No images yet' : shoot.location.address}
-          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className={compact ? 'shoot-glass-card-image' : 'h-full w-full object-cover group-hover:scale-105 transition-transform duration-300'}
           loading="lazy"
           onError={() => setImgErrored(true)}
         />
-        {!showPlaceholder ? (
+        {!showPlaceholder && !compact ? (
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         ) : null}
         
@@ -389,16 +391,19 @@ export const CompletedAlbumCard = ({
         </div>
       </div>
 
+      <div className={compact ? 'shoot-glass-panel' : undefined}>
+      {compact && <div className="shoot-glass-blur" aria-hidden="true" />}
       {/* Card Content */}
-      <div className={compact ? 'p-4 space-y-3' : 'p-5 xl:p-6 space-y-5'}>
+      <div className={compact ? 'p-3 space-y-1.5' : 'p-5 xl:p-6 space-y-5'}>
         <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
           <div className="flex-1 min-w-0">
-            <h3
-              className="mb-1 text-[0.95rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[1rem]"
-              title={shoot.location.address}
-            >
-              {shoot.location.address}
-            </h3>
+            <HoverCopyValue
+              as="h3"
+              value={shoot.location.address}
+              label="address"
+              className="mb-1"
+              textClassName="text-[0.95rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[1rem]"
+            />
             <p
               className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
               title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
@@ -423,7 +428,7 @@ export const CompletedAlbumCard = ({
           </div>
         </div>
 
-        <div className="space-y-2 pb-3 border-b border-border/50">
+        <div className={cn('border-b border-border/50', compact ? 'space-y-1 pb-1.5' : 'space-y-2 pb-3')}>
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             <Layers className="h-3.5 w-3.5" />
             <span>Services</span>
@@ -447,28 +452,25 @@ export const CompletedAlbumCard = ({
 
         <div
           className={cn(
-            'grid gap-4 pt-2 border-t border-border/50',
+            'grid gap-4',
+            !compact && 'pt-2 border-t border-border/50',
             visibleClient.canShowName ? 'grid-cols-2' : 'grid-cols-1'
           )}
         >
           {visibleClient.canShowName && (
-            <div className="space-y-1 min-w-0">
+            <div className={cn('min-w-0', compact ? 'space-y-0.5' : 'space-y-1')}>
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 <User className="h-3.5 w-3.5" />
                 <span>Client</span>
               </div>
-              <p className="text-sm font-semibold truncate">{visibleClient.name}</p>
-              {visibleClient.email && (
-                <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
-              )}
-              {visibleClient.phone && (
-                <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
-              )}
+              <HoverCopyValue value={visibleClient.name} label="client name" textClassName="text-sm font-semibold truncate" />
+              <HoverCopyValue value={visibleClient.email} label="client email" textClassName="text-xs text-muted-foreground truncate" />
+              <HoverCopyValue value={visibleClient.phone} label="client phone" textClassName="text-xs text-muted-foreground truncate" />
             </div>
           )}
           {!isEditor && (
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className={cn('min-w-0', compact ? 'space-y-0.5 text-right' : 'space-y-1')}>
+              <div className={cn('flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide', compact && 'justify-end')}>
                 <Camera className="h-3.5 w-3.5" />
                 <span>Photographer</span>
               </div>
@@ -517,6 +519,7 @@ export const CompletedAlbumCard = ({
           <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
+      </div>
     </Card>
   )
 }

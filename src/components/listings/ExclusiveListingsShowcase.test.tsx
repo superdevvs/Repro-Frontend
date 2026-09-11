@@ -93,17 +93,19 @@ vi.mock('@/components/ui/map', () => {
 // `data-selected` (so the test can assert which marker is selected) and calls
 // `onSelectListing(id)` on click (so the test can drive selection from the map).
 interface MockPinProps {
+  compactMode?: boolean
   listings: Array<{ id: string }>
   selectedListingId: string | null
   onSelectListing: (id: string) => void
 }
 vi.mock('@/components/listings/map/CustomPinMarkers', () => {
   const CustomPinMarkers = ({
+    compactMode,
     listings,
     selectedListingId,
     onSelectListing,
   }: MockPinProps) => (
-    <div data-testid="pins">
+    <div data-testid="pins" data-compact={String(compactMode)}>
       {listings.map((l) => (
         <button
           key={l.id}
@@ -122,10 +124,9 @@ vi.mock('@/components/listings/map/CustomPinMarkers', () => {
 
 // --- floating map actions stub -----------------------------------------------
 // Rendered inside the lazy canvas; stubbed to null to avoid tooltip/portal noise.
-vi.mock('@/components/listings/map/FloatingMapActions', () => {
-  const FloatingMapActions = () => null
-  return { __esModule: true, FloatingMapActions, default: FloatingMapActions }
-})
+vi.mock('@/components/listings/map/FloatingMapActions', async (importOriginal) =>
+  importOriginal<typeof import('@/components/listings/map/FloatingMapActions')>(),
+)
 
 // Import AFTER the mocks are registered.
 import {
@@ -221,14 +222,36 @@ function getCard(container: HTMLElement, id: string): HTMLElement {
 }
 
 describe('ExclusiveListingsShowcase', () => {
-  it('starts with an unobstructed map and lets the user open and close the listing browser', async () => {
+  it('toggles compact presentation from Leaflet map actions while preserving map and selection', async () => {
+    render(<ControlledShowcase listings={[listingA, listingB]} />)
+    const map = await screen.findByTestId('map')
+    const compact = screen.getByRole('button', { name: 'Compact mode' })
+    expect(compact).toHaveAttribute('aria-pressed', 'true')
+    expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
+    expect(screen.getByTestId('pins')).toHaveAttribute('data-compact', 'true')
+    fireEvent.click(screen.getByTestId('pin-B'))
+
+    fireEvent.click(compact)
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    expect(screen.getByTestId('pins')).toHaveAttribute('data-compact', 'false')
+    expect(screen.getByTestId('pin-B')).toHaveAttribute('data-selected', 'true')
+    expect(screen.getByTestId('map')).toBe(map)
+
+    fireEvent.click(compact)
+    expect(compact).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('pins')).toHaveAttribute('data-compact', 'true')
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    expect(screen.getByTestId('pin-B')).toHaveAttribute('data-selected', 'true')
+    expect(screen.getByTestId('map')).toBe(map)
+  })
+
+  it('keeps the selected property inspector visible in compact map mode', async () => {
     render(<ControlledShowcase listings={[listingA, listingB]} />)
     await screen.findByTestId('pin-A')
-    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Close listings' }))
-    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    expect(screen.getByText('Featured Listing')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Browse listings (2)' })).not.toBeInTheDocument()
   })
 
   it('fits the map to every displayed mapped location', async () => {
@@ -280,7 +303,7 @@ describe('ExclusiveListingsShowcase', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pin-A')).toHaveAttribute('data-selected', 'true')
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
     expect(getCard(container, 'A')).toHaveAttribute('data-selected', 'true')
     expect(getCard(container, 'B')).toHaveAttribute('data-selected', 'false')
 

@@ -434,6 +434,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
+  const nextGridColumns = activeView === 'grid' && gridColumns === 4 ? 3 : 4
   const selectGrid = (columns: 3 | 4) => {
     setGridColumns(columns)
     if (activeTab === 'history') {
@@ -482,7 +483,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="sm:hidden w-52">
-              <DropdownMenuItem onClick={() => selectGrid(4)}>
+              <DropdownMenuItem onClick={() => selectGrid(nextGridColumns)}>
                 <Grid3X3 className="mr-2 h-4 w-4" />
                 Grid view
               </DropdownMenuItem>
@@ -543,10 +544,9 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               <ToggleGroupItem
                 value="grid"
                 aria-label="Grid view"
-                aria-description={gridColumns === 3 ? 'Compact grid. Click to restore four columns.' : 'Double-click or press Shift+Enter for a compact three-column grid.'}
-                title={gridColumns === 3 ? 'Click for 4 cards per row' : 'Double-click for 3 cards per row · Shift+Enter'}
-                onClick={() => selectGrid(4)}
-                onDoubleClick={() => selectGrid(3)}
+                aria-description={nextGridColumns === 3 ? 'Click for a compact three-column grid.' : 'Click for a standard four-column grid.'}
+                title={`Click for ${nextGridColumns} cards per row`}
+                onClick={() => selectGrid(nextGridColumns)}
                 onKeyDown={(event) => {
                   if (event.shiftKey && (event.key === 'Enter' || event.key === ' ')) {
                     event.preventDefault()

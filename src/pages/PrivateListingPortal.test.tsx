@@ -147,10 +147,9 @@ vi.mock('@/components/listings/map/CustomPinMarkers', () => {
 })
 
 // --- floating map actions stub -----------------------------------------------
-vi.mock('@/components/listings/map/FloatingMapActions', () => {
-  const FloatingMapActions = () => null
-  return { __esModule: true, FloatingMapActions, default: FloatingMapActions }
-})
+vi.mock('@/components/listings/map/FloatingMapActions', async (importOriginal) =>
+  importOriginal<typeof import('@/components/listings/map/FloatingMapActions')>(),
+)
 
 // Import AFTER the mocks are registered.
 import PrivateListingPortal from '@/pages/PrivateListingPortal'
@@ -444,22 +443,58 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 
-  it('switches from the standard map to compact mode and exposes compact mode beside List', async () => {
+  it('toggles compact only in the map actions without remounting or changing the selected view', async () => {
     const user = userEvent.setup()
     renderPortal()
     await waitForLoaded()
+    const map = screen.getByTestId('map')
+    const canvas = screen.getByTestId('showcase-map-canvas')
+    const toolbar = screen.getByTestId('map-tab-toolbar')
+    const compact = within(canvas).getByRole('button', { name: 'Compact mode' })
+
+    expect(within(toolbar).queryByLabelText('Compact mode')).not.toBeInTheDocument()
+    expect(within(toolbar).getAllByRole('radio')).toHaveLength(3)
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
-    await user.click(screen.getByRole('radio', { name: 'Compact mode' }))
-    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Compact mode' })).toHaveAttribute('aria-checked', 'true')
-    await user.click(screen.getByRole('radio', { name: 'List view' }))
-    const switcher = screen.getByTestId('listing-browse-view-switcher')
-    const list = within(switcher).getByRole('button', { name: 'List view' })
-    const compact = within(switcher).getByRole('button', { name: 'Compact mode' })
-    expect(list.nextElementSibling).toBe(compact)
     await user.click(compact)
-    expect(await screen.findByTestId('showcase-map-canvas')).toBeInTheDocument()
+    expect(compact).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('map')).toBe(map)
+    expect(screen.getByTestId('showcase-map-canvas')).toBe(canvas)
     expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    await user.click(compact)
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    expect(screen.getByTestId('map')).toBe(map)
+    expect(shootFetchCount()).toBe(1)
+  })
+
+  it('preserves compact map preference through grid and list without adding a browse-toolbar mode', async () => {
+    const user = userEvent.setup()
+    renderPortal()
+    await waitForLoaded()
+    await user.click(screen.getByRole('button', { name: 'Compact mode' }))
+    await user.click(screen.getByRole('radio', { name: 'Grid view' }))
+
+    for (const mode of ['List view', 'Grid view']) {
+      const switcher = screen.getByTestId('listing-browse-view-switcher')
+      expect(within(switcher).getAllByRole('button')).toHaveLength(3)
+      expect(screen.queryByLabelText('Compact mode')).not.toBeInTheDocument()
+      await user.click(within(switcher).getByRole('button', { name: mode }))
+    }
+    await user.click(screen.getByRole('button', { name: 'Map view' }))
+    expect(await screen.findByRole('button', { name: 'Compact mode' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Compact mode' }))
+    await user.click(screen.getByRole('radio', { name: 'List view' }))
+    expect(screen.queryByLabelText('Compact mode')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Map view' }))
+    expect(await screen.findByRole('button', { name: 'Compact mode' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
+    expect(shootFetchCount()).toBe(1)
   })
 
   it('R4.3 + R5.3: applying a filter updates the summary and listings without a network call', async () => {

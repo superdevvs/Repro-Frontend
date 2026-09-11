@@ -19,6 +19,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { HoverCopyValue } from '@/components/shoots/HoverCopyValue'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
@@ -223,11 +224,12 @@ export const HoldOnShootCard = ({
 
   return (
     <Card
-      className="cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-lg transition-all bg-card/50 backdrop-blur-sm group"
+      className={cn('cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-lg transition-all bg-card/50 backdrop-blur-sm group', compact && 'shoot-glass-card')}
       onClick={() => onSelect(shoot)}
     >
-      <div className={compact ? 'p-4' : 'p-5'}>
-        <div className={cn('flex items-start justify-between gap-4', compact ? 'mb-3' : 'mb-4')}>
+      <div className={compact ? 'shoot-glass-panel' : undefined}>
+      <div className={compact ? 'p-3' : 'p-5'}>
+        <div className={cn('flex items-start justify-between gap-4', compact ? 'mb-2' : 'mb-4')}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Badge className={cn(holdStatusConfig.bgColor, holdStatusConfig.color)}>
@@ -235,7 +237,12 @@ export const HoldOnShootCard = ({
                 {holdStatusLabel}
               </Badge>
             </div>
-            <h3 className="font-bold text-lg leading-tight text-primary">{shoot.location.fullAddress}</h3>
+            <HoverCopyValue
+              as="h3"
+              value={shoot.location.fullAddress}
+              label="address"
+              textClassName="font-bold text-lg leading-tight text-primary"
+            />
           </div>
           {canSendToEditing && (
             <Button
@@ -310,9 +317,9 @@ export const HoldOnShootCard = ({
 
           <div className="flex items-center gap-6">
             {visibleClient.canShowName && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <span>{visibleClient.name}</span>
+                <HoverCopyValue as="span" value={visibleClient.name} label="client name" />
               </div>
             )}
             {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
@@ -366,6 +373,7 @@ export const HoldOnShootCard = ({
           <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
+      </div>
     </Card>
   )
 }

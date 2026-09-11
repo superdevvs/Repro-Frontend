@@ -21,7 +21,7 @@ afterEach(() => {
 
 // The three view options expose their name via aria-label (which mirrors the
 // tooltip text). Radix renders single-type toggle items with role "radio".
-const VIEW_NAMES = ['Map view', 'Grid view', 'List view', 'Compact mode'] as const
+const VIEW_NAMES = ['Map view', 'Grid view', 'List view'] as const
 
 describe('ViewSwitcher', () => {
   it('R6.3: clicking a different option invokes onChange with the matching mode', async () => {
@@ -39,9 +39,8 @@ describe('ViewSwitcher', () => {
     await user.click(screen.getByRole('radio', { name: 'List view' }))
     expect(onChange).toHaveBeenCalledWith('list')
 
-    await user.click(screen.getByRole('radio', { name: 'Compact mode' }))
-    expect(onChange).toHaveBeenCalledWith('compact')
-    expect(onChange).toHaveBeenCalledTimes(3)
+    expect(screen.queryByRole('radio', { name: 'Compact mode' })).not.toBeInTheDocument()
+    expect(onChange).toHaveBeenCalledTimes(2)
   })
 
   it('R6.4: every option exposes its view name as an accessible name', () => {
@@ -56,7 +55,7 @@ describe('ViewSwitcher', () => {
     }
 
     // Exactly three options render — Map, Grid, and List.
-    expect(screen.getAllByRole('radio')).toHaveLength(4)
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
   })
 
   it('R6.4: hovering an option surfaces a tooltip naming that view', async () => {

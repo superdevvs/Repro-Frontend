@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Crosshair, Layers3, Maximize2, Square } from 'lucide-react'
+import { Crosshair, Layers3, Maximize2, Minimize2, Square } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +11,8 @@ import {
 import { cn } from '@/lib/utils'
 
 export interface FloatingMapActionsProps {
+  onToggleCompactMode?: () => void
+  compactMode?: boolean
   /** Recenter the map on the loaded mapped listings (R8.2). */
   onRecenter: () => void
   /** Toggle the draw-area mode (R8.1). */
@@ -57,6 +59,8 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
   (
     {
       onRecenter,
+      onToggleCompactMode,
+      compactMode = false,
       onToggleDrawArea,
       onToggleLabels,
       onToggleFullscreen,
@@ -69,6 +73,13 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
     ref
   ) => {
     const actions: ActionDef[] = [
+      ...(onToggleCompactMode ? [{
+        key: 'compact',
+        label: 'Compact mode',
+        icon: Minimize2,
+        onClick: onToggleCompactMode,
+        active: compactMode,
+      }] : []),
       {
         key: 'recenter',
         label: 'Recenter map',

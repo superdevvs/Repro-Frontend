@@ -529,6 +529,112 @@ body {
   min-width: 0;
 }
 
+.shoot-glass-card {
+  --shoot-glass-hero-height: min(50cqw, 190px);
+  container-type: inline-size;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: hsl(var(--card));
+  box-shadow: 0 8px 24px hsl(var(--foreground) / 0.07), inset 0 0 0 1px hsl(var(--background) / 0.12);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.shoot-glass-hero {
+  width: 100%;
+  height: var(--shoot-glass-hero-height);
+  flex-shrink: 0;
+}
+
+.shoot-glass-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
+
+.shoot-glass-hero > .absolute {
+  z-index: 1;
+}
+
+.shoot-glass-panel {
+  --muted-foreground: 215 25% 26%;
+  --primary: 213 90% 32%;
+  --border: 215 18% 64%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: hsl(var(--foreground));
+}
+
+.dark .shoot-glass-panel {
+  --foreground: 214 15% 86%;
+  --muted-foreground: 214 14% 68%;
+  --primary: 211 55% 74%;
+  --border: 215 16% 42%;
+}
+
+.dark .shoot-glass-panel .font-bold {
+  font-weight: 600;
+}
+
+.dark .shoot-glass-panel .font-semibold {
+  font-weight: 500;
+}
+
+.shoot-glass-panel .border-t,
+.shoot-glass-panel .border-b {
+  border-color: hsl(var(--border) / 0.8);
+}
+
+.dark .shoot-glass-panel .border-t,
+.dark .shoot-glass-panel .border-b {
+  border-color: hsl(var(--border) / 0.38);
+}
+
+.shoot-glass-panel p,
+.shoot-glass-panel span {
+  line-height: 1.25;
+}
+
+.shoot-glass-blur {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  pointer-events: none;
+  filter: blur(18px);
+}
+
+.shoot-glass-blur::before,
+.shoot-glass-blur::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 100%;
+  height: var(--shoot-glass-hero-height);
+  background-image: var(--shoot-glass-image, none);
+  background-size: cover;
+  background-position: center;
+}
+
+.shoot-glass-blur::after {
+  transform: scaleY(-4);
+  transform-origin: center bottom;
+}
+
+.shoot-glass-panel::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, hsl(var(--card) / 0.68), hsl(var(--card) / 0.86) 40%, hsl(var(--card) / 0.98));
+}
+
 .system-overview-flow .react-flow__controls {
   background: hsl(var(--card) / 0.96);
   border: 1px solid hsl(var(--border) / 0.9);

@@ -7,6 +7,13 @@ import { Calendar, Clock } from 'lucide-react'
 
 import { ShootHistoryView, type ShootHistoryViewProps } from './ShootHistoryView'
 import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
+import { CompletedAlbumCard } from './CompletedAlbumCard'
+import { HoldOnShootCard } from './HoldOnShootCard'
+import { SharedShootCard } from '@/components/shoots/SharedShootCard'
+import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext'
+import type { ShootData } from '@/types/shoots'
+
+vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }))
 import {
   DEFAULT_HISTORY_FILTERS,
   DEFAULT_OPERATIONAL_FILTERS,
@@ -17,6 +24,150 @@ afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+const glassShoot = {
+  id: 'glass-shoot',
+  scheduledDate: '2026-09-11', time: '09:00', status: 'delivered', workflowStatus: 'delivered',
+  heroImage: 'https://images.example.test/property.jpg',
+  media: { images: [{ url: 'https://images.example.test/property.jpg' }] },
+  client: { name: 'Example Client', email: 'client@example.com', phone: '202-555-0100' },
+  photographer: { name: 'Example Photographer' },
+  location: { address: '123 Sample Street', city: 'Washington', state: 'DC', zip: '20001', fullAddress: '123 Sample Street, Washington DC' },
+  services: ['HDR Photography', 'Floor Plan'],
+  payment: { baseQuote: 250, taxRate: 0, taxAmount: 0, totalQuote: 250, totalPaid: 250 },
+  notes: { editingNotes: 'Keep natural colors', approvalNotes: 'Confirmed access' },
+} as unknown as ShootData
+
+const renderGlassCard = (node: React.ReactNode) => (
+  <UserPreferencesProvider>{node}</UserPreferencesProvider>
+)
+
+describe('Shoot History glass cards', () => {
+  it.each([
+    ['completed', (compact: boolean) => <CompletedAlbumCard shoot={glassShoot} compact={compact} onSelect={vi.fn()} isAdmin viewerRole="admin" />],
+    ['scheduled', (compact: boolean) => <SharedShootCard shoot={glassShoot} compact={compact} role="admin" />],
+    ['on hold', (compact: boolean) => <HoldOnShootCard shoot={glassShoot} compact={compact} onSelect={vi.fn()} isAdmin viewerRole="admin" />],
+  ] as const)('preserves all %s card details and typography while applying glass only in three-column mode', (_name, card) => {
+    const { container, rerender } = render(renderGlassCard(card(false)))
+    const standardText = container.textContent
+    const headingClasses = container.querySelector('h3')?.className
+    expect(container.querySelector('.shoot-glass-card')).toBeNull()
+
+    rerender(renderGlassCard(card(true)))
+    expect(container.querySelector('.shoot-glass-card')).not.toBeNull()
+    const panel = container.querySelector('.shoot-glass-panel')
+    expect(panel).not.toBeNull()
+    expect(panel).toHaveTextContent('HDR Photography')
+    expect(panel).toHaveTextContent('Floor Plan')
+    expect(panel).toHaveTextContent('Example Client')
+    expect(panel).toHaveTextContent('Example Photographer')
+    expect(panel).toHaveTextContent('Keep natural colors')
+    expect(container.textContent).toBe(standardText)
+    expect(container.querySelector('h3')?.className).toBe(headingClasses)
+
+    rerender(renderGlassCard(card(false)))
+    expect(container.querySelector('.shoot-glass-card')).toBeNull()
+    expect(container.querySelector('.shoot-glass-panel')).toBeNull()
+    expect(container.textContent).toBe(standardText)
+  })
+
+  it('keeps hidden hero images hidden and uses the existing placeholder on image failure', () => {
+    const { container, rerender } = render(renderGlassCard(<SharedShootCard shoot={glassShoot} compact hideHeroImage role="admin" />))
+    expect(container.querySelector('img')).toBeNull()
+    rerender(renderGlassCard(<CompletedAlbumCard shoot={glassShoot} compact onSelect={vi.fn()} />))
+    const image = container.querySelector('img')!
+    expect(image).toHaveClass('shoot-glass-card-image')
+    expect(image).toHaveAttribute('src', 'https://images.example.test/property.jpg')
+    act(() => image.dispatchEvent(new Event('error')))
+    expect(image.getAttribute('src')).not.toBe('https://images.example.test/property.jpg')
+  })
+
+  it.each([
+    ['completed', <CompletedAlbumCard shoot={glassShoot} compact onSelect={vi.fn()} />],
+    ['scheduled', <SharedShootCard shoot={glassShoot} compact role="admin" />],
+  ] as const)('keeps the %s photo in its own clear hero and supplies its colors to the detail extension', (_name, card) => {
+    const { container } = render(renderGlassCard(card))
+    const image = container.querySelector('img')!
+    expect(image.parentElement).toHaveClass('shoot-glass-hero')
+    expect(container.querySelector('.shoot-glass-card')).toHaveStyle({
+      '--shoot-glass-image': 'url("https://images.example.test/property.jpg")',
+    })
+    expect(container.querySelectorAll('img')).toHaveLength(1)
+    expect(container.querySelector('.shoot-glass-panel > .shoot-glass-blur')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it.each([
+    ['completed', <CompletedAlbumCard shoot={glassShoot} compact onSelect={vi.fn()} isAdmin viewerRole="admin" />],
+    ['scheduled', <SharedShootCard shoot={glassShoot} compact role="admin" />],
+  ] as const)('aligns the %s photographer label and name with the right content edge', (_name, card) => {
+    const { getByText } = render(renderGlassCard(card))
+    const block = getByText('Example Photographer').parentElement
+    expect(block).toHaveClass('text-right')
+    expect(block?.querySelector('div')).toHaveClass('justify-end')
+  })
+
+  it('retains download interactions without opening the card', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn(), onDownload = vi.fn()
+    render(renderGlassCard(<CompletedAlbumCard shoot={glassShoot} compact onSelect={onSelect} onDownload={onDownload} />))
+    await user.click(screen.getByRole('button', { name: 'Downloads' }))
+    expect(onDownload).toHaveBeenCalledWith(glassShoot, 'full')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('copies address and client contact from a completed card without opening it', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    render(renderGlassCard(<CompletedAlbumCard shoot={glassShoot} compact onSelect={onSelect} isAdmin viewerRole="admin" />))
+
+    await user.click(screen.getByRole('button', { name: 'Copy address' }))
+    await user.click(screen.getByRole('button', { name: 'Copy client name' }))
+    await user.click(screen.getByRole('button', { name: 'Copy client email' }))
+    await user.click(screen.getByRole('button', { name: 'Copy client phone' }))
+
+    expect(writeText.mock.calls.map((call) => call[0])).toEqual([
+      '123 Sample Street',
+      'Example Client',
+      'client@example.com',
+      '202-555-0100',
+    ])
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('Shoot History grid transitions', () => {
+  it.each([false, true])('animates only actual column switches with reduced motion set to %s', (reduced) => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
+    const container = document.createElement('div')
+    Object.defineProperty(container, 'clientWidth', { value: 1100 })
+    const grid = document.createElement('div')
+    grid.className = 'masonry-grid'
+    const cancel = vi.fn()
+    const animate = vi.fn(() => ({ cancel }))
+    Object.defineProperty(grid, 'animate', { value: animate })
+    container.appendChild(grid)
+    const ref = { current: container }
+    const { rerender, unmount } = renderHook(
+      ({ preferred }: { preferred: 3 | 4 }) => useShootHistoryGridColumns(ref, preferred),
+      { initialProps: { preferred: 4 } },
+    )
+
+    expect(animate).not.toHaveBeenCalled()
+    rerender({ preferred: 3 })
+    expect(animate).toHaveBeenCalledTimes(reduced ? 0 : 1)
+    if (!reduced) expect(animate).toHaveBeenCalledWith(
+      [{ opacity: 0.7, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 180, easing: 'ease-out' },
+    )
+    rerender({ preferred: 4 })
+    expect(animate).toHaveBeenCalledTimes(reduced ? 0 : 2)
+    expect(cancel).toHaveBeenCalledTimes(reduced ? 0 : 1)
+    unmount()
+    expect(cancel).toHaveBeenCalledTimes(reduced ? 0 : 2)
+  })
 })
 
 describe('Shoot History responsive grid columns', () => {
@@ -168,7 +319,7 @@ function ViewHarness({
 }
 
 describe.each(['delivered', 'history'] as const)('Shoot History grid controls in %s', (tab) => {
-  it('uses three columns after a double-click and restores four after one click', async () => {
+  it('toggles three and four columns on each single click and handles rapid clicks consistently', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} />)
     const grid = screen.getByRole('radio', { name: 'Grid view' })
@@ -177,12 +328,14 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
     expect(root).toHaveAttribute('data-grid-columns', '4')
     expect(grid).toHaveAttribute('aria-checked', 'true')
 
-    // userEvent emits both clicks followed by dblclick, matching the browser.
-    await user.dblClick(grid)
+    await user.click(grid)
     expect(root).toHaveAttribute('data-grid-columns', '3')
     expect(grid).toHaveAttribute('aria-checked', 'true')
-
     await user.click(grid)
+    expect(root).toHaveAttribute('data-grid-columns', '4')
+
+    // userEvent emits both clicks followed by dblclick, matching the browser.
+    await user.dblClick(grid)
     expect(root).toHaveAttribute('data-grid-columns', '4')
     expect(grid).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId(tab === 'history' ? 'operational-view' : 'history-view'))
@@ -197,7 +350,9 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
     const root = container.querySelector('.shoot-history-tabs')
 
     expect(list).toHaveAttribute('aria-checked', 'true')
-    await user.dblClick(grid)
+    await user.click(grid)
+    expect(root).toHaveAttribute('data-grid-columns', '4')
+    await user.click(grid)
     expect(root).toHaveAttribute('data-grid-columns', '3')
     expect(grid).toHaveAttribute('aria-checked', 'true')
 
@@ -210,6 +365,17 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
       .toHaveTextContent('grid')
     expect(screen.getByTestId(tab === 'history' ? 'operational-view' : 'history-view'))
       .toHaveTextContent('map')
+  })
+
+  it.each(['{Enter}', ' '])('toggles columns with a single %s key activation', async (key) => {
+    const user = userEvent.setup()
+    const { container } = render(<ViewHarness tab={tab} />)
+    const grid = screen.getByRole('radio', { name: 'Grid view' })
+    act(() => grid.focus())
+    await user.keyboard(key)
+    expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
+    await user.keyboard(key)
+    expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '4')
   })
 
   it.each([

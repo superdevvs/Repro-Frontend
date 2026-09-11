@@ -34,6 +34,7 @@ interface MarkerRecord {
 
 const markerRecords: MarkerRecord[] = []
 const markerInstances: object[] = []
+const mapInstances: object[] = []
 const fitBoundsCalls: unknown[][] = []
 const panByCalls: Array<[number, number]> = []
 const setCenterCalls: Array<{ lat: number; lng: number }> = []
@@ -58,6 +59,7 @@ const createMapsApi = (): GoogleMapsApi => {
   class MapInstance {
     constructor(_element: HTMLElement, options: GoogleMapOptions) {
       mapOptionsCalls.push(options)
+      mapInstances.push(this)
     }
 
     fitBounds(...args: unknown[]) { fitBoundsCalls.push(args) }
@@ -194,6 +196,7 @@ const renderMap = (
 beforeEach(() => {
   markerRecords.length = 0
   markerInstances.length = 0
+  mapInstances.length = 0
   fitBoundsCalls.length = 0
   panByCalls.length = 0
   setCenterCalls.length = 0
@@ -211,6 +214,50 @@ afterEach(() => {
 })
 
 describe('PrivateListingGoogleMap', () => {
+  it('toggles compact photos and previews from map actions without reconstructing the map', async () => {
+    const listings = [listing('listing-1', 30.2672, -97.7431)]
+    function ToggleableMap() {
+      const [compactMap, setCompactMap] = React.useState(false)
+      return <PrivateListingGoogleMap
+        apiKey="browser-key-for-test"
+        listings={listings}
+        selectedListingId="listing-1"
+        compactMode={compactMap}
+        onToggleCompactMode={() => setCompactMap((value) => !value)}
+        onSelectListing={vi.fn()}
+        showMarkerLabels={false}
+        onToggleLabels={vi.fn()}
+        resolveImageUrl={() => null}
+        formatPrice={(price) => `$${price ?? 0}`}
+        onOpenListing={vi.fn()}
+        theme="light"
+      />
+    }
+    render(<ToggleableMap />)
+    const compact = await screen.findByRole('button', { name: 'Compact mode' })
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
+    expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: true, clickable: true }))
+    expect(await screen.findByRole('region', { name: 'Selected listing listing-1 Main Street' })).toBeInTheDocument()
+    const map = mapInstances[0]
+
+    act(() => compact.click())
+    expect(compact).toHaveAttribute('aria-pressed', 'true')
+    expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: false, clickable: false }))
+    expect((await screen.findByRole('button', { name: `Select ${listings[0].fullAddress}` })).querySelector('img')).not.toBeNull()
+    expect(screen.queryByRole('region', { name: 'Selected listing listing-1 Main Street' })).not.toBeInTheDocument()
+    expect(mapInstances).toEqual([map])
+    expect(h.loadGoogleMaps).toHaveBeenCalledTimes(1)
+
+    act(() => compact.click())
+    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: true, clickable: true }))
+    expect(screen.queryByRole('button', { name: `Select ${listings[0].fullAddress}` })).not.toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Selected listing listing-1 Main Street' })).toBeInTheDocument()
+    expect(mapInstances).toEqual([map])
+    expect(infoWindowRecords).toHaveLength(2)
+  })
+
   it('discards invalid coordinates, groups a shared location, and selects the active listing', async () => {
     const onSelectListing = vi.fn()
     const listings = [
@@ -231,7 +278,7 @@ describe('PrivateListingGoogleMap', () => {
     expect(markerRecords[0].options).toEqual(expect.objectContaining({ visible: false, clickable: false }))
     expect((await screen.findByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' })).querySelector('img')).not.toBeNull()
     expect(fitBoundsCalls).toHaveLength(1)
-    expect(fitBoundsCalls[0][1]).toEqual({ top: 120, right: 64, bottom: 80, left: 64 })
+    expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 372, bottom: 64, left: 64 })
     expect(screen.queryByRole('region', { name: 'Selected listing 100 Congress Avenue' })).not.toBeInTheDocument()
     act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
 

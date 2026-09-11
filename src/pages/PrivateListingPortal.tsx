@@ -22,7 +22,6 @@ import {
   Search,
   Plus,
   LayoutGrid,
-  Image,
   List,
   Map as MapIcon,
   User,
@@ -69,7 +68,9 @@ const PrivateListingPortal = () => {
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list' | 'compact'>('showcase');
+  const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
+  const [compactMap, setCompactMap] = useState(false);
+  const toggleCompactMap = useCallback(() => setCompactMap((compact) => !compact), []);
   const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
   const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>(readGeoCache);
   const [savedViews, setSavedViews] = useState<SavedView[]>(() =>
@@ -164,7 +165,7 @@ const PrivateListingPortal = () => {
   }, [geoCache, adminVisibleListings]);
 
   const showcaseGeocodeListings = useMemo(() => {
-    if ((viewMode !== 'showcase' && viewMode !== 'compact')) return [];
+    if (viewMode !== 'showcase') return [];
     const unique = new Map<string, PrivateListing>();
     for (const listing of adminVisibleListings) {
       if (hasListingCoords(listing) || !listing.fullAddress || geoCache[listing.fullAddress]) continue;
@@ -539,7 +540,7 @@ const PrivateListingPortal = () => {
     <div
       data-testid="listing-scope-control"
       className={
-        (viewMode === 'showcase' || viewMode === 'compact')
+        viewMode === 'showcase'
           ? 'inline-flex w-full shrink-0 items-center rounded-xl border border-slate-300/80 bg-white/82 p-1 text-slate-950 shadow-xl backdrop-blur-xl sm:w-auto dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
           : 'inline-flex w-full shrink-0 items-center rounded-xl border border-border/70 bg-muted/20 p-1 sm:w-auto'
       }
@@ -551,7 +552,7 @@ const PrivateListingPortal = () => {
         className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors sm:flex-none 2xl:px-4 ${
           listingScope === 'all'
             ? 'bg-blue-600 text-white shadow-sm'
-            : (viewMode === 'showcase' || viewMode === 'compact')
+            : viewMode === 'showcase'
               ? 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
         }`}
@@ -566,7 +567,7 @@ const PrivateListingPortal = () => {
         className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors sm:flex-none 2xl:px-4 ${
           listingScope === 'mine'
             ? 'bg-blue-600 text-white shadow-sm'
-            : (viewMode === 'showcase' || viewMode === 'compact')
+            : viewMode === 'showcase'
               ? 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
         }`}
@@ -583,10 +584,10 @@ const PrivateListingPortal = () => {
 
   // ─── Main Render ───────────────────────────────────────────
   return (
-    <DashboardLayout hideFooter={(viewMode === 'showcase' || viewMode === 'compact')}>
+    <DashboardLayout hideFooter={viewMode === 'showcase'}>
       <div
         className={
-          (viewMode === 'showcase' || viewMode === 'compact')
+          viewMode === 'showcase'
             ? 'flex min-h-0 flex-col gap-3 px-0 pb-0 pt-2 sm:px-3 sm:pt-0'
             : 'space-y-4 px-2 pb-3 pt-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0'
         }
@@ -681,7 +682,7 @@ const PrivateListingPortal = () => {
             a compact scope/search/view command row. The toolbar's ViewSwitcher
             and the legacy toggle both drive `viewMode`, so users can move
             between all three views. */}
-        {(viewMode !== 'showcase' && viewMode !== 'compact') ? (
+        {viewMode !== 'showcase' ? (
           <div
             className="flex w-full flex-wrap items-center gap-2 md:flex-nowrap"
             data-testid="listing-browse-toolbar"
@@ -716,8 +717,8 @@ const PrivateListingPortal = () => {
                 type="button"
                 onClick={() => setViewMode('showcase')}
                 className="p-2 transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                title="Showcase view"
-                aria-label="Showcase view"
+                title="Map view"
+                aria-label="Map view"
               >
                 <MapIcon className="h-4 w-4" />
               </button>
@@ -739,17 +740,12 @@ const PrivateListingPortal = () => {
               >
                 <List className="h-4 w-4" />
               </button>
-              <button type="button" onClick={() => setViewMode('compact')}
-                className="border-l p-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                title="Compact mode" aria-label="Compact mode">
-                <Image className="h-4 w-4" />
-              </button>
             </div>
           </div>
         ) : null}
 
         {/* Count */}
-        {(viewMode !== 'showcase' && viewMode !== 'compact') && sortedListings.length > 0 && (
+        {viewMode !== 'showcase' && sortedListings.length > 0 && (
           <div className="text-xs text-muted-foreground">
             {sortedListings.length} {sortedListings.length === 1 ? 'listing' : 'listings'}
             {isClient && ` in ${listingScope === 'all' ? 'all listings' : 'my listings'}`}
@@ -824,10 +820,10 @@ const PrivateListingPortal = () => {
         </Dialog>
 
         {/* Empty State */}
-        {(viewMode === 'showcase' || viewMode === 'compact') ? (
+        {viewMode === 'showcase' ? (
           <ExclusiveListingsShowcase
-            key={viewMode}
-            compactMode={viewMode === 'compact'}
+            compactMode={compactMap}
+            onToggleCompactMode={toggleCompactMap}
             listings={presentation.displayedListings}
             resolveImageUrl={resolveListingPreviewUrl}
             formatPrice={formatListingPrice}
