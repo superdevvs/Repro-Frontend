@@ -39,7 +39,8 @@ vi.mock('@/lib/tourTracking', () => ({
 }));
 
 const fetchMock = vi.fn();
-const layouts = ['homeify', 'landor', 'landor-estate', 'landor-living'] as const;
+const layouts = ['homeify', 'landor'] as const;
+const legacyLandorLayouts = ['landor-estate', 'landor-solid', 'landor-beyond', 'landor-vision', 'landor-leader', 'landor-living'] as const;
 const payload = {
   shoot: { id: 42, address: '42 Redwood Avenue', city: 'Austin', state: 'TX' },
   photos: ['https://example.test/property.jpg'],
@@ -107,8 +108,6 @@ describe.each([
   it.each([
     ['homeify', 'landor'],
     ['landor', 'homeify'],
-    ['landor-estate', 'landor'],
-    ['landor-living', 'homeify'],
   ])('previews %s over saved %s', async (preview, saved) => {
     window.history.replaceState({}, '', `/?shootId=42&layout=${preview}`);
     respond({ ...payload, tour_style: saved });
@@ -120,6 +119,25 @@ describe.each([
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+
+  it.each(legacyLandorLayouts)('maps saved removed Landor theme %s to Signature', async (legacy) => {
+    respond({ ...payload, tour_style: legacy });
+
+    render(<Component />);
+
+    expect(await screen.findByTestId('landor-tour')).toBeInTheDocument();
+    expect(screen.queryByTestId(`${legacy}-tour`)).not.toBeInTheDocument();
+  });
+
+  it.each(legacyLandorLayouts)('maps preview removed Landor theme %s to Signature', async (legacy) => {
+    window.history.replaceState({}, '', `/?shootId=42&layout=${legacy}`);
+    respond({ ...payload, tour_style: 'neo' });
+
+    render(<Component />);
+
+    expect(await screen.findByTestId('landor-tour')).toBeInTheDocument();
+    expect(screen.queryByTestId('neo-tour')).not.toBeInTheDocument();
+  });
   it.each(layouts)('ignores unknown preview values while preserving saved %s', async (layout) => {
     window.history.replaceState({}, '', '/?shootId=42&layout=unrecognized');
     respond({ ...payload, tour_style: layout });

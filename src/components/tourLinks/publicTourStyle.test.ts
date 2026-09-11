@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { isLandorTourStyle, resolvePublicTourPalette, resolvePublicTourStyle } from './publicTourStyle';
-import { LANDOR_STYLE_IDS } from './landor/landorRegistry';
+import { LANDOR_STYLE_IDS, LEGACY_LANDOR_STYLE_IDS } from './landor/landorRegistry';
 
 describe('resolvePublicTourStyle', () => {
-  it.each(['default', 'neo', 'homeify', 'landor', ...LANDOR_STYLE_IDS.filter((id) => id !== 'landor')] as const)(
+  it.each(['default', 'neo', 'homeify', 'landor'] as const)(
     'preserves saved %s without a valid preview',
     (style) => {
       expect(resolvePublicTourStyle(style, null)).toBe(style);
@@ -19,6 +19,12 @@ describe('resolvePublicTourStyle', () => {
 
   it.each([null, undefined, '', 'unknown', {}, 42])('falls back to Default for invalid saved style %s', (saved) => {
     expect(resolvePublicTourStyle(saved, null)).toBe('default');
+  });
+
+  it.each([...LEGACY_LANDOR_STYLE_IDS] as const)('maps removed Landor home theme %s to Signature', (legacy) => {
+    expect(resolvePublicTourStyle(legacy, null)).toBe('landor');
+    expect(resolvePublicTourStyle('homeify', legacy)).toBe('landor');
+    expect(isLandorTourStyle(legacy)).toBe(false);
   });
 
   it('only accepts the new layout names as preview overrides', () => {

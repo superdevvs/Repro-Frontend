@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { LANDOR_THEMES, landorThemeLabel } from '@/components/tourLinks/landor/landorRegistry';
+import { resolvePublicTourStyle } from '@/components/tourLinks/publicTourStyle';
 import { PUBLIC_TOUR_PALETTES } from '@/components/tourLinks/landor/landorPalettes';
 
 export type TourEmbed = {
@@ -124,8 +125,9 @@ export function ShootTourSettingsSection({
   }, [editingEmbedId]);
 
   const featuredEmbed = embeds.find((embed) => embed.id === featuredEmbedId);
+  const resolvedTourStyle = resolvePublicTourStyle(tourStyle, null);
   const settingsSummary = [
-    LANDOR_THEMES.some((theme) => theme.id === tourStyle) ? landorThemeLabel(tourStyle) : titleCase(tourStyle || 'default'),
+    LANDOR_THEMES.some((theme) => theme.id === resolvedTourStyle) ? landorThemeLabel(resolvedTourStyle) : titleCase(resolvedTourStyle || 'default'),
     titleCase(tourPalette || 'repro'),
     `${titleCase(tourSettings.header_position || 'center')} header`,
     titleCase(tourSettings.tour_version || 'standard'),
@@ -168,7 +170,7 @@ export function ShootTourSettingsSection({
               <div className="space-y-1">
                 <Label className={settingLabelClassName}>Tour style</Label>
                 <Select
-                  value={tourStyle}
+                  value={resolvedTourStyle}
                   onValueChange={(value) => {
                     setTourStyle(value);
                     void saveTourStyle(value);

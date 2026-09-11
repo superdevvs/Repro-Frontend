@@ -22,6 +22,7 @@ import {
   type LooseRecord,
 } from '@/components/shoots/tabs/shootDetailsTourTabUtils';
 import { resolvePublicTourPalette } from '@/components/tourLinks/landor/landorPalettes';
+import { resolvePublicTourStyle } from '@/components/tourLinks/publicTourStyle';
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
   isAdmin: boolean;
@@ -204,10 +205,10 @@ export function ShootDetailsTourTab({
     }
   }, [isClientView]);
   const initialTourState = useMemo(() => {
-    const style =
-      sourceTourLinks?.tour_style ||
-      shootTourData.tour_style ||
-      'default';
+    const style = resolvePublicTourStyle(
+      sourceTourLinks?.tour_style || shootTourData.tour_style || 'default',
+      null,
+    );
     const palette = resolvePublicTourPalette(
       sourceTourLinks?.tour_palette ?? shootTourData.tour_palette,
       null,
@@ -982,7 +983,7 @@ export function ShootDetailsTourTab({
       const responseData = await res.json().catch(() => ({}));
       const savedShoot = responseData.data || responseData;
       if (savedShoot?.tour_links?.tour_style) {
-        setTourStyle(savedShoot.tour_links.tour_style);
+        setTourStyle(resolvePublicTourStyle(savedShoot.tour_links.tour_style, null));
       }
       toast({
         title: 'Success',
@@ -997,7 +998,7 @@ export function ShootDetailsTourTab({
         variant: 'destructive',
       });
       // Revert to previous value on error
-      const previousStyle = String(sourceTourLinks.tour_style || shootTourData.tour_style || 'default');
+      const previousStyle = resolvePublicTourStyle(sourceTourLinks.tour_style || shootTourData.tour_style || 'default', null);
       setTourStyle(previousStyle);
     } finally {
       setIsSavingTourStyle(false);
