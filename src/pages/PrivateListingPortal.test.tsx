@@ -462,7 +462,7 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('map')).toBe(map)
     expect(screen.getByTestId('showcase-map-canvas')).toBe(canvas)
-    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
     await user.click(compact)
     expect(compact).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
@@ -486,7 +486,7 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     await user.click(screen.getByRole('button', { name: 'Map view' }))
     expect(await screen.findByRole('button', { name: 'Compact mode' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.queryByTestId('listing-inspector-overlay')).not.toBeInTheDocument()
+    expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Compact mode' }))
     await user.click(screen.getByRole('radio', { name: 'List view' }))
