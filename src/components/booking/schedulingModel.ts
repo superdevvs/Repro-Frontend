@@ -121,6 +121,13 @@ export interface SchedulingFormProps {
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   serviceSchedules?: Record<string, { date?: string; time?: string }>;
   setServiceSchedules?: React.Dispatch<React.SetStateAction<Record<string, { date?: string; time?: string }>>>;
-  selectedServices?: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
+  selectedServices?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    photographer_required?: boolean;
+    category?: { id: string; name: string };
+  }>;
   sameDayAddressWarningMessage?: string;
 }

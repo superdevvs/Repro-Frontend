@@ -8,7 +8,7 @@ import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
-import { buildAssignmentGroups, requiresPerServiceAssignment as computeRequiresPerServiceAssignment } from '@/utils/photographerAssignment';
+import { buildAssignmentGroups, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
 import {
@@ -181,6 +181,7 @@ export const useSchedulingFormController = ({
     () => buildAssignmentGroups(selectedServices),
     [selectedServices],
   );
+  const requiresPhotographerAssignment = selectedServicesRequirePhotographer(selectedServices);
   const requiresPerServiceAssignment = computeRequiresPerServiceAssignment(selectedServices);
   const [activeServiceForPicker, setActiveServiceForPicker] = useState<string | null>(null);
   const activeServiceNameForPicker = activeServiceForPicker
@@ -951,7 +952,7 @@ export const useSchedulingFormController = ({
     onDateChange, onTimeChange, handleTimeDialogOpen, handleTimeConfirm,
     handleQuickTimeSelect, handlePhotographerDialogOpen, handleConfirmPhotographer,
     handleGetCurrentLocation, selectedPhotographer, selectedPhotographerDetails,
-    fullAddress, assignmentGroups, requiresPerServiceAssignment, activeServiceForPicker,
+    fullAddress, assignmentGroups, requiresPhotographerAssignment, requiresPerServiceAssignment, activeServiceForPicker,
     setActiveServiceForPicker, activeServiceNameForPicker, activeServiceCapabilityForPicker,
     photographerOptions, isTimeWithinSlots, isTimeWithinBlockedSlots,
     getPhotographerScheduleData, workingWindowMinutes, availabilityCardWindow,

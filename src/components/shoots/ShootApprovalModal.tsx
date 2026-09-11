@@ -80,6 +80,7 @@ interface ShootServiceDetails {
   price?: number;
   category?: { id?: string | number; name?: string } | string | null;
   photographer_id?: string | number | null;
+  photographer_required?: boolean;
   resolved_photographer_id?: string | number | null;
   scheduled_at?: string | null;
   scheduledAt?: string | null;
@@ -565,7 +566,7 @@ export function ShootApprovalModal({
               : service.category?.name || 'Other';
           const categoryKey = normalizeCategoryKey(categoryName);
           const selectedCategoryPhotographerId = perCategoryPhotographers[categoryKey];
-          if (selectedCategoryPhotographerId) {
+          if (selectedCategoryPhotographerId && service.photographer_required !== false) {
             assignments.push({
               service_id: serviceId,
               photographer_id: Number(selectedCategoryPhotographerId),
@@ -586,7 +587,9 @@ export function ShootApprovalModal({
           const serviceId = Number(getServiceIdentifier(service));
           if (!serviceId) return items;
           const categoryKey = getServiceCategoryKey(service);
-          const selectedPhotographerId = perCategoryPhotographers[categoryKey] || photographerId || null;
+          const selectedPhotographerId = service.photographer_required === false
+            ? null
+            : perCategoryPhotographers[categoryKey] || photographerId || null;
           const schedule = serviceSchedules[String(serviceId)] || {};
           const serviceScheduledAt = buildShootScheduleTimestamp(schedule.date || defaultDate, schedule.time || scheduledTime,
             shootDetails.timezone, findServiceScheduleTimestamp(shootDetails, serviceId)) || scheduledAt;

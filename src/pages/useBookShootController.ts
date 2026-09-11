@@ -395,7 +395,9 @@ export const useBookShootController = () => {
       try {
       const scheduleSource = isEditMode ? editingScheduleSource : null;
       const servicesPayload = selectedServices.map(service => {
-        const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
+        const assignedPhotographerId = service.photographer_required !== false
+          ? servicePhotographers[service.id] || photographer || null
+          : null;
         const compMapping = isCompReshootMode ? compReshoot.serviceMappings[service.id] : undefined;
         const mappedSourceService = isCompReshootMode ? compReshoot.getMappedSourceService(service.id) : undefined;
         const serviceCompensation = isCompReshootMode ? compReshoot.getServiceCompensation(service) : undefined;
@@ -473,13 +475,22 @@ export const useBookShootController = () => {
         scheduled_at: scheduledAt, // Full datetime in format: "YYYY-MM-DD HH:MM:SS"
         scheduled_date: orderDate, // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
-        photographer_id: photographer || null,
-        service_photographers: Object.keys(servicePhotographers).length > 0
-          ? Object.entries(servicePhotographers).map(([serviceId, photographerId]) => ({
+        photographer_id: selectedServices.some((service) => service.photographer_required !== false)
+          ? photographer || null
+          : null,
+        service_photographers: (() => {
+          const assignments = Object.entries(servicePhotographers)
+            .filter(([serviceId, photographerId]) => {
+              if (!photographerId) return false;
+              const service = selectedServices.find((item) => String(item.id) === String(serviceId));
+              return service?.photographer_required !== false;
+            })
+            .map(([serviceId, photographerId]) => ({
               service_id: serviceId,
               photographer_id: photographerId,
-            }))
-          : undefined,
+            }));
+          return assignments.length > 0 ? assignments : undefined;
+        })(),
         service_id: primaryServiceId,
         services: servicesPayload,
         service_items: serviceItemsPayload,

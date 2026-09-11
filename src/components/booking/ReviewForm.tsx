@@ -14,6 +14,7 @@ import type { PricingBreakdown } from '@/utils/pricing';
 import { CompReshootCompensationSection } from '@/features/complimentary-reshoots/CompReshootCompensationSection';
 import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import type { ServicePackage } from '@/pages/bookShootModel';
+import { selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -306,7 +307,7 @@ export function ReviewForm({
             )}
           </div>
 
-          {(() => {
+          {selectedServicesRequirePhotographer(selectedServices) ? (() => {
             // Check if we have per-service photographer assignments
             const hasServicePhotographers = Object.keys(servicePhotographers).length > 0;
             // Group services by normalized category name (merges "Photo"/"Photos" etc.)
@@ -355,7 +356,7 @@ export function ReviewForm({
                 </span>
               </div>
             );
-          })()}
+          })() : null}
 
           {additionalNotes && (
             <div className="pt-2">

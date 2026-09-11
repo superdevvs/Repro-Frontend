@@ -128,6 +128,7 @@ export function useShootEditModalController({
           name: s.name,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
+          photographer_required: Boolean(s.photographer_required),
           category: s.category ? { id: s.category.id, name: s.category.name } : undefined,
           sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: ServiceApiRange) => ({
             ...r,
@@ -338,6 +339,9 @@ export function useShootEditModalController({
   const availableServiceCategoryGroups = useMemo(() => {
     const groups = new Map<string, { key: string; name: string; services: Service[]; serviceIds: string[] }>();
     availableServices.forEach((service) => {
+      if (service.photographer_required === false) {
+        return;
+      }
       const serviceId = String(service.id);
       const categoryName =
         typeof service.category === 'string'
@@ -617,15 +621,19 @@ export function useShootEditModalController({
           : service.category?.name || 'Other'
         : 'Other';
       const categoryPhotographerId = perCategoryPhotographers[catName.trim().toLowerCase().replace(/s$/, '')];
+      const serviceRequiresPhotographer = service?.photographer_required !== false;
       return {
         service_id: Number(id),
         scheduled_at: serviceScheduledAt,
-        photographer_id:
-          categoryPhotographerId && categoryPhotographerId !== 'unassigned'
-            ? Number(categoryPhotographerId)
-            : photographerId && photographerId !== 'unassigned'
-              ? Number(photographerId)
-              : undefined,
+        photographer_id: serviceRequiresPhotographer
+          ? (
+            categoryPhotographerId && categoryPhotographerId !== 'unassigned'
+              ? Number(categoryPhotographerId)
+              : photographerId && photographerId !== 'unassigned'
+                ? Number(photographerId)
+                : undefined
+          )
+          : undefined,
       };
     });
     const payload: Record<string, unknown> = {
@@ -643,7 +651,14 @@ export function useShootEditModalController({
       })),
       service_items: serviceItemsPayload,
     };
-    if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
+    if (
+      isAdminOrRep
+      && photographerId
+      && photographerId !== 'unassigned'
+      && availableServices.some((service) =>
+        selectedServiceIds.includes(String(service.id)) && service.photographer_required !== false
+      )
+    ) {
       payload.photographer_id = Number(photographerId);
     }
     const normCatKey = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
@@ -655,7 +670,7 @@ export function useShootEditModalController({
         const catName = typeof service.category === 'string' ? service.category : service.category?.name || 'Other';
         const catKey = normCatKey(catName);
         const photogId = perCategoryPhotographers[catKey];
-        if (photogId && photogId !== 'unassigned') {
+        if (photogId && photogId !== 'unassigned' && service.photographer_required !== false) {
           servicePhotographerAssignments.push({
             service_id: Number(svcId),
             photographer_id: Number(photogId),

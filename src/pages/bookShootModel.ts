@@ -17,6 +17,7 @@ export type ServicePackage = {
   allow_multiple?: boolean;
   description: string;
   sqft_ranges?: SqftRange[];
+  photographer_required?: boolean;
   photographer_pay?: number | null;
   exclude_from_sales_commission?: boolean;
   quantity?: number;

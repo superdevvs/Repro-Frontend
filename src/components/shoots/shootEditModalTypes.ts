@@ -18,6 +18,7 @@ export interface Service {
   price?: number;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
+  photographer_required?: boolean;
   category?: { id: number | string; name: string } | string;
   scheduled_at?: string | null;
   scheduledAt?: string | null;
@@ -148,6 +149,7 @@ export type ServiceApiRecord = {
   name?: string;
   price?: number | string;
   pricing_type?: 'fixed' | 'variable' | string;
+  photographer_required?: boolean | number | string | null;
   category?: { id?: string | number; name?: string };
   sqft_ranges?: ServiceApiRange[];
   sqftRanges?: ServiceApiRange[];

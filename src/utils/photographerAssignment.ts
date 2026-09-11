@@ -19,6 +19,27 @@ export interface AssignableService {
   id: string;
   name: string;
   category?: AssignableServiceCategory | null;
+  photographer_required?: boolean | null;
+}
+
+export function serviceRequiresPhotographer(
+  service?: Pick<AssignableService, 'photographer_required'> | null,
+): boolean {
+  // Explicit false is the only opt-out. Missing values keep the historical
+  // photographer workflow so cached drafts and older payloads stay safe.
+  return service?.photographer_required !== false;
+}
+
+export function photographerRequiredServices<T extends Pick<AssignableService, 'photographer_required'>>(
+  selectedServices: ReadonlyArray<T> | null | undefined,
+): T[] {
+  return (selectedServices ?? []).filter((service) => serviceRequiresPhotographer(service));
+}
+
+export function selectedServicesRequirePhotographer(
+  selectedServices: ReadonlyArray<Pick<AssignableService, 'photographer_required'>> | null | undefined,
+): boolean {
+  return photographerRequiredServices(selectedServices).length > 0;
 }
 
 export interface AssignmentGroup {
@@ -38,7 +59,7 @@ export interface AssignmentGroup {
 export function buildAssignmentGroups(
   selectedServices: ReadonlyArray<AssignableService>,
 ): AssignmentGroup[] {
-  return (selectedServices ?? []).map((service) => ({
+  return photographerRequiredServices(selectedServices).map((service) => ({
     key: service.id,
     serviceId: service.id,
     serviceName: service.name,
@@ -48,10 +69,10 @@ export function buildAssignmentGroups(
 
 /**
  * Whether the UI should render a separate photographer assignment per service.
- * True whenever more than one service is selected — regardless of category or role.
+ * True whenever more than one photographer-required service is selected.
  */
 export function requiresPerServiceAssignment(
   selectedServices: ReadonlyArray<AssignableService>,
 ): boolean {
-  return (selectedServices ?? []).length > 1;
+  return photographerRequiredServices(selectedServices).length > 1;
 }

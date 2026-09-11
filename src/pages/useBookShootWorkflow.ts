@@ -484,6 +484,7 @@ export const useBookShootWorkflow = ({
             price: Number(pkg.price ?? 0),
             pricing_type: pkg.pricing_type === 'variable' ? 'variable' : 'fixed',
             allow_multiple: Boolean(pkg.allow_multiple),
+            photographer_required: Boolean(pkg.photographer_required),
             photographer_pay: pkg.photographer_pay === null || pkg.photographer_pay === undefined
               ? null
               : Number(pkg.photographer_pay),

@@ -7,13 +7,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAssignmentGroups,
+  photographerRequiredServices,
   requiresPerServiceAssignment,
+  selectedServicesRequirePhotographer,
   type AssignableService,
 } from './photographerAssignment';
 
-const svc = (id: string, name: string, category?: string | null): AssignableService => ({
+const svc = (
+  id: string,
+  name: string,
+  category?: string | null,
+  photographerRequired = true,
+): AssignableService => ({
   id,
   name,
+  photographer_required: photographerRequired,
   category: category === undefined ? undefined : category === null ? null : { name: category },
 });
 
@@ -80,6 +88,21 @@ describe('buildAssignmentGroups (role-agnostic, per-service)', () => {
   it('empty selection -> no assignment sections', () => {
     expect(buildAssignmentGroups([])).toEqual([]);
   });
+
+  it('ignores services that do not require a photographer', () => {
+    const services = [
+      svc('p', '25 HDR Photos', 'Photos', true),
+      svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
+      svc('gg', 'Green Grass Enhancement', 'Digital Enhancements', false),
+    ];
+    const groups = buildAssignmentGroups(services);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].serviceId).toBe('p');
+    expect(photographerRequiredServices(services).map((service) => service.id)).toEqual(['p']);
+    expect(selectedServicesRequirePhotographer(services)).toBe(true);
+    expect(selectedServicesRequirePhotographer(services.filter((service) => service.id !== 'p'))).toBe(false);
+  });
 });
 
 describe('requiresPerServiceAssignment', () => {
@@ -88,7 +111,7 @@ describe('requiresPerServiceAssignment', () => {
     expect(requiresPerServiceAssignment([svc('s1', 'Only', 'Photos')])).toBe(false);
   });
 
-  it('is true for more than one service, including same-category selections', () => {
+  it('is true for more than one photographer-required service, including same-category selections', () => {
     expect(requiresPerServiceAssignment([
       svc('s1', '10 Exterior HDR Photos', 'Photos'),
       svc('s2', '25 Flash Photos', 'Photos'),
@@ -99,5 +122,13 @@ describe('requiresPerServiceAssignment', () => {
       svc('d', 'Drone', 'Drone'),
       svc('f', 'Floor', 'Floor Plans'),
     ])).toBe(true);
+  });
+
+  it('is false when only one photographer-required service is mixed with digital extras', () => {
+    expect(requiresPerServiceAssignment([
+      svc('p', '25 HDR Photos', 'Photos', true),
+      svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
+      svc('gg', 'Green Grass Enhancement', 'Digital Enhancements', false),
+    ])).toBe(false);
   });
 });
