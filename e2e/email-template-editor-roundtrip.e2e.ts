@@ -16,7 +16,17 @@ async function loginForTemplateEditor(page: Page) {
 
 test('custom email content saves, reopens, and previews unsaved edits in both themes', async ({ page }, testInfo) => {
   await loginForTemplateEditor(page);
+  const templatesReady = page.waitForResponse((response) =>
+    /\/messaging\/templates\?/.test(response.url()) && response.request().method() === 'GET',
+  );
+  const navigationStartedAt = Date.now();
   await page.goto('/messaging/email/templates');
+  const templatesResponse = await templatesReady;
+  expect(templatesResponse.ok()).toBeTruthy();
+  await testInfo.attach('template-list-timing', {
+    body: JSON.stringify({ elapsedMs: Date.now() - navigationStartedAt, status: templatesResponse.status() }),
+    contentType: 'application/json',
+  });
   await expect(page.getByRole('heading', { name: 'Email Templates', exact: true })).toBeVisible();
   const name = `Email atelier QA ${Date.now()}`;
   let created = false;
