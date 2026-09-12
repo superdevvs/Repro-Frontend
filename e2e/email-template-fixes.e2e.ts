@@ -9,9 +9,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAsAdmin } from './helpers/auth';
  *   • New Account body preview carries the new "Thank you for the opportunity." closing.
  *   • The protected-email override controls are present for EMAIL templates.
  *
- * The full wrapped/rendered email (hero size, status removal, footer support line,
- * single-URL footer) is asserted in the backend render tests, because the editor
- * Preview tab shows only the template BODY, not the server-side master layout.
+ * The editor renders saved and draft content through the server's shared email
+ * layout. The iframe preserves the delivered styles and supports both themes.
  *
  * ENVIRONMENT — needs the seeded stack + an admin account (E2E_ADMIN_EMAIL /
  * E2E_ADMIN_PASSWORD) with access to /messaging/email/templates. Runs headless and
@@ -25,15 +24,13 @@ async function openTemplateByName(page: Page, name: string): Promise<boolean> {
   }
 
   const search = page.getByPlaceholder('Search templates...');
-  if (!(await search.isVisible().catch(() => false))) {
+  if (!(await search.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false))) {
     return false;
   }
 
   await search.fill(name);
-  await page.waitForTimeout(500);
-
   const card = page.locator('h3', { hasText: name }).first();
-  if (!(await card.isVisible().catch(() => false))) {
+  if (!(await card.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false))) {
     return false;
   }
 
@@ -59,7 +56,7 @@ test.describe('Email Template Fixes', () => {
 
     // Body preview carries the new closing line.
     await page.getByRole('tab', { name: /preview/i }).click();
-    await expect(page.getByText('Thank you for the opportunity.', { exact: false })).toBeVisible({
+    await expect(page.frameLocator('iframe[title="Delivered email preview"]').getByText('Thank you for the opportunity.', { exact: false })).toBeVisible({
       timeout: 10_000,
     });
   });

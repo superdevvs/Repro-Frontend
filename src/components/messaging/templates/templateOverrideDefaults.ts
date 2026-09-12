@@ -1,5 +1,10 @@
 import type { MessageTemplate } from '@/types/messaging';
 
+export const DIRECT_EDITOR_TEMPLATE_SLUGS = new Set([
+  'terms-accepted', 'contact-confirmation', 'contact-notification', 'editing-request',
+  'payout-report', 'payout-digest', 'weekly-sales-report',
+]);
+
 export const PROTECTED_EMAIL_TYPES: { value: string; label: string }[] = [
   { value: '', label: 'Not an override' },
   { value: 'ACCOUNT_CREATED', label: 'New Account Created' },

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/lib/sonner-toast';
-import { createTemplate, previewTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
-import type { MessageTemplate, TemplateCategory, TemplateScope, MessageChannel } from '@/types/messaging';
+import { createTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
+import type { MessageTemplate, TemplateCategory, TemplateScope } from '@/types/messaging';
 import {
   Dialog,
   DialogContent,
@@ -27,15 +27,16 @@ import { Eye, Code, Save, X, ChevronDown, Braces, Send } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { getStoredTemplateTestEmail, setStoredTemplateTestEmail } from './testSendStorage';
-import { getTemplateOverrideDefaults, PROTECTED_EMAIL_TYPES } from './templateOverrideDefaults';
-import { getPreviewCopy, getPreviewTitleParts, prepareTemplatePreviewHtml } from './templatePreviewSupport';
-import { BRAND_EMAIL, BRAND_NAME, BRAND_PHONE } from '@/config/brand';
+import { DIRECT_EDITOR_TEMPLATE_SLUGS, getTemplateOverrideDefaults, PROTECTED_EMAIL_TYPES } from './templateOverrideDefaults';
+import { EMAIL_CONTENT_SECTIONS, getTemplateErrorMessage } from './templatePreviewSupport';
+import { TemplateRenderedPreview } from './TemplateRenderedPreview';
+import { TemplateLiveContentHelp } from './TemplateLiveContentHelp';
 
 interface TemplateEditorDialogProps {
   template: MessageTemplate | null;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (template: MessageTemplate) => void;
 }
 
 const categories = [
@@ -48,6 +49,7 @@ const categories = [
 ];
 
 const scopes = [
+  { value: 'SYSTEM', label: 'System' },
   { value: 'GLOBAL', label: 'Global (All users)' },
   { value: 'ACCOUNT', label: 'Account' },
   { value: 'USER', label: 'My Templates' },
@@ -66,245 +68,9 @@ type TemplateFormState = {
   override_enabled: boolean;
 };
 
-const PREVIEW_EMAIL_STYLES = `
-.preview-shell {
-  color-scheme: light;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
-  padding: 16px;
-  border-radius: 28px;
-}
-.preview-hero {
-  position: relative;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid rgba(222, 230, 241, 0.7);
-  border-radius: 32px;
-  box-shadow: 0 24px 70px rgba(22, 34, 60, 0.09);
-  padding: 28px;
-}
-.preview-brand {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 24px;
-}
-.preview-brand-logo {
-  display: inline-block;
-  flex-shrink: 0;
-}
-.preview-brand-logo img {
-  width: 136px;
-  height: auto;
-}
-.preview-overline {
-  display: block;
-  margin-bottom: 12px;
-  color: #6c82a3;
-  font-size: 15px;
-  line-height: 1.5;
-  font-weight: 500;
-}
-.preview-title {
-  position: relative;
-  z-index: 2;
-  max-width: 560px;
-  margin: 0;
-  color: #10192f;
-  font-size: clamp(2.8rem, 4vw, 4.4rem);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
-  font-weight: 300;
-}
-.preview-title-primary { color: #10192f; }
-.preview-title-accent { color: #3164ea; }
-.preview-copy {
-  position: relative;
-  z-index: 2;
-  max-width: 560px;
-  margin: 18px 0 0;
-  color: #667a96;
-  font-size: 15px;
-  line-height: 1.8;
-}
-.preview-body {
-  margin-top: 16px;
-  background: #ffffff;
-  color: #405875;
-  border: 1px solid rgba(222, 230, 241, 0.7);
-  border-radius: 28px;
-  box-shadow: 0 24px 70px rgba(22, 34, 60, 0.09);
-  padding: 26px;
-}
-.preview-plain-text {
-  color: #405875;
-}
-.preview-empty,
-.preview-caption {
-  color: #526b88;
-}
-.preview-footer {
-  margin-top: 16px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #0b1b30 0%, #102847 100%);
-  padding: 22px;
-  color: #dce8ff;
-  box-shadow: 0 20px 40px rgba(16, 40, 71, 0.18);
-}
-.preview-footer h4 {
-  margin: 0 0 8px;
-  color: #ffffff;
-  font-size: 18px;
-  line-height: 1.4;
-  font-weight: 800;
-}
-.preview-footer p {
-  margin: 0;
-  color: #dce8ff;
-  font-size: 14px;
-  line-height: 1.8;
-}
-.preview-footer-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-.preview-footer-card {
-  border-radius: 18px;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(221, 232, 255, 0.14);
-}
-.preview-footer-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #9fb4d4;
-  font-size: 10px;
-  line-height: 1.4;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-.preview-footer-value {
-  color: #ffffff;
-  font-size: 13px;
-  line-height: 1.6;
-  font-weight: 700;
-}
-.email-preview,
-.email-preview * { color: #405875 !important; }
-.email-preview { font-size: 15px; line-height: 1.8; }
-.email-preview p,
-.email-preview li,
-.email-preview div,
-.email-preview td,
-.email-preview span { line-height: 1.8; }
-.email-preview p { margin: 0 0 14px; }
-.email-preview a { color: #1463ff !important; text-decoration: none; }
-.email-preview h1,
-.email-preview h2,
-.email-preview h3,
-.email-preview h4 { margin: 0 0 14px; color: #0f1930 !important; line-height: 1.15; }
-.email-preview h1 { font-size: 42px; font-weight: 300; letter-spacing: -0.05em; }
-.email-preview h2 { font-size: 28px; font-weight: 800; }
-.email-preview h3 { font-size: 22px; font-weight: 800; }
-.email-preview h4 { font-size: 16px; font-weight: 800; }
-.email-preview strong { color: #0f1930 !important; }
-.email-preview ul,
-.email-preview ol { margin: 0 0 16px; padding-left: 20px; }
-.email-preview hr { border: 0; border-top: 1px solid #edf2f7; margin: 20px 0; }
-.email-preview .button {
-  display: inline-block;
-  padding: 14px 22px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #1463ff 0%, #0b83ff 100%);
-  color: #ffffff !important;
-  font-weight: 800;
-  font-size: 14px;
-  line-height: 1.2;
-  text-decoration: none;
-  margin: 6px 10px 10px 0;
-  box-shadow: 0 12px 24px rgba(20, 99, 255, 0.18);
-}
-.email-preview .button-large {
-  padding: 18px 30px;
-  font-size: 16px;
-  letter-spacing: 0.2px;
-  box-shadow: 0 16px 30px rgba(20, 99, 255, 0.22);
-}
-.email-preview .button *,
-.email-preview .button-large,
-.email-preview .button-large *,
-.email-preview [data-email-preview-cta],
-.email-preview [data-email-preview-cta] * {
-  color: #ffffff !important;
-}
-.email-preview .info-box {
-  margin: 20px 0;
-  padding: 18px 20px;
-  border-radius: 22px;
-  border: 1px solid #dfe7f2;
-  background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-.email-preview .info-row {
-  padding: 10px 0;
-  border-bottom: 1px solid #e4edf8;
-}
-.email-preview .info-row:last-child { border-bottom: 0; }
-.email-preview .info-label {
-  display: inline-block;
-  min-width: 150px;
-  color: #93a4bd !important;
-  font-weight: 800;
-  font-size: 12px;
-  line-height: 1.5;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-}
-.email-preview .note {
-  margin: 20px 0;
-  padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid #f0d7a8;
-  background: linear-gradient(180deg, #fff9ee 0%, #fff3df 100%);
-  color: #8b5b14 !important;
-}
-.email-preview .change-card {
-  margin: 22px 0;
-  padding: 20px 22px;
-  border-radius: 24px;
-  border: 1px solid #d9e7ff;
-  background: linear-gradient(180deg, #f7fbff 0%, #eff6ff 100%);
-}
-.email-preview .change-card-title {
-  margin: 0 0 12px;
-  color: #10233b !important;
-  font-size: 18px;
-  line-height: 1.4;
-  font-weight: 800;
-}
-.email-preview .change-card p,
-.email-preview .change-card li,
-.email-preview .change-card div,
-.email-preview .change-card span {
-  color: #35506f !important;
-}
-.email-preview .change-card ul,
-.email-preview .change-card ol {
-  margin: 0;
-  padding-left: 20px;
-}
-.email-preview .change-card li {
-  margin-bottom: 10px;
-}
-`;
-
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
   const isMobile = useIsMobile();
+  const isDirectSystemTemplate = Boolean(template?.is_system && DIRECT_EDITOR_TEMPLATE_SLUGS.has(template.slug ?? ''));
   const [formData, setFormData] = useState<TemplateFormState>({
     name: '',
     description: '',
@@ -318,10 +84,16 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     override_enabled: false,
   });
   const [activeTab, setActiveTab] = useState<'html' | 'text' | 'preview'>('html');
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [mobileSection, setMobileSection] = useState<'editor' | 'settings' | 'shortcodes'>('editor');
   const [testEmail, setTestEmail] = useState('');
   const htmlTextareaRef = useRef<HTMLTextAreaElement>(null);
   const textTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (open && isMobile) setPreviewViewport('mobile');
+  }, [isMobile, open]);
 
   useEffect(() => {
     if (template) {
@@ -332,7 +104,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         category: template.category || 'GENERAL',
         scope: template.scope,
         subject: template.subject || '',
-        body_html: template.body_html || '',
+        body_html: template.editable_body_html ?? template.body_html ?? '',
         body_text: template.body_text || '',
         channel: template.channel || 'EMAIL',
         email_type: overrideDefaults.emailType,
@@ -354,32 +126,9 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       });
     }
 
+    setActiveTab('html');
     setTestEmail(getStoredTemplateTestEmail());
   }, [template, open]);
-
-  const hasUnsavedPreviewChanges = !template || (
-    formData.name !== template.name ||
-    formData.description !== (template.description || '') ||
-    formData.category !== (template.category || 'GENERAL') ||
-    formData.subject !== (template.subject || '') ||
-    formData.body_html !== (template.body_html || '') ||
-    formData.body_text !== (template.body_text || '') ||
-    formData.channel !== (template.channel || 'EMAIL')
-  );
-  const canUseDeliveredPreview = Boolean(template) &&
-    formData.channel === 'EMAIL' &&
-    !hasUnsavedPreviewChanges;
-  const deliveredPreviewQuery = useQuery({
-    queryKey: ['template-editor-delivered-preview', template?.id, template?.updated_at],
-    queryFn: () => {
-      if (!template) {
-        throw new Error('Save this template before requesting a delivered preview.');
-      }
-
-      return previewTemplate(template.id);
-    },
-    enabled: open && activeTab === 'preview' && canUseDeliveredPreview,
-  });
 
   const saveMutation = useMutation({
     mutationFn: (data: TemplateFormState) => {
@@ -389,13 +138,13 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         return createTemplate({ ...data, channel: data.channel || 'EMAIL', is_active: true });
       }
     },
-    onSuccess: () => {
+    onSuccess: (savedTemplate) => {
       toast.success(template ? 'Template updated successfully' : 'Template created successfully');
-      onSuccess();
+      onSuccess(savedTemplate);
       onClose();
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to save template');
+      toast.error(getTemplateErrorMessage(error, 'Failed to save template'));
     },
   });
 
@@ -414,35 +163,27 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
       return testSendTemplate(template.id, {
         to: email,
-        template: {
-          channel: formData.channel,
-          name: formData.name,
-          description: formData.description || undefined,
-          category: formData.category,
-          subject: formData.subject,
-          body_html: formData.body_html,
-          body_text: formData.body_text,
-        },
+        template: { ...formData },
       });
     },
     onSuccess: () => {
       toast.success(`Test email sent to ${testEmail.trim()}`);
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to send test email');
+      toast.error(getTemplateErrorMessage(error, 'Failed to send test email'));
     },
   });
 
   const handleSave = () => {
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast.error('Please enter a template name');
       return;
     }
-    if (!formData.subject) {
+    if (!formData.subject.trim()) {
       toast.error('Please enter a subject line');
       return;
     }
-    if (!formData.body_html && !formData.body_text) {
+    if (!formData.body_html.trim() && !formData.body_text.trim()) {
       toast.error('Please enter template content');
       return;
     }
@@ -458,67 +199,12 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     setStoredTemplateTestEmail(value);
   };
 
-  // Strip wrapped email chrome so the preview only shows the editable body content.
-  const stripLegacyEmailWrapper = (html: string): string => {
-    if (html.includes('email-container') && html.includes('logo-text')) {
-      const contentMatch = html.match(/<div\s+class=["']content["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer["']/);
-      if (contentMatch) {
-        return contentMatch[1].trim();
-      }
-    }
-    if (html.includes('class="ew"') && html.includes('class="eb"')) {
-      const contentMatch = html.match(/<div\s+class=["']eb["']>\s*([\s\S]+)\s*<\/div>\s*<\/div>\s*<\/body>/i);
-      if (contentMatch) {
-        return contentMatch[1].trim();
-      }
-    }
-    if (html.includes('class="page"') && html.includes('class="brand-band"')) {
-      const contentMatch = html.match(/<div\s+class=["']content["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer-wrap["']/i);
-      if (contentMatch) {
-        return contentMatch[1].trim();
-      }
-    }
-    if (html.includes('class="hero-card"') && html.includes('class="body-inner"')) {
-      const contentMatch = html.match(/<div\s+class=["']body-inner["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer-wrap["']/i);
-      if (contentMatch) {
-        return contentMatch[1].trim();
-      }
-    }
-    // Strip full HTML document wrapper
-    const trimmed = html.trim();
-    if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      if (bodyMatch) {
-        return bodyMatch[1].trim();
-      }
-    }
-    return html;
-  };
-
-  // Company-wide shortcodes always resolve to the same values, so the preview can
-  // show them for real instead of leaking raw `{{company_email}}` text. Shoot- and
-  // invoice-specific shortcodes stay untouched — they only exist at send time.
-  const resolveBrandShortcodes = (content: string): string => {
-    const brandValues: Record<string, string> = {
-      company_name: BRAND_NAME,
-      company_email: BRAND_EMAIL,
-      company_phone: BRAND_PHONE,
-    };
-
-    return Object.entries(brandValues).reduce(
-      (carry, [token, value]) =>
-        carry.split(`{{${token}}}`).join(value).split(`[${token}]`).join(value),
-      content
-    );
-  };
-
   const insertShortcode = (shortcode: string) => {
-    const textarea = activeTab === 'html' ? htmlTextareaRef.current : textTextareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const field = activeTab === 'html' ? 'body_html' : 'body_text';
+    const blockFormat = shortcode.match(/^\{\{\s*[\w.]+_(html|text)\s*\}\}$/)?.[1];
+    const field = blockFormat === 'text' || (!blockFormat && activeTab === 'text') ? 'body_text' : 'body_html';
+    const textareaRef = field === 'body_html' ? htmlTextareaRef : textTextareaRef;
+    const start = textareaRef.current?.selectionStart ?? formData[field].length;
+    const end = textareaRef.current?.selectionEnd ?? start;
     const text = formData[field];
     const before = text.substring(0, start);
     const after = text.substring(end);
@@ -527,28 +213,14 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       ...formData,
       [field]: before + shortcode + after,
     });
+    setActiveTab(field === 'body_html' ? 'html' : 'text');
 
     // Set cursor position after inserted shortcode
     setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + shortcode.length, start + shortcode.length);
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(start + shortcode.length, start + shortcode.length);
     }, 0);
   };
-
-  const previewTitleParts = getPreviewTitleParts(formData.subject || formData.name || 'R/E Pro Photos update');
-  const previewCopy = getPreviewCopy(formData.category, formData.description);
-  const previewHtml = formData.body_html
-    ? prepareTemplatePreviewHtml(resolveBrandShortcodes(stripLegacyEmailWrapper(formData.body_html)))
-    : '';
-  const deliveredPreviewBody = typeof deliveredPreviewQuery.data?.body_html === 'string' && deliveredPreviewQuery.data.body_html
-    ? deliveredPreviewQuery.data.body_html
-    : typeof deliveredPreviewQuery.data?.html === 'string'
-      ? deliveredPreviewQuery.data.html
-      : '';
-  const deliveredPreviewHtml = canUseDeliveredPreview ? deliveredPreviewBody : '';
-  const isDeliveredPreviewLoading = canUseDeliveredPreview &&
-    deliveredPreviewQuery.isFetching &&
-    !deliveredPreviewHtml;
 
   // Settings form fields (shared between mobile and desktop)
   const settingsContent = (
@@ -608,7 +280,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
             </SelectTrigger>
             <SelectContent>
               {scopes.map((scope) => (
-                <SelectItem key={scope.value} value={scope.value}>
+                <SelectItem key={scope.value} value={scope.value} disabled={scope.value === 'SYSTEM'}>
                   {scope.label}
                 </SelectItem>
               ))}
@@ -627,7 +299,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         />
       </div>
 
-      {formData.channel === 'EMAIL' && (
+      {formData.channel === 'EMAIL' && !isDirectSystemTemplate && (
         <div className="space-y-2 rounded-md border border-border p-3">
           <Label htmlFor="email_type">Automated email override</Label>
           <p className="text-xs text-muted-foreground">
@@ -671,6 +343,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       {template?.is_system && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
           <strong>System Template:</strong> Name, Category, and Scope are locked, but you can still edit the subject, body, and description.
+          {isDirectSystemTemplate && ' Your saved content is used automatically when this email is sent.'}
         </div>
       )}
 
@@ -737,110 +410,47 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       </div>
 
       <TabsContent value="html" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
+        <TemplateLiveContentHelp variables={template?.variables_json} format="html" content={formData.body_html} onInsert={insertShortcode} />
+        <p id="email-content-help" className="mb-3 text-xs text-muted-foreground">
+          Edit the message content here. The logo, illustration, light/dark colors, and footer are added automatically.
+          A pasted complete email is reduced to its message content when saved.
+        </p>
+        <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Insert email content section">
+          <span className="text-xs text-muted-foreground">Add:</span>
+          {EMAIL_CONTENT_SECTIONS.map((section) => (
+            <Button key={section.label} variant="outline" size="sm" onClick={() => insertShortcode(`\n${section.html}\n`)}>
+              {section.label}
+            </Button>
+          ))}
+        </div>
         <Textarea
           ref={htmlTextareaRef}
           value={formData.body_html}
           onChange={(e) => setFormData({ ...formData, body_html: e.target.value })}
           placeholder="Paste your HTML email template here..."
+          aria-label="Email HTML content"
+          aria-describedby="email-content-help"
           className="font-mono text-sm min-h-[300px] sm:min-h-[500px] resize-none"
         />
       </TabsContent>
 
       <TabsContent value="text" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
+        <TemplateLiveContentHelp variables={template?.variables_json} format="text" content={formData.body_text} onInsert={insertShortcode} />
         <Textarea
           ref={textTextareaRef}
           value={formData.body_text}
           onChange={(e) => setFormData({ ...formData, body_text: e.target.value })}
           placeholder="Plain text version..."
+          aria-label="Email plain text content"
           className="min-h-[300px] sm:min-h-[500px] resize-none"
         />
       </TabsContent>
 
-      <TabsContent value="preview" className="flex-1 min-h-0 m-0 bg-gray-100 overflow-hidden">
-        <div className="h-full overflow-y-auto overscroll-contain p-3 sm:p-6">
-          <style>{PREVIEW_EMAIL_STYLES}</style>
-          <div className="max-w-4xl mx-auto">
-            {isDeliveredPreviewLoading ? (
-              <div className="flex min-h-[320px] items-center justify-center rounded-3xl border bg-white text-sm text-slate-600 shadow-sm">
-                Rendering the delivered email preview…
-              </div>
-            ) : deliveredPreviewHtml ? (
-              <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-                <iframe
-                  title="Delivered email preview"
-                  className="block h-[760px] w-full border-0 bg-white"
-                  sandbox=""
-                  srcDoc={deliveredPreviewHtml}
-                />
-              </div>
-            ) : (
-              <div className="preview-shell">
-                <div className="preview-hero">
-                  <div className="preview-brand">
-                    <div className="preview-brand-logo">
-                      <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="" />
-                    </div>
-                  </div>
-                  <h1 className="preview-title">
-                    {previewTitleParts.overline ? (
-                      <span className="preview-overline">{previewTitleParts.overline}</span>
-                    ) : null}
-                    <span className="preview-title-primary">{previewTitleParts.primary}</span>
-                    {previewTitleParts.accent ? (
-                      <>
-                        <br />
-                        <span className="preview-title-accent">{previewTitleParts.accent}</span>
-                      </>
-                    ) : null}
-                  </h1>
-                  <p className="preview-copy">{previewCopy}</p>
-                </div>
-
-                <div className="preview-body">
-                  {formData.body_html ? (
-                    <div
-                      className="email-preview"
-                      style={{ color: '#333333', lineHeight: 1.6 }}
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
-                  ) : formData.body_text ? (
-                    <pre className="preview-plain-text whitespace-pre-wrap font-sans text-sm">{resolveBrandShortcodes(formData.body_text)}</pre>
-                  ) : (
-                    <p className="preview-empty text-center py-8">No content to preview</p>
-                  )}
-                </div>
-
-                <div className="preview-footer">
-                  <h4>Need help with a shoot, invoice, or account question?</h4>
-                  <p>
-                    Our team is here to keep your workflow moving. Reach us at
-                    {' '}{BRAND_EMAIL} or call {BRAND_PHONE}.
-                  </p>
-                  <div className="preview-footer-grid">
-                    <div className="preview-footer-card">
-                      <span className="preview-footer-label">Support</span>
-                      <span className="preview-footer-value">{BRAND_EMAIL}<br />{BRAND_PHONE}</span>
-                    </div>
-                    <div className="preview-footer-card">
-                      <span className="preview-footer-label">Portal</span>
-                      <span className="preview-footer-value">Track shoots, invoices, and delivery updates in one place.</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <p className="preview-caption text-center text-xs mt-4">
-              {deliveredPreviewHtml
-                ? 'Rendered by the same server flow used when this saved template is sent'
-                : hasUnsavedPreviewChanges
-                  ? 'Draft preview shown — save changes to see the exact delivered rendering'
-                  : deliveredPreviewQuery.isError
-                    ? 'Delivered preview unavailable — showing a safe local preview'
-                    : 'Shortcodes will be replaced with actual values when sent'}
-            </p>
-          </div>
-        </div>
+      <TabsContent value="preview" className="flex-1 min-h-0 m-0 overflow-hidden">
+        <TemplateRenderedPreview
+          templateId={template?.id ?? null} draft={formData} enabled={open && activeTab === 'preview'}
+          theme={previewTheme} viewport={previewViewport} onThemeChange={setPreviewTheme} onViewportChange={setPreviewViewport}
+        />
       </TabsContent>
     </Tabs>
   );
@@ -850,7 +460,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       <DialogContent className={cn(
         "flex min-h-0 flex-col p-0 gap-0 overflow-hidden [&>button:last-child]:hidden",
         isMobile
-          ? "max-w-[100vw] w-full h-[100dvh] !rounded-none !top-0 !left-0 !translate-x-0 !translate-y-0 m-0"
+          ? "max-w-[100vw] w-full h-[100dvh] !border-0 !rounded-none !top-0 !left-0 !translate-x-0 !translate-y-0 m-0"
           : "max-w-7xl h-[90vh]"
       )}>
         {/* Header */}
@@ -860,7 +470,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               {template ? 'Edit Template' : 'New Template'}
             </DialogTitle>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button variant="outline" size="sm" onClick={onClose} disabled={saveMutation.isPending} className="h-8 sm:h-9 text-xs sm:text-sm">
+              <Button variant="outline" size="sm" aria-label="Cancel" onClick={onClose} disabled={saveMutation.isPending} className="h-8 sm:h-9 text-xs sm:text-sm">
                 <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Cancel</span>
               </Button>
@@ -919,7 +529,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               )}
               {mobileSection === 'shortcodes' && (
                 <div className="flex-1 overflow-hidden">
-                  <ShortcodePanel onInsert={(code) => { insertShortcode(code); setMobileSection('editor'); }} />
+                  <ShortcodePanel variables={template?.variables_json} onInsert={(code) => { insertShortcode(code); setMobileSection('editor'); }} />
                 </div>
               )}
             </div>
@@ -927,15 +537,17 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         ) : (
           // Desktop: 3-column layout
           <div className="flex-1 min-h-0 flex overflow-hidden">
-            <div className="w-80 min-h-0 border-r p-6 overflow-y-auto">
+            <div className="w-80 shrink-0 min-h-0 border-r p-6 overflow-y-auto">
               {settingsContent}
             </div>
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
               {editorContent}
             </div>
-            <div className="w-80 min-h-0 border-l overflow-hidden">
-              <ShortcodePanel onInsert={insertShortcode} />
-            </div>
+            {activeTab !== 'preview' && (
+              <div className="w-72 shrink-0 min-h-0 border-l overflow-hidden">
+                <ShortcodePanel variables={template?.variables_json} onInsert={insertShortcode} />
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

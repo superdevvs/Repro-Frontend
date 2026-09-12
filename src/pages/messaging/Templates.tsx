@@ -11,6 +11,7 @@ import { Plus, Search, MoreVertical, Copy, Edit, Trash2, Send } from 'lucide-rea
 import { getTemplates, deleteTemplate, duplicateTemplate } from '@/services/messaging';
 import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
 import { BulkTemplateTestDialog } from '@/components/messaging/templates/BulkTemplateTestDialog';
+import { getTemplateErrorMessage } from '@/components/messaging/templates/templatePreviewSupport';
 import type { MessageTemplate } from '@/types/messaging';
 import {
   DropdownMenu,
@@ -19,30 +20,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-const getTemplateErrorMessage = (error: unknown, fallback: string) => {
-  if (error && typeof error === 'object') {
-    const response = 'response' in error
-      ? (error as { response?: { data?: { error?: unknown; message?: unknown } } }).response
-      : undefined;
-    const responseError = response?.data?.error;
-    if (typeof responseError === 'string' && responseError) {
-      return responseError;
-    }
-
-    const responseMessage = response?.data?.message;
-    if (typeof responseMessage === 'string' && responseMessage) {
-      return responseMessage;
-    }
-
-    const message = 'message' in error ? (error as { message?: unknown }).message : undefined;
-    if (typeof message === 'string' && message) {
-      return message;
-    }
-  }
-
-  return fallback;
-};
 
 export default function Templates() {
   const queryClient = useQueryClient();
@@ -53,7 +30,7 @@ export default function Templates() {
   const [isBulkTestOpen, setIsBulkTestOpen] = useState(false);
 
   // Fetch templates
-  const { data: templates, isLoading } = useQuery({
+  const { data: templates, isLoading, error, isError, refetch } = useQuery({
     queryKey: ['templates', 'EMAIL', selectedScope === 'all' ? undefined : selectedScope],
     queryFn: () =>
       getTemplates({
@@ -129,7 +106,7 @@ export default function Templates() {
                 <Send className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Test Templates</span>
               </Button>
-              <Button onClick={() => setIsCreating(true)} size="sm" className="shrink-0 h-8 sm:h-9">
+              <Button onClick={() => setIsCreating(true)} aria-label="New template" size="sm" className="shrink-0 h-8 sm:h-9">
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">New Template</span>
               </Button>
@@ -168,6 +145,11 @@ export default function Templates() {
                   </Card>
                 ))}
               </div>
+            ) : isError ? (
+              <Card className="p-8 text-center" role="alert">
+                <p>{getTemplateErrorMessage(error, 'Could not load email templates.')}</p>
+                <Button variant="outline" className="mt-4" onClick={() => void refetch()}>Retry templates</Button>
+              </Card>
             ) : filteredTemplates.length === 0 ? (
               <Card className="p-12 text-center">
                 <p className="text-muted-foreground">No templates found</p>
@@ -208,6 +190,7 @@ export default function Templates() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label={`Options for ${template.name}`}
                               className="shrink-0"
                               onClick={(event) => event.stopPropagation()}
                             >
@@ -272,7 +255,10 @@ export default function Templates() {
               setIsCreating(false);
               setEditingTemplate(null);
             }}
-            onSuccess={() => {
+            onSuccess={(savedTemplate) => {
+              queryClient.setQueriesData<MessageTemplate[]>({ queryKey: ['templates'] }, (current) =>
+                current?.map((item) => item.id === savedTemplate.id ? savedTemplate : item),
+              );
               queryClient.invalidateQueries({ queryKey: ['templates'] });
               setIsCreating(false);
               setEditingTemplate(null);
@@ -289,4 +275,3 @@ export default function Templates() {
     </DashboardLayout>
   );
 }
-

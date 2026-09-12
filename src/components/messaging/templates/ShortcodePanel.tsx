@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Copy, Search } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from '@/lib/sonner-toast';
+import { normalizeTemplateVariables } from './templatePreviewSupport';
 
 interface Shortcode {
   code: string;
@@ -71,15 +72,23 @@ const SHORTCODES: Shortcode[] = [
 
 interface ShortcodePanelProps {
   onInsert: (shortcode: string) => void;
+  variables?: string[];
 }
 
-export function ShortcodePanel({ onInsert }: ShortcodePanelProps) {
+export function ShortcodePanel({ onInsert, variables }: ShortcodePanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  const categories = ['All', ...Array.from(new Set(SHORTCODES.map(s => s.category)))];
+  const standardCodes = new Set(SHORTCODES.map((item) => item.code));
+  const templateCodes = normalizeTemplateVariables(variables).map((name) => ({
+    code: `{{${name}}}`,
+    description: /_(html|text)$/.test(name) ? 'Live content block supplied when this email is sent' : 'Value supplied for this email template',
+    category: 'Template',
+  })).filter((item) => !standardCodes.has(item.code));
+  const shortcodes = [...templateCodes, ...SHORTCODES];
+  const categories = ['All', ...Array.from(new Set(shortcodes.map(s => s.category)))];
 
-  const filteredShortcodes = SHORTCODES.filter(shortcode => {
+  const filteredShortcodes = shortcodes.filter(shortcode => {
     const matchesSearch = 
       shortcode.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       shortcode.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -175,4 +184,3 @@ export function ShortcodePanel({ onInsert }: ShortcodePanelProps) {
     </Card>
   );
 }
-

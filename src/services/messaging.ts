@@ -94,19 +94,25 @@ export const testSendTemplate = async (
   data: {
     to: string;
     variables?: ComposeEmailPayload['variables'];
-    template?: Pick<MessageTemplate, 'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'>;
+    template?: TemplateDraft;
   },
 ): Promise<void> => {
   await apiClient.post(`/messaging/templates/${id}/test-send`, data);
 };
 
 export const previewTemplate = async (
-  id: number,
+  id: number | null,
   variables?: ComposeEmailPayload['variables'],
+  options?: { template?: TemplateDraft; theme?: 'light' | 'dark' },
 ): Promise<TemplatePreviewResult> => {
-  const response = await apiClient.post(`/messaging/templates/${id}/preview`, { variables });
+  const path = id === null ? '/messaging/templates/preview' : `/messaging/templates/${id}/preview`;
+  const response = await apiClient.post(path, { variables, ...options });
   return response.data;
 };
+
+export type TemplateDraft = Pick<MessageTemplate,
+  'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'
+> & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json'>>;
 
 // Manual shoot notifications (Req 12.1, 12.5, 12.6, 12.7, 12.8)
 //

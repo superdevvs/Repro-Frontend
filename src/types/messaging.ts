@@ -204,6 +204,7 @@ export interface MessageTemplate {
   category?: TemplateCategory;
   subject?: string;
   body_html?: string;
+  editable_body_html?: string;
   body_text?: string;
   variables_json?: string[];
   scope: TemplateScope;
@@ -521,10 +522,13 @@ export interface MessageRelatedRecord {
 
 export interface TemplatePreviewResult {
   subject?: string | null;
+  html?: string | null;
+  text?: string | null;
   body_html?: string | null;
   body_text?: string | null;
   variables?: MessagingJsonObject | null;
   missing_variables?: string[];
+  missing?: string[];
   [key: string]: unknown;
 }
 
