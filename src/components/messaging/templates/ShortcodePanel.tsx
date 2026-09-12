@@ -72,7 +72,7 @@ const SHORTCODES: Shortcode[] = [
 
 interface ShortcodePanelProps {
   onInsert: (shortcode: string) => void;
-  variables?: string[];
+  variables?: string[] | null;
 }
 
 export function ShortcodePanel({ onInsert, variables }: ShortcodePanelProps) {

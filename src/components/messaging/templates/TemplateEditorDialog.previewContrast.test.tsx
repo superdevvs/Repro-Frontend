@@ -123,7 +123,7 @@ describe('TemplateEditorDialog delivered preview and persistence', () => {
   });
 
   it.each([true, false])('saves and reopens editable content with protected=%s without persisting the shell', async (protectedTemplate) => {
-    const original = protectedTemplate ? template : { ...template, is_system: false, scope: 'USER' as const, email_type: '', override_enabled: false };
+    const original = protectedTemplate ? template : { ...template, is_system: false, scope: 'USER' as const, email_type: '', override_enabled: false, variables_json: null };
     const saved = { ...original, subject: 'Edited subject', body_html: '<p>Edited {{client_name}}</p>', editable_body_html: '<p>Edited {{client_name}}</p>', updated_at: '2026-09-13T01:00:00Z' };
     mocks.update.mockResolvedValue(saved);
     const result = setup(original);

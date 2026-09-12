@@ -5,8 +5,9 @@ export const EMAIL_CONTENT_SECTIONS = [
   { label: 'Action', html: '<p><a class="button" href="{{portal_url}}">Open dashboard</a></p>' },
 ] as const;
 
-export function normalizeTemplateVariables(variables: string[] = []): string[] {
-  return [...new Set(variables.map((value) => value.replace(/^\{\{\s*|\s*\}\}$/g, '').trim())
+export function normalizeTemplateVariables(variables?: string[] | null): string[] {
+  const names = Array.isArray(variables) ? variables : [];
+  return [...new Set(names.map((value) => value.replace(/^\{\{\s*|\s*\}\}$/g, '').trim())
     .filter((value) => /^[a-zA-Z_][\w.]*$/.test(value)))];
 }
 

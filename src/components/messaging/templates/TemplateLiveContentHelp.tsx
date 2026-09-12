@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { normalizeTemplateVariables } from './templatePreviewSupport';
 
 interface Props {
-  variables?: string[];
+  variables?: string[] | null;
   format: 'html' | 'text';
   content: string;
   onInsert: (shortcode: string) => void;

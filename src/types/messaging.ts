@@ -206,7 +206,7 @@ export interface MessageTemplate {
   body_html?: string;
   editable_body_html?: string;
   body_text?: string;
-  variables_json?: string[];
+  variables_json?: string[] | null;
   scope: TemplateScope;
   owner_id?: number;
   is_system: boolean;
