@@ -17,24 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  FileText,
-  CheckCircle,
-  Clock,
-  Plus,
-  Trash2,
-  Calendar,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  ReceiptText,
-  Camera,
-  Info,
-  Eye,
-} from 'lucide-react';
+import { FileText, CheckCircle, Clock, Plus, Trash2, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, ReceiptText, Camera, Info, Eye } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   WeeklyInvoice,
   WeeklyInvoiceItem,
@@ -943,11 +927,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
             <Button variant="outline" onClick={() => handleSubmitChangesForReview()} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
               Submit with Changes
             </Button>
             <Button onClick={() => handleAcceptReview()} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
               Accept
             </Button>
           </DialogFooter>
@@ -987,7 +971,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setExpenseOpen(false)}>Cancel</Button>
             <Button onClick={handleAddExpense} disabled={actionLoading || !expenseDesc || !expenseAmount}>
-              {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
               {reviewCopy.addExpenseLabel}
             </Button>
           </DialogFooter>

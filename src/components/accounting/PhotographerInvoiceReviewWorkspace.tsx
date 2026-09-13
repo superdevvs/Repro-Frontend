@@ -1,20 +1,7 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import {
-  AlertTriangle,
-  CalendarRange,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  DollarSign,
-  Download,
-  FileText,
-  Loader2,
-  MessageSquareMore,
-  RefreshCw,
-  Search,
-  User2,
-} from 'lucide-react';
+import { AlertTriangle, CalendarRange, CheckCircle2, ChevronRight, Clock3, DollarSign, Download, FileText, MessageSquareMore, RefreshCw, Search, User2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { Badge } from '@/components/ui/badge';
@@ -512,7 +499,7 @@ export function PhotographerInvoiceReviewWorkspace({
         {workspaceTab === 'review-queue' ? (
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={queueLoading}>
-              <RefreshCw className={cn('mr-2 h-4 w-4', queueLoading && 'animate-spin')} />
+              {queueLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Refresh Queue
             </Button>
           </div>
@@ -629,7 +616,7 @@ export function PhotographerInvoiceReviewWorkspace({
                     {queueResponse?.total || 0} invoice{(queueResponse?.total || 0) === 1 ? '' : 's'} in this view
                   </CardDescription>
                 </div>
-                {queueLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+                {queueLoading ? <Loader2 className="h-4 w-4 text-muted-foreground" /> : null}
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -855,7 +842,7 @@ export function PhotographerInvoiceReviewWorkspace({
               Cancel
             </Button>
             <Button onClick={() => handleApprove()} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {actionLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
               Approve Amount
             </Button>
           </DialogFooter>
@@ -891,7 +878,7 @@ export function PhotographerInvoiceReviewWorkspace({
               onClick={() => handleReturnForChanges()}
               disabled={actionLoading || !returnReason.trim()}
             >
-              {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {actionLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
               Return for Changes
             </Button>
           </DialogFooter>

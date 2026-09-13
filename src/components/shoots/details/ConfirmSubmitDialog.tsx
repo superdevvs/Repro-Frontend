@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 export type ConfirmSubmitKind = 'raw' | 'edited';
 
@@ -72,7 +72,7 @@ export function ConfirmSubmitDialog({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5" />
                 Submitting…
               </>
             ) : (

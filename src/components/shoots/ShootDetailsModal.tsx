@@ -16,19 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  CalendarIcon,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-  ClockIcon,
-  Loader2,
-  MapPinIcon,
-  PauseCircle,
-  PlayCircle,
-  Send,
-  Upload,
-} from "lucide-react";
+import { CalendarIcon, CheckCircle, ChevronDown, ChevronUp, ClockIcon, MapPinIcon, PauseCircle, PlayCircle, Send, Upload } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 import { transformShootFromApi } from '@/context/shootNormalization';
@@ -596,7 +585,7 @@ export function ShootDetailsModal({
             <DialogDescription>Loading shoot details</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-12 sm:p-8 gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <Loader2 className="h-8 w-8" />
             <div className="text-sm text-muted-foreground">Loading shoot details...</div>
           </div>
 
@@ -634,7 +623,7 @@ export function ShootDetailsModal({
                   disabled={isSendingToEditing}
                 >
                   {isSendingToEditing ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                   ) : (
                     <Send className="h-3.5 w-3.5 mr-1.5" />
                   )}
@@ -650,7 +639,7 @@ export function ShootDetailsModal({
                   disabled={isApprovingEditingReview}
                 >
                   {isApprovingEditingReview ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                   ) : (
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                   )}
@@ -666,7 +655,7 @@ export function ShootDetailsModal({
                   disabled={isFinalising}
                 >
                   {isFinalising ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                   ) : (
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                   )}

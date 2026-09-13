@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PlayCircle, Send, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, PlayCircle, Send, X } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -568,7 +569,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
                   ))}
                   {helpSending && (
                     <div className="mr-8 flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5" />
                       Robbie is typing
                     </div>
                   )}
@@ -591,7 +592,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
                     className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   />
                   <Button type="submit" size="icon" className="h-9 w-9" disabled={helpSending || !helpMessage.trim()}>
-                    {helpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    {helpSending ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Send className="h-4 w-4" />}
                     <span className="sr-only">Send message</span>
                   </Button>
                 </form>

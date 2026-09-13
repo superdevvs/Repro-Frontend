@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { calendarDay } from '@/lib/date';
-import { CheckCircle2, Loader2, Plus, ReceiptText, Trash2 } from 'lucide-react';
+import { CheckCircle2, Plus, ReceiptText, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/badge';
@@ -727,7 +728,7 @@ export function InvoiceApprovalDialog({
                       disabled={busyAction === 'edit'}
                       className="bg-violet-600 hover:bg-violet-700 text-white"
                     >
-                      {busyAction === 'edit' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                      {busyAction === 'edit' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                       Add Service
                     </Button>
                   </div>
@@ -771,7 +772,7 @@ export function InvoiceApprovalDialog({
                       onClick={handleAddExpense}
                       disabled={busyAction === 'edit'}
                     >
-                      {busyAction === 'edit' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                      {busyAction === 'edit' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                       Add Expense
                     </Button>
                   </div>
@@ -872,7 +873,7 @@ export function InvoiceApprovalDialog({
               }}
               disabled={busyAction !== null}
             >
-              {busyAction === 'reject' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ReceiptText className="h-4 w-4 mr-2" />}
+              {busyAction === 'reject' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <ReceiptText className="h-4 w-4 mr-2" />}
               {showRejectInput
                 ? mode === 'photographer' ? 'Send Changes for Review' : 'Return for Changes'
                 : mode === 'photographer' ? 'Submit with Changes' : 'Return for Changes'}
@@ -883,7 +884,7 @@ export function InvoiceApprovalDialog({
               disabled={busyAction !== null}
               className="bg-violet-600 hover:bg-violet-700 text-white"
             >
-              {busyAction === 'approve' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              {busyAction === 'approve' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               {mode === 'photographer' ? 'Approve & Send for Review' : 'Approve Invoice'}
             </Button>
           </div>

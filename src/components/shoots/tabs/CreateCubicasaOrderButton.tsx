@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
-import { Loader2, FilePlus2 } from 'lucide-react';
+import { FilePlus2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 type CubicasaOrderMutationResponse = {
   error?: string;
@@ -168,7 +169,7 @@ export function CreateCubicasaOrderButton({
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
               {alreadyLinked ? 'Syncing…' : 'Creating…'}
             </>
           ) : (
@@ -206,7 +207,7 @@ export function CreateCubicasaOrderButton({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="mr-1 h-3.5 w-3.5" />
                   {alreadyLinked ? 'Syncing…' : 'Creating…'}
                 </>
               ) : (

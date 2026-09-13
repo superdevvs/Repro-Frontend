@@ -1,17 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import {
-  AlertCircle,
-  Download,
-  Film,
-  Image as ImageIcon,
-  Loader2,
-  Play,
-  Search,
-  Smartphone,
-  Square,
-  Youtube,
-} from 'lucide-react';
+import { AlertCircle, Download, Film, Image as ImageIcon, Play, Search, Smartphone, Square, Youtube } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,7 +263,7 @@ function ListingVideoJobsList({ onSelectJob }: { onSelectJob: (jobId: number) =>
                 )}
                 {isActiveJob(job) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    <Loader2 aria-hidden="true" className="h-5 w-5 text-white" />
                   </div>
                 )}
                 {job.status === 'completed' && (
@@ -675,7 +665,7 @@ export function ListingVideoGenerator() {
               <Button className="w-full" size="lg" onClick={handleSubmit} disabled={!canSubmit}>
                 {submitListingVideo.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Starting...
                   </>
                 ) : (

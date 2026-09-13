@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronDown, Home, Loader2, Save } from 'lucide-react';
+import { ChevronDown, Home, Save } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { Button } from '@/components/ui/button';
 import {
@@ -129,7 +130,7 @@ export function ShootTourPropertySection({
               <span className="block truncate text-[11px] text-muted-foreground">{propertySummary}</span>
             </span>
             {(isSavingPropertyStatus || isSavingPropertyDetails || isSavingDescription) && (
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-label="Saving property information" />
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Saving property information" />
             )}
             <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
@@ -233,7 +234,7 @@ export function ShootTourPropertySection({
                   className="h-8 px-3 text-xs"
                 >
                   {isSavingPropertyDetails ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
                   ) : (
                     <Save className="mr-1.5 h-3.5 w-3.5" />
                   )}
@@ -258,7 +259,7 @@ export function ShootTourPropertySection({
                       className="h-7 gap-1 px-2.5 text-[11px]"
                     >
                       {isGeneratingDescription ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-3 w-3" />
                       ) : (
                         <ReproAiIcon className="h-3.5 w-3.5" />
                       )}
@@ -272,7 +273,7 @@ export function ShootTourPropertySection({
                       className="h-7 gap-1 px-2.5 text-[11px]"
                     >
                       {isSavingDescription ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-3 w-3" />
                       ) : (
                         <Save className="h-3 w-3" />
                       )}

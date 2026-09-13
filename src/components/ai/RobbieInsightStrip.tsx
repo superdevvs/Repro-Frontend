@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
@@ -393,15 +394,15 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
           />
         ) : (
           <>
-            <span
-              className={cn(
-                "shrink-0 inline-block h-2 w-2 rounded-full",
-                meta.dotClass,
-                isLoading && "animate-pulse"
-              )}
-              title={meta.label}
-              aria-label={meta.label}
-            />
+            {isLoading ? (
+              <BrandLoader className="h-4 w-4" />
+            ) : (
+              <span
+                className={cn("shrink-0 inline-block h-2 w-2 rounded-full", meta.dotClass)}
+                title={meta.label}
+                aria-label={meta.label}
+              />
+            )}
             <AnimatePresence mode="wait">
               <motion.div
                 key={displayInsight.id}
@@ -411,8 +412,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
                 transition={{ duration: 0.35 }}
                 className={cn(
                   "min-w-0 text-sm font-medium text-foreground/90 truncate",
-                  isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]",
-                  isLoading && "animate-pulse"
+                  isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]"
                 )}
                 title={displayInsight.message}
               >

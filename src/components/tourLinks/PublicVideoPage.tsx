@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { getStoredAuthToken } from '@/utils/authToken';
-import { Loader2, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { restrictedVideoProps } from './videoControlRestrictions';
 
 type VideoVariant = 'branded' | 'mls' | 'generic';
@@ -240,7 +241,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8" />
           <p className="text-sm text-muted-foreground">Loading video...</p>
         </div>
       </div>

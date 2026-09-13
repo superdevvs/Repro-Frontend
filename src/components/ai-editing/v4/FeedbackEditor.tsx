@@ -1,6 +1,7 @@
 import { StudioImage } from '@/components/studio/v4/StudioImage';
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { BoxSelect, Brush, Loader2, ScanSearch, Undo2 } from 'lucide-react';
+import { BoxSelect, Brush, ScanSearch, Undo2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -123,7 +124,7 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = f
 
   return <Dialog open onOpenChange={open => { if (!open && !sending) onClose(); }}><DialogContent className="v4-editor-dialog v4-feedback-dialog"><DialogTitle>Refine {name}</DialogTitle><DialogDescription>Mark an area and describe the change. Your original stays available.</DialogDescription>
     <div className="v4-feedback-scroll">
-    <div className="v4-feedback-tools"><Button variant="outline" aria-pressed={tool === 'box'} onClick={() => setTool('box')}><BoxSelect />Select area</Button><Button variant="outline" aria-pressed={tool === 'draw'} onClick={() => setTool('draw')}><Brush />Draw</Button><Button variant="outline" aria-pressed={tool === 'objects'} disabled={detecting || busy} onClick={() => void detect()}>{detecting ? <Loader2 className="animate-spin" /> : <ScanSearch />}Find objects</Button><Button variant="ghost" disabled={!region && !drawing.length} onClick={() => { if (drawing.length) setDrawing(previous => previous.slice(0, -1)); else setRegion(undefined); }}><Undo2 />Undo</Button></div>
+    <div className="v4-feedback-tools"><Button variant="outline" aria-pressed={tool === 'box'} onClick={() => setTool('box')}><BoxSelect />Select area</Button><Button variant="outline" aria-pressed={tool === 'draw'} onClick={() => setTool('draw')}><Brush />Draw</Button><Button variant="outline" aria-pressed={tool === 'objects'} disabled={detecting || busy} onClick={() => void detect()}>{detecting ? <Loader2 aria-hidden="true" className="" /> : <ScanSearch />}Find objects</Button><Button variant="ghost" disabled={!region && !drawing.length} onClick={() => { if (drawing.length) setDrawing(previous => previous.slice(0, -1)); else setRegion(undefined); }}><Undo2 />Undo</Button></div>
     <div className="v4-feedback-image" ref={surface}><StudioImage src={imageUrl} alt={name} onLoad={event => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
       <div className="v4-feedback-drawing" data-tool={tool} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} aria-label="Draw feedback on the image"><canvas ref={canvas} />{tool === 'objects' && segments.map(segment => <button type="button" className="v4-object-area" key={segment.id} aria-label={`Select suggested ${segment.label} area`} aria-pressed={region === segment.region} onClick={() => chooseSegment(segment)} style={{ left: `${segment.region.x * 100}%`, top: `${segment.region.y * 100}%`, width: `${segment.region.width * 100}%`, height: `${segment.region.height * 100}%` }}><span>{segment.label}</span></button>)}{region && <span className="v4-feedback-region" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }} />}</div>
     </div>
@@ -134,6 +135,6 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = f
     {!revisionReady && <p className="text-sm text-muted-foreground">{unavailableReason || 'Revisions are not configured yet.'}</p>}
     {error && <p className="v4-inline-error" role="alert">{error}</p>}
     </div>
-    <div className="v4-dialog-actions"><Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button><Button data-variant="primary" disabled={!revisionReady || !prompt.trim() || busy || sending} onClick={() => void submit()}>{sending || busy ? <Loader2 className="animate-spin" /> : null}Generate revision</Button></div>
+    <div className="v4-dialog-actions"><Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button><Button data-variant="primary" disabled={!revisionReady || !prompt.trim() || busy || sending} onClick={() => void submit()}>{sending || busy ? <Loader2 aria-hidden="true" className="" /> : null}Generate revision</Button></div>
   </DialogContent></Dialog>;
 }

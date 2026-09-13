@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/sonner-toast';
@@ -248,7 +249,7 @@ export default function EmailRecovery() {
                   onClick={() => refetch()}
                   disabled={isFetching}
                 >
-                  <RefreshCcw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                  {isFetching ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
                   Refresh
                 </Button>
                 <Button

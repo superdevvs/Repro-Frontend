@@ -1,13 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
-import {
-  AlertCircle,
-  BarChart3,
-  Download,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
+import { AlertCircle, BarChart3, Download, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Bar,
   BarChart,
@@ -258,7 +253,7 @@ export default function Reports() {
                 aria-label="Export selected report as CSV"
               >
                 {selectedIsLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}

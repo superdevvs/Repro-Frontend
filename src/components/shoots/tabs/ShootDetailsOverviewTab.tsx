@@ -22,35 +22,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  CalendarIcon, 
-  ClockIcon, 
-  MapPinIcon, 
-  UserIcon, 
-  PhoneIcon, 
-  MailIcon,
-  CameraIcon,
-  Sun,
-  CloudRain,
-  Cloud,
-  Snowflake,
-  UserPlus,
-  Search,
-  ArrowUpDown,
-  Loader2,
-  MapPin,
-  Save,
-  XCircle,
-  X,
-  Key,
-  UserCheck,
-  Link2,
-  BedDouble,
-  ShowerHead,
-  Ruler,
-  Check,
-  Star,
-} from 'lucide-react';
+import { CalendarIcon, ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { format, isValid, parse } from 'date-fns';
 import axios from 'axios';
 import { ShootData } from '@/types/shoots';
@@ -1073,7 +1046,7 @@ export function ShootDetailsOverviewTab({
               </div>
               <div className="flex items-center gap-2">
                 {isSavingFeaturedShoot ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 text-muted-foreground" />
                 ) : null}
                 <Switch
                   checked={featuredSwitchChecked}

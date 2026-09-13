@@ -1,7 +1,8 @@
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface MediaUploadProgressProps {
   isUploading: boolean;
@@ -32,7 +33,7 @@ export const MediaUploadProgress: React.FC<MediaUploadProgressProps> = ({
             {isComplete ? (
               <CheckCircle className="h-5 w-5 text-green-600" />
             ) : isUploading ? (
-              <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+              <Loader2 className="h-5 w-5 text-blue-600" />
             ) : (
               <Upload className="h-5 w-5 text-muted-foreground" />
             )}

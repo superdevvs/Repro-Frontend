@@ -5,28 +5,8 @@ import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInter
 import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
-import {
-  MapPin,
-  Sun,
-  CloudRain,
-  Cloud,
-  Snowflake,
-  Filter,
-  Camera,
-  Plane,
-  Film,
-  Map as MapIcon,
-  Home,
-  Sparkles,
-  Check,
-  X,
-  Edit,
-  Eye,
-  Clock,
-  Copy,
-  Download,
-  Loader2,
-} from 'lucide-react';
+import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Plane, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Eye, Clock, Copy, Download } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
 import { API_BASE_URL } from '@/config/env';
@@ -1251,7 +1231,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               title="Copy raw share link"
                               className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              {shareLinkBusyId === shoot.id ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
+                              {shareLinkBusyId === shoot.id ? <Loader2 aria-hidden="true" size={12} className="" /> : <Copy size={12} />}
                             </button>
                             <button
                               type="button"
@@ -1261,7 +1241,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               title="Download raw files"
                               className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              {downloadBusyId === shoot.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                              {downloadBusyId === shoot.id ? <Loader2 aria-hidden="true" size={12} className="" /> : <Download size={12} />}
                             </button>
                           </div>
                         )}
@@ -1393,7 +1373,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               disabled={shareLinkBusyId === shoot.id}
                             >
                               {shareLinkBusyId === shoot.id ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
                               ) : (
                                 <Copy className="mr-1.5 h-3.5 w-3.5" />
                               )}
@@ -1409,7 +1389,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               aria-busy={downloadBusyId === shoot.id}
                             >
                               {downloadBusyId === shoot.id ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
                               ) : (
                                 <Download className="mr-1.5 h-3.5 w-3.5" />
                               )}

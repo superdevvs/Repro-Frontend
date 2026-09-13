@@ -18,7 +18,8 @@ import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImport
 import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
-import { AlertTriangle, Loader2, PauseCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, PauseCircle, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { ShootDownloadCenterDialog } from './ShootDownloadCenterDialog';
@@ -390,7 +391,7 @@ export function ShootDetailsModalDialogs({
             <Button onClick={handleConfirmSave} disabled={isSavingChanges || !pendingUpdates}>
               {isSavingChanges ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                   Saving...
                 </>
               ) : (
@@ -587,7 +588,7 @@ export function ShootDetailsModalDialogs({
             <Button onClick={handleCancelShoot} disabled={isCancellingShoot} className="bg-red-600 hover:bg-red-700">
               {isCancellingShoot ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                   {isDelivered ? 'Deleting...' : 'Cancelling...'}
                 </>
               ) : (

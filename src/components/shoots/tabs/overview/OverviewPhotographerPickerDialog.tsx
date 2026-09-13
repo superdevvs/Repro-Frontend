@@ -1,4 +1,5 @@
-import { Check, Loader2, MapPin, MapPinIcon, Search, User, X } from 'lucide-react';
+import { Check, MapPin, MapPinIcon, Search, User, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import type { ElementType } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -219,7 +220,7 @@ export function OverviewPhotographerPickerDialog({
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden sm:pr-2">
               {isCalculatingDistances || isLoadingAvailability ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-6 w-6 text-muted-foreground" />
                   <span className="ml-2 text-sm text-muted-foreground">
                     {isCalculatingDistances ? 'Calculating distances...' : 'Checking availability...'}
                   </span>

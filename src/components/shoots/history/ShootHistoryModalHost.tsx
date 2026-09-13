@@ -1,14 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import {
-  CalendarClock,
-  Camera,
-  Image as ImageIcon,
-  Layers,
-  Loader2,
-  MapPin,
-  Trash2,
-  User,
-} from 'lucide-react';
+import { CalendarClock, Camera, Image as ImageIcon, Layers, MapPin, Trash2, User } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -351,7 +343,7 @@ export function ShootHistoryModalHost({
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                   Deleting...
                 </>
               ) : (

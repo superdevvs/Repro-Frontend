@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 type DashboardRouteSkeletonProps = {
   pathname: string;
@@ -518,7 +519,7 @@ const PanelPageSkeleton = () => (
   </div>
 );
 
-export const DashboardRouteSkeleton = ({ pathname }: DashboardRouteSkeletonProps) => {
+const RouteSkeletonContent = ({ pathname }: DashboardRouteSkeletonProps) => {
   if (pathname === '/dashboard') return <DashboardSkeleton />;
   if (pathname === '/book-shoot' || pathname === '/book-shoot-enhanced') return <BookShootSkeleton />;
   if (pathname === '/shoot-history' || pathname === '/photographer-history') return <ShootHistorySkeleton />;
@@ -535,3 +536,10 @@ export const DashboardRouteSkeleton = ({ pathname }: DashboardRouteSkeletonProps
 
   return <PanelPageSkeleton />;
 };
+
+export const DashboardRouteSkeleton = (props: DashboardRouteSkeletonProps) => (
+  <div className="relative min-h-full">
+    <BrandLoader className="absolute right-4 top-4 z-10 h-8 w-8" label="Loading page" />
+    <RouteSkeletonContent {...props} />
+  </div>
+);

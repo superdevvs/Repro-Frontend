@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, CheckCircle2, ChevronRight, Loader2, MapPin, Package, Search, User } from 'lucide-react';
+import { Check, CheckCircle2, ChevronRight, MapPin, Package, Search, User } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
@@ -96,7 +97,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     if (isCalculatingDistances) {
       return (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
         </div>
       );
@@ -104,7 +105,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     if (isLoadingAvailability && date && time) {
       return (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
         </div>
       );

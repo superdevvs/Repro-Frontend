@@ -1,13 +1,5 @@
-import {
-  AlertTriangle,
-  CalendarRange,
-  CheckCircle2,
-  Clock3,
-  FileText,
-  Loader2,
-  MessageSquareMore,
-  User2,
-} from 'lucide-react';
+import { AlertTriangle, CalendarRange, CheckCircle2, Clock3, FileText, MessageSquareMore, User2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,7 +111,7 @@ export const DetailShell = ({
     return (
       <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-border/70 bg-card/70">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4" />
           Loading invoice detail...
         </div>
       </div>

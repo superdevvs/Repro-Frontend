@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { composeEmail, getEmailMessages, getTemplates } from '@/services/messaging';
-import { Loader2, Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useToast } from '@/hooks/use-toast';
 import type { Message, MessageTemplate } from '@/types/messaging';
 
@@ -108,7 +109,7 @@ const MessagingEmailPage = () => {
         description="Compose one-off emails, review history, and manage templates."
         action={
           <Button size="sm" variant="outline" onClick={loadInitialData} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
             Refresh
           </Button>
         }
@@ -122,7 +123,7 @@ const MessagingEmailPage = () => {
           <CardContent className="space-y-3">
             {loading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4" />
                 Loading emails…
               </div>
             )}
@@ -210,7 +211,7 @@ const MessagingEmailPage = () => {
                 <Button type="submit" disabled={!canSend || sending}>
                   {sending ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                       Sending
                     </>
                   ) : (

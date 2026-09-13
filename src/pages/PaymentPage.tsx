@@ -4,7 +4,8 @@ import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, MapPin, Calendar, Camera, CreditCard, Lock, XCircle } from 'lucide-react';
+import { MapPin, Calendar, Camera, CreditCard, Lock, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js/pure';
@@ -649,7 +650,7 @@ export default function PaymentPage() {
                       >
                         {stripeLoading ? (
                           <>
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            <Loader2 aria-hidden="true" className="mr-2 h-5 w-5" />
                             Loading checkout...
                           </>
                         ) : (
@@ -750,7 +751,7 @@ export default function PaymentPage() {
                       <div className="mx-auto min-w-0 w-full rounded-[18px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:rounded-[22px] xl:max-h-[calc(100vh-14rem)] xl:overflow-y-auto">
                         {embeddedCheckoutLoading && (
                           <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                            <Loader2 className="h-8 w-8 text-gray-400" />
                           </div>
                         )}
                         <div

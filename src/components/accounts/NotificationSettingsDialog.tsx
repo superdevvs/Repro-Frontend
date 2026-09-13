@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { User } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,7 +88,7 @@ export function NotificationSettingsDialog({
             Cancel
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
             Save Preferences
           </Button>
         </DialogFooter>

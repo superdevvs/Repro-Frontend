@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Activity, Clock3, Loader2, RefreshCw } from 'lucide-react';
+import { Activity, Clock3, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,7 +81,7 @@ export function ProfileActivityCard() {
 
   const content = isLoading ? (
     <div className="flex min-h-28 items-center justify-center text-sm text-muted-foreground">
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading activity…
+      <Loader2 className="mr-2 h-4 w-4" /> Loading activity…
     </div>
   ) : error ? (
     <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">

@@ -15,7 +15,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useToast } from '@/hooks/use-toast';
 import {
   useVideoPresets,
@@ -116,7 +117,7 @@ export function PresetManagement() {
 
       {isLoading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          <Loader2 className="h-6 w-6 text-blue-500" />
         </div>
       ) : (
         <Card>
@@ -313,7 +314,7 @@ export function PresetManagement() {
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {isSaving && <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />}
               {editingId ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>
@@ -338,7 +339,7 @@ export function PresetManagement() {
               onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
               disabled={deletePreset.isPending}
             >
-              {deletePreset.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {deletePreset.isPending && <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />}
               Delete
             </Button>
           </DialogFooter>

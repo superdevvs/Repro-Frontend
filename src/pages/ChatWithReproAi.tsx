@@ -28,25 +28,8 @@ import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { cn } from '@/lib/utils';
 import { sendAiMessage, fetchAiSessions, fetchAiSessionMessages, deleteAiSession, archiveAiSession } from '@/services/aiService';
 import type { AiActionPayload, AiChatRequest, AiMessage, AiChatSession } from '@/types/ai';
-import { 
-  ImageIcon, 
-  FileText, 
-  Code, 
-  Link as LinkIcon, 
-  FileIcon, 
-  Mic, 
-  Send,
-  Search,
-  MessageSquare,
-  Plus,
-  Clock,
-  MoreVertical,
-  Loader2,
-  Trash2,
-  Archive,
-  ArrowLeft,
-  X
-} from 'lucide-react';
+import { ImageIcon, FileText, Code, Link as LinkIcon, FileIcon, Mic, Send, Search, MessageSquare, Plus, Clock, MoreVertical, Trash2, Archive, ArrowLeft, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { toast } from '@/components/ui/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';

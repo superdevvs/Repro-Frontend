@@ -21,28 +21,8 @@ import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLa
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, isAwaitingFinalizeShoot, resolveShootThumbnail } from './shootHistoryUtils'
-import {
-  AlertCircle,
-  Calendar as CalendarIcon,
-  Camera,
-  Check,
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  DollarSign,
-  Download,
-  Edit,
-  FileText,
-  Image,
-  Layers,
-  Loader2,
-  PauseCircle,
-  Send,
-  Trash2,
-  User,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, Clock, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, PauseCircle, Send, Trash2, User, X, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots'
 // Payment Button Component for Super Admin
 const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoice?: (shoot: ShootData) => void }) => {
@@ -96,7 +76,7 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
           disabled={loading}
         >
           <DollarSign className="h-3.5 w-3.5" />
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Payment'}
+          {loading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : 'Payment'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>

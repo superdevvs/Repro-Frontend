@@ -30,7 +30,7 @@ describe('shoot media stays available without Dropbox', () => {
   });
   afterEach(cleanup);
 
-  it('keeps the RAW ZIP button spinning until download completion', async () => {
+  it('keeps the RAW ZIP button showing the RE loader until download completion', async () => {
     let finish!: () => void;
     archiveDownload.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<EnhancedShootMediaTabs shootId="42" address="12 Oak Street, Austin, TX 78701" canUploadRaw />);
@@ -42,10 +42,10 @@ describe('shoot media stays available without Dropbox', () => {
     expect(archiveDownload).toHaveBeenCalledWith({ shootId: '42', type: 'raw', address: '12 Oak Street, Austin, TX 78701' });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(button.querySelector('.animate-spin')).not.toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
     await act(async () => { finish(); });
     expect(button).toBeEnabled();
-    expect(button.querySelector('.animate-spin')).toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
   });
 
   it('renders the local thumbnail and reloads media after a local upload', async () => {

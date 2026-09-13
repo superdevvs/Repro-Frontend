@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, BellOff, Check, Clock, Edit, FileText, Layers, Loader2, MapPin, Search, User, X } from 'lucide-react';
+import { AlertTriangle, BellOff, Check, Clock, Edit, FileText, Layers, MapPin, Search, User, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import type { useShootEditModalController } from './useShootEditModalController';
@@ -144,7 +145,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Approving...
               </>
             ) : (
@@ -161,7 +162,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Approving...
               </>
             ) : (
@@ -478,7 +479,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                 Cancel
               </Button>
               <Button onClick={handleConfirmServiceDetach} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isSubmitting ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
                 Confirm removal & approve
               </Button>
             </DialogFooter>

@@ -9,11 +9,11 @@ import VideoThumbnail from '../../VideoThumbnail';
 import { getDisplayMediaFilename, getMediaVideoPreviewUrl, getMediaVideoUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Loader2, MoreHorizontal, Pause, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pause, Play, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { getRequestStatusClassName, formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
 import type { useMediaViewerController } from './useMediaViewerController';
 import { MediaViewerPreviewSizeControls, MediaViewerZoomControls } from './MediaViewerControls';
-
 export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeof useMediaViewerController>> }) {
   const {
     isOpen,
@@ -152,7 +152,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
             <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
               {!currentSlideReady && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-sm">
-                  <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+                  <Loader2 className="h-8 w-8 text-white/70" />
                   <p className="text-sm text-white/60">
                     {waitingForNextSlide ? 'Loading next image…' : 'Preparing slideshow…'}
                   </p>
@@ -286,7 +286,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                     disabled={isDownloadingCurrentFile} aria-busy={isDownloadingCurrentFile}
                     onSelect={() => handleDownloadSingle(currentFile.id)}
                   >
-                    {isDownloadingCurrentFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    {isDownloadingCurrentFile ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                     {isDownloadingCurrentFile ? 'Downloading…' : 'Download'}
                   </DropdownMenuItem>
                 )}
@@ -607,7 +607,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             onClick={() => handleDownloadSingle(currentFile.id)}
                             title="Download image"
                           >
-                            {isDownloadingCurrentFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            {isDownloadingCurrentFile ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                           </Button>
                         )}
                         {onToggleHidden && (
@@ -719,7 +719,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                           disabled={isDownloadingCurrentFile} aria-busy={isDownloadingCurrentFile}
                           onClick={() => handleDownloadSingle(currentFile.id)}
                         >
-                          {isDownloadingCurrentFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                          {isDownloadingCurrentFile ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
                           {isDownloadingCurrentFile ? 'Downloading…' : 'Download'}
                         </Button>
                       )}

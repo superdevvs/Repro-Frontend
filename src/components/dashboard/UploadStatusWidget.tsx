@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { useUpload } from '@/context/UploadContext';
 import { useOptionalShoots } from '@/context/shootsContextState';
 import { UploadStatusDialog } from './UploadStatusDialog';
@@ -43,7 +43,7 @@ export const UploadStatusWidget: React.FC = () => {
       >
         <div className="relative flex items-center justify-center h-9 w-9 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/30">
           {hasActive ? (
-            <UploadCloud className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-pulse" />
+            <BrandLoader className="h-4 w-4" aria-hidden="true" />
           ) : (
             <span className="text-base font-bold text-blue-600 dark:text-blue-400">{finishedCount}</span>
           )}

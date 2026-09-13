@@ -14,7 +14,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { cubicasaService, CreateOrderData, CubiCasaOrder } from '@/services/cubicasaService';
 import { useShoots } from '@/context/shootsContextState';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface ScanOrderFormProps {
   onOrderCreated: (order: CubiCasaOrder) => void;
@@ -178,7 +178,7 @@ export function ScanOrderForm({ onOrderCreated, onCancel }: ScanOrderFormProps) 
             <Button type="submit" className="flex-1" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Creating...
                 </>
               ) : (

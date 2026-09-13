@@ -19,18 +19,8 @@ import { useAuth } from '@/components/auth';
 import type { ShootData } from '@/types/shoots';
 import { formatWorkflowStatus } from '@/utils/status';
 import { apiClient } from '@/services/api';
-import {
-  AlertCircle,
-  CheckCircle2,
-  CreditCard,
-  DollarSign,
-  Edit3,
-  Eye,
-  ImageIcon,
-  Loader2,
-  Sparkles,
-  Trash2,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, DollarSign, Edit3, Eye, ImageIcon, Sparkles, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
@@ -453,7 +443,7 @@ export function BulkActionsDialog({
             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center text-muted-foreground py-12">
-                  <Loader2 className="h-6 w-6 animate-spin mb-3" />
+                  <Loader2 className="h-6 w-6 mb-3" />
                   <p className="text-sm">Loading shoots...</p>
                 </div>
               ) : filteredShoots.length === 0 ? (
@@ -678,7 +668,7 @@ export function BulkActionsDialog({
               >
                 {processing ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                     Processing...
                   </>
                 ) : activeAction === 'editing' ? (

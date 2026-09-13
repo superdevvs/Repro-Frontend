@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -189,7 +190,7 @@ export default function Shared() {
                   }
                 }}
               >
-                <RefreshCw className={cn('mr-2 h-4 w-4', sharedQuery.isFetching || clientsQuery.isFetching ? 'animate-spin' : '')} />
+                {sharedQuery.isFetching || clientsQuery.isFetching ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
               </Button>
             </div>

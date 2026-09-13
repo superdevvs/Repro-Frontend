@@ -2,7 +2,8 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Monitor, Smartphone, Square, Tv, AlertTriangle, Loader2 } from 'lucide-react';
+import { Monitor, Smartphone, Square, Tv, AlertTriangle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import type { VideoPreset } from '@/services/higgsFieldService';
 
 type AspectRatio = 'horizontal' | 'vertical' | 'square' | 'standard';
@@ -128,7 +129,7 @@ export function ConfigureAndGenerate({
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <Loader2 aria-hidden="true" className="h-5 w-5 mr-2" />
             Submitting...
           </>
         ) : (

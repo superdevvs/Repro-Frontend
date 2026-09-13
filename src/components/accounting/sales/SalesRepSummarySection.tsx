@@ -1,14 +1,7 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import {
-  AlertTriangle,
-  BarChart3,
-  Loader2,
-  Target,
-  TrendingUp,
-  UserPlus,
-  Wallet,
-} from 'lucide-react';
+import { AlertTriangle, BarChart3, CircleDashed, Target, TrendingUp, UserPlus, Wallet } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Bar,
   CartesianGrid,
@@ -100,9 +93,9 @@ const SummaryStateCard = ({
 const MetricSkeleton = () => (
   <Card className="border border-border/70 bg-card/80">
     <CardContent className="space-y-3 p-5">
-      <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-      <div className="h-8 w-32 animate-pulse rounded bg-muted" />
-      <div className="h-3 w-36 animate-pulse rounded bg-muted" />
+      <div className="h-3 w-24 rounded bg-muted" />
+      <div className="h-8 w-32 rounded bg-muted" />
+      <div className="h-3 w-36 rounded bg-muted" />
     </CardContent>
   </Card>
 );
@@ -110,12 +103,12 @@ const MetricSkeleton = () => (
 const SectionSkeleton = ({ rows = 4 }: { rows?: number }) => (
   <Card className="border border-border/70 bg-card/80">
     <CardHeader className="space-y-2">
-      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-      <div className="h-3 w-52 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-32 rounded bg-muted" />
+      <div className="h-3 w-52 rounded bg-muted" />
     </CardHeader>
     <CardContent className="space-y-3">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="h-16 animate-pulse rounded-2xl bg-muted" />
+        <div key={index} className="h-16 rounded-2xl bg-muted" />
       ))}
     </CardContent>
   </Card>
@@ -410,9 +403,9 @@ const SalesRepClientListCard = ({
     <CardContent>
       {loading ? (
         <div className="space-y-3">
-          <div className="h-16 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-16 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-16 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-16 rounded-2xl bg-muted" />
+          <div className="h-16 rounded-2xl bg-muted" />
+          <div className="h-16 rounded-2xl bg-muted" />
         </div>
       ) : error ? (
         <SummaryStateCard
@@ -457,6 +450,7 @@ export function SalesRepSummarySection({
 
   return (
     <div className="space-y-4">
+      {loading && <Loader2 className="mx-auto h-8 w-8" label="Loading sales summary" />}
       <Card className="overflow-hidden border border-border/70 bg-[linear-gradient(135deg,rgba(37,99,235,0.08),rgba(15,23,42,0.02))] shadow-sm">
         <CardContent className="flex flex-col gap-4 p-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
@@ -486,7 +480,7 @@ export function SalesRepSummarySection({
       {hasNoActivity ? (
         <Card className="border border-border/70 bg-muted/20">
           <CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4" />
+            <CircleDashed className="h-4 w-4" aria-hidden="true" />
             No paid revenue or new clients landed in this window yet. The cards below stay live and will
             update as soon as activity comes in.
           </CardContent>

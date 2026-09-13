@@ -15,23 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  User,
-  Mail,
-  Phone,
-  Building,
-  Camera,
-  DollarSign,
-  CheckCircle,
-  Circle,
-  ChevronRight,
-  FileText,
-  Loader2,
-  Search,
-  ArrowUpDown,
-  MapPin,
-  Send,
-} from 'lucide-react';
+import { User, Mail, Phone, Building, Camera, DollarSign, CheckCircle, Circle, ChevronRight, FileText, Search, ArrowUpDown, MapPin, Send } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import type { InvoiceData } from '@/types/invoice';
@@ -597,7 +582,7 @@ export function ShootDetailsSidebar({
                   disabled={isLoadingInvoice}
                 >
                   {isLoadingInvoice ? (
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
                   ) : (
                     <FileText className="h-3 w-3 mr-1.5" />
                   )}
@@ -715,7 +700,7 @@ export function ShootDetailsSidebar({
               <div className="pt-3 max-h-[48vh] overflow-y-auto pr-2">
                 {isCalculatingDistances ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-6 w-6 text-muted-foreground" />
                     <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
                   </div>
                 ) : filteredAndSortedPhotographers.length > 0 ? (

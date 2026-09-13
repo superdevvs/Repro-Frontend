@@ -31,7 +31,16 @@
     <meta name="theme-color" content="#060a0e" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060a0e" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#060a0e" />
-    <link rel="icon" type="image/png" href="/REPRO-HQ-icon.png" />
+    <link rel="icon" type="image/x-icon" sizes="any" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/brand/re/favicon-static.svg" data-re-favicon />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/re/favicon-180.png" />
+    <script src="/brand/favicon-runtime.js" defer></script>
+    <style>
+      .boot-loader { min-height: 100dvh; display: grid; place-items: center; background: #f8fafc; }
+      .dark .boot-loader { background: #060a0e; }
+      .boot-loader img { display: block; width: 96px; height: 96px; }
+      body:has(.boot-loader) { margin: 0; }
+    </style>
   </head>
 
   <body>
@@ -44,7 +53,14 @@
         document.documentElement.classList.add(theme);
       })();
     </script>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-loader" role="status" aria-label="Loading R/E Pro Photos">
+        <picture>
+          <source media="(prefers-reduced-motion: reduce)" srcset="/brand/re/loading-static.svg" />
+          <img src="/brand/re/loading.svg" width="96" height="96" alt="" />
+        </picture>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { MapMarker } from './shootHistoryUtils'
@@ -318,7 +319,7 @@ export const GoogleShootHistoryMap = ({
           aria-live="polite"
         >
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" aria-hidden="true" />
+            <BrandLoader className="h-4 w-4" aria-hidden="true" />
             Loading shoot locations…
           </div>
         </div>

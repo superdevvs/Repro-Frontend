@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
       case 'uploading':
         return (
           <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 dark:border-blue-800 dark:text-blue-400 gap-1">
-            <UploadCloud className="h-3 w-3 animate-pulse" />
+            <BrandLoader className="h-3 w-3" aria-hidden="true" />
             {upload.progress}%
           </Badge>
         );

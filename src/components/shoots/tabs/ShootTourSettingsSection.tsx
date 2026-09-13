@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ChevronDown,
-  Edit,
-  ExternalLink,
-  LayoutTemplate,
-  Loader2,
-  Plus,
-  Settings2,
-  Trash2,
-} from 'lucide-react';
+import { ChevronDown, Edit, ExternalLink, LayoutTemplate, Plus, Settings2, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -158,7 +150,7 @@ export function ShootTourSettingsSection({
               <span className="block truncate text-[11px] text-muted-foreground">{settingsSummary}</span>
             </span>
             {isSaving && (
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-label="Saving tour settings" />
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Saving tour settings" />
             )}
             <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
@@ -291,7 +283,7 @@ export function ShootTourSettingsSection({
                       <span className="block truncate text-xs font-medium">Embeds</span>
                       <span className="block truncate text-[10px] text-muted-foreground">{embedsSummary}</span>
                     </span>
-                    {savingEmbeds && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    {savingEmbeds && <Loader2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />}
                     <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${embedsOpen ? 'rotate-180' : ''}`} />
                   </button>
                 </CollapsibleTrigger>
@@ -356,7 +348,7 @@ export function ShootTourSettingsSection({
                           className="h-8 shrink-0 px-3 text-xs"
                         >
                           {savingEmbeds ? (
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
                           ) : (
                             <Plus className="mr-1 h-3.5 w-3.5" />
                           )}

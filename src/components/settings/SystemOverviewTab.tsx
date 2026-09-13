@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import {
   Background,
   Controls,
@@ -274,9 +275,14 @@ export function SystemOverviewTab() {
           <CardTitle>System Overview</CardTitle>
           <CardDescription>Loading live topology, traces, and system metrics for superadmin view.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="h-28 animate-pulse rounded-2xl bg-slate-100" />
-          <div className="h-[520px] animate-pulse rounded-3xl bg-slate-100" />
+        <CardContent className="relative">
+          <div className="space-y-3">
+            <div className="h-28 rounded-2xl bg-slate-100" />
+            <div className="h-[520px] rounded-3xl bg-slate-100" />
+          </div>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <BrandLoader className="h-12 w-12" label="Loading system overview" />
+          </div>
         </CardContent>
       </Card>
     );

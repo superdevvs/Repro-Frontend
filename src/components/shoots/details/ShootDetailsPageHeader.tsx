@@ -2,27 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShootData } from '@/types/shoots';
-import {
-  ArrowLeft,
-  Camera,
-  CheckCircle,
-  Cloud,
-  Copy,
-  DollarSign,
-  Download,
-  ExternalLink,
-  Loader2,
-  PanelTopOpen,
-  PauseCircle,
-  Send,
-  Share2,
-  ChevronRight,
-  FileText,
-  Images,
-  MessageCircle,
-  Settings,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle, Cloud, Copy, DollarSign, Download, ExternalLink, PanelTopOpen, PauseCircle, Send, Share2, ChevronRight, FileText, Images, MessageCircle, Settings, SlidersHorizontal } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface ShootDetailsPageHeaderProps {
   shoot: ShootData;
@@ -290,7 +271,7 @@ export function ShootDetailsPageHeader({
                 disabled={isSendingToEditing}
               >
                 {isSendingToEditing ? (
-                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
                 ) : (
                   <Send className="h-3 w-3 mr-1.5" />
                 )}
@@ -307,7 +288,7 @@ export function ShootDetailsPageHeader({
                 disabled={isFinalising}
               >
                 {isFinalising ? (
-                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
                 ) : (
                   <CheckCircle className="h-3 w-3 mr-1.5" />
                 )}
@@ -338,7 +319,7 @@ export function ShootDetailsPageHeader({
                   aria-busy={isDownloading}
                 >
                   {isDownloading ? (
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
                   ) : (
                     <Download className="h-3 w-3 mr-1.5" />
                   )}
@@ -361,7 +342,7 @@ export function ShootDetailsPageHeader({
                   disabled={isGeneratingShareLink || rawFileCount === 0}
                 >
                   {isGeneratingShareLink ? (
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
                   ) : (
                     <Share2 className="h-3 w-3 mr-1.5" />
                   )}

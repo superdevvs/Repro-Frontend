@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import type { VerticalVariant } from '@/services/higgsFieldService';
 
 interface VerticalVariantSelectorProps {
@@ -63,7 +64,7 @@ export function VerticalVariantSelector({
               >
                 {isPending && (
                   <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    <Loader2 className="h-6 w-6 text-blue-500" />
                     <span className="text-xs text-slate-400">Generating...</span>
                   </div>
                 )}

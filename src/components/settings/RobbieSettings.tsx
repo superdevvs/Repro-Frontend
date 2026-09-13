@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
-import { Bot, Send, Settings2, Sparkles, Shield, Loader2, Check, X } from 'lucide-react';
+import { Bot, Send, Settings2, Sparkles, Shield, Check, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
@@ -297,7 +298,7 @@ What would you like to configure?`;
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 text-muted-foreground" />
       </div>
     );
   }
@@ -367,7 +368,7 @@ What would you like to configure?`;
                         ))}
                         {chatLoading && (
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-4 w-4" />
                             Thinking...
                           </div>
                         )}
@@ -459,7 +460,7 @@ What would you like to configure?`;
                       )}
                     </div>
                     <Button onClick={handleSave} disabled={saving} className="w-full mt-4">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                      {saving ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                       Save Configuration
                     </Button>
                   </CardContent>
@@ -616,7 +617,7 @@ What would you like to configure?`;
                   Reset Changes
                 </Button>
                 <Button onClick={handleSave} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                  {saving ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>
               </div>

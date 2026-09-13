@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Loader2, AlertCircle, FileImage } from 'lucide-react';
+import { Image as ImageIcon, AlertCircle, FileImage } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { isRawFile } from '@/services/rawPreviewService';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
@@ -126,7 +127,7 @@ export const RawImagePreview: React.FC<RawImagePreviewProps> = ({
         containerClassName
       )}>
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <Loader2 className="h-6 w-6" />
           <span className="text-xs">Loading RAW...</span>
         </div>
       </div>
@@ -185,7 +186,7 @@ export const RawImagePreview: React.FC<RawImagePreviewProps> = ({
     <div className={cn('relative overflow-hidden bg-muted', containerClassName)}>
       {!imageLoaded && showLoadingState && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-5 w-5 text-muted-foreground" />
         </div>
       )}
       <img

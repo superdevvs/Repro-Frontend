@@ -19,7 +19,7 @@ const props = (): ComponentProps<typeof ShootMediaHeader> => ({
 afterEach(cleanup);
 
 describe('selected media download buttons', () => {
-  it.each([true, false])('keeps desktop and mobile icons spinning while busy (editor=%s)', (isEditor) => {
+  it.each([true, false])('keeps desktop and mobile RE loaders visible while busy (editor=%s)', (isEditor) => {
     const options = { ...props(), isEditor, displayTab: isEditor ? 'uploaded' as const : 'edited' as const };
     const { rerender } = render(<ShootMediaHeader {...options} />);
     const buttons = screen.getAllByRole('button', { name: 'Download selected files' });
@@ -32,7 +32,7 @@ describe('selected media download buttons', () => {
     buttons.forEach((button) => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute('aria-busy', 'true');
-      expect(button.querySelector('.animate-spin')).not.toBeNull();
+      expect(button.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
       fireEvent.click(button);
     });
     expect(options.handleEditorDownloadRaw).toHaveBeenCalledTimes(isEditor ? 1 : 0);
@@ -40,7 +40,7 @@ describe('selected media download buttons', () => {
     rerender(<ShootMediaHeader {...options} downloading={false} />);
     buttons.forEach((button) => {
       expect(button).toBeEnabled();
-      expect(button.querySelector('.animate-spin')).toBeNull();
+      expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     });
   });
 });

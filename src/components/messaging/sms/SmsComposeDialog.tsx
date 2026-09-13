@@ -12,7 +12,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface SmsComposeDialogProps {
   open: boolean;
@@ -119,7 +120,7 @@ export const SmsComposeDialog = ({
             Cancel
           </Button>
           <Button onClick={handleSend} disabled={sending || !to.trim() || !bodyText.trim()}>
-            {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            {sending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
             Send
           </Button>
         </DialogFooter>

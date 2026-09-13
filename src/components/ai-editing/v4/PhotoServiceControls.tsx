@@ -1,4 +1,5 @@
-import { ArrowUpRight, Loader2 } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import type { V4Config, V4Output } from '@/components/studio/v4/types';
@@ -19,5 +20,5 @@ export function UpscalePhotoAction({ output, capabilities, busy, onUpscale }: {
   onUpscale?: (mediaId: string, outputId: string) => void;
 }) {
   const ready = Boolean(capabilities?.upscale.ready && onUpscale);
-  return <div className="space-y-2"><Button variant="outline" disabled={!ready || !output || busy} onClick={() => { if (output && ready) onUpscale?.(output.mediaId, output.id); }}>{busy ? <Loader2 className="animate-spin" /> : <ArrowUpRight />}Upscale{output ? ` version ${output.version}` : ' photo'}</Button><p className="text-xs text-muted-foreground">{ready ? 'Create a larger, separate version of this photo.' : capabilities?.upscale.reason || 'Upscaling is not configured yet.'}</p></div>;
+  return <div className="space-y-2"><Button variant="outline" disabled={!ready || !output || busy} onClick={() => { if (output && ready) onUpscale?.(output.mediaId, output.id); }}>{busy ? <Loader2 aria-hidden="true" className="" /> : <ArrowUpRight />}Upscale{output ? ` version ${output.version}` : ' photo'}</Button><p className="text-xs text-muted-foreground">{ready ? 'Create a larger, separate version of this photo.' : capabilities?.upscale.reason || 'Upscaling is not configured yet.'}</p></div>;
 }

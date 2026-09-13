@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -200,7 +201,7 @@ export function ProjectLauncher({
                 onClick={() => void submit()}
               >
                 {create.isPending ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Loader2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 ) : (
                   <Sparkles className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 )}

@@ -13,7 +13,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
-import { CalendarIcon, Check, Loader2, AlertCircle, Link as LinkIcon } from "lucide-react";
+import { CalendarIcon, Check, AlertCircle, Link as LinkIcon } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -498,7 +499,7 @@ export function CalendarSyncModal({
                 )}
               >
                 {isGoogleCalendarConnecting || isGoogleCalendarStatusLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-5 w-5" />
                 ) : (
                   <GoogleCalendarIcon />
                 )}
@@ -579,7 +580,7 @@ export function CalendarSyncModal({
             <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || !selectedCalendar || eventCount === 0}>
               {isSyncing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Syncing...
                 </>
               ) : syncSuccess ? (

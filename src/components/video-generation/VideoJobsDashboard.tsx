@@ -4,14 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Play,
-  Film,
-} from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Play, Film } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useVideoJobs, useCancelVideoJob } from '@/hooks/useVideoGeneration';
 import { VideoPreviewDialog } from './VideoPreviewDialog';
 import type { VideoGenerationJob } from '@/services/higgsFieldService';
@@ -135,7 +129,7 @@ export function VideoJobsDashboard({ onViewJob }: VideoJobsDashboardProps) {
 
                     {isActive && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                        <Loader2 className="h-5 w-5 text-white" />
                       </div>
                     )}
                   </div>

@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useState } from 'react';
 import AddressLookup from './AddressLookup';
 import { Calendar, Clock, Camera, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
@@ -195,7 +196,7 @@ const BookShootWithAddressLookup: React.FC = () => {
                     {isCheckingServiceArea && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <div className="flex items-center text-blue-800">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                <BrandLoader className="h-4 w-4 mr-2" />
                                 Checking service area...
                             </div>
                         </div>
@@ -346,7 +347,7 @@ const BookShootWithAddressLookup: React.FC = () => {
                         >
                             {isSubmitting ? (
                                 <div className="flex items-center">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    <BrandLoader aria-hidden="true" className="h-4 w-4 mr-2" />
                                     Booking...
                                 </div>
                             ) : (

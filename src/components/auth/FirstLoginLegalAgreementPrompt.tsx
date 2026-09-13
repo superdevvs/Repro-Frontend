@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -250,7 +250,7 @@ export function FirstLoginLegalAgreementPrompt() {
             <section className="space-y-8">
               {isLoadingDocuments ? (
                 <div className="flex min-h-48 items-center justify-center gap-2 text-slate-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading
+                  <Loader2 className="h-4 w-4" /> Loading
                   documents...
                 </div>
               ) : (
@@ -481,7 +481,7 @@ export function FirstLoginLegalAgreementPrompt() {
           >
             {isSaving ? (
               <span className="flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-4 w-4" />
                 Saving Agreement...
               </span>
             ) : (

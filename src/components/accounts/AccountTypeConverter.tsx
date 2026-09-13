@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowRight, AlertTriangle } from "lucide-react";
+import { ArrowRight, AlertTriangle } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 /**
  * Account type (role) options that an admin may convert a user to. These mirror the
@@ -259,7 +260,7 @@ export function AccountTypeConverter({
                 Back
               </Button>
               <Button onClick={handleConvert} disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                 Convert
               </Button>
             </>

@@ -10,16 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Download,
-  DollarSign,
-  Users,
-  Camera,
-  Briefcase,
-  Loader2,
-  Calendar as CalendarIcon,
-  RefreshCw,
-} from 'lucide-react';
+import { Download, DollarSign, Users, Camera, Briefcase, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import {
   PayoutReport,
@@ -166,7 +158,7 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <Loader2 className="w-6 h-6 text-muted-foreground" />
         <span className="ml-2 text-muted-foreground">Loading payout report...</span>
       </div>
     );
@@ -220,11 +212,11 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
                 Refresh
               </Button>
               <Button size="sm" onClick={handleDownload} disabled={downloading}>
-                {downloading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+                {downloading ? <Loader2 aria-hidden="true" className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
                 Download CSV
               </Button>
               <Button size="sm" variant="outline" onClick={handleSend} disabled={sending}>
-                {sending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Users className="w-3 h-3 mr-1" />}
+                {sending ? <Loader2 aria-hidden="true" className="w-3 h-3 mr-1" /> : <Users className="w-3 h-3 mr-1" />}
                 Send Report
               </Button>
             </div>

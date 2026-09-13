@@ -3,21 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  ArrowLeft,
-  Eye,
-  Users,
-  MousePointerClick,
-  Share2,
-  Loader2,
-  Globe,
-  Monitor,
-  Smartphone,
-  Tablet,
-  TrendingUp,
-  Image as ImageIcon,
-  BarChart3,
-} from 'lucide-react';
+import { ArrowLeft, Eye, Users, MousePointerClick, Share2, Globe, Monitor, Smartphone, Tablet, TrendingUp, Image as ImageIcon, BarChart3 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { API_BASE_URL } from '@/config/env';
 import {
   AreaChart,
@@ -147,7 +134,7 @@ export function TourAnalyticsPanel({ shootId, onBack }: TourAnalyticsPanelProps)
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 text-primary" />
         <p className="text-sm text-muted-foreground">Loading analytics...</p>
       </div>
     );

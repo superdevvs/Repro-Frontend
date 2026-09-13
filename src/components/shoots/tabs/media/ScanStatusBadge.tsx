@@ -1,5 +1,6 @@
 import React from 'react';
-import { Loader2, RefreshCw, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { RefreshCw, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -127,7 +128,6 @@ export function ScanStatusBadge({
         <Icon
           className={cn(
             isCompact ? 'h-3 w-3' : 'h-3.5 w-3.5',
-            status === 'quarantined' ? 'animate-spin' : '',
           )}
           aria-hidden="true"
         />
@@ -152,7 +152,7 @@ export function ScanStatusBadge({
           data-testid="retry-scan-button"
         >
           {isRetrying ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-3 w-3" aria-hidden="true" />
           ) : (
             <RefreshCw className="h-3 w-3" aria-hidden="true" />
           )}

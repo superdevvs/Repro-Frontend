@@ -4,7 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfDay } from 'date-fns';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import {
   Dialog,
@@ -278,7 +279,7 @@ export function CreateCouponDialog({ open, onOpenChange }: CreateCouponDialogPro
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isPending && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                 {isPending ? 'Creating Discount…' : 'Create Discount'}
               </Button>
             </div>

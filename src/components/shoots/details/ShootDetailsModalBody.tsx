@@ -1,22 +1,8 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import {
-  CheckCircle,
-  CheckSquare,
-  Download,
-  DollarSign as DollarSignIcon,
-  FileText,
-  Loader2,
-  PlayCircle,
-  Save,
-  Printer,
-  Send,
-  Sparkles,
-  Trash2,
-  Upload as UploadIcon,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle, CheckSquare, Download, DollarSign as DollarSignIcon, FileText, PlayCircle, Save, Printer, Send, Sparkles, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { blurActiveElement } from '../dialogFocusUtils';
@@ -163,7 +149,7 @@ function RailIconAction({
       className={`group h-8 px-2 text-xs ${RAIL_ICON_TONES[tone]}`}
     >
       {busy ? (
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
       ) : (
         <Icon className="h-3.5 w-3.5 shrink-0" />
       )}
@@ -505,7 +491,7 @@ export function ShootDetailsModalBody({
                     disabled={isStartingMmmPunchout}
                   >
                     {isStartingMmmPunchout ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <Printer className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -521,7 +507,7 @@ export function ShootDetailsModalBody({
                     disabled={isLoadingInvoice}
                   >
                     {isLoadingInvoice ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <FileText className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -537,7 +523,7 @@ export function ShootDetailsModalBody({
                     disabled={isSubmittingRaw || hasInflightUploads}
                   >
                     {isSubmittingRaw ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <UploadIcon className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -553,7 +539,7 @@ export function ShootDetailsModalBody({
                     disabled={isSubmittingEdits || hasInflightUploads}
                   >
                     {isSubmittingEdits ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -580,7 +566,7 @@ export function ShootDetailsModalBody({
                     disabled={isSendingToEditing}
                   >
                     {isSendingToEditing ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <Send className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -596,7 +582,7 @@ export function ShootDetailsModalBody({
                     disabled={isApprovingEditingReview}
                   >
                     {isApprovingEditingReview ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -612,7 +598,7 @@ export function ShootDetailsModalBody({
                     disabled={isFinalising}
                   >
                     {isFinalising ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     ) : (
                       <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                     )}
@@ -639,7 +625,7 @@ export function ShootDetailsModalBody({
                 >
                   {isSavingChanges ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-4 w-4 mr-1.5" />
                       Saving...
                     </>
                   ) : (
@@ -669,7 +655,7 @@ export function ShootDetailsModalBody({
                 disabled={isSubmittingRaw || hasInflightUploads}
               >
                 {isSubmittingRaw ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                 ) : (
                   <UploadIcon className="h-3.5 w-3.5 mr-1.5" />
                 )}
@@ -685,7 +671,7 @@ export function ShootDetailsModalBody({
                 disabled={isSubmittingEdits || hasInflightUploads}
               >
                 {isSubmittingEdits ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                 ) : (
                   <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
                 )}

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -43,10 +44,11 @@ export function CouponsList() {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <Loader2 className="col-span-full mx-auto h-8 w-8" label="Loading discounts" />
         {[1, 2, 3].map((i) => (
           <Card
             key={i}
-            className="h-[250px] animate-pulse border border-gray-200 bg-gray-100 dark:border-slate-700 dark:bg-slate-800"
+            className="h-[250px] border border-gray-200 bg-gray-100 dark:border-slate-700 dark:bg-slate-800"
           />
         ))}
       </div>
@@ -68,7 +70,7 @@ export function CouponsList() {
             </div>
             <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
               {isFetching ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
               ) : (
                 <RefreshCw className="mr-2 h-4 w-4" />
               )}

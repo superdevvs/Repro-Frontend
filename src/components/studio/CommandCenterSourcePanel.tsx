@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Images,
-  Loader2,
-  Search,
-  UploadCloud,
-} from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, Images, Search, UploadCloud } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,7 +121,7 @@ export function CommandCenterSourcePanel({
                 </p>
               ) : loading ? (
                 <p className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Loader2 className="h-4 w-4" aria-hidden="true" />
                   Finding properties…
                 </p>
               ) : searchError ? (

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { format } from "date-fns";
-import { Ban, CalendarIcon, ChevronDown, Loader2, Search } from "lucide-react";
+import { Ban, CalendarIcon, ChevronDown, Search } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Dialog,
   DialogContent,
@@ -338,7 +339,7 @@ export function BlockTimeDialog({
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>Cancel</Button>
           <Button variant="destructive" disabled={isBlocking} onClick={handleBlock}>
-            {isBlocking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+            {isBlocking ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Ban className="h-4 w-4 mr-2" />}
             {isBlocking ? "Blocking..." : "Block Time"}
           </Button>
         </DialogFooter>

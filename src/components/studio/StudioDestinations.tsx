@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Braces, FolderOpen, Loader2, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { Braces, FolderOpen, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -166,7 +167,7 @@ function TemplateEditor({
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="button" disabled={!name.trim() || save.isPending} onClick={submit}>
-          {save.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+          {save.isPending ? <Loader2 aria-hidden="true" className="mr-1.5 h-4 w-4" /> : <Save className="mr-1.5 h-4 w-4" />}
           Save template
         </Button>
       </div>

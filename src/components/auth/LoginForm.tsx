@@ -24,7 +24,8 @@ import { toast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import { UserData, type UserRole } from '@/types/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import axios from 'axios';
 import { Logo } from '@/components/layout/Logo';
 import { Eye, EyeOff } from 'lucide-react';
@@ -391,7 +392,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                   >
                     {isLoginLoading ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
+                        <Loader2 aria-hidden="true" className="h-4 w-4" />
                         <span>Signing in...</span>
                       </div>
                     ) : (
@@ -549,7 +550,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
               >
                 {forgotPasswordLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />
                     Sending...
                   </>
                 ) : (

@@ -5,16 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CubiCasaOrder, OrderStatus } from '@/services/cubicasaService';
 import { format } from 'date-fns';
-import {
-  ArrowLeft,
-  MapPin,
-  Calendar,
-  Link as LinkIcon,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  ExternalLink,
-} from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { toast } from '@/components/ui/use-toast';
 import { PhotoUploader } from './PhotoUploader';
 import { cubicasaService } from '@/services/cubicasaService';
@@ -186,7 +178,7 @@ export function ScanOrderDetail({
               ) : orderStatus.status === 'failed' ? (
                 <AlertCircle className="h-4 w-4" />
               ) : (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4" />
               )}
               <AlertDescription>
                 <div className="flex justify-between items-center">
@@ -197,7 +189,7 @@ export function ScanOrderDetail({
                     )}
                   </span>
                   {isLoadingStatus && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Loader2 className="h-3 w-3" />
                   )}
                 </div>
                 {orderStatus.message && (
@@ -247,7 +239,7 @@ export function ScanOrderDetail({
                 disabled={isLinking || !selectedShootId || selectedShootId === order.shoot_id}
               >
                 {isLinking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4" />
                 ) : (
                   <LinkIcon className="h-4 w-4" />
                 )}

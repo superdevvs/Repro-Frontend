@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
@@ -640,7 +641,7 @@ export function EditedUploadSection({
               >
                 {isUploading && !pendingSubmitAfterUpload ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Uploading Edited Files
                   </>
                 ) : (
@@ -658,12 +659,12 @@ export function EditedUploadSection({
               >
                 {isSubmittingAfterUpload ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Submitting Edits
                   </>
                 ) : isUploading && pendingSubmitAfterUpload ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Uploading & Submitting
                   </>
                 ) : (
@@ -678,7 +679,7 @@ export function EditedUploadSection({
             <Button type="button" className="w-full shadow-lg" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}>
               {isUploading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Uploading Edited Files
                 </>
               ) : (

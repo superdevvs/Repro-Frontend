@@ -1,15 +1,5 @@
-import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  CopyPlus,
-  Loader2,
-  Play,
-  Save,
-  Shield,
-  Sparkles,
-  Workflow,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, CopyPlus, Play, Save, Shield, Sparkles, Workflow } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -96,15 +86,15 @@ export function AutomationWorkflowEditorHeader({
 
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           <Button onClick={onSave} disabled={savePending || isReadOnlyMobile}>
-            {savePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {savePending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
             Save
           </Button>
           <Button variant="outline" onClick={onValidate} disabled={validatePending}>
-            {validatePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+            {validatePending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
             Validate
           </Button>
           <Button variant="outline" onClick={onSimulate} disabled={!automationId || simulatePending}>
-            {simulatePending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {simulatePending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Sparkles className="mr-2 h-4 w-4" />}
             Simulate
           </Button>
           <Button variant="outline" onClick={onDuplicate} disabled={!currentAutomation}>
@@ -116,7 +106,7 @@ export function AutomationWorkflowEditorHeader({
             {meta.is_active ? 'Pause' : 'Activate'}
           </Button>
           <Button variant="outline" onClick={onRun} disabled={!automationId || meta.scope !== 'SYSTEM' || runPending}>
-            {runPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {runPending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
             Run now
           </Button>
         </div>

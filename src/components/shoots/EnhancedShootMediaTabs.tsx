@@ -2,16 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Download,
-  Loader2,
-  Upload,
-  Image as ImageIcon,
-  AlertTriangle,
-  Star,
-  Trash2,
-  Flag,
-} from 'lucide-react';
+import { Download, Upload, Image as ImageIcon, AlertTriangle, Star, Trash2, Flag } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { RawImagePreview } from '@/components/media/RawImagePreview';
 import { useAuth } from '@/components/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -431,7 +423,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                   )}
                 </CardTitle>
                 <Button onClick={() => handleDownloadZip('raw')} variant="outline" size="sm" disabled={downloadingType !== null} aria-busy={downloadingType === 'raw'}>
-                  {downloadingType === 'raw' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  {downloadingType === 'raw' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   Download RAW (ZIP)
                 </Button>
               </div>
@@ -521,7 +513,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                   Edited Media · {counts.edited_photo_count} / {counts.expected_final_count} delivered
                 </CardTitle>
                 <Button onClick={() => handleDownloadZip('edited')} variant="outline" size="sm" disabled={downloadingType !== null} aria-busy={downloadingType === 'edited'}>
-                  {downloadingType === 'edited' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  {downloadingType === 'edited' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   Download Edited (ZIP)
                 </Button>
               </div>

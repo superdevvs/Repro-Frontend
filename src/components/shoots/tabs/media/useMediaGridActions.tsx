@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Download, Eye, EyeOff, Heart, Loader2, MessageSquare } from 'lucide-react';
+import { Download, Eye, EyeOff, Heart, MessageSquare } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -117,7 +118,7 @@ export function useMediaGridActions({
         disabled={downloading}
         aria-busy={downloading}
       >
-        {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        {downloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
       </button>
     );
   };

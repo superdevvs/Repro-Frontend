@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { API_BASE_URL } from '@/config/env';
 
 export default function ShootShareRedirect() {
@@ -68,7 +68,7 @@ export default function ShootShareRedirect() {
         ) : (
           <div className="space-y-3 text-center">
             <div className="flex justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-xl font-semibold">Opening Shared Files</h1>
             <p className="text-sm text-muted-foreground">

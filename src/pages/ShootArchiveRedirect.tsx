@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { resolveShootMediaArchiveRequest } from '@/utils/shootMediaDownload';
 
 export default function ShootArchiveRedirect() {
@@ -73,7 +74,7 @@ export default function ShootArchiveRedirect() {
         ) : (
           <div className="space-y-3 text-center">
             <div className="flex justify-center">
-              {complete ? <CheckCircle2 className="h-8 w-8 text-primary" /> : <Loader2 className="h-8 w-8 animate-spin text-primary" />}
+              {complete ? <CheckCircle2 className="h-8 w-8 text-primary" /> : <Loader2 className="h-8 w-8 text-primary" />}
             </div>
             <h1 className="text-xl font-semibold">{complete ? 'Download Started' : 'Downloading Files'}</h1>
             <p className="text-sm text-muted-foreground">{message}</p>

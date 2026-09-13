@@ -1,6 +1,6 @@
 import { addEdge, type Connection, type EdgeChange, type NodeChange, type NodeTypes, type ReactFlowInstance, type Viewport, useEdgesState, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -436,7 +436,7 @@ export default function AutomationWorkflowEditor() {
         <EmailNavigation />
         <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-6 py-10">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5" />
             Loading automation workflow...
           </div>
         </div>

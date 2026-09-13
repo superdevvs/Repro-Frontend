@@ -1,6 +1,7 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, Building2, Camera, FileText, Files, Link2, Loader2, Mail, Plus, RefreshCw, Search, Settings2, ShieldCheck, Trash2, UserRound, Users2 } from 'lucide-react';
+import { AlertTriangle, Building2, Camera, FileText, Files, Link2, Mail, Plus, RefreshCw, Search, Settings2, ShieldCheck, Trash2, UserRound, Users2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -319,7 +320,7 @@ export function AccountLinkingManager() {
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Review active groups, reactivate broken relationships, and update shared access without the old batch-only flow.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void loadLinks(true)} disabled={loading || refreshing}>{refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Refresh</Button>
+            <Button variant="outline" onClick={() => void loadLinks(true)} disabled={loading || refreshing}>{refreshing ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}Refresh</Button>
             <Button onClick={() => openCreate()} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Link Clients</Button>
           </div>
         </div>
@@ -683,7 +684,7 @@ export function AccountLinkingManager() {
                       Cancel
                     </Button>
                     <Button className="w-full" onClick={handleCreate} disabled={saving || !canUpdate}>
-                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                      {saving ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
                       Save relationships
                     </Button>
                   </DialogFooter>
@@ -892,7 +893,7 @@ export function AccountLinkingManager() {
                         Cancel
                       </Button>
                       <Button className="w-full" onClick={handleEditSave} disabled={saving || !canUpdate}>
-                        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings2 className="mr-2 h-4 w-4" />}
+                        {saving ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Settings2 className="mr-2 h-4 w-4" />}
                         Save changes
                       </Button>
                     </DialogFooter>
@@ -905,11 +906,11 @@ export function AccountLinkingManager() {
       </Dialog>
 
       <AlertDialog open={Boolean(unlinkTarget)} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? unlinkTarget.status === 'active' ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}, but the relationship history will stay available.` : `${unlinkTarget.accountName} is already ${unlinkTarget.status}. Unlinking will keep the relationship record but leave it inactive so it can still be reviewed or relinked later.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? unlinkTarget.status === 'active' ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}, but the relationship history will stay available.` : `${unlinkTarget.accountName} is already ${unlinkTarget.status}. Unlinking will keep the relationship record but leave it inactive so it can still be reviewed or relinked later.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4" /> : <Link2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this relationship permanently?</AlertDialogTitle><AlertDialogDescription>{deleteTarget ? `${deleteTarget.accountName} will be removed completely from ${deleteTarget.mainAccountName}'s linked clients. This cannot be undone.` : 'This relationship will be deleted permanently.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleDelete(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Delete permanently</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this relationship permanently?</AlertDialogTitle><AlertDialogDescription>{deleteTarget ? `${deleteTarget.accountName} will be removed completely from ${deleteTarget.mainAccountName}'s linked clients. This cannot be undone.` : 'This relationship will be deleted permanently.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleDelete(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}Delete permanently</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={Boolean(crossOwnerConfirmation)} onOpenChange={(open) => !open && setCrossOwnerConfirmation(null)}>
@@ -944,7 +945,7 @@ export function AccountLinkingManager() {
               }}
               disabled={saving || !canUpdate}
             >
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              {saving ? <Loader2 className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
               Link anyway
             </AlertDialogAction>
           </AlertDialogFooter>

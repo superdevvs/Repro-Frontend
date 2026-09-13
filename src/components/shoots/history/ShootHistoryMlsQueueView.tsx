@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { useEffect, useState } from 'react'
 import { Eye, Clock, XCircle, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -207,7 +208,7 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={loadQueue} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
           Refresh
         </Button>
       </div>

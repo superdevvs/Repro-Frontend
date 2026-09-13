@@ -2,7 +2,8 @@ import React from 'react';
 import axios from 'axios';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Edit, Infinity as InfinityIcon, Loader2, MoreVertical, Power, Trash } from 'lucide-react';
+import { Edit, Infinity as InfinityIcon, MoreVertical, Power, Trash } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -227,7 +228,7 @@ export function CouponCard({ coupon }: CouponCardProps) {
               }}
               disabled={toggleMutation.isPending}
             >
-              {toggleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {toggleMutation.isPending && <Loader2 className="mr-2 h-4 w-4" />}
               {isActive ? 'Deactivate discount' : 'Activate discount'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -252,7 +253,7 @@ export function CouponCard({ coupon }: CouponCardProps) {
               }}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4" />}
               Delete discount
             </AlertDialogAction>
           </AlertDialogFooter>

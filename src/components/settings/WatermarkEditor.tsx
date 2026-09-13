@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Image as ImageIcon, Type, Layers, RefreshCw, Check } from 'lucide-react';
+import { Upload, Image as ImageIcon, Type, Layers, RefreshCw, Check } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 const DEFAULT_LOGO_URL = `${API_BASE_URL.replace(/\/$/, '')}/images/REPRO-HQ.png`;
@@ -378,7 +379,7 @@ export default function WatermarkEditor() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8" />
       </div>
     );
   }
@@ -419,7 +420,7 @@ export default function WatermarkEditor() {
           <Button onClick={saveSettings} disabled={saving || regenerating} className="min-w-[140px]">
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                 Saving...
               </>
             ) : (

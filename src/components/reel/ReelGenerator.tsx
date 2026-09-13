@@ -1,15 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import {
-  AlertCircle,
-  Download,
-  Image as ImageIcon,
-  Loader2,
-  Play,
-  Search,
-  Sparkles,
-  Video,
-} from 'lucide-react';
+import { AlertCircle, Download, Image as ImageIcon, Play, Search, Sparkles, Video } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -131,7 +123,7 @@ function ReelJobPanel({ jobId }: { jobId: number | null }) {
       <CardContent className="space-y-4">
         {isActiveJob(job) && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4" />
             <span>
               {job.status === 'stitching' ? 'Assembling your reel' : 'Generating reel from selected media'}
             </span>
@@ -223,7 +215,7 @@ function ReelJobsList({ onSelectJob }: { onSelectJob: (jobId: number) => void })
                 )}
                 {isActiveJob(job) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    <Loader2 aria-hidden="true" className="h-5 w-5 text-white" />
                   </div>
                 )}
                 {job.status === 'completed' && (
@@ -616,7 +608,7 @@ export function ReelGenerator() {
               <Button className="w-full" size="lg" onClick={handleSubmit} disabled={!canSubmit}>
                 {submitReel.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Starting...
                   </>
                 ) : (

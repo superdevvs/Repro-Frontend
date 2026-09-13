@@ -1,13 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import {
-  Archive,
-  Download,
-  FileArchive,
-  FileText,
-  Film,
-  Image as ImageIcon,
-  Loader2,
-} from 'lucide-react';
+import { Archive, Download, FileArchive, FileText, Film, Image as ImageIcon } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Dialog,
   DialogContent,
@@ -325,7 +318,7 @@ export function ShootDownloadCenterDialog({
           onClick={() => void runDownload(`archive-${target.shootServiceId ?? 'all'}-${option.size}`, () => onDownloadArchive(option.size, target))}
         >
           {activeDownload === `archive-${target.shootServiceId ?? 'all'}-${option.size}`
-            ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />
             : <Download className="mr-2 h-4 w-4 shrink-0" />}
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium break-words">{option.label}</span>
@@ -368,7 +361,7 @@ export function ShootDownloadCenterDialog({
           }}
         >
           {activeDownload === download.id
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />
             : <Download className="h-3.5 w-3.5" />}
         </Button>
       </div>

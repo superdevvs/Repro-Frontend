@@ -1,15 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  AlertCircle,
-  Cloud,
-  Image as ImageIcon,
-  Layers,
-  Loader2,
-  Move3D,
-  Search,
-  Sparkles,
-  Sun,
-} from 'lucide-react';
+import { AlertCircle, Cloud, Image as ImageIcon, Layers, Move3D, Search, Sparkles, Sun } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -563,7 +554,7 @@ export function BatchJobsPanel({ initialMode = 'enhance', initialShoot, onSubmit
               <Button className="w-full" size="lg" onClick={handleSubmit} disabled={!canSubmit}>
                 {submitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Submitting...
                   </>
                 ) : (

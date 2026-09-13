@@ -1,4 +1,5 @@
-import { AlertCircle, Check, Loader2, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,7 +82,7 @@ export function SmsSettingsPanel({
         <h2 className="text-xl font-semibold">Telnyx Configuration</h2>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={onTestConnection} disabled={testingConnection}>
-            {testingConnection ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testing...</> : 'Test Connection'}
+            {testingConnection ? <><Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />Testing...</> : 'Test Connection'}
           </Button>
           <Dialog open={showTestSend} onOpenChange={onShowTestSendChange}>
             <DialogTrigger asChild>
@@ -104,7 +105,7 @@ export function SmsSettingsPanel({
                   <Input value={testMessage} onChange={(e) => onTestMessageChange(e.target.value)} placeholder="Test message" />
                 </div>
                 <Button onClick={onTestSend} disabled={testingSend || !testPhone} className="w-full">
-                  {testingSend ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : <><Send className="mr-2 h-4 w-4" />Send Test SMS</>}
+                  {testingSend ? <><Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />Sending...</> : <><Send className="mr-2 h-4 w-4" />Send Test SMS</>}
                 </Button>
               </div>
             </DialogContent>
@@ -167,9 +168,14 @@ export function SmsSettingsPanel({
           </div>
 
           {smsLoading ? (
-            <div className="animate-pulse space-y-3">
-              <div className="h-4 w-full rounded bg-muted" />
-              <div className="h-4 w-3/4 rounded bg-muted" />
+            <div className="relative">
+              <div className="space-y-3">
+                <div className="h-4 w-full rounded bg-muted" />
+                <div className="h-4 w-3/4 rounded bg-muted" />
+              </div>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8" label="Loading SMS settings" />
+              </div>
             </div>
           ) : numbers.length === 0 ? (
             <div className="flex gap-3 rounded border border-yellow-200 bg-yellow-50 p-4">

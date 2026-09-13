@@ -10,7 +10,8 @@ import { MediaGrid } from './MediaGrid';
 import { MediaServiceSections } from './MediaServiceSections';
 import { IguideMediaPanel } from './IguideMediaPanel';
 import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Trash2, Upload, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
 import { canShowIguideMedia } from './iguideMediaVisibility';
@@ -215,7 +216,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
             <div className="flex items-start gap-3">
               {downloadPopup.status === 'processing' && (
                 <div className="flex-shrink-0 h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                  <Loader2 className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                  <Loader2 className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
                 </div>
               )}
               {downloadPopup.status === 'ready' && (

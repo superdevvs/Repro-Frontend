@@ -1,4 +1,4 @@
-import { Loader2, Sparkles } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Progress } from '@/components/ui/progress';
 
@@ -27,10 +27,7 @@ export function ClientWorkInProgressPanel({
         {/* Animated icon */}
         <div className="relative">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-          </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-            <Loader2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
+            <Loader2 className="w-10 h-10" label="Processing shoot" />
           </div>
         </div>
 

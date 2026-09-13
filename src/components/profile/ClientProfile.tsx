@@ -12,7 +12,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Facebook, Linkedin, Loader2, Twitter } from "lucide-react";
+import { Facebook, Linkedin, Twitter } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
@@ -565,7 +566,7 @@ export function ClientProfile() {
               </Badge>
             </div>
             <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                   {isSubmitting ? "Updating..." : "Update My Info"}
                 </Button>
           </CardFooter>

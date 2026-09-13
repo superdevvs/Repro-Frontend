@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Boxes, ExternalLink, HomeIcon, Loader2 } from 'lucide-react';
+import { Box, Boxes, ExternalLink, HomeIcon } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,7 @@ export function ToursSection({ onOpenSettings }: ToursSectionProps) {
       <CardContent className="space-y-4">
         {loading ? (
           <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4" />
             Loading tour integration summary...
           </div>
         ) : (

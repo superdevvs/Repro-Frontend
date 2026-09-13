@@ -20,27 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BellIcon, 
-  CheckIcon, 
-  CameraIcon, 
-  ClockIcon, 
-  Loader2, 
-  MessageSquare, 
-  CalendarPlus,
-  CalendarCheck,
-  Play,
-  CheckCircle2,
-  XCircle,
-  PauseCircle,
-  Pencil,
-  Eye,
-  DollarSign,
-  Upload,
-  AlertCircle,
-  Send,
-  RefreshCw
-} from "lucide-react";
+import { BellIcon, CheckIcon, CameraIcon, ClockIcon, MessageSquare, CalendarPlus, CalendarCheck, Play, CheckCircle2, XCircle, PauseCircle, Pencil, Eye, DollarSign, Upload, AlertCircle, Send, RefreshCw } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';
@@ -698,7 +679,7 @@ export function NotificationCenter() {
             <ScrollArea className={cn(isMobile ? "h-[calc(95vh-210px)]" : "h-[calc(100vh-180px)]", "p-4")} style={{ background: 'transparent' }}>
               {loading ? (
                 <div className="flex items-center justify-center h-40 text-muted-foreground gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4" />
                   <span>Loading notifications…</span>
                 </div>
               ) : filteredNotifications.length > 0 ? (
@@ -795,7 +776,7 @@ export function NotificationCenter() {
               disabled={cancellationProcessing}
             >
               {cancellationProcessing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
               ) : null}
               Reject
             </Button>
@@ -805,7 +786,7 @@ export function NotificationCenter() {
               disabled={cancellationProcessing}
             >
               {cancellationProcessing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
               ) : null}
               Approve Cancellation
             </Button>
@@ -837,7 +818,7 @@ export function NotificationCenter() {
               Close
             </Button>
             <Button variant="outline" onClick={handleRejectHold} disabled={holdProcessing}>
-              {holdProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {holdProcessing ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : null}
               Reject
             </Button>
             <Button
@@ -845,7 +826,7 @@ export function NotificationCenter() {
               onClick={handleApproveHold}
               disabled={holdProcessing}
             >
-              {holdProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {holdProcessing ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : null}
               Approve Hold
             </Button>
           </DialogFooter>

@@ -3,29 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
-import {
-  Check,
-  Copy,
-  Download,
-  Edit,
-  Loader2,
-  Camera,
-  FileText,
-  Images,
-  MessageCircle,
-  MoreVertical,
-  PauseCircle,
-  PlayCircle,
-  Printer,
-  Save,
-  Send,
-  Share2,
-  Settings,
-  Sparkles,
-  Upload,
-  X,
-  XCircle,
-} from 'lucide-react';
+import { Check, Copy, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 type VisibleTabId =
   | 'overview'
@@ -250,7 +229,7 @@ export function ShootDetailsModalActionRail({
               >
                 {isSavingChanges ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1.5" />
                     Saving...
                   </>
                 ) : (
@@ -358,7 +337,7 @@ export function ShootDetailsModalActionRail({
                   aria-busy={activeDownloadControl === 'progress'}
                 >
                   {activeDownloadControl === 'progress' ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1" />
                   ) : (
                     <Download className="h-3 w-3 mr-1" />
                   )}
@@ -375,7 +354,7 @@ export function ShootDetailsModalActionRail({
                 >
                   {isPublishingToBrightMls ? (
                     <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3 w-3" />
                       Sending...
                     </span>
                   ) : (
@@ -397,7 +376,7 @@ export function ShootDetailsModalActionRail({
                   aria-busy={activeDownloadControl === 'photographer_raw'}
                 >
                   {activeDownloadControl === 'photographer_raw' ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1" />
                   ) : (
                     <Download className="h-3 w-3 mr-1" />
                   )}
@@ -424,7 +403,7 @@ export function ShootDetailsModalActionRail({
                     aria-busy={activeDownloadControl === 'editor_raw'}
                   >
                     {activeDownloadControl === 'editor_raw' ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3 w-3 mr-1" />
                     ) : (
                       <Download className="h-3 w-3 mr-1" />
                     )}
@@ -540,7 +519,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/40">
                   {isSendingToEditing ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-violet-600 dark:text-violet-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   ) : (
                     <Send className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   )}
@@ -559,7 +538,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/40">
                   {isApprovingEditingReview ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-amber-600 dark:text-amber-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   ) : (
                     <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   )}
@@ -578,7 +557,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   {isFinalising ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
@@ -626,7 +605,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   {activeDownloadControl === 'progress' ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
@@ -645,7 +624,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
                   {isStartingMmmPunchout ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   ) : (
                     <Printer className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   )}
@@ -678,7 +657,7 @@ export function ShootDetailsModalActionRail({
               >
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   {activeDownloadControl === 'editor_raw' ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-green-600 dark:text-green-400" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}

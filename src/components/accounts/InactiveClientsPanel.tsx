@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/select';
 import { STATE_OPTIONS } from '@/utils/stateUtils';
 import { exportRowsAsCsv } from '@/utils/accountingExports';
-import { Loader2, Download, Users } from 'lucide-react';
+import { Download, Users } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface InactiveClient {
   client_id: number | string;
@@ -185,7 +186,7 @@ export function InactiveClientsPanel() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+          <Loader2 className="mr-2 h-5 w-5" /> Loading…
         </div>
       ) : rows.length === 0 ? (
         <div className="py-10 text-center text-sm text-muted-foreground">

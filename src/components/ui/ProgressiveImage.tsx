@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -137,7 +138,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
       {/* Loading spinner */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+          <BrandLoader className="h-8 w-8" />
         </div>
       )}
 

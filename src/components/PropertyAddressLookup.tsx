@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, CheckCircle, Loader2, MapPin, AlertCircle } from 'lucide-react';
+import { Search, CheckCircle, MapPin, AlertCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { usePropertyLookup, PropertyData, AddressSuggestion } from '@/hooks/usePropertyLookup';
@@ -169,7 +170,7 @@ const PropertyAddressLookup: React.FC<PropertyAddressLookupProps> = ({
         {/* Status icons */}
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {isLoading && (
-            <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+            <Loader2 className="w-4 h-4 text-muted-foreground" />
           )}
           {showVerified && !isLoading && (
             <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -257,7 +258,7 @@ const PropertyAddressLookup: React.FC<PropertyAddressLookupProps> = ({
       {isLoadingProperty && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-lg z-50">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4" />
             <span>Loading property details...</span>
           </div>
         </div>

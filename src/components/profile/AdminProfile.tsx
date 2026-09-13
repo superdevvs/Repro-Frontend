@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import type { UserRole } from "@/types/auth";
@@ -336,7 +336,7 @@ export function AdminProfile() {
               </CardContent>
               <CardFooter>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                   {isSubmitting ? "Updating..." : "Update Profile"}
                 </Button>
               </CardFooter>

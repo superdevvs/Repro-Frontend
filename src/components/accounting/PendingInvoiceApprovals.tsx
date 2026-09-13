@@ -22,17 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  DollarSign,
-  Calendar,
-  Loader2,
-  User,
-  FileText,
-} from 'lucide-react';
+import { CheckCircle, XCircle, Clock, AlertTriangle, DollarSign, Calendar, User, FileText } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   WeeklyInvoice,
   fetchPendingApprovalInvoices,
@@ -108,7 +99,7 @@ export const PendingInvoiceApprovals: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <Loader2 className="w-5 h-5 text-muted-foreground" />
         <span className="ml-2 text-muted-foreground text-sm">Loading pending approvals...</span>
       </div>
     );
@@ -225,7 +216,7 @@ export const PendingInvoiceApprovals: React.FC = () => {
                   disabled={actionLoading}
                 >
                   {actionLoading ? (
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <Loader2 aria-hidden="true" className="w-3 h-3 mr-1" />
                   ) : (
                     <CheckCircle className="w-3 h-3 mr-1" />
                   )}
@@ -260,7 +251,7 @@ export const PendingInvoiceApprovals: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleReject} disabled={actionLoading || !rejectReason}>
-              {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
               Reject Invoice
             </Button>
           </DialogFooter>

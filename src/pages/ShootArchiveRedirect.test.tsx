@@ -16,33 +16,33 @@ beforeEach(() => { resolveArchive.mockReset(); });
 afterEach(cleanup);
 
 describe('archive download page lifecycle', () => {
-  it('keeps its spinner through preparation and transfer, then shows completion', async () => {
+  it('keeps its RE loader through preparation and transfer, then shows completion', async () => {
     let finish!: () => void;
     resolveArchive.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     const { container } = render(<MemoryRouter initialEntries={[route(requestUrl)]}><ShootArchiveRedirect /></MemoryRouter>);
     expect(resolveArchive).toHaveBeenCalledTimes(1);
     expect(requestOptions()).toEqual(expect.objectContaining({ requestUrl, type: 'raw', size: 'small', redirectMode: 'same-tab' }));
     expect(requestOptions().signal?.aborted).toBe(false);
-    expect(container.querySelector('.animate-spin')).not.toBeNull();
+    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
     act(() => { requestOptions().onPreparing?.({ message: 'Preparing your property ZIP.', pollAfterMs: 1000 }); });
     expect(screen.getByText('Preparing your property ZIP.')).toBeInTheDocument();
     act(() => { requestOptions().onDownloading?.(); });
     expect(screen.getByText('Downloading your files.')).toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).not.toBeNull();
+    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
     expect(screen.queryByRole('heading', { name: 'Download Started' })).not.toBeInTheDocument();
     await act(async () => { finish(); });
     expect(screen.getByRole('heading', { name: 'Download Started' })).toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).toBeNull();
+    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
   });
 
-  it('stops spinning and displays a download failure', async () => {
+  it('removes the RE loader and displays a download failure', async () => {
     let fail!: (reason: Error) => void;
     resolveArchive.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
     const { container } = render(<MemoryRouter initialEntries={[route(requestUrl)]}><ShootArchiveRedirect /></MemoryRouter>);
     await act(async () => { fail(new Error('Unable to download this archive. Please try again.')); });
     expect(screen.getByRole('heading', { name: 'Download Unavailable' })).toBeInTheDocument();
     expect(screen.getByText('Unable to download this archive. Please try again.')).toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).toBeNull();
+    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
   });
 
   it('aborts the old request and ignores its late callbacks when the download link changes', async () => {

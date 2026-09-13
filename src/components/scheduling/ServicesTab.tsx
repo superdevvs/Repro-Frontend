@@ -13,7 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Save, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Save, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ServiceCard } from './ServiceCard';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
@@ -626,7 +627,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       <div>
         {categoriesLoading ? (
           <div className="flex justify-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 text-primary" />
           </div>
         ) : (
           <div className="overflow-x-auto pb-1">
@@ -751,7 +752,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
             </Button>
             <Button onClick={handleCreateCategory} disabled={isCreatingCategory}>
               {isCreatingCategory ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
@@ -800,7 +801,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
             </Button>
             <Button onClick={handleUpdateCategory} disabled={isUpdatingCategory}>
               {isUpdatingCategory ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}

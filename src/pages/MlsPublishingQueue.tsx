@@ -23,16 +23,8 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { 
-  Loader2, 
-  RefreshCw, 
-  Eye, 
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  ExternalLink
-} from 'lucide-react';
+import { RefreshCw, Eye, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Dialog,
   DialogContent,
@@ -308,7 +300,7 @@ const MlsPublishingQueue = () => {
                                 disabled={retryingId === item.id}
                               >
                                 {retryingId === item.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <Loader2 aria-hidden="true" className="h-4 w-4" />
                                 ) : (
                                   <>
                                     <RefreshCw className="mr-1 h-4 w-4" />
@@ -329,7 +321,7 @@ const MlsPublishingQueue = () => {
 
           <div className="flex justify-end">
             <Button variant="outline" onClick={loadQueue} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Refresh
             </Button>
           </div>

@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Loader2,
-  Printer,
-  RefreshCw,
-  X,
-} from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronUp, ExternalLink, Printer, RefreshCw, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -294,7 +286,7 @@ export function MmmPunchoutDialog({
                 disabled={isLoadingSessions || !shootId}
                 aria-label="Refresh"
               >
-                <RefreshCw className={cn('h-3.5 w-3.5 sm:mr-1.5', isLoadingSessions && 'animate-spin')} />
+                {isLoadingSessions ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 sm:mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />}
                 <span className="hidden sm:inline">Refresh</span>
               </Button>
             </div>
@@ -330,7 +322,7 @@ export function MmmPunchoutDialog({
               >
                 {isLaunching ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Preparing…
                   </>
                 ) : (
@@ -375,7 +367,7 @@ export function MmmPunchoutDialog({
 
             {isLoadingSessions && sessions.length === 0 ? (
               <div className="flex flex-1 items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4" />
                 Loading sessions…
               </div>
             ) : sessionsError ? (

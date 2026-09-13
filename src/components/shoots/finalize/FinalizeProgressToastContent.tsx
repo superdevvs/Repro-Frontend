@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Check, Loader2, MinusCircle } from 'lucide-react';
+import { AlertTriangle, Check, MinusCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import type {
   FinalizeProgress,
@@ -16,7 +17,7 @@ interface FinalizeProgressToastContentProps {
 
 const stageIcons: Record<FinalizeStageStatus, React.ReactNode> = {
   pending: <span className="mt-[3px] block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />,
-  running: <Loader2 className="mt-[1px] h-3 w-3 animate-spin text-blue-500" />,
+  running: <Loader2 className="mt-[1px] h-3 w-3 text-blue-500" />,
   completed: <Check className="mt-[1px] h-3 w-3 text-emerald-500" />,
   skipped: <MinusCircle className="mt-[1px] h-3 w-3 text-muted-foreground/60" />,
   failed: <AlertTriangle className="mt-[1px] h-3 w-3 text-amber-500" />,
@@ -53,7 +54,7 @@ export const FinalizeProgressToastContent: React.FC<FinalizeProgressToastContent
         )}
       </div>
 
-      <div
+      {isIndeterminate ? <Loader2 className="h-5 w-5" role="progressbar" aria-label="Finalize progress" aria-valuemin={0} aria-valuemax={100} /> : <div
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70"
         role="progressbar"
         aria-label="Finalize progress"
@@ -64,11 +65,10 @@ export const FinalizeProgressToastContent: React.FC<FinalizeProgressToastContent
         <div
           className={cn(
             'h-full rounded-full bg-blue-500 transition-all duration-500',
-            isIndeterminate && 'w-1/3 animate-pulse',
           )}
           style={isIndeterminate ? undefined : { width: `${percentage}%` }}
         />
-      </div>
+      </div>}
 
       {progress && (
         <ul className="space-y-1">

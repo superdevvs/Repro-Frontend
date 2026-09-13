@@ -16,7 +16,8 @@ import { API_BASE_URL } from '@/config/env';
 import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isPast, isSameDay } from 'date-fns';
-import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, Loader2, MapPin } from 'lucide-react';
+import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, MapPin } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn, getInitials } from '@/lib/utils';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
@@ -558,10 +559,15 @@ export const PhotographerAssignmentModal: React.FC = () => {
                   {selectedDateLabel} timeline
                 </h4>
                 {loading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
-                    ))}
+                  <div className="relative">
+                    <div className="space-y-2">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="h-16 rounded-lg bg-muted" />
+                      ))}
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="h-10 w-10" label="Loading photographer availability" />
+                    </div>
                   </div>
                 ) : timelineSlots.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -734,10 +740,15 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 </div>
 
                 {loading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-                    ))}
+                  <div className="relative">
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-24 rounded-lg bg-muted" />
+                      ))}
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="h-10 w-10" label="Loading shoots" />
+                    </div>
                   </div>
                 ) : filteredShoots.length > 0 ? (
                   <div className="space-y-3">
@@ -796,7 +807,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                           >
                             {assigning === shoot.id ? (
                               <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                                 Assigning...
                               </>
                             ) : (
@@ -830,4 +841,3 @@ export const PhotographerAssignmentModal: React.FC = () => {
     </Dialog>
   );
 };
-

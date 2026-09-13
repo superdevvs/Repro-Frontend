@@ -8,7 +8,8 @@
  * commit bar.
  */
 
-import { ArrowRight, Camera, ChevronDown, ChevronRight, Loader2, Upload, Video, X } from 'lucide-react';
+import { ArrowRight, Camera, ChevronDown, ChevronRight, Upload, Video, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
@@ -467,7 +468,7 @@ export function RawUploadCommitBar({
         >
           {isUploading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
               <span className="truncate">Uploading</span>
             </>
           ) : (

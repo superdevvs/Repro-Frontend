@@ -33,7 +33,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { UsersIcon, PlusCircle, Loader2, Search } from 'lucide-react';
+import { UsersIcon, PlusCircle, Search } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Input } from '@/components/ui/input';
 import { ClientDetails } from '@/components/clients/ClientDetails';
 import { ClientForm } from '@/components/clients/ClientForm';

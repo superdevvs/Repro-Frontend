@@ -1,10 +1,8 @@
 import { lazy, Suspense, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Archive, ArrowLeft, Clock, Code, FileIcon, FileText, Link as LinkIcon, Loader2, MessageSquare,
-  Mic, MoreVertical, Plus, Search, Send, Trash2, X,
-} from 'lucide-react';
+import { Archive, ArrowLeft, Clock, Code, FileIcon, FileText, Link as LinkIcon, MessageSquare, Mic, MoreVertical, Plus, Search, Send, Trash2, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
@@ -436,7 +434,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
   
                           {isLoadingSessions && sessions.length === 0 ? (
                             <div className="flex items-center justify-center py-8">
-                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                              <Loader2 className="h-5 w-5 text-muted-foreground" />
                             </div>
                           ) : sessions.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-6 text-center">
@@ -527,7 +525,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                               <ReproAiIcon className="h-8 w-8 md:h-9 md:w-9" />
                             </div>
                             <div className="rounded-[999px] px-4 py-2 flex items-center gap-2 bg-blue-100 text-slate-900 dark:bg-blue-500/20 dark:text-blue-100">
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4" />
                               <span className="text-sm">Thinking...</span>
                             </div>
                           </div>
@@ -645,7 +643,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                 <div className="flex-1 min-h-0 pb-4 md:pb-2">
                   {isLoadingSessions ? (
                     <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <Loader2 className="h-6 w-6 text-muted-foreground" />
                     </div>
                   ) : filteredSessions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center py-16">
@@ -859,7 +857,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                         }}
                       >
                         {isLoading ? (
-                          <Loader2 className="h-4 w-4 md:h-5 md:w-5 text-white animate-spin" />
+                          <Loader2 aria-hidden="true" className="h-4 w-4 md:h-5 md:w-5 text-white" />
                         ) : (
                           <Send className="h-4 w-4 md:h-5 md:w-5 text-white" />
                         )}

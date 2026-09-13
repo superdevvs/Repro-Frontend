@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, KeyRound, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,7 +62,7 @@ function ProviderSettingsForm() {
     setNotice('Available enhancement choices updated. Save service routing to apply them. Services that are not ready keep their current API.');
   };
 
-  if (loading) return <div role="status" className="flex min-h-40 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Loading AI Editing settings…</div>;
+  if (loading) return <div role="status" className="flex min-h-40 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5" />Loading AI Editing settings…</div>;
   if (!saved) return <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-5"><p>{error || 'AI Editing settings could not be loaded.'}</p><Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />Retry</Button></div>;
 
   return <div className="space-y-6">
@@ -79,7 +80,7 @@ function ProviderSettingsForm() {
             <label className="space-y-2 text-sm font-medium"><span>Team ID</span><Input type="password" autoComplete="off" value={teamId} onChange={event => setTeamId(event.target.value)} placeholder={saved.credentials.fotello.teamIdConfigured ? 'Leave blank to keep saved team ID' : 'Optional — add when available'} disabled={saving} /></label>
           </div>
           <p className="text-xs text-muted-foreground">Saved values are never displayed. Blank fields keep the current values.</p>
-          <Button type="submit" variant="outline" disabled={saving || (!apiKey.trim() && !teamId.trim())}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save connection details</Button>
+          <Button type="submit" variant="outline" disabled={saving || (!apiKey.trim() && !teamId.trim())}>{saving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}Save connection details</Button>
         </form>
       </CardContent>
     </Card>
@@ -104,7 +105,7 @@ function ProviderSettingsForm() {
             {service.id === 'outpaint' && <div className="mt-4 border-t pt-3"><p className="mb-2 text-xs font-medium">AI Extend fallback</p><div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1.5 text-xs text-muted-foreground"><span>Fallback API</span><select aria-label="AI Extend fallback API" className={selectClass} disabled={saving} value={service.fallback?.provider || ''} onChange={event => { const option = service.providers.find(item => item.id === event.target.value); update(service.id, { fallback: option?.models.length ? { provider: option.id, model: option.models[0].id } : null }); }}><option value="">No fallback</option>{service.providers.filter(option => option.id === 'openai').map(option => <option key={option.id} value={option.id} disabled={option.models.every(model => model.ready === false)}>{option.label}{option.models.every(model => model.ready === false) ? " — Not ready" : ""}</option>)}</select></label>{service.fallback && <label className="space-y-1.5 text-xs text-muted-foreground"><span>Fallback model</span><select aria-label="AI Extend fallback model" className={selectClass} disabled={saving} value={service.fallback.model} onChange={event => update(service.id, { fallback: { provider: service.fallback!.provider, model: event.target.value } })}>{fallbackProvider?.models.map(model => <option key={model.id} value={model.id} disabled={model.ready === false}>{model.label}</option>)}</select></label>}</div></div>}
           </div>;
         })}
-        <div className="flex flex-wrap items-center gap-3"><Button disabled={saving || !dirty} onClick={() => void save({ services: routePayload(services) })}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save service routing</Button><span className="text-xs text-muted-foreground">Applies to new jobs only.</span></div>
+        <div className="flex flex-wrap items-center gap-3"><Button disabled={saving || !dirty} onClick={() => void save({ services: routePayload(services) })}>{saving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}Save service routing</Button><span className="text-xs text-muted-foreground">Applies to new jobs only.</span></div>
       </CardContent>
     </Card>
   </div>;

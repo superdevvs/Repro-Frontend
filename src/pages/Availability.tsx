@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isToday, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { Ban, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -576,8 +577,8 @@ export default function Availability() {
 
           {loadingPhotographers && (
             <div className="py-3">
-              <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
-                <div className="h-full w-1/3 rounded-full bg-primary/80 animate-pulse" />
+              <div className="flex justify-center">
+                <BrandLoader className="h-8 w-8" />
               </div>
               <div className="mt-2 text-xs text-muted-foreground">Loading photographers...</div>
             </div>

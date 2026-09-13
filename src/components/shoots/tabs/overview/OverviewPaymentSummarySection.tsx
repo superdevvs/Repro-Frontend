@@ -3,7 +3,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
-import { CreditCard, Loader2 } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { PendingPaymentIntentsCard } from '@/components/payments/PendingPaymentIntentsCard';
 import { calculateDiscountAmount } from '@/utils/pricing';
 
@@ -382,7 +383,7 @@ export function OverviewPaymentSummarySection({
                     disabled={isPaying}
                   >
                     {isPaying ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     ) : (
                       <CreditCard className="mr-2 h-4 w-4" />
                     )}

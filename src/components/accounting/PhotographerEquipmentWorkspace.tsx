@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -471,7 +472,7 @@ export function PhotographerEquipmentWorkspace() {
             <CardTitle>Equipments</CardTitle>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={loadEquipments} disabled={loading}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                {loading ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
               </Button>
               <Button onClick={openAddDialog}>

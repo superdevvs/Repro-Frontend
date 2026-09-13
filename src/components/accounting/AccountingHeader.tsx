@@ -2,7 +2,8 @@
 import React from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, Loader2, MoreVertical } from 'lucide-react';
+import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, MoreVertical } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { SegmentedDays } from './OverviewCards';
 import {
   DropdownMenu,
@@ -69,11 +70,11 @@ export function AccountingHeader({
                 {showPayoutActions && payoutActions && (
                   <>
                     <Button variant="outline" className="gap-2" onClick={payoutActions.refresh} disabled={payoutActions.loading}>
-                      <RefreshCw className={`h-4 w-4 ${payoutActions.loading ? 'animate-spin' : ''}`} />
+                      {payoutActions.loading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
                       Refresh
                     </Button>
                     <Button variant="outline" className="gap-2" onClick={payoutActions.download} disabled={payoutActions.downloading}>
-                      {payoutActions.downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {payoutActions.downloading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                       Download CSV
                     </Button>
                   </>
@@ -169,12 +170,12 @@ export function AccountingHeader({
                       <>
                         <DropdownMenuLabel>Photographer Reports</DropdownMenuLabel>
                         <DropdownMenuItem onClick={payoutActions.refresh} disabled={payoutActions.loading}>
-                          <RefreshCw className={`h-4 w-4 mr-2 ${payoutActions.loading ? 'animate-spin' : ''}`} />
+                          {payoutActions.loading ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                           Refresh
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={payoutActions.download} disabled={payoutActions.downloading}>
                           {payoutActions.downloading ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                           ) : (
                             <Download className="h-4 w-4 mr-2" />
                           )}

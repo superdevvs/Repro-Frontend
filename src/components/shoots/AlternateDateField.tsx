@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarClock, Loader2 } from 'lucide-react';
+import { CalendarClock } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
@@ -123,7 +124,7 @@ export function AlternateDateField({
         disabled={isApplying}
         onClick={() => handleApply('main')}
       >
-        {applyingScope === 'main' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        {applyingScope === 'main' && <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />}
         Use as main date
       </Button>
 
@@ -137,7 +138,7 @@ export function AlternateDateField({
           onClick={() => handleApply('all_services')}
         >
           {applyingScope === 'all_services' && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />
           )}
           Apply to all services
         </Button>

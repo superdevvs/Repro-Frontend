@@ -14,7 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 interface DeletedAccount {
   id: number;
@@ -140,7 +141,7 @@ export function DeletedAccountsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading deleted accounts…
+        <Loader2 className="mr-2 h-5 w-5" /> Loading deleted accounts…
       </div>
     );
   }
@@ -207,7 +208,7 @@ export function DeletedAccountsPanel() {
                     onClick={() => restore(a)}
                   >
                     {restoringId === a.id ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     ) : (
                       <RotateCcw className="mr-2 h-4 w-4" />
                     )}
@@ -253,7 +254,7 @@ export function DeletedAccountsPanel() {
               }}
             >
               {restoringId === conflictAccount?.id ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4" />
               ) : null}
               Restore with this email
             </AlertDialogAction>

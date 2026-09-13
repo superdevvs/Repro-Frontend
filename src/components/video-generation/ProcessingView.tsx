@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Download, RefreshCw, Plus } from 'lucide-react';
+import { CheckCircle2, XCircle, Download, RefreshCw, Plus } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useToast } from '@/hooks/use-toast';
 import { VerticalVariantSelector } from './VerticalVariantSelector';
 import { useVideoJobStatus, useSelectVariants, useRegenerateVariants } from '@/hooks/useVideoGeneration';
@@ -14,10 +15,10 @@ interface ProcessingViewProps {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending: { label: 'Queued', color: 'bg-slate-500', icon: <Loader2 className="h-5 w-5 animate-spin" /> },
-  converting_aspect: { label: 'Converting to Vertical', color: 'bg-blue-500', icon: <Loader2 className="h-5 w-5 animate-spin" /> },
+  pending: { label: 'Queued', color: 'bg-slate-500', icon: <Loader2 className="h-5 w-5" /> },
+  converting_aspect: { label: 'Converting to Vertical', color: 'bg-blue-500', icon: <Loader2 className="h-5 w-5" /> },
   awaiting_approval: { label: 'Select Best Variants', color: 'bg-amber-500', icon: null },
-  generating: { label: 'Generating Video', color: 'bg-blue-500', icon: <Loader2 className="h-5 w-5 animate-spin" /> },
+  generating: { label: 'Generating Video', color: 'bg-blue-500', icon: <Loader2 className="h-5 w-5" /> },
   completed: { label: 'Complete', color: 'bg-green-500', icon: <CheckCircle2 className="h-5 w-5" /> },
   failed: { label: 'Failed', color: 'bg-red-500', icon: <XCircle className="h-5 w-5" /> },
   cancelled: { label: 'Cancelled', color: 'bg-slate-500', icon: <XCircle className="h-5 w-5" /> },
@@ -53,7 +54,7 @@ export function ProcessingView({ jobId, onCreateAnother }: ProcessingViewProps) 
   if (isLoading || !job) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <Loader2 className="h-8 w-8 text-blue-500" />
         <p className="text-sm text-slate-500">Loading job status...</p>
       </div>
     );
@@ -157,7 +158,7 @@ export function ProcessingView({ jobId, onCreateAnother }: ProcessingViewProps) 
                 className="flex-1"
               >
                 {selectVariants.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                 ) : null}
                 Continue with Selected
               </Button>

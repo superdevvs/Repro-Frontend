@@ -13,7 +13,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, XCircle } from 'lucide-react';
+import { CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
@@ -833,7 +834,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
           {stripeLoading && (
             <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <Loader2 className="h-4 w-4 text-blue-600" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   Waiting for payment to complete...
                 </p>
@@ -864,7 +865,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
           >
             {stripeLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Waiting for payment...
               </>
             ) : (
@@ -895,7 +896,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
           <div className="border rounded-lg overflow-y-auto bg-white dark:bg-background flex-1 min-h-0">
             {embeddedCheckoutLoading && (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <Loader2 className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
             <div ref={checkoutMountRef} className="w-full" />
@@ -935,7 +936,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
               Cancel
             </Button>
             <Button onClick={handleConfirmPayment} disabled={stripeLoading}>
-              {stripeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Pay with Stripe'}
+              {stripeLoading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : 'Pay with Stripe'}
             </Button>
           </DialogFooter>
         </DialogContent>

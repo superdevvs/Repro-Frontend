@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShootRequestManager } from '../ShootRequestManager';
 import { MediaViewer } from './MediaViewer';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 export function ShootDetailsMediaTabDialogs(props: any) {
   const {
@@ -126,7 +127,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
               Close
             </Button>
             <Button onClick={handleAiEdit} disabled={submittingAiEdit || !selectedEditingType || !selectedFiles?.size}>
-              {submittingAiEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {submittingAiEdit ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Submit
             </Button>
           </div>

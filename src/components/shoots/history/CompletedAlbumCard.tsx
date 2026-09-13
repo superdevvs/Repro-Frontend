@@ -30,29 +30,8 @@ import {
   isFeaturedShoot,
   resolveShootThumbnail,
 } from './shootHistoryUtils'
-import {
-  AlertCircle,
-  Calendar as CalendarIcon,
-  Camera,
-  Check,
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  DollarSign,
-  Download,
-  Edit,
-  FileText,
-  Image,
-  Layers,
-  Loader2,
-  PauseCircle,
-  Send,
-  Star,
-  Trash2,
-  User,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, Clock, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, PauseCircle, Send, Star, Trash2, User, X, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots'
 
 const getServiceLabel = (service: unknown): string => {
@@ -120,7 +99,7 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
           disabled={loading}
         >
           <DollarSign className="h-3.5 w-3.5" />
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Payment'}
+          {loading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : 'Payment'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -370,7 +349,7 @@ export const CompletedAlbumCard = ({
               }}
               title={isDownloading ? 'Preparing download…' : 'Downloads'} aria-label="Downloads" disabled={isDownloading} aria-busy={isDownloading}
             >
-              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {isDownloading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
             </Button>
           )}
           {/* Delete button - Only for admin/superadmin */}

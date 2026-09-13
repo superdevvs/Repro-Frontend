@@ -7,7 +7,8 @@ import type { StripePaymentSuccessPayload } from '@/components/payments/StripePa
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 import { RescheduleRequestsPanel } from '@/components/shoots/RescheduleRequestsPanel';
-import { Loader2, PauseCircle } from 'lucide-react';
+import { PauseCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
@@ -238,7 +239,7 @@ export function ShootDetailsPageDialogs({
               onClick={onRejectHold}
               disabled={holdProcessing}
             >
-              {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {holdProcessing ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : null}
               Reject
             </Button>
             <Button
@@ -246,7 +247,7 @@ export function ShootDetailsPageDialogs({
               onClick={onApproveHold}
               disabled={holdProcessing}
             >
-              {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {holdProcessing ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : null}
               Approve hold
             </Button>
           </div>

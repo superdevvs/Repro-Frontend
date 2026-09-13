@@ -20,7 +20,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, ShieldCheck, ShieldAlert, X } from 'lucide-react';
+import { Check, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, ShieldCheck, ShieldAlert, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -1365,7 +1366,7 @@ export function ShootApprovalModal({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Approving...
               </>
             ) : (

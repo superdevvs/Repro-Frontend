@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -144,7 +145,7 @@ export default function AiEditing() {
   return <DashboardLayout hideFooter>
     <div className={workspaceId ? 'flex h-full min-h-0 flex-col' : 'min-w-0'}>
       {capabilitiesError && <div role="status" className="mx-auto mb-3 flex w-full max-w-[1132px] items-center gap-3 rounded-lg border p-3 text-sm"><span className="flex-1">Additional editing options could not be checked.</span><Button variant="ghost" size="sm" onClick={() => void refreshCapabilities()}>Retry</Button></div>}
-      {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="animate-spin" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
+      {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
         {(error || historyError) && <div role="alert" className="mx-auto mb-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm"><AlertCircle size={17} className="shrink-0 text-destructive" /><span className="flex-1">{error || historyError}</span><Button variant="ghost" size="sm" onClick={() => workspaceId ? void refreshWorkspace(workspaceId) : void refreshHistory()}><RefreshCw size={14} className="mr-1" />Retry</Button>{workspaceId && <Button variant="outline" size="sm" onClick={back}>Back</Button>}</div>}
         {!workspaceId && <StudioHome capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
       </>}

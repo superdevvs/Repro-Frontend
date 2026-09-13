@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Loader2, Search, Trash2, UploadCloud } from 'lucide-react';
+import { ImagePlus, Search, Trash2, UploadCloud } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -216,7 +217,7 @@ export function SourcePicker({
               </div>
               {busy ? (
                 <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Loading supported media…
                 </p>
               ) : (

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { useRescanFile } from '@/hooks/useRescanFile';
@@ -109,7 +110,7 @@ export function useShootFileScanStatusRenderer({
               }}
             >
               {rebuildingPreviewFileId === fileId
-                ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                ? <Loader2 className="h-3 w-3" aria-hidden="true" />
                 : <RefreshCw className="h-3 w-3" aria-hidden="true" />}
               Rebuild preview
             </Button>

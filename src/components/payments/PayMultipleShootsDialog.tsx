@@ -15,7 +15,8 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ShootData } from '@/types/shoots';
-import { DollarSign, FileText, CreditCard, Loader2, MapPin, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import { DollarSign, FileText, CreditCard, MapPin, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { API_BASE_URL } from '@/config/env';
@@ -429,7 +430,7 @@ export function PayMultipleShootsDialog({
                 >
                   {processing ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                       Processing...
                     </>
                   ) : paymentMethod === 'stripe' ? (
@@ -508,7 +509,7 @@ export function PayMultipleShootsDialog({
             >
               {processing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Processing...
                 </>
               ) : (

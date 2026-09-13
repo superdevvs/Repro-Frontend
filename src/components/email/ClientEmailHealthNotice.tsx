@@ -1,4 +1,5 @@
-import { AlertTriangle, Loader2, MailCheck, Settings2 } from 'lucide-react';
+import { AlertTriangle, MailCheck, Settings2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
@@ -133,7 +134,7 @@ export function ClientEmailHealthNotice({
                 onClick={onResendVerification}
                 disabled={resendPending}
               >
-                {resendPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                {resendPending ? <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> : null}
                 {resendPending ? 'Sending' : 'Resend'}
               </Button>
             )}
@@ -187,7 +188,7 @@ export function ClientEmailHealthNotice({
         <div className="flex flex-wrap gap-2 sm:justify-end">
           {config.showResend && onResendVerification && (
             <Button type="button" variant="secondary" onClick={onResendVerification} disabled={resendPending}>
-              {resendPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {resendPending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
               {resendPending ? 'Sending...' : 'Resend verification'}
             </Button>
           )}

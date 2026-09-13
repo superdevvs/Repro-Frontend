@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { User } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -244,7 +245,7 @@ export function UserProfileDialog({
                             onClick={() => void onResendVerification(profileUser)}
                             disabled={isResendingVerification}
                           >
-                            {isResendingVerification && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isResendingVerification && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                             {isResendingVerification ? 'Sending...' : 'Resend verification'}
                           </Button>
                         )}
@@ -462,7 +463,7 @@ export function UserProfileDialog({
                     <h3 className="font-medium">Recent Activity</h3>
                     {isLoadingActivity ? (
                       <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading activity…
+                        <Loader2 className="mr-2 h-4 w-4" /> Loading activity…
                       </div>
                     ) : activityError ? (
                       <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">

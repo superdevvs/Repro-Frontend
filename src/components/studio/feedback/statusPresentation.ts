@@ -1,15 +1,5 @@
-import {
-  AlertTriangle,
-  Ban,
-  CheckCircle2,
-  CircleDashed,
-  Clock,
-  Info,
-  Loader2,
-  UploadCloud,
-  XCircle,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, CircleDashed, Clock, Info, UploadCloud, XCircle, type LucideIcon } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 /**
  * Shared status presentation for the AI Editing Studio (ai-editing-studio-revamp,

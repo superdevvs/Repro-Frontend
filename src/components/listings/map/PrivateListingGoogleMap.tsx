@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { Loader2, Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 import { createPinIcon } from './standardListingPinIcon'
@@ -771,7 +772,7 @@ export function PrivateListingGoogleMap({
       {!isReady && !loadError ? (
         <div className="absolute inset-0 grid place-items-center bg-background" role="status" aria-live="polite">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-4 w-4" aria-hidden="true" />
             Loading private listings map…
           </div>
         </div>

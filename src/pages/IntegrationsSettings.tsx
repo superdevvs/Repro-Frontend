@@ -16,7 +16,8 @@ import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { Loader2, CheckCircle2, XCircle, Home, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
+import { CheckCircle2, XCircle, Home, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -669,7 +670,7 @@ export const IntegrationsSettingsContent = () => {
                     >
                       {testingZillow ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                           Testing...
                         </>
                       ) : (
@@ -898,7 +899,7 @@ export const IntegrationsSettingsContent = () => {
                     >
                       {testingBrightMls ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                           Testing...
                         </>
                       ) : (
@@ -1081,7 +1082,7 @@ export const IntegrationsSettingsContent = () => {
                     >
                       {testingIguide ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                           Testing...
                         </>
                       ) : (
@@ -1302,7 +1303,7 @@ export const IntegrationsSettingsContent = () => {
                     >
                       {testingMmm ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                           Testing...
                         </>
                       ) : (
@@ -1469,7 +1470,7 @@ export const IntegrationsSettingsContent = () => {
             <Button onClick={saveSettings} disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Saving...
                 </>
               ) : (

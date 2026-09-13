@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 interface LazyImageProps {
   src: string;
@@ -72,7 +73,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
         )}
       />
       {!isLoaded && isInView && !hasError && (
-        <div className="absolute inset-0 bg-gray-100 animate-pulse" />
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100"><BrandLoader className="h-8 w-8" label="Loading image" /></div>
       )}
     </div>
   );

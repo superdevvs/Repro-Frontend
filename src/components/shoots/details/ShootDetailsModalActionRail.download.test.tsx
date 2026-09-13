@@ -30,7 +30,7 @@ function MobileActions({ role, download }: { role: 'admin' | 'editor'; download:
 afterEach(cleanup);
 
 describe('mobile shoot download actions', () => {
-  it.each(['admin', 'editor'] as const)('keeps the %s download button visible and spinning throughout transfer', async (role) => {
+  it.each(['admin', 'editor'] as const)('keeps the %s download button visible with the RE loader throughout transfer', async (role) => {
     let finish!: () => void;
     const download = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<MobileActions role={role} download={download} />);
@@ -45,10 +45,10 @@ describe('mobile shoot download actions', () => {
     expect(button).toBeVisible();
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(button.querySelector('.animate-spin')).not.toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
     await act(async () => { finish(); });
     expect(button).toBeEnabled();
-    expect(button.querySelector('.animate-spin')).toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: role === 'editor' ? 'Upload edits' : 'Cancel' }));
     expect(screen.queryByRole('dialog', { name: 'Actions' })).not.toBeInTheDocument();
   });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Search, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
+import { BrandLoader as Loader } from '@/components/ui/brand-loader';
 
 interface AddressSuggestion {
   place_id: string;
@@ -283,7 +284,7 @@ const AddressLookup: React.FC<AddressLookupProps> = ({
         
         {/* Status icons */}
         <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-          {isLoading && <Loader className="w-5 h-5 text-blue-500 animate-spin" />}
+          {isLoading && <Loader className="w-5 h-5 text-blue-500" />}
           {selectedAddress && !isLoading && (
             <CheckCircle className="w-5 h-5 text-green-500" />
           )}

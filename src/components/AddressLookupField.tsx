@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BedDouble, Bath, CheckCircle, AlertCircle, Loader, MapPin, Ruler } from 'lucide-react';
+import { BedDouble, Bath, CheckCircle, AlertCircle, MapPin, Ruler } from 'lucide-react';
+import { BrandLoader as Loader } from '@/components/ui/brand-loader';
 import { Input } from '@/components/ui/input';
 import { API_BASE_URL } from '@/config/env';
 import {
@@ -567,10 +568,11 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     if (preview.status === 'loading') {
       return (
         <div className="flex items-center justify-end gap-1.5">
+          <Loader className="h-5 w-5" label="Loading property details" />
           {[0, 1, 2].map((placeholder) => (
             <span
               key={placeholder}
-              className="h-6 w-14 animate-pulse rounded-full bg-muted/70"
+              className="h-6 w-14 rounded-full bg-muted/70"
             />
           ))}
         </div>
@@ -642,7 +644,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         
         {/* Status icons */}
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          {isLoading && <Loader className="w-4 h-4 text-blue-500 animate-spin" />}
+          {isLoading && <Loader className="w-4 h-4 text-blue-500" />}
           {selectedAddress && !isLoading && (
             <CheckCircle className="w-4 h-4 text-green-500" />
           )}

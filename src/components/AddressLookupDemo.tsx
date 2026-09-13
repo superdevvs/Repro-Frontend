@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useState } from 'react';
 import AddressLookup from './AddressLookup';
 import { MapPin, Clock, DollarSign, CheckCircle } from 'lucide-react';
@@ -155,7 +156,7 @@ const AddressLookupDemo: React.FC = () => {
       {isCheckingServiceArea && (
         <div className="text-center py-4">
           <div className="inline-flex items-center text-gray-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            <BrandLoader className="h-4 w-4 mr-2" />
             Checking service area...
           </div>
         </div>

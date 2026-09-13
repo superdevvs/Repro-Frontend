@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Image as ImageIcon,
-  Loader2,
-  RotateCw,
-  Sparkles,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, Image as ImageIcon, RotateCw, Sparkles, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -200,7 +192,7 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
             )}
             <span className="text-[11px] text-muted-foreground">Job #{job.id}</span>
             <Badge variant="outline" className={cn('ml-auto gap-1', statusInfo.chip)}>
-              <StatusIcon className={cn('h-3 w-3', isProcessing && 'animate-spin')} />
+              <StatusIcon className="h-3 w-3" />
               {statusInfo.label}
               {isProcessing && <span className="tabular-nums">{progress}%</span>}
             </Badge>
@@ -248,7 +240,7 @@ export const AiEditingJobCard: React.FC<AiEditingJobCardProps> = ({
             )}
             {(isFailed || job.status === 'cancelled') && onRetry && (
               <Button size="sm" variant="outline" className="h-8" disabled={isMutating} onClick={() => onRetry(job)}>
-                <RotateCw className={cn('mr-1.5 h-3.5 w-3.5', isMutating && 'animate-spin')} />
+                {isMutating ? <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> : <RotateCw className="mr-1.5 h-3.5 w-3.5" />}
                 Retry
               </Button>
             )}

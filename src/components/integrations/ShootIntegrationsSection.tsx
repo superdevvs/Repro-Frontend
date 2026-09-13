@@ -12,14 +12,8 @@ import {
   getBrightMlsPublishableFiles,
 } from '@/utils/brightMls';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
-import { 
-  Home, 
-  ExternalLink, 
-  RefreshCw, 
-  Upload, 
-  Loader2,
-  Layers
-} from 'lucide-react';
+import { Home, ExternalLink, RefreshCw, Upload, Layers } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import {
   Dialog,
   DialogContent,
@@ -206,7 +200,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
             >
               {refreshingProperty ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   Refreshing...
                 </>
               ) : (
@@ -338,7 +332,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
           >
             {syncingIguide ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Syncing...
               </>
             ) : (
@@ -496,7 +490,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
                 >
                   {publishingBrightMls ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                       Publishing...
                     </>
                   ) : (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowUpRight, CalendarClock, Copy, Loader2, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CalendarClock, Copy, UploadCloud } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -299,7 +300,7 @@ export function EditorRawLinksCard({
                     )}
                   >
                     {isLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <Loader2 className="h-5 w-5 text-muted-foreground" />
                     ) : (
                       stat.value
                     )}
@@ -322,7 +323,7 @@ export function EditorRawLinksCard({
 
         {isLoading && shoots.length === 0 ? (
           <div className="mt-5 flex min-h-[210px] flex-1 items-center justify-center rounded-[24px] border border-dashed border-border/60 bg-muted/10 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4" />
             Loading raw files...
           </div>
         ) : isError && shoots.length === 0 ? (

@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { Public3dTourViewer } from './Public3dTourViewer';
@@ -137,7 +138,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
         {variant === 'branded' && (
           <img src="/REPRO-HQ.png" alt="R/E Pro Photos" className="mx-auto mb-8 w-64 max-w-full" />
         )}
-        <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#0b6bc9]" />
+        <BrandLoader className="mx-auto mb-5 h-10 w-10" />
         <p className="text-base text-white/75">{message}</p>
         <a className="mt-5 inline-block text-sm text-[#75bfff] underline" href={fallbackUrl}>
           View the property tour instead

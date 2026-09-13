@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -203,7 +203,7 @@ export function EditCouponDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
               {isSaving ? 'Saving…' : 'Save changes'}
             </Button>
           </DialogFooter>

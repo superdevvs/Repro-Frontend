@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AreaChart, BarChart, LineChart, DonutChart } from '@/components/charts';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Eye, BarChart3, PieChart, LineChart as LineChartIcon, Search, UploadCloud, Plus, Edit, Receipt, Trash2, Loader2 } from 'lucide-react';
+import { Eye, BarChart3, PieChart, LineChart as LineChartIcon, Search, UploadCloud, Plus, Edit, Receipt, Trash2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { openAccountingExpenseReceipt } from '@/services/accountingExpenseService';
 import type { RevenueChartsProps } from './revenueChartsTypes';
@@ -868,7 +869,7 @@ export function RevenueCharts({
       {ocrProcessing && (
         <div className="fixed inset-0 z-[10002] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+            <Loader2 className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">Scanning Receipt</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Extracting vendor, amount, and date...

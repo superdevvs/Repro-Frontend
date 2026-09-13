@@ -1,23 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Box,
-  Check,
-  ChevronDown,
-  Copy,
-  Download,
-  Edit3,
-  ExternalLink,
-  FileArchive,
-  Home,
-  Loader2,
-  MapPinned,
-  MoreHorizontal,
-  RefreshCw,
-  Share2,
-  Trash2,
-  UploadCloud,
-  X,
-} from 'lucide-react';
+import { Box, Check, ChevronDown, Copy, Download, Edit3, ExternalLink, FileArchive, Home, MapPinned, MoreHorizontal, RefreshCw, Share2, Trash2, UploadCloud, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -251,7 +234,7 @@ function LinkEditor({
               <X className="mr-1 h-3.5 w-3.5" />Cancel
             </Button>
             <Button size="sm" className="h-7 text-xs" onClick={() => void save3DTour()} disabled={isSaving3D}>
-              {isSaving3D ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
+              {isSaving3D ? <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> : <Check className="mr-1 h-3.5 w-3.5" />}
               Save
             </Button>
           </div>
@@ -554,7 +537,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
               </Button>
             ) : isAdmin && packageReady ? (
               <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => void openOfflinePackage()} disabled={isOpeningIguide}>
-                {isOpeningIguide ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
+                {isOpeningIguide ? <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
                 {isOpeningIguide ? 'Opening' : 'Open iGUIDE'}
               </Button>
             ) : isAdmin ? (
@@ -565,7 +548,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 disabled={packageWorking}
                 onClick={() => setUploadDialogOpen(true)}
               >
-                {packageWorking ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="mr-1 h-3.5 w-3.5" />}
+                {packageWorking ? <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> : <UploadCloud className="mr-1 h-3.5 w-3.5" />}
                 {packageWorking ? 'Scanning' : offlinePackage.exists ? 'Replace' : 'Upload ZIP'}
               </Button>
             ) : undefined}
@@ -590,7 +573,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 {isAdmin && (
                   <>
                     <DropdownMenuItem disabled={isSyncingIguide} onSelect={() => void syncIguideNow?.()}>
-                      <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isSyncingIguide ? 'animate-spin' : ''}`} />Sync from iGUIDE
+                      {isSyncingIguide ? <Loader2 aria-hidden="true" className="mr-2 h-3.5 w-3.5" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}Sync from iGUIDE
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled={packageWorking} onSelect={() => setUploadDialogOpen(true)}>
                       <UploadCloud className="mr-2 h-3.5 w-3.5" />{offlinePackage.exists ? 'Replace offline ZIP' : 'Upload offline ZIP'}
@@ -616,7 +599,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   <div className="flex shrink-0 items-center gap-1">
                     {packageReady && (
                       <Button size="sm" className="h-7 px-2 text-xs" onClick={() => void openOfflinePackage()} disabled={isOpeningIguide}>
-                        {isOpeningIguide ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
+                        {isOpeningIguide ? <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> : <ExternalLink className="mr-1 h-3.5 w-3.5" />}
                         Open
                       </Button>
                     )}
@@ -689,7 +672,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   </div>
                   <div className="mt-2 flex justify-end">
                     <Button size="sm" className="h-7 text-xs" onClick={() => void saveIguideIdentifiers()} disabled={isSavingIguideIdentifiers}>
-                      {isSavingIguideIdentifiers && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}Save matching
+                      {isSavingIguideIdentifiers && <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />}Save matching
                     </Button>
                   </div>
                 </div>
@@ -717,7 +700,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
             menu={isAdmin ? (
               <ProviderMenu label="CubiCasa">
                 <DropdownMenuItem disabled={isSyncingCubicasa} onSelect={() => void syncCubicasaNow?.()}>
-                  <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isSyncingCubicasa ? 'animate-spin' : ''}`} />Sync CubiCasa
+                  {isSyncingCubicasa ? <Loader2 aria-hidden="true" className="mr-2 h-3.5 w-3.5" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}Sync CubiCasa
                 </DropdownMenuItem>
               </ProviderMenu>
             ) : undefined}
@@ -763,7 +746,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   </div>
                   <div className="mt-2 flex justify-end">
                     <Button size="sm" className="h-7 text-xs" onClick={() => void saveCubicasaIdentifiers()} disabled={isSavingCubicasaIdentifiers}>
-                      {isSavingCubicasaIdentifiers && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}Save matching
+                      {isSavingCubicasaIdentifiers && <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />}Save matching
                     </Button>
                   </div>
                 </div>

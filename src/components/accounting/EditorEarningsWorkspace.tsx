@@ -1,21 +1,6 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Activity,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Filter as FilterIcon,
-  LayoutGrid,
-  List as ListIcon,
-  ListChecks,
-  Loader2,
-  NotebookPen,
-  Receipt,
-  RefreshCw,
-  Search,
-  Send,
-  Wallet,
-} from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Search, Send, Wallet } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -349,7 +334,7 @@ export function EditorEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorksp
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm" onClick={handleSendReport} disabled={sendLoading}>
-              {sendLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {sendLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
               Send Report
             </Button>
             {isAdmin ? (
@@ -403,7 +388,7 @@ export function EditorEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorksp
               <h3 className="text-sm font-semibold">Completed Work Ledger</h3>
               <p className="text-sm text-muted-foreground">Unpaid rows reflect the editor&apos;s current per-item rates and the admin&apos;s scheduled quantities. Paid rows are locked to the rate they were paid at.</p>
             </div>
-            {detailLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+            {detailLoading ? <Loader2 className="h-4 w-4 text-muted-foreground" /> : null}
           </div>
 
           {(detail?.line_items || []).length === 0 ? (
@@ -858,7 +843,7 @@ export function EditorEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorksp
               Cancel
             </Button>
             <Button onClick={handleMarkPaid} disabled={markingPaid || !unpaidLineItems.length}>
-              {markingPaid ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {markingPaid ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
               Mark Paid
             </Button>
           </DialogFooter>

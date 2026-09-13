@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { z } from 'zod';
@@ -873,7 +874,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                 >
                   {isSubmitting ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
+                      <BrandLoader aria-hidden="true" className="h-4 w-4" />
                       <span>Creating Account...</span>
                     </div>
                   ) : (

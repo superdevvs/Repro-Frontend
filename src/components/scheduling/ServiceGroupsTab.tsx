@@ -13,7 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useServiceGroups } from '@/hooks/useServiceGroups';
 import { useServices } from '@/hooks/useServices';
 import API_ROUTES from '@/lib/api';
-import { AlertCircle, Loader2, Pencil, Plus, RefreshCcw, Trash2, Users2, Wrench } from 'lucide-react';
+import { AlertCircle, Pencil, Plus, RefreshCcw, Trash2, Users2, Wrench } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import type { Client } from '@/types/clients';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 
@@ -386,7 +387,7 @@ export function ServiceGroupsTab() {
                 disabled={servicesFetching}
                 className="gap-2"
               >
-                {servicesFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                {servicesFetching ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <RefreshCcw className="h-4 w-4" />}
                 Retry Services
               </Button>
             </div>
@@ -476,7 +477,7 @@ export function ServiceGroupsTab() {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <Loader2 className="h-6 w-6 text-primary" />
         </div>
       ) : groups.length > 0 ? (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -508,7 +509,7 @@ export function ServiceGroupsTab() {
                       disabled={deletingId === group.id}
                     >
                       {deletingId === group.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-4 w-4" />
                       ) : (
                         <Trash2 className="h-4 w-4" />
                       )}
@@ -629,7 +630,7 @@ export function ServiceGroupsTab() {
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {saving ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : null}
               {editingGroup ? 'Save Changes' : 'Create Group'}
             </Button>
           </DialogFooter>

@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { TimeSelect } from '@/components/ui/time-select';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -102,7 +103,7 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
             {availabilityPanel?.kind === 'loading' ? (
               // Distinct loading state while a request is in flight (Req 5.3).
               <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4" />
                 Checking availability...
               </div>
             ) : availabilityPanel?.kind === 'error' ? (

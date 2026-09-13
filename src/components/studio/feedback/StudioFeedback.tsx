@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,10 +32,11 @@ export function StatusBadge({ status, label, tone, className }: StatusBadgeProps
       )}
       data-status={presentation.status}
     >
-      <Icon
-        className={cn('h-3.5 w-3.5', presentation.isBusy && 'motion-safe:animate-spin')}
-        aria-label={presentation.accessibleLabel}
-      />
+      {presentation.isBusy ? (
+        <BrandLoader className="h-3.5 w-3.5" aria-label={presentation.accessibleLabel} />
+      ) : (
+        <Icon className="h-3.5 w-3.5" aria-label={presentation.accessibleLabel} />
+      )}
       <span>{presentation.label}</span>
     </span>
   );
@@ -51,6 +53,7 @@ export function SectionSkeleton({
 }) {
   return (
     <div className={cn('space-y-3', className)} role="status" aria-label={label}>
+      <BrandLoader className="mx-auto h-8 w-8" aria-hidden="true" />
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="space-y-2 rounded-lg border border-border/60 p-4">
           <Skeleton className="h-4 w-2/3" />

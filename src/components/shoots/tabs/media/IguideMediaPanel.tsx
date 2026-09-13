@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  AlertCircle,
-  Download,
-  ExternalLink,
-  FileArchive,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
+import { AlertCircle, Download, ExternalLink, FileArchive, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -210,13 +204,13 @@ export function IguideMediaPanel({
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {packageReady && (
                   <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void handleOpenOffline()} disabled={isOpening}>
-                    {isOpening ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="mr-1.5 h-3.5 w-3.5" />}
+                    {isOpening ? <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> : <ExternalLink className="mr-1.5 h-3.5 w-3.5" />}
                     {isOpening ? 'Opening' : 'Open in new tab'}
                   </Button>
                 )}
                 {canManageOffline && downloadablePackage?.fileId && (
                   <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => void handleDownloadOffline()} disabled={isDownloading}>
-                    {isDownloading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+                    {isDownloading ? <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
                     {previousReadyPackage ? 'Previous ZIP' : 'Download'}
                   </Button>
                 )}
@@ -236,7 +230,7 @@ export function IguideMediaPanel({
               >
                 {isViewerLoading && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-background text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4" />
                     Loading iGUIDE…
                   </div>
                 )}

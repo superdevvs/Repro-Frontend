@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Badge } from "@/components/ui/badge";
@@ -316,7 +317,7 @@ export function BrandedPage() {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <BrandLoader className="w-12 h-12 mx-auto mb-4" />
           <p className="text-muted-foreground">Loading property tour...</p>
         </div>
       </div>

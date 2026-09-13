@@ -1,20 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  Activity,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Filter as FilterIcon,
-  LayoutGrid,
-  List as ListIcon,
-  ListChecks,
-  Loader2,
-  NotebookPen,
-  Receipt,
-  RefreshCw,
-  Send,
-  Wallet,
-} from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Send, Wallet } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -216,7 +202,7 @@ export function EditorSelfEarningsPanel({
               </Button>
             ) : null}
             <Button variant="outline" size="sm" onClick={() => loadDetail()} disabled={detailLoading}>
-              {detailLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              {detailLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Refresh
             </Button>
           </div>
@@ -281,7 +267,7 @@ export function EditorSelfEarningsPanel({
                           className="h-full w-full object-cover"
                         />
                       ) : mediaState?.status === 'loading' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />
                       ) : (
                         <>#{row.shootId}</>
                       )}
@@ -362,7 +348,7 @@ export function EditorSelfEarningsPanel({
             <CardContent className="flex min-h-[24rem] items-center justify-center text-center text-sm text-muted-foreground">
               {detailLoading ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4" />
                   Loading earnings detail...
                 </span>
               ) : totalShoots === 0 ? (
@@ -392,7 +378,7 @@ export function EditorSelfEarningsPanel({
                               className="h-full w-full object-cover"
                             />
                           ) : selectedShootMedia?.status === 'loading' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-4 w-4" />
                           ) : (
                             <>#{selectedShoot.shootId}</>
                           )}
@@ -447,7 +433,7 @@ export function EditorSelfEarningsPanel({
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button variant="outline" size="sm" onClick={handleSendReport} disabled={sendLoading}>
-                      {sendLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      {sendLoading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
                       Send Report
                     </Button>
                   </div>
@@ -512,7 +498,7 @@ export function EditorSelfEarningsPanel({
                   </h4>
                   {selectedShootMedia?.status === 'loading' ? (
                     <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 py-6 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4" />
                       Loading edited photos...
                     </div>
                   ) : selectedShootMedia?.status === 'error' ? (

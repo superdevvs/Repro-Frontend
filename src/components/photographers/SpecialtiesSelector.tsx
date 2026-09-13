@@ -5,7 +5,7 @@ import { FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/for
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { useServices, Service } from '@/hooks/useServices';
-import { Loader2 } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 // Schema now uses service IDs (strings) instead of names
 export const photographerFormSchema = z.object({
@@ -66,7 +66,7 @@ export function SpecialtiesSelector({
           </p>
           {isLoading ? (
             <div className="flex items-center gap-2 py-4 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4" />
               <span className="text-sm">Loading services...</span>
             </div>
           ) : serviceOptions.length === 0 ? (

@@ -13,7 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { X, Loader2, AlertTriangle, MapPin, User, DollarSign, Layers, Calendar } from 'lucide-react';
+import { X, AlertTriangle, MapPin, User, DollarSign, Layers, Calendar } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { format } from 'date-fns';
@@ -279,7 +280,7 @@ export function ShootDeclineModal({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Declining...
               </>
             ) : (

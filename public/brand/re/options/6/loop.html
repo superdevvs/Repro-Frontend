@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RE - Paint - Option 6</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}body{display:grid;place-items:center}#stage{position:relative;width:min(100vw,100vh,512px);height:min(100vw,100vh,512px);overflow:hidden}#world{position:absolute;left:0;top:0;width:512px;height:512px;transform-origin:0 0;perspective:800px}.layer{position:absolute;inset:0;width:512px;height:512px;object-fit:contain}.layer svg{display:block;width:100%;height:100%}</style></head><body><div id="stage" role="img" aria-label="RE - Paint - Option 6"><div id="world"></div></div><script>
+const renderReveal = (() => {
+  const revealStyles = ["paint","outline","rise","wipe"];
+  const parsedAssets = new Map();
+  const number = value => String(Math.round(value * 1e6) / 1e6);
+  const clamp = value => Math.max(0, Math.min(1, Number.isFinite(Number(value)) ? Number(value) : 0));
+  const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
+  const attribute = value => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+  function readArtwork(asset) {
+  if (parsedAssets.has(asset)) return parsedAssets.get(asset);
+  if (typeof asset !== 'string' || !asset.startsWith('data:image/svg+xml') || asset.length > 2000000) {
+    throw Error('Choose the embedded original RE SVG artwork.');
+  }
+  const comma = asset.indexOf(',');
+  const header = asset.slice(0, comma), encoded = asset.slice(comma + 1);
+  let svg;
+  if (header.endsWith(';base64')) {
+    const binary = atob(encoded);
+    svg = new TextDecoder().decode(Uint8Array.from(binary, char => char.charCodeAt(0)));
+  } else svg = decodeURIComponent(encoded);
+  // This renderer accepts the original inert SVG artwork, not active documents.
+  if (/<\s*(?:script|foreignObject|iframe|object|embed|animate|set)\b|\bon\w+\s*=|<!ENTITY|<!DOCTYPE/i.test(svg)) {
+    throw Error('The reveal artwork must be a static SVG.');
+  }
+  const root = svg.match(/^\s*<svg\b([^>]*)>([\s\S]*)<\/svg>\s*$/i);
+  const path = svg.match(/<path\b(?=[^>]*\bid=["']r-red["'])[^>]*>/i);
+  const pathD = path?.[0].match(/\bd=["']([^"']+)["']/)?.[1];
+  const transform = svg.match(/<g\b[^>]*\btransform=["']([^"']+)["']/)?.[1];
+  if (!root || !pathD || !transform || !/\bviewBox=["']0 0 512 512["']/.test(root[1])) {
+    throw Error('The reveal requires the original 512px RE R layer.');
+  }
+  const artwork = { attributes: root[1], inner: root[2], pathD, transform };
+  if (parsedAssets.size >= 8) parsedAssets.delete(parsedAssets.keys().next().value);
+  parsedAssets.set(asset, artwork);
+  return artwork;
+}
+  function namespace(markup, prefix) {
+  const ids = new Map([...markup.matchAll(/\bid=["']([^"']+)["']/g)].map(match => [match[1], `${prefix}-${match[1]}`]));
+  return markup
+    .replace(/\bid=(["'])([^"']+)\1/g, (all, quote, id) => `id=${quote}${ids.get(id)}${quote}`)
+    .replace(/url\(\s*(["']?)#([^)'"\s]+)\1\s*\)/g, (all, quote, id) => `url(#${ids.get(id) || id})`)
+    .replace(/\b((?:xlink:)?href)=(["'])#([^"']+)\2/g, (all, name, quote, id) => `${name}=${quote}#${ids.get(id) || id}${quote}`);
+}
+  return function renderReveal(asset, style, progress, idPrefix = 're') {
+  if (!revealStyles.includes(style)) throw Error('Choose paint, outline, rise or wipe.');
+  const p = clamp(progress);
+  const prefix = `reveal-${String(idPrefix).replace(/[^a-zA-Z0-9_-]/g, '-') || 're'}`;
+  const source = readArtwork(asset);
+  const artwork = namespace(source.inner, prefix);
+  const open = `<svg${source.attributes} data-reveal-style="${style}" data-reveal-progress="${number(p)}">`;
+  if (p === 0) return `${open}<g opacity="0">${artwork}</g></svg>`;
+  if (p === 1 || style === 'rise') return `${open}${artwork}</svg>`;
+
+  const maskId = `${prefix}-reveal-mask`;
+  const path = attribute(source.pathD), transform = attribute(source.transform);
+  let mask;
+  if (style === 'paint') {
+    // Paint follows the user's stem, curved shoulder/bowl and diagonal guide.
+    // Masking the original fill automatically clips the broad brush to the
+    // exact existing glyph: the centreline never becomes replacement artwork.
+    const stem = clamp(p / .25);
+    const shoulderAndLeg = clamp((p - .25) / .7);
+    const fill = smooth((p - .95) / .05);
+    mask = `<g transform="${transform}" fill="none" stroke="white" stroke-width="90" stroke-linecap="round" stroke-linejoin="round">`
+      + `<path data-reveal-part="stem" d="M150 475 L150 296" stroke-width="35" pathLength="1000" stroke-dasharray="1000 1000" stroke-dashoffset="${number(1000 * (1 - stem))}" opacity="${stem > 0 ? 1 : 0}"/>`
+      + `<path data-reveal-part="bowl-and-leg" d="M150 296 L237 263 C275 242 306 255 303 303 C310 359 269 391 210 395 L301 533" pathLength="1000" stroke-dasharray="1000 1000" stroke-dashoffset="${number(1000 * (1 - shoulderAndLeg))}" opacity="${shoulderAndLeg > 0 ? 1 : 0}"/>`
+      + `<path data-reveal-part="finish" d="${path}" fill="white" fill-rule="evenodd" stroke="none" opacity="${number(fill)}"/></g>`;
+  } else if (style === 'outline') {
+    const trace = clamp(p / .82), fill = smooth((p - .68) / .32);
+    mask = `<g transform="${transform}">`
+      + `<path data-reveal-part="boundary" d="${path}" fill="none" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" pathLength="1000" stroke-dasharray="1000 1000" stroke-dashoffset="${number(1000 * (1 - trace))}"/>`
+      + `<path data-reveal-part="fill" d="${path}" fill="white" fill-rule="evenodd" opacity="${number(fill)}"/></g>`;
+  } else {
+    // These are the exact original R's vertical extrema in source units.
+    // Using its bounds, rather than the 512px canvas, avoids an empty lead-in.
+    const bottom = 545.7, height = 320 * p;
+    mask = `<g transform="${transform}"><rect data-reveal-part="wipe" x="0" y="${number(bottom - height)}" width="512" height="${number(height)}" fill="white"/></g>`;
+  }
+  return `${open}<defs><mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">${mask}</mask></defs><g mask="url(#${maskId})">${artwork}</g></svg>`;
+};
+})();
+const {windowAxis,riseWindow,riseFeather,riseOpacityAt,riseMaskCSS,riseMaskSVG} = (() => {
+  const baseWindow = {"top":84,"bottom":428,"feather":28};
+  const splitWindow = {"top":64,"bottom":448,"feather":28};
+  const clamp = value => Math.max(0, Math.min(1, value));
+  const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
+  const format = value => String(Math.round(value * 1e6) / 1e6);
+  function setting(value, fallback, minimum, maximum) {
+  const numeric = typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
+  return Number.isFinite(numeric) ? Math.max(minimum, Math.min(maximum, numeric)) : fallback;
+}
+  function timing(project) {
+  const settings = project?.reStudio?.settings ?? {};
+  const entrance = setting(settings.entrance ?? project?.reStudio?.entrance?.end, 1.2, .3, 4);
+  const hold = setting(settings.hold, 1.8, .1, 6);
+  const exit = setting(settings.exit, .5, .15, 2);
+  return { entrance, exitStart: entrance + hold, exit };
+}
+  function windowAxis(project) {
+  return (project?.reStudio?.variant ?? project?.revealStyle) === 'split' ? 'x' : 'y';
+}
+  function riseWindow(project) {
+  const settings = project?.reStudio?.settings ?? {};
+  const scale = setting(settings.globalScale, 1, .3, 1.5);
+  const horizontal = windowAxis(project) === 'x';
+  const bounds = horizontal ? splitWindow : baseWindow;
+  const offset = setting(horizontal ? settings.globalX : settings.globalY, 0, -150, 150);
+  return {
+    top: 256 + (bounds.top - 256) * scale + offset,
+    bottom: 256 + (bounds.bottom - 256) * scale + offset,
+    feather: bounds.feather * scale,
+  };
+}
+  function riseFeather(project, time) {
+  if ((project?.reStudio?.variant ?? project?.revealStyle) === 'rise') return 0;
+  const { entrance, exitStart, exit } = timing(project);
+  const t = Number.isFinite(Number(time)) ? Number(time) : 0;
+  let strength;
+  if (t < entrance) strength = 1 - smooth((t - entrance * .8) / (entrance * .2));
+  else if (t <= exitStart) strength = 0;
+  else strength = smooth((t - exitStart) / (exit * .2));
+  return riseWindow(project).feather * strength;
+}
+  function riseOpacityAt(project, time, y) {
+  const { top, bottom } = riseWindow(project);
+  if (!Number.isFinite(y) || y <= top || y >= bottom) return 0;
+  const feather = riseFeather(project, time);
+  if (feather <= 1e-9) return 1;
+  return clamp(Math.min((y - top) / feather, (bottom - y) / feather));
+}
+  function riseMaskCSS(project, time) {
+  const { top, bottom } = riseWindow(project);
+  const feather = riseFeather(project, time);
+  const direction = windowAxis(project) === 'x' ? 'right' : 'bottom';
+  return `linear-gradient(to ${direction}, transparent ${format(top)}px, #000 ${format(top + feather)}px, #000 ${format(bottom - feather)}px, transparent ${format(bottom)}px)`;
+}
+  function riseMaskSVG(project, id = 'rise-window', { time = 0, animated = false } = {}) {
+  const { top, bottom } = riseWindow(project);
+  const height = bottom - top;
+  const prefix = `rise-${String(id).replace(/[^a-zA-Z0-9_-]/g, '-') || 'window'}`;
+  const gradientId = `${prefix}-gradient`, maskId = `${prefix}-mask`;
+  let first = riseFeather(project, time) / height;
+  let leadingAnimation = '', trailingAnimation = '';
+  if (animated) {
+    const sourceTiming = timing(project);
+    const fallbackDuration = sourceTiming.exitStart + sourceTiming.exit + .3;
+    const duration = setting(project?.duration, fallbackDuration, .2, 60);
+    const start = setting(project?.start, 0, 0, duration - .01);
+    const end = setting(project?.end, duration, start + .01, duration);
+    const speed = setting(project?.speed, 1, .25, 3);
+    const values = Array.from({ length: 121 }, (_, index) => riseFeather(project, start + (end - start) * index / 120) / height);
+    const keyTimes = Array.from({ length: 121 }, (_, index) => format(index / 120)).join(';');
+    const repeat = project?.loop === false ? '1' : 'indefinite';
+    const animation = values => `<animate attributeName="offset" dur="${format((end - start) / speed)}s" repeatCount="${repeat}" fill="freeze" calcMode="linear" keyTimes="${keyTimes}" values="${values.map(format).join(';')}"/>`;
+    first = values[0];
+    leadingAnimation = animation(values);
+    trailingAnimation = animation(values.map(value => 1 - value));
+  }
+  const horizontal = windowAxis(project) === 'x';
+  const coordinates = horizontal ? `x1="${format(top)}" y1="0" x2="${format(bottom)}" y2="0"` : `x1="0" y1="${format(top)}" x2="0" y2="${format(bottom)}"`;
+  const rectangle = horizontal ? `x="${format(top)}" y="0" width="${format(height)}" height="512"` : `x="0" y="${format(top)}" width="512" height="${format(height)}"`;
+  const defs = `<defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" ${coordinates}>`
+    + `<stop offset="0" stop-color="white" stop-opacity="0"/>`
+    + `<stop offset="${format(first)}" stop-color="white" stop-opacity="1">${leadingAnimation}</stop>`
+    + `<stop offset="${format(1 - first)}" stop-color="white" stop-opacity="1">${trailingAnimation}</stop>`
+    + `<stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>`
+    + `<mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">`
+    + `<rect ${rectangle} fill="url(#${gradientId})"/></mask></defs>`;
+  return { defs, open: `<g mask="url(#${maskId})">`, close: '</g>' };
+}
+  return {windowAxis,riseWindow,riseFeather,riseOpacityAt,riseMaskCSS,riseMaskSVG};
+})();
+const data={"project":{"version":1,"id":"6d962dc3-7720-444e-8cf7-0a610c062e23","name":"RE - Paint - Option 6","duration":3.8,"start":0,"end":3.8,"speed":1,"easing":"smooth","loop":true,"camera":800,"layers":[{"id":"e-middle","name":"E · middle stroke","asset":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHRpdGxlPlJFIGljb248L3RpdGxlPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS1taWRkbGUiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDM1Ny40IDM4NC45KSBzY2FsZSgxMzQuOSA1Ni40KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJyZWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDE1NC4yIDQwOC43KSBzY2FsZSgxODEuMiAyOTkuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNhMzAzMTYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjMzNGEiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS10b3AiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDI3Mi4zKSBzY2FsZSgxNTYuOCA5NS4xKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJibHVlLWJvdHRvbSIgeDE9IjAiIHkxPSItLjEiIHgyPSIxIiB5Mj0iLS4xIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDQ4NC44KSBzY2FsZSgxNTYuOCAtOTUuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwMDgyZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNzFjNjciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYgMjU2KSBzY2FsZSgxLjA0KSB0cmFuc2xhdGUoLTMxNy42NSAtMzgzLjU1KSI+PHBhdGggaWQ9ImUtbWlkZGxlIiBmaWxsPSJ1cmwoI2JsdWUtbWlkZGxlKSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNDk4LjQsMzY5LjF2MzMuM2wtMTQzLjEsMTMuM3MtMTkuOC0yNC0xOS4zLTI0LjNjOS42LTYuNywxOC4zLTM2LDE4LjMtMzZsMTQ0LjIsMTMuN2gwWiIvPjwvZz48L3N2Zz4=","pose":{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4},"keys":[{"x":0,"y":-650,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":50.4,"time":0},{"x":0,"y":-650,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":50.4,"time":0.313636364},{"x":0,"y":-430,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":0.395454545},{"x":0,"y":-150,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":0.559090909},{"x":0,"y":5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":0.695454545},{"x":0,"y":-5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":0.777272727},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":0.886363636},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":1.2},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":50.4,"time":3},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":50.4,"time":3.5},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":50.4,"time":3.8}],"visible":true},{"id":"r-red","name":"R · red signature","asset":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHRpdGxlPlJFIGljb248L3RpdGxlPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS1taWRkbGUiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDM1Ny40IDM4NC45KSBzY2FsZSgxMzQuOSA1Ni40KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJyZWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDE1NC4yIDQwOC43KSBzY2FsZSgxODEuMiAyOTkuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNhMzAzMTYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjMzNGEiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS10b3AiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDI3Mi4zKSBzY2FsZSgxNTYuOCA5NS4xKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJibHVlLWJvdHRvbSIgeDE9IjAiIHkxPSItLjEiIHgyPSIxIiB5Mj0iLS4xIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDQ4NC44KSBzY2FsZSgxNTYuOCAtOTUuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwMDgyZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNzFjNjciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYgMjU2KSBzY2FsZSgxLjA0KSB0cmFuc2xhdGUoLTMxNy42NSAtMzgzLjU1KSI+PHBhdGggaWQ9InItcmVkIiBmaWxsPSJ1cmwoI3JlZCkiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTEzNi44LDQ2NS45bDI2LjYsMTcuOHYtMTc1LjRsNzYuNC0yMy43czE0LjktNC4yLDIzLjcsMTIuMmM4LjgsMTYuNCw4LjgsODQtODYuNyw3OS41bDgzLjYsMTUxLjJzMy41LDYuOSwyMSw5LjYsNDkuMyw4LjYsNDkuMyw4LjZsLTc3LjEtMTM2LjVzNzYuOC0yNS42LDcwLjctOTguNWMtNi4xLTczLTIyLjktODMuNi01NC42LTg1LDAsMC0yMSwyLjEtMzAuOSw3LjQtMTAsNS4zLTEwMS45LDUxLjEtMTAxLjksNTEuMXYxODEuN2gwWiIvPjwvZz48L3N2Zz4=","pose":{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375},"keys":[{"x":-180,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":0,"opacity":0,"pivotX":13.26484375,"pivotY":66.72734375,"time":0},{"x":-126,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":0.008000000000000007,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":0.156521739},{"x":-48,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":0.07000000000000006,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":0.313043478},{"x":-6,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":0.68,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":0.52173913},{"x":4,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1.055,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":0.704347826},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":0.985,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":0.991304348},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":1.2},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":13.26484375,"pivotY":66.72734375,"time":3},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":13.26484375,"pivotY":66.72734375,"time":3.5},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":13.26484375,"pivotY":66.72734375,"time":3.8}],"visible":true},{"id":"e-top","name":"E · top stroke","asset":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHRpdGxlPlJFIGljb248L3RpdGxlPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS1taWRkbGUiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDM1Ny40IDM4NC45KSBzY2FsZSgxMzQuOSA1Ni40KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJyZWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDE1NC4yIDQwOC43KSBzY2FsZSgxODEuMiAyOTkuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNhMzAzMTYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjMzNGEiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS10b3AiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDI3Mi4zKSBzY2FsZSgxNTYuOCA5NS4xKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJibHVlLWJvdHRvbSIgeDE9IjAiIHkxPSItLjEiIHgyPSIxIiB5Mj0iLS4xIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDQ4NC44KSBzY2FsZSgxNTYuOCAtOTUuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwMDgyZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNzFjNjciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYgMjU2KSBzY2FsZSgxLjA0KSB0cmFuc2xhdGUoLTMxNy42NSAtMzgzLjU1KSI+PHBhdGggaWQ9ImUtdG9wIiBmaWxsPSJ1cmwoI2JsdWUtdG9wKSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMzI5LjYsMjIxLjRsMTY4LjcsNjYuMXYzNi4ybC0xNTIuNS0zNi4ycy0xLjMtMzUuNy0xNi4zLTY2LjFoMFoiLz48L2c+PC9zdmc+","pose":{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27},"keys":[{"x":0,"y":-650,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":27,"time":0},{"x":0,"y":-650,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":27,"time":0.627272727},{"x":0,"y":-430,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":0.709090909},{"x":0,"y":-150,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":0.872727273},{"x":0,"y":5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":1.009090909},{"x":0,"y":-5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":1.090909091},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":1.2},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":27,"time":3},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":27,"time":3.5},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":27,"time":3.8}],"visible":true},{"id":"e-bottom","name":"E · bottom stroke","asset":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHRpdGxlPlJFIGljb248L3RpdGxlPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS1taWRkbGUiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDM1Ny40IDM4NC45KSBzY2FsZSgxMzQuOSA1Ni40KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJyZWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDE1NC4yIDQwOC43KSBzY2FsZSgxODEuMiAyOTkuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNhMzAzMTYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjMzNGEiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZS10b3AiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIwIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDI3Mi4zKSBzY2FsZSgxNTYuOCA5NS4xKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzAwODJmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzE3MWM2NyIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJibHVlLWJvdHRvbSIgeDE9IjAiIHkxPSItLjEiIHgyPSIxIiB5Mj0iLS4xIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNS40IDQ4NC44KSBzY2FsZSgxNTYuOCAtOTUuMSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwMDgyZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNzFjNjciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYgMjU2KSBzY2FsZSgxLjA0KSB0cmFuc2xhdGUoLTMxNy42NSAtMzgzLjU1KSI+PHBhdGggaWQ9ImUtYm90dG9tIiBmaWxsPSJ1cmwoI2JsdWUtYm90dG9tKSIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMzYxLjMsNTQ1LjVsMTM3LjEtNjEuOXYtMzkuOGwtMTY3LjcsMzkuOHMzMC4xLDYxLjgsMzAuNiw2MS45aDBaIi8+PC9nPjwvc3ZnPg==","pose":{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73},"keys":[{"x":0,"y":-650,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":73,"time":0},{"x":0,"y":-430,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":0.081818182},{"x":0,"y":-150,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":0.245454545},{"x":0,"y":5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":0.381818182},{"x":0,"y":-5,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":0.463636364},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":0.572727273},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":1.2},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":1,"pivotX":70,"pivotY":73,"time":3},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":73,"time":3.5},{"x":0,"y":0,"z":0,"rx":0,"ry":0,"rz":0,"scale":1,"opacity":0,"pivotX":70,"pivotY":73,"time":3.8}],"visible":true}],"savedAt":"2026-09-13T11:48:43.045Z","description":"The R paints into place while the E floors descend on the shared clock.","revealStyle":"paint","reStudio":{"version":1,"variant":"paint","settings":{"entrance":1.2,"hold":1.8,"exit":0.5,"gap":0.3,"speed":1,"travel":1,"drop":1,"depth":1,"turn":1,"bounce":1,"camera":800,"rPivotX":13.26484375,"rPivotY":66.72734375,"globalX":0,"globalY":0,"globalScale":1},"overrides":{},"clip":{"start":0,"end":3.8},"option":6,"sync":{"start":0,"settle":1.2}}},"style":"paint","entrance":1.2},p=data.project,world=document.getElementById('world'),stage=document.getElementById('stage');
+const masked=['paint','outline','wipe'].includes(data.style);
+const fields=['x','y','z','rx','ry','rz','scale','opacity','pivotX','pivotY'];
+function sample(layer,time){const keys=layer.keys;if(!keys.length)return layer.pose;const right=keys.findIndex(k=>k.time>=time);if(right===0)return keys[0];if(right<0)return keys[keys.length-1];const a=keys[right-1],b=keys[right];let t=(time-a.time)/(b.time-a.time);if(p.easing==='smooth')t=t*t*(3-2*t);return Object.fromEntries(fields.map(key=>[key,a[key]+(b[key]-a[key])*t]));}
+function transform(p){return `translate3d(${p.x}px,${p.y}px,${p.z}px) rotateZ(${p.rz}deg) rotateY(${p.ry}deg) rotateX(${p.rx}deg) scale(${p.scale})`;}
+const layers=p.layers.filter(l=>l.visible!==false).map((l,i)=>{const reveal=masked&&l.id==='r-red',el=document.createElement(reveal?'div':'img');el.className='layer';if(!reveal){el.src=l.asset;el.alt=l.name;}world.append(el);return {l,el,reveal,id:'re-export-'+i};});
+function draw(time){const mask=['rise','counterflow','split'].includes(data.style)?riseMaskCSS(p,time):'none';world.style.maskImage=mask;world.style.webkitMaskImage=mask;for(const {l,el,reveal,id}of layers){let k=sample(l,time);if(reveal){k={...l.pose,opacity:time<=data.entrance?1:k.opacity};el.innerHTML=renderReveal(l.asset,data.style,Math.max(0,Math.min(1,time/data.entrance)),id);}el.style.transform=transform(k);el.style.transformOrigin=k.pivotX+'% '+k.pivotY+'%';el.style.opacity=k.opacity;}}
+new ResizeObserver(()=>world.style.transform='scale('+stage.clientWidth/512+')').observe(stage);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');let time=p.start,last=performance.now();draw(reduced.matches?data.entrance:time);
+function tick(now){if(reduced.matches){draw(data.entrance);}else{time+=(now-last)/1000*p.speed;if(time>=p.end){time=p.loop?p.start+(time-p.start)%(p.end-p.start):p.end;}draw(time);}last=now;requestAnimationFrame(tick);}requestAnimationFrame(tick);document.addEventListener('visibilitychange',()=>{last=performance.now();});
+</script></body></html>

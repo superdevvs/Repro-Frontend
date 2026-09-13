@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth';
@@ -19,7 +20,7 @@ const Profile = () => {
       <DashboardLayout>
         <div className="px-2 pt-3 pb-3 sm:p-6">
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <BrandLoader className="h-12 w-12" />
           </div>
         </div>
       </DashboardLayout>

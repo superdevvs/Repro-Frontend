@@ -10,23 +10,8 @@ import { cn } from '@/lib/utils';
 import { createUploadBatchId } from './mediaUploadUtils';
 import { mergeAcceptedShootFiles, normalizeShootMediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Camera,
-  Check,
-  Cloud,
-  Folder,
-  HardDrive,
-  ImageIcon,
-  Images,
-  Link,
-  Loader2,
-  RefreshCcw,
-  RefreshCw,
-  Upload,
-  UploadCloud,
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Camera, Check, Cloud, Folder, HardDrive, ImageIcon, Images, Link, RefreshCcw, RefreshCw, Upload, UploadCloud } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 export interface UploadIssue {
   id: string;
@@ -53,7 +38,7 @@ export function UploadProgressCard({
   return (
     <div className="space-y-3 border rounded-lg p-4 bg-card">
       <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <Loader2 className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">
           Uploading {fileCount} file{fileCount !== 1 ? 's' : ''}... {progress}%
         </span>
@@ -375,7 +360,7 @@ function UploadSourceActions({
     )}>
       <div className={cn(compact ? 'hidden' : 'mb-2 flex items-center justify-between px-2 text-xs font-medium text-muted-foreground')}>
         <span>Upload from</span>
-        {loadingStatuses && <Loader2 className="h-3 w-3 animate-spin" />}
+        {loadingStatuses && <Loader2 className="h-3 w-3" />}
       </div>
       <div className={cn(compact ? 'flex flex-wrap gap-1.5' : 'flex flex-col gap-1')}>
         {sources.map(({ id, label, icon: Icon, onClick }) => {
@@ -461,7 +446,7 @@ function LinkImportDialog({
             Cancel
           </Button>
           <Button type="button" onClick={() => onImport(url.trim())} disabled={importing || !url.trim()}>
-            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+            {importing ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <UploadCloud className="mr-2 h-4 w-4" />}
             Import
           </Button>
         </DialogFooter>
@@ -572,7 +557,7 @@ function CameraCaptureDialog({
         <div className="overflow-hidden rounded-lg border bg-muted">
           {loading ? (
             <div className="flex min-h-64 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6" />
             </div>
           ) : (
             <video ref={videoRef} className="aspect-video w-full bg-black object-cover" playsInline muted />
@@ -585,7 +570,7 @@ function CameraCaptureDialog({
           <Button type="button" variant="outline" onClick={recording ? stopRecording : startRecording} disabled={loading}>
             {recording ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Stop Video
               </>
             ) : (
@@ -715,14 +700,14 @@ function CloudSourceDialog({
                 Root
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => loadItems(location)} disabled={loading}>
-                <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+                {loading ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
               </Button>
             </div>
             <div className="max-h-96 overflow-y-auto rounded-lg border">
               {loading ? (
                 <div className="flex min-h-48 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 className="h-6 w-6" />
                 </div>
               ) : items.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">No files found.</div>
@@ -783,7 +768,7 @@ function CloudSourceDialog({
           </Button>
           {status?.connected && (
             <Button type="button" onClick={() => onImport(selectedItems)} disabled={importing || selectedItems.length === 0}>
-              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+              {importing ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : <UploadCloud className="mr-2 h-4 w-4" />}
               Import {selectedItems.length} File{selectedItems.length === 1 ? '' : 's'}
             </Button>
           )}

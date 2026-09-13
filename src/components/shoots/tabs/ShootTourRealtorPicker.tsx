@@ -1,4 +1,5 @@
-import { ArrowUpDown, Check, Loader2, X } from 'lucide-react';
+import { ArrowUpDown, Check, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
@@ -57,7 +58,7 @@ export function ShootTourRealtorPicker({
               {resolvedSelectedClient?.name || 'Select realtor'}
             </span>
             {isLoading ? (
-              <Loader2 className="ml-2 h-3.5 w-3.5 shrink-0 animate-spin opacity-70" />
+              <Loader2 aria-hidden="true" className="ml-2 h-3.5 w-3.5 shrink-0 opacity-70" />
             ) : (
               <ArrowUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
             )}

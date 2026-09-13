@@ -1,18 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import {
-  CheckCircle2,
-  Copy,
-  Download,
-  KeyRound,
-  Laptop2,
-  Loader2,
-  LogOut,
-  RefreshCw,
-  Settings,
-  ShieldCheck,
-  TriangleAlert,
-} from 'lucide-react';
+import { CheckCircle2, Copy, Download, KeyRound, Laptop2, LogOut, RefreshCw, Settings, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { Badge } from '@/components/ui/badge';
@@ -365,7 +354,7 @@ export function ProfileSecurityCard() {
         <CardContent>
           {isLoading ? (
             <div className="flex min-h-28 items-center justify-center text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading security…
+              <Loader2 className="mr-2 h-4 w-4" /> Loading security…
             </div>
           ) : loadError || !status ? (
             <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
@@ -460,7 +449,7 @@ export function ProfileSecurityCard() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handlePasswordOpenChange(false)} disabled={isChangingPassword}>Cancel</Button>
               <Button type="submit" disabled={isChangingPassword}>
-                {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Change password
+                {isChangingPassword && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Change password
               </Button>
             </DialogFooter>
           </form>
@@ -488,7 +477,7 @@ export function ProfileSecurityCard() {
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => handleSetupOpenChange(false)} disabled={isSettingUp}>Cancel</Button>
                 <Button type="submit" disabled={isSettingUp}>
-                  {isSettingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Continue
+                  {isSettingUp && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Continue
                 </Button>
               </DialogFooter>
             </form>
@@ -511,7 +500,7 @@ export function ProfileSecurityCard() {
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => handleSetupOpenChange(false)} disabled={isSettingUp}>Cancel</Button>
                 <Button type="submit" disabled={isSettingUp || setupCode.length !== 6}>
-                  {isSettingUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Verify and enable
+                  {isSettingUp && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Verify and enable
                 </Button>
               </DialogFooter>
             </form>
@@ -552,7 +541,7 @@ export function ProfileSecurityCard() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleDisableOpenChange(false)} disabled={isDisabling}>Cancel</Button>
               <Button type="submit" variant="destructive" disabled={isDisabling}>
-                {isDisabling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Disable 2FA
+                {isDisabling && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Disable 2FA
               </Button>
             </DialogFooter>
           </form>
@@ -594,7 +583,7 @@ export function ProfileSecurityCard() {
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => handleRecoveryOpenChange(false)} disabled={isReplacingCodes}>Cancel</Button>
                 <Button type="submit" disabled={isReplacingCodes}>
-                  {isReplacingCodes && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Replace codes
+                  {isReplacingCodes && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Replace codes
                 </Button>
               </DialogFooter>
             </form>
@@ -623,7 +612,7 @@ export function ProfileSecurityCard() {
                   </div>
                   {!session.current && (
                     <Button variant="ghost" size="sm" disabled={!sessionsPassword || busySession !== null} onClick={() => void revokeSession(session.id)}>
-                      {busySession === session.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogOut className="mr-2 h-4 w-4" /> Sign out</>}
+                      {busySession === session.id ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <><LogOut className="mr-2 h-4 w-4" /> Sign out</>}
                     </Button>
                   )}
                 </div>
@@ -637,7 +626,7 @@ export function ProfileSecurityCard() {
                <div className="flex flex-col gap-2 sm:flex-row">
                  <Input id="sessions-password" type="password" autoComplete="current-password" value={sessionsPassword} onChange={(event) => { setSessionsPassword(event.target.value); setSessionError(null); }} placeholder="Enter your current password" disabled={busySession !== null} />
                  <Button variant="destructive" disabled={!sessionsPassword || busySession !== null} onClick={() => void revokeOthers()}>
-                  {busySession === 'others' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Sign out all others
+                  {busySession === 'others' && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />} Sign out all others
                 </Button>
               </div>
             </div>

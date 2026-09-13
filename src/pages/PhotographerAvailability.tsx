@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -137,7 +138,7 @@ const PhotographerAvailability = () => {
         <div className="container py-6 px-4">
           <div className="flex items-center justify-center h-[60vh]">
             <div className="text-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full inline-block mb-4"></div>
+              <BrandLoader className="h-8 w-8 inline-block mb-4" />
               <p>Loading your availability settings...</p>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Filter, AlertCircle, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
 import { TaskPriority, TaskStatus } from './TaskTypes';
-import { cn } from '@/lib/utils';
 
 interface TaskFiltersProps {
   isMobile: boolean;
@@ -110,12 +110,7 @@ export function TaskFilters({
         onClick={handleRefresh}
         disabled={isRefreshing}
       >
-        <RotateCcw 
-          className={cn(
-            "h-4 w-4", 
-            isRefreshing && "animate-spin"
-          )}
-        />
+        {isRefreshing ? <BrandLoader className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       </Button>
     </div>
   );

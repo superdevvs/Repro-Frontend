@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react'
-import { AlertTriangle, Loader2, MapPin } from 'lucide-react'
+import { AlertTriangle, MapPin } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useTheme } from '@/hooks/useTheme'
 import { GoogleShootHistoryMap } from './GoogleShootHistoryMap'
 import type { MapMarker } from './shootHistoryUtils'
@@ -35,7 +36,7 @@ const MapLoadingState = ({ label = 'Loading map…' }: { label?: string }) => (
       role="status"
       aria-live="polite"
     >
-      <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+      <Loader2 className="h-4 w-4 text-primary" aria-hidden="true" />
       {label}
     </div>
   </div>

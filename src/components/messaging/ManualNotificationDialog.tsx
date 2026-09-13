@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Info, Loader2, Mail, MapPin, MessageSquare, Send, User, Users } from 'lucide-react';
+import { AlertTriangle, Info, Mail, MapPin, MessageSquare, Send, User, Users } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import {
   Dialog,
@@ -337,7 +338,7 @@ export function ManualNotificationDialog({
             <div className="min-h-0 flex-1 overflow-auto p-5">
               {isPreviewLoading ? (
                 <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4" />
                   Rendering preview…
                 </div>
               ) : isPreviewError ? (
@@ -402,7 +403,7 @@ export function ManualNotificationDialog({
           >
             {isSending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-4 w-4" />
                 Sending…
               </>
             ) : (

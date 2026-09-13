@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import { ExternalLink, RefreshCw } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { normalizePublicTourUrl } from './publicIguideModel';
@@ -153,7 +154,7 @@ export function Public3dTourViewer({
             />
             {frameState === 'loading' && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-card text-sm text-muted-foreground" role="status">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4" aria-hidden="true" />
                 Loading {providerLabel[activeProvider]}…
               </div>
             )}

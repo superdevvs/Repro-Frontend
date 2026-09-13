@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cubicasaService } from '@/services/cubicasaService';
-import { Camera, Upload, X, Loader2 } from 'lucide-react';
+import { Camera, Upload, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { toast } from '@/components/ui/use-toast';
 
 interface PhotoUploaderProps {
@@ -166,7 +167,7 @@ export function PhotoUploader({ orderId, onUploadComplete }: PhotoUploaderProps)
           >
             {isUploading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                 Uploading...
               </>
             ) : (

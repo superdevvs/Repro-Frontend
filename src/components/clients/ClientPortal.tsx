@@ -6,24 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import {
-  Loader2,
-  MapPin,
-  Camera,
-  Mail,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Phone,
-  Facebook,
-  Instagram,
-  Twitter,
-  Linkedin,
-  Send,
-  Home,
-  Tag,
-} from "lucide-react";
+import { MapPin, Camera, Mail, Building2, ChevronLeft, ChevronRight, ExternalLink, Phone, Facebook, Instagram, Twitter, Linkedin, Send, Home, Tag } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -355,7 +339,7 @@ export function ClientPortal() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 text-primary" />
       </div>
     );
   }
@@ -824,7 +808,7 @@ export function ClientPortal() {
                 <Button type="submit" className="w-full" disabled={isSubmittingContact}>
                   {isSubmittingContact ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                       Sending...
                     </>
                   ) : (

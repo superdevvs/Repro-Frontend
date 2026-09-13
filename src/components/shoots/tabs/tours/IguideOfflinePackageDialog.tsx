@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { AlertTriangle, FileArchive, Loader2, UploadCloud, X } from 'lucide-react';
+import { AlertTriangle, FileArchive, UploadCloud, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -298,7 +299,7 @@ export function IguideOfflinePackageDialog({
             <>
               {hasRecoverableSession && (
                 <Button type="button" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void discardUpload()} disabled={phase === 'discarding'}>
-                  {phase === 'discarding' && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  {phase === 'discarding' && <Loader2 aria-hidden="true" className="mr-1.5 h-4 w-4" />}
                   {conflictSessionId ? 'Discard existing upload' : 'Discard upload'}
                 </Button>
               )}
@@ -309,7 +310,7 @@ export function IguideOfflinePackageDialog({
           )}
           <Button type="button" onClick={() => void startUpload()} disabled={!selectedFile || isBusy || phase === 'discarding' || Boolean(conflictSessionId)}>
             {isBusy ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 aria-hidden="true" className="mr-1.5 h-4 w-4" />
             ) : (
               <UploadCloud className="mr-1.5 h-4 w-4" />
             )}

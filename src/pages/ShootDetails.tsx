@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient, getApiHeaders } from '@/services/api';
-import {
-  ArrowLeft, Building, Calendar, Camera, CheckCircle, ChevronRight, Clock, Cloud, Copy, DollarSign,
-  Download, ExternalLink, Image as ImageIcon, Layers, Loader2, Mail, MapPin, MoreVertical,
-  PauseCircle, Phone, Send, Share2, Upload, User,
-} from 'lucide-react';
+import { ArrowLeft, Building, Calendar, Camera, CheckCircle, ChevronRight, Clock, Cloud, Copy, DollarSign, Download, ExternalLink, Image as ImageIcon, Layers, Mail, MapPin, MoreVertical, PauseCircle, Phone, Send, Share2, Upload, User } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -606,7 +603,7 @@ const ShootDetails: React.FC = () => {
     return (
       <DashboardLayout>
         <div className="flex h-[70vh] items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          <Loader2 className="h-12 w-12" />
         </div>
       </DashboardLayout>
     );

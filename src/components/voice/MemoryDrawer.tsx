@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Layers, Loader2 } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -125,7 +126,7 @@ export default function MemoryDrawer({ callId, streamMemory, call }: MemoryDrawe
           disabled={loadFull.isPending}
           onClick={() => loadFull.mutate()}
         >
-          {loadFull.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {loadFull.isPending ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
           Load full context
         </Button>
       )}

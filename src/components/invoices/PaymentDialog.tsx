@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, CheckIcon, Banknote, MapPin, Package, Loader2 } from "lucide-react";
+import { CreditCard, CheckIcon, Banknote, MapPin, Package } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
 import { StripePaymentForm, type StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
@@ -406,7 +407,7 @@ export function PaymentDialog({
                         >
                           {loading ? (
                             <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
                               Processing...
                             </>
                           ) : (

@@ -1,18 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  AlertCircle,
-  Briefcase,
-  Camera,
-  Crown,
-  Loader2,
-  RotateCcw,
-  Save,
-  Scissors,
-  Search,
-  Shield,
-  User,
-  UserCog,
-} from 'lucide-react';
+import { AlertCircle, Briefcase, Camera, Crown, RotateCcw, Save, Scissors, Search, Shield, User, UserCog } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -337,7 +325,7 @@ export function PermissionsManager() {
       <Card className="w-full">
         <CardContent className="flex min-h-[420px] items-center justify-center">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4" />
             Loading permissions manager...
           </div>
         </CardContent>
@@ -440,7 +428,7 @@ export function PermissionsManager() {
             </Button>
             <Button onClick={handleSave} disabled={!canSavePermissions || saving || dirtyRoles === 0} className="w-full sm:w-auto">
               {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
@@ -582,7 +570,7 @@ export function PermissionsManager() {
                   disabled={!canSavePermissions || saving || dirtyRoles === 0}
                 >
                   {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}

@@ -6,7 +6,8 @@ import { useRequestManager } from '@/context/RequestManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
-import { Check, X, Loader2, MapPin, User } from 'lucide-react';
+import { Check, X, MapPin, User } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 
@@ -294,7 +295,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                                 }}
                               >
                                 {dismissingClientRequestId === requestId ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <Loader2 aria-hidden="true" className="h-3 w-3" />
                                 ) : (
                                   'Dismiss'
                                 )}
@@ -450,7 +451,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                               try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
                             }}
                           >
-                            {cancellationActionLoading === chargeActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                            {cancellationActionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
                             Charge $60
                           </Button>
                           <Button
@@ -464,7 +465,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                               try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
                             }}
                           >
-                            {cancellationActionLoading === waiveActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                            {cancellationActionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
                             Waive fee
                           </Button>
                           <Button
@@ -478,7 +479,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                               try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
                             }}
                           >
-                            {cancellationActionLoading === rejectActionKey ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
+                            {cancellationActionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
                             Reject
                           </Button>
                         </div>

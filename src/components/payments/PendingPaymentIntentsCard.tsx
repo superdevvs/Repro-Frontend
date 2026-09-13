@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Banknote, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Banknote, CheckCircle2, XCircle } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -137,7 +138,7 @@ export function PendingPaymentIntentsCard({
                     onClick={() => handleConfirm(payment)}
                   >
                     {busyId === payment.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3 w-3" />
                     ) : (
                       <>
                         <CheckCircle2 className="mr-1 h-3 w-3" /> Confirm
@@ -188,7 +189,7 @@ export function PendingPaymentIntentsCard({
               Cancel
             </Button>
             <Button onClick={handleDecline} disabled={busyId !== null}>
-              {busyId !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Decline'}
+              {busyId !== null ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : 'Decline'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -11,7 +11,8 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, List, X, Loader2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, List, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -313,7 +314,7 @@ const LazyListingMapCanvas = lazy(() =>
 const MapLoadingFallback = () => (
   <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-background">
     <div className="text-center text-muted-foreground">
-      <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
+      <Loader2 className="mx-auto mb-2 h-6 w-6" />
       <p className="text-sm">Loading map...</p>
     </div>
   </div>

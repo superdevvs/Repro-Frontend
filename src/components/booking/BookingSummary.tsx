@@ -1,5 +1,6 @@
 import React from 'react';
-import { DollarSign, MapPin, User, Check, Send, Loader2 } from 'lucide-react';
+import { DollarSign, MapPin, User, Check, Send } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
@@ -228,7 +229,7 @@ export function BookingSummary({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> Requesting...
               </>
             ) : isClientRole ? (
               <>

@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, Loader2, MapPin, User, Calendar } from 'lucide-react';
+import { Check, X, MapPin, User, Calendar } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 
@@ -177,7 +178,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
         <div className="flex-1 overflow-y-auto -mx-6 px-6" style={{ scrollbarWidth: 'thin' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 mr-2" />
               <span className="text-sm">Loading...</span>
             </div>
           ) : shoots.length === 0 ? (
@@ -247,7 +248,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         disabled={isActioning}
                         onClick={() => handleApprove(shoot.id, 'charge_fee')}
                       >
-                        {actionLoading === chargeActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
+                        {actionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <Check className="h-3 w-3" strokeWidth={2} />}
                         Charge $60
                       </Button>
                       <Button
@@ -257,7 +258,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         disabled={isActioning}
                         onClick={() => handleApprove(shoot.id, 'waive_fee')}
                       >
-                        {actionLoading === waiveActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
+                        {actionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <Check className="h-3 w-3" strokeWidth={2} />}
                         Waive fee
                       </Button>
                       <Button
@@ -267,7 +268,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         disabled={isActioning}
                         onClick={() => handleReject(shoot.id)}
                       >
-                        {actionLoading === rejectActionKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" strokeWidth={2} />}
+                        {actionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <X className="h-3 w-3" strokeWidth={2} />}
                         Reject
                       </Button>
                     </div>

@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Camera, FileText, Loader2, Plus, Wrench, X } from 'lucide-react';
+import { Camera, FileText, Plus, Wrench, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { cn } from '@/lib/utils';
 import { equipmentStatusLabel } from '@/services/photographerEquipmentService';
 import { formatEquipmentMoney } from './accountFormModel';
@@ -41,7 +42,7 @@ export function AccountEquipmentFields({ controller }: { controller: AccountForm
                     <div className="space-y-3">
                       {assignedEquipmentLoading ? (
                         <div className="flex items-center gap-2 rounded-md border border-dashed border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4" />
                           Loading assigned equipment...
                         </div>
                       ) : assignedEquipmentError ? (

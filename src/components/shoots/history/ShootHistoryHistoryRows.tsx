@@ -6,27 +6,8 @@ import { cn } from '@/lib/utils'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatCurrency, getShootStatusBadgeClass } from './shootHistoryUtils'
 import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket'
-import {
-  Building2,
-  Calendar as CalendarIcon,
-  Camera,
-  CheckCircle2,
-  ChevronDown,
-  Clock,
-  CreditCard,
-  DollarSign,
-  Edit,
-  FileText,
-  Layers,
-  Loader2,
-  Mail,
-  MapPin,
-  Phone,
-  Send,
-  Trash2,
-  User,
-  X,
-} from 'lucide-react'
+import { Building2, Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, Clock, CreditCard, DollarSign, Edit, FileText, Layers, Mail, MapPin, Phone, Send, Trash2, User, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 
 export const HistoryRow = memo(({
@@ -151,7 +132,7 @@ export const HistoryRow = memo(({
                 <Button size="sm" variant="ghost" onClick={handlePublishMls} disabled={isBusy || publishing} className="h-auto p-0 hover:bg-transparent">
                   {publishing ? (
                     <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 aria-hidden="true" className="h-3 w-3" />
                       Publishing...
                     </span>
                   ) : (
@@ -186,7 +167,7 @@ export const HistoryRow = memo(({
                   disabled={isSendingToEditing}
                 >
                   {isSendingToEditing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />
                   ) : (
                     <Send className="h-3.5 w-3.5" />
                   )}

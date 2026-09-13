@@ -10,7 +10,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileEdit, ClipboardList, Loader2, RefreshCw } from "lucide-react";
+import { FileEdit, ClipboardList, RefreshCw } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
@@ -220,7 +221,7 @@ export function EditorProfile() {
               </CardContent>
               <CardFooter className="border-t pt-6">
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
                   {isSubmitting ? "Updating..." : "Update Info"}
                 </Button>
               </CardFooter>
@@ -237,7 +238,7 @@ export function EditorProfile() {
             <CardContent>
               {editorQueue.isLoading ? (
                 <div className="flex min-h-28 items-center justify-center text-sm text-muted-foreground">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading workload…
+                  <Loader2 className="mr-2 h-4 w-4" /> Loading workload…
                 </div>
               ) : editorQueue.isError ? (
                 <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">

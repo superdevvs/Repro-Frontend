@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Link2, Loader2, X } from 'lucide-react';
+import { Link2, X } from 'lucide-react';
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { ShootData } from '@/types/shoots';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -220,7 +221,7 @@ export function MediaLinksSection({
       <div className="space-y-2 text-xs">
         {loading ? (
           <div className="flex items-center justify-center py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className="h-4 w-4 text-muted-foreground" />
           </div>
         ) : shareLinks.length > 0 ? (
           <div className="space-y-1.5 pt-1 border-t">
@@ -267,7 +268,7 @@ export function MediaLinksSection({
                       title="Revoke link"
                     >
                       {revoking === link.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-3 w-3" />
                       ) : (
                         <X className="h-3 w-3" />
                       )}

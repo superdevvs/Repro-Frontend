@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/ui/brand-loader';
 import React from 'react';
 import { Calendar, Bell, RefreshCw, Search } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -57,7 +58,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             disabled={loading}
             className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-50"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            {loading ? <BrandLoader className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           </button>
           <div className="hidden md:flex items-center gap-2 pl-3 border-l border-border/50">
             <div className="text-right">

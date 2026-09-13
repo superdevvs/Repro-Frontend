@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FolderOpen, Image, Video, Loader2 } from "lucide-react";
+import { Upload, FolderOpen, Image, Video } from "lucide-react";
+import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
 import { toast } from "@/components/ui/use-toast";
 import axios from 'axios';
 
@@ -170,7 +171,7 @@ const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({ shootId, onUplo
               >
                 {uploading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
                     Uploading...
                   </>
                 ) : (
