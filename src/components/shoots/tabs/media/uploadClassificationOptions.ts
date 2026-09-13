@@ -26,7 +26,7 @@ export type UploadClassificationOption = {
   photoOnly?: boolean;
 };
 
-export const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
+export const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.tif,.tiff,.heic,.heif,.avif,.mp4,.mov,.m4v,.webm,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
 
 export const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
   'extra',

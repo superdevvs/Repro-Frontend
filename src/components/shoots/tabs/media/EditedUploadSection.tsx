@@ -630,7 +630,7 @@ export function EditedUploadSection({
           </div>
 
           {isEditor ? (
-            <div className="sticky bottom-0 z-10 flex flex-col gap-2 bg-card pt-2 sm:flex-row">
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
@@ -675,7 +675,7 @@ export function EditedUploadSection({
               </Button>
             </div>
           ) : (
-            <Button type="button" className="sticky bottom-0 z-10 w-full shadow-lg" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}>
+            <Button type="button" className="w-full shadow-lg" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0 || (requiresServiceSelection && !selectedServiceId)}>
               {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
