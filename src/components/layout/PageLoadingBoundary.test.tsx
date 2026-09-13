@@ -34,7 +34,7 @@ describe('PageLoadingBoundary', () => {
     expect(content).toBeInTheDocument();
     expect(content.closest('[inert]')).not.toBeNull();
     expect(overlay()).toHaveClass('backdrop-blur-md');
-    expect(overlay()?.querySelector('svg')).toHaveClass('h-28', 'sm:h-36');
+    expect(overlay()?.querySelector('svg')).toHaveClass('page-loading-logo');
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
     settle();
     rerender(view(false, true));

@@ -39,6 +39,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
+  const [bottomNavHeight, setBottomNavHeight] = React.useState(0);
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
@@ -88,7 +89,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
-            <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`}>
+            <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
             <main className={`flex-1 min-w-0 min-h-0 ${isStudioWorkspace ? 'overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={isStudioWorkspace ? 'flex h-full min-h-0 flex-col' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>{children || <Outlet />}</EmailVerificationNotice>
@@ -114,7 +115,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </main>
             </PageLoadingBoundary>
           </ErrorBoundary>
-          {useCompactShell && <MobileMenu />}
+          {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
         </div>
       </div>
     </DashboardLayoutContext.Provider>

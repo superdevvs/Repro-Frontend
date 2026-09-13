@@ -38,8 +38,8 @@
     <style>
       .boot-loader { min-height: 100dvh; display: grid; place-items: center; background: #f8fafc; }
       .dark .boot-loader { background: #060a0e; }
-      .boot-loader img { display: block; width: 112px; height: 112px; }
-      @media (min-width: 640px) { .boot-loader img { width: 144px; height: 144px; } }
+      .boot-loader img { display: block; width: 72px; height: 72px; }
+      @media (min-width: 768px) and (min-height: 600px) { .boot-loader img { width: 144px; height: 144px; } }
       body:has(.boot-loader) { margin: 0; }
     </style>
   </head>
@@ -58,7 +58,7 @@
       <div class="boot-loader" role="status" aria-label="Loading R/E Pro Photos">
         <picture>
           <source media="(prefers-reduced-motion: reduce)" srcset="/brand/re/loading-static.svg" />
-          <img src="/brand/re/loading.svg" width="96" height="96" alt="" />
+          <img src="/brand/re/loading.svg" width="72" height="72" alt="" />
         </picture>
       </div>
     </div>

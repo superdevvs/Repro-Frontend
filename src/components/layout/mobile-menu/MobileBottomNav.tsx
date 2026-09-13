@@ -22,12 +22,26 @@ import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
 interface MobileBottomNavProps {
   toggleMenu: () => void;
+  onBottomNavHeightChange?: (height: number) => void;
 }
 
-export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
+export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileBottomNavProps) => {
+  const navRef = React.useRef<HTMLDivElement>(null);
   const { filteredItems } = useMobileMenu();
   const { theme } = useTheme();
   const isLightMode = theme === 'light';
+
+  React.useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav || !onBottomNavHeightChange) return;
+    // Include safe-area padding, excluding the 2px below the viewport. offsetHeight
+    // stays stable while the bar's entrance transform animates into position.
+    const reportHeight = () => onBottomNavHeightChange(Math.max(0, nav.offsetHeight - 2));
+    reportHeight();
+    const observer = new ResizeObserver(reportHeight);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [onBottomNavHeightChange]);
 
   const dashboardItem = filteredItems.find((item) => item.to === '/dashboard');
   const shootsItem = filteredItems.find((item) => item.to === '/shoot-history');
@@ -86,6 +100,8 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
 
   return (
     <motion.div 
+      ref={navRef}
+      data-mobile-bottom-nav
       className={cn(
         "fixed left-0 right-0 -bottom-[2px] z-50 px-1 pt-1",
         isLightMode 

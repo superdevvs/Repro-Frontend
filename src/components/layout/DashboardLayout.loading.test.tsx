@@ -2,16 +2,25 @@ import React from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 vi.mock('./Sidebar', () => ({ Sidebar: () => <nav><a href="/dashboard">Dashboard</a></nav> }));
 vi.mock('./Navbar', () => ({ Navbar: () => <header><button>Navigation</button></header> }));
-vi.mock('./MobileMenu', () => ({ default: () => null }));
+const viewport = vi.hoisted(() => ({ mobile: false, compact: false, bottomNavHeight: 62 }));
+vi.mock('./MobileMenu', () => ({
+  default: function MockMobileMenu({ onBottomNavHeightChange }: { onBottomNavHeightChange?: (height: number) => void }) {
+    const bottomNavHeight = viewport.bottomNavHeight;
+    React.useLayoutEffect(() => {
+      onBottomNavHeightChange?.(bottomNavHeight);
+    }, [onBottomNavHeightChange, bottomNavHeight]);
+    return <nav aria-label="Mobile navigation"><button>Mobile menu</button></nav>;
+  },
+}));
 vi.mock('./PageTransition', () => ({ PageTransition: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => false }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile }));
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => viewport.compact }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: 'admin', user: { id: 1 }, stopImpersonating: vi.fn() }) }));
 vi.mock('@/components/auth/EmailVerificationNotice', () => ({ EmailVerificationNotice: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
@@ -20,6 +29,7 @@ function Page({ loading }: { loading: boolean }) {
   return <DashboardLayout><button>Page action</button></DashboardLayout>;
 }
 
+beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.bottomNavHeight = 62; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('dashboard page loading integration', () => {
@@ -37,5 +47,38 @@ describe('dashboard page loading integration', () => {
     act(() => { vi.advanceTimersByTime(151); });
     expect(screen.queryByRole('status', { name: 'Loading page' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
+  });
+
+  it('centers above the measured mobile navigation and follows its height changes', () => {
+    viewport.mobile = true;
+    const view = () => <MemoryRouter initialEntries={['/shoot-history']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>;
+    const { rerender } = render(view());
+    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '62px' });
+    expect(screen.getByRole('button', { name: 'Mobile menu' }).closest('[inert]')).toBeNull();
+
+    viewport.bottomNavHeight = 88;
+    rerender(view());
+    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '88px' });
+  });
+
+  it('removes the mobile inset when resizing into the desktop shell', () => {
+    viewport.mobile = true;
+    const view = () => <MemoryRouter initialEntries={['/shoot-history']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>;
+    const { rerender } = render(view());
+    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '62px' });
+
+    viewport.mobile = false;
+    rerender(view());
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '0px' });
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+  });
+
+  it('accounts for navigation on the compact tablet dashboard as well', () => {
+    viewport.compact = true;
+    viewport.bottomNavHeight = 70;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>);
+    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '70px' });
+    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
   });
 });

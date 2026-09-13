@@ -3,6 +3,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep the loader compact on phones, including landscape orientations. */
+.page-loading-logo {
+  width: 72px;
+  height: 72px;
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .page-loading-logo {
+    width: 144px;
+    height: 144px;
+  }
+}
+
 /* Tailwind's generic backdrop-filter utilities initialize every filter
    variable, producing several kilobytes of duplicate CSS. The app only uses
    plain blur values, so keep the same class API with focused declarations. */

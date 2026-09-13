@@ -4,7 +4,7 @@ import { observePageImages } from '@/lib/observe-page-images';
 import { PageLoadingOverlay } from './PageLoadingOverlay';
 
 /** Mount once per route. Keep the page visible beneath its initial loading overlay. */
-export function PageLoadingBoundary({ children }: { children: ReactNode }) {
+export function PageLoadingBoundary({ children, bottomInset = 0 }: { children: ReactNode; bottomInset?: number }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const tokens = useRef(new Set<symbol>());
   const completed = useRef(false);
@@ -56,7 +56,7 @@ export function PageLoadingBoundary({ children }: { children: ReactNode }) {
         <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1" aria-busy={!ready} aria-hidden={!ready || undefined}>
           {children}
         </div>
-        {!ready && <PageLoadingOverlay />}
+        {!ready && <PageLoadingOverlay bottomInset={bottomInset} />}
       </div>
     </PageLoadingContext.Provider>
   );
