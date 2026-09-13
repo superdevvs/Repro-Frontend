@@ -118,8 +118,16 @@ export function OverviewAccessSection({
         const details = propertyDetails || {};
         const hasLockboxData = !!(details.lockboxCode || details.lockboxLocation);
         const hasAccessContactData = !!(details.accessContactName || details.accessContactPhone);
+        if (details.presenceOption === 'self') {
+          return <div className="text-xs">Client will be present at the property.</div>;
+        }
         if (!hasLockboxData && !hasAccessContactData) {
-          return <div className="text-xs text-muted-foreground">Unavailable</div>;
+          const accessSummary = details.presenceOption === 'lockbox'
+            ? 'Lockbox — details not provided'
+            : details.presenceOption === 'other'
+              ? 'Other contact — details not provided'
+              : 'Unavailable';
+          return <div className="text-xs text-muted-foreground">{accessSummary}</div>;
         }
         const isLockbox = hasLockboxData || details.presenceOption === 'lockbox';
         return (
