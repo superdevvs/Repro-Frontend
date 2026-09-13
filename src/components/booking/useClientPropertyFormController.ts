@@ -482,29 +482,6 @@ export const useClientPropertyFormController = ({
     });
   }, [selectedServices, form]);
 
-  // Seed complete address from initial data (so it is editable even before lookup)
-  React.useEffect(() => {
-    const parts = [
-      initialData.completeAddress,
-      initialData.propertyAddress,
-      initialData.propertyCity,
-      initialData.propertyState,
-      initialData.propertyZip,
-    ]
-      .filter(Boolean)
-      .map((p) => String(p).trim())
-      .filter(Boolean);
-
-    if (!completeAddress && parts.length) {
-      setCompleteAddress(
-        parts
-          .join(', ')
-          .replace(/, ([A-Z]{2}), /, ', $1 ')
-          .trim(),
-      );
-    }
-  }, [initialData, completeAddress]);
-
   const watchedSqft = form.watch('sqft');
   // Lookup values seed the field. From then on, the visible field is the
   // authority for pricing, including an intentional clear while editing it.

@@ -389,6 +389,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     onChange={(e) => {
                       const nextCompleteAddress = e.target.value;
                       setCompleteAddress(nextCompleteAddress);
+                      form.setValue('propertyAddress', nextCompleteAddress, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                       onPropertyDraftChange?.(
                         buildPropertyDraftData(undefined, {
                           completeAddress: nextCompleteAddress,
