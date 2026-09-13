@@ -1,3 +1,4 @@
+import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,17 +67,8 @@ export function ShootDetailsQuickActions({
   // Fetch photographers for assignment
   const fetchPhotographers = async () => {
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/users/photographers`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setPhotographers(json.data || json || []);
-      }
+      const choices = assigneesForRole(await loadShootAssignees(), 'photographer');
+      setPhotographers(choices);
     } catch (error) {
       console.error('Error fetching photographers:', error);
     }
@@ -85,17 +77,8 @@ export function ShootDetailsQuickActions({
   // Fetch editors for assignment
   const fetchEditors = async () => {
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/users/editors`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setEditors(json.data || json || []);
-      }
+      const choices = assigneesForRole(await loadShootAssignees(), 'editor');
+      setEditors(choices);
     } catch (error) {
       console.error('Error fetching editors:', error);
     }

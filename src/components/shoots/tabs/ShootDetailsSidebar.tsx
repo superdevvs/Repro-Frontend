@@ -1,3 +1,4 @@
+import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -148,16 +149,8 @@ export function ShootDetailsSidebar({
     
     const fetchPhotographers = async () => {
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/users/photographers`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const photographersList = (json.data || json || []).map((p: any) => ({
+        const choices = assigneesForRole(await loadShootAssignees(), 'photographer');
+        const photographersList = choices.map((p) => ({
             id: String(p.id),
             name: p.name,
             email: p.email,
@@ -167,8 +160,7 @@ export function ShootDetailsSidebar({
             state: p.state || p.metadata?.state,
             zip: p.zip || p.zipcode || p.metadata?.zip || p.metadata?.zipcode,
           }));
-          setPhotographers(photographersList);
-        }
+        setPhotographers(photographersList);
       } catch (error) {
         console.error('Error fetching photographers:', error);
       }

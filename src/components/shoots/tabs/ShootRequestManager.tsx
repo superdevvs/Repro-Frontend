@@ -40,6 +40,8 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { getApiHeaders } from '@/services/api';
+import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 
 interface Request {
   id: string;
@@ -129,6 +131,10 @@ export function ShootRequestManager({
   const [editors, setEditors] = useState<Array<{ id: string; name: string }>>([]);
   const [photographers, setPhotographers] = useState<Array<{ id: string; name: string }>>([]);
   const [mediaFiles, setMediaFiles] = useState<Array<{ id: string; filename: string; url?: string; thumbnail?: string }>>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState('');
+  const [assigneeError, setAssigneeError] = useState('');
+  const [assigneesLoading, setAssigneesLoading] = useState(false);
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
   const requestsLengthRef = useRef(0);
   const preselectedMediaIdsKey = preselectedMediaIds.join('|');
@@ -185,84 +191,59 @@ export function ShootRequestManager({
     setCreateDialogOpen(true);
   }, [isOpen, preselectedMediaIdsKey]);
 
-  // Load media files for request creation - get image files with URLs
+  // Staff can request changes to RAW or edited media; clients see released media only.
   useEffect(() => {
     if (!shootId || !createDialogOpen) return;
-    
+    const controller = new AbortController();
+    setMediaFiles([]);
+    setMediaLoading(true);
+    setMediaError('');
     const loadMedia = async () => {
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=edited`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files${isClient ? '?type=edited' : ''}`, {
+          headers: getApiHeaders(), signal: controller.signal,
         });
-        
-        if (res.ok) {
-          const json = await res.json();
-          // Filter for image files and include URLs
-          const imageFiles = (json.data || json || [])
-            .filter((f: any) => {
-              const fileType = (f.file_type || f.fileType || f.mime_type || '').toLowerCase();
-              const filename = (f.filename || f.stored_filename || '').toLowerCase();
-              return fileType.startsWith('image/') || 
-                     /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(filename);
-            })
-            .map((f: any) => ({
-              id: String(f.id),
-              filename: f.filename || f.stored_filename || 'unknown',
-              url: f.thumb_url || f.medium_url || f.thumbnail_path || f.web_path || null,
-              thumbnail: f.thumb_url || f.thumbnail_path || f.placeholder_path || null,
-            }));
-          setMediaFiles(imageFiles);
-        }
-      } catch (error) {
-        console.error('Error loading media:', error);
+        if (!res.ok) throw new Error('Unable to load photos. You can still create a general request.');
+        const json = await res.json();
+        const files = json.data ?? json;
+        if (!Array.isArray(files)) throw new Error('Unable to load photos. You can still create a general request.');
+        const imageFiles = files.filter((f: any) => {
+          const fileType = (f.file_type || f.fileType || f.mime_type || '').toLowerCase();
+          const filename = (f.filename || f.stored_filename || '').toLowerCase();
+          return fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif|nef|cr3|cr2|arw|dng)$/.test(filename);
+        }).map((f: any) => ({
+          id: String(f.id), filename: f.filename || f.stored_filename || 'unknown',
+          url: f.thumb_url || f.medium_url || f.thumbnail_path || f.web_path || null,
+          thumbnail: f.thumb_url || f.thumbnail_path || f.placeholder_path || null,
+        }));
+        if (!controller.signal.aborted) setMediaFiles(imageFiles);
+      } catch {
+        if (!controller.signal.aborted) setMediaError('Unable to load photos. You can still create a general request.');
+      } finally {
+        if (!controller.signal.aborted) setMediaLoading(false);
       }
     };
-    
-    loadMedia();
-  }, [shootId, createDialogOpen]);
+    void loadMedia();
+    return () => controller.abort();
+  }, [shootId, createDialogOpen, isClient]);
 
-  // Load editors and photographers for assignment
   useEffect(() => {
     if (!isAdmin || !createDialogOpen) return;
-    
-    const loadUsers = async () => {
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        
-        const [editorsRes, photographersRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/users/editors`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-          }),
-          fetch(`${API_BASE_URL}/api/users/photographers`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-          }),
-        ]);
-        
-        if (editorsRes.ok) {
-          const json = await editorsRes.json();
-          setEditors((json.data || json || []).map((u: any) => ({
-            id: String(u.id),
-            name: u.name,
-          })));
-        }
-        
-        if (photographersRes.ok) {
-          const json = await photographersRes.json();
-          setPhotographers((json.data || json || []).map((u: any) => ({
-            id: String(u.id),
-            name: u.name,
-          })));
-        }
-      } catch (error) {
-        console.error('Error loading users:', error);
-      }
-    };
-    
-    loadUsers();
+    const controller = new AbortController();
+    setAssigneeError('');
+    setAssigneesLoading(true);
+    setEditors([]);
+    setPhotographers([]);
+    loadShootAssignees(controller.signal).then(users => {
+      if (controller.signal.aborted) return;
+      setEditors(assigneesForRole(users, 'editor'));
+      setPhotographers(assigneesForRole(users, 'photographer'));
+    }).catch(() => {
+      if (!controller.signal.aborted) setAssigneeError('Unable to load assignment options. Close and reopen this form to retry.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setAssigneesLoading(false);
+    });
+    return () => controller.abort();
   }, [isAdmin, createDialogOpen]);
 
   // Filter requests based on role
@@ -794,9 +775,9 @@ export function ShootRequestManager({
             {/* Photo Selection Grid */}
             <div className="space-y-2">
               <Label>Select photos (optional - leave empty for general request)</Label>
-              {mediaFiles.length === 0 ? (
+              {mediaLoading || mediaError || mediaFiles.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-8 text-center">
-                  Loading photos...
+                  {mediaLoading ? 'Loading photos...' : mediaError || 'No photos available yet. You can create a general request.'}
                 </div>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[300px] overflow-y-auto p-2 border rounded-lg">
@@ -887,6 +868,8 @@ export function ShootRequestManager({
                 {assignToRole && assignToRole !== 'unassigned' && (
                   <div className="space-y-2">
                     <Label>Assign to specific user (optional)</Label>
+                    {assigneesLoading && <p className="text-sm text-muted-foreground">Loading assignment options...</p>}
+                    {assigneeError && <p role="alert" className="text-sm text-destructive">{assigneeError}</p>}
                     <Select value={assignToUserId} onValueChange={setAssignToUserId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select user (optional)" />
