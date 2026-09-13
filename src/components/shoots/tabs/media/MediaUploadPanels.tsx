@@ -811,14 +811,14 @@ export function UploadResultsPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-rose-200 bg-rose-50 p-4">
+    <div className="space-y-3 rounded-lg border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm font-semibold text-rose-900">
+          <div className="flex items-center gap-2 text-sm font-semibold text-rose-900 dark:text-rose-200">
             <AlertTriangle className="h-4 w-4" />
             <span>{title}</span>
           </div>
-          <p className="text-xs text-rose-700">
+          <p className="text-xs text-rose-700 dark:text-rose-300">
             {issues.length} file{issues.length === 1 ? '' : 's'} need attention.
           </p>
         </div>
@@ -832,13 +832,13 @@ export function UploadResultsPanel({
 
       <div className="space-y-2">
         {issues.map((issue) => (
-          <div key={issue.id} className="rounded-md border border-rose-200 bg-white p-3">
+          <div key={issue.id} className="rounded-md border border-rose-200 bg-card p-3 text-card-foreground dark:border-rose-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-900">{issue.fileName}</p>
-                <p className="mt-1 text-sm text-slate-700">{issue.message}</p>
+                <p className="truncate text-sm font-medium">{issue.fileName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{issue.message}</p>
                 {issue.nextStep && (
-                  <p className="mt-1 text-xs text-slate-500">{issue.nextStep}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{issue.nextStep}</p>
                 )}
               </div>
               {issue.retryable && onRetryIssue && (

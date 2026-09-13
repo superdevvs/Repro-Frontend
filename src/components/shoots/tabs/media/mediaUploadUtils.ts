@@ -222,6 +222,17 @@ export function rotateUploadAttemptKey(file: File): void {
   });
 }
 
+// A server-confirmed failure is cached under its old key. Explicit retries need
+// a fresh attempt, while uncertain network/server outcomes must replay safely.
+export function prepareUploadRetries(files: File[], issues: UploadIssue[]): void {
+  for (const file of files) {
+    const issue = issues.find((candidate) => candidate.fileName === file.name);
+    if (issue?.retryable && !['network_failure', 'server_error', 'upload_in_progress'].includes(issue.errorType)) {
+      rotateUploadAttemptKey(file);
+    }
+  }
+}
+
 const PHOTO_SERVICE_LANE = 'photo';
 const VIDEO_SERVICE_LANE = 'video';
 

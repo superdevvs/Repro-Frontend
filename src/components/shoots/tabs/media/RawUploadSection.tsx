@@ -46,7 +46,7 @@ import {
   resolveUploadLanesForFiles,
   resolveUploadServiceExpectedCount,
   resolveUploadServiceTargets,
-  rotateUploadAttemptKey,
+  prepareUploadRetries,
   setQueueClassification,
   triggerUploadRefreshes,
   validateFilesAgainstUploadLimits,
@@ -217,16 +217,15 @@ export function RawUploadSection({
   const primaryStats = useMemo(
     () => [
       { key: 'expected', label: 'Expected', value: expectedCount },
-      { key: 'existing', label: 'Existing', value: totalRawCount },
+      { key: 'existing', label: 'Existing', value: existingRawCount },
       { key: 'selected', label: 'Selected', value: uploadedCount },
       // Extras sits with the progress counters rather than the per-service tags:
-      // it is a property of the batch, not a purchased service. Counted the same
-      // way as Existing (already on the shoot plus newly tagged) so the two
-      // numbers are read on the same basis.
+      // it is a property of the batch, not a purchased service, including both
+      // stored files and newly tagged selections.
       { key: 'extras', label: 'Extras', value: combinedCounts.extra },
       { key: 'missing', label: 'Missing', value: missingCount, alert: missingCount > 0 },
     ],
-    [combinedCounts.extra, expectedCount, missingCount, totalRawCount, uploadedCount],
+    [combinedCounts.extra, expectedCount, existingRawCount, missingCount, uploadedCount],
   );
 
   /**
@@ -681,7 +680,8 @@ export function RawUploadSection({
           // the issue list with them, so the retry the results panel offers had
           // nothing left to act on. Landed files are already visible via the
           // cache invalidation above; only a clean batch hands over control.
-          if (acceptedFiles.length > 0 && failedFiles.size === 0) {
+          if (acceptedFiles.length > 0 && failedFiles.size === 0
+            && (!retryOnly || stagedFileCount === uploadedFileObjects.size)) {
             onUploadComplete();
           }
 
@@ -735,6 +735,7 @@ export function RawUploadSection({
   };
 
   const handleUpload = () => {
+    prepareUploadRetries(groups.flatMap((group) => group.files), uploadIssues);
     startUpload();
   };
 
@@ -849,9 +850,7 @@ export function RawUploadSection({
             classifications[getQueueFileKey(match.file, 0)] = existingClassification;
           }
 
-          if (selectedIssue && !['network_failure', 'upload_in_progress'].includes(selectedIssue.errorType)) {
-            rotateUploadAttemptKey(match.file);
-          }
+          prepareUploadRetries([match.file], selectedIssue ? [selectedIssue] : []);
 
           startUpload({
             retryOnly: true,

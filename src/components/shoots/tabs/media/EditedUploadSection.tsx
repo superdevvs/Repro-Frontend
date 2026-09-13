@@ -46,7 +46,7 @@ import {
   reindexClassificationMap,
   resolveExpectedFinalCount,
   resolveEligibleUploadServices,
-  rotateUploadAttemptKey,
+  prepareUploadRetries,
   setQueueClassification,
   triggerUploadRefreshes,
   validateFilesAgainstUploadLimits,
@@ -463,10 +463,12 @@ export function EditedUploadSection({
   };
 
   const handleUpload = () => {
+    prepareUploadRetries(selectedFiles, uploadIssues);
     startUpload();
   };
 
   const handleUploadAndSubmit = () => {
+    prepareUploadRetries(selectedFiles, uploadIssues);
     startUpload(undefined, undefined, { submitAfter: true });
   };
 
@@ -575,9 +577,7 @@ export function EditedUploadSection({
             nextMap[getQueueFileKey(matchingEntry.file, 0)] = existingClassification;
           }
 
-          if (selectedIssue && !['network_failure', 'upload_in_progress'].includes(selectedIssue.errorType)) {
-            rotateUploadAttemptKey(matchingEntry.file);
-          }
+          prepareUploadRetries([matchingEntry.file], selectedIssue ? [selectedIssue] : []);
           startUpload(singleFile, nextMap, { retryOnly: true });
         }}
       />

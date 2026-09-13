@@ -7,6 +7,7 @@ import {
   parseCanonicalUploadResponse,
   resolveEligibleUploadServices,
   rotateUploadAttemptKey,
+  prepareUploadRetries,
 } from './mediaUploadUtils';
 
 describe('canonical upload results', () => {
@@ -66,6 +67,20 @@ describe('canonical upload results', () => {
 });
 
 describe('upload attempt identity', () => {
+  it('retries confirmed failures in a batch without changing uncertain or accepted attempts', () => {
+    const types = ['storage_failure', 'network_failure', 'upload_in_progress', 'server_error', 'accepted'];
+    const files = types.map((type) => new File(['raw'], `${type}.nef`));
+    const before = files.map((file, index) => ensureUploadAttemptIdentity(file, 'original-batch', index, files.length));
+    const issues = types.slice(0, -1).map((type, index) => ({
+      id: String(index), fileName: files[index].name, errorType: type, retryable: true, message: 'Upload failed',
+    }));
+    prepareUploadRetries(files, issues);
+    const after = files.map((file) => ensureUploadAttemptIdentity(file, 'ignored', 0, 1));
+    expect(after[0].idempotencyKey).not.toBe(before[0].idempotencyKey);
+    expect(after[0]).toMatchObject({ batchId: 'original-batch', batchIndex: 0, batchTotal: files.length });
+    expect(after.slice(1)).toEqual(before.slice(1));
+  });
+
   it('reuses unknown-outcome keys and rotates only the attempt key for a confirmed retry', () => {
     const file = new File(['pixels'], 'front.jpg', { type: 'image/jpeg' });
     const first = ensureUploadAttemptIdentity(file, 'batch-44', 12, 44);
