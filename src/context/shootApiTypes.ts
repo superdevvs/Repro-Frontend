@@ -243,6 +243,8 @@ export type ApiShoot = {
   overpayment_amount?: unknown;
   overpaymentAmount?: unknown;
   payment?: {
+    pendingPayments?: ShootData['payment']['pendingPayments'];
+    pendingTotal?: unknown;
     serviceSubtotal?: unknown;
     service_subtotal?: unknown;
     baseQuote?: unknown;

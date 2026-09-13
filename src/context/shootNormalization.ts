@@ -803,6 +803,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       orderTotal,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
+      pendingPayments: Array.isArray(shoot.payment?.pendingPayments) ? shoot.payment.pendingPayments : [],
+      pendingTotal: toNumber(shoot.payment?.pendingTotal),
       overpaymentAmount: paymentSummary.overpaymentAmount,
       overpayment_amount: paymentSummary.overpaymentAmount,
       paymentStatus: paymentSummary.paymentStatus,
