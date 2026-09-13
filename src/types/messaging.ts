@@ -195,6 +195,19 @@ export interface MessageChannelConfig {
   updated_at: string;
 }
 
+export interface TemplateContentBlockValue {
+  body_html: string;
+  body_text: string;
+}
+
+export interface TemplateEditableContentBlock extends TemplateContentBlockValue {
+  key: string;
+  label: string;
+  variables_json?: string[] | null;
+}
+
+export type TemplateContentBlockOverrides = Record<string, TemplateContentBlockValue>;
+
 export interface MessageTemplate {
   id: number;
   channel: MessageChannel;
@@ -203,9 +216,13 @@ export interface MessageTemplate {
   description?: string;
   category?: TemplateCategory;
   subject?: string;
+  editable_subject?: string | null;
   body_html?: string;
   editable_body_html?: string;
   body_text?: string;
+  editable_body_text?: string | null;
+  editable_content_blocks?: TemplateEditableContentBlock[] | null;
+  content_blocks_json?: TemplateContentBlockOverrides | null;
   variables_json?: string[] | null;
   scope: TemplateScope;
   owner_id?: number;

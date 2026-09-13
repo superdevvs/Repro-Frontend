@@ -82,7 +82,7 @@ export function ShortcodePanel({ onInsert, variables }: ShortcodePanelProps) {
   const standardCodes = new Set(SHORTCODES.map((item) => item.code));
   const templateCodes = normalizeTemplateVariables(variables).map((name) => ({
     code: `{{${name}}}`,
-    description: /_(html|text)$/.test(name) ? 'Live content block supplied when this email is sent' : 'Value supplied for this email template',
+    description: /_(html|text)$/.test(name) ? 'Rows or details supplied when this email is sent' : 'Value supplied for this email template',
     category: 'Template',
   })).filter((item) => !standardCodes.has(item.code));
   const shortcodes = [...templateCodes, ...SHORTCODES];

@@ -56,7 +56,7 @@ test.describe('Email Template Fixes', () => {
 
     // Body preview carries the new closing line.
     await page.getByRole('tab', { name: /preview/i }).click();
-    await expect(page.frameLocator('iframe[title="Delivered email preview"]').getByText('Thank you for the opportunity.', { exact: false })).toBeVisible({
+    await expect(page.frameLocator('iframe[title="Delivered email preview"]').locator('[data-email-content="true"]').getByText('Thank you for the opportunity.', { exact: false })).toBeVisible({
       timeout: 10_000,
     });
   });

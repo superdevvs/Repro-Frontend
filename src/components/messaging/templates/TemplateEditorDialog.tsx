@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/lib/sonner-toast';
 import { createTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
-import type { MessageTemplate, TemplateCategory, TemplateScope } from '@/types/messaging';
+import type { MessageTemplate, TemplateCategory, TemplateScope, TemplateContentBlockOverrides } from '@/types/messaging';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import { DIRECT_EDITOR_TEMPLATE_SLUGS, getTemplateOverrideDefaults, PROTECTED_EM
 import { EMAIL_CONTENT_SECTIONS, getTemplateErrorMessage } from './templatePreviewSupport';
 import { TemplateRenderedPreview } from './TemplateRenderedPreview';
 import { TemplateLiveContentHelp } from './TemplateLiveContentHelp';
+import { TemplateContentBlocksEditor } from './TemplateContentBlocksEditor';
 
 interface TemplateEditorDialogProps {
   template: MessageTemplate | null;
@@ -66,6 +67,7 @@ type TemplateFormState = {
   channel: 'EMAIL' | 'SMS';
   email_type: string;
   override_enabled: boolean;
+  content_blocks_json?: TemplateContentBlockOverrides | null;
 };
 
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
@@ -90,6 +92,15 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
   const [testEmail, setTestEmail] = useState('');
   const htmlTextareaRef = useRef<HTMLTextAreaElement>(null);
   const textTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const blockTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const [advancedWrapper, setAdvancedWrapper] = useState(false);
+  const contentBlocks = template?.editable_content_blocks ?? [];
+  const editingBlocks = contentBlocks.length > 0 && !advancedWrapper;
+  const draftData = useMemo(() => ({
+    ...formData,
+    subject: template?.editable_subject != null && formData.subject === template.editable_subject
+      ? template.subject ?? formData.subject : formData.subject,
+  }), [formData, template?.editable_subject, template?.subject]);
 
   useEffect(() => {
     if (open && isMobile) setPreviewViewport('mobile');
@@ -103,12 +114,13 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         description: template.description || '',
         category: template.category || 'GENERAL',
         scope: template.scope,
-        subject: template.subject || '',
-        body_html: template.editable_body_html ?? template.body_html ?? '',
-        body_text: template.body_text || '',
+        subject: template.editable_subject ?? template.subject ?? '',
+        body_html: template.editable_content_blocks?.length ? template.body_html ?? '' : template.editable_body_html ?? template.body_html ?? '',
+        body_text: template.editable_content_blocks?.length ? template.body_text ?? '' : template.editable_body_text ?? template.body_text ?? '',
         channel: template.channel || 'EMAIL',
         email_type: overrideDefaults.emailType,
         override_enabled: overrideDefaults.overrideEnabled,
+        content_blocks_json: template.content_blocks_json ?? undefined,
       });
     } else {
       // Reset form for new template
@@ -127,6 +139,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     }
 
     setActiveTab('html');
+    setAdvancedWrapper(false);
+    setMobileSection('editor');
     setTestEmail(getStoredTemplateTestEmail());
   }, [template, open]);
 
@@ -163,7 +177,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
       return testSendTemplate(template.id, {
         to: email,
-        template: { ...formData },
+        template: { ...draftData },
       });
     },
     onSuccess: () => {
@@ -183,13 +197,13 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       toast.error('Please enter a subject line');
       return;
     }
-    if (!formData.body_html.trim() && !formData.body_text.trim()) {
+    if (!contentBlocks.length && !formData.body_html.trim() && !formData.body_text.trim()) {
       toast.error('Please enter template content');
       return;
     }
 
     saveMutation.mutate({
-      ...formData,
+      ...draftData,
       channel: formData.channel || 'EMAIL',
     });
   };
@@ -197,6 +211,35 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
   const handleTestEmailChange = (value: string) => {
     setTestEmail(value);
     setStoredTemplateTestEmail(value);
+  };
+
+  const updateContentBlock = (key: string, field: 'body_html' | 'body_text', value: string) => {
+    const block = contentBlocks.find((item) => item.key === key);
+    if (!block) return;
+    setFormData((current) => ({ ...current, content_blocks_json: {
+      ...current.content_blocks_json,
+      [key]: {
+        body_html: current.content_blocks_json?.[key]?.body_html ?? block.body_html,
+        body_text: current.content_blocks_json?.[key]?.body_text ?? block.body_text,
+        [field]: value,
+      },
+    } }));
+  };
+
+  const insertIntoContentBlock = (key: string, shortcode: string, field: 'body_html' | 'body_text') => {
+    const block = contentBlocks.find((item) => item.key === key);
+    if (!block) return;
+    const textarea = blockTextareaRefs.current[`${block.key}:${field}`];
+    const text = formData.content_blocks_json?.[block.key]?.[field] ?? block[field];
+    const start = textarea?.selectionStart ?? text.length;
+    const end = textarea?.selectionEnd ?? start;
+    updateContentBlock(block.key, field, text.slice(0, start) + shortcode + text.slice(end));
+    setActiveTab(field === 'body_html' ? 'html' : 'text');
+    setTimeout(() => {
+      const node = blockTextareaRefs.current[`${block.key}:${field}`];
+      node?.focus();
+      node?.setSelectionRange(start + shortcode.length, start + shortcode.length);
+    }, 0);
   };
 
   const insertShortcode = (shortcode: string) => {
@@ -393,7 +436,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
   // Editor tabs content (shared)
   const editorContent = (
     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'html' | 'text' | 'preview')} className="flex-1 min-h-0 flex flex-col">
-      <div className="border-b px-3 sm:px-6 py-2 sm:py-3 bg-muted/30">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 sm:px-6 py-2 sm:py-3 bg-muted/30">
         <TabsList>
           <TabsTrigger value="html" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
             <Code className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -407,13 +450,21 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
             Preview
           </TabsTrigger>
         </TabsList>
+        {contentBlocks.length > 0 && activeTab !== 'preview' && (
+          <Button variant="ghost" size="sm" aria-pressed={advancedWrapper} onClick={() => setAdvancedWrapper(!advancedWrapper)}>
+            {advancedWrapper ? 'Edit message sections' : 'Advanced wrapper'}
+          </Button>
+        )}
       </div>
 
       <TabsContent value="html" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
+        {editingBlocks ? <TemplateContentBlocksEditor blocks={contentBlocks} overrides={formData.content_blocks_json} format="html"
+          onChange={updateContentBlock} onInsert={insertIntoContentBlock}
+          setTextareaRef={(key, field, node) => { blockTextareaRefs.current[`${key}:${field}`] = node; }} /> : <>
         <TemplateLiveContentHelp variables={template?.variables_json} format="html" content={formData.body_html} onInsert={insertShortcode} />
         <p id="email-content-help" className="mb-3 text-xs text-muted-foreground">
-          Edit the message content here. The logo, illustration, light/dark colors, and footer are added automatically.
-          A pasted complete email is reduced to its message content when saved.
+          {advancedWrapper ? 'This controls where the message sections appear. Use Edit message sections to change their wording.' :
+            'Edit the message content here. The logo, illustration, light/dark colors, and footer are added automatically. A pasted complete email is reduced to its message content when saved.'}
         </p>
         <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Insert email content section">
           <span className="text-xs text-muted-foreground">Add:</span>
@@ -432,9 +483,13 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           aria-describedby="email-content-help"
           className="font-mono text-sm min-h-[300px] sm:min-h-[500px] resize-none"
         />
+        </>}
       </TabsContent>
 
       <TabsContent value="text" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
+        {editingBlocks ? <TemplateContentBlocksEditor blocks={contentBlocks} overrides={formData.content_blocks_json} format="text"
+          onChange={updateContentBlock} onInsert={insertIntoContentBlock}
+          setTextareaRef={(key, field, node) => { blockTextareaRefs.current[`${key}:${field}`] = node; }} /> : <>
         <TemplateLiveContentHelp variables={template?.variables_json} format="text" content={formData.body_text} onInsert={insertShortcode} />
         <Textarea
           ref={textTextareaRef}
@@ -444,11 +499,12 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           aria-label="Email plain text content"
           className="min-h-[300px] sm:min-h-[500px] resize-none"
         />
+        </>}
       </TabsContent>
 
       <TabsContent value="preview" className="flex-1 min-h-0 m-0 overflow-hidden">
         <TemplateRenderedPreview
-          templateId={template?.id ?? null} draft={formData} enabled={open && activeTab === 'preview'}
+          templateId={template?.id ?? null} draft={draftData} enabled={open && activeTab === 'preview'}
           theme={previewTheme} viewport={previewViewport} onThemeChange={setPreviewTheme} onViewportChange={setPreviewViewport}
         />
       </TabsContent>
@@ -507,7 +563,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                 <ChevronDown className="h-3.5 w-3.5 mx-auto mb-0.5" />
                 Settings
               </button>
-              <button
+              {!editingBlocks && <button
                 onClick={() => setMobileSection('shortcodes')}
                 className={cn(
                   "flex-1 py-2 text-xs font-medium text-center transition-colors border-b-2",
@@ -516,7 +572,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               >
                 <Braces className="h-3.5 w-3.5 mx-auto mb-0.5" />
                 Shortcodes
-              </button>
+              </button>}
             </div>
 
             {/* Section Content */}
@@ -543,7 +599,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
             <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
               {editorContent}
             </div>
-            {activeTab !== 'preview' && (
+            {activeTab !== 'preview' && !editingBlocks && (
               <div className="w-72 shrink-0 min-h-0 border-l overflow-hidden">
                 <ShortcodePanel variables={template?.variables_json} onInsert={insertShortcode} />
               </div>

@@ -141,48 +141,92 @@ test('protected email edits persist and reopen with the override enabled', async
   }
 });
 
-test('live report blocks can be reinserted, saved, reopened, and rendered with sample rows', async ({ page }) => {
+for (const example of [
+  { slug: 'payout-digest', sentence: 'Please review these totals and approve any final adjustments so accounting can release payments on schedule.',
+    replacement: 'Please approve the reviewed totals by Friday so we can release payments on time.' },
+  { slug: 'system-client-email-verified', sentence: 'You can review and modify your notification preferences anytime in dashboard settings.',
+    replacement: 'Choose the account updates you want to receive in dashboard settings.' },
+]) {
+test(`${example.slug} actual message copy edits, saves, reopens and renders in HTML and text`, async ({ page }, testInfo) => {
   await loginForTemplateEditor(page);
   const listResponse = page.waitForResponse((response) =>
     /\/messaging\/templates\?/.test(response.url()) && response.request().method() === 'GET',
   );
   await page.goto('/messaging/email/templates');
   const templates: MessageTemplate[] = await (await listResponse).json();
-  const original = templates.find((template) => template.slug === 'payout-report');
-  expect(original, 'Seeded payout-report template is required').toBeTruthy();
+  const original = templates.find((template) => template.slug === example.slug);
+  expect(original, `Seeded ${example.slug} template is required`).toBeTruthy();
   if (!original) return;
-  const originalHtml = original.editable_body_html ?? original.body_html ?? '';
-  let edited = false;
+  const blocks = original.editable_content_blocks ?? [];
+  const block = blocks.find((item) => item.body_html.includes(example.sentence));
+  expect(block, 'The actual existing sentence must be editable, not hidden inside a whole-message shortcode').toBeTruthy();
+  if (!block) return;
+  const editedHtml = block.body_html.replace(example.sentence, example.replacement);
+  expect(block.body_text).toContain(example.sentence);
+  const editedText = block.body_text.replace(example.sentence, example.replacement);
+  const editedSubject = `${original.editable_subject ?? original.subject} — review`;
+  let restoreRequest: { url: string; authorization: string } | undefined;
   try {
     await page.getByPlaceholder('Search templates...').fill(original.name);
     await page.getByRole('heading', { name: original.name, exact: true }).click();
-    await expect(page.getByText('Live email content', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Included: payout report', exact: true })).toBeDisabled();
-    await expect(page.getByText('Automated email override', { exact: true })).not.toBeVisible();
-    await page.getByLabel('Email HTML content').fill('<p>Report introduction edited in the browser.</p>');
-    await page.getByRole('button', { name: 'Insert: payout report', exact: true }).click();
+    await expect(page.locator('[data-testid^="email-content-block-"]')).toHaveCount(blocks.length);
+    await expect(page.getByLabel('Email HTML content')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Advanced wrapper', exact: true })).toBeVisible();
+    const field = page.getByTestId(`email-content-block-${block.key}`).getByRole('textbox');
+    await expect(field).toHaveValue(block.body_html);
+    await field.fill(editedHtml);
+    await page.getByRole('tab', { name: 'Text', exact: true }).click();
+    await expect(page.locator('[data-testid^="email-content-block-"]')).toHaveCount(blocks.length);
+    await expect(field).toHaveValue(block.body_text);
+    await field.fill(editedText);
+    await page.getByLabel('Email Subject *').fill(editedSubject);
+    if (original.email_type) await page.getByRole('checkbox', { name: 'Use the saved subject and body for this automated email' }).check();
     const savedResponse = page.waitForResponse((response) =>
       response.url().endsWith(`/messaging/templates/${original.id}`) && response.request().method() === 'PUT',
     );
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     const response = await savedResponse;
     expect(response.ok()).toBeTruthy();
-    edited = true;
+    restoreRequest = { url: response.url(), authorization: response.request().headers().authorization };
+    const saved: MessageTemplate = await response.json();
+    expect(saved.content_blocks_json?.[block.key]).toEqual({ body_html: editedHtml, body_text: editedText });
+    expect(saved.body_html).toBe(original.body_html);
+    expect(saved.body_text).toBe(original.body_text);
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await page.getByRole('heading', { name: original.name, exact: true }).click();
-    await expect(page.getByLabel('Email HTML content')).toHaveValue(/\{\{payout_report_html\}\}/);
+    await expect(field).toHaveValue(editedHtml);
+    await expect(page.getByLabel('Email Subject *')).toHaveValue(editedSubject);
+    if (original.email_type) await expect(page.getByRole('checkbox', { name: 'Use the saved subject and body for this automated email' })).toBeChecked();
+    await field.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`${example.slug}-actual-copy-editor.png`), fullPage: true });
+    await page.getByRole('tab', { name: 'Text', exact: true }).click();
+    await expect(field).toHaveValue(editedText);
+    const previewReady = page.waitForResponse((previewResponse) =>
+      previewResponse.url().endsWith(`/messaging/templates/${original.id}/preview`) && previewResponse.request().method() === 'POST',
+    );
     await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+    const preview = await (await previewReady).json();
+    expect(preview.body_text ?? preview.text).toContain(example.replacement);
     const frame = page.frameLocator('iframe[title="Delivered email preview"]');
-    await expect(frame.getByText('Report introduction edited in the browser.', { exact: true })).toBeVisible();
-    await expect(frame.getByText('Preview example', { exact: true })).toBeVisible();
+    await expect(frame.getByText(example.replacement, { exact: true })).toBeVisible();
+    await expect(frame.getByText('Preview example', { exact: true })).not.toBeVisible();
+    await expect(frame.locator('img.email-logo-universal')).toHaveCount(2);
+    await expect.poll(() => frame.locator('img.email-logo-universal').evaluateAll((images) => images.every((image) =>
+      image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0 && image.src.endsWith('/images/repro-email-logo-grey.png'),
+    ))).toBe(true);
+    await frame.getByText(example.replacement, { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`${example.slug}-actual-copy-preview.png`), fullPage: true });
   } finally {
-    if (edited) {
-      await page.goto('/messaging/email/templates');
-      await page.getByPlaceholder('Search templates...').fill(original.name);
-      await page.getByRole('heading', { name: original.name, exact: true }).click();
-      await page.getByLabel('Email HTML content').fill(originalHtml);
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(page.getByRole('dialog')).not.toBeVisible();
+    if (restoreRequest) {
+      const restored = await page.request.put(restoreRequest.url, {
+        headers: { Authorization: restoreRequest.authorization },
+        data: { channel: original.channel, name: original.name, category: original.category, scope: original.scope,
+          subject: original.subject, body_html: original.body_html, body_text: original.body_text,
+          email_type: original.email_type, override_enabled: original.override_enabled,
+          content_blocks_json: original.content_blocks_json ?? null },
+      });
+      expect(restored.ok(), 'Original synthetic template content and settings must be restored').toBeTruthy();
     }
   }
 });
+}

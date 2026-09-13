@@ -7,6 +7,7 @@ const draft: TemplateDraft = {
   channel: 'EMAIL', name: 'Payment review', subject: 'Payment received for review',
   body_html: '<p>{{payment_amount}}</p>', body_text: '{{payment_amount}}',
   scope: 'SYSTEM', email_type: 'OFFLINE_PAYMENT_INTENT_SUBMITTED', override_enabled: true,
+  content_blocks_json: { payment_review: { body_html: '<p>We are reviewing your payment.</p>', body_text: 'We are reviewing your payment.' } },
 };
 
 describe('template preview API contract', () => {

@@ -153,6 +153,70 @@ describe('TemplateEditorDialog delivered preview and persistence', () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { slug: 'payout-digest', token: 'payout_digest', emailType: null, subject: 'Weekly Payout Approvals Digest',
+      sentence: 'Please review these totals and approve any final adjustments so accounting can release payments on schedule.',
+      replacement: 'Please approve the reviewed totals by Friday so we can release payments on time.' },
+    { slug: 'system-client-email-verified', token: 'system_body', emailType: 'CLIENT_EMAIL_VERIFIED', subject: 'Your Email Is Verified',
+      sentence: 'You can review and modify your notification preferences anytime in dashboard settings.',
+      replacement: 'Choose the account updates you want to receive in dashboard settings.' },
+  ])('edits actual $slug copy in HTML and text and reopens the saved wording', async (example) => {
+    const block = { key: 'canonical-follow-up', label: 'Follow-up', body_html: `<p>${example.sentence}</p>`, body_text: example.sentence };
+    const unchangedBlock = { key: 'canonical-details', label: 'Details', body_html: '<p>{{recipient_name}}</p>', body_text: '{{recipient_name}}', variables_json: ['recipient_name'] };
+    const priorOverrides = { [unchangedBlock.key]: { body_html: unchangedBlock.body_html, body_text: unchangedBlock.body_text } };
+    const original: MessageTemplate = { ...template, slug: example.slug, email_type: example.emailType,
+      subject: '{{system_subject}}', editable_subject: example.subject,
+      body_html: `{{${example.token}_html}}`, body_text: `{{${example.token}_text}}`,
+      editable_content_blocks: [block, unchangedBlock], content_blocks_json: priorOverrides };
+    const result = setup(original);
+    expect(screen.getByLabelText('Email Subject *')).toHaveValue(example.subject);
+    expect(screen.queryByLabelText('Email HTML content')).not.toBeInTheDocument();
+    const html = screen.getByLabelText<HTMLTextAreaElement>('Follow-up HTML content');
+    expect(html.value).toContain(example.sentence);
+    expect(html.value).not.toContain(`{{${example.token}_html}}`);
+    const editedHtml = html.value.replace(example.sentence, example.replacement);
+    fireEvent.change(html, { target: { value: editedHtml } });
+    tab('Text');
+    expect(screen.getByLabelText('Follow-up plain text content')).toHaveValue(example.sentence);
+    fireEvent.change(screen.getByLabelText('Follow-up plain text content'), { target: { value: example.replacement } });
+    const overrides = { ...priorOverrides, [block.key]: { body_html: editedHtml, body_text: example.replacement } };
+    const saved: MessageTemplate = { ...original,
+      content_blocks_json: overrides, editable_content_blocks: [{ ...block, ...overrides[block.key] }, unchangedBlock] };
+    mocks.update.mockResolvedValue(saved);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(result.onSuccess).toHaveBeenCalledWith(saved));
+    expect(mocks.update).toHaveBeenCalledWith(original.id, expect.objectContaining({
+      subject: original.subject, body_html: original.body_html, body_text: original.body_text, content_blocks_json: overrides,
+    }));
+    result.reopen(saved);
+    expect(screen.getByLabelText('Follow-up HTML content')).toHaveValue(editedHtml);
+    expect(screen.getByLabelText('Details HTML content')).toHaveValue(unchangedBlock.body_html);
+    tab('Text');
+    expect(screen.getByLabelText('Follow-up plain text content')).toHaveValue(example.replacement);
+    tab('Preview');
+    await screen.findByTitle('Delivered email preview');
+    expect(mocks.preview).toHaveBeenLastCalledWith(original.id, undefined, expect.objectContaining({
+      template: expect.objectContaining({ subject: original.subject, body_html: original.body_html, body_text: original.body_text, content_blocks_json: overrides }),
+    }));
+  });
+
+  it('keeps scoped fields inside their own section and retains block edits when opening the advanced wrapper', () => {
+    const blocks = [
+      { key: 'first-row', label: 'First row', body_html: '<p>First</p>', body_text: 'First', variables_json: ['row_name'] },
+      { key: 'second-row', label: 'Second row', body_html: '<p>Second</p>', body_text: 'Second', variables_json: ['row_amount'] },
+    ];
+    setup({ ...template, body_html: '{{system_body_html}}', editable_content_blocks: blocks });
+    const first = screen.getByLabelText<HTMLTextAreaElement>('First row HTML content');
+    first.setSelectionRange(first.value.length, first.value.length);
+    fireEvent.click(screen.getByRole('button', { name: '{{row_name}}' }));
+    expect(first.value).toBe('<p>First</p>{{row_name}}');
+    expect(screen.getByLabelText('Second row HTML content')).toHaveValue('<p>Second</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced wrapper' }));
+    expect(screen.getByLabelText('Email HTML content')).toHaveValue('{{system_body_html}}');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit message sections' }));
+    expect(screen.getByLabelText('First row HTML content')).toHaveValue('<p>First</p>{{row_name}}');
+  });
+
   it('inserts a content section at the cursor without introducing an email frame', () => {
     setup();
     const html = screen.getByLabelText<HTMLTextAreaElement>('Email HTML content');

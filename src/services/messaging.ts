@@ -112,7 +112,7 @@ export const previewTemplate = async (
 
 export type TemplateDraft = Pick<MessageTemplate,
   'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'
-> & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json'>>;
+> & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json' | 'content_blocks_json'>>;
 
 // Manual shoot notifications (Req 12.1, 12.5, 12.6, 12.7, 12.8)
 //

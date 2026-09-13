@@ -15,9 +15,9 @@ export function TemplateLiveContentHelp({ variables, format, content, onInsert }
 
   return (
     <div className="mb-3 rounded-lg border bg-muted/30 p-3">
-      <p className="text-sm font-medium">Live email content</p>
+      <p className="text-sm font-medium">Dynamic details</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Keep these shortcodes to include live details and report rows. Preview examples use fictional data.
+        Edit the message wording directly. These fields add the current rows and details when the email is sent.
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {blocks.map((name) => (

@@ -59,7 +59,7 @@ export function TemplateRenderedPreview({ templateId, draft, enabled, theme, vie
       </div>
       <div className="min-h-0 flex-1 overflow-auto bg-muted/40 py-3 sm:p-6">
         <p className="mx-3 mb-3 text-xs text-muted-foreground sm:mx-0">
-          Current draft rendered by the same server flow used for sending. Sample values replace shortcodes.
+          Your current message, rendered as an email. Sample recipient and event data fill the dynamic fields.
         </p>
         {preview.data?.subject && !isUpdating && (
           <p className="mx-3 mb-3 break-words text-sm sm:mx-0"><strong>Subject:</strong> {preview.data.subject}</p>
