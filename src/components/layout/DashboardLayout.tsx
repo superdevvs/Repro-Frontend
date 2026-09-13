@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { PageTransition } from './PageTransition';
+import { PageLoadingBoundary } from './PageLoadingBoundary';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import MobileMenu from './MobileMenu';
@@ -87,6 +88,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
+            <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`}>
             <main className={`flex-1 min-w-0 min-h-0 ${isStudioWorkspace ? 'overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={isStudioWorkspace ? 'flex h-full min-h-0 flex-col' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>{children || <Outlet />}</EmailVerificationNotice>
@@ -110,6 +112,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
                 </footer>
               )}
             </main>
+            </PageLoadingBoundary>
           </ErrorBoundary>
           {useCompactShell && <MobileMenu />}
         </div>

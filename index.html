@@ -38,7 +38,8 @@
     <style>
       .boot-loader { min-height: 100dvh; display: grid; place-items: center; background: #f8fafc; }
       .dark .boot-loader { background: #060a0e; }
-      .boot-loader img { display: block; width: 96px; height: 96px; }
+      .boot-loader img { display: block; width: 112px; height: 112px; }
+      @media (min-width: 640px) { .boot-loader img { width: 144px; height: 144px; } }
       body:has(.boot-loader) { margin: 0; }
     </style>
   </head>

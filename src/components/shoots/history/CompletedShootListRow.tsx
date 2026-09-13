@@ -32,7 +32,7 @@ import {
   resolveShootThumbnail,
 } from './shootHistoryUtils'
 import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, ChevronRight, Clock, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, PauseCircle, Send, Star, Trash2, User, X, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots'
 
 const getServiceLabel = (service: unknown): string => {

@@ -1,6 +1,7 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Briefcase, Camera, Crown, RotateCcw, Save, Scissors, Search, Shield, User, UserCog } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -75,6 +76,7 @@ export function PermissionsManager() {
   const [activeRole, setActiveRole] = useState('admin');
   const [searchValue, setSearchValue] = useState('');
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

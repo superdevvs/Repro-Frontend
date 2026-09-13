@@ -13,7 +13,7 @@ import { toast } from "@/lib/sonner-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Facebook, Linkedin, Twitter } from "lucide-react";
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";

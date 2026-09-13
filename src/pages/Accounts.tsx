@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AccountCard } from "@/components/accounts/AccountCard";
@@ -34,7 +35,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { UsersIcon, PlusCircle, Search } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Input } from '@/components/ui/input';
 import { ClientDetails } from '@/components/clients/ClientDetails';
 import { ClientForm } from '@/components/clients/ClientForm';
@@ -176,7 +177,8 @@ export default function Accounts() {
     setClientsData
   });
 
-  const { shoots } = useShoots();
+  const { shoots, isInitialLoading: shootsLoading } = useShoots();
+  usePageLoading(loading || shootsLoading);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionExpiredRef = useRef(false);

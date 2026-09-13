@@ -1,6 +1,7 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useEffect, useState } from 'react';
 import { Box, Boxes, ExternalLink, HomeIcon } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const statusLabels: Record<TourProviderSummary['status'], string> = {
 
 export function ToursSection({ onOpenSettings }: ToursSectionProps) {
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [iguideConfigured, setIguideConfigured] = useState(false);
   const [iguideEnabled, setIguideEnabled] = useState(false);
 

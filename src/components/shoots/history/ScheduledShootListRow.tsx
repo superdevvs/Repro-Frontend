@@ -25,7 +25,7 @@ import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
 import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
 import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, Clock, CloudSun, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, MoreHorizontal, PauseCircle, Send, Trash2, User, X, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots'
 // Payment Button Component for Super Admin
 const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoice?: (shoot: ShootData) => void }) => {

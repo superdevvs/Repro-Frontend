@@ -1,5 +1,4 @@
 import React from 'react';
-import { BrandLoader } from '@/components/ui/brand-loader';
 
 interface HorizontalLoaderProps {
   message?: string;
@@ -9,8 +8,8 @@ interface HorizontalLoaderProps {
 export function HorizontalLoader({ message, className = '' }: HorizontalLoaderProps) {
   return (
     <div className={`py-3 ${className}`}>
-      <div className="flex justify-center">
-        <BrandLoader className="h-8 w-8" />
+      <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+        <div className="h-full w-1/3 rounded-full bg-primary/80 motion-safe:animate-pulse" />
       </div>
       {message && (
         <div className="mt-2 text-xs text-muted-foreground">{message}</div>

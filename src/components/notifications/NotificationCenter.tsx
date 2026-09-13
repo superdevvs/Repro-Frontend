@@ -21,7 +21,7 @@ import { API_BASE_URL } from "@/config/env";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { BellIcon, CheckIcon, CameraIcon, ClockIcon, MessageSquare, CalendarPlus, CalendarCheck, Play, CheckCircle2, XCircle, PauseCircle, Pencil, Eye, DollarSign, Upload, AlertCircle, Send, RefreshCw } from "lucide-react";
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';

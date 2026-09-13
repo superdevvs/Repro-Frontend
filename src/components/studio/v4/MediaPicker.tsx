@@ -1,7 +1,7 @@
 import { StudioImage } from './StudioImage';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, FolderOpen, ImagePlus, Search, UploadCloud, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

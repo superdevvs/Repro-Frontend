@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { UserData, type UserRole } from '@/types/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AlertCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import axios from 'axios';
 import { Logo } from '@/components/layout/Logo';
 import { Eye, EyeOff } from 'lucide-react';

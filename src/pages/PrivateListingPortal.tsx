@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -67,6 +68,7 @@ const PrivateListingPortal = () => {
   const { role } = useAuth();
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
   const [compactMap, setCompactMap] = useState(false);

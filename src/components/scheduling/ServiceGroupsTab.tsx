@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import { useServiceGroups } from '@/hooks/useServiceGroups';
 import { useServices } from '@/hooks/useServices';
 import API_ROUTES from '@/lib/api';
 import { AlertCircle, Pencil, Plus, RefreshCcw, Trash2, Users2, Wrench } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { Client } from '@/types/clients';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 
@@ -254,6 +255,7 @@ export function ServiceGroupsTab() {
   };
 
   const loading = groupsLoading || servicesLoading || clientsLoading;
+  usePageLoading(loading);
   const activeGroupsCount = groups.filter((group) => group.is_active).length;
   const assignedClientsCount = groups.reduce((count, group) => count + group.client_count, 0);
   const selectedServiceCount = formState.service_ids.length;

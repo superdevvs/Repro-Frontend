@@ -4,7 +4,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { TimeSelect } from '@/components/ui/time-select';
 import { format } from 'date-fns';
 import { AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';

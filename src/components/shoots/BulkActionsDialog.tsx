@@ -20,7 +20,7 @@ import type { ShootData } from '@/types/shoots';
 import { formatWorkflowStatus } from '@/utils/status';
 import { apiClient } from '@/services/api';
 import { AlertCircle, CheckCircle2, CreditCard, DollarSign, Edit3, Eye, ImageIcon, Sparkles, Trash2 } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';

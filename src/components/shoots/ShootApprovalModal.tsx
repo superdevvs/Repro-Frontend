@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, ShieldCheck, ShieldAlert, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';

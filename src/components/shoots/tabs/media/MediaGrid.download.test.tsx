@@ -16,15 +16,17 @@ const props = {
 afterEach(cleanup);
 
 describe('media grid file download buttons', () => {
-  it.each(['grid', 'list'] as const)('keeps only the active %s file disabled with an inside-button RE loader', (viewMode) => {
+  it.each(['grid', 'list'] as const)('keeps only the active %s file disabled with a compact spinner inside its button', (viewMode) => {
     const onDownloadSingle = vi.fn();
     const { rerender } = render(<MediaGrid {...props} viewMode={viewMode} onDownloadSingle={onDownloadSingle} downloadingFileIds={new Set(['a'])} />);
     const buttons = screen.getAllByRole('button', { name: 'Download image' });
     expect(buttons).toHaveLength(2);
     expect(buttons[0].getAttribute('aria-busy')).toBe('true');
     expect((buttons[0] as HTMLButtonElement).disabled).toBe(true);
-    expect(buttons[0].querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
+    expect(buttons[0].querySelector('svg.animate-spin')).not.toBeNull();
+    expect(buttons[0].querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     expect((buttons[1] as HTMLButtonElement).disabled).toBe(false);
+    expect(buttons[1].querySelector('svg.animate-spin')).toBeNull();
     fireEvent.click(buttons[0]);
     fireEvent.click(buttons[1]);
     expect(onDownloadSingle).toHaveBeenCalledTimes(1);
@@ -33,6 +35,7 @@ describe('media grid file download buttons', () => {
     const readyButton = screen.getAllByRole('button', { name: 'Download image' })[0];
     expect(readyButton.getAttribute('aria-busy')).toBe('false');
     expect((readyButton as HTMLButtonElement).disabled).toBe(false);
+    expect(readyButton.querySelector('svg.animate-spin')).toBeNull();
     expect(readyButton.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
   });
 

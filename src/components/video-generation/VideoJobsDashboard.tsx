@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Clock, Play, Film } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useVideoJobs, useCancelVideoJob } from '@/hooks/useVideoGeneration';
 import { VideoPreviewDialog } from './VideoPreviewDialog';
 import type { VideoGenerationJob } from '@/services/higgsFieldService';

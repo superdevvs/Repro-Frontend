@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
 import { CreditCard } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { PendingPaymentIntentsCard } from '@/components/payments/PendingPaymentIntentsCard';
 import { calculateDiscountAmount } from '@/utils/pricing';
 

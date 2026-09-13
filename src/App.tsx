@@ -1,4 +1,5 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
+import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { Suspense, lazy, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion';
@@ -111,12 +112,13 @@ const queryClient = new QueryClient({
 });
 
 const FullScreenSpinner = () => (
-  <div className="flex items-center justify-center h-screen bg-background">
-    <BrandLoader className="h-12 w-12" />
+  <div className="relative h-screen h-dvh bg-background">
+    <PageLoadingOverlay />
   </div>
 );
 
 const DashboardRouteFallback = () => {
+  usePageLoading(true);
   const location = useLocation();
 
   if (location.pathname === '/chat-with-reproai') {

@@ -13,7 +13,7 @@ import { AvatarPicker } from '@/components/profile/AvatarPicker';
 import { FileUploadModal } from '@/components/accounts/FileUploadModal';
 import { STATE_OPTIONS } from '@/utils/stateUtils';
 import { Upload, FileText, X, Camera, MapPin, Plus, Wrench } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Slider } from '@/components/ui/slider';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';

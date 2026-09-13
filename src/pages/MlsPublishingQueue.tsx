@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -24,7 +25,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { RefreshCw, Eye, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,7 @@ const MlsPublishingQueue = () => {
   const { toast } = useToast();
   const [queueItems, setQueueItems] = useState<MlsQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [selectedItem, setSelectedItem] = useState<MlsQueueItem | null>(null);
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false);
   const [retryingId, setRetryingId] = useState<number | null>(null);

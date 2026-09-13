@@ -1,4 +1,5 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { usePageLoading } from '@/hooks/use-page-loading';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/sonner-toast';
@@ -141,6 +142,8 @@ export default function EmailRecovery() {
     placeholderData: (prev) => prev,
   });
 
+  usePageLoading(isLoading);
+
   const deliveries = data?.data ?? [];
 
   const replayableSelected = useMemo(() => {
@@ -249,7 +252,7 @@ export default function EmailRecovery() {
                   onClick={() => refetch()}
                   disabled={isFetching}
                 >
-                  {isFetching ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                  {isFetching ? <InlineSpinner aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
                   Refresh
                 </Button>
                 <Button

@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AreaChart, BarChart, LineChart, DonutChart } from '@/components/charts';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Eye, BarChart3, PieChart, LineChart as LineChartIcon, Search, UploadCloud, Plus, Edit, Receipt, Trash2 } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { openAccountingExpenseReceipt } from '@/services/accountingExpenseService';
 import type { RevenueChartsProps } from './revenueChartsTypes';

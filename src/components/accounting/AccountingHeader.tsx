@@ -3,7 +3,7 @@ import React from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, MoreVertical } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { SegmentedDays } from './OverviewCards';
 import {
   DropdownMenu,

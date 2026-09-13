@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Image as ImageIcon, AlertCircle, FileImage } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { isRawFile } from '@/services/rawPreviewService';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';

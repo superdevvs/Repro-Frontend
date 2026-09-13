@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -274,6 +275,8 @@ const ShootHistory: React.FC = () => {
     formatDatePref,
     formatTime,
   })
+
+  usePageLoading(loading);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id')

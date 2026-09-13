@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -29,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { sendAiMessage, fetchAiSessions, fetchAiSessionMessages, deleteAiSession, archiveAiSession } from '@/services/aiService';
 import type { AiActionPayload, AiChatRequest, AiMessage, AiChatSession } from '@/types/ai';
 import { ImageIcon, FileText, Code, Link as LinkIcon, FileIcon, Mic, Send, Search, MessageSquare, Plus, Clock, MoreVertical, Trash2, Archive, ArrowLeft, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { toast } from '@/components/ui/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -104,6 +105,8 @@ const ChatWithReproAi = () => {
     topTopic: 'general',
   });
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  usePageLoading(isLoadingSessions);
+
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [currentSuggestions, setCurrentSuggestions] = useState<string[]>([]);
   const [activeCardIndex, setActiveCardIndex] = useState(0);

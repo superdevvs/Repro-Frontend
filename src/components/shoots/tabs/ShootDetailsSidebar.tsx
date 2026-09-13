@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Phone, Building, Camera, DollarSign, CheckCircle, Circle, ChevronRight, FileText, Search, ArrowUpDown, MapPin, Send } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import type { InvoiceData } from '@/types/invoice';

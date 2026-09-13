@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CheckCircle, XCircle, Clock, AlertTriangle, DollarSign, Calendar, User, FileText } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   WeeklyInvoice,
   fetchPendingApprovalInvoices,

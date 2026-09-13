@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { BrandLoader } from "@/components/ui/brand-loader";
+import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
@@ -395,7 +395,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
         ) : (
           <>
             {isLoading ? (
-              <BrandLoader className="h-4 w-4" />
+              <InlineSpinner className="h-4 w-4" />
             ) : (
               <span
                 className={cn("shrink-0 inline-block h-2 w-2 rounded-full", meta.dotClass)}

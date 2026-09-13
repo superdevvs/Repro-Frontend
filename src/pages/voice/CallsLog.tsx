@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Headphones, PhoneForwarded } from 'lucide-react';
 import { useState } from 'react';
@@ -25,6 +26,8 @@ export default function CallsLog() {
     queryKey: ['voice-calls', filter],
     queryFn: () => getVoiceCalls({ per_page: 50, filter: filter || undefined }),
   });
+  usePageLoading(calls.isLoading);
+
   const pageStaff = useMutation({
     mutationFn: (call: VoiceCall) => pageVoiceCallStaff(call.id, 'Requested from Calls UI'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['voice-calls'] }),

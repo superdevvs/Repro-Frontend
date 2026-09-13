@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, Upload, Image as ImageIcon, AlertTriangle, Star, Trash2, Flag } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { RawImagePreview } from '@/components/media/RawImagePreview';
 import { useAuth } from '@/components/auth';
 import { useToast } from '@/hooks/use-toast';

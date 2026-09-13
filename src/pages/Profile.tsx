@@ -1,4 +1,4 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth';
@@ -20,7 +20,7 @@ const Profile = () => {
       <DashboardLayout>
         <div className="px-2 pt-3 pb-3 sm:p-6">
           <div className="flex justify-center items-center h-64">
-            <BrandLoader className="h-12 w-12" />
+            <InlineSpinner className="h-12 w-12" />
           </div>
         </div>
       </DashboardLayout>

@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { User } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";

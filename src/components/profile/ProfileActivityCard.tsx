@@ -1,7 +1,8 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useCallback, useEffect, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Activity, Clock3, RefreshCw } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ const ActivityRow = ({ activity }: { activity: ProfileActivity }) => {
 export function ProfileActivityCard() {
   const [activities, setActivities] = useState<ProfileActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  usePageLoading(isLoading);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 

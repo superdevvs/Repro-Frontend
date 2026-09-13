@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import { Bot, Send, Settings2, Sparkles, Shield, Check, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
@@ -69,6 +70,7 @@ const AVAILABLE_MODELS = [
 export function RobbieSettings() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [saving, setSaving] = useState(false);
   const [settingsData, setSettingsData] = useState<RobbieSettingsData | null>(null);
   const [selectedScope, setSelectedScope] = useState<'global' | string>('global');

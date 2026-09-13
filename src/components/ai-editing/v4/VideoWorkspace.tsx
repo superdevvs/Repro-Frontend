@@ -1,7 +1,7 @@
 import { StudioImage } from '@/components/studio/v4/StudioImage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Check, ChevronLeft, Download, Play, RefreshCw, Settings2, Share2, Sparkles } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import type { StudioRatio, V4Config, V4Frame, V4Media, V4WorkspaceProps } from '@/components/studio/v4/types';
 import { EditorShell, InspectorFact, InspectorSection, MediaFilmstrip } from './EditorShell';

@@ -1,7 +1,7 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { AlertTriangle, CalendarRange, CheckCircle2, ChevronRight, Clock3, DollarSign, Download, FileText, MessageSquareMore, RefreshCw, Search, User2 } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { Badge } from '@/components/ui/badge';

@@ -1,6 +1,7 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { addEdge, type Connection, type EdgeChange, type NodeChange, type NodeTypes, type ReactFlowInstance, type Viewport, useEdgesState, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -87,6 +88,8 @@ export default function AutomationWorkflowEditor() {
     queryKey: ['automation-email-settings'],
     queryFn: getEmailSettings,
   });
+
+  usePageLoading(automationQuery.isLoading || templatesQuery.isLoading || emailSettingsQuery.isLoading);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Partial<AutomationRule>) => {

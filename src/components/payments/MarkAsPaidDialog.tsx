@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import type { PaymentDetailMap, PaymentDetails } from '@/utils/paymentUtils';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';

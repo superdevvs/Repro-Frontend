@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, MapPin, User, Calendar } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 

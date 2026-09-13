@@ -1,7 +1,8 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { CheckCircle2, Copy, Download, KeyRound, Laptop2, LogOut, RefreshCw, Settings, ShieldCheck, TriangleAlert } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,7 @@ export function ProfileSecurityCard() {
   const { saveProfile } = useSelfProfileSave();
   const [status, setStatus] = useState<ProfileSecurityStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  usePageLoading(isLoading);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [passwordOpen, setPasswordOpen] = useState(false);

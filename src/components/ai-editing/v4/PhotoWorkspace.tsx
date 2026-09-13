@@ -1,7 +1,7 @@
 import { StudioImage } from '@/components/studio/v4/StudioImage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Download, Grid2X2, Maximize2, RefreshCw, ScanSearch, Share2, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';

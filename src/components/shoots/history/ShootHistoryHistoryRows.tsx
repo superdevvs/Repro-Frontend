@@ -7,7 +7,7 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatCurrency, getShootStatusBadgeClass } from './shootHistoryUtils'
 import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket'
 import { Building2, Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, Clock, CreditCard, DollarSign, Edit, FileText, Layers, Mail, MapPin, Phone, Send, Trash2, User, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 
 export const HistoryRow = memo(({

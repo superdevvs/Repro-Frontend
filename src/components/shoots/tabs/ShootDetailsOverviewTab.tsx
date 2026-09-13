@@ -23,7 +23,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CalendarIcon, ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { format, isValid, parse } from 'date-fns';
 import axios from 'axios';
 import { ShootData } from '@/types/shoots';

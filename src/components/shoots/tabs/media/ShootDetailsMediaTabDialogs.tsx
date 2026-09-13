@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShootRequestManager } from '../ShootRequestManager';
 import { MediaViewer } from './MediaViewer';
 import { Sparkles } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 export function ShootDetailsMediaTabDialogs(props: any) {
   const {

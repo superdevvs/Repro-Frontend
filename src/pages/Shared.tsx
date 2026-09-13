@@ -1,4 +1,5 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { usePageLoading } from '@/hooks/use-page-loading';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -124,6 +125,8 @@ export default function Shared() {
     retry: 1,
   });
 
+  usePageLoading(visibility.loading || clientsQuery.isLoading || sharedQuery.isLoading);
+
   const enabledCategories = useMemo(
     () => SHARE_OPTIONS.filter((option) => sharedQuery.data?.link.sharedDetails[option.key]),
     [sharedQuery.data],
@@ -190,7 +193,7 @@ export default function Shared() {
                   }
                 }}
               >
-                {sharedQuery.isFetching || clientsQuery.isFetching ? <BrandLoader aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                {sharedQuery.isFetching || clientsQuery.isFetching ? <InlineSpinner aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
               </Button>
             </div>

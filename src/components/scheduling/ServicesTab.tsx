@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Save, Edit, Trash2, MoreVertical } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ServiceCard } from './ServiceCard';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
@@ -200,6 +201,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const isPercentPay = newService.photographer_pay_type === 'percent';
   const { toast } = useToast();
   const { data: categoryData, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
+  usePageLoading(isLoading || categoriesLoading);
   const categories = React.useMemo(() => {
     const values: unknown = categoryData;
     return Array.isArray(values)

@@ -17,7 +17,7 @@ import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isPast, isSameDay } from 'date-fns';
 import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, MapPin } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn, getInitials } from '@/lib/utils';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';

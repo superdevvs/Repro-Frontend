@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
@@ -93,6 +94,7 @@ const Settings = () => {
   const storageKey = React.useCallback((key: string) => `client-${clientIdForStorage}-${key}`, [clientIdForStorage]);
   const [avatar, setAvatar] = React.useState(user?.avatar || '');
   const [brandLogo, setBrandLogo] = React.useState('');
+  const [brandingLoading, setBrandingLoading] = React.useState(false);
   const [brandBanner, setBrandBanner] = React.useState('');
   const [primaryColor, setPrimaryColor] = React.useState('#1a56db');
   const [secondaryColor, setSecondaryColor] = React.useState('#7e3af2');
@@ -192,6 +194,7 @@ const Settings = () => {
     // Load branding from API
     const userId = clientIdFromUrl || user?.id;
     if (userId) {
+      setBrandingLoading(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       axios.get(`${API_BASE_URL}/api/users/${userId}/branding`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -209,7 +212,8 @@ const Settings = () => {
         setLinkedinUrl(b?.linkedin_url ?? '');
         setInstagramUrl(b?.instagram_url ?? '');
         setShowMap(Boolean(b?.show_map));
-      }).catch((err) => console.error('Failed to load branding:', err));
+      }).catch((err) => console.error('Failed to load branding:', err))
+        .finally(() => setBrandingLoading(false));
     }
   }, [clientIdFromUrl, storageKey, user?.id]);
 
@@ -229,6 +233,7 @@ const Settings = () => {
   }, [user?.avatar, user?.bio, user?.company, user?.email, user?.name, user?.phone, user?.timezone]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
+  usePageLoading(activeTab === 'branding' && brandingLoading);
 
   React.useEffect(() => {
     const nextTab = getValidTab(searchParams.get('tab'));

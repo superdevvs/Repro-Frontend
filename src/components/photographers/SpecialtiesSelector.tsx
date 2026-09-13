@@ -5,7 +5,7 @@ import { FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/for
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { useServices, Service } from '@/hooks/useServices';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 // Schema now uses service IDs (strings) instead of names
 export const photographerFormSchema = z.object({

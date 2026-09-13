@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -40,6 +41,8 @@ export default function CallLiveCockpit() {
     queryFn: getVoiceLlmUsage,
     refetchInterval: 30000,
   });
+
+  usePageLoading(call.isLoading || usage.isLoading);
 
   // Fire the cockpit_opened intelligence trigger once.
   useEffect(() => {

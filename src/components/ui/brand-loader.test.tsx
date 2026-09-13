@@ -28,7 +28,7 @@ describe('BrandLoader', () => {
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('preserves scan retry behavior while replacing only its busy indicator', () => {
+  it('keeps small retry actions compact without using the RE page loader', () => {
     const onRetry = vi.fn();
     const { container, rerender } = render(<ScanStatusBadge status="failed" onRetry={onRetry} />);
     const retry = screen.getByRole('button', { name: 'Retry virus scan' });
@@ -40,7 +40,8 @@ describe('BrandLoader', () => {
     rerender(<ScanStatusBadge status="failed" onRetry={onRetry} isRetrying />);
     expect(retry).toBeDisabled();
     expect(screen.getByText('Retrying…')).toBeInTheDocument();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeInTheDocument();
+    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeInTheDocument();
+    expect(retry.querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
 

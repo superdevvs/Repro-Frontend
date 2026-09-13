@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CalendarIcon, CheckCircle, ChevronDown, ChevronUp, ClockIcon, MapPinIcon, PauseCircle, PlayCircle, Send, Upload } from "lucide-react";
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
 import { transformShootFromApi } from '@/context/shootNormalization';

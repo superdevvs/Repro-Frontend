@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -225,6 +226,7 @@ export default function CallsOverview() {
   const callbacks = useQuery({ queryKey: ['scheduled-voice-calls', 'overview'], queryFn: () => getScheduledVoiceCalls({ per_page: 6 }) });
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth, refetchInterval: 30000 });
+  usePageLoading(stats.isLoading || calls.isLoading || callbacks.isLoading || settings.isLoading || health.isLoading);
 
   const recentCalls = calls.data?.data ?? [];
   const selectedCall = recentCalls.find((call) => call.id === selectedCallId) ?? recentCalls[0] ?? null;

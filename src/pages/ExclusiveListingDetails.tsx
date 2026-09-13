@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -178,6 +179,7 @@ export default function ExclusiveListingDetails() {
 
   const [shoot, setShoot] = useState<ExclusiveListingShoot | null>(null);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
 
   const loadShoot = useCallback(async () => {

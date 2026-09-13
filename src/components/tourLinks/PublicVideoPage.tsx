@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { getStoredAuthToken } from '@/utils/authToken';
 import { Play } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { restrictedVideoProps } from './videoControlRestrictions';
 
 type VideoVariant = 'branded' | 'mls' | 'generic';

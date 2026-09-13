@@ -8,7 +8,7 @@ import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkA
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 import { RescheduleRequestsPanel } from '@/components/shoots/RescheduleRequestsPanel';
 import { PauseCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';

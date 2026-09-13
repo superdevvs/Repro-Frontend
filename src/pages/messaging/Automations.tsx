@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -259,6 +260,8 @@ export default function Automations() {
     queryKey: ['automations'],
     queryFn: () => getAutomations(),
   });
+
+  usePageLoading(isLoading);
 
   const deleteMutation = useMutation({
     mutationFn: deleteAutomation,

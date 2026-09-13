@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Plus, Save, Trash2 } from 'lucide-react';
@@ -25,6 +26,8 @@ export default function CallsSchedule() {
   const { toast } = useToast();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const overrides = useQuery({ queryKey: ['voice-schedule-overrides'], queryFn: getScheduleOverrides });
+  usePageLoading(settings.isLoading || overrides.isLoading);
+
   const [draft, setDraft] = useState<Partial<VoiceSettings>>({});
   const [newOverride, setNewOverride] = useState({ starts_at: '', ends_at: '', mode: 'closed' as 'open' | 'closed', label: '' });
 

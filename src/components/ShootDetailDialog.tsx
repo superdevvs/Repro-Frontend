@@ -9,7 +9,7 @@ import type { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { User, Camera, Building, DollarSign, List, Info, Clock, Calendar as CalendarIcon } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import type { StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';

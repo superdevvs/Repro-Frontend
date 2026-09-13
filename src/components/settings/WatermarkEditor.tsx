@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Image as ImageIcon, Type, Layers, RefreshCw, Check } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 const DEFAULT_LOGO_URL = `${API_BASE_URL.replace(/\/$/, '')}/images/REPRO-HQ.png`;
@@ -57,6 +58,7 @@ const textStyles = [
 export default function WatermarkEditor() {
   const [settings, setSettings] = useState<WatermarkSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);

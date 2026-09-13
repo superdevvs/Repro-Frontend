@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, List, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'

@@ -14,7 +14,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { cubicasaService, CreateOrderData, CubiCasaOrder } from '@/services/cubicasaService';
 import { useShoots } from '@/context/shootsContextState';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 interface ScanOrderFormProps {
   onOrderCreated: (order: CubiCasaOrder) => void;

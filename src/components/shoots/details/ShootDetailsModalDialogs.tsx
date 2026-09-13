@@ -19,7 +19,7 @@ import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
 import { AlertTriangle, PauseCircle, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { ShootDownloadCenterDialog } from './ShootDownloadCenterDialog';

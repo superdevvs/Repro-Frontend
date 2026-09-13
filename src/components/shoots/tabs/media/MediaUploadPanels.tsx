@@ -11,7 +11,7 @@ import { createUploadBatchId } from './mediaUploadUtils';
 import { mergeAcceptedShootFiles, normalizeShootMediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, Camera, Check, Cloud, Folder, HardDrive, ImageIcon, Images, Link, RefreshCcw, RefreshCw, Upload, UploadCloud } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 export interface UploadIssue {
   id: string;

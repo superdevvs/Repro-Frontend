@@ -1,6 +1,7 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ function ProviderSettingsForm() {
   const [apiKey, setApiKey] = useState('');
   const [teamId, setTeamId] = useState('');
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');

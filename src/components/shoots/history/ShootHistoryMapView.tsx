@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react'
 import { AlertTriangle, MapPin } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useTheme } from '@/hooks/useTheme'
 import { GoogleShootHistoryMap } from './GoogleShootHistoryMap'
 import type { MapMarker } from './shootHistoryUtils'

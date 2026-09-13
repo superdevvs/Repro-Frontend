@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PhoneCall } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,8 @@ import type { VoiceNumberConfig } from '@/types/voice';
 export default function CallsNumbers() {
   const queryClient = useQueryClient();
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
+  usePageLoading(numbers.isLoading);
+
   const update = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<VoiceNumberConfig> }) => updateVoiceNumber(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['voice-numbers'] }),

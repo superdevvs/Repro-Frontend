@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, MapPin, Users } from 'lucide-react';
@@ -95,6 +96,8 @@ export function ServiceAreaAssignmentTool() {
     queryKey: ['admin', 'photographers'],
     queryFn: listAdminPhotographers,
   });
+
+  usePageLoading(photographersQuery.isLoading);
 
   const matches: ServiceAreaPhotographer[] = previewQuery.data?.photographers ?? [];
 

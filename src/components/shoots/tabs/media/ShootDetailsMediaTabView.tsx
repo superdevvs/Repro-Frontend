@@ -11,7 +11,7 @@ import { MediaServiceSections } from './MediaServiceSections';
 import { IguideMediaPanel } from './IguideMediaPanel';
 import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Trash2, Upload, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
 import { canShowIguideMedia } from './iguideMediaVisibility';

@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, Download, RefreshCw, Plus } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { VerticalVariantSelector } from './VerticalVariantSelector';
 import { useVideoJobStatus, useSelectVariants, useRegenerateVariants } from '@/hooks/useVideoGeneration';

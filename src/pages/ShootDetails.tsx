@@ -1,8 +1,9 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient, getApiHeaders } from '@/services/api';
 import { ArrowLeft, Building, Calendar, Camera, CheckCircle, ChevronRight, Clock, Cloud, Copy, DollarSign, Download, ExternalLink, Image as ImageIcon, Layers, Mail, MapPin, MoreVertical, PauseCircle, Phone, Send, Share2, Upload, User } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -108,6 +109,8 @@ const ShootDetails: React.FC = () => {
     authRole: user?.role,
     userId: user?.id,
   });
+  usePageLoading(loading);
+
   const normalizedRole = role.toLowerCase();
   const isSuperAdmin = normalizedRole === 'superadmin';
   const isAdminOrSuperAdmin = isAdmin;

@@ -102,6 +102,7 @@ const shouldAutoFetchShootsForPath = (path: string) =>
 
 export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shoots, setShoots] = useState<ShootData[]>(getStoredShoots);
+  const [hydratedScope, setHydratedScope] = useState<string | null>(null);
   const [paginationMeta, setPaginationMeta] = useState<ShootsContextType['paginationMeta']>();
   const { user, logout, isImpersonating } = useAuth();
   const location = useLocation();
@@ -115,6 +116,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const clientName = user?.name;
   const clientCompany = user?.company;
   const clientEmail = user?.email;
+  const hydrationScope = clientUserId && clientRole ? `${clientUserId}:${clientRole}` : null;
+  const isInitialLoading = Boolean(
+    hydrationScope && shouldAutoFetchShootsForPath(location.pathname) && hydratedScope !== hydrationScope,
+  );
 
   // Keep locationRef in sync without triggering re-fetches
   useEffect(() => {
@@ -511,6 +516,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       autoFetchControllerRef.current?.abort();
       autoFetchControllerRef.current = null;
       autoFetchKeyRef.current = null;
+      setHydratedScope(null);
       return;
     }
     if (!shouldAutoFetchShootsForPath(location.pathname)) {
@@ -526,7 +532,14 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const controller = new AbortController();
     autoFetchControllerRef.current = controller;
     autoFetchKeyRef.current = autoFetchKey;
-    fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);
+    fetchShoots(controller.signal, 1, 25, { includeFiles: false })
+      .catch(() => undefined)
+      .finally(() => {
+        // A previous session's completion must not mark a new user's data ready.
+        if (!controller.signal.aborted && autoFetchKeyRef.current === autoFetchKey) {
+          setHydratedScope(autoFetchKey);
+        }
+      });
   }, [clientRole, clientUserId, fetchShoots, location.pathname]);
 
   useEffect(() => {
@@ -894,6 +907,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const contextValue = useMemo<ShootsContextType>(() => ({
       shoots,
+      isInitialLoading,
       addShoot,
       updateShoot,
       applyAlternateDate,
@@ -915,6 +929,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       getUniquePhotographers,
       paginationMeta,
       shoots,
+      isInitialLoading,
       updateShoot,
     ]);
 

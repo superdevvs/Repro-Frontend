@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Link2, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';

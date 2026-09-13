@@ -10,7 +10,7 @@ import { getDisplayMediaFilename, getMediaVideoPreviewUrl, getMediaVideoUrl } fr
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pause, Play, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getRequestStatusClassName, formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
 import type { useMediaViewerController } from './useMediaViewerController';
 import { MediaViewerPreviewSizeControls, MediaViewerZoomControls } from './MediaViewerControls';

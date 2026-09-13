@@ -1,5 +1,5 @@
 import { AlertTriangle, CalendarRange, CheckCircle2, Clock3, FileText, MessageSquareMore, User2 } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

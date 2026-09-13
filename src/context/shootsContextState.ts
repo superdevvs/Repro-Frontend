@@ -8,6 +8,7 @@ export type FetchShootsOptions = {
 
 export interface ShootsContextType {
   shoots: ShootData[];
+  isInitialLoading: boolean;
   addShoot: (shoot: ShootData) => void;
   updateShoot: (
     shootId: string,
@@ -64,4 +65,3 @@ export const useShoots = () => {
   }
   return context;
 };
-

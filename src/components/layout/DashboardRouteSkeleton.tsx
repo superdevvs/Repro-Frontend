@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { usePageLoading } from '@/hooks/use-page-loading';
+import { PageLoadingOverlay } from './PageLoadingOverlay';
 
 type DashboardRouteSkeletonProps = {
   pathname: string;
@@ -537,9 +538,12 @@ const RouteSkeletonContent = ({ pathname }: DashboardRouteSkeletonProps) => {
   return <PanelPageSkeleton />;
 };
 
-export const DashboardRouteSkeleton = (props: DashboardRouteSkeletonProps) => (
-  <div className="relative min-h-full">
-    <BrandLoader className="absolute right-4 top-4 z-10 h-8 w-8" label="Loading page" />
-    <RouteSkeletonContent {...props} />
-  </div>
-);
+export const DashboardRouteSkeleton = (props: DashboardRouteSkeletonProps) => {
+  const hasBoundary = usePageLoading(true);
+  return (
+    <div className="relative min-h-full">
+      <RouteSkeletonContent {...props} />
+      {!hasBoundary && <PageLoadingOverlay />}
+    </div>
+  );
+};

@@ -1,4 +1,4 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Badge } from "@/components/ui/badge";
@@ -284,7 +284,7 @@ export function MlsCompliant() {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="text-center">
-          <BrandLoader className="w-12 h-12 mx-auto mb-4" />
+          <InlineSpinner className="w-12 h-12 mx-auto mb-4" />
           <p className="text-muted-foreground">Loading property tour...</p>
         </div>
       </div>

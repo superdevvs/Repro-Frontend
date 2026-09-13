@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -81,6 +82,8 @@ const PhotographerAccount = () => {
   const isEquipmentVerificationLink = activeTab === 'equipments';
   const isWrongEquipmentVerificationAccount = isEquipmentVerificationLink
     && (user?.role !== 'photographer' || Boolean(expectedPhotographerId && String(user?.id) !== expectedPhotographerId));
+
+  usePageLoading(activeTab === 'equipments' && !isWrongEquipmentVerificationAccount && isEquipmentLoading);
 
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams);

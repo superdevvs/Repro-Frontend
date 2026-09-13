@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CalendarClock, PhoneForwarded, Plus, RefreshCw, Workflow, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,8 @@ export default function CallsAutomations() {
     queryKey: ['scheduled-voice-calls'],
     queryFn: () => getScheduledVoiceCalls({ per_page: 25 }),
   });
+  usePageLoading(settings.isLoading || scheduled.isLoading);
+
   const retry = useMutation({
     mutationFn: retryScheduledVoiceCall,
     onSuccess: () => {

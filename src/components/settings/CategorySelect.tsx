@@ -3,7 +3,7 @@ import React from 'react';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 interface CategorySelectProps {
   value: string;

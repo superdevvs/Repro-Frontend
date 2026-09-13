@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrandLoader } from '@/components/ui/brand-loader';
 
 interface CachedImageProps {
   src: string;
@@ -76,7 +75,7 @@ export function CachedImage({
   return (
     <>
       {isLoading && (
-        <div className={`absolute inset-0 flex items-center justify-center bg-muted ${className}`}><BrandLoader className="h-8 w-8" label="Loading image" /></div>
+        <div className={`absolute inset-0 bg-muted motion-safe:animate-pulse ${className}`} />
       )}
       <img
         ref={imgRef}

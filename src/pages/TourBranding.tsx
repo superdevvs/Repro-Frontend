@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -40,6 +41,7 @@ export default function TourBranding() {
   const { role } = useAuth();
   const [brandings, setBrandings] = useState<TourBranding[]>([]);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBranding, setEditingBranding] = useState<TourBranding | null>(null);
   const [formData, setFormData] = useState({

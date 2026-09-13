@@ -6,7 +6,6 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import { BrandLoader } from '@/components/ui/brand-loader';
 import { Clock3, ImageIcon, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -169,7 +168,13 @@ export function LiveQueue({
                       </div>
                       <div className="mt-3">
                         {progress.value === null ? (
-                          <BrandLoader aria-hidden="true" className="h-5 w-5" role="progressbar" aria-label="Progress unavailable" />
+                          <div
+                            className="h-1.5 overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            aria-label="Progress unavailable"
+                          >
+                            <div className="h-full w-1/3 motion-safe:animate-pulse rounded-full bg-primary" />
+                          </div>
                         ) : (
                           <Progress value={progress.value} aria-label={progress.label} className="h-1.5" />
                         )}

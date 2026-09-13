@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Camera, FileText, Plus, Wrench, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { equipmentStatusLabel } from '@/services/photographerEquipmentService';
 import { formatEquipmentMoney } from './accountFormModel';

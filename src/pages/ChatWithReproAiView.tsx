@@ -2,7 +2,7 @@ import { lazy, Suspense, type ChangeEventHandler, type Dispatch, type MouseEvent
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Archive, ArrowLeft, Clock, Code, FileIcon, FileText, Link as LinkIcon, MessageSquare, Mic, MoreVertical, Plus, Search, Send, Trash2, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';

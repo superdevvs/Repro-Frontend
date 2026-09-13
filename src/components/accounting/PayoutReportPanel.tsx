@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Download, DollarSign, Users, Camera, Briefcase, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import {
   PayoutReport,

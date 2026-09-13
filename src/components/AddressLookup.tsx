@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
-import { BrandLoader as Loader } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader } from '@/components/ui/inline-spinner';
 
 interface AddressSuggestion {
   place_id: string;

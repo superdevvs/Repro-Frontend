@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -132,6 +133,8 @@ export default function MessagingOverview() {
     queryKey: ['messaging-overview-sms-threads'],
     queryFn: () => getSmsThreads({ per_page: 5 }),
   });
+
+  usePageLoading(overviewLoading || emailMessagesLoading || smsThreadsLoading);
 
   const latestEmails = emailMessagesData?.data || [];
   const latestSmsThreads = smsThreadsData?.data || [];

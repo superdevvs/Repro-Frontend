@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -152,7 +153,7 @@ const LazyCancellationRequestsDialog = lazy(() =>
 const Dashboard = () => {
   const { role, session, user, isLoading: authLoading } = useAuth();
   const { can, isLoading: permissionsLoading } = usePermission();
-  const { shoots, fetchShoots } = useShoots();
+  const { shoots, fetchShoots, isInitialLoading: shootsLoading } = useShoots();
   const isMobile = useIsMobile();
   const isCompactDashboardViewport = useMediaQuery("(max-width: 1024px)");
   const isEditingManager = role === "editing_manager";
@@ -393,6 +394,13 @@ const Dashboard = () => {
     removeRequest,
     toast,
   });
+
+  usePageLoading(Boolean(
+    authLoading || permissionsLoading || shootsLoading || loading ||
+    (canLoadAvailability && availabilityLoading) ||
+    (shouldLoadEditingRequests && editingRequestsLoading) ||
+    (canViewDashboardClientRequests && clientRequestsLoading)
+  ));
 
   const openClientRequestManager = useCallback(() => {
     openModal(clientRequests);

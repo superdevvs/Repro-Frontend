@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cubicasaService } from '@/services/cubicasaService';
 import { Camera, Upload, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { toast } from '@/components/ui/use-toast';
 
 interface PhotoUploaderProps {

@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -17,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import { CheckCircle2, XCircle, Home, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -274,6 +275,8 @@ export const IntegrationsSettingsContent = () => {
   const [reproApiSettings, setReproApiSettings] = useState<ReproApiSettings>(normalizeReproApiSettings());
 
   const [saving, setSaving] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  usePageLoading(settingsLoading);
 
   // Load settings on mount
   useEffect(() => {
@@ -361,6 +364,8 @@ export const IntegrationsSettingsContent = () => {
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+    } finally {
+      setSettingsLoading(false);
     }
   };
 

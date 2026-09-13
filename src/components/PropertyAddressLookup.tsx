@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, CheckCircle, MapPin, AlertCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { usePropertyLookup, PropertyData, AddressSuggestion } from '@/hooks/usePropertyLookup';

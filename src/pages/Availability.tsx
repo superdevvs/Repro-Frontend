@@ -1,7 +1,8 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isToday, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { Ban, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { BrandLoader } from "@/components/ui/brand-loader";
+import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -128,7 +129,7 @@ export default function Availability() {
   // Data hook
   const {
     photographers,
-    loadingPhotographers,
+    loadingPhotographers, loading: availabilityLoading,
     backendSlots,
     allBackendSlots,
     photographerAvailabilityMap,
@@ -145,7 +146,7 @@ export default function Availability() {
     canManagePhotographerSelection,
     availabilitySessionScope,
   });
-
+  usePageLoading(loadingPhotographers || availabilityLoading);
   // Google Calendar hook
   const {
     googleCalendarStatus,
@@ -578,7 +579,7 @@ export default function Availability() {
           {loadingPhotographers && (
             <div className="py-3">
               <div className="flex justify-center">
-                <BrandLoader className="h-8 w-8" />
+                <InlineSpinner className="h-8 w-8" />
               </div>
               <div className="mt-2 text-xs text-muted-foreground">Loading photographers...</div>
             </div>

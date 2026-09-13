@@ -48,7 +48,7 @@ describe('Download Center loading buttons', () => {
     expect(result.current.isDownloading).toBe(false);
   });
 
-  it('retains choices and shows the RE loader only on the selected archive button, then enables retry after failure', async () => {
+  it('retains choices and shows a compact spinner only on the selected archive button, then enables retry after failure', async () => {
     let rejectArchive!: (reason: Error) => void;
     mocks.archive.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectArchive = reject; }));
     render(<DownloadCenter />);
@@ -60,14 +60,17 @@ describe('Download Center loading buttons', () => {
     expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({ address: '12 Oak Street, Austin, TX, 78701', size: 'original' }));
     expect(print).toBeInTheDocument();
     expect(print).toHaveAttribute('aria-busy', 'true');
-    expect(print.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
+    expect(print.querySelector('svg.animate-spin')).not.toBeNull();
+    expect(print.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     expect(mls).toBeDisabled();
+    expect(mls.querySelector('svg.animate-spin')).toBeNull();
     expect(mls.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('Preparing your full-size files');
     act(() => { mocks.archive.mock.calls[0][0].onDownloading(); });
     expect(screen.getByRole('status')).toHaveTextContent('Downloading your files...');
     await act(async () => { rejectArchive(new Error('Please retry.')); });
     await waitFor(() => expect(print).toBeEnabled());
+    expect(print.querySelector('svg.animate-spin')).toBeNull();
     expect(print.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     mocks.archive.mockResolvedValueOnce({ mode: 'blob', waited: false });
     fireEvent.click(mls);
@@ -75,7 +78,7 @@ describe('Download Center loading buttons', () => {
     await waitFor(() => expect(mls).toBeEnabled());
   });
 
-  it('keeps a file button showing the RE loader until the file download promise finishes', async () => {
+  it('keeps a file button showing a compact spinner until the file download promise finishes', async () => {
     let finish!: () => void;
     mocks.file.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
     render(<DownloadCenter />);
@@ -83,9 +86,11 @@ describe('Download Center loading buttons', () => {
     fireEvent.click(button);
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
+    expect(button.querySelector('svg.animate-spin')).not.toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     await act(async () => { finish(); });
     await waitFor(() => expect(button).toBeEnabled());
+    expect(button.querySelector('svg.animate-spin')).toBeNull();
     expect(mocks.file).toHaveBeenCalledWith({ shootId: '101', fileId: 'pdf-1' });
   });
 });

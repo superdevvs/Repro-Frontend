@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -136,7 +137,7 @@ const AccountingPage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
   const [daysWindow, setDaysWindow] = useState<number>(30);
-  const { shoots: contextShoots } = useShoots();
+  const { shoots: contextShoots, isInitialLoading: shootsLoading } = useShoots();
   const { data: services = [] } = useServices();
 
   // Get accounting mode based on role
@@ -147,6 +148,8 @@ const AccountingPage = () => {
     loading: clientBillingLoading,
     error: clientBillingError,
   } = useClientBilling();
+
+  usePageLoading(loading || shootsLoading || (accountingMode === 'client' && clientBillingLoading));
 
   const commitLoadedInvoices = useCallback((nextInvoices: InvoiceData[]) => {
     setInvoices(nextInvoices);

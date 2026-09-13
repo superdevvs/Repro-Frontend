@@ -1,5 +1,6 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import {
   Background,
   Controls,
@@ -146,6 +147,7 @@ export function SystemOverviewTab() {
   }));
 
   const isLoading = snapshotQuery.isLoading || historyQuery.isLoading || routesQuery.isLoading;
+  usePageLoading(isLoading);
   const hasError = snapshotQuery.isError || historyQuery.isError || routesQuery.isError;
 
   useEffect(() => {
@@ -281,7 +283,7 @@ export function SystemOverviewTab() {
             <div className="h-[520px] rounded-3xl bg-slate-100" />
           </div>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <BrandLoader className="h-12 w-12" label="Loading system overview" />
+            <InlineSpinner className="h-12 w-12" label="Loading system overview" />
           </div>
         </CardContent>
       </Card>

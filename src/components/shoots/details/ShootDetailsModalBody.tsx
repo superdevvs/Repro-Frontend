@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, CheckSquare, Download, DollarSign as DollarSignIcon, FileText, PlayCircle, Save, Printer, Send, Sparkles, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { blurActiveElement } from '../dialogFocusUtils';

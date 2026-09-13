@@ -1,4 +1,4 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -110,7 +110,7 @@ export function TaskFilters({
         onClick={handleRefresh}
         disabled={isRefreshing}
       >
-        {isRefreshing ? <BrandLoader className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+        {isRefreshing ? <InlineSpinner className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       </Button>
     </div>
   );

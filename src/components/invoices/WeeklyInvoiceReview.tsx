@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FileText, CheckCircle, Clock, Plus, Trash2, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, ReceiptText, Camera, Info, Eye } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   WeeklyInvoice,
   WeeklyInvoiceItem,

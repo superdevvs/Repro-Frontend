@@ -26,13 +26,15 @@ describe('media dialogs shared download state', () => {
     const button = await screen.findByRole('button', { name: 'Downloading…' });
     expect(button.getAttribute('aria-busy')).toBe('true');
     expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeNull();
+    expect(button.querySelector('svg.animate-spin')).not.toBeNull();
+    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
     fireEvent.click(button);
     expect(onDownloadSingle).not.toHaveBeenCalled();
     rerender(<ShootDetailsMediaTabDialogs {...props} downloadingFileIds={new Set()} />);
     const ready = screen.getByRole('button', { name: 'Download' });
     expect(ready.getAttribute('aria-busy')).toBe('false');
     expect((ready as HTMLButtonElement).disabled).toBe(false);
+    expect(ready.querySelector('svg.animate-spin')).toBeNull();
     await act(async () => { fireEvent.click(ready); });
     expect(onDownloadSingle).toHaveBeenCalledWith('a');
   });

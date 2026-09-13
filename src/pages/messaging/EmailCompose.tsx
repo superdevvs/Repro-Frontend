@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -331,19 +332,19 @@ export default function EmailCompose() {
     }
   }, [contactShootOptions, form.related_shoot_context_type, form.related_shoot_id, isInternalReply]);
 
-  const { data: settingsData } = useQuery({
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
     queryKey: ['email-settings', canSendExternal],
     queryFn: getEmailSettings,
     enabled: canSendExternal,
   });
 
-  const { data: templates = [] } = useQuery({
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ['email-templates'],
     queryFn: () => getTemplates({ channel: 'EMAIL', is_active: true }),
     enabled: canSendExternal,
   });
 
-  const { data: recentMessagesData } = useQuery({
+  const { data: recentMessagesData, isLoading: recentMessagesLoading } = useQuery({
     queryKey: ['email-compose-recent-messages', canSendExternal],
     queryFn: () => getEmailMessages({ per_page: 50 }),
     enabled: canSendExternal,
@@ -396,11 +397,13 @@ export default function EmailCompose() {
     return merged as MessagingJsonObject;
   }, [form.related_account_id, form.related_invoice_id, form.related_shoot_id, parsedVariables]);
 
-  const { data: templatePreviewData } = useQuery({
+  const { data: templatePreviewData, isLoading: templatePreviewLoading } = useQuery({
     queryKey: ['email-template-preview', form.template_id, previewVariables],
     queryFn: () => previewTemplate(Number(form.template_id), previewVariables),
     enabled: canSendExternal && Boolean(form.template_id) && !variableJsonError,
   });
+
+  usePageLoading(!draftHydrated || settingsLoading || templatesLoading || recentMessagesLoading || isLoadingContactShoots || templatePreviewLoading);
 
   const channels = useMemo(() => settingsData?.channels ?? [], [settingsData?.channels]);
 

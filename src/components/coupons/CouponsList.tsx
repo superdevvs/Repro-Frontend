@@ -1,7 +1,8 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -40,6 +41,8 @@ export function CouponsList() {
       return response.data.data as Coupon[];
     },
   });
+
+  usePageLoading(isLoading);
 
   if (isLoading) {
     return (

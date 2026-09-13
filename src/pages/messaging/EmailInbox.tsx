@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -38,11 +39,13 @@ export default function EmailInbox() {
     return Number.isInteger(value) && value > 0 ? value : null;
   }, [searchParams]);
 
-  const { data: directMessage } = useQuery({
+  const { data: directMessage, isLoading: directMessageLoading } = useQuery({
     queryKey: ['email-message', directMessageId],
     queryFn: () => getEmailMessage(directMessageId!),
     enabled: directMessageId !== null,
   });
+
+  usePageLoading(isLoading || directMessageLoading);
 
   const markConversationRead = useCallback((message: Message) => {
     if (!message.thread_id) return;

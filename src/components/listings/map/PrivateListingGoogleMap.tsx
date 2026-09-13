@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { Minus, Plus, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 import { createPinIcon } from './standardListingPinIcon'

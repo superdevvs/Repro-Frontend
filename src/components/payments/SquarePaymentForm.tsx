@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';

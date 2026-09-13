@@ -1,4 +1,5 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { usePageLoading } from '@/hooks/use-page-loading';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -23,6 +24,7 @@ const PhotographerAvailability = () => {
   const { formatTime, preferences } = useUserPreferences();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [slots, setSlots] = useState<Array<{ id: number; photographer_id: number; date?: string | null; day_of_week?: string | null; start_time: string; end_time: string; status?: 'available'|'unavailable' }>>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newStart, setNewStart] = useState<string>('');
@@ -138,7 +140,7 @@ const PhotographerAvailability = () => {
         <div className="container py-6 px-4">
           <div className="flex items-center justify-center h-[60vh]">
             <div className="text-center">
-              <BrandLoader className="h-8 w-8 inline-block mb-4" />
+              <InlineSpinner className="h-8 w-8 inline-block mb-4" />
               <p>Loading your availability settings...</p>
             </div>
           </div>

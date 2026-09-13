@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import type { UserRole } from "@/types/auth";

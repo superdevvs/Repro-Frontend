@@ -1,5 +1,6 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useState } from 'react';
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
@@ -39,6 +40,8 @@ export default function Templates() {
         scope: selectedScope === 'all' ? undefined : selectedScope,
       }),
   });
+
+  usePageLoading(isLoading);
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -146,7 +149,7 @@ export default function Templates() {
                   </Card>
                 ))}
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <BrandLoader className="h-10 w-10" label="Loading email templates" />
+                  <InlineSpinner className="h-10 w-10" label="Loading email templates" />
                 </div>
               </div>
             ) : isError ? (

@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { blurActiveElement } from '../dialogFocusUtils';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
 import { Check, Copy, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 type VisibleTabId =
   | 'overview'

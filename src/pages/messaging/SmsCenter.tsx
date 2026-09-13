@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -106,6 +107,8 @@ export default function SmsCenter() {
     queryFn: () => getTemplates({ channel: 'SMS' }),
     staleTime: 1000 * 60 * 5,
   });
+
+  usePageLoading(threadsQuery.isLoading || threadDetailQuery.isLoading);
 
   const smsTemplates =
     templatesQuery.data?.map((template) => ({

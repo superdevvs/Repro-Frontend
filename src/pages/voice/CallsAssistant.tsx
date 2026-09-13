@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Bot, CheckCircle2, Code2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,8 @@ import { getVoiceHealth, getVoiceSettings } from '@/services/voice';
 export default function CallsAssistant() {
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth });
+  usePageLoading(settings.isLoading || health.isLoading);
+
   const bridgeTools = settings.data?.tool_allowlist ?? [];
   const confirmationGated = settings.data?.confirmation_gated_tools ?? [];
   const latestWebhook = health.data?.latest_webhook_event;

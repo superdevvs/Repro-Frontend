@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save, Settings } from 'lucide-react';
@@ -27,6 +28,8 @@ export default function CallsSettings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const usage = useQuery({ queryKey: ['voice-llm-usage'], queryFn: getVoiceLlmUsage });
+  usePageLoading(settings.isLoading || usage.isLoading);
+
   const [draft, setDraft] = useState<Partial<VoiceSettings>>({});
   const save = useMutation({
     mutationFn: updateVoiceSettings,

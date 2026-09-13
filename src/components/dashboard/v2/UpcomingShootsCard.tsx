@@ -6,7 +6,7 @@ import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboa
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Plane, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Eye, Clock, Copy, Download } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
 import { API_BASE_URL } from '@/config/env';

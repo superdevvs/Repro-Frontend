@@ -1,4 +1,4 @@
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { z } from 'zod';
@@ -874,7 +874,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                 >
                   {isSubmitting ? (
                     <div className="flex items-center justify-center gap-2">
-                      <BrandLoader aria-hidden="true" className="h-4 w-4" />
+                      <InlineSpinner aria-hidden="true" className="h-4 w-4" />
                       <span>Creating Account...</span>
                     </div>
                   ) : (

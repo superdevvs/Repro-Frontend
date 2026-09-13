@@ -1,8 +1,9 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
 import { AlertCircle, BarChart3, Download, RefreshCw } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   Bar,
   BarChart,
@@ -158,6 +159,8 @@ export default function Reports() {
     staleTime: 60_000,
     retry: 1,
   });
+
+  usePageLoading(invoiceQuery.isLoading || shootQuery.isLoading);
 
   useEffect(() => {
     if (role && !canLoadReports) {

@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/sonner-toast';
@@ -42,6 +43,7 @@ export default function MessagingSettings() {
 
   const { data: emailSettings, isLoading: emailLoading } = useQuery({ queryKey: ['email-settings'], queryFn: getEmailSettings });
   const { data: smsSettings, isLoading: smsLoading } = useQuery({ queryKey: ['sms-settings'], queryFn: getSmsSettings });
+  usePageLoading(emailLoading || smsLoading);
 
   const createMutation = useMutation({
     mutationFn: createEmailChannel,

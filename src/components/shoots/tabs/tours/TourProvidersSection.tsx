@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Check, ChevronDown, Copy, Download, Edit3, ExternalLink, FileArchive, Home, MapPinned, MoreHorizontal, RefreshCw, Share2, Trash2, UploadCloud, X } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

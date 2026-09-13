@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { calendarDay } from '@/lib/date';
 import { CheckCircle2, Plus, ReceiptText, Trash2 } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/badge';

@@ -13,7 +13,7 @@ import {
 } from '@/utils/brightMls';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { Home, ExternalLink, RefreshCw, Upload, Layers } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   Dialog,
   DialogContent,

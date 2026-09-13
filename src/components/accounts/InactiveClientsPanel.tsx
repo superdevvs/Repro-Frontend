@@ -13,7 +13,7 @@ import {
 import { STATE_OPTIONS } from '@/utils/stateUtils';
 import { exportRowsAsCsv } from '@/utils/accountingExports';
 import { Download, Users } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 interface InactiveClient {
   client_id: number | string;

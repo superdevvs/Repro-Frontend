@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Send, Wallet } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

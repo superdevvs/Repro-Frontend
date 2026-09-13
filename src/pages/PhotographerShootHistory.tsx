@@ -1,3 +1,4 @@
+import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -45,7 +46,8 @@ const PhotographerShootHistory = () => {
   const [deliveredPage, setDeliveredPage] = useState(1);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { shoots } = useShoots();
+  const { shoots, isInitialLoading: shootsLoading } = useShoots();
+  usePageLoading(isLoading || shootsLoading);
   const { user } = useAuth();
 
   useEffect(() => {

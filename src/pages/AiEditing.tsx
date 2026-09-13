@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePageLoading } from '@/hooks/use-page-loading';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { BrandLoader as Loader2 } from '@/components/ui/brand-loader';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ export default function AiEditing() {
   const activeWorkspaceId = workspace?.id;
   const workspaceStatus = workspace?.status;
   const [history, setHistory] = useState<V4Workspace[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [picker, setPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,7 @@ export default function AiEditing() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<StudioCapabilities | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState(false);
+  usePageLoading(loading || (!capabilities && !capabilitiesError) || (!workspaceId && !historyLoaded));
   const refreshCapabilities = useCallback(async () => { try { setCapabilities(await studioProviderService.capabilities()); setCapabilitiesError(false); } catch { setCapabilitiesError(true); } }, []);
   useEffect(() => { let active = true; setCapabilities(null); void studioProviderService.capabilities().then(next => { if (active) { setCapabilities(next); setCapabilitiesError(false); } }).catch(() => { if (active) setCapabilitiesError(true); }); return () => { active = false; }; }, [user?.id]);
   const lock = useRef(false);
@@ -47,6 +50,7 @@ export default function AiEditing() {
   const refreshHistory = useCallback(async () => {
     try { setHistory(await studioWorkspaceService.list()); setHistoryError(null); }
     catch (e) { setHistoryError(studioError(e)); }
+    finally { setHistoryLoaded(true); }
   }, []);
   useEffect(() => { void refreshHistory(); }, [refreshHistory]);
   useEffect(() => {

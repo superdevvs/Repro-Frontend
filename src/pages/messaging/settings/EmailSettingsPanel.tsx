@@ -1,5 +1,5 @@
 import { Check, Plus, Trash2 } from 'lucide-react';
-import { BrandLoader } from '@/components/ui/brand-loader';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -136,7 +136,7 @@ export function EmailSettingsPanel({
             ))}
           </div>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <BrandLoader className="h-10 w-10" label="Loading email accounts" />
+            <InlineSpinner className="h-10 w-10" label="Loading email accounts" />
           </div>
         </div>
       ) : channels.length === 0 ? (
