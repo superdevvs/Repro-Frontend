@@ -239,7 +239,7 @@ export const ClientDashboardView = ({
     await onOpenDeliveredShoot(notification.shootId);
   };
   const clientEmailNotice = (
-    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+    <div className="contents md:flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
       {/* Account notices never sit next to each other - they stack and rotate. */}
       <DashboardNoticeStack
         label="Account notices"
@@ -426,6 +426,7 @@ export const ClientDashboardView = ({
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}
+            hideIntroOnMobile
             action={clientEmailNotice}
             alignActionTop
           />

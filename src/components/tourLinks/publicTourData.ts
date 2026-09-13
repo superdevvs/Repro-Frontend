@@ -114,6 +114,10 @@ const number = (...values: unknown[]): number | null => {
 
 const flag = (value: unknown): boolean => value === true || value === 1 || value === '1' || value === 'true';
 const array = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
+// Public endpoints deliberately return null when a source is absent or unsuitable
+// for this audience. A legacy link must never recover a rejected canonical source.
+const canonicalSource = (payload: RecordValue, key: string, legacy: unknown): unknown =>
+  Object.prototype.hasOwnProperty.call(payload, key) ? payload[key] : legacy;
 const urls = (value: unknown): string[] => Array.from(new Set(array(value).map((item) => {
   const media = record(item);
   return normalizePublicTourUrl(typeof item === 'string' ? item : text(media.url, media.web_url, media.path));
@@ -179,8 +183,8 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
   const garageCars = showGarage ? number(details.garage_cars, garages.length ? garageTotal || garages.length : null) : null;
   const photos = locked ? [] : urls(root.photos);
   const heroPhotos = locked ? [] : urls(root.hero_photos);
-  const videoFallback = branded ? text(links.video_branded, links.video_link)
-    : variant === 'generic-mls' ? text(links.video_generic, links.video_mls) : text(links.video_mls);
+  const videoFallback = branded ? links.video_branded
+    : variant === 'generic-mls' ? links.video_generic : links.video_mls;
   const featuredEmbedId = text(links.featured_embed_id, links.featured_embed);
   const embeds = locked || videoRestricted ? [] : array(links.embeds ?? root.embeds).map((item, index): PublicTourEmbed => {
     const embed = record(item);
@@ -205,9 +209,9 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     return [{ ...floorplan } as TourFloorplan];
   });
   const videos = locked || videoRestricted ? [] : urls(root.videos);
-  const videoLink = locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_link, videoFallback));
+  const videoLink = locked || videoRestricted ? '' : normalizePublicTourUrl(canonicalSource(root, 'video_link', videoFallback));
   const iguide = resolvePublicIguideSources(locked ? {} : root, variant);
-  const matterportUrl = locked ? '' : normalizePublicTourUrl(text(root.matterport_url,
+  const matterportUrl = locked ? '' : normalizePublicTourUrl(canonicalSource(root, 'matterport_url',
     branded ? text(links.matterport_branded, links.matterport) : links.matterport_mls));
   return {
     variant, shoot, branding,

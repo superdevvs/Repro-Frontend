@@ -11,6 +11,7 @@ interface PageHeaderProps {
   iconText?: string;
   action?: React.ReactNode;
   alignActionTop?: boolean;
+  hideIntroOnMobile?: boolean;
 }
 
 export function PageHeader({ 
@@ -20,6 +21,7 @@ export function PageHeader({
   iconText,
   action,
   alignActionTop = false,
+  hideIntroOnMobile = false,
 }: PageHeaderProps) {
   const renderTitle = (value: React.ReactNode) => {
     if (typeof value !== 'string') return value;
@@ -36,14 +38,15 @@ export function PageHeader({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn('flex-col gap-4', hideIntroOnMobile ? 'contents md:flex' : 'flex')}>
       <div
         className={cn(
-          'flex flex-col items-start justify-between gap-4 sm:flex-row',
+          'flex-col items-start justify-between gap-4 sm:flex-row',
+          hideIntroOnMobile ? 'contents md:flex' : 'flex',
           alignActionTop ? 'sm:items-start' : 'sm:items-center',
         )}
       >
-        <div>
+        <div className={hideIntroOnMobile ? 'sr-only md:not-sr-only' : undefined}>
           <h1 className="text-3xl font-bold">{renderTitle(title)}</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {description}
@@ -51,7 +54,7 @@ export function PageHeader({
         </div>
         
         {action && (
-          <div className={cn('flex-shrink-0', alignActionTop && 'w-full sm:w-auto')}>
+          <div className={cn('flex-shrink-0', alignActionTop && 'w-full sm:w-auto', hideIntroOnMobile && 'contents md:block')}>
             {action}
           </div>
         )}

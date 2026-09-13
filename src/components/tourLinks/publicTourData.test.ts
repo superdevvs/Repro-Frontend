@@ -83,6 +83,48 @@ describe('normalizePublicTourData', () => {
     expect(result.embeds.map((embed) => embed.id)).toEqual(['second', 'first']);
   });
 
+  it.each(['branded', 'mls', 'generic-mls'] as const)('honors an explicitly unavailable canonical source for %s', (variant) => {
+    for (const unavailable of [null, '', '   ', 'javascript:alert(1)']) {
+      const result = normalizePublicTourData({
+        video_link: unavailable, matterport_url: unavailable,
+        tour_links: {
+          video_branded: 'https://brand.test/video', video_mls: 'https://mls.test/video', video_generic: 'https://generic.test/video',
+          matterport_branded: 'https://brand.test/tour', matterport_mls: 'https://brand.test/tour',
+        },
+      }, variant);
+      expect(result.videoLink).toBe('');
+      expect(result.matterportUrl).toBe('');
+    }
+  });
+
+  it('does not restore an MLS video into an unpublished generic MLS video slot', () => {
+    // Mirrors public shoot 30: MLS has a video, but the generic response has no video.
+    const tour_links = { video_mls: 'https://vimeo.com/1193958606', video_generic: null };
+    expect(normalizePublicTourData({ video_link: null, tour_links }, 'generic-mls').videoLink).toBe('');
+    expect(normalizePublicTourData({ tour_links }, 'generic-mls').videoLink).toBe('');
+    expect(normalizePublicTourData({ tour_links }, 'mls').videoLink).toBe('https://vimeo.com/1193958606');
+  });
+
+  it.each([
+    ['branded', 'video_branded', 'matterport_branded'],
+    ['mls', 'video_mls', 'matterport_mls'],
+    ['generic-mls', 'video_generic', 'matterport_mls'],
+  ] as const)('uses only audience-specific legacy sources when canonical fields are absent for %s', (variant, videoKey, tourKey) => {
+    const tour_links = { [videoKey]: 'https://legacy.test/video', [tourKey]: 'https://legacy.test/tour' };
+    const legacy = normalizePublicTourData({ tour_links }, variant);
+    expect(legacy.videoLink).toBe('https://legacy.test/video');
+    expect(legacy.matterportUrl).toBe('https://legacy.test/tour');
+    const canonical = normalizePublicTourData({ video_link: 'https://canonical.test/video', matterport_url: 'https://canonical.test/tour', tour_links }, variant);
+    expect(canonical.videoLink).toBe('https://canonical.test/video');
+    expect(canonical.matterportUrl).toBe('https://canonical.test/tour');
+  });
+
+  it('does not infer a published variant from an unscoped legacy video link', () => {
+    for (const variant of ['branded', 'mls', 'generic-mls'] as const) {
+      expect(normalizePublicTourData({ tour_links: { video_link: 'https://legacy.test/unpublished-video' } }, variant).videoLink).toBe('');
+    }
+  });
+
   it('hides restricted videos and keeps locked media inaccessible', () => {
     const payload = { shoot: { id: 4 }, photos: ['https://media.test/photo.jpg'], videos: ['https://media.test/video.mp4'],
       video_link: 'https://media.test/video', matterport_url: 'https://media.test/tour', floorplans: [{ url: 'https://media.test/plan.pdf' }],

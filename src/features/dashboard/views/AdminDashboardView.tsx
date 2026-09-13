@@ -223,9 +223,9 @@ export const AdminDashboardView = ({
 
   return (
     <div className="px-2 pt-1.5 pb-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col min-h-full gap-2.5 sm:gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-        <div className="flex-1">
-          <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
+      <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+        <div className="contents md:block md:flex-1">
+          <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} hideIntroOnMobile />
         </div>
         <DashboardNoticeStack label="Dashboard notices">
           <UploadStatusWidget />

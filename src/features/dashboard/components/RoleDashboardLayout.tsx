@@ -87,9 +87,9 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
         <div className={cn("p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex-1">
-              <PageHeader title={title} description={description} />
+          <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="contents md:block md:flex-1">
+              <PageHeader title={title} description={description} hideIntroOnMobile />
             </div>
             <DashboardNoticeStack label="Dashboard notices">
               <UploadStatusWidget />
