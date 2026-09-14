@@ -30,6 +30,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ShootData } from '@/types/shoots';
+import { buildShootPath } from '@/utils/shootPath';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { ShootDetailTabs } from './ShootDetailTabs';
 import { ShootActionsDialog } from './ShootActionsDialog';
@@ -89,9 +90,9 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
     const hasRealId = Number.isFinite(parsedId);
     return {
       canNavigateToFullPage: hasRealId,
-      fullPagePath: hasRealId ? `/shoots/${parsedId}` : undefined,
+      fullPagePath: hasRealId ? buildShootPath({ ...shoot, id: String(parsedId) }) : undefined,
     };
-  }, [shoot?.id]);
+  }, [shoot]);
 
   if (!shoot) return null;
 

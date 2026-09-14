@@ -18,6 +18,7 @@ import { fetchMyLinkedClientSharedData, fetchMyLinkedClients } from '@/services/
 import type { SharedDetails } from '@/types/auth';
 import { cn } from '@/lib/utils';
 import { normalizeImageUrl } from '@/utils/imageUrl';
+import { buildShootPath } from '@/utils/shootPath';
 import {
   Building2,
   CalendarDays,
@@ -281,7 +282,7 @@ export default function Shared() {
                           <button
                             key={shoot.id}
                             type="button"
-                            onClick={() => navigate(`/shoots/${shoot.id}`)}
+                            onClick={() => navigate(buildShootPath(shoot))}
                             className="flex w-full flex-col gap-4 rounded-2xl border border-slate-200/70 p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-800 dark:hover:border-blue-900/60 dark:hover:bg-blue-950/20 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 gap-4">

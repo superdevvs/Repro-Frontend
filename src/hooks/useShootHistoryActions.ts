@@ -7,6 +7,7 @@ import { apiClient } from '@/services/api'
 import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import { deriveFilterOptionsFromShoots, mapShootApiToShootData } from '@/components/shoots/history/shootHistoryTransforms'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
+import { buildShootPath } from '@/utils/shootPath'
 import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls'
@@ -217,7 +218,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     }
     switch (action.action) {
       case 'pay':
-        navigate(`/shoots/${shoot.id}?action=pay`)
+        navigate(buildShootPath(shoot, { search: 'action=pay' }))
         return
       case 'upload_raw':
       case 'upload_final':
@@ -229,7 +230,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
       case 'open_workflow':
       case 'assign_editor':
       case 'start_editing':
-        navigate(`/shoots/${shoot.id}#workflow`)
+        navigate(buildShootPath(shoot, { hash: 'workflow' }))
         return
       default:
         handleShootSelect(shoot)

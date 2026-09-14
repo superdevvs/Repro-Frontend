@@ -490,7 +490,10 @@ const AppRoutes = () => {
           </ShootRoutesWrapper>
         </PermissionRoute>
       } />
-      <Route path="/shoots/:id" element={
+      {/* The optional trailing segment is the property address slug
+          (/shoots/86/7319-golden-horseshoe-ct). Only :id resolves the shoot;
+          the page rewrites a missing or stale slug once the shoot loads. */}
+      <Route path="/shoots/:id/:slug?" element={
         <PermissionRoute resource="shoots">
           <ShootRoutesWrapper>
             <ShootDetails />

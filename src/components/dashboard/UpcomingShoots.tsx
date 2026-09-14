@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useShoots } from '@/context/shootsContextState';
 import { compareAsc, format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { buildShootPath } from '@/utils/shootPath';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -72,7 +73,7 @@ export function UpcomingShoots({ className }: UpcomingShootsProps) {
                 <div 
                   key={shoot.id}
                   className={`bg-secondary/10 ${isMobile ? 'p-2' : 'p-3'} rounded-md cursor-pointer hover:bg-secondary/20 transition-colors`}
-                  onClick={() => navigate(`/shoots/${shoot.id}`)}
+                  onClick={() => navigate(buildShootPath(shoot))}
                 >
                   <div className="flex justify-between items-start">
                     <div>

@@ -31,6 +31,7 @@ import {
 } from '@/types/shoots'
 import type { UserData } from '@/types/auth'
 import { downloadShootRawFiles } from '@/utils/shootMediaDownload'
+import { buildShootPath } from '@/utils/shootPath'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
@@ -453,7 +454,7 @@ export function useShootHistoryData({
 
     switch (action.action) {
       case 'pay':
-        navigate(`/shoots/${shoot.id}?action=pay`)
+        navigate(buildShootPath(shoot, { search: 'action=pay' }))
         return
       case 'upload_raw':
       case 'upload_final':
@@ -465,7 +466,7 @@ export function useShootHistoryData({
       case 'open_workflow':
       case 'assign_editor':
       case 'start_editing':
-        navigate(`/shoots/${shoot.id}#workflow`)
+        navigate(buildShootPath(shoot, { hash: 'workflow' }))
         return
       default:
         handleShootSelect(shoot)

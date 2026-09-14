@@ -30,6 +30,7 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
+import { buildShootPath, shootPathNeedsCanonicalising } from '@/utils/shootPath';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -51,7 +52,7 @@ const LazyShootDetailsTourTab = React.lazy(() =>
   })),
 );
 const ShootDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id: string; slug?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -169,6 +170,15 @@ const ShootDetails: React.FC = () => {
       void loadShoot();
     });
   }, [id, loadShoot]);
+  // Put the property address in the address bar. Every link in the app and in
+  // emails may arrive as a bare /shoots/:id (or with a slug from before an
+  // address correction); once the shoot is known the URL is rewritten in place,
+  // keeping any ?action= and #tab intact and without adding a history entry.
+  useEffect(() => {
+    if (!shoot || String(shoot.id) !== String(id)) return;
+    if (!shootPathNeedsCanonicalising(shoot, slug)) return;
+    navigate(buildShootPath(shoot, { search: location.search, hash: location.hash }), { replace: true });
+  }, [id, location.hash, location.search, navigate, shoot, slug]);
   useEffect(() => {
     const hashValue = location.hash.replace('#', '').toLowerCase();
     if (!hashValue) return;

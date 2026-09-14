@@ -42,6 +42,7 @@ import {
   isStripeSessionPaymentRecorded,
   type StripeConfirmationResult,
 } from '@/utils/stripeConfirmation'
+import { buildShootPath } from '@/utils/shootPath'
 
 const READY_STATUS_KEYS = [
   'ready',
@@ -605,7 +606,7 @@ const ShootHistory: React.FC = () => {
                   role={role}
                   onSelect={handleShootSelect}
                   onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
-                  onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
+                  onOpenWorkflow={(selected) => navigate(buildShootPath(selected, { hash: 'workflow' }))}
                   onApprove={(s) => setApprovalModalShoot(s)}
                   onDecline={(s) => setDeclineModalShoot(s)}
                   onModify={(s) => setEditModalShoot(s)}

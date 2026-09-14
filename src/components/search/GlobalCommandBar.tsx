@@ -28,6 +28,7 @@ import type { DashboardClientRequest } from "@/types/dashboard";
 import type { EditingRequest } from "@/services/editingRequestService";
 import type { ShootData } from "@/types/shoots";
 import { buildFinalizeRequestBody, canFinaliseShoot } from "@/utils/shootFinalize";
+import { buildShootPath } from "@/utils/shootPath";
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 
 interface GlobalCommandBarProps {
@@ -407,7 +408,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
                     value={shootSearchValue(shoot)}
                     onSelect={() => {
                       onOpenChange(false);
-                      navigate(`/shoots/${shoot.id}`);
+                      navigate(buildShootPath(shoot));
                     }}
                   >
                     <div className="flex flex-col">
