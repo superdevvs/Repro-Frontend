@@ -196,7 +196,12 @@ export const AdminDashboardView = ({
         onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
         className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
       >
-        <div className="sticky top-[-0.75rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4">
+        {/* Sticks flush with the header. A negative `top` let the pill scroll
+            partly under the header edge and get clipped; instead the wrapper
+            pulls itself up by the page padding and pads the same amount back,
+            so the pill rests where it did and, once stuck, sits fully visible
+            on its own backdrop. */}
+        <div className="sticky top-0 -mt-1.5 pt-1.5 z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="overflow-x-auto hidden-scrollbar">
             <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-background/80 pl-1.5 pr-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/70">
               {mobileTabs.map((tab) => (

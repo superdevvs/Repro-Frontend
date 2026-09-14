@@ -99,7 +99,7 @@ const DashboardStatsPanelSkeleton = () => (
 );
 
 const DashboardMobileTabsSkeleton = () => (
-  <div className="sticky top-[-0.75rem] z-20 -mx-2 px-2 pb-1">
+  <div className="sticky top-0 -mt-1.5 pt-1.5 z-20 -mx-2 px-2 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
     <div className="overflow-x-hidden">
       <div className="inline-flex max-w-full gap-2 rounded-full border border-border/50 bg-background/80 py-1.5 pl-1.5 pr-3 backdrop-blur">
         <Skeleton className="h-8 w-24 rounded-full" />
