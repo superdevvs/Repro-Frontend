@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { V4WorkspaceProps } from '@/components/studio/v4/types';
 import { VideoWorkspace } from './VideoWorkspace';
 
@@ -16,9 +16,36 @@ const makeProps = (): V4WorkspaceProps => ({
   onBack: vi.fn(), onChangeMedia: vi.fn(), onSave: vi.fn().mockResolvedValue(undefined), onGenerate: vi.fn().mockResolvedValue(undefined),
   onPrepare: vi.fn().mockResolvedValue(undefined), onRefine: vi.fn(), onCancel: vi.fn(), onRefresh: vi.fn(), onDetect: vi.fn(),
 });
-afterEach(cleanup);
+beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('video job recovery and live progress', () => {
+  it('overlays progress on the video preview and removes the animation when the job completes', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', error: null, progress: 45, outputs: [{ id: 'video-1', mediaId: 'reel', kind: 'video', status: 'completed', version: 1, url: 'https://media.test/reel.mp4' }] };
+    const { container, rerender } = render(<VideoWorkspace {...props} />);
+    const progress = screen.getByRole('progressbar', { name: 'Generating video' });
+    const preview = container.querySelector('.v4-video-generation-preview');
+    expect(preview).toContainElement(progress);
+    expect(preview?.querySelector('video')).toHaveAttribute('src', 'https://media.test/reel.mp4');
+    expect(progress).toHaveAttribute('aria-valuenow', '45');
+    expect(container.querySelector('.v4-generating-indicator')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh progress' }));
+    expect(props.onRefresh).toHaveBeenCalledOnce();
+    rerender(<VideoWorkspace {...props} workspace={{ ...props.workspace, status: 'completed', progress: 100 }} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('shows preparation progress on the source frame without inventing a percentage', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'preparing', error: null, progress: null };
+    const { container } = render(<VideoWorkspace {...props} />);
+    const progress = screen.getByRole('progressbar', { name: 'Preparing frames' });
+    expect(container.querySelector('.v4-video-generation-preview')).toContainElement(progress);
+    expect(container.querySelector('.v4-video-generation-preview img')).toHaveAttribute('src', props.workspace.media[0].url);
+    expect(progress).not.toHaveAttribute('aria-valuenow');
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+  });
   it('offers one explicit retry for failed preparation and keeps the original scope and completed frames', async () => {
     const props = makeProps();
     const { container } = render(<VideoWorkspace {...props} />);
@@ -60,7 +87,8 @@ describe('video job recovery and live progress', () => {
     props.workspace = { ...props.workspace, status: 'generating', error: null,
       generation: { phase: 'rendering', total: 12, submitted: 12, completed: 12 } };
     render(<VideoWorkspace {...props} />);
-    expect(screen.getByText('Your clips are ready. Rendering the final reel…')).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: 'Rendering video' })).toBeVisible();
+    expect(screen.getByText('12 of 12 clips ready')).toBeVisible();
     expect(screen.queryByText(/Queued clips will start/)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { V4WorkspaceProps } from '@/components/studio/v4/types';
 import { PhotoWorkspace } from './PhotoWorkspace';
 import { downloadWorkspaceOutput } from './downloadOutput';
@@ -12,8 +12,50 @@ const makeProps = (): V4WorkspaceProps => ({
       preset: { id: 'listing-ready', name: 'Listing Ready', description: '', kind: 'image', tag: '', icon: '', color: '', workflow: 'photo-enhancement' }, busy: false, error: null,
       onBack: vi.fn(), onChangeMedia: vi.fn(), onSave: vi.fn().mockResolvedValue(undefined), onGenerate: vi.fn(), onPrepare: vi.fn(), onRefine: vi.fn(), onCancel: vi.fn(), onRefresh: vi.fn(), onDetect: vi.fn(),
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
+  it('places live progress over the photo instead of a separate banner and removes it on completion', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', progress: 37 };
+    const { container, rerender } = render(<PhotoWorkspace {...props} />);
+    const progress = screen.getByRole('progressbar', { name: 'Editing photos' });
+    expect(progress).toHaveAttribute('aria-valuenow', '37');
+    expect(container.querySelector('.v4-photo-focus')).toContainElement(progress);
+    expect(container.querySelector('.v4-photo-focus img')).toHaveAttribute('src', props.workspace.media[0].url);
+    expect(container.querySelector('.v4-generation-banner')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh progress' }));
+    expect(props.onRefresh).toHaveBeenCalledOnce();
+    rerender(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'completed', progress: 100 }} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('animates selected gallery photos without adding refresh buttons inside the photo buttons', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', progress: 0 };
+    const { container } = render(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
+    const card = screen.getByRole('button', { name: 'Open Exterior' });
+    expect(card).toContainElement(screen.getByRole('progressbar', { name: 'Photo editing job' }));
+    expect(card.querySelectorAll('button')).toHaveLength(0);
+    expect(container.querySelector('.v4-generation-banner')).toBeNull();
+  });
+
+  it('does not suggest an unselected source photo is being edited', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', progress: 35, media: [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image', url: 'https://media.test/b.jpg', thumbnailUrl: 'https://media.test/b.jpg' }] };
+    render(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Select Interior' }));
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('never shows a generation overlay on failed or cancelled photo jobs', () => {
+    const props = makeProps();
+    const { rerender } = render(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'failed' }} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    rerender(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'cancelled' }} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
   it('upscales the selected older version only when the server reports the service ready', async () => {
     const props = makeProps();
     props.workspace.status = 'completed';
