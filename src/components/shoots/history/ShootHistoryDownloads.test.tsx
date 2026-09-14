@@ -55,7 +55,7 @@ describe('history download buttons', () => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute('aria-busy', 'true');
       expect(button.querySelector('svg.animate-spin')).not.toBeNull();
-      expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+      expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     });
     await act(async () => { rejectDownload(new Error('Please retry this download.')); });
     await waitFor(() => expect(buttons[0]).toBeEnabled());

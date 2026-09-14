@@ -33,7 +33,7 @@ describe('selected media download buttons', () => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute('aria-busy', 'true');
       expect(button.querySelector('svg.animate-spin')).not.toBeNull();
-      expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+      expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
       fireEvent.click(button);
     });
     expect(options.handleEditorDownloadRaw).toHaveBeenCalledTimes(isEditor ? 1 : 0);
@@ -42,7 +42,7 @@ describe('selected media download buttons', () => {
     buttons.forEach((button) => {
       expect(button).toBeEnabled();
       expect(button.querySelector('svg.animate-spin')).toBeNull();
-      expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+      expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     });
   });
 });

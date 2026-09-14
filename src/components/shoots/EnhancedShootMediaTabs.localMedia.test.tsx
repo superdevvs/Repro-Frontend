@@ -43,11 +43,11 @@ describe('shoot media stays available without Dropbox', () => {
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button.querySelector('svg.animate-spin')).not.toBeNull();
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     await act(async () => { finish(); });
     expect(button).toBeEnabled();
     expect(button.querySelector('svg.animate-spin')).toBeNull();
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
   });
 
   it('renders the local thumbnail and reloads media after a local upload', async () => {

@@ -27,7 +27,7 @@ describe('media dialogs shared download state', () => {
     expect(button.getAttribute('aria-busy')).toBe('true');
     expect((button as HTMLButtonElement).disabled).toBe(true);
     expect(button.querySelector('svg.animate-spin')).not.toBeNull();
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     fireEvent.click(button);
     expect(onDownloadSingle).not.toHaveBeenCalled();
     rerender(<ShootDetailsMediaTabDialogs {...props} downloadingFileIds={new Set()} />);

@@ -24,18 +24,18 @@ describe('archive download page lifecycle', () => {
     expect(requestOptions()).toEqual(expect.objectContaining({ requestUrl, type: 'raw', size: 'small', redirectMode: 'same-tab' }));
     expect(requestOptions().signal?.aborted).toBe(false);
     expect(container.querySelector('svg.animate-spin')).not.toBeNull();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(container.querySelector('image[href^="/brand/re/"]')).toBeNull();
     act(() => { requestOptions().onPreparing?.({ message: 'Preparing your property ZIP.', pollAfterMs: 1000 }); });
     expect(screen.getByText('Preparing your property ZIP.')).toBeInTheDocument();
     act(() => { requestOptions().onDownloading?.(); });
     expect(screen.getByText('Downloading your files.')).toBeInTheDocument();
     expect(container.querySelector('svg.animate-spin')).not.toBeNull();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(container.querySelector('image[href^="/brand/re/"]')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Download Started' })).not.toBeInTheDocument();
     await act(async () => { finish(); });
     expect(screen.getByRole('heading', { name: 'Download Started' })).toBeInTheDocument();
     expect(container.querySelector('svg.animate-spin')).toBeNull();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(container.querySelector('image[href^="/brand/re/"]')).toBeNull();
   });
 
   it('removes the compact spinner and displays a download failure', async () => {
@@ -46,7 +46,7 @@ describe('archive download page lifecycle', () => {
     expect(screen.getByRole('heading', { name: 'Download Unavailable' })).toBeInTheDocument();
     expect(screen.getByText('Unable to download this archive. Please try again.')).toBeInTheDocument();
     expect(container.querySelector('svg.animate-spin')).toBeNull();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(container.querySelector('image[href^="/brand/re/"]')).toBeNull();
   });
 
   it('aborts the old request and ignores its late callbacks when the download link changes', async () => {

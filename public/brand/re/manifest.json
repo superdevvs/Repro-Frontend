@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-13T13:47:50.077Z",
+  "generatedAt": "2026-09-14T03:51:09.387Z",
   "selectedOptions": [
     {
       "number": 19,
       "id": "e7a974d4-4419-4e79-8919-339018a689bd",
-      "use": "Main loading animation",
+      "use": "Saved brand variation",
       "name": "RE - Rise - Option 19",
       "directory": "options/19",
       "nativeSha256": "e4aa0e3cd1e0c3e3c2e21599cf3fb019c5a139c9f2eecbbd88533207373f9f4a",
@@ -65,7 +65,7 @@
     {
       "number": 15,
       "id": "d10f46f0-2f8f-4309-b402-67cdc43610ce",
-      "use": "Saved brand variation",
+      "use": "Main loading animation",
       "name": "RE - Rise - Option 15",
       "directory": "options/15",
       "nativeSha256": "a1e5cbf56583663c8ac84dac146edde309e75a5634fa22e7f16e1f60150ad922",
@@ -124,9 +124,9 @@
     }
   ],
   "mainLoader": {
-    "option": 19,
-    "animated": "/brand/re/loading.svg",
-    "static": "/brand/re/loading-static.svg"
+    "option": 15,
+    "animated": "/brand/re/options/15/loop.svg",
+    "static": "/brand/re/options/15/static.svg"
   },
   "favicon": {
     "option": 18,
@@ -229,23 +229,23 @@
     },
     {
       "path": "index.html",
-      "bytes": 6880,
-      "sha256": "689cf98659857ef45840bed926e55cff3af937ca30add50b6fc46c484f8eeee4"
+      "bytes": 6889,
+      "sha256": "3df8dd73a50b245a69352afbc853e83d5b689d4ea995c87c3834ac1e73de45bd"
     },
     {
       "path": "loading-static.svg",
-      "bytes": 2839,
-      "sha256": "c9b18fdcfb1f31fa1969343a920006dc50ea9871a529ed9d69e762c8f651fe7d"
+      "bytes": 2857,
+      "sha256": "9021eed185294b300485abdd957902a4e882b864c5c9ec26d817ed339b51f49e"
     },
     {
       "path": "loading.html",
-      "bytes": 28106,
-      "sha256": "5d8eae87bfde424a4febc235e160e4e8e7082091b5cdf0c58d0d469613f69016"
+      "bytes": 28136,
+      "sha256": "d44dd6bf307ddc653d8bdf0339d53261840d28c8d0212287fcf0fdc2ae6541d5"
     },
     {
       "path": "loading.svg",
-      "bytes": 93269,
-      "sha256": "12c52264e4d0fc196631f4284dd3ff23fd0d99bd76a415a34c1620c1b476c937"
+      "bytes": 95252,
+      "sha256": "a7ad36bf9e8d18dbb0a631913953c44b4fce4a38effcb66aa6aa492bc69e1b9e"
     },
     {
       "path": "options/1/entrance.html",
@@ -494,8 +494,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 1467,
-      "sha256": "e910c6ac99901b664af5e188c48ecc3afec649b8cb8547c48b29f8e346e4312d"
+      "bytes": 1712,
+      "sha256": "770dbdc799b8d557b96fe39c8c61b509b99c9537a0907aff63b26dd54c6fb7f3"
     }
   ]
 }

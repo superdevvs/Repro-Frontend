@@ -4,10 +4,10 @@ The brand library lives in `public/brand/re/index.html`. It preserves the origin
 
 ## App integration
 
-- Option 19 is reserved for page loading through `PageLoadingOverlay` and the initial HTML boot screen. Its logo measures 112 pixels on phones and 144 pixels on larger screens.
+- Option 15 is used for page loading through `PageLoadingOverlay` and the initial HTML boot screen. Its logo measures 72 pixels on phones, including landscape, and 86.4 pixels on larger screens. The app references `options/15/loop.svg` directly; the `loading.svg`, `loading-static.svg` and `loading.html` aliases contain the same saved Option 15 exports. Option 19 remains available as a saved brand variation.
 - `DashboardLayout` keeps the page mounted beneath a translucent blur until its initial data and visible images finish loading. Pages report initial work with `usePageLoading`; route or account changes start a new cycle. Background refreshes, downloads, saves and other actions do not reopen the overlay. Navigation stays available during loading.
 - Buttons, downloads and smaller sections use the compact `InlineSpinner`. Image placeholders, skeletons and progress bars retain their lightweight feedback.
-- Reduced-motion users receive `loading-static.svg`; compact spinners and skeletons also respect reduced motion.
+- Reduced-motion users receive `options/15/static.svg`; compact spinners and skeletons also respect reduced motion.
 - Option 18 supplies the favicon. `public/brand/favicon-runtime.js` uses its saved frame timing and perspective sprite, caching frames and pausing when hidden. SVG, ICO and PNG assets provide static fallbacks and touch icons.
 - Frontend HTML and backend browser views share the favicon assets. Unbranded property link previews retain their existing branding behavior.
 - Option 16 includes PNG exports from 16 to 1024 pixels. Its animated SVG scales to any resolution.

@@ -24,7 +24,7 @@ describe('media grid file download buttons', () => {
     expect(buttons[0].getAttribute('aria-busy')).toBe('true');
     expect((buttons[0] as HTMLButtonElement).disabled).toBe(true);
     expect(buttons[0].querySelector('svg.animate-spin')).not.toBeNull();
-    expect(buttons[0].querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(buttons[0].querySelector('image[href^="/brand/re/"]')).toBeNull();
     expect((buttons[1] as HTMLButtonElement).disabled).toBe(false);
     expect(buttons[1].querySelector('svg.animate-spin')).toBeNull();
     fireEvent.click(buttons[0]);
@@ -36,7 +36,7 @@ describe('media grid file download buttons', () => {
     expect(readyButton.getAttribute('aria-busy')).toBe('false');
     expect((readyButton as HTMLButtonElement).disabled).toBe(false);
     expect(readyButton.querySelector('svg.animate-spin')).toBeNull();
-    expect(readyButton.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(readyButton.querySelector('image[href^="/brand/re/"]')).toBeNull();
   });
 
   it('shows a permitted grid download without granting comment or favorite controls', () => {

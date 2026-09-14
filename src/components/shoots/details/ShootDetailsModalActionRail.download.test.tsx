@@ -46,11 +46,11 @@ describe('mobile shoot download actions', () => {
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button.querySelector('svg.animate-spin')).not.toBeNull();
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     await act(async () => { finish(); });
     expect(button).toBeEnabled();
     expect(button.querySelector('svg.animate-spin')).toBeNull();
-    expect(button.querySelector('image[href="/brand/re/loading.svg"]')).toBeNull();
+    expect(button.querySelector('image[href^="/brand/re/"]')).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: role === 'editor' ? 'Upload edits' : 'Cancel' }));
     expect(screen.queryByRole('dialog', { name: 'Actions' })).not.toBeInTheDocument();
   });

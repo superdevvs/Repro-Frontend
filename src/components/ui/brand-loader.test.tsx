@@ -21,8 +21,8 @@ describe('BrandLoader', () => {
   it('supplies a complete static mark for reduced motion without duplicating announcements', () => {
     const { container } = render(<BrandLoader aria-hidden="true" />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    const animated = container.querySelector('image[href="/brand/re/loading.svg"]');
-    const still = container.querySelector('image[href="/brand/re/loading-static.svg"]');
+    const animated = container.querySelector('image[href="/brand/re/options/15/loop.svg"]');
+    const still = container.querySelector('image[href="/brand/re/options/15/static.svg"]');
     expect(animated).toHaveClass('motion-reduce:hidden');
     expect(still).toHaveClass('hidden', 'motion-reduce:block');
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
@@ -35,12 +35,12 @@ describe('BrandLoader', () => {
     expect(retry).toBeEnabled();
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeInTheDocument();
+    expect(container.querySelector('image[href="/brand/re/options/15/loop.svg"]')).not.toBeInTheDocument();
 
     rerender(<ScanStatusBadge status="failed" onRetry={onRetry} isRetrying />);
     expect(retry).toBeDisabled();
     expect(screen.getByText('Retrying…')).toBeInTheDocument();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeInTheDocument();
+    expect(container.querySelector('image[href="/brand/re/options/15/loop.svg"]')).not.toBeInTheDocument();
     expect(retry.querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
@@ -48,6 +48,6 @@ describe('BrandLoader', () => {
     rerender(<ScanStatusBadge status="clean" onRetry={onRetry} />);
     expect(screen.getByText('Clean')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry virus scan' })).not.toBeInTheDocument();
-    expect(container.querySelector('image[href="/brand/re/loading.svg"]')).not.toBeInTheDocument();
+    expect(container.querySelector('image[href="/brand/re/options/15/loop.svg"]')).not.toBeInTheDocument();
   });
 });

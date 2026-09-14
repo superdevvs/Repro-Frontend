@@ -6,7 +6,7 @@ export interface BrandLoaderProps extends LucideProps {
   label?: string;
 }
 
-/** The saved RE motion, shared by full-page and inline loading states. */
+/** Saved Option 15, used for page loading with a static reduced-motion fallback. */
 export const BrandLoader = forwardRef<SVGSVGElement, BrandLoaderProps>(
   ({ className, size = 24, label = 'Loading', absoluteStrokeWidth: _absoluteStrokeWidth,
     'aria-hidden': ariaHidden, 'aria-label': ariaLabel, role, children, ...props }, ref) => {
@@ -27,8 +27,8 @@ export const BrandLoader = forwardRef<SVGSVGElement, BrandLoaderProps>(
         aria-live={decorative ? undefined : 'polite'}
         focusable="false"
       >
-        <image href="/brand/re/loading.svg" width="512" height="512" className="motion-reduce:hidden" aria-hidden="true" />
-        <image href="/brand/re/loading-static.svg" width="512" height="512" className="hidden motion-reduce:block" aria-hidden="true" />
+        <image href="/brand/re/options/15/loop.svg" width="512" height="512" className="motion-reduce:hidden" aria-hidden="true" />
+        <image href="/brand/re/options/15/static.svg" width="512" height="512" className="hidden motion-reduce:block" aria-hidden="true" />
         {children}
       </svg>
     );

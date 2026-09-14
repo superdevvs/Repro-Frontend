@@ -101,7 +101,7 @@ describe('PageLoadingBoundary', () => {
 
   it('supports Strict Mode effect cleanup and the reduced-motion static logo', () => {
     const { rerender } = render(<StrictMode><PageLoadingBoundary><PageWork loading /></PageLoadingBoundary></StrictMode>);
-    expect(overlay()?.querySelector('image[href="/brand/re/loading-static.svg"]')).toHaveClass('motion-reduce:block');
+    expect(overlay()?.querySelector('image[href="/brand/re/options/15/static.svg"]')).toHaveClass('motion-reduce:block');
     rerender(<StrictMode><PageLoadingBoundary><PageWork loading={false} /></PageLoadingBoundary></StrictMode>);
     settle();
     expect(overlay()).not.toBeInTheDocument();
