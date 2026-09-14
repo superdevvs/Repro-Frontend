@@ -462,18 +462,15 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
 
   return (
     <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        {/* The heading is for the desktop layout only. On a phone the title and
-            subtitle cost a third of the first screen and repeat what the bottom
-            bar already says, so they stay in the accessibility tree but out of
-            the flow, matching the dashboard's PageHeader hideIntroOnMobile. */}
-        <div className="sr-only md:not-sr-only md:space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Shoot History</h1>
-          <p className="text-muted-foreground">
+      <div className="flex items-start justify-between gap-3">
+        {/* Compact title on phones (no description); full heading on desktop. */}
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-lg font-bold tracking-tight md:text-3xl">Shoot History</h1>
+          <p className="hidden text-muted-foreground md:block">
             View and manage scheduled, completed, delivered, and on-hold shoots.
           </p>
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2">
           {(isSuperAdmin || isAdmin || isEditingManager) && (
             <Button onClick={() => setIsBulkActionsOpen(true)} variant="outline" className="gap-2">
               <Layers className="h-4 w-4" />

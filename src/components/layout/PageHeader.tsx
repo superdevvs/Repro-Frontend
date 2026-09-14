@@ -6,12 +6,18 @@ import { cn } from '@/lib/utils';
 interface PageHeaderProps {
   badge?: string;
   title: React.ReactNode;
-  description: React.ReactNode;
+  description?: React.ReactNode;
   icon?: LucideIcon;
   iconText?: string;
   action?: React.ReactNode;
   alignActionTop?: boolean;
   hideIntroOnMobile?: boolean;
+  /**
+   * On phones, keep a compact page title and drop the description. Desktop
+   * still shows the full heading + description. Mutually exclusive with
+   * hideIntroOnMobile: hideIntroOnMobile wins if both are set.
+   */
+  compactTitleOnMobile?: boolean;
 }
 
 export function PageHeader({ 
@@ -22,6 +28,7 @@ export function PageHeader({
   action,
   alignActionTop = false,
   hideIntroOnMobile = false,
+  compactTitleOnMobile = false,
 }: PageHeaderProps) {
   const renderTitle = (value: React.ReactNode) => {
     if (typeof value !== 'string') return value;
@@ -47,10 +54,17 @@ export function PageHeader({
         )}
       >
         <div className={hideIntroOnMobile ? 'sr-only md:not-sr-only' : undefined}>
-          <h1 className="text-3xl font-bold">{renderTitle(title)}</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {description}
-          </p>
+          <h1 className={cn('font-bold', compactTitleOnMobile ? 'text-lg md:text-3xl' : 'text-3xl')}>
+            {renderTitle(title)}
+          </h1>
+          {description ? (
+            <p className={cn(
+              'text-slate-600 dark:text-slate-400 mt-1',
+              compactTitleOnMobile && 'hidden md:block',
+            )}>
+              {description}
+            </p>
+          ) : null}
         </div>
         
         {action && (

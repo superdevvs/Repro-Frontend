@@ -539,7 +539,7 @@ export default function Availability() {
         <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "p-3 sm:p-4 pb-6" : "h-full px-6 pb-6 pt-0 overflow-hidden")}>
           {isCompactLayout ? (
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg sm:text-xl font-bold truncate">Photographer Availability</h1>
+              <h1 className="text-lg sm:text-xl font-bold truncate">Availability</h1>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={goToToday}>Today</Button>
                 {canEditAvailability && (
