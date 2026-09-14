@@ -1282,6 +1282,7 @@ export default function Accounts() {
           title="Accounts"
           description="Manage your team members and their permissions"
           icon={UsersIcon}
+          hideIntroOnMobile
           action={
             <div className="flex w-full items-center gap-2 sm:w-auto">
               {/* Search input in header */}

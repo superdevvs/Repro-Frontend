@@ -35,9 +35,10 @@ const SchedulingSettings = () => {
           badge="Scheduling"
           title="Scheduling Catalog"
           description="Manage services and client-specific service visibility."
+          hideIntroOnMobile
           action={
             activeTab === 'services' ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 <Button onClick={() => servicesRef.current?.openAddService()} className="h-9 gap-1.5 px-3 sm:h-10 sm:px-4">
                   <Plus className="h-4 w-4" />
                   <span className="sm:hidden">New</span>
