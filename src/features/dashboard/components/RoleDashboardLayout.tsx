@@ -96,9 +96,12 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             </DashboardNoticeStack>
           </div>
           {isCompactDashboardLayout && mobileTabs.length > 0 ? (
-            <div className="space-y-4 flex-1 flex flex-col">
+            // flex gap rather than space-y, and the tiles wrapper mirrors the card's
+            // own `hidden sm:flex`: on phones the card is display:none, and space-y
+            // still handed the tabs a 16px margin for that empty wrapper.
+            <div className="flex flex-1 flex-col gap-2 sm:gap-4">
               {hasMetricTiles ? (
-                <div data-onboarding-target={metricsOnboardingTarget}>
+                <div data-onboarding-target={metricsOnboardingTarget} className="hidden sm:block">
                   <RoleMetricTilesCard tiles={metricTiles} />
                 </div>
               ) : null}

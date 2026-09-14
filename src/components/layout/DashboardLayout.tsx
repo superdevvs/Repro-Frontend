@@ -43,7 +43,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
-  const contentPadding = useCompactShell ? (isStudioWorkspace ? 'p-0 pb-20' : 'p-3 pb-20') : 'p-3';
+  // The compact shell keeps 12px at the sides but only 6px above the page: on a
+  // phone the header already separates content from the chrome, and every page
+  // adds its own top padding, so the old 12px doubled up into a visible gap.
+  const contentPadding = useCompactShell ? (isStudioWorkspace ? 'p-0 pb-20' : 'px-3 pt-1.5 pb-20') : 'p-3';
   const shouldHideFooter =
     hideFooter || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||

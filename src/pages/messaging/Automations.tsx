@@ -355,7 +355,7 @@ export default function Automations() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
+      <div className="space-y-6 px-2 pt-1.5 pb-3 sm:p-6">
         <Card className="overflow-hidden border-none bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-0 text-white shadow-sm">
           <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">

@@ -18,7 +18,7 @@ const Profile = () => {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="px-2 pt-3 pb-3 sm:p-6">
+        <div className="px-2 pt-1.5 pb-3 sm:p-6">
           <div className="flex justify-center items-center h-64">
             <InlineSpinner className="h-12 w-12" />
           </div>
@@ -74,7 +74,7 @@ const Profile = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
+      <div className="space-y-6 px-2 pt-1.5 pb-3 sm:p-6">
         {renderProfileByRole()}
         {(user?.role === 'client' || user?.role === 'editor') && (
           <section aria-label="Account security and activity" className="grid gap-6 lg:grid-cols-2">

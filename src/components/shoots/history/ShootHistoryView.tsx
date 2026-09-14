@@ -461,7 +461,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-3 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         {/* The heading is for the desktop layout only. On a phone the title and
             subtitle cost a third of the first screen and repeat what the bottom

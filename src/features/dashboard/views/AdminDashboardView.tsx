@@ -187,7 +187,9 @@ export const AdminDashboardView = ({
   );
 
   const adminMobileContent = (
-    <div className="space-y-2 sm:space-y-4">
+    // flex gap rather than space-y: the metric tiles are display:none on phones
+    // and space-y would still hand the tabs an 8px margin for that hidden card.
+    <div className="flex flex-col gap-2 sm:gap-4">
       <RoleMetricTilesCard tiles={adminMetricTiles} />
       <Tabs
         value={mobileDashboardTab}
