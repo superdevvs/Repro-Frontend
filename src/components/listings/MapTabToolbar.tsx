@@ -105,7 +105,7 @@ export function MapTabToolbar({
           share one command surface. The search is the only flexible item, so
           it gives up width first on narrower desktop canvases. */}
       <div
-        className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-nowrap sm:items-center"
+        className="flex min-w-0 flex-nowrap items-center gap-2"
         data-testid="map-toolbar-primary-row"
       >
         <dl

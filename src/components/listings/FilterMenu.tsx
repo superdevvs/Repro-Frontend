@@ -97,7 +97,7 @@ export function FilterMenu({
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : 'Filters'}
         >
           <FilterIcon className="h-4 w-4" />
-          <span className={cn(compact && 'lg:max-2xl:hidden')}>Filters</span>
+          <span className={cn(compact && 'hidden sm:inline lg:max-2xl:hidden')}>Filters</span>
           {activeCount > 0 && (
             <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
               {activeCount}

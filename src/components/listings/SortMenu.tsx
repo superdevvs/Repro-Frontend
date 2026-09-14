@@ -48,7 +48,7 @@ export function SortMenu({ sort, onSortChange, compact = false }: SortMenuProps)
           aria-label={`Sort: ${labelFor(sort)}`}
         >
           <ArrowUpDown className="h-4 w-4" />
-          <span className={cn('truncate', compact && 'lg:max-2xl:hidden')}>
+          <span className={cn('truncate', compact && 'hidden sm:inline lg:max-2xl:hidden')}>
             {labelFor(sort)}
           </span>
         </Button>
