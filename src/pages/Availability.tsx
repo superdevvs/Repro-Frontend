@@ -536,7 +536,7 @@ export default function Availability() {
   return (
     <>
       <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "p-3 sm:p-4 pb-6" : "h-full px-6 pb-6 pt-0 overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full px-6 pb-6 pt-0 overflow-hidden")}>
           {isCompactLayout ? (
             <div className="flex items-center justify-between gap-2">
               <h1 className="text-lg sm:text-xl font-bold truncate">Availability</h1>
@@ -588,9 +588,9 @@ export default function Availability() {
           {/* Month + Date navigation strips */}
           <div className="mt-3 sm:mt-6 mb-2 sm:mb-4 space-y-2 sm:space-y-3 flex-shrink-0">
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={monthNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 xl:px-6">
+              <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div ref={monthNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-6">
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
                   const monthYear = format(month, 'yyyy');
@@ -629,9 +629,9 @@ export default function Availability() {
             </div>
 
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={dateNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 xl:px-6">
+              <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div ref={dateNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-6">
                 {monthDates.map((day, idx) => {
                   const prevDay = idx > 0 ? monthDates[idx - 1] : null;
                   const currentMonthStr = format(day, 'yyyy-MM');
