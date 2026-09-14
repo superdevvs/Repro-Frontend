@@ -28,6 +28,32 @@ describe('Studio shoot picker', () => {
   const photo = (id: number, overrides: Partial<SourceMedia> = {}): SourceMedia => ({ id, shootId: 42, filename: `IMG${id}.CR3`, mimeType: 'image/x-canon-cr3', mediaType: 'raw', fileSize: 1024, workflowStage: 'todo', workflow: 'photo-enhancement', previewUrl: `/preview/${id}`, thumbnailUrl: `/thumb/${id}`, bracketGroup: 1, sequence: id, shootServiceId: 10, ...overrides });
   const merged = { id: 'hdr:one', stackFileIds: [1, 2, 3], shootId: 42, name: 'IMG1-HDR.jpg', kind: 'image' as const, url: '/hdr/one', thumbnailUrl: '/hdr/one' };
 
+  it('combines shoot context, source tabs, and actions in one header without a sidebar or descriptions', async () => {
+    sources.getShootMedia.mockResolvedValue([photo(1, { stackingEnabled: false })]);
+    render(<MediaPicker {...props()} initialShoot={shoot} />);
+    await screen.findByRole('button', { name: /Select IMG1.CR3/ });
+    const dialog = screen.getByRole('dialog');
+    const header = screen.getByRole('heading', { name: shoot.address! }).closest('header');
+    expect(header).toContainElement(screen.getByRole('tablist', { name: 'Photo source' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'Select all' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'Upload media' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'Back to shoots' }));
+    expect(dialog.querySelectorAll('header')).toHaveLength(1);
+    expect(dialog.querySelector('aside')).toBeNull();
+    expect(screen.queryByText(/HDR stacks merge automatically/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Select photos from several shoots/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose raw HDR stacks/)).not.toBeInTheDocument();
+  });
+
+  it('keeps search and upload in the same library header after returning from a shoot', async () => {
+    render(<MediaPicker {...props()} initialShoot={shoot} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to shoots' }));
+    await screen.findByRole('button', { name: 'Browse photos' });
+    const header = screen.getByRole('heading', { name: 'Add media' }).closest('header');
+    expect(header).toContainElement(screen.getByRole('textbox', { name: 'Search shoots' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'Upload media' }));
+  });
+
   it('shows raw stacks with merged finals and preserves edited selections across tabs', async () => {
     sources.getShootMedia.mockResolvedValue([photo(1), photo(2), photo(3), photo(4, { filename: 'final.jpg', mediaType: 'image', workflowStage: 'completed', bracketGroup: null })]);
     sources.mergeHdr.mockResolvedValue(merged);
@@ -40,7 +66,7 @@ describe('Studio shoot picker', () => {
     expect(screen.getByText('3 exposures · Merged HDR')).toBeVisible();
     await userEvent.click(screen.getByRole('tab', { name: /Edited/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Select final.jpg/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Use 2 files/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Use 2 photos/ }));
     expect(initial.onSelect.mock.calls[0][0]).toEqual([merged, expect.objectContaining({ fileId: 4 })]);
     expect(initial.onSelect.mock.calls[0][0].some((m: { fileId?: number }) => [1, 2, 3].includes(m.fileId!))).toBe(false);
   });
@@ -53,7 +79,7 @@ describe('Studio shoot picker', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Browse photos' }));
     await screen.findByRole('button', { name: /Select stack-3.jpg/ });
     fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-    fireEvent.click(screen.getByRole('button', { name: /Use 2 files/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Use 2 photos/ }));
     expect(initial.onSelect.mock.calls[0][0].map((m: { stackFileIds: number[] }) => m.stackFileIds)).toEqual([[1, 2], [3, 4]]);
   });
 
@@ -93,7 +119,7 @@ describe('Studio shoot picker', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Browse photos' }));
     await screen.findByText('Preparing merged HDR…');
     fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-    fireEvent.click(screen.getByRole('button', { name: /Use 1 files/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Use 1 photo/ }));
     expect(initial.onSelect.mock.calls[0][0]).toEqual([expect.objectContaining({ fileId: 4 })]);
   });
 
