@@ -15,29 +15,41 @@ const actions = (onCopy = vi.fn(), onRemove = vi.fn()) => [
 ];
 
 describe('TourLinkRow', () => {
-  it('keeps the link field full width with the actions in one menu on phones and inline on wider screens', () => {
+  it('keeps copy beside the kebab on phones and hides extra actions until the menu opens', () => {
     render(<TourLinkRow label="Branded Tour Link" value="https://example.com/t/1" actions={actions()} />);
 
     const input = screen.getByDisplayValue('https://example.com/t/1');
     expect(input).toHaveAttribute('readonly');
-    expect(input).toHaveClass('min-w-0', 'flex-1');
+    expect(input).toHaveClass('min-w-0');
 
-    // One trigger for phones, hidden from sm up; the inline group is the reverse.
-    const menuTrigger = screen.getByRole('button', { name: 'Branded Tour Link actions' });
-    expect(menuTrigger).toHaveClass('sm:hidden');
-    expect(screen.getByTestId('tour-link-inline-actions')).toHaveClass('hidden', 'sm:flex');
-    expect(screen.getByTestId('tour-link-inline-actions').querySelectorAll('button')).toHaveLength(3);
+    const mobileCopy = screen.getByTestId('tour-link-mobile-copy');
+    expect(mobileCopy).toHaveClass('sm:hidden');
+    expect(screen.getByRole('button', { name: 'Branded Tour Link actions' })).toBeInTheDocument();
+    expect(screen.queryByTestId('tour-link-inline-actions')).not.toBeInTheDocument();
   });
 
-  it('runs the chosen action from the menu and respects disabled entries', async () => {
+  it('copies from the dedicated mobile button and still offers copy in the menu', async () => {
     const user = userEvent.setup();
     const onCopy = vi.fn();
     render(<TourLinkRow label="MLS Link" value="https://example.com/t/2" actions={actions(onCopy)} />);
 
-    await user.click(screen.getByRole('button', { name: 'MLS Link actions' }));
+    await user.click(screen.getByTestId('tour-link-mobile-copy'));
+    expect(onCopy).toHaveBeenCalledTimes(1);
 
+    await user.click(screen.getByRole('button', { name: 'MLS Link actions' }));
     expect(await screen.findByRole('menuitem', { name: /Open in new tab/ })).toHaveAttribute('aria-disabled', 'true');
     await user.click(screen.getByRole('menuitem', { name: /Copy link/ }));
+    expect(onCopy).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a hover copy overlay on the right edge of the field on desktop', async () => {
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    render(<TourLinkRow label="Walkthrough" value="https://example.com/t/3" actions={actions(onCopy)} />);
+
+    const overlay = screen.getByTestId('tour-link-hover-copy');
+    expect(overlay).toHaveClass('hidden', 'sm:flex');
+    await user.click(overlay);
     expect(onCopy).toHaveBeenCalledTimes(1);
   });
 

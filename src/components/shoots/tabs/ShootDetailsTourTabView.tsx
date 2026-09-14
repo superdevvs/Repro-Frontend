@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -176,27 +175,25 @@ export function ShootDetailsTourTabView(props: any) {
   return (
     <div className="w-full space-y-4">
       {/* Tour Links Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Tour Links</CardTitle>
-              <CardDescription>Manage and share tour links for this shoot</CardDescription>
-            </div>
-            {onShowAnalytics && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onShowAnalytics}
-                className="h-8 text-xs gap-1.5"
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-                Analytics
-              </Button>
-            )}
+      <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="tour-links-title">
+        <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
+          <div className="min-w-0">
+            <h3 id="tour-links-title" className="text-sm font-semibold">Tour Links</h3>
+            <p className="truncate text-[11px] text-muted-foreground">Share branded, MLS, and generic tour URLs</p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          {onShowAnalytics && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShowAnalytics}
+              className="h-8 shrink-0 text-xs gap-1.5"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Analytics
+            </Button>
+          )}
+        </div>
+        <div className="space-y-4 px-3 py-3">
           {/* Branded Tour Link */}
           <div className="space-y-2">
             <Label>Branded Tour Link</Label>
@@ -238,25 +235,22 @@ export function ShootDetailsTourTabView(props: any) {
             </div>
             <TourLinkRow label="Generic MLS Link" value={getTourUrl('genericMls')} actions={shareActions('genericMls')} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
       {(showVideoLinksSection || showVideoEmbedSection) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Video Links</CardTitle>
-            <CardDescription>Manage public video pages and embedded tour video.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="tour-video-links-title">
+          <div className="border-b px-3 py-2.5">
+            <h3 id="tour-video-links-title" className="text-sm font-semibold">Video Links</h3>
+            <p className="truncate text-[11px] text-muted-foreground">Public video pages and embedded tour video</p>
+          </div>
+          <div className="space-y-4 px-3 py-3">
             {showVideoLinksSection && (
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label>Public Video Pages</Label>
-                  {isAdmin && (
-                    <p className="text-xs text-muted-foreground">
-                      These links stay fixed. Editing a row changes the video that the public page plays.
-                    </p>
-                  )}
-                </div>
+                {isAdmin && (
+                  <p className="text-[11px] text-muted-foreground">
+                    These links stay fixed. Editing a row changes the video that the public page plays.
+                  </p>
+                )}
                 {publicVideoLinkConfigs.map(({ key, label, placeholder }) => {
                   const isEditing = editingVideoLinkKey === key;
                   const url = getTourUrl(key);
@@ -306,9 +300,6 @@ export function ShootDetailsTourTabView(props: any) {
               <div className="space-y-2">
                 {showVideoLinksSection && <Separator />}
                 <Label>Video Embed</Label>
-                <p className="text-xs text-muted-foreground">
-                  Used for embedding video directly inside tour pages. Supports YouTube, Vimeo, or direct video links.
-                </p>
                 {editingVideoLinkKey !== 'video_link' ? (
                   <TourLinkRow
                     label="Video embed"
@@ -341,8 +332,8 @@ export function ShootDetailsTourTabView(props: any) {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
       {/* 3D tours and floor plans sit with the other shareable links, directly
           under Video Links, rather than after the settings and property forms. */}
