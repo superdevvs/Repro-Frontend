@@ -106,10 +106,17 @@ echo "Cleared $CLEARED_VITE_VARIABLES inherited VITE_* variable(s) before the pr
 # CRLF .env.
 API_ENV_VALUE="$(sed -n 's/^[[:space:]]*VITE_API_URL[[:space:]]*=[[:space:]]*//p' .env | tail -n 1 | tr -d '\r')"
 API_ENV_VALUE="${API_ENV_VALUE%/}"
-if [ "$API_ENV_VALUE" != "https://api.reprodashboard.com" ]; then
-  echo "Production VITE_API_URL is missing or invalid; expected https://api.reprodashboard.com." >&2
-  exit 1
-fi
+# The API is served same-origin from the main domain (nginx routes /api and
+# /storage on reprodashboard.com to Laravel), so users never see the api.
+# host in media, download or email links. The api. host remains valid for
+# webhooks and as a rollback target.
+case "$API_ENV_VALUE" in
+  https://reprodashboard.com|https://api.reprodashboard.com) ;;
+  *)
+    echo "Production VITE_API_URL is missing or invalid; expected https://reprodashboard.com (or the legacy https://api.reprodashboard.com)." >&2
+    exit 1
+    ;;
+esac
 
 # A lockfile mismatch must stop deployment. Falling back to npm install would
 # produce an unreviewed dependency graph on the production server.
