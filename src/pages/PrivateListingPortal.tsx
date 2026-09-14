@@ -590,22 +590,23 @@ const PrivateListingPortal = () => {
       <div
         className={
           viewMode === 'showcase'
-            ? 'flex min-h-0 flex-col gap-3 px-0 pb-0 pt-2 sm:px-3 sm:pt-0'
+            ? 'flex min-h-0 flex-1 flex-col gap-2 px-0 pb-0 pt-0 sm:gap-3 sm:px-3 sm:pt-0'
             : 'space-y-4 px-2 pb-3 pt-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0'
         }
       >
         {/* Header — emphasized title section with the Add Listing / Hide
             controls aligned in a single horizontal group (R9.1, R9.2). */}
-        <div className="flex flex-col items-start justify-between gap-4 px-2 pb-2 sm:px-0 md:flex-row md:flex-nowrap">
-          <div className="min-w-0 [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:tracking-tight">
+        <div className="flex items-center justify-between gap-3 px-0 pb-1 sm:items-start sm:px-0 md:flex-nowrap">
+          <div className="min-w-0 md:[&_h1]:text-4xl md:[&_h1]:font-bold md:[&_h1]:tracking-tight">
             <PageHeader
               badge="Exclusive"
               title="Exclusive Listings"
               description="Private, pre-market properties — invitation only"
+              compactTitleOnMobile
             />
           </div>
           <div
-            className="flex w-full flex-row flex-nowrap items-center justify-start gap-2 self-start overflow-x-auto pb-1 [&>button]:shrink-0 md:w-auto md:justify-end md:overflow-visible md:pb-0"
+            className="flex shrink-0 flex-row flex-nowrap items-center justify-end gap-2 self-start overflow-x-auto pb-0 [&>button]:shrink-0"
             data-testid="listing-header-actions"
           >
             <SavedViewsMenu

@@ -410,7 +410,7 @@ export function ExclusiveListingsShowcase({
     () => listings.filter(hasCoords).length,
     [listings],
   )
-  const [inspectorOpen, setInspectorOpen] = useState(true)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   const hasListings = listings.length > 0
   const hasMappedListings = mappedListingCount > 0
   const selectedListing = useMemo(
@@ -492,7 +492,7 @@ export function ExclusiveListingsShowcase({
     <section
       data-testid="showcase-map-canvas"
       data-map-workspace
-      className="relative h-[calc(100svh-11.5rem)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-background shadow-2xl dark:border-white/10"
+      className="relative h-[calc(100svh-10.5rem)] min-h-[420px] w-full overflow-hidden rounded-2xl border border-slate-300/80 bg-background shadow-2xl max-lg:h-[calc(100svh-9.25rem)] max-lg:min-h-0 max-lg:flex-1 max-lg:rounded-xl dark:border-white/10"
     >
       <Suspense fallback={<MapLoadingFallback />}>
         {googleMapsApiKey && !googleMapError ? (
@@ -561,16 +561,20 @@ export function ExclusiveListingsShowcase({
         </div>
       ) : null}
 
-      {compactMode && <Button
+      <Button
         type="button" variant="secondary" size="sm"
         className="absolute bottom-4 right-4 z-30 gap-2 shadow-lg lg:hidden"
         aria-expanded={inspectorOpen} aria-controls="exclusive-listing-browser"
         onClick={() => setInspectorOpen((open) => !open)}>
         {inspectorOpen ? <X className="h-4 w-4" /> : <List className="h-4 w-4" />}
         {inspectorOpen ? 'Close listings' : `Browse listings (${listings.length})`}
-      </Button>}
-      {(inspectorOpen || !compactMode || !hasListings || !hasMappedListings) && <aside id="exclusive-listing-browser"
-        className="absolute inset-x-3 bottom-16 z-20 max-h-[42%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
+      </Button>
+      <aside id="exclusive-listing-browser"
+        className={`absolute inset-x-3 bottom-16 z-20 max-h-[38%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white ${
+          inspectorOpen || !hasListings || !hasMappedListings
+            ? ''
+            : 'hidden lg:block'
+        }`}
         data-testid="listing-inspector-overlay"
         data-map-overlay="inspector"
       >
@@ -672,7 +676,7 @@ export function ExclusiveListingsShowcase({
             )}
           </div>
         </ScrollArea>
-      </aside>}
+      </aside>
     </section>
   )
 }
