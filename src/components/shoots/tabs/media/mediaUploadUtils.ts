@@ -695,18 +695,32 @@ export function mergeUploadIssueLists(existingIssues: UploadIssue[], nextIssues:
   return Array.from(merged.values());
 }
 
+/**
+ * Reject only what the server would actually refuse.
+ *
+ * Every file travels in its own request (see `uploadOne` in the raw and edited
+ * sections), so the server's per-request cap applies to one file at a time and
+ * is bounded by the per-file cap anyway. This used to sum the whole staged batch
+ * against the per-request limit, which had nothing to do with how the files were
+ * sent: 41 ordinary 55MB CR3 frames add up to 2.2GB, and a photographer was told
+ * to "split the upload into smaller batches" for a shoot that was going to be
+ * sent one file at a time regardless. Files already staged are accepted for the
+ * signature's sake but do not count against anything.
+ */
 export function validateFilesAgainstUploadLimits(
   files: File[],
-  existingFiles: File[] = [],
+  _existingFiles: File[] = [],
   uploadLimits?: UploadLimitsPayload,
 ): { acceptedFiles: File[]; rejectedIssues: UploadIssue[] } {
   const resolved = resolveUploadLimits(uploadLimits);
+  // A single file is the whole request, so the tighter of the two caps is the
+  // one that governs it.
+  const maxBytesPerFile = Math.min(resolved.perFileBytes, resolved.totalRequestBytes);
   const acceptedFiles: File[] = [];
   const rejectedIssues: UploadIssue[] = [];
-  let runningTotal = existingFiles.reduce((sum, file) => sum + (file.size || 0), 0);
 
   files.forEach((file, index) => {
-    if ((file.size || 0) > resolved.perFileBytes) {
+    if ((file.size || 0) > maxBytesPerFile) {
       rejectedIssues.push({
         id: getQueueFileKey(file, index),
         fileName: file.name,
@@ -718,20 +732,7 @@ export function validateFilesAgainstUploadLimits(
       return;
     }
 
-    if (runningTotal + (file.size || 0) > resolved.totalRequestBytes) {
-      rejectedIssues.push({
-        id: getQueueFileKey(file, index),
-        fileName: file.name,
-        errorType: 'oversize',
-        message: `Adding ${file.name} would push this upload above the ${resolved.totalRequestLabel} total request limit.`,
-        retryable: false,
-        nextStep: `Split the upload into smaller batches that stay under ${resolved.totalRequestLabel} total per request.`,
-      });
-      return;
-    }
-
     acceptedFiles.push(file);
-    runningTotal += file.size || 0;
   });
 
   return { acceptedFiles, rejectedIssues };

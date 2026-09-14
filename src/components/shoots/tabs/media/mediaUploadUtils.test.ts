@@ -8,7 +8,67 @@ import {
   resolveEligibleUploadServices,
   rotateUploadAttemptKey,
   prepareUploadRetries,
+  validateFilesAgainstUploadLimits,
 } from './mediaUploadUtils';
+
+const MB = 1024 * 1024;
+
+const fakeFile = (name: string, sizeBytes: number): File => {
+  const file = new File([''], name, { type: 'application/octet-stream' });
+  Object.defineProperty(file, 'size', { value: sizeBytes });
+  return file;
+};
+
+describe('upload limit validation', () => {
+  it('accepts a full RAW shoot whose combined size exceeds the per-request cap', () => {
+    // 41 x 55MB CR3 files is 2.2GB in total. Every file is sent in its own request,
+    // so the batch total must never be measured against the per-request limit.
+    // This is the exact scenario that told a photographer to "split the upload
+    // into smaller batches" for 41 perfectly ordinary frames.
+    const files = Array.from({ length: 41 }, (_, index) => fakeFile(`SNAP${8530 + index}.CR3`, 55 * MB));
+
+    const result = validateFilesAgainstUploadLimits(files);
+
+    expect(result.rejectedIssues).toEqual([]);
+    expect(result.acceptedFiles).toHaveLength(41);
+  });
+
+  it('ignores how much is already staged when judging a new file', () => {
+    const staged = Array.from({ length: 40 }, (_, index) => fakeFile(`staged-${index}.CR3`, 55 * MB));
+
+    const result = validateFilesAgainstUploadLimits([fakeFile('SNAP8561.CR3', 55 * MB)], staged);
+
+    expect(result.rejectedIssues).toEqual([]);
+    expect(result.acceptedFiles).toHaveLength(1);
+  });
+
+  it('still rejects a single file above the per-file limit without touching the others', () => {
+    const result = validateFilesAgainstUploadLimits([
+      fakeFile('walkthrough.mov', 2500 * MB),
+      fakeFile('SNAP8561.CR3', 55 * MB),
+    ]);
+
+    expect(result.acceptedFiles.map((file) => file.name)).toEqual(['SNAP8561.CR3']);
+    expect(result.rejectedIssues).toHaveLength(1);
+    expect(result.rejectedIssues[0]).toMatchObject({
+      fileName: 'walkthrough.mov',
+      errorType: 'oversize',
+      retryable: false,
+    });
+    expect(result.rejectedIssues[0].message).toContain('2GB per-file limit');
+  });
+
+  it('honours a smaller per-file limit advertised by the server', () => {
+    const result = validateFilesAgainstUploadLimits(
+      [fakeFile('big.CR3', 120 * MB)],
+      [],
+      { per_file: '100MB', total_request: '2.2GB' },
+    );
+
+    expect(result.acceptedFiles).toEqual([]);
+    expect(result.rejectedIssues[0].message).toContain('100MB per-file limit');
+  });
+});
 
 describe('canonical upload results', () => {
   it('keeps a 38 accepted / 6 failed partial batch internally consistent', () => {
