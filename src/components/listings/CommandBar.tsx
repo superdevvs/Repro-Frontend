@@ -144,7 +144,7 @@ export function CommandBar({
     <div
       className={cn(
         variant === 'overlay'
-          ? 'flex min-w-0 flex-nowrap items-center gap-2'
+          ? 'flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap'
           : 'flex flex-wrap items-center gap-2',
         className,
       )}
@@ -155,7 +155,7 @@ export function CommandBar({
         className={cn(
           'relative',
           variant === 'overlay'
-            ? 'min-w-[6rem] flex-1'
+            ? 'min-w-0 flex-[1_1_100%] sm:min-w-[6rem] sm:flex-1'
             : 'min-w-[200px] flex-[1_1_280px]',
         )}
         data-testid="listing-search-shell"

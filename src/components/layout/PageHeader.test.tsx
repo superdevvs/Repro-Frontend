@@ -15,7 +15,8 @@ describe('PageHeader', () => {
     );
 
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveClass('text-lg', 'md:text-3xl');
+    expect(heading).toHaveClass('truncate', 'text-lg', 'md:text-3xl');
+    expect(screen.getByText('Scheduling Catalog')).toBeInTheDocument();
     expect(screen.getByText('Scheduling')).toBeInTheDocument();
     expect(screen.getByText('Catalog')).toBeInTheDocument();
     expect(screen.getByText(/manage services/i)).toHaveClass('hidden', 'md:block');

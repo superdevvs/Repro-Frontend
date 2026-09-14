@@ -54,8 +54,18 @@ export function PageHeader({
         )}
       >
         <div className={hideIntroOnMobile ? 'sr-only md:not-sr-only' : undefined}>
-          <h1 className={cn('font-bold', compactTitleOnMobile ? 'text-lg md:text-3xl' : 'text-3xl')}>
-            {renderTitle(title)}
+          <h1 className={cn(
+            'font-bold',
+            compactTitleOnMobile ? 'truncate text-lg md:text-3xl' : 'text-3xl',
+          )}>
+            {compactTitleOnMobile && typeof title === 'string' ? (
+              <>
+                <span className="md:hidden">{title}</span>
+                <span className="hidden md:inline">{renderTitle(title)}</span>
+              </>
+            ) : (
+              renderTitle(title)
+            )}
           </h1>
           {description ? (
             <p className={cn(

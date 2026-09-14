@@ -105,7 +105,7 @@ export function MapTabToolbar({
           share one command surface. The search is the only flexible item, so
           it gives up width first on narrower desktop canvases. */}
       <div
-        className="flex min-w-0 flex-nowrap items-center gap-2"
+        className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-nowrap sm:items-center"
         data-testid="map-toolbar-primary-row"
       >
         <dl
@@ -115,7 +115,7 @@ export function MapTabToolbar({
         >
           <div
             className={cn(
-              'flex h-9 items-center gap-2 border-r pr-3',
+              'hidden h-9 items-center gap-2 border-r pr-3 sm:flex',
               overlay
                 ? 'border-slate-300/80 text-slate-950 dark:border-white/15 dark:text-white'
                 : 'border-border text-foreground',
@@ -135,7 +135,7 @@ export function MapTabToolbar({
             </span>
             <dt className="whitespace-nowrap text-xs font-medium text-slate-600 dark:text-slate-300">
               <span className="sr-only">Total listings</span>
-              <span aria-hidden="true" className="lg:hidden 2xl:inline">Total Listings</span>
+              <span aria-hidden="true" className="hidden sm:inline lg:hidden 2xl:inline">Total Listings</span>
               <span aria-hidden="true" className="hidden lg:inline 2xl:hidden">Listings</span>
             </dt>
             <dd
