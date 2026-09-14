@@ -144,7 +144,7 @@ export function CommandBar({
     <div
       className={cn(
         variant === 'overlay'
-          ? 'flex min-w-0 flex-nowrap items-center gap-2'
+          ? 'flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center'
           : 'flex flex-wrap items-center gap-2',
         className,
       )}
@@ -155,7 +155,7 @@ export function CommandBar({
         className={cn(
           'relative',
           variant === 'overlay'
-            ? 'min-w-0 flex-1'
+            ? 'min-w-0 w-full sm:flex-1'
             : 'min-w-[200px] flex-[1_1_280px]',
         )}
         data-testid="listing-search-shell"
@@ -232,26 +232,28 @@ export function CommandBar({
       </div>
 
       {/* Filter / sort / saved-views controls. */}
-      <FilterMenu
-        filters={filters}
-        onAddFilter={onAddFilter}
-        onRemoveFilter={onRemoveFilter}
-        cityOptions={cityOptions}
-        compact={variant === 'overlay'}
-      />
-      <SortMenu
-        sort={sort}
-        onSortChange={onSortChange}
-        compact={variant === 'overlay'}
-      />
-      {showSavedViews ? (
-        <SavedViewsMenu
-          savedViews={savedViews}
-          onApplyView={onApplyView}
-          onSaveView={onSaveView}
-          onDeleteView={onDeleteView}
+      <div className={cn(variant === 'overlay' && 'flex shrink-0 items-center gap-2')}>
+        <FilterMenu
+          filters={filters}
+          onAddFilter={onAddFilter}
+          onRemoveFilter={onRemoveFilter}
+          cityOptions={cityOptions}
+          compact={variant === 'overlay'}
         />
-      ) : null}
+        <SortMenu
+          sort={sort}
+          onSortChange={onSortChange}
+          compact={variant === 'overlay'}
+        />
+        {showSavedViews ? (
+          <SavedViewsMenu
+            savedViews={savedViews}
+            onApplyView={onApplyView}
+            onSaveView={onSaveView}
+            onDeleteView={onDeleteView}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }
