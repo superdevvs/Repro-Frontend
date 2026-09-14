@@ -428,7 +428,7 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     const canvas = screen.getByTestId('showcase-map-canvas')
     const toolbar = within(canvas).getByTestId('map-tab-toolbar')
     const primaryRow = within(toolbar).getByTestId('map-toolbar-primary-row')
-    const commandBar = within(primaryRow).getByTestId('listing-command-bar')
+    const commandBar = within(toolbar).getByTestId('listing-command-bar')
     const searchShell = within(commandBar).getByTestId('listing-search-shell')
     const mapControls = within(canvas).getByTestId('map-controls-overlay')
     expect(canvas).toContainElement(map)

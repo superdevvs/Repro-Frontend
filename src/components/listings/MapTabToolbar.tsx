@@ -164,14 +164,14 @@ export function MapTabToolbar({
           onDeleteView={onDeleteView}
           showSavedViews={showSavedViews}
           cityOptions={cityOptions}
+          trailing={
+            <ViewSwitcher
+              viewMode={viewMode}
+              onChange={onViewModeChange}
+              variant={variant}
+            />
+          }
         />
-        <div className="ml-auto shrink-0">
-          <ViewSwitcher
-            viewMode={viewMode}
-            onChange={onViewModeChange}
-            variant={variant}
-          />
-        </div>
       </div>
 
       {/* Active filter chips below the control row (R4.4). Renders nothing when

@@ -62,6 +62,8 @@ export interface CommandBarProps {
   cityOptions?: string[]
   className?: string
   variant?: 'default' | 'overlay'
+  /** Extra compact controls (e.g. Map/Grid/List) rendered with Filter/Sort. */
+  trailing?: React.ReactNode
 }
 
 /**
@@ -117,6 +119,7 @@ export function CommandBar({
   cityOptions = [],
   className,
   variant = 'default',
+  trailing,
 }: CommandBarProps) {
   // `open` tracks whether the input has focus; the dropdown only shows while
   // focused AND there is something worth showing (a query or suggestions).
@@ -253,6 +256,7 @@ export function CommandBar({
             onDeleteView={onDeleteView}
           />
         ) : null}
+        {trailing}
       </div>
     </div>
   )
