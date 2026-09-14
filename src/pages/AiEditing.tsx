@@ -7,7 +7,8 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { readShootStudioEntry } from '@/components/studio/shootStudioDeepLink';
-import { sourceMedia, studioError, studioWorkspaceService, workspaceSources } from '@/services/studioWorkspaceService';
+import { studioError, studioWorkspaceService, workspaceSources } from '@/services/studioWorkspaceService';
+import type { StudioShootRef } from '@/services/studioService';
 import { StudioHome, type HomeView } from '@/components/studio/v4/StudioHome';
 import { MediaPicker } from '@/components/studio/v4/MediaPicker';
 import { findPreset, initialConfig } from '@/components/studio/v4/presets';
@@ -34,6 +35,7 @@ export default function AiEditing() {
   const [history, setHistory] = useState<V4Workspace[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [picker, setPicker] = useState(false);
+  const [pickerShoot, setPickerShoot] = useState<StudioShootRef | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +66,12 @@ export default function AiEditing() {
       try {
         const result = await workspaceSources.resolveShoot(entry.shootId);
         if (!result.ok) throw new Error(result.errorMessage || 'This shoot is not available to your account.');
-        const files = await workspaceSources.getShootMedia(Number(entry.shootId), chosen.workflow);
         if (active) {
-          setMedia(files.map(sourceMedia));
           const record = result.record;
-          setLabel(String(record?.address || record?.label || record?.name || 'Selected shoot'));
-          if (!files.length) setError('This shoot has no compatible media yet. Add media to continue.');
+          const address = String(record?.address || record?.label || record?.name || 'Selected shoot');
+          setLabel(address);
+          setPickerShoot({ id: Number(entry.shootId), address, label: address, propertyIdentifier: entry.shootId, location: null, thumbnailUrl: null, updatedAt: null });
+          setPicker(true);
         }
       } catch (e) { if (active) setError(studioError(e)); }
       finally { if (active) setLoading(false); }
@@ -154,7 +156,7 @@ export default function AiEditing() {
         {!workspaceId && <StudioHome capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
       </>}
     </div>
-    <MediaPicker open={picker} onClose={() => setPicker(false)} selected={media} preset={preset} onSelect={(items, name) => {
+    <MediaPicker open={picker} onClose={() => setPicker(false)} selected={media} preset={preset} initialShoot={pickerShoot} onSelect={(items, name) => {
       if (workspace) { void mutate(() => studioWorkspaceService.update(workspace.id, { media: items, name, version: workspace.version, config: initialConfig(findPreset(workspace.presetId), items, workspace.config.prompt) })).catch(() => undefined); }
       else { setMedia(items); setLabel(name); requestId.current = crypto.randomUUID(); }
     }} />

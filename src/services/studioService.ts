@@ -226,6 +226,15 @@ export interface StudioShootRef {
 }
 
 export interface SourceMedia {
+  shootServiceId?: number | null;
+  bracketGroup?: number | null;
+  sequence?: number | null;
+  bracketMode?: number | null;
+  stackingEnabled?: boolean;
+  isExtra?: boolean;
+  captureType?: string | null;
+  capturedAt?: string | null;
+  createdAt?: string | null;
   id: number;
   shootId: number;
   filename: string;

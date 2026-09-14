@@ -40,6 +40,22 @@ export const workspaceSources = {
   async getShootMedia(shootId: number, workflow: WorkflowId): Promise<SourceMedia[]> {
     return (await apiClient.get(`${base}/sources/shoots/${shootId}/media`, { params: { workflow } })).data.data;
   },
+  async mergeHdr(fileIds: number[], signal: AbortSignal): Promise<V4Media> {
+    type MergeStatus = { status: 'pending' | 'processing' | 'ready' | 'failed'; media: V4Media; error?: string };
+    let result: MergeStatus = (await apiClient.post(`${base}/sources/hdr`, { fileIds }, { signal })).data.data;
+    const deadline = Date.now() + 15 * 60_000;
+    while (result.status === 'processing' && Date.now() < deadline) {
+      await new Promise<void>((resolve, reject) => {
+        const cancel = () => { window.clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+        const timer = window.setTimeout(() => { signal.removeEventListener('abort', cancel); resolve(); }, 2000);
+        signal.addEventListener('abort', cancel, { once: true });
+        if (signal.aborted) cancel();
+      });
+      result = (await apiClient.get(`${base}/sources/hdr`, { params: { fileIds }, signal })).data.data;
+    }
+    if (result.status !== 'ready') throw new Error(result.error || 'The HDR merge is not ready. Check the Studio worker and retry.');
+    return result.media;
+  },
   upload: (files: File[], workflow: WorkflowId, onProgress?: UploadProgressHandler) => studioService.upload(files, workflow, onProgress, `${base}/sources/uploads`),
 };
 

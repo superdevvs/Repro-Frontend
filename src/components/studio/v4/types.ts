@@ -1,7 +1,7 @@
 import type { StudioCapabilities } from '@/services/studioProviderService';
 export type StudioMediaKind = 'image' | 'video' | 'raw';
 export type StudioRatio = '9:16' | '16:9' | '1:1' | '4:5';
-export interface V4Media { id: string; shootId?: number; fileId?: number; mediaRef?: string; url: string; thumbnailUrl: string; name: string; kind: StudioMediaKind }
+export interface V4Media { id: string; stackFileIds?: number[]; shootId?: number; fileId?: number; mediaRef?: string; url: string; thumbnailUrl: string; name: string; kind: StudioMediaKind }
 export interface V4Preset { id: string; name: string; description: string; kind: 'image' | 'video'; tag: string; icon: string; color: string; workflow: 'photo-enhancement' | 'twilight' | 'listing-video' | 'reel-generator'; }
 export interface V4Frame { mediaId: string; method: 'extend' | 'crop' | 'fit'; duration: number; prompt?: string }
 export interface V4Config {
