@@ -284,7 +284,7 @@ export function ShootDetailsTourTab({
     );
   }, [initialTourState]);
   useEffect(() => {
-    if (!(isAdmin || isRep)) return;
+    if (!(isAdmin || isRep || isClient)) return;
 
     let isActive = true;
 
@@ -292,7 +292,11 @@ export function ShootDetailsTourTab({
       setIsLoadingRealtorClients(true);
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/api/admin/clients`, {
+        // One endpoint for every role. Staff and reps get the whole client list;
+        // a client gets themselves plus their linked accounts. The server applies
+        // the same rule when the choice is saved, so whatever is offered here
+        // is guaranteed to be accepted.
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/realtor-options`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
@@ -355,7 +359,7 @@ export function ShootDetailsTourTab({
     return () => {
       isActive = false;
     };
-  }, [isAdmin, isRep, normalizedTourLinks.realtor_client, toast]);
+  }, [isAdmin, isClient, isRep, normalizedTourLinks.realtor_client, shoot.id, toast]);
   const hasVideoEmbedLink = Boolean(tourLinks.video_link?.trim());
   const hasPublicVideoLinks = Boolean(
     tourLinks.video_branded?.trim() || tourLinks.video_mls?.trim() || tourLinks.video_generic?.trim()
@@ -367,8 +371,11 @@ export function ShootDetailsTourTab({
   // Editing/deleting remains admin-only (gated per-button by isAdmin inside the view).
   const showVideoLinksSection = Boolean(isAdmin || isRep || isClientView || hasPublicVideoLinks);
   const showVideoEmbedSection = Boolean(isAdmin || isRep || hasVideoEmbedLink);
-  const showTourSettings = !isClientView;
-  const canManageRealtor = isAdmin || isRep;
+  // Clients get the settings card too, reduced to the one control that is theirs
+  // to make: which linked account's branding fronts the tour.
+  const canManageRealtor = isAdmin || isRep || isClient;
+  const showTourSettings = !isClientView || canManageRealtor;
+  const tourSettingsRealtorOnly = isClientView;
   const showPropertyInfo = Boolean(isAdmin || isClientView);
   const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink;
   const matterportKeys = ['matterport_branded', 'matterport_mls'] as const;
@@ -1328,6 +1335,7 @@ export function ShootDetailsTourTab({
       showVideoLinksSection={showVideoLinksSection}
       showVideoEmbedSection={showVideoEmbedSection}
       showTourSettings={showTourSettings}
+      tourSettingsRealtorOnly={tourSettingsRealtorOnly}
       show3dTours={show3dTours}
       showMatterportSection={showMatterportSection}
       showIguideSection={showIguideSection}

@@ -123,4 +123,54 @@ describe('compact Tours sections', () => {
     expect(screen.getAllByText('Neighbourhood map')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Add embed' })).toHaveClass('h-8');
   });
+
+  it('shows clients only the realtor picker, never disabled staff controls', () => {
+    render(
+      <ShootTourSettingsSection
+        open
+        onOpenChange={vi.fn()}
+        tourStyle="default"
+        setTourStyle={vi.fn()}
+        saveTourStyle={vi.fn()}
+        isSavingTourStyle={false}
+        tourPalette="repro"
+        setTourPalette={vi.fn()}
+        saveTourPalette={vi.fn()}
+        isSavingTourPalette={false}
+        embeds={[]}
+        embedForm={{ title: '', branded: '', mls: '' }}
+        setEmbedForm={vi.fn()}
+        editingEmbedId={null}
+        featuredEmbedId=""
+        setFeaturedEmbedId={vi.fn()}
+        savingEmbeds={false}
+        handleSaveEmbed={vi.fn()}
+        handleEditEmbed={vi.fn()}
+        handleDeleteEmbed={vi.fn()}
+        persistEmbeds={vi.fn()}
+        isEmbedHtml={() => false}
+        tourSettings={{
+          header_position: 'center',
+          tour_version: 'standard',
+          realtor_info: '',
+          realtor_client_id: '',
+          autoplay: false,
+          show_garage: true,
+        }}
+        updateTourSetting={vi.fn()}
+        isSavingTourSettings={false}
+        realtorPicker={<div data-testid="realtor-picker">Realtor picker</div>}
+        isAdmin={false}
+        realtorOnly
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Tour Settings/i })).toBeInTheDocument();
+    expect(screen.getByText(/whose branding and contact details/i)).toBeInTheDocument();
+    expect(screen.getByTestId('realtor-picker')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tour style')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Header position')).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Embeds/i })).not.toBeInTheDocument();
+  });
 });

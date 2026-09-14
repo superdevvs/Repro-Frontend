@@ -71,6 +71,12 @@ type ShootTourSettingsSectionProps = {
   isSavingTourSettings: boolean;
   realtorPicker: React.ReactNode;
   isAdmin: boolean;
+  /**
+   * Show only the realtor picker. Used for clients, whose one decision here is
+   * which linked account's branding fronts the tour; the style, palette and
+   * embed controls stay staff-only rather than appearing disabled.
+   */
+  realtorOnly?: boolean;
 };
 
 const settingLabelClassName = 'text-[11px] font-medium';
@@ -109,6 +115,7 @@ export function ShootTourSettingsSection({
   isSavingTourSettings,
   realtorPicker,
   isAdmin,
+  realtorOnly = false,
 }: ShootTourSettingsSectionProps) {
   const [embedsOpen, setEmbedsOpen] = useState(Boolean(editingEmbedId));
 
@@ -118,12 +125,14 @@ export function ShootTourSettingsSection({
 
   const featuredEmbed = embeds.find((embed) => embed.id === featuredEmbedId);
   const resolvedTourStyle = resolvePublicTourStyle(tourStyle, null);
-  const settingsSummary = [
-    LANDOR_THEMES.some((theme) => theme.id === resolvedTourStyle) ? landorThemeLabel(resolvedTourStyle) : titleCase(resolvedTourStyle || 'default'),
-    titleCase(tourPalette || 'repro'),
-    `${titleCase(tourSettings.header_position || 'center')} header`,
-    titleCase(tourSettings.tour_version || 'standard'),
-  ].join(' · ');
+  const settingsSummary = realtorOnly
+    ? 'Choose whose branding and contact details appear on the branded tour'
+    : [
+      LANDOR_THEMES.some((theme) => theme.id === resolvedTourStyle) ? landorThemeLabel(resolvedTourStyle) : titleCase(resolvedTourStyle || 'default'),
+      titleCase(tourPalette || 'repro'),
+      `${titleCase(tourSettings.header_position || 'center')} header`,
+      titleCase(tourSettings.tour_version || 'standard'),
+    ].join(' · ');
   const embedsSummary = embeds.length
     ? `${embeds.length} embed${embeds.length === 1 ? '' : 's'}${featuredEmbed ? ` · Featured: ${featuredEmbed.title}` : ''}`
     : 'No embeds added';
@@ -157,6 +166,11 @@ export function ShootTourSettingsSection({
         </CollapsibleTrigger>
 
         <CollapsibleContent id="tour-settings-panel">
+          {realtorOnly ? (
+            <div className="border-t bg-muted/10 p-3">
+              <div className="min-w-0 sm:max-w-md">{realtorPicker}</div>
+            </div>
+          ) : (
           <div className="space-y-3 border-t bg-muted/10 p-3">
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
@@ -425,6 +439,7 @@ export function ShootTourSettingsSection({
               </div>
             </Collapsible>
           </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
     </section>

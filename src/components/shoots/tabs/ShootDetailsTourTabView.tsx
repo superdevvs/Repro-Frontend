@@ -24,6 +24,7 @@ export function ShootDetailsTourTabView(props: any) {
     showVideoLinksSection,
     showVideoEmbedSection,
     showTourSettings,
+    tourSettingsRealtorOnly = false,
     isClientView,
     show3dTours,
     showMatterportSection,
@@ -518,6 +519,7 @@ export function ShootDetailsTourTabView(props: any) {
           isSavingTourSettings={isSavingTourSettings}
           realtorPicker={realtorPicker}
           isAdmin={isAdmin}
+          realtorOnly={tourSettingsRealtorOnly}
         />
       )}
       {propertySection}
