@@ -9,7 +9,7 @@ vi.mock('./tours/TourProvidersSection', () => ({
 import { ShootDetailsTourTabView } from './ShootDetailsTourTabView';
 
 describe('ShootDetailsTourTabView ordering', () => {
-  it('keeps 3D and floor-plan providers at the bottom of the tab content', () => {
+  it('places 3D and floor-plan providers right after the link cards, ahead of property details', () => {
     render(
       <ShootDetailsTourTabView
         shootId={82}
@@ -45,7 +45,9 @@ describe('ShootDetailsTourTabView ordering', () => {
     const tourLinks = screen.getByText('Tour Links');
     const property = screen.getByTestId('property-section');
 
+    // Providers are shareable links like the cards above them, so they follow
+    // Tour Links / Video Links and come before the property form.
     expect(tourLinks.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(property.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(providers.compareDocumentPosition(property) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { BarChart3, Copy, ExternalLink, Share2, QrCode, Download, Edit, Trash, Check, X, Info } from 'lucide-react';
 import { ShootTourSettingsSection } from './ShootTourSettingsSection';
 import { TourProvidersSection } from './tours/TourProvidersSection';
+import { TourLinkRow, type TourLinkAction } from './tours/TourLinkRow';
 // This legacy view is a pass-through shell while its sections are progressively extracted.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ShootDetailsTourTabView(props: any) {
@@ -154,6 +155,24 @@ export function ShootDetailsTourTabView(props: any) {
     />
   );
 
+  // Every link row offers the same four public actions; video rows add edit
+  // and remove for admins. Built here once so the phone menu and the desktop
+  // buttons can never drift apart.
+  const shareActions = (key: string, hasUrl = true): TourLinkAction[] => [
+    { key: 'copy', label: 'Copy link', icon: Copy, onSelect: () => copyLink(key), disabled: !hasUrl },
+    { key: 'open', label: 'Open in new tab', icon: ExternalLink, onSelect: () => openLink(key), disabled: !hasUrl },
+    { key: 'share', label: 'Share link', icon: Share2, onSelect: () => shareLink(key), disabled: !hasUrl },
+    { key: 'qr', label: 'Get QR code', icon: QrCode, onSelect: () => getQrCode(key), disabled: !hasUrl },
+  ];
+  const manageActions = (key: string, label: string): TourLinkAction[] => (isAdmin
+    ? [
+      { key: 'edit', label: `Edit ${label}`, icon: Edit, onSelect: () => startEditVideoLink(key) },
+      ...(tourLinks[key]
+        ? [{ key: 'remove', label: `Remove ${label}`, icon: Trash, onSelect: () => void deleteVideoLink(key), disabled: isDeletingVideoLinkKey === key, destructive: true }]
+        : []),
+    ]
+    : []);
+
   return (
     <div className="w-full space-y-4">
       {/* Tour Links Section */}
@@ -181,88 +200,12 @@ export function ShootDetailsTourTabView(props: any) {
           {/* Branded Tour Link */}
           <div className="space-y-2">
             <Label>Branded Tour Link</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={getTourUrl('branded')}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyLink('branded')}
-                title="Copy link"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openLink('branded')}
-                title="Open in new tab"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => shareLink('branded')}
-                title="Share link"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => getQrCode('branded')}
-                title="Get QR code"
-              >
-                <QrCode className="h-4 w-4" />
-              </Button>
-            </div>
+            <TourLinkRow label="Branded Tour Link" value={getTourUrl('branded')} actions={shareActions('branded')} />
           </div>
           {/* MLS-Compliant Link */}
           <div className="space-y-2">
             <Label>MLS-Compliant Link</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={getTourUrl('mls')}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyLink('mls')}
-                title="Copy link"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openLink('mls')}
-                title="Open in new tab"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => shareLink('mls')}
-                title="Share link"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => getQrCode('mls')}
-                title="Get QR code"
-              >
-                <QrCode className="h-4 w-4" />
-              </Button>
-            </div>
+            <TourLinkRow label="MLS-Compliant Link" value={getTourUrl('mls')} actions={shareActions('mls')} />
           </div>
           {/* Generic MLS Link */}
           <div className="space-y-2">
@@ -293,45 +236,7 @@ export function ShootDetailsTourTabView(props: any) {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={getTourUrl('genericMls')}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyLink('genericMls')}
-                title="Copy link"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openLink('genericMls')}
-                title="Open in new tab"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => shareLink('genericMls')}
-                title="Share link"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => getQrCode('genericMls')}
-                title="Get QR code"
-              >
-                <QrCode className="h-4 w-4" />
-              </Button>
-            </div>
+            <TourLinkRow label="Generic MLS Link" value={getTourUrl('genericMls')} actions={shareActions('genericMls')} />
           </div>
         </CardContent>
       </Card>
@@ -361,42 +266,12 @@ export function ShootDetailsTourTabView(props: any) {
                       <Label>{label}</Label>
                       {!isEditing ? (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={url}
-                              readOnly
-                              placeholder={placeholder}
-                              className="flex-1"
-                            />
-                            <Button variant="outline" size="sm" onClick={() => copyLink(key)} title="Copy link" disabled={!url}>
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => openLink(key)} title="Open in new tab" disabled={!url}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => shareLink(key)} title="Share link" disabled={!url}>
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => getQrCode(key)} title="Get QR code" disabled={!url}>
-                              <QrCode className="h-4 w-4" />
-                            </Button>
-                            {isAdmin && (
-                              <Button variant="outline" size="sm" onClick={() => startEditVideoLink(key)} title={`Edit ${label}`}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {isAdmin && tourLinks[key] && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => void deleteVideoLink(key)}
-                                disabled={isDeletingVideoLinkKey === key}
-                                title={`Remove ${label}`}
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                          <TourLinkRow
+                            label={label}
+                            value={url}
+                            placeholder={placeholder}
+                            actions={[...shareActions(key, Boolean(url)), ...manageActions(key, label)]}
+                          />
                           {isAdmin && (
                             <p className="truncate text-xs text-muted-foreground">
                               Destination: {destinationUrl || placeholder}
@@ -435,36 +310,16 @@ export function ShootDetailsTourTabView(props: any) {
                   Used for embedding video directly inside tour pages. Supports YouTube, Vimeo, or direct video links.
                 </p>
                 {editingVideoLinkKey !== 'video_link' ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={tourLinks.video_link || ''}
-                      readOnly
-                      placeholder="No video embed set"
-                      className="flex-1"
-                    />
-                    <Button variant="outline" size="sm" onClick={() => copyLink('video_link')} title="Copy embed link" disabled={!tourLinks.video_link}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => openLink('video_link')} title="Open embed link" disabled={!tourLinks.video_link}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    {isAdmin && (
-                      <Button variant="outline" size="sm" onClick={() => startEditVideoLink('video_link')} title="Edit video embed">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {isAdmin && tourLinks.video_link && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => void deleteVideoLink('video_link')}
-                        disabled={isDeletingVideoLinkKey === 'video_link'}
-                        title="Remove video embed"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                  <TourLinkRow
+                    label="Video embed"
+                    value={tourLinks.video_link || ''}
+                    placeholder="No video embed set"
+                    actions={[
+                      { key: 'copy', label: 'Copy embed link', icon: Copy, onSelect: () => copyLink('video_link'), disabled: !tourLinks.video_link },
+                      { key: 'open', label: 'Open embed link', icon: ExternalLink, onSelect: () => openLink('video_link'), disabled: !tourLinks.video_link },
+                      ...manageActions('video_link', 'video embed'),
+                    ]}
+                  />
                 ) : (
                   <div className="space-y-2">
                     <Input
@@ -489,6 +344,9 @@ export function ShootDetailsTourTabView(props: any) {
           </CardContent>
         </Card>
       )}
+      {/* 3D tours and floor plans sit with the other shareable links, directly
+          under Video Links, rather than after the settings and property forms. */}
+      {providerSection}
       {/* Tour Settings Section */}
       {showTourSettings && (
         <ShootTourSettingsSection
@@ -523,7 +381,6 @@ export function ShootDetailsTourTabView(props: any) {
         />
       )}
       {propertySection}
-      {providerSection}
       {/* QR Code Dialog */}
       <Dialog open={qrCodeDialog.open} onOpenChange={onQrDialogOpenChange}>
         <DialogContent className="sm:max-w-md">
