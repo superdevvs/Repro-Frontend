@@ -158,6 +158,10 @@ export const useMobileMenu = () => {
     toggleMenu,
     closeMenu,
     handleLogout,
-    filteredItems
+    filteredItems,
+    // While permissions are still loading every `can()` is false, so an empty
+    // list here means "unknown yet", not "this role has nothing". Consumers use
+    // this to hold the navigation back instead of drawing an empty bar.
+    isLoading: permission.isLoading,
   };
 };

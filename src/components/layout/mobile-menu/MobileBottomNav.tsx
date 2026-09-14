@@ -16,6 +16,7 @@ import {
   TicketIcon,
   MessageSquare,
   Link2,
+  MenuIcon,
   Plus
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
@@ -27,13 +28,24 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileBottomNavProps) => {
   const navRef = React.useRef<HTMLDivElement>(null);
-  const { filteredItems } = useMobileMenu();
+  const { filteredItems, isLoading } = useMobileMenu();
   const { theme } = useTheme();
   const isLightMode = theme === 'light';
 
+  // Nothing to navigate to yet, or at all. Until permissions resolve every item
+  // is filtered out, and drawing the bar anyway left three empty slots and a
+  // single round menu button floating at the bottom of every role's loading
+  // screen. The bar appears only once it has real destinations.
+  const isVisible = !isLoading && filteredItems.length > 0;
+
   React.useLayoutEffect(() => {
     const nav = navRef.current;
-    if (!nav || !onBottomNavHeightChange) return;
+    if (!onBottomNavHeightChange) return;
+    if (!nav) {
+      // Hidden bar occupies no space, so the page loader must not reserve any.
+      onBottomNavHeightChange(0);
+      return;
+    }
     // Include safe-area padding, excluding the 2px below the viewport. offsetHeight
     // stays stable while the bar's entrance transform animates into position.
     const reportHeight = () => onBottomNavHeightChange(Math.max(0, nav.offsetHeight - 2));
@@ -41,7 +53,11 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
     const observer = new ResizeObserver(reportHeight);
     observer.observe(nav);
     return () => observer.disconnect();
-  }, [onBottomNavHeightChange]);
+  }, [isVisible, onBottomNavHeightChange]);
+
+  if (!isVisible) {
+    return null;
+  }
 
   const dashboardItem = filteredItems.find((item) => item.to === '/dashboard');
   const shootsItem = filteredItems.find((item) => item.to === '/shoot-history');
@@ -190,33 +206,27 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
             <span className="text-[10px] font-medium leading-none">More</span>
           </button>
         ) : (
-          // Roles without Book Shoot get a prominent circular menu button at
-          // the end of the bar. The button sits inline within the footer (no
-          // negative margin) so it stays visible inside the bar.
+          // Roles without Book Shoot get the menu as the prominent action at
+          // the end of the bar. Same treatment as the "New Shoot" pill (gradient
+          // circle, icon, caption) so it reads as part of the bar rather than a
+          // separate floating control; the earlier dark inner disc with four
+          // dots read as a shirt button.
           <button
             type="button"
             onClick={toggleMenu}
             className={cn(
-              'flex h-full items-center justify-center rounded-xl px-1 py-0.5 transition-colors',
+              'relative flex flex-col items-center justify-end gap-1 rounded-xl px-1 py-0.5 text-xs transition-colors',
               isLightMode
                 ? 'text-gray-600 hover:text-primary'
                 : 'text-muted-foreground hover:text-primary'
             )}
             aria-label="Open menu"
           >
-            <span className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/25 bg-[linear-gradient(135deg,hsl(var(--primary)/0.96)_0%,hsl(var(--primary)/0.8)_55%,hsl(var(--accent)/0.92)_100%)] text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-primary/20 backdrop-blur">
-              <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.22),hsl(var(--primary-foreground)/0)_58%)]" />
-              <span
-                aria-hidden
-                className="absolute left-1/2 top-1/2 z-10 h-[2.125rem] w-[2.125rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-primary-foreground/30"
-              />
-              <span aria-hidden className="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 gap-1">
-                <span className="h-1.5 w-1.5 rounded-[3px] bg-primary-foreground/90" />
-                <span className="h-1.5 w-1.5 rounded-[3px] bg-primary-foreground/80" />
-                <span className="h-1.5 w-1.5 rounded-[3px] bg-primary-foreground/70" />
-                <span className="h-1.5 w-1.5 rounded-[3px] bg-primary-foreground/60" />
-              </span>
+            <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)] text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-primary/20 backdrop-blur">
+              <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]" />
+              <MenuIcon className="relative z-10 h-5 w-5" aria-hidden="true" />
             </span>
+            <span className="relative z-10 text-[10px] font-medium leading-none">Menu</span>
           </button>
         )}
       </nav>
