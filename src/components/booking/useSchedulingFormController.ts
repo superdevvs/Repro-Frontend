@@ -8,7 +8,7 @@ import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
-import { buildAssignmentGroups, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
+import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
 import {
@@ -665,7 +665,8 @@ export const useSchedulingFormController = ({
             shoot_state: state,
             shoot_zip: zip || '',
             photographer_ids: photographers.map(p => Number(p.id)),
-            service_ids: selectedServices.map(service => Number(service.id)).filter(Number.isFinite),
+            service_ids: photographerRequiredServices(selectedServices).map(service => Number(service.id)).filter(Number.isFinite),
+            require_all_services: false, // Each service can have its own specialist.
           }),
         });
         if (isCancelled) return;

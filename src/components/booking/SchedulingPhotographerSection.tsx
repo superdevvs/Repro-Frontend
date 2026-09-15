@@ -18,7 +18,7 @@ import { formatTimeForDisplay, to12Hour } from '@/utils/availabilityUtils';
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
   const {
     date, time, toast, setPhotographerDialogOpen, selectedPhotographer, photographer,
-    isMobile, photographerDialogOpen, availabilityStats, selectedPhotographerDetails,
+    isMobile, photographerDialogOpen, selectedPhotographerDetails,
     handleConfirmPhotographer, activeServiceNameForPicker, activeServiceCapabilityForPicker,
     searchQuery, setSearchQuery, sortBy, setSortBy, isCalculatingDistances,
     isLoadingAvailability, filteredAndSortedPhotographers, showAllPhotographers,
@@ -80,14 +80,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           <button
             type="button"
             onClick={() => setShowAllPhotographers(!showAllPhotographers)}
+            aria-pressed={!showAllPhotographers}
             className={cn(
               "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
-              showAllPhotographers
+              !showAllPhotographers
                 ? "bg-blue-600 text-white border-blue-500"
                 : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
             )}
           >
-            Show All
+            Available only
           </button>
         </div>
       </div>
@@ -521,7 +522,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                     <DrawerHeader className="pb-2 text-left">
                       <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
                       <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                        {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
+                        {filteredAndSortedPhotographers.length} photographers shown
                       </DrawerDescription>
                     </DrawerHeader>
                     <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
@@ -556,7 +557,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         <DialogHeader className="space-y-1 text-left items-start">
                           <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
                           <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
+                            {filteredAndSortedPhotographers.length} photographers shown
                           </DialogDescription>
                         </DialogHeader>
                         {renderPhotographerFilters(false)}
@@ -629,7 +630,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                       </DrawerTitle>
                       <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                        {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
+                        {filteredAndSortedPhotographers.length} photographers shown
                       </DrawerDescription>
                     </DrawerHeader>
                     <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
@@ -670,7 +671,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                             Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                           </DialogTitle>
                           <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} photographers available
+                            {filteredAndSortedPhotographers.length} photographers shown
                           </DialogDescription>
                         </DialogHeader>
                         {renderPhotographerFilters(false)}

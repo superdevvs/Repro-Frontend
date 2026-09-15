@@ -76,7 +76,7 @@ describe('OverviewServicesTableSection comp rows', () => {
 
     expect(compRow).toHaveTextContent('Comp');
     expect(compRow).toHaveTextContent('$0');
-    expect(compRow).toHaveClass('grid', 'sm:table-row');
+    expect(compRow).toHaveClass('grid', '[@container(min-width:48rem)]:table-row');
     expect(compRow.querySelector('button[aria-label="Remove complimentary Photography"]')?.parentElement)
       .toHaveClass('col-start-1');
   });

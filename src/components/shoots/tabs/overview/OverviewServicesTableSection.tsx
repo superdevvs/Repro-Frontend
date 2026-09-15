@@ -32,6 +32,8 @@ import {
 
 export type { ServiceRowStatus };
 
+const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, Photographer: 180, Price: 66, Pay: 66 };
+
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
   shoot: ShootData;
@@ -285,25 +287,25 @@ export function OverviewServicesTableSection(
   };
 
   return (
-    <div className="p-2.5 border rounded-lg bg-card">
+    <div className="min-w-0 p-2.5 border rounded-lg bg-card" style={{ containerType: 'inline-size' }}>
       <div className="overflow-visible">
         <table
-          className={`w-full text-[11px] ${isEditMode ? 'block sm:table' : 'table-fixed'}`}
+          className={`w-full text-[11px] ${isEditMode ? 'block table-fixed [@container(min-width:48rem)]:table' : 'table-fixed'}`}
         >
-          <thead className={isEditMode ? 'hidden sm:table-header-group' : undefined}>
+          <thead className={isEditMode ? 'hidden [@container(min-width:48rem)]:table-header-group' : undefined}>
             <tr className="text-left text-[11px] font-semibold uppercase text-muted-foreground">
               {/* Leading narrow column for the Delete_Control (edit mode only). In
                   read-only mode the status dot is rendered inside the Services
                   cell and offset outside the card on the left. */}
               {isEditMode && <th scope="col" className="w-5 pb-1.5" aria-label="Actions" />}
               {headerCells.map(({ label, className }) => (
-                <th key={label} scope="col" className={`pb-1.5 pr-1.5 font-medium ${className}`}>
+                <th key={label} scope="col" style={isEditMode ? { width: EDIT_COLUMN_WIDTHS[label] } : undefined} className={`pb-1.5 pr-1.5 font-medium ${className}`}>
                   {label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className={isEditMode ? 'block sm:table-row-group' : undefined}>
+          <tbody className={isEditMode ? 'block [@container(min-width:48rem)]:table-row-group' : undefined}>
             {isEditMode
               ? renderEditRows(props, openServiceDialog)
               : renderReadonlyRows(props)}
@@ -479,12 +481,12 @@ function renderEditRows(
   );
   const mobileEditRowClass = [
     'mb-2 grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-2 rounded-lg border p-2',
-    'last:mb-0 sm:mb-0 sm:table-row sm:border-0 sm:p-0',
+    'last:mb-0 [@container(min-width:48rem)]:mb-0 [@container(min-width:48rem)]:table-row [@container(min-width:48rem)]:border-0 [@container(min-width:48rem)]:p-0',
   ].join(' ');
 
   const addNewRow = (
-    <tr key="__add_new__" className="block sm:table-row">
-      <td colSpan={headerCells.length + 1} className="block pt-2 sm:table-cell">
+    <tr key="__add_new__" className="block [@container(min-width:48rem)]:table-row">
+      <td colSpan={headerCells.length + 1} className="block pt-2 [@container(min-width:48rem)]:table-cell">
         <button
           type="button"
           data-testid="add-new-service"
@@ -500,10 +502,10 @@ function renderEditRows(
 
   if (selectedServiceIds.length === 0 && !complimentary?.selectedSourceServiceIds.length) {
     return [
-      <tr key="__empty__" className="block sm:table-row">
+      <tr key="__empty__" className="block [@container(min-width:48rem)]:table-row">
         <td
           colSpan={headerCells.length + 1}
-          className="block py-3 text-center text-muted-foreground sm:table-cell"
+          className="block py-3 text-center text-muted-foreground [@container(min-width:48rem)]:table-cell"
         >
           No services
         </td>
@@ -528,7 +530,7 @@ function renderEditRows(
 
       return (
         <tr key={serviceId} className={`${mobileEditRowClass} align-middle`}>
-          <td className="col-start-1 row-start-1 flex items-center py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-start-1 row-start-1 flex items-center py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <button
               type="button"
               data-testid="delete-control"
@@ -543,39 +545,39 @@ function renderEditRows(
               <X className="h-3 w-3" />
             </button>
           </td>
-          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <button
               type="button"
               data-testid="service-cell"
-              className="block w-full truncate text-left font-medium text-foreground hover:underline"
+              className="block w-full whitespace-normal break-words text-left font-medium text-foreground hover:underline"
               onClick={() => openServiceDialog(serviceId, false)}
             >
               {service.name}
             </button>
           </td>
-          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <ServiceDatePicker
               value={schedule.date}
               onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
-              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+              triggerClassName="h-8 w-full rounded-lg min-w-0"
             />
           </td>
-          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <ServiceTimePicker
               value={schedule.time}
               options={buildServiceTimeOptions(schedule.time)}
               onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
-              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+              triggerClassName="h-8 w-full rounded-lg min-w-0"
             />
           </td>
           {showPhotographerColumn && (
-            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 data-testid="photographer-cell"
-                className="h-8 w-full max-w-full justify-start text-xs sm:w-auto"
+                className="h-8 w-full max-w-full justify-start text-xs min-w-0"
                 onClick={() =>
                   openEditPhotographerPicker({
                     source: 'edit',
@@ -597,7 +599,7 @@ function renderEditRows(
               </Button>
             </td>
           )}
-          <td className="col-start-4 row-start-1 block py-1 text-right font-medium text-muted-foreground sm:table-cell sm:py-1.5 sm:pl-1.5">
+          <td className="col-start-4 row-start-1 block py-1 text-right font-medium text-muted-foreground [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pl-1.5">
             {getServiceDisplayPrice(service)}
           </td>
         </tr>
@@ -627,7 +629,7 @@ function renderEditRows(
           className={`${mobileEditRowClass} align-middle bg-primary/[0.035]`}
           data-testid={`comp-service-row-${sourceShootServiceId}`}
         >
-          <td className="col-start-1 row-start-1 flex items-center py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-start-1 row-start-1 flex items-center py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <button
               type="button"
               aria-label={`Remove complimentary ${service.name}`}
@@ -637,10 +639,10 @@ function renderEditRows(
               <X className="h-3 w-3" />
             </button>
           </td>
-          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-2 row-start-1 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <button
               type="button"
-              className="block w-full truncate text-left font-medium text-foreground hover:underline"
+              className="block w-full whitespace-normal break-words text-left font-medium text-foreground hover:underline"
               onClick={() => openServiceDialog(sourceShootServiceId, true)}
             >
               <span className="flex min-w-0 items-center gap-1.5">
@@ -651,28 +653,28 @@ function renderEditRows(
               </span>
             </button>
           </td>
-          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <ServiceDatePicker
               value={schedule.date}
               onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'date', value)}
-              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+              triggerClassName="h-8 w-full rounded-lg min-w-0"
             />
           </td>
-          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+          <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
             <ServiceTimePicker
               value={schedule.time}
               options={buildServiceTimeOptions(schedule.time)}
               onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'time', value)}
-              triggerClassName="h-8 w-full rounded-lg sm:w-auto"
+              triggerClassName="h-8 w-full rounded-lg min-w-0"
             />
           </td>
           {showPhotographerColumn && (
-            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 sm:table-cell sm:py-1.5 sm:pr-2">
+            <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 w-full max-w-full justify-start bg-background text-xs sm:w-auto"
+                className="h-8 w-full max-w-full justify-start bg-background text-xs min-w-0"
                 onClick={() => openEditPhotographerPicker({
                   source: 'edit',
                   categoryKey,
@@ -691,7 +693,7 @@ function renderEditRows(
               </Button>
             </td>
           )}
-          <td className="col-start-4 row-start-1 block py-1 text-right font-semibold text-primary sm:table-cell sm:py-1.5 sm:pl-1.5">
+          <td className="col-start-4 row-start-1 block py-1 text-right font-semibold text-primary [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pl-1.5">
             {complimentary.clientPays ? getServiceDisplayPrice(service) : '$0'}
           </td>
         </tr>
