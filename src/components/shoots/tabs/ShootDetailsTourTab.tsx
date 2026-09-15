@@ -18,6 +18,7 @@ import {
   asOptionalString,
   asRecord,
   getErrorMessage,
+  normalizeTourEmbeds,
   toStringMap,
   type LooseRecord,
 } from '@/components/shoots/tabs/shootDetailsTourTabUtils';
@@ -213,18 +214,7 @@ export function ShootDetailsTourTab({
       sourceTourLinks?.tour_palette ?? shootTourData.tour_palette,
       null,
     );
-    const rawEmbeds = Array.isArray(sourceTourLinks?.embeds)
-      ? sourceTourLinks?.embeds
-      : [];
-    const normalizedEmbeds = rawEmbeds.map((embedValue, index) => {
-      const embed = asRecord(embedValue);
-      return {
-        id: String(embed.id || `embed-${shoot.id}-${index}`),
-        title: String(embed.title || `Embed ${index + 1}`),
-        branded: String(embed.branded || embed.branded_embed || embed.url || ''),
-        mls: String(embed.mls || embed.mls_embed || ''),
-      };
-    });
+    const normalizedEmbeds = normalizeTourEmbeds(sourceTourLinks?.embeds, shoot.id);
     const featuredId =
       sourceTourLinks?.featured_embed_id ||
       sourceTourLinks?.featured_embed ||

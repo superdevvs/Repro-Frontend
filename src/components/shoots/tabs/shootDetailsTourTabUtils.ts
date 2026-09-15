@@ -14,3 +14,16 @@ export const toStringMap = (value: unknown): Record<string, string> =>
 
 export const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message ? error.message : fallback;
+
+export const normalizeTourEmbeds = (value: unknown, shootId: string | number) => {
+  const rawEmbeds = Array.isArray(value) ? value : [];
+  return rawEmbeds.map((embedValue, index) => {
+    const embed = asRecord(embedValue);
+    return {
+      id: String(embed.id || `embed-${shootId}-${index}`),
+      title: String(embed.title || `Embed ${index + 1}`),
+      branded: String(embed.branded || embed.branded_embed || embed.url || ''),
+      mls: String(embed.mls || embed.mls_embed || ''),
+    };
+  });
+};
