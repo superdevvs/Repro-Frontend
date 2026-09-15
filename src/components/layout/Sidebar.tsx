@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarHeader } from './sidebar/SidebarHeader';
 import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
+import { OldDashboardLink } from './OldDashboardLink';
+import { canViewOldDashboard } from '@/config/oldDashboard';
 
 const SMALL_DESKTOP_BREAKPOINT = 1220;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'repro.sidebar.collapsed';
@@ -82,6 +84,11 @@ export function Sidebar({ className }: SidebarProps) {
         </ScrollArea>
         
         <SidebarFooter isCollapsed={isCollapsed} logout={logout} onToggleCollapse={toggleCollapse} />
+        {canViewOldDashboard(role) && (
+          <div className="mt-2">
+            <OldDashboardLink placement="sidebar" isCollapsed={isCollapsed} />
+          </div>
+        )}
       </div>
     </motion.div>
   );

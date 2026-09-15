@@ -27,8 +27,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
-import { OldDashboardLink } from '../OldDashboardLink';
-import { canViewOldDashboard } from '@/config/oldDashboard';
 
 interface SidebarLinksProps {
   isCollapsed: boolean;
@@ -221,10 +219,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           isActive={pathname === '/dashboard'}
           onActivePreview={previewActiveIndicator}
         />
-      )}
-
-      {canViewOldDashboard(role) && (
-        <OldDashboardLink placement="sidebar" isCollapsed={isCollapsed} />
       )}
 
       {/* Shoot History - main shoots management page */}

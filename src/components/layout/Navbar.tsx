@@ -421,7 +421,7 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
           className={cn(
             'flex min-w-0 items-center sm:gap-4 pl-0 sm:pl-4',
             showOldDashboardLink ? 'gap-1' : 'gap-2',
-            showRobbieStrip ? "flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]" : "flex-1"
+            showOldDashboardLink ? 'flex-1 sm:flex-none' : showRobbieStrip ? 'flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]' : 'flex-1'
           )}
         >
         {/* Logo for simplified layout (photographer/editor) */}
@@ -479,7 +479,6 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
               </Button>
             )}
           
-            {showOldDashboardLink && <OldDashboardLink placement="navbar" />}
             {showOldDashboardLink ? (
               <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Search" onClick={() => setCommandOpen(true)}>
                 <SearchIcon className="h-4 w-4" />
@@ -584,6 +583,7 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {showOldDashboardLink && <OldDashboardLink placement="navbar" />}
         </div>
       </div>
     </div>
