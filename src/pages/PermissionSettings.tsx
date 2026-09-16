@@ -1,8 +1,12 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { PermissionsManager } from '@/components/accounts/PermissionsManager';
+import {
+  PermissionsManager,
+  PermissionsModeTabs,
+  type PermissionsManagerMode,
+} from '@/components/accounts/PermissionsManager';
 import { usePermission } from '@/hooks/usePermission';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
@@ -12,6 +16,13 @@ const PermissionSettingsPage = () => {
   const canManagePermissions = can('permissions-manager', 'view');
   const [searchParams] = useSearchParams();
   const permissionsUserParam = searchParams.get('user');
+  const [mode, setMode] = useState<PermissionsManagerMode>(permissionsUserParam ? 'users' : 'roles');
+
+  useEffect(() => {
+    if (permissionsUserParam) {
+      setMode('users');
+    }
+  }, [permissionsUserParam]);
 
   // Redirect users without permission
   if (!canManagePermissions) {
@@ -30,9 +41,10 @@ const PermissionSettingsPage = () => {
           badge="Accounts"
           title="Permissions"
           description="Manage role defaults and per-user overrides for dashboard and API access."
+          action={<PermissionsModeTabs value={mode} onChange={setMode} />}
         />
 
-        <PermissionsManager initialUserId={permissionsUserParam} />
+        <PermissionsManager initialUserId={permissionsUserParam} mode={mode} onModeChange={setMode} />
       </div>
     </DashboardLayout>
   );

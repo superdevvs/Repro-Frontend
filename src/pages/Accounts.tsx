@@ -12,7 +12,7 @@ import { AccountStatusControls, type AccountStatus } from '@/components/accounts
 import { AccountTypeConverter, roleLabel } from '@/components/accounts/AccountTypeConverter';
 import { NotificationSettingsDialog } from '@/components/accounts/NotificationSettingsDialog';
 import { LinkClientBrandingDialog } from '@/components/accounts/LinkClientBrandingDialog';
-import { PermissionsManager } from '@/components/accounts/PermissionsManager';
+import { PermissionsManager, PermissionsModeTabs, type PermissionsManagerMode } from '@/components/accounts/PermissionsManager';
 import { AccountLinkingManager } from '@/components/accounts/AccountLinkingManager';
 import { ImportAccountsDialog } from '@/components/accounts/ImportAccountsDialog';
 import { AccountsStatsCards } from '@/components/accounts/AccountsStatsCards';
@@ -184,6 +184,15 @@ export default function Accounts() {
   const sessionExpiredRef = useRef(false);
   // Deep link from the account menu: /accounts?tab=permissions&permissionsUser=<id>
   const permissionsUserParam = searchParams.get('permissionsUser');
+  const [permissionsMode, setPermissionsMode] = useState<PermissionsManagerMode>(
+    permissionsUserParam ? 'users' : 'roles',
+  );
+
+  useEffect(() => {
+    if (permissionsUserParam) {
+      setPermissionsMode('users');
+    }
+  }, [permissionsUserParam]);
 
   useEffect(() => {
     sessionExpiredRef.current = false;
@@ -1387,6 +1396,13 @@ export default function Accounts() {
                 />
               </div>
             )}
+
+            {/* Roles / Users switch shares the tab row so it doesn't cost a line of vertical space */}
+            {activeTab === 'permissions' && showPermissionsTab && (
+              <div className="flex justify-end lg:min-w-fit">
+                <PermissionsModeTabs value={permissionsMode} onChange={setPermissionsMode} />
+              </div>
+            )}
           </div>
 
           <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
@@ -1477,7 +1493,7 @@ export default function Accounts() {
 
           {showPermissionsTab && (
             <TabsContent value="permissions" className="mt-6">
-              <PermissionsManager initialUserId={permissionsUserParam} />
+              <PermissionsManager initialUserId={permissionsUserParam} mode={permissionsMode} onModeChange={setPermissionsMode} />
             </TabsContent>
           )}
 

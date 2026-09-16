@@ -26,12 +26,14 @@ import type {
 import { ROLE_ICONS } from '@/components/accounts/permissionRoleIcons';
 import { UserPermissionOverridesManager } from '@/components/accounts/UserPermissionOverridesManager';
 
-type PermissionsManagerMode = 'roles' | 'users';
+export type PermissionsManagerMode = 'roles' | 'users';
 
 interface PermissionsManagerProps {
   /** Pre-select a user in the Users view (deep link from the account menu). */
   initialUserId?: string | number | null;
-  initialMode?: PermissionsManagerMode;
+  /** Controlled mode. When provided, the parent renders `PermissionsModeTabs` itself. */
+  mode?: PermissionsManagerMode;
+  onModeChange?: (mode: PermissionsManagerMode) => void;
 }
 
 const MODE_TABS: AutoExpandingTab[] = [
@@ -39,29 +41,46 @@ const MODE_TABS: AutoExpandingTab[] = [
   { value: 'users', label: 'Users', icon: Users },
 ];
 
-export function PermissionsManager({ initialUserId = null, initialMode }: PermissionsManagerProps) {
-  const [mode, setMode] = useState<PermissionsManagerMode>(initialMode ?? (initialUserId ? 'users' : 'roles'));
+interface PermissionsModeTabsProps {
+  value: PermissionsManagerMode;
+  onChange: (mode: PermissionsManagerMode) => void;
+  className?: string;
+}
+
+/** Roles / Users switch; kept separate so it can sit inline with the page-level tabs. */
+export function PermissionsModeTabs({ value, onChange, className }: PermissionsModeTabsProps) {
+  return (
+    <Tabs value={value} onValueChange={(next) => onChange(next as PermissionsManagerMode)}>
+      <AutoExpandingTabsList tabs={MODE_TABS} value={value} desktopExpanded variant="compact" className={className ?? 'pb-0'} />
+    </Tabs>
+  );
+}
+
+export function PermissionsManager({ initialUserId = null, mode, onModeChange }: PermissionsManagerProps) {
+  const [internalMode, setInternalMode] = useState<PermissionsManagerMode>(initialUserId ? 'users' : 'roles');
+  const isControlled = mode !== undefined;
+  const activeMode = isControlled ? mode : internalMode;
 
   useEffect(() => {
-    if (initialUserId) {
-      setMode('users');
+    if (initialUserId && !isControlled) {
+      setInternalMode('users');
     }
-  }, [initialUserId]);
+  }, [initialUserId, isControlled]);
+
+  const handleModeChange = (next: PermissionsManagerMode) => {
+    if (!isControlled) setInternalMode(next);
+    onModeChange?.(next);
+  };
 
   return (
     <div className="space-y-4">
-      <Tabs value={mode} onValueChange={(value) => setMode(value as PermissionsManagerMode)}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <AutoExpandingTabsList tabs={MODE_TABS} value={mode} desktopExpanded variant="compact" className="pb-0" />
-          <p className="text-xs text-muted-foreground sm:text-right">
-            {mode === 'roles'
-              ? 'Defaults shared by everyone with a role.'
-              : 'Per-account exceptions layered on top of the role defaults.'}
-          </p>
+      {!isControlled && (
+        <div className="flex justify-end">
+          <PermissionsModeTabs value={activeMode} onChange={handleModeChange} />
         </div>
-      </Tabs>
+      )}
 
-      {mode === 'roles' ? (
+      {activeMode === 'roles' ? (
         <RolePermissionsPanel />
       ) : (
         <UserPermissionOverridesManager initialUserId={initialUserId} />
@@ -388,8 +407,8 @@ function RolePermissionsPanel() {
   }
 
   return (
-    <Card className="mx-[-1rem] w-[calc(100%+2rem)] overflow-hidden rounded-none border-x-0 border-slate-200/70 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:mx-0 sm:w-full sm:rounded-xl sm:border-x">
-      <CardHeader className="space-y-5 border-b border-border/60 bg-slate-50/60 px-4 py-5 dark:bg-slate-900/50 sm:px-6">
+    <Card className="w-full overflow-hidden">
+      <CardHeader className="space-y-5 border-b border-border/60 px-4 py-5 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1.5">
             <CardTitle>Account Permissions</CardTitle>
@@ -477,9 +496,9 @@ function RolePermissionsPanel() {
       </CardHeader>
 
       <CardContent className="space-y-4 px-0 py-4 sm:space-y-6 sm:p-6">
-        <div className="mx-0 rounded-none border-y border-border/60 bg-slate-50/70 px-[5px] py-3 dark:bg-slate-900/40 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
+        <div className="mx-0 rounded-none border-y border-border/60 bg-muted/30 px-[5px] py-3 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
           <Tabs value={activeRole} onValueChange={setActiveRole}>
-            <div className="sticky top-16 z-30 -mx-[5px] border-y border-border/70 bg-slate-50/95 px-[5px] py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 dark:bg-slate-900/95 dark:supports-[backdrop-filter]:bg-slate-900/80 sm:hidden">
+            <div className="sticky top-16 z-30 -mx-[5px] border-y border-border/70 bg-background/95 px-[5px] py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input

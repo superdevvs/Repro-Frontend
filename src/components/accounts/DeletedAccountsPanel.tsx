@@ -148,7 +148,7 @@ export function DeletedAccountsPanel() {
 
   if (accounts.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900 p-8 text-center">
+      <div className="rounded-lg border bg-card p-8 text-center text-card-foreground shadow-sm">
         <Trash2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">No deleted accounts in the restore window.</p>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -160,7 +160,7 @@ export function DeletedAccountsPanel() {
 
   return (
     <>
-      <div className="rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
+      <div className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
         <div className="mb-4">
           <h3 className="text-base font-semibold">Deleted Accounts</h3>
           <p className="text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ export function DeletedAccountsPanel() {
           </p>
         </div>
 
-        <div className="divide-y divide-slate-200/60 dark:divide-slate-800">
+        <div className="divide-y divide-border/60">
           {accounts.map((a) => {
             const expired = !a.restorable;
             return (

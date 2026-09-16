@@ -134,7 +134,7 @@ export function InactiveClientsPanel() {
   }, [rows, days]);
 
   return (
-    <div className="rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
+    <div className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h3 className="text-base font-semibold">Inactive Clients</h3>
@@ -209,7 +209,7 @@ export function InactiveClientsPanel() {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={String(c.client_id)} className="border-b border-slate-100 dark:border-slate-800">
+                <tr key={String(c.client_id)} className="border-b border-border/60">
                   <td className="py-2 pr-3 font-medium">{c.client_name}</td>
                   <td className="py-2 pr-3 text-muted-foreground">
                     <div className="truncate max-w-[220px]">{c.email || '—'}</div>

@@ -530,7 +530,7 @@ export function UserPermissionOverridesManager({ initialUserId = null }: UserPer
 
     return (
       <div className="flex h-full flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-slate-50/70 p-4 dark:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/30 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-11 w-11">
               <AvatarImage
@@ -562,15 +562,15 @@ export function UserPermissionOverridesManager({ initialUserId = null }: UserPer
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center lg:min-w-[300px]">
-            <div className="rounded-xl bg-background/80 px-3 py-2">
+            <div className="rounded-xl border border-border/60 bg-card px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Role</p>
               <p className="text-lg font-semibold">{detail.roleBaseline.length}</p>
             </div>
-            <div className="rounded-xl bg-background/80 px-3 py-2">
+            <div className="rounded-xl border border-border/60 bg-card px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Effective</p>
               <p className="text-lg font-semibold">{effectiveCount}</p>
             </div>
-            <div className="rounded-xl bg-background/80 px-3 py-2">
+            <div className="rounded-xl border border-border/60 bg-card px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Overrides</p>
               <p className="text-lg font-semibold">{overrideCount}</p>
             </div>
@@ -625,8 +625,8 @@ export function UserPermissionOverridesManager({ initialUserId = null }: UserPer
   };
 
   return (
-    <Card className="mx-[-1rem] w-[calc(100%+2rem)] overflow-hidden rounded-none border-x-0 border-slate-200/70 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:mx-0 sm:w-full sm:rounded-xl sm:border-x">
-      <CardHeader className="space-y-3 border-b border-border/60 bg-slate-50/60 px-4 py-5 dark:bg-slate-900/50 sm:px-6">
+    <Card className="w-full overflow-hidden">
+      <CardHeader className="space-y-3 border-b border-border/60 px-4 py-5 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1.5">
             <CardTitle>User Permission Overrides</CardTitle>
