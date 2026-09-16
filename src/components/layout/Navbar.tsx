@@ -24,8 +24,6 @@ import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
-import { OldDashboardLink } from './OldDashboardLink';
-import { canViewOldDashboard } from '@/config/oldDashboard';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
 const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
@@ -216,7 +214,7 @@ const resolveInitialWeatherState = () => {
   return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, label: null };
 };
 
-export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
+export function Navbar() {
   const { user, logout, role } = useAuth();
   const { can } = usePermission();
   const navigate = useNavigate();
@@ -249,7 +247,6 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
   const showRobbieStrip = role !== 'photographer' && role !== 'editor';
-  const showOldDashboardLink = !hasSidebar && canViewOldDashboard(role);
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() => {
@@ -416,12 +413,11 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
 
   return (
     <div className="w-full bg-background">
-      <div className={cn('h-16 flex items-center justify-between', showOldDashboardLink ? 'px-3 sm:px-4' : 'px-4')}>
+      <div className="flex h-16 items-center justify-between px-4">
         <div
           className={cn(
-            'flex min-w-0 items-center sm:gap-4 pl-0 sm:pl-4',
-            showOldDashboardLink ? 'gap-1' : 'gap-2',
-            showOldDashboardLink ? 'flex-1 sm:flex-none' : showRobbieStrip ? 'flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]' : 'flex-1'
+            'flex min-w-0 items-center gap-2 pl-0 sm:gap-4 sm:pl-4',
+            showRobbieStrip ? 'flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]' : 'flex-1'
           )}
         >
         {/* Logo for simplified layout (photographer/editor) */}
@@ -471,7 +467,7 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
               <Button 
                 variant="default" 
                 size="sm" 
-                className={cn('relative flex h-10 w-10 shrink-0 items-center justify-center bg-transparent p-0 shadow-none hover:bg-transparent hover:shadow-none md:hidden', !showOldDashboardLink && 'mr-2')}
+                className="relative mr-2 flex h-10 w-10 shrink-0 items-center justify-center bg-transparent p-0 shadow-none hover:bg-transparent hover:shadow-none md:hidden"
                 onClick={() => navigate('/book-shoot')}
               >
                 <img src="/REPRO-HQ-icon.png" alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
@@ -479,23 +475,17 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
               </Button>
             )}
           
-            {showOldDashboardLink ? (
-              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Search" onClick={() => setCommandOpen(true)}>
-                <SearchIcon className="h-4 w-4" />
-              </Button>
-            ) : (
-              <div className="relative flex min-w-[110px] flex-1 items-center gap-1.5 sm:flex-none sm:min-w-[100px] sm:max-w-[100px] md:min-w-[110px] md:max-w-[110px] lg:min-w-[120px] lg:max-w-[120px]">
-                <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
-                <Input
-                  type="search"
-                  placeholder="Search..."
-                  className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
-                  readOnly
-                  onClick={() => setCommandOpen(true)}
-                  onFocus={() => setCommandOpen(true)}
-                />
-              </div>
-            )}
+            <div className="relative flex min-w-[110px] flex-1 items-center gap-1.5 sm:flex-none sm:min-w-[100px] sm:max-w-[100px] md:min-w-[110px] md:max-w-[110px] lg:min-w-[120px] lg:max-w-[120px]">
+              <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
+                readOnly
+                onClick={() => setCommandOpen(true)}
+                onFocus={() => setCommandOpen(true)}
+              />
+            </div>
             <GlobalCommandBar open={commandOpen} onOpenChange={setCommandOpen} />
           </>
         )}
@@ -512,7 +502,7 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
           </div>
         )}
       
-        <div className={cn('flex items-center', showOldDashboardLink ? 'gap-1 sm:gap-4' : 'gap-4')}>
+        <div className="flex items-center gap-4">
         {showRobbieStrip && (
           <div className="hidden sm:block h-8 w-px shrink-0 bg-border/60" />
         )}
@@ -583,7 +573,6 @@ export function Navbar({ hasSidebar = false }: { hasSidebar?: boolean }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {showOldDashboardLink && <OldDashboardLink placement="navbar" />}
         </div>
       </div>
     </div>

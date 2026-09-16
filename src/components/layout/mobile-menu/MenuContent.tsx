@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import { LogOutIcon } from 'lucide-react';
 import { MenuItem } from './MenuItem';
 import { ExpandableMenuItem } from './ExpandableMenuItem';
+import type { MobileMenuItem } from './useMobileMenu';
 
 interface MenuContentProps {
   isMenuOpen: boolean;
-  filteredItems: any[];
+  filteredItems: MobileMenuItem[];
   closeMenu: () => void;
   handleLogout: () => void;
 }
@@ -105,6 +106,7 @@ export const MenuContent = ({ isMenuOpen, filteredItems, closeMenu, handleLogout
                     label={item.label}
                     isActive={item.isActive}
                     onClick={closeMenu}
+                    external={item.external}
                   />
                 </motion.div>
               );

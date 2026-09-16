@@ -89,7 +89,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               </Button>
             </div>
           )}
-          {!hideNavbar && <Navbar hasSidebar={!useCompactShell && !isSimplifiedLayout} />}
+          {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>

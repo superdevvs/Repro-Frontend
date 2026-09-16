@@ -14,7 +14,8 @@ import {
   SettingsIcon,
   LogOutIcon,
   BarChart3Icon,
-  TicketIcon
+  TicketIcon,
+  ExternalLinkIcon,
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
@@ -24,9 +25,10 @@ interface MenuItemProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
+  external?: boolean;
 }
 
-export const MenuItem = ({ to, icon, label, isActive, onClick }: MenuItemProps) => {
+export const MenuItem = ({ to, icon, label, isActive, onClick, external = false }: MenuItemProps) => {
   // Function to render the correct icon based on the string name
   const renderIcon = () => {
     switch (icon) {
@@ -56,24 +58,37 @@ export const MenuItem = ({ to, icon, label, isActive, onClick }: MenuItemProps) 
         return <BarChart3Icon className="h-5 w-5" />;
       case 'Ticket':
         return <TicketIcon className="h-5 w-5" />;
+      case 'ExternalLink':
+        return <ExternalLinkIcon className="h-5 w-5" />;
       default:
         return <HomeIcon className="h-5 w-5" />;
     }
   };
 
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "flex min-h-[78px] flex-col items-center justify-center gap-1.5 rounded-lg border border-background/10 bg-background/60 p-2.5 shadow-lg transition-all duration-200",
-        isActive ? "bg-secondary/90 border-primary/30" : "bg-background/60"
-      )}
-      onClick={onClick}
-    >
+  const className = cn(
+    "flex min-h-[78px] flex-col items-center justify-center gap-1.5 rounded-lg border border-background/10 bg-background/60 p-2.5 shadow-lg transition-all duration-200",
+    isActive ? "bg-secondary/90 border-primary/30" : "bg-background/60"
+  );
+  const content = (
+    <>
       <div className="text-primary">
         {renderIcon()}
       </div>
       <span className="text-xs font-medium leading-tight text-center">{label}</span>
+    </>
+  );
+
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={to} className={className} onClick={onClick}>
+      {content}
     </Link>
   );
 };

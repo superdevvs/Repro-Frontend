@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
 import type { ClientPropertyFormController, PackageOption, PresenceOption } from './useClientPropertyFormController';
 import { ClientPropertyFormActions } from './ClientPropertyFormActions';
+import { MobileClientPicker } from './MobileClientPicker';
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
     form, isClientAccount, allClients, selectedClient, isSearching, visibleClients,
@@ -119,7 +120,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     </div>
                   );
                   const clientCommand = (
-                    <Command shouldFilter={false} className="rounded-lg">
+                    <Command shouldFilter={false} className={cn('rounded-lg', isMobile && 'flex h-full min-h-0 flex-col')}>
                       {isMobile && (
                         <CommandInput
                           placeholder="Search clients..."
@@ -128,7 +129,10 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                           className="h-10"
                         />
                       )}
-                      <CommandList className="max-h-[35vh] sm:max-h-[260px] overflow-y-auto">
+                      <CommandList className={cn(
+                        'overflow-y-auto',
+                        isMobile ? 'max-h-none min-h-0 flex-1' : 'max-h-[35vh] sm:max-h-[260px]',
+                      )}>
                         <CommandEmpty>{emptyLabel}</CommandEmpty>
                         <CommandGroup>
                           {visibleClients.map((client) => (
@@ -198,22 +202,18 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     <FormItem className="space-y-2">
                       <div className="space-y-2">
                         <FormLabel className="text-sm font-semibold text-foreground">Choose client</FormLabel>
-                        <div className="flex items-center gap-2 md:items-end md:gap-3 md:justify-start">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-end md:gap-3 md:justify-start">
                           <div className="w-full min-w-0 md:flex-1">
                             {isMobile ? (
-                              <>
-                                {clientField}
-                                <Drawer open={clientSelectOpen} onOpenChange={handleClientSelectOpenChange}>
-                                  <DrawerContent className="h-[63vh] max-h-[63vh]">
-                                    <DrawerHeader className="pb-2">
-                                      <DrawerTitle>Choose client</DrawerTitle>
-                                    </DrawerHeader>
-                                    <div className="px-4 pb-4">
-                                      {clientCommand}
-                                    </div>
-                                  </DrawerContent>
-                                </Drawer>
-                              </>
+                              <MobileClientPicker
+                                open={clientSelectOpen}
+                                selectedClientName={selectedClient?.name}
+                                disabled={sourceContextLocked}
+                                invalidClassName={showMissingFieldStroke('clientId') ? invalidFieldClassName : undefined}
+                                clientList={clientCommand}
+                                onResetSearch={() => setSearchQuery('')}
+                                onOpenChange={handleClientSelectOpenChange}
+                              />
                             ) : (
                               <Popover
                                 modal={false}
@@ -254,7 +254,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                             type="button"
                             variant="default"
                             size="sm"
-                            className="shrink-0 h-12 px-4 bg-blue-600 text-white hover:bg-blue-700"
+                            className="shrink-0 h-12 px-4 w-full md:w-auto bg-blue-600 text-white hover:bg-blue-700"
                             onClick={navigateToNewClient}
                             disabled={sourceContextLocked}
                           >

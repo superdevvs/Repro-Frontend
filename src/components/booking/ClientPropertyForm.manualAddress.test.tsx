@@ -7,7 +7,8 @@ import type { Client } from '@/types/clients';
 
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
+const mobileViewport = { current: false };
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mobileViewport.current }));
 vi.mock('@/components/accounts/AccountForm', () => ({ AccountForm: () => null }));
 
 const service = { id: '10', name: 'Photography', description: '', price: 100 };
@@ -37,6 +38,7 @@ const props = (): ClientPropertyFormProps => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mobileViewport.current = false;
   vi.stubGlobal('ResizeObserver', class {
     observe = vi.fn();
     unobserve = vi.fn();
@@ -156,16 +158,16 @@ describe('manual booking street address', () => {
   });
 });
 
-describe('booking client search field', () => {
-  const adminProps = (): ClientPropertyFormProps => ({
-    ...props(),
-    isClientAccount: false,
-    clients: [
-      bookingClient(),
-      bookingClient({ id: '2', name: 'Other Client', email: 'other@example.test' }),
-    ],
-  });
+const adminProps = (): ClientPropertyFormProps => ({
+  ...props(),
+  isClientAccount: false,
+  clients: [
+    bookingClient(),
+    bookingClient({ id: '2', name: 'Other Client', email: 'other@example.test' }),
+  ],
+});
 
+describe('booking client search field', () => {
   it('uses the choose-client field as the search and writes the selected name into it', async () => {
     render(<ClientPropertyForm {...adminProps()} slide="property" />);
 
@@ -193,5 +195,28 @@ describe('booking client search field', () => {
 
     expect((screen.getByLabelText('Choose client') as HTMLInputElement).value).toBe('');
     expect(await screen.findByRole('option', { name: /Other Client/ })).toBeTruthy();
+  });
+});
+
+describe('booking client search field on mobile', () => {
+  beforeEach(() => {
+    mobileViewport.current = true;
+  });
+
+  it('opens a sheet with an empty search that stays open after leaving the trigger', async () => {
+    render(<ClientPropertyForm {...adminProps()} slide="property" />);
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose client' }));
+
+    const sheetSearch = await screen.findByPlaceholderText('Search clients...');
+    expect((sheetSearch as HTMLInputElement).value).toBe('');
+    expect(screen.getByRole('option', { name: /Other Client/ })).toBeTruthy();
+
+    fireEvent.change(sheetSearch, { target: { value: 'Other' } });
+    fireEvent.click(screen.getByRole('option', { name: /Other Client/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: 'Choose client', hidden: true }).textContent).toContain('Other Client');
+    });
   });
 });

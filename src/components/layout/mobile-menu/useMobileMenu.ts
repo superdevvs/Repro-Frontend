@@ -3,8 +3,19 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
+import { OLD_DASHBOARD_URL, canViewOldDashboard } from '@/config/oldDashboard';
 import { usePermission } from '@/hooks/usePermission';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
+
+export interface MobileMenuItem {
+  to: string;
+  icon: string;
+  label: string;
+  isActive: boolean;
+  visible: boolean;
+  external?: boolean;
+  subItems?: Array<{ to: string; label: string }>;
+}
 
 export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -34,7 +45,7 @@ export const useMobileMenu = () => {
   };
 
   // Define menu items based on effective permissions
-  const menuItems = [
+  const menuItems: MobileMenuItem[] = [
     {
       to: "/dashboard",
       icon: "Home",
@@ -148,7 +159,15 @@ export const useMobileMenu = () => {
       label: "AI Editing",
       isActive: pathname === '/ai-editing' || pathname.startsWith('/ai-editing'),
       visible: permission.can('ai-editing', 'view'),
-    }
+    },
+    {
+      to: OLD_DASHBOARD_URL,
+      icon: "ExternalLink",
+      label: "Old Dashboard",
+      isActive: false,
+      visible: canViewOldDashboard(role),
+      external: true,
+    },
   ];
 
   const filteredItems = menuItems.filter(item => item.visible);
