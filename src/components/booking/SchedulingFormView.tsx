@@ -283,12 +283,7 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
           )}
         </div>
         {controller.requiresPhotographerAssignment ? (
-          <div className="space-y-2">
-            <SchedulingPhotographerSection controller={controller} />
-            {formErrors['photographer'] && (
-              <p className="text-sm font-medium text-destructive">{formErrors['photographer']}</p>
-            )}
-          </div>
+          <SchedulingPhotographerSection controller={controller} />
         ) : null}
       </div>
       <div className="flex gap-2">

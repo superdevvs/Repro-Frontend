@@ -408,126 +408,231 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-[600px] lg:max-w-[920px]">
           <DialogHeader>
             <DialogTitle>Edit Service</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Service Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={editedService.name}
-                onChange={handleInputChange}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                name="description"
-                value={editedService.description || ''}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Service Groups</Label>
-              <MultiSelectChecklist
-                options={serviceGroupOptions}
-                value={editedService.service_group_ids || []}
-                onChange={(value) => setEditedService({ ...editedService, service_group_ids: value })}
-                placeholder="Visible to all clients unless you assign one or more service groups."
-                emptyMessage="Create a service group to start restricting visibility."
-              />
-            </div>
-
-            {/* Icon and Quantity side by side */}
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-x-6 gap-y-4 py-4 lg:grid-cols-2 lg:items-start">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Icon</Label>
-                <IconPicker
-                  value={editedService.icon || ''}
-                  onChange={(value) => setEditedService({ ...editedService, icon: value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quantity_field">
-                  {isPhotoCategory ? 'Photo Count' : 'Quantity'}
-                </Label>
+                <Label htmlFor="name">Service Name</Label>
                 <Input
-                  id="quantity_field"
-                  type="number"
-                  min="0"
-                  value={isPhotoCategory 
-                    ? (editedService.photo_count ?? '') 
-                    : (editedService.quantity ?? '')}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const numVal = val === '' ? undefined : parseInt(val, 10);
-                    if (isPhotoCategory) {
-                      setEditedService({ ...editedService, photo_count: numVal });
-                    } else {
-                      setEditedService({ ...editedService, quantity: numVal });
-                    }
-                  }}
-                  placeholder={isPhotoCategory ? "Number of photos" : "Quantity"}
+                  id="name"
+                  name="name"
+                  value={editedService.name}
+                  onChange={handleInputChange}
                 />
               </div>
-            </div>
 
-            {/* Pricing Type */}
-            <div className="space-y-2">
-              <Label>Pricing</Label>
-              <Select
-                value={editedService.pricing_type || 'fixed'}
-                onValueChange={(value: 'fixed' | 'variable') => 
-                  setEditedService({ ...editedService, pricing_type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select pricing type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixed">Fixed Price</SelectItem>
-                  <SelectItem value="variable">Variable (SQFT)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  name="description"
+                  value={editedService.description || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
 
-
-            {/* Fixed pricing fields */}
-            {editedService.pricing_type !== 'variable' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    value={editedService.price}
-                    onChange={handleInputChange}
+                  <Label>Icon</Label>
+                  <IconPicker
+                    value={editedService.icon || ''}
+                    onChange={(value) => setEditedService({ ...editedService, icon: value })}
                   />
                 </div>
-                
                 <div className="space-y-2">
-                  <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                  <Label htmlFor="quantity_field">
+                    {isPhotoCategory ? 'Photo Count' : 'Quantity'}
+                  </Label>
                   <Input
-                    id="delivery_time"
-                    name="delivery_time"
+                    id="quantity_field"
                     type="number"
-                    value={editedService.delivery_time}
-                    onChange={handleInputChange}
+                    min="0"
+                    value={isPhotoCategory
+                      ? (editedService.photo_count ?? '')
+                      : (editedService.quantity ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const numVal = val === '' ? undefined : parseInt(val, 10);
+                      if (isPhotoCategory) {
+                        setEditedService({ ...editedService, photo_count: numVal });
+                      } else {
+                        setEditedService({ ...editedService, quantity: numVal });
+                      }
+                    }}
+                    placeholder={isPhotoCategory ? "Number of photos" : "Quantity"}
                   />
                 </div>
               </div>
-            )}
 
-            {/* Variable pricing - SQFT Ranges */}
+              <div className="space-y-2">
+                <Label>Service Groups</Label>
+                <MultiSelectChecklist
+                  options={serviceGroupOptions}
+                  value={editedService.service_group_ids || []}
+                  onChange={(value) => setEditedService({ ...editedService, service_group_ids: value })}
+                  placeholder="Visible to all clients unless you assign one or more service groups."
+                  emptyMessage="Create a service group to start restricting visibility."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Pricing</Label>
+                <Select
+                  value={editedService.pricing_type || 'fixed'}
+                  onValueChange={(value: 'fixed' | 'variable') =>
+                    setEditedService({ ...editedService, pricing_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pricing type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixed Price</SelectItem>
+                    <SelectItem value="variable">Variable (SQFT)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editedService.pricing_type !== 'variable' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price ($)</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      value={editedService.price}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                    <Input
+                      id="delivery_time"
+                      name="delivery_time"
+                      type="number"
+                      value={editedService.delivery_time}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="photographer_required" className="cursor-pointer">
+                    Photographer Required
+                  </Label>
+                  <Switch
+                    id="photographer_required"
+                    name="photographer_required"
+                    checked={editedService.photographer_required || false}
+                    onCheckedChange={(checked) =>
+                      setEditedService({...editedService, photographer_required: checked})
+                    }
+                  />
+                </div>
+                {editedService.photographer_required && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="photographer_pay">
+                        {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
+                      </Label>
+                      {/* Flat amount or a percentage of this service's price. Both
+                          models are supported so an admin can use whichever fits. */}
+                      <div className="flex overflow-hidden rounded-md border border-border">
+                        <button
+                          type="button"
+                          aria-pressed={!isPercentPay}
+                          className={cn(
+                            'px-2 py-1 text-xs font-medium transition-colors',
+                            !isPercentPay
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                          onClick={() =>
+                            setEditedService({ ...editedService, photographer_pay_type: 'fixed' })
+                          }
+                        >
+                          $
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={isPercentPay}
+                          className={cn(
+                            'px-2 py-1 text-xs font-medium transition-colors',
+                            isPercentPay
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted',
+                          )}
+                          onClick={() =>
+                            setEditedService({ ...editedService, photographer_pay_type: 'percent' })
+                          }
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+                    {isPercentPay ? (
+                      <>
+                        <Input
+                          id="photographer_pay"
+                          name="photographer_pay_percent"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={editedService.photographer_pay_percent ?? ''}
+                          onChange={handleInputChange}
+                          placeholder="45.00"
+                        />
+                        {percentPayPreview && (
+                          <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
+                        )}
+                      </>
+                    ) : (
+                      <Input
+                        id="photographer_pay"
+                        name="photographer_pay"
+                        type="number"
+                        step="0.01"
+                        value={editedService.photographer_pay ?? ''}
+                        onChange={handleInputChange}
+                        placeholder="0.00"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
+                    Exclude from sales commission
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Use for travel, cancellation, and reschedule fees.
+                  </p>
+                </div>
+                <Switch
+                  id="exclude_from_sales_commission"
+                  name="exclude_from_sales_commission"
+                  checked={editedService.exclude_from_sales_commission || false}
+                  onCheckedChange={(checked) =>
+                    setEditedService({ ...editedService, exclude_from_sales_commission: checked })
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Variable pricing - SQFT Ranges (wide table, so it spans both columns) */}
             {editedService.pricing_type === 'variable' && (
-              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-3 border rounded-lg p-4 bg-muted/30 lg:col-span-2">
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">
                     Define each square footage range and provide the duration and price for each range.
@@ -670,110 +775,6 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 </div>
               </div>
             )}
-            
-            <div className="flex items-center justify-between">
-              <Label htmlFor="photographer_required" className="cursor-pointer">
-                Photographer Required
-              </Label>
-              <Switch
-                id="photographer_required"
-                name="photographer_required"
-                checked={editedService.photographer_required || false}
-                onCheckedChange={(checked) => 
-                  setEditedService({...editedService, photographer_required: checked})
-                }
-              />
-            </div>
-            {editedService.photographer_required && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="photographer_pay">
-                    {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
-                  </Label>
-                  {/* Flat amount or a percentage of this service's price. Both
-                      models are supported so an admin can use whichever fits. */}
-                  <div className="flex overflow-hidden rounded-md border border-border">
-                    <button
-                      type="button"
-                      aria-pressed={!isPercentPay}
-                      className={cn(
-                        'px-2 py-1 text-xs font-medium transition-colors',
-                        !isPercentPay
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background text-muted-foreground hover:bg-muted',
-                      )}
-                      onClick={() =>
-                        setEditedService({ ...editedService, photographer_pay_type: 'fixed' })
-                      }
-                    >
-                      $
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={isPercentPay}
-                      className={cn(
-                        'px-2 py-1 text-xs font-medium transition-colors',
-                        isPercentPay
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background text-muted-foreground hover:bg-muted',
-                      )}
-                      onClick={() =>
-                        setEditedService({ ...editedService, photographer_pay_type: 'percent' })
-                      }
-                    >
-                      %
-                    </button>
-                  </div>
-                </div>
-                {isPercentPay ? (
-                  <>
-                    <Input
-                      id="photographer_pay"
-                      name="photographer_pay_percent"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={editedService.photographer_pay_percent ?? ''}
-                      onChange={handleInputChange}
-                      placeholder="45.00"
-                    />
-                    {percentPayPreview && (
-                      <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
-                    )}
-                  </>
-                ) : (
-                  <Input
-                    id="photographer_pay"
-                    name="photographer_pay"
-                    type="number"
-                    step="0.01"
-                    value={editedService.photographer_pay ?? ''}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                  />
-                )}
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
-                  Exclude from sales commission
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Use for travel, cancellation, and reschedule fees.
-                </p>
-              </div>
-              <Switch
-                id="exclude_from_sales_commission"
-                name="exclude_from_sales_commission"
-                checked={editedService.exclude_from_sales_commission || false}
-                onCheckedChange={(checked) =>
-                  setEditedService({ ...editedService, exclude_from_sales_commission: checked })
-                }
-              />
-            </div>
-            
           </div>
           <DialogFooter>
             <Button 

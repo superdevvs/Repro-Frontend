@@ -122,133 +122,239 @@ export function ServiceCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl">
+      <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl lg:max-w-[920px]">
         <DialogHeader>
           <DialogTitle>Add New Service</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[calc(88vh-10.5rem)] space-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)]">
-          <div className="space-y-2">
-            <CategorySelect
-              value={newService.category}
-              onChange={(value) => {
-                setNewService(prev => ({ ...prev, category: value }));
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="name">Service Name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={newService.name}
-              onChange={handleInputChange}
-              placeholder="e.g., HDR Photos"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              name="description"
-              value={newService.description}
-              onChange={handleInputChange}
-              placeholder="Service description"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Service Groups</Label>
-            <MultiSelectChecklist
-              options={serviceGroupOptions}
-              value={newService.service_group_ids}
-              onChange={(value) => setNewService((prev) => ({ ...prev, service_group_ids: value }))}
-              placeholder="Visible to all clients unless you assign one or more service groups."
-              emptyMessage="Create a service group to start restricting visibility."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="grid max-h-[calc(88vh-10.5rem)] gap-x-6 gap-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)] lg:grid-cols-2 lg:items-start">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Icon</Label>
-              <IconPicker
-                value={newService.icon}
-                onChange={(value) => setNewService(prev => ({ ...prev, icon: value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity_field">
-                {isNewServicePhotoCategory ? 'Photo Count' : 'Quantity'}
-              </Label>
-              <Input
-                id="quantity_field"
-                type="number"
-                min="0"
-                value={isNewServicePhotoCategory 
-                  ? (newService.photo_count ?? '') 
-                  : (newService.quantity ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const numVal = val === '' ? undefined : parseInt(val, 10);
-                  if (isNewServicePhotoCategory) {
-                    setNewService(prev => ({ ...prev, photo_count: numVal }));
-                  } else {
-                    setNewService(prev => ({ ...prev, quantity: numVal }));
-                  }
+              <CategorySelect
+                value={newService.category}
+                onChange={(value) => {
+                  setNewService(prev => ({ ...prev, category: value }));
                 }}
-                placeholder={isNewServicePhotoCategory ? "Number of photos" : "Quantity"}
               />
             </div>
-          </div>
-    
-          {/* Pricing Type */}
-          <div className="space-y-2">
-            <Label>Pricing</Label>
-            <Select
-              value={newService.pricing_type}
-              onValueChange={(value: 'fixed' | 'variable') => 
-                setNewService(prev => ({ ...prev, pricing_type: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select pricing type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fixed">Fixed Price</SelectItem>
-                <SelectItem value="variable">Variable (SQFT)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-    
-          {/* Fixed pricing fields */}
-          {newService.pricing_type !== 'variable' && (
+            <div className="space-y-2">
+              <Label htmlFor="name">Service Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={newService.name}
+                onChange={handleInputChange}
+                placeholder="e.g., HDR Photos"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                name="description"
+                value={newService.description}
+                onChange={handleInputChange}
+                placeholder="Service description"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  value={newService.price}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
+                <Label>Icon</Label>
+                <IconPicker
+                  value={newService.icon}
+                  onChange={(value) => setNewService(prev => ({ ...prev, icon: value }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                <Label htmlFor="quantity_field">
+                  {isNewServicePhotoCategory ? 'Photo Count' : 'Quantity'}
+                </Label>
                 <Input
-                  id="delivery_time"
-                  name="delivery_time"
+                  id="quantity_field"
                   type="number"
-                  value={newService.delivery_time}
-                  onChange={handleInputChange}
-                  placeholder="24"
+                  min="0"
+                  value={isNewServicePhotoCategory
+                    ? (newService.photo_count ?? '')
+                    : (newService.quantity ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const numVal = val === '' ? undefined : parseInt(val, 10);
+                    if (isNewServicePhotoCategory) {
+                      setNewService(prev => ({ ...prev, photo_count: numVal }));
+                    } else {
+                      setNewService(prev => ({ ...prev, quantity: numVal }));
+                    }
+                  }}
+                  placeholder={isNewServicePhotoCategory ? "Number of photos" : "Quantity"}
                 />
               </div>
             </div>
-          )}
-    
-          {/* Variable pricing - SQFT Ranges */}
+            <div className="space-y-2">
+              <Label>Service Groups</Label>
+              <MultiSelectChecklist
+                options={serviceGroupOptions}
+                value={newService.service_group_ids}
+                onChange={(value) => setNewService((prev) => ({ ...prev, service_group_ids: value }))}
+                placeholder="Visible to all clients unless you assign one or more service groups."
+                emptyMessage="Create a service group to start restricting visibility."
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Pricing</Label>
+              <Select
+                value={newService.pricing_type}
+                onValueChange={(value: 'fixed' | 'variable') =>
+                  setNewService(prev => ({ ...prev, pricing_type: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Price</SelectItem>
+                  <SelectItem value="variable">Variable (SQFT)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newService.pricing_type !== 'variable' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price ($)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    value={newService.price}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                  <Input
+                    id="delivery_time"
+                    name="delivery_time"
+                    type="number"
+                    value={newService.delivery_time}
+                    onChange={handleInputChange}
+                    placeholder="24"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="photographer_required" className="cursor-pointer">
+                  Photographer Required
+                </Label>
+                <Switch
+                  id="photographer_required"
+                  checked={newService.photographer_required}
+                  onCheckedChange={(checked) =>
+                    setNewService(prev => ({ ...prev, photographer_required: checked }))
+                  }
+                />
+              </div>
+              {newService.photographer_required && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="photographer_pay">
+                      {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
+                    </Label>
+                    {/* Flat amount or a percentage of this service's price — admins
+                        pick per service, so both models can coexist. */}
+                    <div className="flex overflow-hidden rounded-md border border-border">
+                      <button
+                        type="button"
+                        aria-pressed={!isPercentPay}
+                        className={cn(
+                          'px-2 py-1 text-xs font-medium transition-colors',
+                          !isPercentPay
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background text-muted-foreground hover:bg-muted',
+                        )}
+                        onClick={() =>
+                          setNewService((prev) => ({ ...prev, photographer_pay_type: 'fixed' }))
+                        }
+                      >
+                        $
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={isPercentPay}
+                        className={cn(
+                          'px-2 py-1 text-xs font-medium transition-colors',
+                          isPercentPay
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background text-muted-foreground hover:bg-muted',
+                        )}
+                        onClick={() =>
+                          setNewService((prev) => ({ ...prev, photographer_pay_type: 'percent' }))
+                        }
+                      >
+                        %
+                      </button>
+                    </div>
+                  </div>
+                  {isPercentPay ? (
+                    <>
+                      <Input
+                        id="photographer_pay"
+                        name="photographer_pay_percent"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={newService.photographer_pay_percent ?? ''}
+                        onChange={handleInputChange}
+                        placeholder="45.00"
+                      />
+                      {percentPayPreview && (
+                        <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
+                      )}
+                    </>
+                  ) : (
+                    <Input
+                      id="photographer_pay"
+                      name="photographer_pay"
+                      type="number"
+                      step="0.01"
+                      value={newService.photographer_pay}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
+                  Exclude from sales commission
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Use for travel, cancellation, and reschedule fees.
+                </p>
+              </div>
+              <Switch
+                id="exclude_from_sales_commission"
+                checked={newService.exclude_from_sales_commission}
+                onCheckedChange={(checked) =>
+                  setNewService(prev => ({ ...prev, exclude_from_sales_commission: checked }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Variable pricing - SQFT Ranges (wide table, so it spans both columns) */}
           {newService.pricing_type === 'variable' && (
-            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+            <div className="space-y-3 border rounded-lg p-4 bg-muted/30 lg:col-span-2">
               <div className="flex items-center gap-2">
                 <p className="text-sm text-muted-foreground">
                   Define each square footage range and provide the duration and price for each range.
@@ -391,107 +497,6 @@ export function ServiceCreateDialog({
               </div>
             </div>
           )}
-    
-          <div className="flex items-center justify-between">
-            <Label htmlFor="photographer_required" className="cursor-pointer">
-              Photographer Required
-            </Label>
-            <Switch
-              id="photographer_required"
-              checked={newService.photographer_required}
-              onCheckedChange={(checked) => 
-                setNewService(prev => ({ ...prev, photographer_required: checked }))
-              }
-            />
-          </div>
-          {newService.photographer_required && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="photographer_pay">
-                  {isPercentPay ? "Photographer's Pay (%)" : "Photographer's Pay ($)"}
-                </Label>
-                {/* Flat amount or a percentage of this service's price — admins
-                    pick per service, so both models can coexist. */}
-                <div className="flex overflow-hidden rounded-md border border-border">
-                  <button
-                    type="button"
-                    aria-pressed={!isPercentPay}
-                    className={cn(
-                      'px-2 py-1 text-xs font-medium transition-colors',
-                      !isPercentPay
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted',
-                    )}
-                    onClick={() =>
-                      setNewService((prev) => ({ ...prev, photographer_pay_type: 'fixed' }))
-                    }
-                  >
-                    $
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={isPercentPay}
-                    className={cn(
-                      'px-2 py-1 text-xs font-medium transition-colors',
-                      isPercentPay
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted',
-                    )}
-                    onClick={() =>
-                      setNewService((prev) => ({ ...prev, photographer_pay_type: 'percent' }))
-                    }
-                  >
-                    %
-                  </button>
-                </div>
-              </div>
-              {isPercentPay ? (
-                <>
-                  <Input
-                    id="photographer_pay"
-                    name="photographer_pay_percent"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={newService.photographer_pay_percent ?? ''}
-                    onChange={handleInputChange}
-                    placeholder="45.00"
-                  />
-                  {percentPayPreview && (
-                    <p className="text-xs text-muted-foreground">{percentPayPreview}</p>
-                  )}
-                </>
-              ) : (
-                <Input
-                  id="photographer_pay"
-                  name="photographer_pay"
-                  type="number"
-                  step="0.01"
-                  value={newService.photographer_pay}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                />
-              )}
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
-                Exclude from sales commission
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Use for travel, cancellation, and reschedule fees.
-              </p>
-            </div>
-            <Switch
-              id="exclude_from_sales_commission"
-              checked={newService.exclude_from_sales_commission}
-              onCheckedChange={(checked) =>
-                setNewService(prev => ({ ...prev, exclude_from_sales_commission: checked }))
-              }
-            />
-          </div>
         </div>
         <DialogFooter className="border-t pt-3 sm:pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

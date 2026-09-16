@@ -10,7 +10,8 @@ import { Check, CheckCircle2, ChevronRight, MapPin, Package, Search, User } from
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
-import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
+import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import type { SchedulingFormController } from './useSchedulingFormController';
 import type { SchedulingSlot } from './schedulingModel';
 import { formatTimeForDisplay, to12Hour } from '@/utils/availabilityUtils';
@@ -29,8 +30,19 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     getPhotographerForService, isPhotographerTimeDisabled, selectedServices,
     formatScheduleLine, handlePhotographerDialogOpen, handleConfirmServicePhotographer,
     formatLocationLabel, availabilityCardWindow, timeToMinutes, minutesToTime,
-    normalizeSlotTime,
+    normalizeSlotTime, formErrors,
   } = controller;
+  const photographerHeadingId = React.useId();
+  const otherSchedulesHeadingId = React.useId();
+  // Single-photographer mode has exactly one photographer-required service; the
+  // picker is presented against that service so it never reads as "for all".
+  const primaryAssignment = requiresPerServiceAssignment ? null : assignmentGroups[0] ?? null;
+  const servicesWithoutPhotographer = selectedServices.filter((service) => !serviceRequiresPhotographer(service));
+  const singleModeHint = primaryAssignment
+    ? servicesWithoutPhotographer.length > 0
+      ? `Only ${primaryAssignment.serviceName} needs a photographer.`
+      : `Assign a photographer for ${primaryAssignment.serviceName}.`
+    : null;
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
       <div className={cn("flex items-center gap-2", mobileDrawer && "flex-col items-stretch") }>
@@ -382,30 +394,139 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
       <div className="flex items-center min-w-0">
         {selectedPhotographer ? (
           <>
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 mr-3 sm:mr-4 shrink-0">
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 mr-2.5 sm:mr-3 shrink-0">
               <AvatarImage
                 src={getAvatarUrl(selectedPhotographer.avatar, 'photographer', undefined, selectedPhotographer.id)}
                 alt={selectedPhotographer.name}
               />
               <AvatarFallback>{selectedPhotographer.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <span className="truncate text-base sm:text-xl font-semibold text-slate-900 dark:text-white">{selectedPhotographer.name}</span>
+            <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{selectedPhotographer.name}</span>
           </>
         ) : (
-          <span className="truncate text-slate-500 dark:text-slate-400">Select a photographer</span>
+          <span className="truncate text-slate-500 dark:text-slate-400 text-sm">Select a photographer</span>
         )}
       </div>
-      <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400 shrink-0" />
+      <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
     </div>
   );
+  const singlePhotographerPicker = isMobile ? (
+    <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+      <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
+      <DrawerContent className="h-[78vh] max-h-[78vh]">
+        <DrawerHeader className="pb-2 text-left">
+          <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
+          <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+            {filteredAndSortedPhotographers.length} photographers shown
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+          {renderPhotographerFilters(true)}
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+            {renderPhotographerResults(true)}
+          </div>
+        </div>
+        <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {selectedPhotographerDetails?.name || 'None selected'}
+            </p>
+          </div>
+          <Button
+            onClick={handleConfirmPhotographer}
+            className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+            disabled={!photographer}
+          >
+            Confirm Assignment
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+      <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
+      <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
+        <div className="flex flex-col h-full sm:h-[70vh]">
+          <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
+            <DialogHeader className="space-y-1 text-left items-start">
+              <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+              <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                {filteredAndSortedPhotographers.length} photographers shown
+              </DialogDescription>
+            </DialogHeader>
+            {renderPhotographerFilters(false)}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+              {renderPhotographerResults(false)}
+            </div>
+            <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar className={cn(
+                    "h-10 w-10 shrink-0",
+                    selectedPhotographerDetails
+                      ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                      : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                  )}>
+                    {selectedPhotographerDetails ? (
+                      <>
+                        <AvatarImage
+                          src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                          alt={selectedPhotographerDetails.name}
+                        />
+                        <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                      </>
+                    ) : (
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {selectedPhotographerDetails?.name || 'None selected'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setPhotographerDialogOpen(false)}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    onClick={handleConfirmPhotographer}
+                    disabled={!photographer}
+                  >
+                    Confirm Assignment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
   return (
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
-          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
+    <>
+        <section
+          aria-labelledby={photographerHeadingId}
+          className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+        >
+          <h2 id={photographerHeadingId} className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
             {requiresPerServiceAssignment ? 'Photographers' : 'Photographer'}
           </h2>
           {requiresPerServiceAssignment && (
             <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-2">
               Assign a photographer for each service
+            </p>
+          )}
+          {singleModeHint && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-2">
+              {singleModeHint}
             </p>
           )}
           {requiresPerServiceAssignment && (
@@ -420,7 +541,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         ({categoryName})
                       </span>
                     </p>
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                       <div
                         className={cn(
                           "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
@@ -486,136 +607,41 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             </div>
           )}
           {!requiresPerServiceAssignment && (
-            <>
-              {selectedServices.length > 0 && (
-                <div className="mb-3 space-y-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Service schedules</p>
-                  {selectedServices.map(service => {
-                    const schedule = getServiceSchedule(service.id);
-                    return (
-                      <div key={service.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
-                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatScheduleLine(service.id)}</p>
-                        </div>
-                        <ServiceDatePicker
-                          value={schedule.date}
-                          onChange={(value) => updateServiceSchedules([service.id], { date: value })}
-                          triggerClassName="h-9"
-                        />
-                        <ServiceTimePicker
-                          value={schedule.time}
-                          options={buildConflictAwareServiceTimeOptions(photographer, schedule.time)}
-                          onChange={(value) => updateServiceSchedules([service.id], { time: value })}
-                          triggerClassName="h-9"
-                          isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="min-w-0 space-y-1">
+              {primaryAssignment && (
+                <p className="truncate text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {primaryAssignment.serviceName}
+                  <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
+                    ({primaryAssignment.categoryName})
+                  </span>
+                </p>
               )}
-              {isMobile ? (
-                <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
-                  <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
-                  <DrawerContent className="h-[78vh] max-h-[78vh]">
-                    <DrawerHeader className="pb-2 text-left">
-                      <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
-                      <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                        {filteredAndSortedPhotographers.length} photographers shown
-                      </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
-                      {renderPhotographerFilters(true)}
-                      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
-                        {renderPhotographerResults(true)}
-                      </div>
+              <div className={cn("grid grid-cols-1 gap-2", primaryAssignment && "xl:grid-cols-2")}>
+                {singlePhotographerPicker}
+                {primaryAssignment && (
+                  <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
+                      <ServiceDatePicker
+                        value={getServiceSchedule(primaryAssignment.serviceId).date}
+                        onChange={(value) => updateServiceSchedules([primaryAssignment.serviceId], { date: value })}
+                        triggerClassName="h-9"
+                      />
                     </div>
-                    <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
-                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {selectedPhotographerDetails?.name || 'None selected'}
-                        </p>
-                      </div>
-                      <Button
-                        onClick={handleConfirmPhotographer}
-                        className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
-                        disabled={!photographer}
-                      >
-                        Confirm Assignment
-                      </Button>
-                    </DrawerFooter>
-                  </DrawerContent>
-                </Drawer>
-              ) : (
-                <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
-                  <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
-                  <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
-                    <div className="flex flex-col h-full sm:h-[70vh]">
-                      <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
-                        <DialogHeader className="space-y-1 text-left items-start">
-                          <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
-                          <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            {filteredAndSortedPhotographers.length} photographers shown
-                          </DialogDescription>
-                        </DialogHeader>
-                        {renderPhotographerFilters(false)}
-                        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-                          {renderPhotographerResults(false)}
-                        </div>
-                        <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <Avatar className={cn(
-                                "h-10 w-10 shrink-0",
-                                selectedPhotographerDetails
-                                  ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                                  : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                              )}>
-                                {selectedPhotographerDetails ? (
-                                  <>
-                                    <AvatarImage
-                                      src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                      alt={selectedPhotographerDetails.name}
-                                    />
-                                    <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                                  </>
-                                ) : (
-                                  <AvatarFallback>
-                                    <User className="h-4 w-4" />
-                                  </AvatarFallback>
-                                )}
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
-                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                  {selectedPhotographerDetails?.name || 'None selected'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
-                              <Button
-                                variant="ghost"
-                                onClick={() => setPhotographerDialogOpen(false)}
-                              >
-                                Discard
-                              </Button>
-                              <Button
-                                onClick={handleConfirmPhotographer}
-                                disabled={!photographer}
-                              >
-                                Confirm Assignment
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                      <ServiceTimePicker
+                        value={getServiceSchedule(primaryAssignment.serviceId).time}
+                        options={buildConflictAwareServiceTimeOptions(photographer, getServiceSchedule(primaryAssignment.serviceId).time)}
+                        onChange={(value) => updateServiceSchedules([primaryAssignment.serviceId], { time: value })}
+                        triggerClassName="h-9"
+                        isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value)}
+                      />
                     </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
           {requiresPerServiceAssignment && (
             <>
@@ -736,6 +762,49 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               )}
             </>
           )}
-        </div>
+          {formErrors['photographer'] && (
+            <p className="pt-1 text-sm font-medium text-destructive">{formErrors['photographer']}</p>
+          )}
+        </section>
+        {servicesWithoutPhotographer.length > 0 && (
+          <section
+            aria-labelledby={otherSchedulesHeadingId}
+            className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+          >
+            <div>
+              <h2 id={otherSchedulesHeadingId} className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white">
+                Other service schedules
+              </h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                No photographer is needed for these. Change a date or time only if it differs from the shoot.
+              </p>
+            </div>
+            <div className="space-y-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40">
+              {servicesWithoutPhotographer.map((service) => {
+                const schedule = getServiceSchedule(service.id);
+                return (
+                  <div key={service.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatScheduleLine(service.id)}</p>
+                    </div>
+                    <ServiceDatePicker
+                      value={schedule.date}
+                      onChange={(value) => updateServiceSchedules([service.id], { date: value })}
+                      triggerClassName="h-9"
+                    />
+                    <ServiceTimePicker
+                      value={schedule.time}
+                      options={buildServiceTimeOptions(schedule.time)}
+                      onChange={(value) => updateServiceSchedules([service.id], { time: value })}
+                      triggerClassName="h-9"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+    </>
   );
 }
