@@ -64,4 +64,42 @@ describe('per-service booking photographer availability', () => {
     act(() => result.current.setShowAllPhotographers(false));
     expect(result.current.filteredAndSortedPhotographers).toEqual([]);
   });
+
+  it('does not ask for a photographer when every selected service opts out', () => {
+    const props: SchedulingFormProps = {
+      date: new Date('2026-10-05T12:00:00'), time: '10:00', address: '123 Test Street',
+      city: 'Test City', state: 'VA', zip: '22015',
+      setDate: vi.fn(), setTime: vi.fn(), formErrors: {}, setFormErrors: vi.fn(),
+      handleSubmit: vi.fn(), goBack: vi.fn(),
+      photographers: [{ id: '9', name: 'Pat' }],
+      selectedServices: [
+        { id: '3', name: 'Editing only', price: 25, photographer_required: false },
+        { id: '4', name: 'Virtual Staging', price: 45, photographer_required: false },
+      ],
+    };
+
+    const { result } = renderHook(() => useSchedulingFormController(props));
+
+    expect(result.current.requiresPhotographerAssignment).toBe(false);
+    expect(result.current.assignmentGroups).toEqual([]);
+  });
+
+  it('requires a photographer when a selected service needs one', () => {
+    const props: SchedulingFormProps = {
+      date: new Date('2026-10-05T12:00:00'), time: '10:00', address: '123 Test Street',
+      city: 'Test City', state: 'VA', zip: '22015',
+      setDate: vi.fn(), setTime: vi.fn(), formErrors: {}, setFormErrors: vi.fn(),
+      handleSubmit: vi.fn(), goBack: vi.fn(),
+      photographers: [{ id: '9', name: 'Pat' }],
+      selectedServices: [
+        { id: '1', name: 'HDR Photos', price: 100, photographer_required: true },
+        { id: '3', name: 'Editing only', price: 25, photographer_required: false },
+      ],
+    };
+
+    const { result } = renderHook(() => useSchedulingFormController(props));
+
+    expect(result.current.requiresPhotographerAssignment).toBe(true);
+    expect(result.current.assignmentGroups.map((group) => group.serviceId)).toEqual(['1']);
+  });
 });

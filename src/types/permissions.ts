@@ -69,3 +69,33 @@ export interface CurrentUserPermissionsResponse {
   permissionIds: string[];
   permissions: PermissionRule[];
 }
+
+export type PermissionOverrideState = 'inherit' | 'allow' | 'deny';
+
+export interface PermissionOverrides {
+  allow: string[];
+  deny: string[];
+}
+
+export interface PermissionUserSummary {
+  id: string | number;
+  name: string;
+  email: string;
+  avatar?: string | null;
+  accountStatus?: string | null;
+  role: string;
+  secondaryRoles: string[];
+  locked: boolean;
+  overrideCount: number;
+}
+
+export interface PermissionUsersResponse {
+  users: PermissionUserSummary[];
+}
+
+export interface UserPermissionOverridesResponse {
+  user: Omit<PermissionUserSummary, 'overrideCount' | 'accountStatus'>;
+  roleBaseline: string[];
+  overrides: PermissionOverrides;
+  effective: string[];
+}

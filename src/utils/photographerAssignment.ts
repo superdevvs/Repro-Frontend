@@ -42,6 +42,53 @@ export function selectedServicesRequirePhotographer(
   return photographerRequiredServices(selectedServices).length > 0;
 }
 
+export function photographerAssignmentIssue(
+  selectedServices: ReadonlyArray<Pick<AssignableService, 'id' | 'name' | 'photographer_required'>> | null | undefined,
+  photographer?: string | null,
+  servicePhotographers?: Record<string, string> | null,
+): string | null {
+  const required = photographerRequiredServices(selectedServices);
+  if (required.length === 0) {
+    return null;
+  }
+
+  const missing = required.filter((service) => !resolveServicePhotographerId(service, servicePhotographers, photographer));
+  if (missing.length === 0) {
+    return null;
+  }
+  if (required.length === 1 || missing.length === required.length) {
+    return required.length === 1
+      ? 'Please select a photographer'
+      : 'Please select a photographer for each service';
+  }
+  if (missing.length === 1) {
+    return `Please select a photographer for ${missing[0].name}`;
+  }
+  return 'Please select a photographer for each service';
+}
+
+export function syncPhotographerRequiredFromCatalog<T extends { id: string; photographer_required?: boolean | null }>(
+  selectedServices: ReadonlyArray<T>,
+  catalog: ReadonlyArray<Pick<AssignableService, 'id' | 'photographer_required'>> | null | undefined,
+): T[] {
+  if (!catalog?.length) {
+    return selectedServices.slice();
+  }
+
+  const byId = new Map(catalog.map((service) => [String(service.id), service]));
+  return selectedServices.map((service) => {
+    const catalogService = byId.get(String(service.id));
+    if (!catalogService) {
+      return service;
+    }
+    const photographerRequired = serviceRequiresPhotographer(catalogService);
+    if (service.photographer_required === photographerRequired) {
+      return service;
+    }
+    return { ...service, photographer_required: photographerRequired };
+  });
+}
+
 export interface AssignmentGroup {
   /** Stable React key + identity = the service id (never the category). */
   key: string;

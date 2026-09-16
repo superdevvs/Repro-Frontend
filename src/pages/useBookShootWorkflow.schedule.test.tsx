@@ -1,5 +1,6 @@
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BOOKING_FORM_CACHE_KEY } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 
@@ -42,5 +43,44 @@ describe('editing a shoot request keeps its stored schedule', () => {
     expect(buildShootScheduleTimestamp(serviceSchedule.date, serviceSchedule.time, source?.timezone,
       findServiceScheduleTimestamp(source, '19'))).toBe(schedule.timezone
       ? '2026-09-09T14:00:00.000Z' : '2026-09-09T10:00:00');
+  });
+});
+
+describe('booking service photographer-required flags', () => {
+  it('restores photographer_required from the service catalog onto cached selections', async () => {
+    localStorage.setItem('authToken', 'test-token');
+    localStorage.setItem(BOOKING_FORM_CACHE_KEY, JSON.stringify({
+      selectedServices: [
+        { id: '19', name: 'Photography', price: 200 },
+        { id: '21', name: 'Virtual Staging', price: 45 },
+      ],
+    }));
+    mocks.get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/services')) {
+        return {
+          data: {
+            data: [
+              { id: 19, name: 'Photography', price: 200, photographer_required: true },
+              { id: 21, name: 'Virtual Staging', price: 45, photographer_required: false },
+            ],
+          },
+        };
+      }
+      return { data: { data: [] } };
+    });
+
+    const { result } = renderHook(() => useBookShootWorkflow({
+      user: { id: '1', role: 'admin' } as never, isClientAccount: false, clientIdFromUrl: null,
+      clientNameFromUrl: null, clientCompanyFromUrl: null, editShootId: null,
+      canAdjustBookingAmount: false,
+    }));
+
+    await waitFor(() => expect(result.current.packages).toHaveLength(2));
+    await waitFor(() => {
+      expect(result.current.selectedServices).toEqual([
+        expect.objectContaining({ id: '19', photographer_required: true }),
+        expect.objectContaining({ id: '21', photographer_required: false }),
+      ]);
+    });
   });
 });

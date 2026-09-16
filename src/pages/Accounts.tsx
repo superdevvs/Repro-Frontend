@@ -180,8 +180,10 @@ export default function Accounts() {
   const { shoots, isInitialLoading: shootsLoading } = useShoots();
   usePageLoading(loading || shootsLoading);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const sessionExpiredRef = useRef(false);
+  // Deep link from the account menu: /accounts?tab=permissions&permissionsUser=<id>
+  const permissionsUserParam = searchParams.get('permissionsUser');
 
   useEffect(() => {
     sessionExpiredRef.current = false;
@@ -204,6 +206,11 @@ export default function Accounts() {
       setSearchQuery(searchParam);
     } else {
       setSearchQuery('');
+    }
+
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['accounts', 'permissions', 'linking', 'inactive'].includes(tabParam)) {
+      setActiveTab(tabParam);
     }
   }, [searchParams]);
 
@@ -923,6 +930,15 @@ export default function Accounts() {
     setUserProfileDialogOpen(true);
   };
 
+  const handleManagePermissions = (user: { id: string | number }) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', 'permissions');
+      next.set('permissionsUser', String(user.id));
+      return next;
+    });
+  };
+
   const handleUpdateRoles = async (userId: string, roles: Role[]) => {
     const primaryRole = roles[0];
     const secondaryRoles = roles.slice(1);
@@ -1396,6 +1412,7 @@ export default function Accounts() {
                     onChangeRole={handleChangeRole}
                     onConvertType={handleConvertType}
                     onManageStatus={handleManageAccountStatus}
+                    onManagePermissions={showPermissionsTab ? handleManagePermissions : undefined}
                     onResetPassword={handleResetPassword}
                     onImpersonate={handleImpersonate}
                     onManageNotifications={handleManageNotifications}
@@ -1431,6 +1448,7 @@ export default function Accounts() {
                 onChangeRole={handleChangeRole}
                 onConvertType={handleConvertType}
                 onManageStatus={handleManageAccountStatus}
+                onManagePermissions={showPermissionsTab ? handleManagePermissions : undefined}
                 onResetPassword={handleResetPassword}
                 onImpersonate={handleImpersonate}
                 onManageNotifications={handleManageNotifications}
@@ -1459,7 +1477,7 @@ export default function Accounts() {
 
           {showPermissionsTab && (
             <TabsContent value="permissions" className="mt-6">
-              <PermissionsManager />
+              <PermissionsManager initialUserId={permissionsUserParam} />
             </TabsContent>
           )}
 

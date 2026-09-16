@@ -25,6 +25,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
+import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
@@ -86,7 +87,7 @@ export const useBookShootWorkflow = ({
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetailsData | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
   const handleSelectedServicesChange = React.useCallback((services: ServicePackage[]) => {
-    setSelectedServices(services);
+    setSelectedServices(syncPhotographerRequiredFromCatalog(services, packages));
     setServicePhotographers(prev => {
       const currentServiceIds = new Set(services.map(s => s.id));
       const next: Record<string, string> = {};
@@ -107,7 +108,16 @@ export const useBookShootWorkflow = ({
       }
       return next;
     });
-  }, []);
+  }, [packages]);
+  React.useEffect(() => {
+    if (packages.length === 0 || selectedServices.length === 0) {
+      return;
+    }
+    const synced = syncPhotographerRequiredFromCatalog(selectedServices, packages);
+    if (synced.some((service, index) => service.photographer_required !== selectedServices[index].photographer_required)) {
+      setSelectedServices(synced);
+    }
+  }, [packages, selectedServices]);
   const handleShootTypeChange = (nextType: InternalShootType) => {
     setShootType(nextType);
     if (nextType !== 'standard') {
@@ -484,7 +494,9 @@ export const useBookShootWorkflow = ({
             price: Number(pkg.price ?? 0),
             pricing_type: pkg.pricing_type === 'variable' ? 'variable' : 'fixed',
             allow_multiple: Boolean(pkg.allow_multiple),
-            photographer_required: Boolean(pkg.photographer_required),
+            photographer_required: serviceRequiresPhotographer({
+              photographer_required: pkg.photographer_required as boolean | null | undefined,
+            }),
             photographer_pay: pkg.photographer_pay === null || pkg.photographer_pay === undefined
               ? null
               : Number(pkg.photographer_pay),

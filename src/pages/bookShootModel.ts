@@ -1,3 +1,4 @@
+import { photographerAssignmentIssue } from '@/utils/photographerAssignment';
 import type { PricingBreakdown } from '@/utils/pricing';
 
 export type SqftRange = {
@@ -119,6 +120,75 @@ export type PropertyDraftSubmission = Record<string, unknown> & {
 
 export const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+export const getSchedulingStepErrors = (input: {
+  date?: Date | string | null;
+  time?: string | null;
+  selectedServices: Array<Pick<ServicePackage, 'id' | 'name' | 'photographer_required'>>;
+  photographer?: string | null;
+  servicePhotographers?: Record<string, string> | null;
+}): Record<string, string> => {
+  const errors: Record<string, string> = {};
+  if (!input.date) {
+    errors.date = 'Please select a date';
+  }
+  if (!input.time) {
+    errors.time = 'Please select a time';
+  }
+  const photographerError = photographerAssignmentIssue(
+    input.selectedServices,
+    input.photographer,
+    input.servicePhotographers,
+  );
+  if (photographerError) {
+    errors.photographer = photographerError;
+  }
+  return errors;
+};
+
+export const getBookingSubmissionPreflightIssue = (input: {
+  isClientAccount: boolean;
+  client?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  date?: Date | string | null;
+  time?: string | null;
+  selectedServices: Array<Pick<ServicePackage, 'id' | 'name' | 'photographer_required'>>;
+  photographer?: string | null;
+  servicePhotographers?: Record<string, string> | null;
+  isCompReshootMode: boolean;
+  canCreateNoProductShoot: boolean;
+}): { title: string; description: string; errors?: Record<string, string> } | null => {
+  const schedulingErrors = getSchedulingStepErrors(input);
+  if (schedulingErrors.photographer) {
+    return {
+      title: 'Photographer required',
+      description: schedulingErrors.photographer,
+      errors: schedulingErrors,
+    };
+  }
+
+  const clientValid = input.isClientAccount || Boolean(input.client);
+  const requiresServices = input.isCompReshootMode || input.isClientAccount || !input.canCreateNoProductShoot;
+  const missingRequired =
+    !clientValid || !input.address || !input.city || !input.state || !input.zip ||
+    !input.date || !input.time || (requiresServices && input.selectedServices.length === 0);
+  if (!missingRequired) return null;
+
+  const onlyProductMissing =
+    requiresServices && input.selectedServices.length === 0 && clientValid &&
+    Boolean(input.address && input.city && input.state && input.zip && input.date && input.time);
+  return {
+    title: onlyProductMissing ? 'Product required' : 'Missing information',
+    description: onlyProductMissing
+      ? 'Add at least one product to schedule this shoot.'
+      : requiresServices
+        ? 'Please fill in all required fields and select a service before confirming the booking.'
+        : 'Please fill in all required fields before confirming the booking.',
+  };
+};
 
 export const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
   let price = Number(service.price ?? 0);

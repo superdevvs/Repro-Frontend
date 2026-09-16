@@ -2,7 +2,10 @@ import { API_BASE_URL } from '@/config/env';
 import type {
   AdminPermissionsResponse,
   CurrentUserPermissionsResponse,
+  PermissionOverrides,
+  PermissionUsersResponse,
   RolePermissionIdsMap,
+  UserPermissionOverridesResponse,
 } from '@/types/permissions';
 
 const getToken = () =>
@@ -67,4 +70,38 @@ export async function updateAdminPermissionsConfig(permissions: RolePermissionId
 
   const data = await parseJson<{ permissions: RolePermissionIdsMap }>(response);
   return data.permissions;
+}
+
+export async function fetchPermissionUsers(signal?: AbortSignal): Promise<PermissionUsersResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/permissions/users`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<PermissionUsersResponse>(response);
+}
+
+export async function fetchUserPermissionOverrides(
+  userId: string | number,
+  signal?: AbortSignal,
+): Promise<UserPermissionOverridesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/permissions/users/${encodeURIComponent(String(userId))}`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<UserPermissionOverridesResponse>(response);
+}
+
+export async function updateUserPermissionOverrides(
+  userId: string | number,
+  overrides: PermissionOverrides,
+): Promise<UserPermissionOverridesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/permissions/users/${encodeURIComponent(String(userId))}`, {
+    method: 'PUT',
+    headers: createHeaders(),
+    body: JSON.stringify({ overrides }),
+  });
+
+  return parseJson<UserPermissionOverridesResponse>(response);
 }

@@ -1,6 +1,6 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Briefcase, Camera, Crown, RotateCcw, Save, Scissors, Search, Shield, User, UserCog } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, RotateCcw, Save, Search, Shield, UserCog, Users } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,16 +23,52 @@ import type {
   PermissionRoleMeta,
   RolePermissionIdsMap,
 } from '@/types/permissions';
+import { ROLE_ICONS } from '@/components/accounts/permissionRoleIcons';
+import { UserPermissionOverridesManager } from '@/components/accounts/UserPermissionOverridesManager';
 
-const ROLE_ICONS: Record<string, React.ElementType> = {
-  superadmin: Crown,
-  admin: Shield,
-  editing_manager: UserCog,
-  salesRep: Briefcase,
-  photographer: Camera,
-  editor: Scissors,
-  client: User,
-};
+type PermissionsManagerMode = 'roles' | 'users';
+
+interface PermissionsManagerProps {
+  /** Pre-select a user in the Users view (deep link from the account menu). */
+  initialUserId?: string | number | null;
+  initialMode?: PermissionsManagerMode;
+}
+
+const MODE_TABS: AutoExpandingTab[] = [
+  { value: 'roles', label: 'Roles', icon: UserCog },
+  { value: 'users', label: 'Users', icon: Users },
+];
+
+export function PermissionsManager({ initialUserId = null, initialMode }: PermissionsManagerProps) {
+  const [mode, setMode] = useState<PermissionsManagerMode>(initialMode ?? (initialUserId ? 'users' : 'roles'));
+
+  useEffect(() => {
+    if (initialUserId) {
+      setMode('users');
+    }
+  }, [initialUserId]);
+
+  return (
+    <div className="space-y-4">
+      <Tabs value={mode} onValueChange={(value) => setMode(value as PermissionsManagerMode)}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <AutoExpandingTabsList tabs={MODE_TABS} value={mode} desktopExpanded variant="compact" className="pb-0" />
+          <p className="text-xs text-muted-foreground sm:text-right">
+            {mode === 'roles'
+              ? 'Defaults shared by everyone with a role.'
+              : 'Per-account exceptions layered on top of the role defaults.'}
+          </p>
+        </div>
+      </Tabs>
+
+      {mode === 'roles' ? (
+        <RolePermissionsPanel />
+      ) : (
+        <UserPermissionOverridesManager initialUserId={initialUserId} />
+      )}
+    </div>
+  );
+}
 
 const toSortedUnique = (values: string[]) => Array.from(new Set(values)).sort();
 
@@ -67,7 +103,7 @@ const permissionMatchesSearch = (permission: PermissionCatalogItem, search: stri
   return haystack.includes(search.toLowerCase());
 };
 
-export function PermissionsManager() {
+function RolePermissionsPanel() {
   const { toast } = useToast();
   const { can } = usePermission();
   const canSavePermissions = can('permissions-manager', 'update');

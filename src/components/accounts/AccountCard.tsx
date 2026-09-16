@@ -26,7 +26,8 @@ import {
   Trash2,
   LogIn,
   UserPlus,
-  ShieldCheck
+  ShieldCheck,
+  SlidersHorizontal
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
@@ -41,6 +42,8 @@ interface AccountCardProps {
   onChangeRole: (user: User) => void;
   onConvertType?: (user: User) => void;
   onManageStatus?: (user: User) => void;
+  /** Opens the per-user permission overrides editor. Only passed when the viewer can manage permissions. */
+  onManagePermissions?: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
   onManageNotifications: (user: User) => void;
@@ -63,6 +66,7 @@ export function AccountCard({
   onChangeRole,
   onConvertType,
   onManageStatus,
+  onManagePermissions,
   onResetPassword,
   onImpersonate,
   onManageNotifications,
@@ -171,6 +175,15 @@ export function AccountCard({
                   onChangeRole(user);
                 }}>
                   <UserCog className="mr-2 h-4 w-4" /> Change Role
+                </DropdownMenuItem>
+              )}
+              {/* Per-user permission overrides; superadmins always keep everything */}
+              {canManageAccounts && onManagePermissions && user.role !== 'superadmin' && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onManagePermissions(user);
+                }}>
+                  <SlidersHorizontal className="mr-2 h-4 w-4" /> Permissions
                 </DropdownMenuItem>
               )}
               {/* Convert account type (Req 18) — admins/super admins */}

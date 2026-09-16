@@ -34,8 +34,10 @@ import {
   buildAdminAdjustedPricing,
   asRecord,
   buildNormalizedAddress,
+  getBookingSubmissionPreflightIssue,
   getDateKey,
   getBookingWizardConfig,
+  getSchedulingStepErrors,
   parseCurrencyInput,
   resolveSelectedServicePrice,
   roundCurrency,
@@ -270,9 +272,13 @@ export const useBookShootController = () => {
       return true;
     }
     if (step === schedulingStep) {
-      const errors: Record<string, string> = {};
-      if (!date) errors['date'] = "Please select a date";
-      if (!time) errors['time'] = "Please select a time";
+      const errors = getSchedulingStepErrors({
+        date,
+        time,
+        selectedServices,
+        photographer,
+        servicePhotographers,
+      });
       if (Object.keys(errors).length > 0) {
         setFormErrors(errors);
         return false;
@@ -292,20 +298,14 @@ export const useBookShootController = () => {
     setFormErrors({});
     if (step === finalBookingStep) {
       setIsSubmitting(true);
-      const clientValid = isClientAccount || !!client;
-      const requiresServices = isCompReshootMode || isClientAccount || !canCreateNoProductShoot;
-      if (!clientValid || !address || !city || !state || !zip || !date || !time || (requiresServices && selectedServices.length === 0)) {
-        const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
-          clientValid && !!address && !!city && !!state && !!zip && !!date && !!time;
-        toast({
-          title: onlyProductMissing ? "Product required" : "Missing information",
-          description: onlyProductMissing
-            ? "Add at least one product to schedule this shoot."
-            : requiresServices
-              ? "Please fill in all required fields and select a service before confirming the booking."
-              : "Please fill in all required fields before confirming the booking.",
-          variant: "destructive",
-        });
+      const preflightIssue = getBookingSubmissionPreflightIssue({
+        isClientAccount, client, address, city, state, zip, date, time, selectedServices,
+        photographer, servicePhotographers, isCompReshootMode, canCreateNoProductShoot,
+      });
+      if (preflightIssue) {
+        const { errors, ...notice } = preflightIssue;
+        toast({ ...notice, variant: 'destructive' });
+        if (errors) setFormErrors(errors);
         setIsSubmitting(false);
         return;
       }

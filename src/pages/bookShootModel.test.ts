@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getBookingWizardConfig, scrollBookingPageToTop } from './bookShootModel';
+import {
+  getBookingSubmissionPreflightIssue,
+  getBookingWizardConfig,
+  getSchedulingStepErrors,
+  scrollBookingPageToTop,
+} from './bookShootModel';
 
 describe('scrollBookingPageToTop', () => {
   it('resets the dashboard main pane so the next booking slide starts at the top', () => {
@@ -23,6 +28,59 @@ describe('scrollBookingPageToTop', () => {
     vi.unstubAllGlobals();
     root.remove();
     button.remove();
+  });
+});
+
+describe('getSchedulingStepErrors', () => {
+  it('lets digital-only bookings continue after date/time without a photographer', () => {
+    expect(getSchedulingStepErrors({
+      date: new Date('2026-10-05T12:00:00'),
+      time: '10:00 AM',
+      selectedServices: [{ id: 'vs', name: 'Virtual Staging', photographer_required: false }],
+      photographer: '',
+    })).toEqual({});
+  });
+
+  it('requires a photographer after date/time when a selected service needs one', () => {
+    expect(getSchedulingStepErrors({
+      date: new Date('2026-10-05T12:00:00'),
+      time: '10:00 AM',
+      selectedServices: [{ id: 'p', name: '25 HDR Photos', photographer_required: true }],
+      photographer: '',
+    })).toEqual({ photographer: 'Please select a photographer' });
+  });
+});
+
+describe('getBookingSubmissionPreflightIssue', () => {
+  const validBooking = {
+    isClientAccount: false,
+    client: 'client-1',
+    address: '10 Monroe St',
+    city: 'Rockville',
+    state: 'MD',
+    zip: '20850',
+    date: new Date('2026-10-05T12:00:00'),
+    time: '10:00 AM',
+    selectedServices: [{ id: 'p', name: '25 HDR Photos', photographer_required: true }],
+    photographer: 'photographer-1',
+    servicePhotographers: {},
+    isCompReshootMode: false,
+    canCreateNoProductShoot: false,
+  };
+
+  it('returns the photographer-specific issue before generic required-field errors', () => {
+    expect(getBookingSubmissionPreflightIssue({
+      ...validBooking,
+      photographer: '',
+    })).toEqual({
+      title: 'Photographer required',
+      description: 'Please select a photographer',
+      errors: { photographer: 'Please select a photographer' },
+    });
+  });
+
+  it('returns no issue when all final booking requirements are complete', () => {
+    expect(getBookingSubmissionPreflightIssue(validBooking)).toBeNull();
   });
 });
 

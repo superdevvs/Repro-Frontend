@@ -32,6 +32,7 @@ export interface PackageOption extends ServiceSelectionOption {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: ServiceWithPricing['sqft_ranges'];
   delivery_time?: ServiceWithPricing['delivery_time'];
+  photographer_required?: boolean | null;
   photographer_pay?: ServiceWithPricing['photographer_pay'];
   sqftRanges?: ServiceWithPricing['sqft_ranges'];
   service_group_ids?: Array<string | number>;

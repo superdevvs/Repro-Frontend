@@ -12,9 +12,8 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, Check, Info, Search, Tag } from 'lucide-react';
+import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, Check, Search, Tag } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AddressLookupField from '@/components/AddressLookupField';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { normalizeState, STATE_OPTIONS } from '@/utils/stateUtils';
@@ -694,25 +693,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
           </div>
         </div>}
         {slide !== 'property' && <>
-        <div className="pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div>
-              <h3 className="text-lg font-medium">Service Selection</h3>
-              <p className="text-sm text-muted-foreground">
-                Add the deliverables this booking includes, then review totals below.
-              </p>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p>Select multiple services inside the panel. You can revisit and adjust them anytime.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+        <div>
           <div
             className={cn(
               'rounded-xl border border-muted/40 bg-card/40 p-4 space-y-3 min-h-[140px] transition-colors',

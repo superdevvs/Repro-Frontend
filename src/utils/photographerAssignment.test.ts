@@ -8,10 +8,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAssignmentGroups,
   buildServicePhotographerAssignments,
+  photographerAssignmentIssue,
   photographerRequiredServices,
   requiresPerServiceAssignment,
   resolveServicePhotographerId,
   selectedServicesRequirePhotographer,
+  syncPhotographerRequiredFromCatalog,
   type AssignableService,
 } from './photographerAssignment';
 
@@ -132,6 +134,54 @@ describe('requiresPerServiceAssignment', () => {
       svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
       svc('gg', 'Green Grass Enhancement', 'Digital Enhancements', false),
     ])).toBe(false);
+  });
+});
+
+describe('photographerAssignmentIssue', () => {
+  it('does not require a photographer when every selected service opts out', () => {
+    expect(photographerAssignmentIssue([
+      svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
+      svc('gg', 'Green Grass Enhancement', 'Digital Enhancements', false),
+    ], '', {})).toBeNull();
+  });
+
+  it('requires a photographer after date/time when a selected service needs one', () => {
+    expect(photographerAssignmentIssue([
+      svc('p', '25 HDR Photos', 'Photos', true),
+    ], '', {})).toBe('Please select a photographer');
+    expect(photographerAssignmentIssue([
+      svc('p', '25 HDR Photos', 'Photos', true),
+    ], '11', {})).toBeNull();
+  });
+
+  it('requires a photographer for each photographer-required service', () => {
+    const services = [
+      svc('p', '25 HDR Photos', 'Photos', true),
+      svc('d', 'Drone Photos', 'Drone', true),
+      svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
+    ];
+
+    expect(photographerAssignmentIssue(services, '', {})).toBe('Please select a photographer for each service');
+    expect(photographerAssignmentIssue(services, '', { p: '11' })).toBe('Please select a photographer for Drone Photos');
+    expect(photographerAssignmentIssue(services, '', { p: '11', d: '12' })).toBeNull();
+  });
+});
+
+describe('syncPhotographerRequiredFromCatalog', () => {
+  it('restores the scheduling photographer-required flag from the service catalog', () => {
+    const selected = [
+      { id: 'p', name: '25 HDR Photos' },
+      { id: 'vs', name: 'Virtual Staging (per image)' },
+    ];
+    const catalog = [
+      svc('p', '25 HDR Photos', 'Photos', true),
+      svc('vs', 'Virtual Staging (per image)', 'Digital Enhancements', false),
+    ];
+
+    expect(syncPhotographerRequiredFromCatalog(selected, catalog)).toEqual([
+      { id: 'p', name: '25 HDR Photos', photographer_required: true },
+      { id: 'vs', name: 'Virtual Staging (per image)', photographer_required: false },
+    ]);
   });
 });
 

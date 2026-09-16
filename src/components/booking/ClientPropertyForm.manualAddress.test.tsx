@@ -69,7 +69,9 @@ describe('booking property form slides', () => {
     const onBack = vi.fn();
     render(<ClientPropertyForm {...props()} slide="services" onBack={onBack} />);
 
-    expect(screen.getByText('Service Selection')).toBeTruthy();
+    expect(screen.queryByText('Service Selection')).toBeNull();
+    expect(screen.queryByText('Add the deliverables this booking includes, then review totals below.')).toBeNull();
+    expect(screen.getByText('Selected services')).toBeTruthy();
     expect(screen.getByText('Who will be at the property?')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy();
     expect(screen.queryByText('Property Type')).toBeNull();

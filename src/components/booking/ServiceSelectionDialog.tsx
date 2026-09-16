@@ -48,6 +48,7 @@ export type ServiceSelectionOption = {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: unknown[];
   delivery_time?: unknown;
+  photographer_required?: boolean | null;
   photographer_pay?: unknown;
 };
 

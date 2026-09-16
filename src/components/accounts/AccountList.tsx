@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
-import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight, Mail } from "lucide-react";
+import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight, Mail, SlidersHorizontal } from "lucide-react";
 import { canResendUserVerification } from "@/utils/emailHealth";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
@@ -26,6 +26,8 @@ interface AccountListProps {
   onChangeRole: (user: User) => void;
   onConvertType?: (user: User) => void;
   onManageStatus?: (user: User) => void;
+  /** Opens the per-user permission overrides editor. Only passed when the viewer can manage permissions. */
+  onManagePermissions?: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
   onManageNotifications: (user: User) => void;
@@ -47,6 +49,7 @@ export function AccountList({
   onChangeRole,
   onConvertType,
   onManageStatus,
+  onManagePermissions,
   onResetPassword,
   onImpersonate,
   onManageNotifications,
@@ -190,6 +193,12 @@ export function AccountList({
                     {canChangeRole && (
                       <DropdownMenuItem onClick={() => onChangeRole(user)}>
                         Change Role
+                      </DropdownMenuItem>
+                    )}
+                    {/* Per-user permission overrides; superadmins always keep everything */}
+                    {canManageAccounts && onManagePermissions && user.role !== 'superadmin' && (
+                      <DropdownMenuItem onClick={() => onManagePermissions(user)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Permissions
                       </DropdownMenuItem>
                     )}
                     {/* Convert account type (Req 18) — admins/super admins */}

@@ -4,12 +4,14 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PermissionsManager } from '@/components/accounts/PermissionsManager';
 import { usePermission } from '@/hooks/usePermission';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
 
 const PermissionSettingsPage = () => {
   const { can } = usePermission();
   const canManagePermissions = can('permissions-manager', 'view');
+  const [searchParams] = useSearchParams();
+  const permissionsUserParam = searchParams.get('user');
 
   // Redirect users without permission
   if (!canManagePermissions) {
@@ -27,10 +29,10 @@ const PermissionSettingsPage = () => {
         <PageHeader
           badge="Accounts"
           title="Permissions"
-          description="Manage role permissions, missing feature flags, and live dashboard access."
+          description="Manage role defaults and per-user overrides for dashboard and API access."
         />
 
-        <PermissionsManager />
+        <PermissionsManager initialUserId={permissionsUserParam} />
       </div>
     </DashboardLayout>
   );
