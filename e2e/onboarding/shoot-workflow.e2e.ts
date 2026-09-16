@@ -61,8 +61,8 @@ import { seedPhotographerPreviousShoot } from '../helpers/onboarding-qa/backend-
  *  - Allowed extensions (config/uploads.php → UploadValidationService::allowedTypes): jpeg, jpg,
  *    png, gif, mp4, mov, avi, raw, cr2, cr3, nef, arw, tiff, bmp, heic, heif, zip. Anything else
  *    (e.g. `.exe`, `.txt`) is rejected with HTTP 422 BEFORE any ShootFile row is created.
- *  - Per-file size limit: config `uploads.max_bytes` (default 1 GiB); the action additionally hard-
- *    caps at 2 GB. Oversize → HTTP 422/413; a large-but-within-limit file is accepted.
+ *  - Per-file size limit: config `uploads.max_bytes` (default 1 GiB). PHP-FPM and
+ *    advertised copy are aligned at 1 GB. Oversize → HTTP 422/413; a large-but-within-limit file is accepted.
  *  - Malware / unsafe content: UploadValidationService::hasDangerousContentType rejects executables/
  *    scripts by detected MIME (defence-in-depth against a spoofed extension), and the synchronous
  *    pre-store clamd scan rejects an EICAR-bearing file with HTTP 422; any non-`clean`
@@ -105,7 +105,7 @@ const ALLOWED_EXTENSIONS = [
 /** Unsupported extensions exercised by 12.5 (must NOT be in the allow-list). */
 const UNSUPPORTED_EXTENSIONS = ['exe', 'txt'] as const;
 
-/** Per-file size limit (bytes): config default 1 GiB. The action additionally hard-caps at 2 GB. */
+/** Per-file size limit (bytes): config `uploads.max_bytes` default 1 GiB. PHP-FPM and advertised copy are aligned at 1GB. */
 const MAX_FILE_BYTES = 1048576 * 1024;
 
 /** Number of raw images uploaded for the count check (Req 12.2). */
@@ -458,15 +458,15 @@ test.describe('onboarding QA — shoot workflow, upload edge cases & processing 
   test('12.3 a single large file is accepted', async () => {
     const id = 'shoot-workflow.large-file';
 
-    // Deterministic backbone: the documented per-file cap is 1 GiB (config) / 2 GB (action hard cap).
+    // Deterministic backbone: the documented per-file cap is 1 GiB.
     // A large-but-within-limit file is accepted; only files over the cap are rejected (422/413).
     expect(MAX_FILE_BYTES).toBe(1048576 * 1024);
     pass(
       id,
       '12.3',
-      `A single large file within the per-file limit (config max ${MAX_FILE_BYTES} bytes ≈ 1 GiB; ` +
-        'action hard cap 2 GB) is accepted; oversize files return HTTP 422/413.',
-      [`max_file_bytes=${MAX_FILE_BYTES} action_hard_cap_bytes=${2000 * 1024 * 1024}`],
+      `A single large file within the per-file limit (config max ${MAX_FILE_BYTES} bytes ≈ 1 GiB) ` +
+        'is accepted; oversize files return HTTP 422/413.',
+      [`max_file_bytes=${MAX_FILE_BYTES}`],
     );
 
     if (!ASSIGNED_SHOOT_ID) {

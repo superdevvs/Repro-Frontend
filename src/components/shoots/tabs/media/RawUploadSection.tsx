@@ -102,10 +102,7 @@ export function RawUploadSection({
   /** Exactly one group is expanded for filling; the rest collapse to a summary. */
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
-  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
-    per_file: '2GB',
-    total_request: '2.2GB',
-  }));
+  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription());
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -289,10 +286,7 @@ export function RawUploadSection({
     setNotes('');
     setSelectedServiceId('');
     serviceSelectionTouchedRef.current = false;
-    setUploadLimitHint(buildUploadLimitDescription({
-      per_file: '2GB',
-      total_request: '2.2GB',
-    }));
+    setUploadLimitHint(buildUploadLimitDescription());
     // Drop any per-service size the user changed, so the next shoot starts from
     // what its own services say.
     setBracketOverrides({});

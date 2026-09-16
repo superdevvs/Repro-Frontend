@@ -75,10 +75,7 @@ export function EditedUploadSection({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
-  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
-    per_file: '2GB',
-    total_request: '2.2GB',
-  }));
+  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription());
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmittingAfterUpload, setIsSubmittingAfterUpload] = useState(false);
@@ -110,10 +107,7 @@ export function EditedUploadSection({
     setPendingSubmitAfterUpload(false);
     setNotes('');
     setSelectedServiceId('');
-    setUploadLimitHint(buildUploadLimitDescription({
-      per_file: '2GB',
-      total_request: '2.2GB',
-    }));
+    setUploadLimitHint(buildUploadLimitDescription());
   }, [shoot.id, user?.id]);
 
   useEffect(() => {

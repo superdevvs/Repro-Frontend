@@ -55,7 +55,14 @@ describe('upload limit validation', () => {
       errorType: 'oversize',
       retryable: false,
     });
-    expect(result.rejectedIssues[0].message).toContain('2GB per-file limit');
+    expect(result.rejectedIssues[0].message).toContain('1GB per-file limit');
+  });
+
+  it('rejects a 1.5GB file against the default 1GB per-file limit', () => {
+    const result = validateFilesAgainstUploadLimits([fakeFile('walkthrough.mov', 1500 * MB)]);
+
+    expect(result.acceptedFiles).toEqual([]);
+    expect(result.rejectedIssues[0].message).toContain('1GB per-file limit');
   });
 
   it('honours a smaller per-file limit advertised by the server', () => {
