@@ -8,7 +8,7 @@ import { CompReshootServiceMapping } from '@/features/complimentary-reshoots/Com
 import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import { CompReshootReasonStep } from '@/features/complimentary-reshoots/CompReshootReasonStep';
 import { CompReshootServicesStep } from '@/features/complimentary-reshoots/CompReshootServicesStep';
-import type { ServicePackage } from '@/pages/bookShootModel';
+import { getBookingWizardConfig, type ServicePackage } from '@/pages/bookShootModel';
 
 type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
 
@@ -127,6 +127,7 @@ export function BookingContentArea({
   compReshoot,
   propertySqft = null,
 }: BookingContentAreaProps) {
+  const wizard = getBookingWizardConfig(Boolean(compReshoot?.enabled));
   
   return (
     <div className="space-y-6">
@@ -134,7 +135,7 @@ export function BookingContentArea({
         <CompReshootReasonStep controller={compReshoot} onContinue={handleSubmit} />
       )}
 
-      {compReshoot?.enabled && step === 2 && (
+      {compReshoot?.enabled && step === wizard.servicesStep && (
         <CompReshootServicesStep
           controller={compReshoot}
           services={packages}
@@ -147,9 +148,11 @@ export function BookingContentArea({
         />
       )}
 
-      {step === 1 && !compReshoot?.enabled && clientPropertyFormData && (
+      {!compReshoot?.enabled && clientPropertyFormData && (step === 1 || step === wizard.servicesStep) && (
         <ClientPropertyForm
           key={clientPropertyFormData.formKey ?? 'default'}
+          slide={step === 1 ? 'property' : 'services'}
+          onBack={step === wizard.servicesStep ? goBack : undefined}
           initialData={clientPropertyFormData.initialData}
           onComplete={clientPropertyFormData.onComplete}
           packages={packages}
@@ -177,7 +180,7 @@ export function BookingContentArea({
         />
       )}
       
-      {step === (compReshoot?.enabled ? 3 : 2) && (
+      {step === wizard.schedulingStep && (
         <SchedulingForm
           date={date}
           setDate={setDate}
@@ -207,7 +210,7 @@ export function BookingContentArea({
         />
       )}
       
-      {step === (compReshoot?.enabled ? 4 : 3) && (
+      {step === wizard.finalStep && (
         <ReviewForm
           client={client}
           clientName={clients.find(c => c.id === client)?.name || undefined}

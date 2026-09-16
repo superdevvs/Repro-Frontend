@@ -1,16 +1,18 @@
-import { AlertCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle, ArrowRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type ClientPropertyFormActionsProps = {
   submitAttemptNotice: string | null;
   showClearSavedData: boolean;
   onClearSavedData?: () => void;
+  onBack?: () => void;
 };
 
 export function ClientPropertyFormActions({
   submitAttemptNotice,
   showClearSavedData,
   onClearSavedData,
+  onBack,
 }: ClientPropertyFormActionsProps) {
   return (
     <div className="mt-6 flex flex-col gap-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-0">
@@ -34,6 +36,17 @@ export function ClientPropertyFormActions({
       {showClearSavedData && onClearSavedData && (
         <Button type="button" variant="outline" onClick={onClearSavedData} className="w-full sm:hidden">
           Clear saved data
+        </Button>
+      )}
+      {onBack && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          className="w-full sm:h-14 sm:w-auto sm:min-w-[150px] sm:border-slate-200 sm:bg-white sm:text-base sm:font-semibold sm:text-slate-700 sm:hover:bg-slate-50 dark:sm:border-muted/40 dark:sm:bg-card/60 dark:sm:text-slate-300"
+        >
+          <ChevronLeft className="mr-2 hidden h-5 w-5 sm:inline" />
+          Back
         </Button>
       )}
       <Button

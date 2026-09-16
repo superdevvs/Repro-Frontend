@@ -29,7 +29,7 @@ export function MediaGenerationOverlay({ progress, label, detail, compact = fals
     return () => { observer?.disconnect(); image.removeEventListener('load', resize); window.removeEventListener('resize', resize); };
   }, [fitToImage]);
   return <div ref={ref} className={`v4-media-generation${compact ? ' v4-media-generation-compact' : ''}`} style={{ ...bounds, '--v4-generation-veil': veil } as CSSProperties}>
-    <PropertyParticleField />
+    <PropertyParticleField displacement />
     <div className="v4-generation-hud">
       <div className="v4-generation-progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} aria-valuetext={percent === null ? 'Progress unavailable' : `${percent}% complete`}>
         <Sparkles size={16} aria-hidden="true" />

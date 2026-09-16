@@ -3,12 +3,20 @@ import { REPRO_AI_ICON_PATH } from '@/components/icons/ReproAiIcon';
 
 interface Particle { x: number; y: number; nx: number; ny: number; silhouette: boolean }
 
-export function PropertyParticleField() {
-  const ref = useRef<HTMLCanvasElement>(null);
+export function PropertyParticleField({ displacement = true }: { displacement?: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const turbRef = useRef<SVGFETurbulenceElement>(null);
+  const dispRef = useRef<SVGFEDisplacementMapElement>(null);
+
   useEffect(() => {
-    const canvas = ref.current;
+    const canvas = canvasRef.current;
+    const svg = svgRef.current;
+    const turb = turbRef.current;
+    const disp = dispRef.current;
     const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
+    if (!canvas || !context || !svg || !turb || !disp) return;
+
     const robbie = typeof Path2D === 'undefined' ? null : new Path2D(REPRO_AI_ICON_PATH);
     const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     let reducedMotion = motion?.matches ?? false;
@@ -16,6 +24,33 @@ export function PropertyParticleField() {
     let particles: Particle[] = [];
     const started = performance.now();
     const stars = [[.16, .27, 0], [.83, .24, 1.7], [.8, .76, 3.1], [.21, .77, 4.2]];
+
+    /* ── displacement filter animation ───────────────────────── */
+    let dispRaf = 0;
+    const animateDisplacement = () => {
+      if (!displacement) return;
+      const start = performance.now();
+      const dur = 3200;
+      const tick = (now: number) => {
+        const t = ((now - start) % dur) / dur;
+        const s = Math.sin(t * Math.PI * 2);
+        const c = Math.cos(t * Math.PI * 2);
+        // baseFrequency oscillates for the "liquid" feel
+        const freq = 0.012 + 0.018 * (0.5 + 0.5 * s);
+        // scale oscillates between low and high displacement
+        const scale = displacement ? 8 + 18 * (0.5 + 0.5 * Math.abs(c)) : 0;
+        turb.setAttribute('baseFrequency', freq.toFixed(5));
+        disp.setAttribute('scale', scale.toFixed(1));
+        dispRaf = requestAnimationFrame(tick);
+      };
+      dispRaf = requestAnimationFrame(tick);
+    };
+
+    const stopDisplacement = () => {
+      if (dispRaf) { cancelAnimationFrame(dispRaf); dispRaf = 0; }
+    };
+
+    /* ── particle canvas drawing ────────────────────────────── */
     const draw = (time: number) => {
       context.clearRect(0, 0, width, height);
       const strength = .7 + Math.sin(time * .8) * .2;
@@ -46,6 +81,7 @@ export function PropertyParticleField() {
         context.fill();
       }
     };
+
     const canAnimate = () => !reducedMotion && !document.hidden && inView && width > 0 && height > 0;
     const tick = (now: number) => {
       if (!canAnimate()) { frame = 0; canvas.dataset.motion = reducedMotion ? 'reduced' : 'paused'; return; }
@@ -59,6 +95,7 @@ export function PropertyParticleField() {
       draw(reducedMotion ? 1.2 : (performance.now() - started) / 1000);
       if (canAnimate()) frame = requestAnimationFrame(tick);
     };
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       width = rect.width; height = rect.height;
@@ -79,6 +116,7 @@ export function PropertyParticleField() {
       context.setTransform(density, 0, 0, density, 0, 0);
       sync();
     };
+
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
     const visibility = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => { inView = entries.some(entry => entry.isIntersecting); sync(); });
     observer?.observe(canvas);
@@ -88,13 +126,55 @@ export function PropertyParticleField() {
     document.addEventListener('visibilitychange', sync);
     window.addEventListener('resize', resize);
     resize();
+
+    // start displacement animation when canvas enters view
+    const visEntryHandler = () => {
+      if (inView) { animateDisplacement(); } else { stopDisplacement(); }
+    };
+    const visForDisp = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => {
+      inView = entries.some(entry => entry.isIntersecting);
+      visEntryHandler();
+      sync();
+    });
+    visForDisp?.observe(canvas);
+
     return () => {
       cancelAnimationFrame(frame);
-      observer?.disconnect(); visibility?.disconnect();
+      stopDisplacement();
+      observer?.disconnect(); visibility?.disconnect(); visForDisp?.disconnect();
       motion?.removeEventListener('change', onMotionChange);
       document.removeEventListener('visibilitychange', sync);
       window.removeEventListener('resize', resize);
     };
-  }, []);
-  return <canvas ref={ref} className="v4-property-particles" aria-hidden="true" />;
+  }, [displacement]);
+
+  return (
+    <>
+      <canvas ref={canvasRef} className="v4-property-particles" aria-hidden="true"
+        style={{ filter: displacement ? 'url(#particle-displacement)' : 'none' }} />
+      <svg ref={svgRef} width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+        <defs>
+          <filter id="particle-displacement" x="-5%" y="-5%" width="110%" height="110%"
+            colorInterpolationFilters="sRGB">
+            <feTurbulence
+              ref={turbRef}
+              type="fractalNoise"
+              baseFrequency="0.02"
+              numOctaves="3"
+              seed="3"
+              result="noise"
+            />
+            <feDisplacementMap
+              ref={dispRef}
+              in="SourceGraphic"
+              in2="noise"
+              scale="15"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
+        </defs>
+      </svg>
+    </>
+  );
 }

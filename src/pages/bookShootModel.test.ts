@@ -1,17 +1,43 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { getBookingWizardConfig } from './bookShootModel';
+import { getBookingWizardConfig, scrollBookingPageToTop } from './bookShootModel';
+
+describe('scrollBookingPageToTop', () => {
+  it('resets the dashboard main pane so the next booking slide starts at the top', () => {
+    const root = document.createElement('div');
+    const main = document.createElement('main');
+    const button = document.createElement('button');
+    Object.defineProperty(main, 'scrollTop', { value: 640, writable: true });
+    root.appendChild(main);
+    document.body.appendChild(root);
+    document.body.appendChild(button);
+    button.focus();
+    const scrollTo = vi.fn();
+    vi.stubGlobal('scrollTo', scrollTo);
+
+    scrollBookingPageToTop(root);
+
+    expect(main.scrollTop).toBe(0);
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(document.activeElement).not.toBe(button);
+    vi.unstubAllGlobals();
+    root.remove();
+    button.remove();
+  });
+});
 
 describe('getBookingWizardConfig', () => {
-  it('keeps standard bookings on the existing three-step flow', () => {
+  it('splits standard bookings into property, services, schedule, and review', () => {
     const wizard = getBookingWizardConfig(false);
 
-    expect(wizard.totalSteps).toBe(3);
-    expect(wizard.schedulingStep).toBe(2);
-    expect(wizard.finalStep).toBe(3);
-    expect(wizard.labels).toBeUndefined();
+    expect(wizard.totalSteps).toBe(4);
+    expect(wizard.servicesStep).toBe(2);
+    expect(wizard.schedulingStep).toBe(3);
+    expect(wizard.finalStep).toBe(4);
+    expect(wizard.labels).toEqual(['Property Details', 'Services', 'Schedule', 'Review']);
     expect(wizard.steps.map((step) => step.title)).toEqual([
       'Book a new shoot',
+      'Services & access',
       'Schedule',
       'Review & Confirm',
     ]);
@@ -21,6 +47,7 @@ describe('getBookingWizardConfig', () => {
     const wizard = getBookingWizardConfig(true);
 
     expect(wizard.totalSteps).toBe(4);
+    expect(wizard.servicesStep).toBe(2);
     expect(wizard.schedulingStep).toBe(3);
     expect(wizard.finalStep).toBe(4);
     expect(wizard.labels).toEqual(['Reason', 'Services & source', 'Schedule', 'Review']);

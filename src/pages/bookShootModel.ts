@@ -38,6 +38,7 @@ export type BookingWizardStep = {
 
 const STANDARD_BOOKING_STEPS: BookingWizardStep[] = [
   { title: 'Book a new shoot', description: 'Select a client and enter the property information' },
+  { title: 'Services & access', description: 'Choose products, access details, and notes' },
   { title: 'Schedule', description: 'Choose a convenient date and time for the shoot' },
   { title: 'Review & Confirm', description: 'Verify all the details before confirming the booking' },
 ];
@@ -49,14 +50,39 @@ const COMP_RESHOOT_STEPS: BookingWizardStep[] = [
   { title: 'Review & compensation', description: 'Confirm the $0 client receipt and staff compensation' },
 ];
 
+export const scrollBookingPageToTop = (root: ParentNode | Document | null = typeof document === 'undefined' ? null : document) => {
+  const scope = root instanceof Document || root === document
+    ? document
+    : root instanceof Element
+      ? root.ownerDocument ?? document
+      : document;
+
+  const active = scope.activeElement;
+  if (active instanceof HTMLElement && active !== scope.body) {
+    active.blur();
+  }
+
+  if (typeof window !== 'undefined') {
+    window.scrollTo(0, 0);
+  }
+
+  const main = root?.querySelector?.('main');
+  if (main instanceof HTMLElement) {
+    main.scrollTop = 0;
+  }
+};
+
 export const getBookingWizardConfig = (isCompReshoot: boolean) => {
   const steps = isCompReshoot ? COMP_RESHOOT_STEPS : STANDARD_BOOKING_STEPS;
   return {
     steps,
     totalSteps: steps.length,
     finalStep: steps.length,
-    schedulingStep: isCompReshoot ? 3 : 2,
-    labels: isCompReshoot ? ['Reason', 'Services & source', 'Schedule', 'Review'] : undefined,
+    servicesStep: 2,
+    schedulingStep: 3,
+    labels: isCompReshoot
+      ? ['Reason', 'Services & source', 'Schedule', 'Review']
+      : ['Property Details', 'Services', 'Schedule', 'Review'],
   };
 };
 

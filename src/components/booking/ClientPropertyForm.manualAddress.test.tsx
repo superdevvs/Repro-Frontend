@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClientPropertyForm } from './ClientPropertyForm';
 import type { ClientPropertyFormProps } from './useClientPropertyFormController';
+import type { Client } from '@/types/clients';
 
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
@@ -11,6 +12,16 @@ vi.mock('@/components/accounts/AccountForm', () => ({ AccountForm: () => null })
 
 const service = { id: '10', name: 'Photography', description: '', price: 100 };
 const inputValue = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).value;
+
+const bookingClient = (overrides: Partial<Client> = {}): Client => ({
+  id: '1',
+  name: 'QA Client',
+  email: 'qa.client@example.test',
+  status: 'active',
+  shootsCount: 0,
+  lastActivity: '',
+  ...overrides,
+});
 
 const props = (): ClientPropertyFormProps => ({
   initialData: {
@@ -31,10 +42,39 @@ beforeEach(() => {
     unobserve = vi.fn();
     disconnect = vi.fn();
   });
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: vi.fn(),
+  });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+describe('booking property form slides', () => {
+  it('keeps client and property fields on the first slide', () => {
+    render(<ClientPropertyForm {...props()} slide="property" />);
+
+    expect(screen.getByText('Property Type')).toBeTruthy();
+    expect(screen.getByText('Listing Type')).toBeTruthy();
+    expect(screen.queryByText('Service Selection')).toBeNull();
+    expect(screen.queryByText('Who will be at the property?')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Notes' })).toBeNull();
+  });
+
+  it('moves services, access, and notes onto the second slide', () => {
+    const onBack = vi.fn();
+    render(<ClientPropertyForm {...props()} slide="services" onBack={onBack} />);
+
+    expect(screen.getByText('Service Selection')).toBeTruthy();
+    expect(screen.getByText('Who will be at the property?')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy();
+    expect(screen.queryByText('Property Type')).toBeNull();
+    expect(screen.queryByLabelText('Street Address')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('manual booking street address', () => {
@@ -113,5 +153,45 @@ describe('manual booking street address', () => {
       propertyCity: 'Bethesda', propertyState: 'MD', propertyZip: '20814', sqft: 1400,
     })));
     expect(fetchMock).toHaveBeenCalledTimes(lookupCount);
+  });
+});
+
+describe('booking client search field', () => {
+  const adminProps = (): ClientPropertyFormProps => ({
+    ...props(),
+    isClientAccount: false,
+    clients: [
+      bookingClient(),
+      bookingClient({ id: '2', name: 'Other Client', email: 'other@example.test' }),
+    ],
+  });
+
+  it('uses the choose-client field as the search and writes the selected name into it', async () => {
+    render(<ClientPropertyForm {...adminProps()} slide="property" />);
+
+    const field = screen.getByLabelText('Choose client') as HTMLInputElement;
+    expect(field.tagName).toBe('INPUT');
+    expect(field.value).toBe('QA Client');
+    expect(field.closest('[data-client-search-field]')?.querySelector('svg.lucide-search')).toBeTruthy();
+
+    fireEvent.focus(field);
+    expect(screen.getAllByPlaceholderText('Search clients...')).toHaveLength(1);
+    expect(await screen.findByRole('option', { name: /QA Client/ })).toBeTruthy();
+
+    fireEvent.change(field, { target: { value: 'Other' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Other Client/ }));
+
+    expect((screen.getByLabelText('Choose client') as HTMLInputElement).value).toBe('Other Client');
+  });
+
+  it('lets the open client search stay empty after the text is cleared', async () => {
+    render(<ClientPropertyForm {...adminProps()} slide="property" />);
+
+    const field = screen.getByLabelText('Choose client') as HTMLInputElement;
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: '' } });
+
+    expect((screen.getByLabelText('Choose client') as HTMLInputElement).value).toBe('');
+    expect(await screen.findByRole('option', { name: /Other Client/ })).toBeTruthy();
   });
 });

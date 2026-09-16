@@ -2,7 +2,7 @@ import React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
-import { Check, MapPin, Calendar, ClipboardCheck, RotateCcw, Wrench } from 'lucide-react';
+import { Check, MapPin, Calendar, ClipboardCheck, RotateCcw, Wrench, Grid3x3 } from 'lucide-react';
 
 interface BookingStepIndicatorProps {
   currentStep: number;
@@ -16,7 +16,7 @@ export function BookingStepIndicator({ currentStep, totalSteps, stepLabels: prov
   const iconSizeClass = isMobile ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5';
   
   // Step icons for visual representation
-  const isCompReshootSteps = providedStepLabels?.length === 4;
+  const isCompReshootSteps = providedStepLabels?.[0] === 'Reason';
   const stepIcons = isCompReshootSteps
     ? [
         <RotateCcw key="reason" className={iconSizeClass} />,
@@ -26,14 +26,15 @@ export function BookingStepIndicator({ currentStep, totalSteps, stepLabels: prov
       ]
     : [
         <MapPin key="location" className={iconSizeClass} />,
+        <Grid3x3 key="services" className={iconSizeClass} />,
         <Calendar key="calendar" className={iconSizeClass} />,
         <ClipboardCheck key="review" className={iconSizeClass} />,
       ];
 
-  const stepLabels = providedStepLabels ?? ['Property Details', 'Schedule', 'Review'];
+  const stepLabels = providedStepLabels ?? ['Property Details', 'Services', 'Schedule', 'Review'];
 
   const visibleStepLabels = isMobile && !providedStepLabels
-    ? ['Property', 'Schedule', 'Review']
+    ? ['Property', 'Services', 'Schedule', 'Review']
     : stepLabels;
 
   const connectorClass = isMobile

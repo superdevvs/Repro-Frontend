@@ -11,7 +11,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import type { BookShootController } from './useBookShootController';
 import { CompReshootBanner } from '@/features/complimentary-reshoots/CompReshootBanner';
 import { CompReasonChangeDialog } from '@/features/complimentary-reshoots/CompReasonChangeDialog';
-import { getBookingWizardConfig } from './bookShootModel';
+import { getBookingWizardConfig, scrollBookingPageToTop } from './bookShootModel';
 
 export function BookShootView({ controller }: { controller: BookShootController }) {
   const {
@@ -42,6 +42,15 @@ export function BookShootView({ controller }: { controller: BookShootController 
   } = controller;
   const wizard = getBookingWizardConfig(isCompReshootMode);
   const finalStep = wizard.finalStep;
+  React.useLayoutEffect(() => {
+    scrollBookingPageToTop();
+    const frame = window.requestAnimationFrame(() => scrollBookingPageToTop());
+    const retry = window.setTimeout(() => scrollBookingPageToTop(), 50);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(retry);
+    };
+  }, [step]);
   return (
     <>
       <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
@@ -91,7 +100,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
               )}
               <div className="flex items-center gap-3">
                 <BookingStepIndicator currentStep={step} totalSteps={wizard.totalSteps} stepLabels={wizard.labels} />
-                {step === 1 && !isCompReshootMode && shouldCacheForm && hasCachedData && (
+                {step <= 2 && !isCompReshootMode && shouldCacheForm && hasCachedData && (
                   <Button
                     type="button"
                     variant="outline"

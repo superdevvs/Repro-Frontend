@@ -66,6 +66,28 @@ describe('booking square footage consistency', () => {
     expect(valid).toBe(false);
   });
 
+  it('lets the property slide continue before services are chosen', () => {
+    const input = props();
+    input.selectedServices = [];
+    input.slide = 'property';
+    const { result } = renderHook(() => useClientPropertyFormController(input));
+
+    act(() => result.current.handleSubmit(result.current.form.getValues()));
+
+    expect(input.onComplete).toHaveBeenCalled();
+  });
+
+  it('still requires a service on the services slide', () => {
+    const input = props();
+    input.selectedServices = [];
+    input.slide = 'services';
+    const { result } = renderHook(() => useClientPropertyFormController(input));
+
+    act(() => result.current.handleSubmit(result.current.form.getValues()));
+
+    expect(input.onComplete).not.toHaveBeenCalled();
+  });
+
   it('removes old lookup metadata when a different address selection begins', () => {
     const input = props();
     const { result } = renderHook(() => useClientPropertyFormController(input));

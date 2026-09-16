@@ -2,7 +2,7 @@ import React from 'react';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, Check, Info, Tag } from 'lucide-react';
+import { Building2, ChevronsUpDown, Grid3x3, Home, Map as MapIcon, PlusCircle, AlertCircle, Check, Info, Search, Tag } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AddressLookupField from '@/components/AddressLookupField';
@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
 import type { ClientPropertyFormController, PackageOption, PresenceOption } from './useClientPropertyFormController';
 import { ClientPropertyFormActions } from './ClientPropertyFormActions';
-
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
     form, isClientAccount, allClients, selectedClient, isSearching, visibleClients,
@@ -42,11 +41,13 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     onPropertyDraftChange, buildPropertyDraftData, submitAttemptNotice,
     showClearSavedData, onClearSavedData, handleSubmit, handleInvalidSubmit,
     isCompReshootMode, sourceContextLocked, serviceMappingSlot,
+    slide, onBack,
   } = controller;
+  const showPropertySlide = slide !== 'services';
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
-        {!isClientAccount && (
+        {showPropertySlide && !isClientAccount && (
           <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
             <h3 className="text-base font-semibold">Client Information</h3>
             <div className="space-y-3">
@@ -56,20 +57,77 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 render={({ field }) => {
                   const selectedClient = allClients.find((client) => client.id === field.value);
                   const selectedClientEmailAlert = getClientEmailHealthAlert(selectedClient?.email_health);
-                  const selectedLabel = selectedClient?.name || 'Choose client';
                   const emptyLabel = isSearching ? 'No clients found for this search.' : 'No clients available.';
                   const handleSelectClient = (clientId: string) => {
                     field.onChange(clientId);
                     handleClientSelectOpenChange(false);
                   };
+                  const openClientSearch = () => {
+                    if (!clientSelectOpen) {
+                      setSearchQuery(selectedClient?.name ?? '');
+                    }
+                    handleClientSelectOpenChange(true);
+                  };
+                  const clientFieldValue = !isMobile && clientSelectOpen
+                    ? searchQuery
+                    : (selectedClient?.name ?? '');
+                  const clientField = (
+                    <div className="relative" data-client-search-field="">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <FormControl>
+                        <Input
+                          role="combobox"
+                          aria-expanded={clientSelectOpen}
+                          aria-autocomplete="list"
+                          autoComplete="off"
+                          placeholder="Search clients..."
+                          disabled={sourceContextLocked}
+                          value={clientFieldValue}
+                          onChange={(event) => {
+                            setSearchQuery(event.target.value);
+                            if (!clientSelectOpen) {
+                              handleClientSelectOpenChange(true);
+                            }
+                          }}
+                          onMouseDown={openClientSearch}
+                          onFocus={openClientSearch}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              handleClientSelectOpenChange(false);
+                            }
+                          }}
+                          onBlur={(event) => {
+                            const next = event.relatedTarget;
+                            if (next instanceof Element && next.closest('[data-client-search-field], [data-radix-popper-content-wrapper]')) {
+                              return;
+                            }
+                            window.setTimeout(() => {
+                              const active = document.activeElement;
+                              if (active instanceof Element && active.closest('[data-client-search-field], [data-radix-popper-content-wrapper]')) {
+                                return;
+                              }
+                              handleClientSelectOpenChange(false);
+                            }, 0);
+                          }}
+                          className={cn(
+                            'h-12 pl-10 text-sm font-normal pr-10',
+                            showMissingFieldStroke('clientId') && invalidFieldClassName,
+                          )}
+                        />
+                      </FormControl>
+                      <ChevronsUpDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+                    </div>
+                  );
                   const clientCommand = (
                     <Command shouldFilter={false} className="rounded-lg">
-                      <CommandInput
-                        placeholder="Search clients..."
-                        value={searchQuery}
-                        onValueChange={setSearchQuery}
-                        className="h-10"
-                      />
+                      {isMobile && (
+                        <CommandInput
+                          placeholder="Search clients..."
+                          value={searchQuery}
+                          onValueChange={setSearchQuery}
+                          className="h-10"
+                        />
+                      )}
                       <CommandList className="max-h-[35vh] sm:max-h-[260px] overflow-y-auto">
                         <CommandEmpty>{emptyLabel}</CommandEmpty>
                         <CommandGroup>
@@ -144,42 +202,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                           <div className="w-full min-w-0 md:flex-1">
                             {isMobile ? (
                               <>
-                                <FormControl>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={clientSelectOpen}
-                                    disabled={sourceContextLocked}
-                                    className={cn(
-                                      'w-full justify-between h-12 text-sm font-normal',
-                                      showMissingFieldStroke('clientId') && invalidFieldClassName,
-                                    )}
-                                    onClick={() => handleClientSelectOpenChange(true)}
-                                  >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                      {selectedClient && (
-                                        <Avatar className="h-8 w-8">
-                                          <AvatarImage
-                                            src={getAvatarUrl(selectedClient.avatar, 'client', undefined, selectedClient.id)}
-                                            alt={selectedClient.name}
-                                          />
-                                          <AvatarFallback className="text-[10px]">
-                                            {selectedClient.name
-                                              .split(' ')
-                                              .map((part) => part[0])
-                                              .join('')
-                                              .slice(0, 2)
-                                              .toUpperCase()}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                      )}
-                                      <span className="truncate">{selectedLabel}</span>
-                                      <EmailHealthBadge emailHealth={selectedClient?.email_health} />
-                                    </span>
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </FormControl>
+                                {clientField}
                                 <Drawer open={clientSelectOpen} onOpenChange={handleClientSelectOpenChange}>
                                   <DrawerContent className="h-[63vh] max-h-[63vh]">
                                     <DrawerHeader className="pb-2">
@@ -192,48 +215,35 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                                 </Drawer>
                               </>
                             ) : (
-                              <Popover open={clientSelectOpen} onOpenChange={handleClientSelectOpenChange}>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      role="combobox"
-                                      aria-expanded={clientSelectOpen}
-                                      disabled={sourceContextLocked}
-                                      className={cn(
-                                        'w-full justify-between h-12 text-sm font-normal',
-                                        showMissingFieldStroke('clientId') && invalidFieldClassName,
-                                      )}
-                                    >
-                                      <span className="flex items-center gap-2 min-w-0">
-                                        {selectedClient && (
-                                          <Avatar className="h-8 w-8">
-                                            <AvatarImage
-                                              src={getAvatarUrl(selectedClient.avatar, 'client', undefined, selectedClient.id)}
-                                              alt={selectedClient.name}
-                                            />
-                                            <AvatarFallback className="text-[10px]">
-                                              {selectedClient.name
-                                                .split(' ')
-                                                .map((part) => part[0])
-                                                .join('')
-                                                .slice(0, 2)
-                                                .toUpperCase()}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                        )}
-                                        <span className="truncate">{selectedLabel}</span>
-                                        <EmailHealthBadge emailHealth={selectedClient?.email_health} />
-                                      </span>
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
+                              <Popover
+                                modal={false}
+                                open={clientSelectOpen}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    handleClientSelectOpenChange(true);
+                                  }
+                                }}
+                              >
+                                <PopoverAnchor asChild>
+                                  {clientField}
+                                </PopoverAnchor>
                                 <PopoverContent
                                   className="w-[var(--radix-popover-trigger-width)] p-0 shadow-lg"
                                   align="start"
                                   sideOffset={4}
+                                  onOpenAutoFocus={(event) => event.preventDefault()}
+                                  onPointerDownOutside={(event) => {
+                                    const target = event.target;
+                                    if (target instanceof Element && target.closest('[data-client-search-field]')) {
+                                      event.preventDefault();
+                                    }
+                                  }}
+                                  onFocusOutside={(event) => {
+                                    const target = event.target;
+                                    if (target instanceof Element && target.closest('[data-client-search-field]')) {
+                                      event.preventDefault();
+                                    }
+                                  }}
                                 >
                                   {clientCommand}
                                 </PopoverContent>
@@ -274,7 +284,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
             </div>
           </div>
         )}
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
+        {showPropertySlide && <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
           <h3 className="text-base font-semibold">Property Details</h3>
           <div className="space-y-4">
             <FormField
@@ -682,9 +692,9 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
               </div>
             </div>
           </div>
-        </div>
+        </div>}
+        {slide !== 'property' && <>
         <div className="pt-2">
-          <Separator className="my-6" />
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <h3 className="text-lg font-medium">Service Selection</h3>
@@ -779,7 +789,6 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
           />
         </div>
         <div className="pt-2">
-          <Separator className="my-6" />
           <div className="space-y-6">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
               <div className="space-y-3">
@@ -882,22 +891,23 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
             )}
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-3">
           <div>
             <h3 className="text-base font-semibold">Notes</h3>
             <p className="text-sm text-muted-foreground">Keep context for the client and internal teams.</p>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <FormField
               control={form.control}
               name="shootNotes"
               render={({ field }) => (
-                <FormItem className="lg:col-span-2">
+                <FormItem>
                   <FormLabel className="text-sm font-semibold text-foreground">Shoot Notes</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Provide any additional information to attach to this shoot that will be visible to the client."
-                      className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                      className="min-h-[72px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                      rows={3}
                       {...field}
                     />
                   </FormControl>
@@ -915,7 +925,8 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     <FormControl>
                       <Textarea
                         placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
-                        className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        className="min-h-[72px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        rows={3}
                         {...field}
                       />
                     </FormControl>
@@ -934,7 +945,8 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     <FormControl>
                       <Textarea
                         placeholder="Notes for the photographer (visible to photographer and admins)."
-                        className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        className="min-h-[72px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        rows={3}
                         {...field}
                       />
                     </FormControl>
@@ -948,12 +960,13 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 control={form.control}
                 name="editorNotes"
                 render={({ field }) => (
-                  <FormItem className="lg:col-span-2">
+                  <FormItem>
                     <FormLabel className="text-xs font-medium text-muted-foreground">Editor Notes</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Notes for the editor (visible to editor and admins)."
-                        className="min-h-[180px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        className="min-h-[72px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        rows={3}
                         {...field}
                       />
                     </FormControl>
@@ -964,10 +977,12 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
             )}
           </div>
         </div>
+        </>}
         <ClientPropertyFormActions
           submitAttemptNotice={submitAttemptNotice}
           showClearSavedData={showClearSavedData}
           onClearSavedData={onClearSavedData}
+          onBack={onBack}
         />
       </form>
       <AccountForm

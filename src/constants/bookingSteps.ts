@@ -2,13 +2,17 @@
 export const stepContent = {
   1: {
     title: "Property Details",
-    description: "Enter details about the property and select your package"
+    description: "Enter details about the property"
   },
   2: {
+    title: "Services & Access",
+    description: "Select your package, access details, and notes"
+  },
+  3: {
     title: "Schedule Your Shoot",
     description: "Choose a date and time that works for you"
   },
-  3: {
+  4: {
     title: "Review & Confirm",
     description: "Review all details and confirm your booking"
   }

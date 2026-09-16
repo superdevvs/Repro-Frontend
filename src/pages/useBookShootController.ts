@@ -247,17 +247,22 @@ export const useBookShootController = () => {
         });
         return false;
       }
-      const requiresServices = isClientAccount || !canCreateNoProductShoot;
-      if (!address || !city || !state || !zip || (requiresServices && selectedServices.length === 0)) {
-        const onlyProductMissing = requiresServices && selectedServices.length === 0 &&
-          !!address && !!city && !!state && !!zip;
+      if (!address || !city || !state || !zip) {
         toast({
-          title: onlyProductMissing ? "Product required" : "Missing information",
-          description: onlyProductMissing
-            ? "Add at least one product to schedule this shoot."
-            : requiresServices
-              ? "Please fill in all property details and select a package before proceeding."
-              : "Please fill in all property details before proceeding.",
+          title: "Missing information",
+          description: "Please fill in all property details before proceeding.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    }
+    if (!isCompReshootMode && step === bookingWizard.servicesStep) {
+      const requiresServices = isClientAccount || !canCreateNoProductShoot;
+      if (requiresServices && selectedServices.length === 0) {
+        toast({
+          title: "Product required",
+          description: "Add at least one product to schedule this shoot.",
           variant: "destructive",
         });
         return false;
@@ -411,7 +416,6 @@ export const useBookShootController = () => {
           scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, scheduleSource),
           is_deliverable: true,
         };
-
         // Existing-shoot prices and quantities are booked snapshots. Omitting
         // them lets the server preserve retained lines and price only genuinely
         // new services from the current catalogue/square-footage tier.
@@ -551,13 +555,11 @@ export const useBookShootController = () => {
             'tax_amount',
             'total_quote',
           ].forEach((field) => delete editPayload[field]);
-
           let mutationResult = await submitShootServiceMutation({
             url: requestUrl,
             token,
             payload: editPayload,
           });
-
           let confirmationRounds = 0;
           while (mutationResult.kind === 'confirmation_required') {
             const { impact } = mutationResult.confirmation;
@@ -879,7 +881,7 @@ export const useBookShootController = () => {
         });
         return;
       }
-      setStep(2);
+      setStep((current) => current + 1);
     },
     isClientAccount: isClientAccount,
     selectedServices,
@@ -960,7 +962,7 @@ export const useBookShootController = () => {
     setShootType('standard');
     setBypassPayment(false);
     setAdjustedTotalInput('');
-    setStep((current) => Math.min(current, 3));
+    setStep((current) => Math.min(current, getBookingWizardConfig(false).finalStep));
     navigate(`/book-shoot?reshootOf=${encodeURIComponent(sourceId)}`, { replace: true });
   }, [compReshoot.sourceShootId, navigate, setAdjustedTotalInput, setBypassPayment, setShootType, setStep]);
 

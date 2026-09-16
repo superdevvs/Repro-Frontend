@@ -261,7 +261,11 @@ export type ClientPropertyFormProps = {
   isCompReshootMode?: boolean;
   sourceContextLocked?: boolean;
   serviceMappingSlot?: React.ReactNode;
+  slide?: ClientPropertyFormSlide;
+  onBack?: () => void;
 };
+
+export type ClientPropertyFormSlide = 'property' | 'services' | 'all';
 
 
 export const useClientPropertyFormController = ({
@@ -284,6 +288,8 @@ export const useClientPropertyFormController = ({
   isCompReshootMode = false,
   sourceContextLocked = false,
   serviceMappingSlot,
+  slide = 'all',
+  onBack,
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
@@ -670,7 +676,7 @@ export const useClientPropertyFormController = ({
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
 
-    const requiresService = isClientAccount || !canCreateNoProductShoot;
+    const requiresService = slide !== 'property' && (isClientAccount || !canCreateNoProductShoot);
     if (requiresService && selectedServices.length === 0) {
       const noticeText = 'Please select at least one service before continuing.';
       setSubmitAttemptNotice(noticeText);
@@ -820,6 +826,8 @@ export const useClientPropertyFormController = ({
     serviceMappingSlot,
     handleSubmit,
     handleInvalidSubmit,
+    slide,
+    onBack,
   };
 };
 
