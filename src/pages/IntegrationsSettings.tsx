@@ -1031,7 +1031,7 @@ export const IntegrationsSettingsContent = () => {
                       />
                     </div>
                     <div className="space-y-2 col-span-2">
-                      <Label htmlFor="iguide-webhook-secret">Webhook Shared Secret (optional)</Label>
+                      <Label htmlFor="iguide-webhook-secret">Webhook HMAC secret (unused)</Label>
                       <Input
                         id="iguide-webhook-secret"
                         type="password"
@@ -1039,7 +1039,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setIguideSettings({ ...iguideSettings, webhookSecret: e.target.value })
                         }
-                        placeholder="Used to verify HMAC-SHA256 X-Iguide-Signature headers"
+                        placeholder="Leave blank — iGUIDE does not send HMAC signatures"
                       />
                     </div>
                   </div>
@@ -1048,7 +1048,11 @@ export const IntegrationsSettingsContent = () => {
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
                         <strong>Webhook URL:</strong>{' '}
-                        <code className="text-[11px] bg-background px-1 rounded">{window.location.origin}/iguide_webhook.php</code>
+                        <code className="text-[11px] bg-background px-1 rounded">
+                          {iguideTestResult?.data?.webhook_url
+                            || iguideTestResult?.webhook_url
+                            || 'https://api.reprodashboard.com/iguide_webhook.php?token=<IGUIDE_WEBHOOK_TOKEN>'}
+                        </code>
                       </p>
                       <Button
                         type="button"
@@ -1056,7 +1060,10 @@ export const IntegrationsSettingsContent = () => {
                         size="sm"
                         className="h-7 text-xs"
                         onClick={() => {
-                          const url = `${window.location.origin}/iguide_webhook.php`;
+                          const url =
+                            iguideTestResult?.data?.webhook_url
+                            || iguideTestResult?.webhook_url
+                            || 'https://api.reprodashboard.com/iguide_webhook.php';
                           if (navigator.clipboard) {
                             void navigator.clipboard.writeText(url);
                           }
@@ -1066,8 +1073,10 @@ export const IntegrationsSettingsContent = () => {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Configure this URL in your iGUIDE Portal app webhook settings to receive automatic
-                      ready events when photographers publish iGuides.
+                      Register this URL on the API host in the iGUIDE Portal. Include the
+                      query token from <code>IGUIDE_WEBHOOK_TOKEN</code>. The main site
+                      returns 405 for this PHP file, and iGUIDE deliveries are unsigned —
+                      do not set an HMAC secret.
                     </p>
                   </div>
 
