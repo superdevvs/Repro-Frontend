@@ -9,14 +9,14 @@ describe('shoot media without a cloud connection', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('preserves authorized shoot media and local thumbnail URLs', async () => {
-    const payload = { data: [{ id: '8', name: 'front.jpg', thumbnail_link: '/storage/shoots/42/thumbs/front.jpg' }], counts: { raw_photo_count: 1 } };
+    const payload = { data: [{ id: '8', name: 'front.jpg', thumbnail_link: '/api/public/shoot-media/file/shoots/42/thumbs/front.jpg?signature=test' }], counts: { raw_photo_count: 1 } };
     vi.mocked(axios.get).mockResolvedValueOnce({ data: payload });
     expect(await fetchShootMedia('42', 'raw', 'session-token')).toEqual(payload);
     expect(axios.get).toHaveBeenCalledWith('https://api.example.test/api/shoots/42/media', {
       params: { type: 'raw' }, headers: { Authorization: 'Bearer session-token', 'Content-Type': 'application/json' },
     });
-    vi.mocked(axios.get).mockResolvedValueOnce({ data: { url: '/storage/shoots/42/front.jpg' } });
-    expect(await getMediaThumbnail('42', '8', 'session-token')).toBe('/storage/shoots/42/front.jpg');
+    vi.mocked(axios.get).mockResolvedValueOnce({ data: { url: '/api/public/shoot-media/file/shoots/42/front.jpg?signature=test' } });
+    expect(await getMediaThumbnail('42', '8', 'session-token')).toBe('/api/public/shoot-media/file/shoots/42/front.jpg?signature=test');
     expect(axios.get).toHaveBeenLastCalledWith('https://api.example.test/api/shoots/42/media/8/download', {
       headers: { Authorization: 'Bearer session-token', 'Content-Type': 'application/json' },
     });

@@ -70,12 +70,26 @@ const removeElement = {
   },
 };
 
-const metadataTags = (metadata) => {
+const API_PUBLIC_HOST = 'api.reprodashboard.com';
+
+const toPublicCrawlerUrl = (assetUrl, publicOrigin) => {
+  try {
+    const url = new URL(String(assetUrl ?? ''));
+    if (url.hostname === API_PUBLIC_HOST) {
+      return new URL(`${url.pathname}${url.search}${url.hash}`, publicOrigin).toString();
+    }
+    return url.toString();
+  } catch {
+    return String(assetUrl ?? '');
+  }
+};
+
+const metadataTags = (metadata, publicOrigin) => {
   const image = metadata.image || {};
   const title = escapeHtml(metadata.title);
   const description = escapeHtml(metadata.description);
   const url = escapeHtml(metadata.url);
-  const imageUrl = escapeHtml(image.url);
+  const imageUrl = escapeHtml(toPublicCrawlerUrl(image.url, publicOrigin));
   const imageAlt = escapeHtml(image.alt || metadata.title);
   const siteName = escapeHtml(metadata.site_name || metadata.title);
 
@@ -239,7 +253,7 @@ export default {
       .on('meta[name^="twitter:"]', removeElement)
       .on('head', {
         element(element) {
-          element.prepend(metadataTags(metadata), { html: true });
+          element.prepend(metadataTags(metadata, incomingUrl.origin), { html: true });
         },
       })
       .transform(htmlResponse);

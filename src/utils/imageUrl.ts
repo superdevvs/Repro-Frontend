@@ -30,8 +30,18 @@ export interface ImageUrlFields {
   usesWatermark?: boolean;
 }
 
-const STORAGE_PREFIXES = ['shoots/', 'avatars/', 'branding/', 'share-links/', 'watermark-logos/'];
-const REBASEABLE_PATH_PREFIXES = ['/storage/', '/api/shoots/'];
+const PUBLIC_STORAGE_PREFIXES = ['avatars/', 'branding/', 'watermark-logos/'];
+const REBASEABLE_PATH_PREFIXES = ['/storage/', '/api/shoots/', '/api/public/'];
+
+const rewritePrivateShootPathname = (pathname: string): string => {
+  if (pathname.startsWith('/storage/shoots/')) {
+    return `/api/public/shoot-media/file/shoots/${pathname.slice('/storage/shoots/'.length)}`;
+  }
+  if (pathname.startsWith('/storage/share-links/')) {
+    return `/share-links/${pathname.slice('/storage/share-links/'.length)}`;
+  }
+  return pathname;
+};
 
 const getApiBase = () => String(API_BASE_URL || '').replace(/\/+$/, '');
 
@@ -43,8 +53,8 @@ const withBase = (value: string) => {
   return `${baseUrl}${value.startsWith('/') ? '' : '/'}${value}`;
 };
 
-const shouldUseStoragePrefix = (value: string) =>
-  STORAGE_PREFIXES.some((prefix) => value.startsWith(prefix));
+const shouldUsePublicStoragePrefix = (value: string) =>
+  PUBLIC_STORAGE_PREFIXES.some((prefix) => value.startsWith(prefix));
 
 const shouldRebaseAbsoluteUrl = (url: URL) =>
   REBASEABLE_PATH_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
@@ -75,15 +85,20 @@ export function normalizeImageUrl(value?: string | null): string {
 
   if (/^https?:\/\//i.test(trimmed)) {
     const apiBase = getApiBase();
-    if (!apiBase) {
-      return trimmed;
-    }
 
     try {
       const absolute = new URL(trimmed);
-      const targetBase = new URL(apiBase);
-      if (absolute.origin !== targetBase.origin && shouldRebaseAbsoluteUrl(absolute)) {
-        return `${targetBase.origin}${absolute.pathname}${absolute.search}${absolute.hash}`;
+      const rewrittenPath = rewritePrivateShootPathname(absolute.pathname);
+
+      if (apiBase) {
+        const targetBase = new URL(apiBase);
+        if (absolute.origin !== targetBase.origin && shouldRebaseAbsoluteUrl(absolute)) {
+          return `${targetBase.origin}${rewrittenPath}${absolute.search}${absolute.hash}`;
+        }
+      }
+
+      if (rewrittenPath !== absolute.pathname) {
+        return `${absolute.origin}${rewrittenPath}${absolute.search}${absolute.hash}`;
       }
     } catch {
       return trimmed;
@@ -94,10 +109,14 @@ export function normalizeImageUrl(value?: string | null): string {
 
   let normalized = trimmed;
   if (normalized.startsWith('/')) {
-    return withBase(encodeURI(normalized));
+    return withBase(encodeURI(rewritePrivateShootPathname(normalized)));
   }
 
-  if (shouldUseStoragePrefix(normalized)) {
+  if (normalized.startsWith('shoots/')) {
+    normalized = `/api/public/shoot-media/file/${normalized}`;
+  } else if (normalized.startsWith('share-links/')) {
+    normalized = `/${normalized}`;
+  } else if (shouldUsePublicStoragePrefix(normalized)) {
     normalized = `/storage/${normalized}`;
   } else {
     normalized = `/${normalized}`;

@@ -17,7 +17,7 @@ vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
 
 const media = {
   data: [{ id: '8', name: 'front.jpg', path: 'shoots/42/front.jpg', size: 4096, mime_type: 'image/jpeg', modified: null,
-    thumbnail_link: 'https://api.example.test/storage/shoots/42/thumbs/front.jpg' }],
+    thumbnail_link: 'https://reprodashboard.com/api/public/shoot-media/file/shoots/42/thumbs/front.jpg?signature=test' }],
   counts: { raw_photo_count: 1, edited_photo_count: 0, extra_photo_count: 0, expected_raw_count: 1,
     expected_final_count: 1, raw_missing_count: 0, edited_missing_count: 0, bracket_mode: null },
 };

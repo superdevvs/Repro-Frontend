@@ -37,6 +37,7 @@ import {
   triggerInvoicesRefresh,
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
+import { renderDevOnlyPublicRoutes } from './app/devOnlyPublicRoutes';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const BookShoot = lazy(() => import('./pages/BookShoot'));
@@ -66,8 +67,6 @@ const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
 const AddressLookupDemo = lazy(() => import('./components/AddressLookupDemo'));
 const ClientPortal = lazy(() => import('./components/clients/ClientPortal'));
 const BookShootWithAddressLookup = lazy(() => import('./components/BookShootWithAddressLookup'));
-const AddressLookupTest = lazy(() => import('./pages/AddressLookupTest'));
-const TestClientPropertyForm = lazy(() => import('./pages/TestClientPropertyForm'));
 const BrandedPage = lazy(() => import('@/components/tourLinks/BrandedPage').then(module => ({ default: module.BrandedPage })));
 const MlsCompliant = lazy(() => import('@/components/tourLinks/MlsCompliant').then(module => ({ default: module.MlsCompliant })));
 const GenericMLS = lazy(() => import('@/components/tourLinks/GenericMLS').then(module => ({ default: module.GenericMLS })));
@@ -76,7 +75,6 @@ const Public3dRedirect = lazy(() => import('@/components/tourLinks/Public3dRedir
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
-const PaymentDemo = lazy(() => import('./pages/PaymentDemo'));
 const AuthenticatedPaymentReturnPage = lazy(() => import('./pages/AuthenticatedPaymentReturnPage'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -343,18 +341,7 @@ const AppRoutes = () => {
         </PageTransition>
       } />
       <Route path="/login" element={<Navigate to="/" replace />} />
-      
-      {/* Public test routes for address lookup */}
-      <Route path="/test-address-lookup" element={
-        <PageTransition>
-          <AddressLookupTest />
-        </PageTransition>
-      } />
-      <Route path="/test-client-form" element={
-        <PageTransition>
-          <TestClientPropertyForm />
-        </PageTransition>
-      } />
+      {import.meta.env.DEV ? renderDevOnlyPublicRoutes() : null}
 
       {/* Public client-facing tour pages (accept ?shootId=) */}
       <Route path="/tour/branded" element={
@@ -413,12 +400,6 @@ const AppRoutes = () => {
       <Route path="/payment/:token" element={
         <PageTransition>
           <PaymentPage />
-        </PageTransition>
-      } />
-      {/* Demo-only route for UI checking the payment/Stripe layout without a real token */}
-      <Route path="/payment-demo" element={
-        <PageTransition>
-          <PaymentDemo />
         </PageTransition>
       } />
       <Route path="/payment-return/shoot/:shootId" element={
