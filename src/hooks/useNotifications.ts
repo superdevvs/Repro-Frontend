@@ -12,6 +12,16 @@ import {
   canAccessNotificationSms,
   normalizeNotificationRole,
 } from '@/utils/notificationRole';
+import {
+  countUnread,
+  getReadIds,
+  isNotificationRead,
+  loadReadState,
+  mergeNotificationLists,
+  saveLastSeenAt,
+  saveReadIds,
+  seedLastSeenAt,
+} from '@/utils/notificationReadState';
 
 export type NotificationCategory = 'shoots' | 'messages' | 'system';
 
@@ -58,40 +68,11 @@ const getStorageKey = (options: {
   return `${STORAGE_KEY_PREFIX}${roleKey}_${userKey}${impersonationKey}`;
 };
 
-/**
- * Get read notification IDs from localStorage for a specific user
- */
-const getReadIds = (storageKey: string): Set<string> => {
-  try {
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Only keep IDs from the last 7 days to prevent localStorage bloat
-      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const validEntries = Object.entries(parsed as Record<string, number>)
-        .filter(([, timestamp]) => timestamp > cutoff);
-      return new Set(validEntries.map(([id]) => id));
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return new Set();
-};
+const feedIdsFrom = (items: Array<{ id: string }>): Set<string> =>
+  new Set(items.map((item) => item.id));
 
-/**
- * Save read notification IDs to localStorage for a specific user
- */
-const saveReadIds = (ids: Set<string>, storageKey: string) => {
-  try {
-    const now = Date.now();
-    const stored: Record<string, number> = {};
-    ids.forEach((id) => {
-      stored[id] = now;
-    });
-    localStorage.setItem(storageKey, JSON.stringify(stored));
-  } catch {
-    // Ignore storage errors
-  }
+const persistReadReceipts = (ids: Set<string>, storageKey: string, currentFeedIds: Set<string>) => {
+  saveReadIds(ids, storageKey, { currentFeedIds });
 };
 
 const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
@@ -156,7 +137,11 @@ const titleFromMessage = (message: string): string => {
   return firstSentence.length > 50 ? firstSentence.slice(0, 47) + '…' : firstSentence;
 };
 
-const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>): NotificationItem => {
+const normalizeActivity = (
+  activity: DashboardActivityItem,
+  readIds: Set<string>,
+  lastSeenAt: number | null,
+): NotificationItem => {
   const typeHint = (activity.type || '').toLowerCase();
   const actionHint = (activity.action || '').toLowerCase();
   
@@ -190,7 +175,7 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
     title,
     message: activity.message,
     type,
-    isRead: readIds.has(id),
+    isRead: isNotificationRead(id, activity.timestamp, readIds, lastSeenAt),
     date: activity.timestamp || new Date().toISOString(),
     actionUrl: activity.shootId ? `/shoots/${activity.shootId}` : activity.actionUrl || undefined,
     actionLabel: activity.shootId ? 'View' : activity.actionLabel || undefined,
@@ -204,6 +189,7 @@ const buildSmsNotification = (
   payload: SmsMessageDetail | SmsThreadSummary,
   opts: { isMessage: boolean },
   readIds: Set<string>,
+  lastSeenAt: number | null,
 ): NotificationItem => {
   const now = new Date().toISOString();
   const baseMessage =
@@ -222,14 +208,18 @@ const buildSmsNotification = (
     title: opts.isMessage ? 'New SMS message' : 'SMS thread updated',
     message: `${baseMessage}${contactName}`,
     type: 'messages',
-    isRead: readIds.has(id),
+    isRead: isNotificationRead(id, now, readIds, lastSeenAt),
     date: now,
     actionUrl: threadId ? `/messaging/sms?thread=${encodeURIComponent(String(threadId))}` : undefined,
     actionLabel: 'Open thread',
   };
 };
 
-const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string>): NotificationItem => {
+const buildEmailNotification = (
+  event: EmailRealtimeMessage,
+  readIds: Set<string>,
+  lastSeenAt: number | null,
+): NotificationItem => {
   const isInbound = event.direction === 'INBOUND';
   const isInternal = event.provider === 'INTERNAL';
   const id = `email-${event.id}`;
@@ -242,6 +232,7 @@ const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string
   const senderName = event.sender_display_name || event.from_address;
   const subjectPreview = event.subject ? event.subject.substring(0, 50) : '(No Subject)';
   const bodyPreview = event.body_text?.trim().substring(0, 90);
+  const date = event.created_at || new Date().toISOString();
   
   return {
     id,
@@ -252,14 +243,18 @@ const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string
         ? `From ${senderName}: ${subjectPreview}`
         : `To ${event.to_address}: ${subjectPreview}`,
     type: 'messages',
-    isRead: readIds.has(id),
-    date: event.created_at || new Date().toISOString(),
+    isRead: isNotificationRead(id, event.created_at, readIds, lastSeenAt),
+    date,
     actionUrl: isInternal ? `/messaging/email/inbox?message=${event.id}` : '/messaging/email/inbox',
     actionLabel: isInternal ? 'View message' : 'View Email',
   };
 };
 
-const buildShootActivityNotification = (event: ShootActivityEvent, readIds: Set<string>): NotificationItem => {
+const buildShootActivityNotification = (
+  event: ShootActivityEvent,
+  readIds: Set<string>,
+  lastSeenAt: number | null,
+): NotificationItem => {
   const title = SHOOT_ACTIVITY_TITLES[event.activityType] || 'Shoot Update';
   const addressInfo = event.address ? ` at ${event.address}` : '';
   const clientInfo = event.clientName ? ` (${event.clientName})` : '';
@@ -270,7 +265,7 @@ const buildShootActivityNotification = (event: ShootActivityEvent, readIds: Set<
     title,
     message: `${event.message}${addressInfo}${clientInfo}`,
     type: 'shoots',
-    isRead: readIds.has(normalizedId),
+    isRead: isNotificationRead(normalizedId, event.timestamp, readIds, lastSeenAt),
     date: event.timestamp,
     actionUrl: event.shootId ? `/shoots/${event.shootId}` : undefined,
     actionLabel: 'View Shoot',
@@ -319,6 +314,7 @@ export const useNotifications = () => {
   
   // Track read IDs per user
   const readIdsRef = useRef<Set<string>>(new Set());
+  const lastSeenAtRef = useRef<number | null>(null);
   const storageKey = useMemo(
     () =>
       getStorageKey({
@@ -336,7 +332,9 @@ export const useNotifications = () => {
 
   // Reset local notification state when the effective notification context changes.
   useEffect(() => {
-    readIdsRef.current = getReadIds(storageKey);
+    const stored = loadReadState(storageKey);
+    readIdsRef.current = new Set(Object.keys(stored.readIds));
+    lastSeenAtRef.current = stored.lastSeenAt;
     previousActivityLogRef.current = '';
     setNotifications([]);
   }, [notificationContextKey, storageKey]);
@@ -345,6 +343,7 @@ export const useNotifications = () => {
   const {
     data: activityLog = [],
     isLoading: loading,
+    isFetched,
     error: queryError,
     refetch,
   } = useQuery({
@@ -377,6 +376,10 @@ export const useNotifications = () => {
 
   // Merge activity notifications with local state - only when activityLog actually changes
   useEffect(() => {
+    if (!isFetched) {
+      return;
+    }
+
     // Create a stable key from activityLog to detect actual changes
     const activityLogKey = JSON.stringify(activityLog.map(a => a.id));
     
@@ -386,26 +389,28 @@ export const useNotifications = () => {
     }
     
     previousActivityLogRef.current = activityLogKey;
-    
-    // Convert activity log to notifications
-    const activityNotifications = activityLog.map((a) => normalizeActivity(a, readIdsRef.current));
-    
-    setNotifications((prev) => {
-      const map = new Map<string, NotificationItem>();
-      prev.forEach((item) => map.set(item.id, item));
 
-      activityNotifications.forEach((item) => {
-        const existing = map.get(item.id);
-        // Preserve read state from existing or from localStorage
-        const isRead = existing?.isRead || readIdsRef.current.has(item.id);
-        map.set(item.id, { ...item, isRead });
-      });
+    const now = Date.now();
+    const lastSeenAt = seedLastSeenAt(
+      lastSeenAtRef.current,
+      activityLog.map((item) => item.timestamp),
+      now,
+    );
+    if (lastSeenAtRef.current !== lastSeenAt) {
+      lastSeenAtRef.current = lastSeenAt;
+      saveLastSeenAt(storageKey, lastSeenAt);
+    }
 
-      return Array.from(map.values()).sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-      );
-    });
-  }, [activityLog]);
+    const feedIds = new Set(activityLog.map((item) => String(item.id)));
+    readIdsRef.current = getReadIds(storageKey, feedIds, now);
+    persistReadReceipts(readIdsRef.current, storageKey, feedIds);
+
+    const activityNotifications = activityLog.map((item) =>
+      normalizeActivity(item, readIdsRef.current, lastSeenAtRef.current),
+    );
+
+    setNotifications((prev) => mergeNotificationLists(prev, activityNotifications, now));
+  }, [activityLog, isFetched, storageKey]);
 
   const mergeNotifications = useCallback((incoming: NotificationItem[]) => {
     setNotifications((prev) => {
@@ -414,8 +419,10 @@ export const useNotifications = () => {
 
       incoming.forEach((item) => {
         const existing = map.get(item.id);
-        // Preserve read state from existing or from localStorage
-        const isRead = existing?.isRead || readIdsRef.current.has(item.id);
+        const isRead =
+          existing?.isRead ||
+          item.isRead ||
+          isNotificationRead(item.id, item.date, readIdsRef.current, lastSeenAtRef.current);
         map.set(item.id, { ...item, isRead });
       });
 
@@ -439,23 +446,22 @@ export const useNotifications = () => {
   );
 
   const markAsRead = useCallback((id: string) => {
-    // Update localStorage for current user
-    readIdsRef.current.add(id);
-    saveReadIds(readIdsRef.current, storageKey);
-    
-    // Update state
-    setNotifications((prev) =>
-      prev.map((notification) =>
+    setNotifications((prev) => {
+      readIdsRef.current.add(id);
+      persistReadReceipts(readIdsRef.current, storageKey, feedIdsFrom(prev));
+      return prev.map((notification) =>
         notification.id === id ? { ...notification, isRead: true } : notification,
-      ),
-    );
+      );
+    });
   }, [storageKey]);
 
   const markAllAsRead = useCallback(() => {
-    // Update localStorage for current user
     setNotifications((prev) => {
-      prev.forEach((n) => readIdsRef.current.add(n.id));
-      saveReadIds(readIdsRef.current, storageKey);
+      const now = Date.now();
+      prev.forEach((notification) => readIdsRef.current.add(notification.id));
+      lastSeenAtRef.current = now;
+      saveLastSeenAt(storageKey, now);
+      persistReadReceipts(readIdsRef.current, storageKey, feedIdsFrom(prev));
       return prev.map((notification) => ({ ...notification, isRead: true }));
     });
   }, [storageKey]);
@@ -468,10 +474,10 @@ export const useNotifications = () => {
   const canAccessSms = canAccessNotificationSms(role);
   useSmsRealtime({
     onMessage: canAccessSms ? (message) => {
-      addNotification(buildSmsNotification(message, { isMessage: true }, readIdsRef.current), { showToast: true });
+      addNotification(buildSmsNotification(message, { isMessage: true }, readIdsRef.current, lastSeenAtRef.current), { showToast: true });
     } : undefined,
     onThreadUpdated: canAccessSms ? (thread) => {
-      addNotification(buildSmsNotification(thread, { isMessage: false }, readIdsRef.current));
+      addNotification(buildSmsNotification(thread, { isMessage: false }, readIdsRef.current, lastSeenAtRef.current));
     } : undefined,
   });
 
@@ -481,14 +487,14 @@ export const useNotifications = () => {
       if (email.send_source === 'INTERNAL_MESSAGE_NOTIFICATION') return;
       if (email.sender_user_id && Number(email.sender_user_id) === Number(user?.id)) return;
       if (normalizeNotificationRole(role) === 'client' && email.provider !== 'INTERNAL') return;
-      const notification = buildEmailNotification(email, readIdsRef.current);
+      const notification = buildEmailNotification(email, readIdsRef.current, lastSeenAtRef.current);
       addNotification(notification, { showToast: true });
     },
     onEmailSent: (email) => {
       if (email.send_source === 'INTERNAL_MESSAGE_NOTIFICATION') return;
       if (email.sender_user_id && Number(email.sender_user_id) === Number(user?.id)) return;
       if (normalizeNotificationRole(role) === 'client' && email.provider !== 'INTERNAL') return;
-      const notification = buildEmailNotification(email, readIdsRef.current);
+      const notification = buildEmailNotification(email, readIdsRef.current, lastSeenAtRef.current);
       addNotification(notification, { showToast: email.provider === 'INTERNAL' });
     },
   });
@@ -498,13 +504,13 @@ export const useNotifications = () => {
     userRole: role,
     userId: user?.id,
     onActivity: (event) => {
-      const notification = buildShootActivityNotification(event, readIdsRef.current);
+      const notification = buildShootActivityNotification(event, readIdsRef.current, lastSeenAtRef.current);
       addNotification(notification, { showToast: true });
     },
   });
 
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.isRead).length,
+    () => countUnread(notifications, readIdsRef.current, lastSeenAtRef.current),
     [notifications],
   );
 
