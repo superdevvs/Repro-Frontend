@@ -464,13 +464,13 @@ describe('Shoot History mobile chrome', () => {
     const subRow = all.closest('.border-b')
     const mainTabs = sticky?.querySelector('[role="tablist"]')?.parentElement
 
-    expect(sticky?.className).toMatch(/space-y-1/)
+    expect(sticky?.className).toMatch(/space-y-2/)
+    expect(sticky?.className).not.toMatch(/space-y-1/)
     expect(sticky?.className).not.toMatch(/space-y-3/)
-    expect(mainTabs?.className).toMatch(/pb-0/)
-    expect(all.className).toMatch(/py-1/)
-    expect(all.className).not.toMatch(/py-2/)
-    expect(subRow?.className).toMatch(/pb-1/)
-    expect(subRow?.className).not.toMatch(/pb-2/)
+    expect(mainTabs?.className).toMatch(/pb-1/)
+    expect(all.className).toMatch(/py-1\.5/)
+    expect(all.className).not.toMatch(/(?:^|\s)py-2(?:\s|$)/)
+    expect(subRow?.className).toMatch(/pb-2/)
   })
 
   it('keeps the tab rails sticky so cards can scroll underneath', () => {

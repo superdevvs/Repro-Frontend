@@ -173,7 +173,7 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1 text-sm font-medium leading-5 transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium leading-5 transition-colors ${
         active
           ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -532,11 +532,11 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-2 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:space-y-3 sm:pb-0">
-        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 -mx-2 space-y-1 bg-background px-2 pt-0.5 sm:top-0">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0">
+        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 -mx-2 space-y-2 bg-background px-2 pt-0.5 sm:top-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-0" />
+            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-1" />
             <Button
               variant="ghost"
               size="icon"
@@ -603,7 +603,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-4 overflow-hidden border-b border-border/50 pb-1">
+        <div className="flex min-w-0 items-center justify-between gap-4 overflow-hidden border-b border-border/50 pb-2">
           {activeTab === 'history' ? (
             <div className={subTabRailClass}>
               <SubTabButton active={historySubTab === 'all'} label="All Shoots" onClick={() => setHistorySubTab('all')} />
