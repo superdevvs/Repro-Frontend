@@ -613,7 +613,7 @@ const Dashboard = () => {
             clientShoots={clientShoots}
             clientUpcomingRecords={clientUpcomingRecords}
             greetingTitle={greetingTitle}
-            isMobile={isMobile}
+            isMobile={isCompactDashboardViewport}
             mobileClientTab={mobileClientTab}
             refresh={refresh}
             shootDetailsModal={shootDetailsModal}
@@ -718,7 +718,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       {isEditingManager ? (
-        <div className="px-2 pt-1.5 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
+        <div className="dashboard-mobile-page flex min-h-full flex-1 flex-col gap-4 px-2 pt-1.5 pb-3 sm:gap-6 sm:p-6 max-lg:min-h-0 max-lg:gap-0 max-lg:overflow-hidden max-lg:px-0 max-lg:pt-0 max-lg:pb-0">
           <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="contents md:block md:flex-1">
               <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} hideIntroOnMobile />
@@ -759,7 +759,7 @@ const Dashboard = () => {
 
           <Suspense fallback={<UpcomingShootsCardSkeleton />}>
             <EditingManagerDashboardView
-              isMobile={isMobile}
+              isMobile={isCompactDashboardViewport}
               mobileEditingManagerTab={mobileEditingManagerTab}
               renderEditingManagerReadyToDeliverCard={renderEditingManagerReadyToDeliverCard}
               renderEditingManagerShootsTabsCard={renderEditingManagerShootsTabsCard}

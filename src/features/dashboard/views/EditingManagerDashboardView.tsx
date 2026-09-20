@@ -126,7 +126,7 @@ export const EditingManagerDashboardView = ({
       id: "pipeline" as const,
       label: "Pipeline",
       content: (
-        <div data-onboarding-target="editingmanager-pipeline">
+        <div data-onboarding-target="editingmanager-pipeline" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {renderPipelineSection()}
         </div>
       ),

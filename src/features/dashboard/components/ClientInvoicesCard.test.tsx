@@ -23,7 +23,7 @@ describe('ClientInvoicesCard', () => {
     const card = screen.getByRole('heading', { name: 'Invoices & payments' }).parentElement?.parentElement;
     const actions = screen.getByRole('button', { name: 'View all invoices' }).parentElement;
 
-    expect(card).toHaveClass('h-full', 'min-h-0');
+    expect(card).toHaveClass('dashboard-mobile-panel', 'h-full', 'min-h-0');
     expect(actions).toHaveClass('mt-auto');
   });
 });

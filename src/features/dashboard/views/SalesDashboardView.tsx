@@ -1,9 +1,10 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
+import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { AssignPhotographersCardSkeleton } from "@/components/dashboard/v2/AssignPhotographersCardSkeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -95,10 +96,11 @@ export const SalesDashboardView = ({
 }: SalesDashboardViewProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isMobile = useIsMobile();
+  const isCompactDashboardViewport = useMediaQuery("(max-width: 1024px)");
+  const [mobileTab, setMobileTab] = useState("shoots");
   const salesOnboarding = useDashboardOnboarding(user, "salesRep");
   const salesRepRequestsCard = (
-    <div id="requests-queue">
+    <div id="requests-queue" data-onboarding-target="salesrep-requests">
       <PendingReviewsCard
         reviews={pendingReviews}
         issues={[]}
@@ -121,6 +123,84 @@ export const SalesDashboardView = ({
     </div>
   );
 
+  const assignCard = (
+    <ErrorBoundary
+      fallback={
+        <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+          Unable to load photographers
+        </div>
+      }
+    >
+      <div
+        id="assign-card"
+        data-onboarding-target="salesrep-assign"
+        className="h-full flex flex-col"
+      >
+        <Suspense fallback={<AssignPhotographersCardSkeleton />}>
+          <LazyAssignPhotographersCard
+            photographers={photographers}
+            onPhotographerSelect={onSetSelectedPhotographer}
+            onViewSchedule={() => navigate("/availability")}
+            availablePhotographerIds={availablePhotographerIds}
+            availabilityWindow={availabilityWindow}
+            onAvailabilityWindowChange={onSetAvailabilityWindow}
+            availabilityLoading={availabilityLoading}
+            availabilityError={availabilityError}
+          />
+        </Suspense>
+      </div>
+    </ErrorBoundary>
+  );
+
+  const deliveredCard = (
+    <div
+      key="rep-delivered"
+      data-onboarding-target="salesrep-delivered"
+      className="flex flex-1 min-h-0"
+    >
+      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+        <LazyCompletedShootsCard
+          shoots={repDelivered}
+          title="Delivered shoots"
+          subtitle="Most recent handoffs"
+          emptyStateText="No delivered shoots yet."
+          onViewAll={() => navigate("/shoot-history?tab=delivered")}
+          stretch
+        />
+      </Suspense>
+    </div>
+  );
+
+  const salesMobileTabs = [
+    {
+      id: "shoots",
+      label: "Shoots",
+      content: (
+        <div data-onboarding-target="salesrep-upcoming">
+          <UpcomingShootsCard
+            shoots={repUpcoming}
+            onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "assign",
+      label: "Assign",
+      content: assignCard,
+    },
+    {
+      id: "requests",
+      label: "Requests",
+      content: salesRepRequestsCard,
+    },
+    {
+      id: "completed",
+      label: "Completed",
+      content: deliveredCard,
+    },
+  ];
+
   return (
     <>
       <RoleDashboardLayout
@@ -132,56 +212,15 @@ export const SalesDashboardView = ({
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"
-        leftColumnCard={
-          <ErrorBoundary
-            fallback={
-              <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                Unable to load photographers
-              </div>
-            }
-          >
-            <div
-              id="assign-card"
-              data-onboarding-target="salesrep-assign"
-              className="h-full flex flex-col"
-            >
-              <Suspense fallback={<AssignPhotographersCardSkeleton />}>
-                <LazyAssignPhotographersCard
-                  photographers={photographers}
-                  onPhotographerSelect={onSetSelectedPhotographer}
-                  onViewSchedule={() => navigate("/availability")}
-                  availablePhotographerIds={availablePhotographerIds}
-                  availabilityWindow={availabilityWindow}
-                  onAvailabilityWindowChange={onSetAvailabilityWindow}
-                  availabilityLoading={availabilityLoading}
-                  availabilityError={availabilityError}
-                />
-              </Suspense>
-            </div>
-          </ErrorBoundary>
-        }
-        rightColumnCards={[
-          <div
-            key="rep-delivered"
-            data-onboarding-target="salesrep-delivered"
-            className="flex flex-1 min-h-0"
-          >
-            <Suspense fallback={<CompletedShootsCardSkeleton />}>
-              <LazyCompletedShootsCard
-                shoots={repDelivered}
-                title="Delivered shoots"
-                subtitle="Most recent handoffs"
-                emptyStateText="No delivered shoots yet."
-                onViewAll={() => navigate("/shoot-history?tab=delivered")}
-                stretch
-              />
-            </Suspense>
-          </div>,
-        ]}
+        leftColumnCard={assignCard}
+        rightColumnCards={[deliveredCard]}
         upcomingShoots={repUpcoming}
         pendingReviews={repPendingReviews}
         pendingCard={salesRepRequestsCard}
         onSelectShoot={onSelectShoot}
+        mobileTab={mobileTab}
+        onMobileTabChange={setMobileTab}
+        mobileTabs={salesMobileTabs}
       />
       <DashboardOnboarding
         roleKey="salesRep"
@@ -189,7 +228,9 @@ export const SalesDashboardView = ({
         copy={dashboardOnboardingConfig.salesRep.copy}
         welcomeOpen={salesOnboarding.welcomeOpen}
         tourOpen={salesOnboarding.tourOpen}
-        isMobile={isMobile}
+        isMobile={isCompactDashboardViewport}
+        currentMobileTab={mobileTab}
+        onSetMobileTab={setMobileTab}
         lastStep={salesOnboarding.onboardingState.lastStep}
         onStart={salesOnboarding.startTour}
         onDismiss={salesOnboarding.dismiss}

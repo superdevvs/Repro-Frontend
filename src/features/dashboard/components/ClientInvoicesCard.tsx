@@ -3,12 +3,14 @@ import { CreditCard, FileDown, FileText } from "lucide-react";
 
 import { Card } from "@/components/dashboard/v2/SharedComponents";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { currencyFormatter } from "@/utils/dashboardDerivedUtils";
+import { DASHBOARD_MOBILE_PANEL_CLASS } from "../utils/dashboardMobilePanel";
 
 import type { ClientInvoicesCardProps } from "../types";
 
 export const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onViewAll, onPay }) => (
-  <Card className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
+  <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex h-full min-h-0 flex-col gap-3 sm:gap-4")}>
     <div>
       <h2 className="text-base sm:text-lg font-bold text-foreground">Invoices & payments</h2>
       <p className="text-xs sm:text-sm text-muted-foreground">Stay current on outstanding balances.</p>

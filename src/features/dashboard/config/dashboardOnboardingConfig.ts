@@ -123,21 +123,25 @@ const salesRepSteps: OnboardingStep[] = [
     title: "Assign photographers",
     description: "Use the assign card to match available photographers to shoots and open their schedules.",
     target: "salesrep-assign",
+    mobileTab: "assign",
   },
   {
     title: "Track upcoming shoots",
     description: "Review scheduled shoots so you can prep client communication ahead of each booking.",
     target: "salesrep-upcoming",
+    mobileTab: "shoots",
   },
   {
     title: "Work the requests queue",
     description: "Open Requests to handle editing, client, and cancellation items that need follow-up.",
     target: "salesrep-requests",
+    mobileTab: "requests",
   },
   {
     title: "Confirm delivered shoots",
     description: "Review recently delivered shoots to confirm handoffs and share results with clients.",
     target: "salesrep-delivered",
+    mobileTab: "completed",
   },
 ];
 
