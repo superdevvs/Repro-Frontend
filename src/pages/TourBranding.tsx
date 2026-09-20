@@ -208,7 +208,7 @@ export default function TourBranding() {
   if (!isAdmin) {
     return (
       <DashboardLayout>
-        <div className="p-6">
+        <div className="px-0 py-6 sm:p-6">
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">You don't have permission to access this page.</p>
@@ -221,7 +221,7 @@ export default function TourBranding() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 px-0 py-6 sm:p-6">
         <PageHeader
           badge="Settings"
           title="Tour Branding Info"

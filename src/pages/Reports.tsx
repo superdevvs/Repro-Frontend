@@ -107,7 +107,7 @@ interface ReportStateProps {
 function ReportState({ state, title, description, onRetry }: ReportStateProps) {
   if (state === 'loading') {
     return (
-      <div className="flex h-full items-end gap-3 px-2 pb-3" aria-label="Loading report data">
+      <div className="flex h-full items-end gap-3 px-0 pb-3" aria-label="Loading report data">
         {[44, 68, 52, 84, 62, 74, 48, 70].map((height, index) => (
           <Skeleton key={`${height}-${index}`} className="flex-1 rounded-t-md" style={{ height: `${height}%` }} />
         ))}
@@ -223,7 +223,7 @@ export default function Reports() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-6 px-0 py-4 sm:p-6">
         <PageHeader
           badge="Reports"
           title="Reports"

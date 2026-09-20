@@ -64,7 +64,7 @@ export default function CallsLayout() {
   return (
     <DashboardLayout>
       <div className="min-w-0 bg-background pb-24 text-foreground sm:pb-6">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border px-0 py-3 sm:px-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <PhoneCall className="h-4 w-4 text-primary" />

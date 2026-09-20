@@ -155,7 +155,7 @@ const PhotographerAvailability = () => {
 
   return (
     <DashboardLayout>
-      <div className="container py-4 sm:py-6 px-2 sm:px-4 md:px-6">
+      <div className="container py-4 sm:py-6 px-0 sm:px-4 md:px-6">
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">

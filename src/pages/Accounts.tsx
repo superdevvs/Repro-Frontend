@@ -1301,7 +1301,7 @@ export default function Accounts() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-3 px-2 pt-1.5 pb-3 sm:space-y-4 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="space-y-3 px-0 pt-1.5 pb-3 sm:space-y-4 sm:px-6 sm:pb-6 sm:pt-0">
         <PageHeader
           badge="Team"
           title="Accounts"

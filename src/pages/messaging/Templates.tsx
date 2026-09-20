@@ -95,7 +95,7 @@ export default function Templates() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="space-y-4 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:space-y-6 sm:p-6 sm:pb-6">
+      <div className="space-y-4 px-0 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:space-y-6 sm:p-6 sm:pb-6">
         {/* Header */}
         <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between gap-3">

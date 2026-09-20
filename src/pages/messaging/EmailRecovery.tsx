@@ -233,7 +233,7 @@ export default function EmailRecovery() {
     <DashboardLayout>
       <div className="flex flex-col h-full min-h-screen bg-background">
         <EmailNavigation />
-        <div className="flex-1 px-3 sm:px-6 py-4 sm:py-6 overflow-y-auto">
+        <div className="flex-1 px-0 sm:px-6 py-4 sm:py-6 overflow-y-auto">
           <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

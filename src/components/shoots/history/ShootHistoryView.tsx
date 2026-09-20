@@ -1,3 +1,4 @@
+import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel'
 import React from 'react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
@@ -467,7 +468,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className={`shoot-history-tabs max-w-full space-y-4 overflow-x-clip ${DASHBOARD_COMPACT_PAGE_X_CLASS} pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0`}>
       <div className="flex items-start justify-between gap-3">
         {/* Compact title on phones (no description); full heading on desktop. */}
         <div className="min-w-0 space-y-1">
@@ -533,7 +534,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0">
-        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 -mx-2 space-y-2 bg-background px-2 pt-0.5 sm:top-0">
+        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 space-y-2 bg-background pt-0.5 sm:top-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-1" />

@@ -204,7 +204,7 @@ export const AdminDashboardView = ({
             and pads the same amount back: the pill rests where it did, and once
             stuck it sits whole on its own backdrop with no strip of content
             scrolling past between header and pill. */}
-        <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="overflow-x-auto hidden-scrollbar">
             <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-background/80 pl-1.5 pr-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/70">
               {mobileTabs.map((tab) => (

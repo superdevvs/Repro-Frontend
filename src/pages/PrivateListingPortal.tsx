@@ -591,7 +591,7 @@ const PrivateListingPortal = () => {
         className={
           viewMode === 'showcase'
             ? 'flex min-h-0 flex-1 flex-col gap-2 px-0 pb-0 pt-0 sm:gap-3 sm:px-3 sm:pt-0'
-            : 'space-y-4 px-2 pb-3 pt-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0'
+            : 'space-y-4 px-0 pb-3 pt-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0'
         }
       >
         {/* Header — emphasized title section with the Add Listing / Hide

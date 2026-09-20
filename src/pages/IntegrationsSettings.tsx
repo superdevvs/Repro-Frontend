@@ -1507,7 +1507,7 @@ const IntegrationsSettings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 px-0 py-6 sm:p-6">
         <PageHeader
           badge="Settings"
           title="Integrations"

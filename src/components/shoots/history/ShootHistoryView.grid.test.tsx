@@ -473,6 +473,17 @@ describe('Shoot History mobile chrome', () => {
     expect(subRow?.className).toMatch(/pb-2/)
   })
 
+  it('uses the same compact side inset as Availability', () => {
+    const { container } = render(<ViewHarness tab="delivered" />)
+    const page = container.querySelector('.shoot-history-tabs')
+    const sticky = container.querySelector('[data-shoot-history-sticky-tabs]')
+
+    expect(page?.className).toMatch(/(?:^|\s)px-0(?:\s|$)/)
+    expect(page?.className).not.toMatch(/(?:^|\s)px-2(?:\s|$)/)
+    expect(sticky?.className).not.toMatch(/-mx-2/)
+    expect(sticky?.className).not.toMatch(/(?:^|\s)px-2(?:\s|$)/)
+  })
+
   it('keeps the tab rails sticky so cards can scroll underneath', () => {
     const { container } = render(<ViewHarness tab="delivered" />)
     const sticky = container.querySelector('[data-shoot-history-sticky-tabs]')

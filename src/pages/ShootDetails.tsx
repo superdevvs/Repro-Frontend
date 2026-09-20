@@ -625,7 +625,7 @@ const ShootDetails: React.FC = () => {
   if (!shoot) {
     return (
       <DashboardLayout>
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 px-0 py-6 sm:p-6">
           <Card>
             <CardContent className="py-10 text-center">
               <h2 className="text-2xl font-semibold">Shoot not found</h2>

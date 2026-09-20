@@ -157,7 +157,7 @@ export default function MessagingOverview() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-24 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0 overflow-hidden min-w-0">
+      <div className="space-y-4 px-0 pt-3 pb-24 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0 overflow-hidden min-w-0">
         <div className="grid gap-4 xl:grid-cols-2">
           <Card className="overflow-hidden border border-border bg-card">
             <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">

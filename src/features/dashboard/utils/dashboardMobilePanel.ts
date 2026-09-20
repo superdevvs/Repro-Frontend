@@ -1,6 +1,8 @@
 export const DASHBOARD_MOBILE_PAGE_CLASS = 'dashboard-mobile-page';
 export const DASHBOARD_MOBILE_PANEL_CLASS = 'dashboard-mobile-panel';
 export const DASHBOARD_MOBILE_LIST_SHELL_CLASS = 'dashboard-mobile-list-shell';
+/** Compact pages inherit DashboardLayout's 12px sides — same as Availability. */
+export const DASHBOARD_COMPACT_PAGE_X_CLASS = 'px-0';
 
 export function resolveDashboardListMaxHeight({
   compactViewport,

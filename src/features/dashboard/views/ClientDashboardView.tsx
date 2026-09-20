@@ -355,7 +355,7 @@ export const ClientDashboardView = ({
       >
         <div
           data-onboarding-target="client-dashboard-mobile-tabs"
-          className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+          className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
         >
           <div className="overflow-x-auto hidden-scrollbar">
             <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">

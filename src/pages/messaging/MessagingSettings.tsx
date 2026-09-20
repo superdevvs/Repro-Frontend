@@ -246,7 +246,7 @@ export default function MessagingSettings() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-1.5 pb-3 sm:space-y-6 sm:p-6">
+      <div className="space-y-4 px-0 pt-1.5 pb-3 sm:space-y-6 sm:p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Messaging Settings</h1>
           <p className="text-muted-foreground">Manage email accounts and SMS providers</p>

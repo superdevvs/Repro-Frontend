@@ -43,9 +43,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
-  // The compact shell keeps 12px at the sides but only 6px above the page: on a
-  // phone the header already separates content from the chrome, and every page
-  // adds its own top padding, so the old 12px doubled up into a visible gap.
+  // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
+  // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const contentPadding = useCompactShell
     ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 ? '' : 'pb-20'}`

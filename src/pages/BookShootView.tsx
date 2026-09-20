@@ -53,7 +53,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
   }, [step]);
   return (
     <>
-      <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
+      <div className="space-y-6 px-0 py-4 sm:px-4 sm:py-6 lg:p-6">
           <AnimatePresence mode="wait">
             {isComplete ? (
               <BookingComplete 

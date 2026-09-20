@@ -467,7 +467,7 @@ export default function AutomationWorkflowEditor() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="flex flex-col gap-4 px-2 pt-3 pb-4 sm:px-6 sm:pt-6">
+      <div className="flex flex-col gap-4 px-0 pt-3 pb-4 sm:px-6 sm:pt-6">
         <AutomationWorkflowEditorHeader
           automationId={automationId}
           meta={meta}

@@ -139,7 +139,7 @@ export const EditingManagerDashboardView = ({
       onValueChange={(val) => setMobileEditingManagerTab(val as MobileEditingManagerTab)}
       className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
     >
-      <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: "-15px" }}>
+      <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="overflow-x-auto hidden-scrollbar">
           <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
             {editingManagerMobileTabs.map((tab) => (

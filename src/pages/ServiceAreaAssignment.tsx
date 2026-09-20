@@ -15,7 +15,7 @@ import { TestShootPanel } from '@/components/photographers/TestShootPanel';
 const ServiceAreaAssignment = () => {
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="space-y-4 px-0 pt-3 pb-20 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
         <PageHeader
           badge="Admin"
           title="Service Area Assignment"

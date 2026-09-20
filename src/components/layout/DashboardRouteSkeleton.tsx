@@ -99,7 +99,7 @@ const DashboardStatsPanelSkeleton = () => (
 );
 
 const DashboardMobileTabsSkeleton = () => (
-  <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 -mx-2 px-2 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+  <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
     <div className="overflow-x-hidden">
       <div className="inline-flex max-w-full gap-2 rounded-full border border-border/50 bg-background/80 py-1.5 pl-1.5 pr-3 backdrop-blur">
         <Skeleton className="h-8 w-24 rounded-full" />
@@ -177,7 +177,7 @@ const AssignPhotographersSkeleton = () => (
 );
 
 const DashboardSkeleton = () => (
-  <div className="space-y-2.5 px-2 pb-3 pt-1.5 sm:space-y-6 sm:p-6">
+  <div className="space-y-2.5 px-0 pb-3 pt-1.5 sm:space-y-6 sm:p-6">
     <HeaderSkeleton actions={false} />
     <div className="space-y-2 sm:hidden">
       <DashboardMobileTabsSkeleton />
@@ -223,7 +223,7 @@ const DashboardSkeleton = () => (
 );
 
 const BookShootSkeleton = () => (
-  <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
+  <div className="space-y-6 px-0 py-4 sm:px-4 sm:py-6 lg:p-6">
     <HeaderSkeleton />
     <Panel className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-4">
@@ -258,7 +258,7 @@ const BookShootSkeleton = () => (
 );
 
 const ShootHistorySkeleton = () => (
-  <div className="space-y-5 px-2 py-4 sm:p-6">
+  <div className="space-y-5 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <TabStrip count={4} />
@@ -284,7 +284,7 @@ const ShootHistorySkeleton = () => (
 );
 
 const AccountsSkeleton = () => (
-  <div className="space-y-4 px-2 py-4 sm:p-6">
+  <div className="space-y-4 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <TabStrip count={3} />
     <TabStrip count={7} />
@@ -301,7 +301,7 @@ const AccountsSkeleton = () => (
 );
 
 const AccountingSkeleton = () => (
-  <div className="space-y-5 px-2 py-4 sm:p-6">
+  <div className="space-y-5 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <TabStrip count={5} />
     <StatCards count={4} />
@@ -319,7 +319,7 @@ const AccountingSkeleton = () => (
 );
 
 const AvailabilitySkeleton = () => (
-  <div className="flex min-h-full flex-col gap-4 p-1 sm:p-3">
+  <div className="flex min-h-full flex-col gap-4 px-0 py-1 sm:p-3">
     <HeaderSkeleton />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Skeleton className="h-10 w-48" />
@@ -352,7 +352,7 @@ const AvailabilitySkeleton = () => (
 );
 
 const AiEditingSkeleton = () => (
-  <div className="space-y-5 px-2 py-4 sm:p-6">
+  <div className="space-y-5 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <TabStrip count={5} />
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -379,7 +379,7 @@ const AiEditingSkeleton = () => (
 );
 
 const MessagingSkeleton = () => (
-  <div className="space-y-5 px-2 py-4 pb-24 sm:p-6">
+  <div className="space-y-5 px-0 py-4 pb-24 sm:p-6">
     <HeaderSkeleton />
     <StatCards count={4} />
     <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -475,7 +475,7 @@ const ShootDetailsSkeleton = () => (
 );
 
 const ListingsSkeleton = () => (
-  <div className="space-y-5 px-2 py-4 sm:p-6">
+  <div className="space-y-5 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 6 }).map((_, index) => (
@@ -500,7 +500,7 @@ const ExclusiveListingsLoadingSurface = () => (
 );
 
 const PanelPageSkeleton = () => (
-  <div className="space-y-5 px-2 py-4 sm:p-6">
+  <div className="space-y-5 px-0 py-4 sm:p-6">
     <HeaderSkeleton />
     <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
       <Panel className="space-y-3">

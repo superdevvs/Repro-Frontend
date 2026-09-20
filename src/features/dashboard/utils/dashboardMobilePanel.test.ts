@@ -4,11 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  DASHBOARD_COMPACT_PAGE_X_CLASS,
   DASHBOARD_MOBILE_LIST_SHELL_CLASS,
   DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_PANEL_CLASS,
   resolveDashboardListMaxHeight,
 } from './dashboardMobilePanel';
+
+const src = (...parts: string[]) =>
+  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), ...parts), 'utf8');
 
 const indexCss = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), '../../../index.css'),
@@ -102,9 +106,6 @@ describe('dashboard mobile tab CSS', () => {
   });
 
   it('bounds the inner shoots list so compact viewports can scroll cards', () => {
-    const src = (...parts: string[]) =>
-      readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), ...parts), 'utf8');
-
     expect(DASHBOARD_MOBILE_LIST_SHELL_CLASS).toBe('dashboard-mobile-list-shell');
     expect(indexCss).toMatch(
       /\.dashboard-mobile-list-shell\s*\{[\s\S]*?min-height:\s*0[\s\S]*?overflow:\s*hidden/,
@@ -119,5 +120,57 @@ describe('dashboard mobile tab CSS', () => {
     expect(src('../../../features/dashboard/components/ClientMyShoots.tsx')).toMatch(
       /hidden-scrollbar[^"'`]*flex-1[^"'`]*min-h-0[^"'`]*overflow-y-auto/,
     );
+  });
+});
+
+describe('compact page gutters', () => {
+  it('matches Availability: layout keeps 12px sides and pages add none', () => {
+    expect(DASHBOARD_COMPACT_PAGE_X_CLASS).toBe('px-0');
+    expect(src('../../../components/layout/DashboardLayout.tsx')).toMatch(
+      /isStudioWorkspace \? 'p-0' : 'px-3 pt-1\.5'/,
+    );
+    expect(src('../../../pages/Availability.tsx')).toMatch(
+      /isCompactLayout \? "px-0 pt-1\.5 pb-6"/,
+    );
+  });
+
+  it('does not stack extra compact horizontal padding on dashboard pages', () => {
+    const files = [
+      '../../../components/shoots/history/ShootHistoryView.tsx',
+      '../../../pages/Accounts.tsx',
+      '../../../pages/Accounting.tsx',
+      '../../../pages/Profile.tsx',
+      '../../../pages/SchedulingSettings.tsx',
+      '../../../pages/PrivateListingPortal.tsx',
+      '../../../pages/ServiceAreaAssignment.tsx',
+      '../../../pages/BookShootView.tsx',
+      '../../../pages/Reports.tsx',
+      '../../../pages/PermissionSettings.tsx',
+      '../../../pages/IntegrationsSettings.tsx',
+      '../../../pages/TourBranding.tsx',
+      '../../../pages/Coupons.tsx',
+      '../../../pages/ExclusiveListingDetails.tsx',
+      '../../../pages/MlsPublishingQueue.tsx',
+      '../../../pages/PhotographerAvailability.tsx',
+      '../../../pages/messaging/MessagingSettings.tsx',
+      '../../../pages/messaging/Automations.tsx',
+      '../../../pages/messaging/MessagingOverview.tsx',
+      '../../../pages/messaging/AutomationWorkflowEditor.tsx',
+      '../../../pages/messaging/Templates.tsx',
+      '../../../pages/messaging/EmailRecovery.tsx',
+      '../../../components/layout/DashboardRouteSkeleton.tsx',
+    ];
+
+    for (const file of files) {
+      const text = src(file);
+      expect(text, file).not.toMatch(
+        /className=["'`][^"'`]*\bpx-2\b[^"'`]*\b(?:pt-1\.5|pt-3|pb-3|py-4|sm:px-6|sm:p-6)/,
+      );
+      expect(text, file).not.toMatch(/className="space-y-6 p-6"/);
+      expect(text, file).not.toMatch(/className="space-y-6 p-4 sm:p-6"/);
+      expect(text, file).not.toMatch(/className="space-y-6 px-1 py-4/);
+      expect(text, file).not.toMatch(/className="flex-1 px-3 sm:px-6/);
+      expect(text, file).not.toMatch(/className="space-y-4 px-3 pt-3/);
+    }
   });
 });

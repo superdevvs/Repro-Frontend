@@ -159,7 +159,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
           {/* ── TOP AREA: sticky page header + controls (hidden on Robbie home) ── */}
           {!isRobbieHome && (
           <div className="sticky top-0 z-50 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-            <div className="mx-auto w-full max-w-5xl px-2 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
+            <div className="mx-auto w-full max-w-5xl px-3 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
               <div
                 className={cn(
                   "flex items-start md:items-center gap-2 pointer-events-auto",
@@ -543,7 +543,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
               {/* History Tab Content */}
             {tabMode === 'history' && (
               <div className="mt-0 flex-1 min-h-0 flex flex-col">
-                <div className="flex flex-col flex-1 min-h-0 max-w-5xl mx-auto w-full px-2 md:px-4 py-2 md:py-4">
+                <div className="flex flex-col flex-1 min-h-0 max-w-5xl mx-auto w-full px-3 md:px-4 py-2 md:py-4">
                   {/* Header Section with Stats */}
                 <div className="mb-4 md:mb-8">
                   {/* Stats Cards */}

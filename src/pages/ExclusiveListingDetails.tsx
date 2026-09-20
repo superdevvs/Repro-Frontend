@@ -287,7 +287,7 @@ export default function ExclusiveListingDetails() {
   if (!shoot) {
     return (
       <DashboardLayout>
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 px-0 py-6 sm:p-6">
           <PageHeader
             badge="Exclusive"
             title="Private Exclusive Listing"
@@ -304,7 +304,7 @@ export default function ExclusiveListingDetails() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 px-0 py-6 sm:p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
