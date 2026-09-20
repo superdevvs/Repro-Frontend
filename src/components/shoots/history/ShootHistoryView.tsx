@@ -195,7 +195,10 @@ function PaginationRow({
   perPage: number
   onChange: (direction: 'prev' | 'next') => void
 }) {
-  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(perPage, 1)))
+  if (totalPages < 2) {
+    return null
+  }
 
   return (
     <div

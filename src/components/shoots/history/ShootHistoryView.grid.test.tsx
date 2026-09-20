@@ -242,11 +242,13 @@ function ViewHarness({
   initialView = 'grid',
   isAdmin = false,
   showPagination = false,
+  paginationTotal = 1,
 }: {
   tab: 'delivered' | 'history'
   initialView?: 'grid' | 'list'
   isAdmin?: boolean
   showPagination?: boolean
+  paginationTotal?: number
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
@@ -298,7 +300,7 @@ function ViewHarness({
     operationalOptions: emptyOptions,
     operationalServicesSelected: false,
     resetOperationalFilters: noop,
-    operationalMeta: showPagination ? { current_page: 1, per_page: 20, total: 1 } : null,
+    operationalMeta: showPagination ? { current_page: 1, per_page: 20, total: paginationTotal } : null,
     operationalPage: 1,
     handleOperationalPageChange: noop,
     scheduledContent: null,
@@ -408,7 +410,7 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
 describe('Shoot History mobile chrome', () => {
   it('uses a semibold title, moves bulk actions into the overflow menu, and docks pagination after short lists', async () => {
     const user = userEvent.setup()
-    const { container } = render(<ViewHarness tab="delivered" isAdmin showPagination />)
+    const { container } = render(<ViewHarness tab="delivered" isAdmin showPagination paginationTotal={21} />)
 
     const title = screen.getByRole('heading', { name: 'Shoot History' })
     expect(title.className).toMatch(/font-semibold/)
@@ -439,6 +441,20 @@ describe('Shoot History mobile chrome', () => {
     const tabs = container.querySelector('.shoot-history-tabs [role="tablist"]')?.closest('.space-y-3')
     expect(tabs?.className ?? '').not.toMatch(/4\.75rem/)
     expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
+  })
+
+  it('hides pagination when there is only one page of results', () => {
+    const { container } = render(<ViewHarness tab="delivered" showPagination />)
+
+    expect(container.querySelector('[data-shoot-history-pagination]')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+  })
+
+  it('shows pagination when there are two or more pages', () => {
+    const { container } = render(<ViewHarness tab="delivered" showPagination paginationTotal={21} />)
+
+    expect(container.querySelector('[data-shoot-history-pagination]')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
   })
 
   it('keeps the tab rails sticky so cards can scroll underneath', () => {
