@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { calendarDay } from '@/lib/date';
 import { CheckCircle2, Plus, ReceiptText, Trash2 } from 'lucide-react';
@@ -187,6 +187,7 @@ export function InvoiceApprovalDialog({
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [warningOverrideReason, setWarningOverrideReason] = useState('');
   const [busyAction, setBusyAction] = useState<'approve' | 'reject' | 'edit' | null>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCurrentInvoice(invoice);
@@ -201,6 +202,14 @@ export function InvoiceApprovalDialog({
     setShowRejectInput(false);
     setWarningOverrideReason('');
   }, [invoice]);
+
+  useEffect(() => {
+    if (!showAddCharge && !showAddExpense) {
+      return;
+    }
+
+    composerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [showAddCharge, showAddExpense]);
 
   const status = currentInvoice?.approval_status || 'pending';
   const statusCfg = statusConfig[status] || statusConfig.pending;
@@ -456,7 +465,7 @@ export function InvoiceApprovalDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex h-[92dvh] max-h-[92dvh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:w-full">
+      <DialogContent className="flex h-[92dvh] max-h-[92dvh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-full">
         <DialogHeader className="shrink-0 px-4 pt-5 pb-3 border-b border-border sm:px-6 sm:pt-6 sm:pb-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -769,7 +778,7 @@ export function InvoiceApprovalDialog({
 
           {/* Add Service / Add Expense controls (photographer edit mode) */}
           {photographerCanEdit ? (
-            <div className="flex flex-col gap-3">
+            <div ref={composerRef} className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
