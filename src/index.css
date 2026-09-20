@@ -530,6 +530,18 @@ body {
     flex: 1 1 0% !important;
     min-height: 0;
   }
+
+  /* Editing-manager (and similar) tabs wrap these ids inside an extra
+     onboarding div, so the grandchild stretch above never reaches them. */
+  .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] #requests-queue,
+  .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] #ready-to-deliver {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 /* Mobile auth register tab should fill the card and scroll within the frame */

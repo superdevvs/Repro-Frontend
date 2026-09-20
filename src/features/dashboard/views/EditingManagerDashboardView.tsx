@@ -108,7 +108,7 @@ export const EditingManagerDashboardView = ({
       id: "requests" as const,
       label: "Requests",
       content: (
-        <div data-onboarding-target="editingmanager-requests">
+        <div data-onboarding-target="editingmanager-requests" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderPendingReviewsCard()}
         </div>
       ),
@@ -117,7 +117,7 @@ export const EditingManagerDashboardView = ({
       id: "ready" as const,
       label: "Ready",
       content: (
-        <div data-onboarding-target="editingmanager-ready">
+        <div data-onboarding-target="editingmanager-ready" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderEditingManagerReadyToDeliverCard()}
         </div>
       ),
