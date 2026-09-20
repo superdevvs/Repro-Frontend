@@ -85,6 +85,7 @@ describe('dashboard mobile tab CSS', () => {
     expect(indexCss).not.toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > \*/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #requests-queue/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #ready-to-deliver/);
+    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #pipeline-section/);
   });
 
   it('keeps assign photographer name styles in the stylesheet, not a card sibling', () => {
