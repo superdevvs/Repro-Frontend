@@ -434,7 +434,8 @@ describe('Shoot History mobile chrome', () => {
 
     expect(sticky).not.toBeNull()
     expect(sticky?.className).toMatch(/\bsticky\b/)
-    expect(sticky?.className).toMatch(/top-0/)
+    expect(sticky?.className).toMatch(/-top-1\.5/)
+    expect(sticky?.className).not.toMatch(/(?:^|\s)pt-1\.5(?:\s|$)/)
     expect(sticky?.querySelector('[role="tablist"]')).not.toBeNull()
     expect(container.querySelector('.shoot-history-tabs')?.className).not.toMatch(/overflow-x-hidden/)
   })

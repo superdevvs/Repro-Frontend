@@ -530,7 +530,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:pb-[4.75rem] sm:pb-0">
-        <div data-shoot-history-sticky-tabs className="sticky top-0 z-20 -mx-2 space-y-3 bg-background/95 px-2 pt-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        <div data-shoot-history-sticky-tabs className="sticky -top-1.5 z-20 -mx-2 space-y-3 bg-background px-2 backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:top-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1" />
