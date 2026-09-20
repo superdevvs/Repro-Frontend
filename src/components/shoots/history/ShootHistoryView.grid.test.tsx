@@ -457,6 +457,22 @@ describe('Shoot History mobile chrome', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
   })
 
+  it('keeps the sticky tab and subtab rails compact', () => {
+    const { container } = render(<ViewHarness tab="delivered" />)
+    const sticky = container.querySelector('[data-shoot-history-sticky-tabs]')
+    const all = screen.getByRole('button', { name: 'All' })
+    const subRow = all.closest('.border-b')
+    const mainTabs = sticky?.querySelector('[role="tablist"]')?.parentElement
+
+    expect(sticky?.className).toMatch(/space-y-1/)
+    expect(sticky?.className).not.toMatch(/space-y-3/)
+    expect(mainTabs?.className).toMatch(/pb-0/)
+    expect(all.className).toMatch(/py-1/)
+    expect(all.className).not.toMatch(/py-2/)
+    expect(subRow?.className).toMatch(/pb-1/)
+    expect(subRow?.className).not.toMatch(/pb-2/)
+  })
+
   it('keeps the tab rails sticky so cards can scroll underneath', () => {
     const { container } = render(<ViewHarness tab="delivered" />)
     const sticky = container.querySelector('[data-shoot-history-sticky-tabs]')

@@ -173,7 +173,7 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1 text-sm font-medium leading-5 transition-colors ${
         active
           ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -464,7 +464,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     historyFilters.dateRange !== defaultHistoryFilters.dateRange ||
     historyFilters.groupBy !== 'shoot'
   const subTabRailClass =
-    'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
+    'flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
     <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
@@ -532,11 +532,11 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0">
-        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 -mx-2 space-y-3 bg-background px-2 pt-0.5 sm:top-0">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-2 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:space-y-3 sm:pb-0">
+        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 -mx-2 space-y-1 bg-background px-2 pt-0.5 sm:top-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1" />
+            <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-0" />
             <Button
               variant="ghost"
               size="icon"
@@ -603,7 +603,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-4 overflow-hidden border-b border-border/50 pb-2 -mt-3">
+        <div className="flex min-w-0 items-center justify-between gap-4 overflow-hidden border-b border-border/50 pb-1">
           {activeTab === 'history' ? (
             <div className={subTabRailClass}>
               <SubTabButton active={historySubTab === 'all'} label="All Shoots" onClick={() => setHistorySubTab('all')} />
