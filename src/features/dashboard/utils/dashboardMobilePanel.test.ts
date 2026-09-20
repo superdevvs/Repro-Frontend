@@ -81,6 +81,19 @@ describe('dashboard mobile tab CSS', () => {
   it('hides inactive tab panels so they cannot share the filled viewport', () => {
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[hidden\]/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="inactive"\]/);
-    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > \*/);
+    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > div/);
+    expect(indexCss).not.toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > \*/);
+  });
+
+  it('keeps assign photographer name styles in the stylesheet, not a card sibling', () => {
+    const assignCard = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '../../../components/dashboard/v2/AssignPhotographersCard.tsx',
+      ),
+      'utf8',
+    );
+    expect(assignCard).not.toMatch(/<style>/);
+    expect(indexCss).toMatch(/\.assign-photographer-name\s*\{/);
   });
 });

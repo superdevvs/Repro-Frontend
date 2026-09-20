@@ -245,44 +245,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   }, [filteredPhotographers, showContactActions]);
 
   return (
-    <>
-      <style>{`
-        .assign-photographer-name {
-          overflow: hidden;
-          white-space: nowrap;
-        }
-
-        .assign-photographer-name__text {
-          display: block;
-          width: 100%;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        @media (hover: hover) {
-          .assign-photographer-row:hover .assign-photographer-name__text--scroll,
-          .assign-photographer-row:focus-visible .assign-photographer-name__text--scroll {
-            overflow: visible;
-            text-overflow: clip;
-            will-change: transform;
-            animation: photographer-name-marquee 3.8s ease-in-out infinite alternate;
-          }
-        }
-
-        @keyframes photographer-name-marquee {
-          0%,
-          18% {
-            transform: translateX(0);
-          }
-
-          82%,
-          100% {
-            transform: translateX(var(--name-scroll-distance, 0px));
-          }
-        }
-      `}</style>
-      <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0")}>
+    <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0")}>
       <div className={cn(sectionGutter, "py-3 sm:py-5 border-b border-border/60 space-y-2 sm:space-y-3")}>
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
@@ -450,7 +413,6 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
           <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
-      </Card>
-    </>
+    </Card>
   );
 };

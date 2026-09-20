@@ -510,8 +510,9 @@ body {
   }
 
   /* Extra wrappers (onboarding targets, #requests-queue) are display:block
-     and would otherwise hug, leaving the card short inside a tall tabpanel. */
-  .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] > div > * {
+     and would otherwise hug, leaving the card short inside a tall tabpanel.
+     Stretch only nested divs so a stray <style> sibling is never a flex item. */
+  .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] > div > div {
     display: flex;
     flex: 1 1 0%;
     flex-direction: column;
@@ -730,4 +731,39 @@ body {
 .system-overview-flow .react-flow__attribution,
 .system-overview-flow .react-flow__minimap {
   display: none !important;
+}
+
+.assign-photographer-name {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.assign-photographer-name__text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .assign-photographer-row:hover .assign-photographer-name__text--scroll,
+  .assign-photographer-row:focus-visible .assign-photographer-name__text--scroll {
+    overflow: visible;
+    text-overflow: clip;
+    will-change: transform;
+    animation: photographer-name-marquee 3.8s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes photographer-name-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+
+  82%,
+  100% {
+    transform: translateX(var(--name-scroll-distance, 0px));
+  }
 }
