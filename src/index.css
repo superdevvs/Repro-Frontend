@@ -551,6 +551,17 @@ body {
     height: 100%;
     overflow-y: auto;
   }
+
+  /* Flex items default to min-height:auto, so the list wrapper grows with
+     cards and the overflow-hidden card clips them. Bound the shell so the
+     inner overflow-y-auto list can scroll. */
+  .dashboard-mobile-list-shell {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 /* Mobile auth register tab should fill the card and scroll within the frame */

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  DASHBOARD_MOBILE_LIST_SHELL_CLASS,
   DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_PANEL_CLASS,
   resolveDashboardListMaxHeight,
@@ -98,5 +99,25 @@ describe('dashboard mobile tab CSS', () => {
     );
     expect(assignCard).not.toMatch(/<style>/);
     expect(indexCss).toMatch(/\.assign-photographer-name\s*\{/);
+  });
+
+  it('bounds the inner shoots list so compact viewports can scroll cards', () => {
+    const src = (...parts: string[]) =>
+      readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), ...parts), 'utf8');
+
+    expect(DASHBOARD_MOBILE_LIST_SHELL_CLASS).toBe('dashboard-mobile-list-shell');
+    expect(indexCss).toMatch(
+      /\.dashboard-mobile-list-shell\s*\{[\s\S]*?min-height:\s*0[\s\S]*?overflow:\s*hidden/,
+    );
+
+    expect(src('../../../components/dashboard/v2/DefaultShootsTabsView.tsx')).toContain(
+      'DASHBOARD_MOBILE_LIST_SHELL_CLASS',
+    );
+    expect(src('../../../components/dashboard/v2/EditingManagerShootsTabsView.tsx')).toContain(
+      'DASHBOARD_MOBILE_LIST_SHELL_CLASS',
+    );
+    expect(src('../../../features/dashboard/components/ClientMyShoots.tsx')).toMatch(
+      /hidden-scrollbar[^"'`]*flex-1[^"'`]*min-h-0[^"'`]*overflow-y-auto/,
+    );
   });
 });

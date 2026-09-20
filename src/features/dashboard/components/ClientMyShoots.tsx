@@ -238,7 +238,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
               )}
             </div>
           ) : (
-            <div className="hidden-scrollbar md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1">
+            <div className="hidden-scrollbar flex-1 min-h-0 overflow-y-auto pr-1">
               {activeTab === "completed" && deliveredViewMode === "grid" ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {list.map((record) => {

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronsDown, Filter, List, MoreVertical, X } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
-import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
+import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 export function EditingManagerShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
@@ -442,7 +442,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
         <div ref={filterPanelHostRef} />
 
-        <div className="flex-1 flex flex-col">
+        <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DASHBOARD_MOBILE_LIST_SHELL_CLASS)}>
           {editingManagerPaginatedGroups.length === 0 ? (
             <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
               {activeEditingManagerTab?.emptyStateText || 'No shoots found.'}
