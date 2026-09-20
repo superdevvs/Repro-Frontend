@@ -81,8 +81,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
   return (
     <Card className={cn(
       DASHBOARD_MOBILE_PANEL_CLASS,
-      'relative flex flex-col min-h-0',
-      activeTab === 'requested' ? 'h-auto flex-none' : 'h-full flex-1',
+      'relative flex flex-col min-h-0 overflow-hidden',
+      activeTab === 'requested' ? 'h-full flex-1 lg:h-auto lg:flex-none' : 'h-full flex-1',
     )}>
       {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
       <button

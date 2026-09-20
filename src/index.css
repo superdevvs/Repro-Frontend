@@ -474,13 +474,13 @@ body {
   overflow: hidden !important;
 }
 
-/* Dashboard mobile tabs hug content up to the remaining viewport, then the
-   card lists scroll inside. Radix only emits role="tabpanel"; the data
-   attribute selector is kept for older wrappers. Chrome: navbar 4rem + main
-   pt-1.5 0.375rem + tab pills ~3.25rem + page inset ~1.125rem + main pb-20 5rem. */
+/* Dashboard mobile tabs fill the remaining viewport; lists scroll inside the
+   card. Radix only emits role="tabpanel"; the data attribute is kept for
+   older wrappers. The flex chain from .dashboard-mobile-page is what sizes
+   the panel — do not hug content or invent a dvh max-height. */
 .dashboard-mobile-tabs [data-radix-tabs-content][data-state="active"],
 .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] {
-  flex: 0 1 auto !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
   height: auto !important;
   max-height: none !important;
@@ -488,13 +488,27 @@ body {
 }
 
 @media (max-width: 1024px) {
+  .dashboard-mobile-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dashboard-mobile-page .dashboard-mobile-tabs {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .dashboard-mobile-panel {
     display: flex;
     flex-direction: column;
-    height: auto !important;
-    max-height: calc(100dvh - 13.75rem);
+    height: 100% !important;
+    max-height: none !important;
     overflow: hidden;
-    flex: none !important;
+    flex: 1 1 0% !important;
     min-height: 0;
   }
 }

@@ -35,6 +35,7 @@ import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { formatTimeForDisplay } from "@/utils/availabilityUtils";
+import { cn } from "@/lib/utils";
 
 import { DashboardOnboarding } from "../components/DashboardOnboarding";
 import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
@@ -43,6 +44,7 @@ import { ClientMyShoots } from "../components/ClientMyShoots";
 import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
 import { ClientDeliveryBanner } from "../components/ClientDeliveryBanner";
 import { DASHBOARD_DESCRIPTION } from "../constants";
+import { DASHBOARD_MOBILE_PAGE_CLASS } from "../utils/dashboardMobilePanel";
 import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useClientDashboardMetrics } from "../hooks/useDashboardMetrics";
 import { useClientDeliveryNotifications } from "../hooks/useClientDeliveryNotifications";
@@ -344,12 +346,12 @@ export const ClientDashboardView = ({
   ];
 
   const clientMobileContent = (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       {clientMetricsContent}
       <Tabs
         value={mobileClientTab}
         onValueChange={(val) => onSetMobileClientTab(val as MobileClientDashboardTab)}
-        className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+        className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
       >
         <div
           data-onboarding-target="client-dashboard-mobile-tabs"
@@ -370,8 +372,8 @@ export const ClientDashboardView = ({
           </div>
         </div>
         {clientMobileTabs.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
-            <div className="flex-1 flex flex-col min-h-0 pt-1">
+          <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
               {tab.content}
             </div>
           </TabsContent>
@@ -422,7 +424,7 @@ export const ClientDashboardView = ({
   return (
     <>
       <DashboardLayout>
-        <div className="-mt-3 flex flex-col gap-3 px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:pb-0 max-lg:min-h-0">
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "-mt-3 flex flex-col gap-3 px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6")}>
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}

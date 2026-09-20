@@ -94,9 +94,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
-            <main className={`flex-1 min-w-0 min-h-0 ${isStudioWorkspace ? 'overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
-              <PageTransition className={isStudioWorkspace ? 'flex h-full min-h-0 flex-col' : 'flex flex-col min-h-full'}>
-                <EmailVerificationNotice>{children || <Outlet />}</EmailVerificationNotice>
+            <main className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
+              <PageTransition className={lockCompactDashboard || isStudioWorkspace ? 'flex flex-1 min-h-0 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
+                <EmailVerificationNotice>
+                  {lockCompactDashboard ? (
+                    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
+                  ) : (
+                    children || <Outlet />
+                  )}
+                </EmailVerificationNotice>
               </PageTransition>
               {!shouldHideFooter && (
                 <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_PANEL_CLASS,
   resolveDashboardListMaxHeight,
 } from './dashboardMobilePanel';
@@ -62,7 +63,8 @@ describe('resolveDashboardListMaxHeight', () => {
 });
 
 describe('DASHBOARD_MOBILE_PANEL_CLASS', () => {
-  it('marks tab cards so CSS can cap them to remaining mobile height', () => {
+  it('marks the page and cards so CSS can fill remaining mobile height', () => {
+    expect(DASHBOARD_MOBILE_PAGE_CLASS).toBe('dashboard-mobile-page');
     expect(DASHBOARD_MOBILE_PANEL_CLASS).toBe('dashboard-mobile-panel');
   });
 });

@@ -13,6 +13,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 import type { RoleDashboardLayoutProps } from "../types";
+import { DASHBOARD_MOBILE_PAGE_CLASS } from "../utils/dashboardMobilePanel";
 import { DevProfiler } from "./DevProfiler";
 import { CollapsibleColumnHandle } from "./CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -86,7 +87,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn("p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:p-0 max-lg:min-h-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:p-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
           <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="contents md:block md:flex-1">
               <PageHeader title={title} description={description} hideIntroOnMobile />
@@ -99,13 +100,13 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             // flex gap rather than space-y, and the tiles wrapper mirrors the card's
             // own `hidden sm:flex`: on phones the card is display:none, and space-y
             // still handed the tabs a 16px margin for that empty wrapper.
-            <div className="flex flex-1 flex-col gap-2 sm:gap-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-4">
               {hasMetricTiles ? (
                 <div data-onboarding-target={metricsOnboardingTarget} className="hidden sm:block">
                   <RoleMetricTilesCard tiles={metricTiles} />
                 </div>
               ) : null}
-              <Tabs {...mobileTabsProps} className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs">
+              <Tabs {...mobileTabsProps} className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs">
                 <div
                   className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
                 >
@@ -127,9 +128,9 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 <TabsContent
                   key={tab.id}
                   value={tab.id}
-                  className="focus-visible:outline-none flex-1 flex flex-col min-h-0"
+                  className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden"
                 >
-                  <div className="flex-1 flex flex-col min-h-0 pt-1">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
                     {tab.content}
                   </div>
                 </TabsContent>

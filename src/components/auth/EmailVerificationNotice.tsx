@@ -78,7 +78,7 @@ export function EmailVerificationNotice({ children }: { children: ReactNode }) {
   };
 
   return <>
-    <section aria-label="Email verification" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-slate-900 dark:bg-amber-950 dark:text-slate-100">
+    <section aria-label="Email verification" className="mb-4 shrink-0 rounded-lg border border-amber-300 bg-amber-50 p-4 text-slate-900 dark:bg-amber-950 dark:text-slate-100">
       <h2 className="font-semibold">Verify your email address</h2>
       <p className="mt-1 text-sm">{status.required
         ? 'Confirm your current email address to continue using the dashboard.'
@@ -102,6 +102,8 @@ export function EmailVerificationNotice({ children }: { children: ReactNode }) {
       </form>}
       {feedback && <p role="status" className="mt-2 text-sm">{feedback}</p>}
     </section>
-    {status.required ? (securityOpen ? <ProfileSecurityCard /> : null) : children}
+    {status.required ? (securityOpen ? <ProfileSecurityCard /> : null) : (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+    )}
   </>;
 }

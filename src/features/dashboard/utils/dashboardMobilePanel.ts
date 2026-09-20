@@ -1,3 +1,4 @@
+export const DASHBOARD_MOBILE_PAGE_CLASS = 'dashboard-mobile-page';
 export const DASHBOARD_MOBILE_PANEL_CLASS = 'dashboard-mobile-panel';
 
 export function resolveDashboardListMaxHeight({

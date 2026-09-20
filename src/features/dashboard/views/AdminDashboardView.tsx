@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { DashboardOverview } from "@/types/dashboard";
 
 import { DASHBOARD_DESCRIPTION } from "../constants";
+import { DASHBOARD_MOBILE_PAGE_CLASS } from "../utils/dashboardMobilePanel";
 import type { MobileDashboardTab } from "../types";
 import { CollapsibleColumnHandle } from "../components/CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -189,12 +190,12 @@ export const AdminDashboardView = ({
   const adminMobileContent = (
     // flex gap rather than space-y: the metric tiles are display:none on phones
     // and space-y would still hand the tabs an 8px margin for that hidden card.
-    <div className="flex flex-col gap-2 sm:gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-4">
       <RoleMetricTilesCard tiles={adminMetricTiles} />
       <Tabs
         value={mobileDashboardTab}
         onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
-        className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+        className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
       >
         {/* Sticks flush with the header without clipping. Sticky offsets are
             measured from <main>'s content box, which starts 6px (its pt-1.5)
@@ -220,8 +221,8 @@ export const AdminDashboardView = ({
           </div>
         </div>
         {mobileTabs.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
-            <div className="flex-1 flex flex-col min-h-0 pt-1">
+          <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
               {tab.content}
             </div>
           </TabsContent>
@@ -231,7 +232,7 @@ export const AdminDashboardView = ({
   );
 
   return (
-    <div className="px-2 pt-1.5 pb-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col min-h-full max-lg:min-h-0 max-lg:overflow-hidden gap-2.5 sm:gap-6">
+    <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "flex min-h-full flex-col gap-2.5 px-2 pt-1.5 pb-3 sm:gap-6 sm:px-6 sm:pb-6 sm:pt-0 max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:pb-0")}>
       <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div className="contents md:block md:flex-1">
           <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} hideIntroOnMobile />

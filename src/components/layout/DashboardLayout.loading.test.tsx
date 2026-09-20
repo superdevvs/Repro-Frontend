@@ -93,6 +93,8 @@ describe('dashboard page loading integration', () => {
     );
     expect(container.querySelector('footer')).toBeNull();
     expect(screen.queryByText(/Terms and Conditions/)).not.toBeInTheDocument();
+    expect(container.querySelector('main')?.className).toMatch(/overflow-hidden/);
+    expect(container.querySelector('main')?.className).toMatch(/flex-col/);
   });
 
   it('keeps the footer on compact pages that are not the dashboard', () => {
