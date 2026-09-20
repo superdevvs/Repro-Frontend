@@ -431,6 +431,7 @@ describe('Shoot History mobile chrome', () => {
     const page = container.querySelector('.shoot-history-tabs')
     expect(page?.className).toMatch(/min-h-full/)
     expect(page?.className).toMatch(/\bflex-col\b/)
+    expect(page?.className).toMatch(/flex-1/)
 
     const panel = pagination?.closest('[role="tabpanel"]')
     expect(panel?.className).toMatch(/flex-1/)

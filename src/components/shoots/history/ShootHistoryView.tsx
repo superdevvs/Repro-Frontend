@@ -464,7 +464,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex items-start justify-between gap-3">
         {/* Compact title on phones (no description); full heading on desktop. */}
         <div className="min-w-0 space-y-1">
