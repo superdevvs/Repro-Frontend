@@ -81,4 +81,30 @@ describe('dashboard page loading integration', () => {
     expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '70px' });
     expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
   });
+
+  it('hides the footer on the compact dashboard so tab panels can use the remaining viewport', () => {
+    viewport.mobile = true;
+    const { container } = render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout>
+          <button>Page action</button>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('footer')).toBeNull();
+    expect(screen.queryByText(/Terms and Conditions/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the footer on compact pages that are not the dashboard', () => {
+    viewport.mobile = true;
+    const { container } = render(
+      <MemoryRouter initialEntries={['/shoot-history']}>
+        <DashboardLayout>
+          <button>Page action</button>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('footer')).not.toBeNull();
+    expect(screen.getByText(/Terms and Conditions/)).toBeInTheDocument();
+  });
 });

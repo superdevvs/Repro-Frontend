@@ -422,7 +422,7 @@ export const ClientDashboardView = ({
   return (
     <>
       <DashboardLayout>
-        <div className="-mt-3 flex flex-col gap-3 px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6">
+        <div className="-mt-3 flex flex-col gap-3 px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:pb-0 max-lg:min-h-0">
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}

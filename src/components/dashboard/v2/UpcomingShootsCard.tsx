@@ -28,6 +28,8 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { DASHBOARD_MOBILE_PANEL_CLASS, resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 interface UpcomingShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -260,6 +262,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   // Hide weather for editors (they don't need it)
   const hideWeather = role === 'editor';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
+  const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState<FiltersState>(defaultFilters);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -747,14 +750,16 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     return () => observer.disconnect();
   }, [paginatedGroups]);
 
-  // ~5.5 cards tall: 5 full + half of 6th, plus gaps (space-y-3 = 12px between
-  // cards in a group) and a small allowance for the first group label.
-  const listMaxHeight = useMemo(() => {
-    if (shootCardHeight <= 0) return 'calc(100vh - 14rem)';
-    const inGroupGap = 12; // space-y-3
-    const labelAllowance = 40; // first group label + top spacing
-    return `${Math.ceil(shootCardHeight * 5.5 + inGroupGap * 5 + labelAllowance)}px`;
-  }, [shootCardHeight]);
+  const listMaxHeight = useMemo(
+    () =>
+      resolveDashboardListMaxHeight({
+        compactViewport: isCompactDashboardViewport,
+        itemHeight: shootCardHeight,
+        visibleCount: 5.5,
+        unmeasuredFallback: 'calc(100vh - 14rem)',
+      }),
+    [isCompactDashboardViewport, shootCardHeight],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -815,7 +820,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   };
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, 'flex flex-col h-full min-h-0')}>
       <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
         <div>
           <h2 className="text-lg font-bold text-foreground">{displayTitle}</h2>
@@ -1144,8 +1149,8 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
-          style={{ maxHeight: listMaxHeight }}
+          className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+          style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         >
           {paginatedGroups.map((group) => (
             <div key={group.label} className="space-y-3">

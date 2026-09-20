@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { CalendarDays, CalendarPlus, Download, Ghost, Image as ImageIcon, Inbox, LayoutGrid, List } from "lucide-react";
 
 import { Card } from "@/components/dashboard/v2/SharedComponents";
+import { DASHBOARD_MOBILE_PANEL_CLASS } from "@/features/dashboard/utils/dashboardMobilePanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -138,7 +139,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
 
   return (
     <DevProfiler id="ClientMyShoots">
-      <Card className="flex h-full flex-1 min-h-0 flex-col overflow-hidden">
+      <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex h-full flex-1 min-h-0 flex-col overflow-hidden")}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-4">
             <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>

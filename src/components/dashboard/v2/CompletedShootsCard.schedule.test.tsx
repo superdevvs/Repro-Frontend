@@ -20,6 +20,11 @@ const shoot = (overrides: Partial<DashboardShootSummary> = {}): DashboardShootSu
 } as DashboardShootSummary);
 
 describe('delivered shoot appointment label', () => {
+  it('marks the card as a mobile-height panel so long lists scroll inside', () => {
+    const { container } = render(<CompletedShootsCard shoots={[shoot()]} />);
+    expect(container.querySelector('.dashboard-mobile-panel')).not.toBeNull();
+  });
+
   it.each(['America/New_York', 'America/Los_Angeles', 'Asia/Kolkata', 'UTC'])(
     'renders the booked 10 AM time in %s',
     (timezone) => {

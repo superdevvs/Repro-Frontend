@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronsDown, Filter, List, MoreVertical, X } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
+import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 export function EditingManagerShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
@@ -71,7 +72,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
   );
 
     return (
-      <Card className="flex flex-col h-full flex-1 relative">
+      <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col h-full flex-1 relative min-h-0")}>
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
           className="sm:hidden absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors text-muted-foreground"
@@ -450,8 +451,8 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
-              style={{ maxHeight: listMaxHeight }}
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+              style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">

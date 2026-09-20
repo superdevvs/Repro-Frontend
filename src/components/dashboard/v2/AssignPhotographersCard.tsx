@@ -5,6 +5,8 @@ import { DashboardPhotographerSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn, getInitials } from '@/lib/utils';
 import { usePhotographerAssignment } from '@/context/PhotographerAssignmentContext';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { DASHBOARD_MOBILE_PANEL_CLASS, resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 interface AvailabilityWindow {
   date: string;
@@ -101,6 +103,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   const sectionGutter = 'px-3 sm:px-5';
   const listGutter = 'px-0.5 sm:px-3';
   const [tab, setTab] = useState<Tab>('available');
+  const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');
   const availabilitySet = useMemo(() => new Set(availablePhotographerIds), [availablePhotographerIds]);
@@ -179,12 +182,17 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState<number>(0);
 
-  const listMaxHeight = useMemo(() => {
-    if (rowHeight <= 0) return undefined;
-    const rowGap = 8; // space-y-2 between rows
-    const verticalPadding = 24; // py-3 sm:py-4 approx
-    return `${Math.ceil(rowHeight * 8 + rowGap * 7 + verticalPadding)}px`;
-  }, [rowHeight]);
+  const listMaxHeight = useMemo(
+    () =>
+      resolveDashboardListMaxHeight({
+        compactViewport: isCompactDashboardViewport,
+        itemHeight: rowHeight,
+        visibleCount: 8,
+        gapPx: 8,
+        extraPx: 24,
+      }),
+    [isCompactDashboardViewport, rowHeight],
+  );
 
   const filteredPhotographers = useMemo(() => {
     if (!Array.isArray(photographers) || photographers.length === 0) return [];
@@ -274,7 +282,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
           }
         }
       `}</style>
-      <Card className="p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0">
+      <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0")}>
       <div className={cn(sectionGutter, "py-3 sm:py-5 border-b border-border/60 space-y-2 sm:space-y-3")}>
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
@@ -314,7 +322,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         )}
       >
         {filteredPhotographers.length === 0 ? (
-          <div className="w-full text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
+          <div className="w-full text-center text-sm text-slate-500">
             No photographers match this filter.
           </div>
         ) : (

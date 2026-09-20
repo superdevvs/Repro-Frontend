@@ -47,8 +47,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   // phone the header already separates content from the chrome, and every page
   // adds its own top padding, so the old 12px doubled up into a visible gap.
   const contentPadding = useCompactShell ? (isStudioWorkspace ? 'p-0 pb-20' : 'px-3 pt-1.5 pb-20') : 'p-3';
+  const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const shouldHideFooter =
-    hideFooter || location.pathname === '/ai-editing' ||
+    hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms';
   

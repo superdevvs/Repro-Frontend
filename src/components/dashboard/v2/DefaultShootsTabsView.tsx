@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronsDown, Filter, List, MoreVertical, X } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
+import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
@@ -79,7 +80,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
 
   return (
     <Card className={cn(
-      'relative flex flex-col',
+      DASHBOARD_MOBILE_PANEL_CLASS,
+      'relative flex flex-col min-h-0',
       activeTab === 'requested' ? 'h-auto flex-none' : 'h-full flex-1',
     )}>
       {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
@@ -539,8 +541,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
-              style={{ maxHeight: listMaxHeight }}
+              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar"
+              style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
               <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
                 {renderStickyCompactToggle()}
@@ -581,13 +583,13 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           )
         ) : (
           filteredRequestedShoots.length === 0 ? (
-            <div className="min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
+            <div className="min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
               No pending requests.
             </div>
           ) : (
             <div 
-              className="overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
-              style={{ maxHeight: listMaxHeight }}
+              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar"
+              style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
               <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
                 {renderStickyCompactToggle()}

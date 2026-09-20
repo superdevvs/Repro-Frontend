@@ -14,6 +14,8 @@ import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
 import {
   DATE_RANGE_OPTIONS,
   SERVICE_ICON_MAP,
@@ -48,6 +50,7 @@ export function useShootsTabsCardController({
   const showAssignmentFilters = canFilterByPhotographer(role);
   const isEditingManagerMode = mode === 'editing_manager' && customTabs.length > 0;
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
+  const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
   const [activeTab, setActiveTab] = useState<TabType>(() =>
     isEditingManagerMode ? customTabs[0]?.id || 'upcoming' : 'upcoming'
   );
@@ -419,12 +422,15 @@ export function useShootsTabsCardController({
   }, [paginatedGroups, editingManagerPaginatedGroups, activeTab]);
   // ~7.5 cards tall: 7 full + half of 8th, plus gaps (space-y-3 between cards
   // in a group) and a small allowance for the first group label.
-  const listMaxHeight = useMemo(() => {
-    if (shootCardHeight <= 0) return undefined;
-    const inGroupGap = 12; // space-y-3
-    const labelAllowance = 40; // first group label + top spacing
-    return `${Math.ceil(shootCardHeight * 7.5 + inGroupGap * 7 + labelAllowance)}px`;
-  }, [shootCardHeight]);
+  const listMaxHeight = useMemo(
+    () =>
+      resolveDashboardListMaxHeight({
+        compactViewport: isCompactDashboardViewport,
+        itemHeight: shootCardHeight,
+        visibleCount: 7.5,
+      }),
+    [isCompactDashboardViewport, shootCardHeight],
+  );
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();

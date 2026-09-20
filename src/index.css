@@ -474,12 +474,29 @@ body {
   overflow: hidden !important;
 }
 
-/* Dashboard mobile tabs should fill remaining height (scoped override) */
-.dashboard-mobile-tabs [data-radix-tabs-content][data-state="active"] {
-  flex: 1 1 0% !important;
+/* Dashboard mobile tabs hug content up to the remaining viewport, then the
+   card lists scroll inside. Radix only emits role="tabpanel"; the data
+   attribute selector is kept for older wrappers. Chrome: navbar 4rem + main
+   pt-1.5 0.375rem + tab pills ~3.25rem + page inset ~1.125rem + main pb-20 5rem. */
+.dashboard-mobile-tabs [data-radix-tabs-content][data-state="active"],
+.dashboard-mobile-tabs [role="tabpanel"][data-state="active"] {
+  flex: 0 1 auto !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: auto !important;
+  max-height: none !important;
   overflow: hidden !important;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-mobile-panel {
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+    max-height: calc(100dvh - 13.75rem);
+    overflow: hidden;
+    flex: none !important;
+    min-height: 0;
+  }
 }
 
 /* Mobile auth register tab should fill the card and scroll within the frame */
