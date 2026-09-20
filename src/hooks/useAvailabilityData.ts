@@ -4,6 +4,10 @@ import API_ROUTES from "@/lib/api";
 import { API_BASE_URL } from "@/config/env";
 import type { BackendSlot, Photographer } from "@/types/availability";
 import { mapBackendSlots } from "@/lib/availability/utils";
+import {
+  resolveSelectedPhotographer,
+  scopePhotographersForViewer,
+} from "@/lib/availability/photographerScope";
 
 type ApiRoutesWithPeople = typeof API_ROUTES & {
   people?: {
@@ -30,6 +34,7 @@ interface UseAvailabilityDataOptions {
   viewMode: ViewMode;
   role: string | null | undefined;
   userId: number | string | undefined;
+  viewerName?: string | null;
   isPhotographer: boolean;
   canManagePhotographerSelection: boolean;
   availabilitySessionScope: string;
@@ -42,6 +47,7 @@ export function useAvailabilityData({
   date,
   viewMode,
   userId,
+  viewerName,
   isPhotographer,
   canManagePhotographerSelection,
   availabilitySessionScope,
@@ -80,7 +86,7 @@ export function useAvailabilityData({
     setAllBackendSlots([]);
     setLoading(false);
     setLoadingPhotographers(true);
-    setSelectedPhotographer(isPhotographer && userId ? String(userId) : "all");
+    setSelectedPhotographer(resolveSelectedPhotographer("all", { isPhotographer, userId }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availabilitySessionScope, isPhotographer, userId]);
 
@@ -125,7 +131,7 @@ export function useAvailabilityData({
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       if (selectedPhotographer === 'all') {
-        if (!photographers || photographers.length === 0) {
+        if (isPhotographer || !photographers || photographers.length === 0) {
           setAllBackendSlots([]);
           setBackendSlots([]);
           return;
@@ -269,7 +275,7 @@ export function useAvailabilityData({
     } finally {
       setLoading(false);
     }
-  }, [selectedPhotographer, photographers, date, viewMode]);
+  }, [selectedPhotographer, photographers, date, viewMode, isPhotographer]);
 
   // Listen for availability updates from other components.
   // refreshPhotographerSlots is intentionally excluded: its identity changes on
@@ -307,7 +313,7 @@ export function useAvailabilityData({
         try {
           const list = JSON.parse(cachedPhotographers);
           if (Array.isArray(list) && list.length > 0) {
-            setPhotographers(list);
+            setPhotographers(scopePhotographersForViewer(list, { isPhotographer, userId, name: viewerName }));
             setLoadingPhotographers(false);
             return;
           }
@@ -369,7 +375,8 @@ export function useAvailabilityData({
           }
         }
 
-        setPhotographers(list);
+        const scoped = scopePhotographersForViewer(list, { isPhotographer, userId, name: viewerName });
+        setPhotographers(scoped);
         if (list.length > 0) {
           sessionStorage.setItem(photographersCacheKey, JSON.stringify(list));
           sessionStorage.setItem(photographersCacheTimeKey, String(Date.now()));
@@ -382,13 +389,14 @@ export function useAvailabilityData({
     };
 
     loadPhotographers();
-  }, [photographersCacheKey, photographersCacheTimeKey]);
+  }, [isPhotographer, photographersCacheKey, photographersCacheTimeKey, userId, viewerName]);
 
-  // Auto-select the logged-in photographer as the default scope.
-  // setSelectedPhotographer is stable from the parent; omitted intentionally.
+  // Photographers can only manage their own calendar. Re-pin if the UI tries
+  // to switch to "all" or another teammate (the compact picker used to allow that).
   useEffect(() => {
-    if (isPhotographer && userId && selectedPhotographer === "all") {
-      setSelectedPhotographer(String(userId));
+    const scoped = resolveSelectedPhotographer(selectedPhotographer, { isPhotographer, userId });
+    if (scoped !== selectedPhotographer) {
+      setSelectedPhotographer(scoped);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPhotographer, userId, selectedPhotographer]);

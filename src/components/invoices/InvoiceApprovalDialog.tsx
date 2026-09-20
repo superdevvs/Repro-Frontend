@@ -456,8 +456,8 @@ export function InvoiceApprovalDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+      <DialogContent className="flex h-[92dvh] max-h-[92dvh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:w-full">
+        <DialogHeader className="shrink-0 px-4 pt-5 pb-3 border-b border-border sm:px-6 sm:pt-6 sm:pb-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <DialogTitle className="text-xl font-semibold">Photographer Invoice</DialogTitle>
@@ -473,15 +473,15 @@ export function InvoiceApprovalDialog({
           </div>
         </DialogHeader>
 
-        <div className="p-6 space-y-8 bg-background">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-6 bg-background sm:p-6 sm:space-y-8">
           {mode === 'photographer' && !photographerCanEdit && editLockedReason ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
               {editLockedReason}
             </div>
           ) : null}
           {/* Top header: photographer info + INVOICE eyebrow */}
-          <div className="flex items-start justify-between gap-6">
-            <div className="flex items-start gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <div className="flex items-start gap-3 sm:gap-4">
               <div className="shrink-0 pt-0.5">
                 <Logo className="h-9 w-auto" />
               </div>
@@ -492,7 +492,7 @@ export function InvoiceApprovalDialog({
                 </div>
               </div>
             </div>
-            <div className="text-right space-y-1">
+            <div className="space-y-1 sm:text-right">
               <div className="text-xs font-semibold tracking-widest text-violet-600 dark:text-violet-400">INVOICE</div>
               {invoiceNumber ? (
                 <div>
@@ -529,7 +529,114 @@ export function InvoiceApprovalDialog({
 
           {/* Items table */}
           <div className="border-t border-b border-border">
-            <table className="w-full">
+            <div className="md:hidden divide-y divide-border">
+              {items.length === 0 ? (
+                <p className="px-1 py-8 text-center text-sm text-muted-foreground">
+                  No items on this invoice yet.
+                </p>
+              ) : (
+                items.map((item) => {
+                  const isEditing = editingItemId === item.id;
+                  const isCharge = item.type === 'charge';
+                  const displayAmount = resolveAmount(item);
+                  const quantity = item.quantity ?? 1;
+                  const displayRate = quantity > 0 ? displayAmount / quantity : displayAmount;
+                  return (
+                    <div key={`mobile-${item.id}`} className="space-y-3 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">{renderShootCell(item)}</div>
+                        <p className="shrink-0 text-sm font-semibold tabular-nums">{formatCurrency(displayAmount)}</p>
+                      </div>
+                      {isEditing ? (
+                        <div className="grid gap-2">
+                          <Input
+                            value={editDraft.description}
+                            onChange={(event) => setEditDraft((draft) => ({ ...draft, description: event.target.value }))}
+                            className="h-9"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editDraft.amount}
+                              onChange={(event) => setEditDraft((draft) => ({ ...draft, amount: event.target.value }))}
+                              className="h-9"
+                            />
+                            <Input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={editDraft.quantity}
+                              onChange={(event) => setEditDraft((draft) => ({ ...draft, quantity: event.target.value }))}
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{item.description || 'Service'}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatCurrency(displayRate)} × {quantity}
+                          </p>
+                        </div>
+                      )}
+                      {photographerCanEdit ? (
+                        <div className="flex items-center justify-end gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 bg-violet-600 hover:bg-violet-700 text-white"
+                                onClick={() => handleSaveEdit(item)}
+                                disabled={busyAction === 'edit'}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8"
+                                onClick={handleCancelEdit}
+                                disabled={busyAction === 'edit'}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40"
+                                onClick={() => handleStartEdit(item)}
+                                disabled={busyAction === 'edit'}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                                onClick={() => (isCharge ? handleRemoveCharge(item) : handleRemoveExpense(item))}
+                                disabled={busyAction === 'edit'}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <table className="hidden w-full md:table">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-4 text-xs font-bold text-foreground uppercase tracking-wider w-[34%]">Date &amp; Address of Shoot</th>
@@ -726,7 +833,7 @@ export function InvoiceApprovalDialog({
                       type="button"
                       onClick={handleAddCharge}
                       disabled={busyAction === 'edit'}
-                      className="bg-violet-600 hover:bg-violet-700 text-white"
+                      className="w-full bg-violet-600 hover:bg-violet-700 text-white md:w-auto"
                     >
                       {busyAction === 'edit' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                       Add Service
@@ -771,6 +878,7 @@ export function InvoiceApprovalDialog({
                       variant="secondary"
                       onClick={handleAddExpense}
                       disabled={busyAction === 'edit'}
+                      className="w-full md:w-auto"
                     >
                       {busyAction === 'edit' ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                       Add Expense
@@ -783,7 +891,7 @@ export function InvoiceApprovalDialog({
 
           {/* Summary */}
           <div className="flex justify-end">
-            <div className="w-80 space-y-2">
+            <div className="w-full space-y-2 sm:w-80">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium text-foreground">{formatCurrency(subtotal)}</span>
@@ -857,7 +965,7 @@ export function InvoiceApprovalDialog({
 
         {/* Sticky footer actions */}
         {photographerCanReview || adminCanReview ? (
-          <div className="sticky bottom-0 left-0 right-0 border-t border-border bg-background px-6 py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="shrink-0 border-t border-border bg-background px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:py-4">
             <Button
               type="button"
               variant="outline"

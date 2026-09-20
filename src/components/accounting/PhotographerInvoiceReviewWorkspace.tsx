@@ -507,20 +507,20 @@ export function PhotographerInvoiceReviewWorkspace({
       </div>
 
       <TabsContent value="review-queue" className="mt-0 flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4 xl:gap-3">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
             return (
-              <Card key={card.label} className="border-border/70 bg-card/80 shadow-sm">
-                <CardContent className="flex items-start justify-between gap-3 px-4 py-4">
+              <Card key={card.label} className="border-border/70 bg-card/80 shadow-none sm:shadow-sm">
+                <CardContent className="flex items-start justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
                   <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-[11px]">
                       {card.label}
                     </div>
-                    <div className="mt-2 text-2xl font-semibold">{card.value}</div>
+                    <div className="mt-1 truncate text-lg font-semibold sm:mt-2 sm:text-2xl">{card.value}</div>
                   </div>
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25">
+                  <div className="hidden size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25 sm:flex">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </CardContent>
@@ -579,23 +579,25 @@ export function PhotographerInvoiceReviewWorkspace({
             </div>
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 p-1.5">
-                {STATUS_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setStatusFilter(option.value)}
-                    aria-pressed={statusFilter === option.value}
-                    className={cn(
-                      'rounded-xl px-4 py-2 text-sm font-medium whitespace-nowrap transition-all',
-                      statusFilter === option.value
-                        ? 'bg-background text-foreground shadow-sm ring-1 ring-border/60'
-                        : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+              <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="inline-flex min-w-max items-center gap-1.5 rounded-2xl border border-border/70 bg-muted/20 p-1.5">
+                  {STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setStatusFilter(option.value)}
+                      aria-pressed={statusFilter === option.value}
+                      className={cn(
+                        'rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all sm:px-4 sm:py-2 sm:text-sm',
+                        statusFilter === option.value
+                          ? 'bg-background text-foreground shadow-sm ring-1 ring-border/60'
+                          : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="text-sm text-muted-foreground">
@@ -669,17 +671,17 @@ export function PhotographerInvoiceReviewWorkspace({
                         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
                         <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Total</div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
                           <div className="mt-1 font-semibold">{formatCurrency(invoice.total_amount)}</div>
                         </div>
                         <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shoots</div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Shoots</div>
                           <div className="mt-1 font-semibold">{invoice.shoot_count || 0}</div>
                         </div>
                         <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Expenses</div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Expenses</div>
                           <div className="mt-1 font-semibold">{invoice.expense_count || 0}</div>
                         </div>
                       </div>

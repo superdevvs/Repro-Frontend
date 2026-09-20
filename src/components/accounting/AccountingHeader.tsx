@@ -63,6 +63,7 @@ export function AccountingHeader({
         title={title}
         description={description}
         icon={BarChart3Icon}
+        compactTitleOnMobile
         action={
           showActionControls ? (
             <div className="flex items-center gap-2">
@@ -209,12 +210,12 @@ export function AccountingHeader({
       />
 
       {showTabs && onTabChange && (
-        <div className="flex items-center justify-between gap-4 overflow-x-auto pb-1">
+        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="inline-flex min-w-max items-center rounded-lg border bg-muted/30 p-1">
             <button
               type="button"
               onClick={() => onTabChange('home')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
                 activeTab === 'home'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -225,7 +226,7 @@ export function AccountingHeader({
             <button
               type="button"
               onClick={() => onTabChange('photographers')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
                 activeTab === 'photographers'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -236,7 +237,7 @@ export function AccountingHeader({
             <button
               type="button"
               onClick={() => onTabChange('editors')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
                 activeTab === 'editors'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -247,7 +248,7 @@ export function AccountingHeader({
             <button
               type="button"
               onClick={() => onTabChange('sales-reps')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
                 activeTab === 'sales-reps'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -259,7 +260,7 @@ export function AccountingHeader({
             <button
               type="button"
               onClick={() => onTabChange('equipments')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
                 activeTab === 'equipments'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'

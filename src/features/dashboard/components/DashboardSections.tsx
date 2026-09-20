@@ -346,21 +346,26 @@ export const useDashboardSections = ({
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
         </h2>
-        <div className="flex gap-1">
-          {pipelineFilterButtons.map((btn) => (
-            <button
-              key={btn.key}
-              onClick={() => setPipelineFilter(btn.key)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium transition-all border-b-2",
-                pipelineFilter === btn.key
-                  ? "text-foreground border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground",
-              )}
-            >
-              {btn.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Delivered
+          </span>
+          <div className="flex gap-1">
+            {pipelineFilterButtons.map((btn) => (
+              <button
+                key={btn.key}
+                onClick={() => setPipelineFilter(btn.key)}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium transition-all border-b-2",
+                  pipelineFilter === btn.key
+                    ? "text-foreground border-primary"
+                    : "text-muted-foreground border-transparent hover:text-foreground",
+                )}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <ErrorBoundary

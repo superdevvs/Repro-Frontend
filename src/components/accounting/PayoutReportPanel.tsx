@@ -19,7 +19,9 @@ import {
   downloadPayoutReport,
   sendPayoutReport,
 } from '@/services/invoiceService';
+import { cn } from '@/lib/utils';
 import { normalizeReportingWeekRange } from '@/utils/reportingWeek';
+import { shouldShowPayoutGroup } from '@/components/accounting/payoutReportDisplay';
 
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -169,8 +171,8 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
       {/* Header with Date Filters - Combined */}
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-1">
-          <h2 className="text-base font-semibold sm:text-lg flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+          <h2 className="flex items-center gap-2 text-sm font-semibold sm:text-lg">
+            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
             {title}
           </h2>
           {report?.period && (
@@ -224,63 +226,81 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
         </div>
       </div>
 
-      {/* Summary Cards */}
       {report && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Camera className="w-4 h-4" />
-                Photographers
-              </div>
-              <p className="text-2xl font-bold mt-1">{report.totals.photographer_count}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="w-4 h-4" />
-                Photographer Payouts
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatCurrency(report.totals.photographer_total)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="w-4 h-4" />
-                Editors
-              </div>
-              <p className="text-2xl font-bold mt-1">{report.totals.editor_count}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="w-4 h-4" />
-                Editor Earnings
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatCurrency(report.totals.editor_total)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Briefcase className="w-4 h-4" />
-                Sales Reps
-              </div>
-              <p className="text-2xl font-bold mt-1">{report.totals.sales_rep_count}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="w-4 h-4" />
-                Sales Rep Commissions
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatCurrency(report.totals.sales_rep_commission_total)}</p>
-            </CardContent>
-          </Card>
+        <div className={cn(
+          'grid gap-2 sm:gap-3',
+          shouldShowPayoutGroup(role, 'photographer')
+            && shouldShowPayoutGroup(role, 'editor')
+            && shouldShowPayoutGroup(role, 'salesRep')
+            ? 'grid-cols-2 xl:grid-cols-6'
+            : 'grid-cols-2',
+        )}>
+          {shouldShowPayoutGroup(role, 'photographer') ? (
+            <>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Photographers
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.photographer_count}</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Payouts
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.photographer_total)}</p>
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
+          {shouldShowPayoutGroup(role, 'editor') ? (
+            <>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Editors
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.editor_count}</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Editor pay
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.editor_total)}</p>
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
+          {shouldShowPayoutGroup(role, 'salesRep') ? (
+            <>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <Briefcase className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Sales reps
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.sales_rep_count}</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-3 sm:pt-4">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
+                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Commissions
+                  </div>
+                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.sales_rep_commission_total)}</p>
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
         </div>
       )}
 
@@ -529,8 +549,8 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
       {report && report.photographers.length === 0 && report.editors.length === 0 && report.sales_reps.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">No Payouts for This Period</h3>
+            <Users className="mb-4 h-10 w-10 text-muted-foreground" />
+            <h3 className="text-base font-semibold sm:text-lg">No Payouts for This Period</h3>
             <p className="text-muted-foreground text-sm mt-1">
               No completed shoots found for the selected period.
             </p>

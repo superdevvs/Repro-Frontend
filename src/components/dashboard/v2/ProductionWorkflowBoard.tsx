@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
-import { formatDashboardShootSchedule, getDashboardShootDisplayDate } from '@/utils/dashboardShootSchedule';
-import { format, startOfDay, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { EmptyState } from '@/components/ui/empty-state';
+import React from 'react';
+import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
+import { format } from 'date-fns';
 import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
-
-type PipelineFilter = 'today' | 'this_week' | 'month';
+import { filterPipelineColumnShoots, type PipelineFilter } from '@/features/dashboard/pipelineWorkflow';
 
 interface ProductionWorkflowBoardProps {
   workflow: DashboardWorkflow | null;
@@ -80,34 +80,6 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
     );
   }
 
-  // Filter shoots based on selected date range
-  const filterShootsByDate = (shoots: DashboardShootSummary[]): DashboardShootSummary[] => {
-    const now = new Date();
-    const today = startOfDay(now);
-    
-    return shoots.filter((shoot) => {
-      const shootDate = getDashboardShootDisplayDate(shoot);
-      if (!shootDate) return true;
-      
-      switch (filter) {
-        case 'today':
-          return startOfDay(shootDate).getTime() === today.getTime();
-        case 'this_week': {
-          const weekStart = startOfWeek(now, { weekStartsOn: 0 });
-          const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
-          return shootDate >= weekStart && shootDate <= weekEnd;
-        }
-        case 'month': {
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-          return shootDate >= monthStart && shootDate <= monthEnd;
-        }
-        default:
-          return true;
-      }
-    });
-  };
-
   // Include all columns - booked is renamed to "Scheduled" in the display
   const visibleColumns = workflow.columns.filter((column) => column);
 
@@ -117,7 +89,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
       {visibleColumns.map(column => {
         const safeShoots = Array.isArray(column.shoots) ? column.shoots : [];
         const columnKey = column.key || 'unknown';
-        const filteredShoots = filterShootsByDate(safeShoots);
+        const filteredShoots = filterPipelineColumnShoots(safeShoots, columnKey, filter);
         const count = filteredShoots.length;
         const columnLabel = column.label || columnKey;
         const columnAccent = column.accent || '#6b7280';
@@ -202,9 +174,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
             );
             })}
             {filteredShoots.length === 0 && (
-              <div className="text-center text-xs text-slate-400 dark:text-slate-600/80 py-4 border border-dashed border-slate-200/60 dark:border-slate-800/30 rounded-2xl flex items-center justify-center min-h-[180px]">
-                Empty
-              </div>
+              <EmptyState icon="clear" title="No shoots in this stage" description="Work will appear here as shoots move forward." size="compact" className="min-h-[180px] rounded-2xl border border-dashed border-border" />
             )}
           </div>
         </div>

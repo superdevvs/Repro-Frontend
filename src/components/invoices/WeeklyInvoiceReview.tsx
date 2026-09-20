@@ -486,7 +486,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
       />
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/60 bg-card/50 p-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/60 bg-card/50 p-3 sm:grid-cols-3 sm:gap-4 sm:p-4 lg:grid-cols-5">
         {[
           {
             icon: <FileText className="h-5 w-5" />,
@@ -519,8 +519,8 @@ export const WeeklyInvoiceReview: React.FC = () => {
             iconBg: 'bg-amber-500/10 text-amber-500',
           },
         ].map((stat) => (
-          <div key={stat.label} className="flex items-center gap-3">
-            <div className={cn('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg', stat.iconBg)}>
+          <div key={stat.label} className="flex items-center gap-2 sm:gap-3">
+            <div className={cn('hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg sm:flex', stat.iconBg)}>
               {stat.icon}
             </div>
             <div className="min-w-0">
@@ -586,9 +586,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
                         <span className="truncate">{statusCfg.label} · {subLabel}</span>
                       </div>
                     </div>
-                    <div className="flex flex-shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       <p className="text-sm font-semibold tabular-nums">{formatCurrency(itemTotal)}</p>
-                      <ChevronRight className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                      <ChevronRight className={cn('hidden h-4 w-4 sm:block', isActive ? 'text-primary' : 'text-muted-foreground')} />
                     </div>
                   </button>
                 </div>
@@ -655,15 +655,16 @@ export const WeeklyInvoiceReview: React.FC = () => {
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{reviewCopy.cardDescription}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                 {canReview(detailInvoice) && (
-                  <Button size="sm" onClick={() => openReviewDialog(detailInvoice)}>
+                  <Button size="sm" className="w-full sm:w-auto" onClick={() => openReviewDialog(detailInvoice)}>
                     {detailInvoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response'}
                     <ChevronRight className="ml-1 h-3.5 w-3.5" />
                   </Button>
                 )}
                 <Button
                   size="sm"
+                  className="w-full sm:w-auto"
                   variant={expandedInvoiceId === detailInvoice.id ? 'default' : 'outline'}
                   onClick={() => setExpandedInvoiceId(expandedInvoiceId === detailInvoice.id ? null : detailInvoice.id)}
                 >
@@ -709,7 +710,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', tile.iconBg)}>
                     {tile.icon}
                   </div>
-                  <p className="mt-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">{tile.label}</p>
+                  <p className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">{tile.label}</p>
                   <p className="mt-1 text-lg font-semibold tabular-nums">{tile.value}</p>
                   {'subtitle' in tile && tile.subtitle && (
                     <p className="mt-0.5 text-xs text-muted-foreground">{tile.subtitle}</p>
@@ -778,11 +779,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
                 </div>
               </div>
               {canReview(detailInvoice) && (
-                <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:flex-shrink-0">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                    className="w-full border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40 sm:w-auto"
                     onClick={() => openReviewDialog(detailInvoice)}
                   >
                     <ReceiptText className="h-3.5 w-3.5 mr-1.5" />
@@ -790,7 +791,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-violet-600 hover:bg-violet-700 text-white"
+                    className="w-full bg-violet-600 hover:bg-violet-700 text-white sm:w-auto"
                     onClick={() => openReviewDialog(detailInvoice)}
                   >
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" />

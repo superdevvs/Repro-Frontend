@@ -3,18 +3,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import type { useToast } from "@/hooks/use-toast";
 import type { DashboardShootSummary, DashboardWorkflow } from "@/types/dashboard";
-import {
-  DELIVERED_STATUS_KEYWORDS,
-  matchesStatus,
-} from "@/utils/dashboardDerivedUtils";
 import { getAuthToken } from "@/utils/authToken";
 
+import { buildPipelineWorkflow, type PipelineFilter } from "../pipelineWorkflow";
 import { WORKFLOW_SEQUENCE } from "../constants";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
 
 interface UseWorkflowPipelineParams {
   accessToken?: string | null;
+  allSummaries?: DashboardShootSummary[];
   refresh: () => void | Promise<void>;
   toast: ToastFn;
   workflow?: DashboardWorkflow | null;
@@ -22,32 +20,34 @@ interface UseWorkflowPipelineParams {
 
 export const useWorkflowPipeline = ({
   accessToken,
+  allSummaries = [],
   refresh,
   toast,
   workflow,
 }: UseWorkflowPipelineParams) => {
-  const [pipelineFilter, setPipelineFilter] = useState<"today" | "this_week" | "month">(
-    "this_week",
+  const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>("this_week");
+
+  const filteredWorkflow = useMemo(
+    () => buildPipelineWorkflow(workflow, allSummaries),
+    [allSummaries, workflow],
   );
 
-  // Delivered shoots - filter for ready_for_client, delivered, admin_verified statuses
+  // Latest ready/delivered jobs for the side card — not constrained by the pipeline date chips.
   const deliveredShoots = useMemo(() => {
-    if (!workflow || !Array.isArray(workflow.columns)) return [];
-    return workflow.columns
+    if (!filteredWorkflow || !Array.isArray(filteredWorkflow.columns)) return [];
+    return filteredWorkflow.columns
       .filter((column) => {
         const key = column.key.toLowerCase();
-        // Focus on delivered/ready statuses only
         return key.includes("ready") || key.includes("deliver") || key.includes("verified");
       })
       .flatMap((column) => (Array.isArray(column.shoots) ? column.shoots : []))
       .sort((a, b) => {
-        // Sort by most recent first
         const aTime = a.startTime ? new Date(a.startTime).getTime() : 0;
         const bTime = b.startTime ? new Date(b.startTime).getTime() : 0;
         return bTime - aTime;
       })
       .slice(0, 6);
-  }, [workflow]);
+  }, [filteredWorkflow]);
 
   const handleAdvanceStage = useCallback(
     async (shoot: DashboardShootSummary) => {
@@ -160,32 +160,6 @@ export const useWorkflowPipeline = ({
     window.addEventListener("pipeline:move-back", handler as EventListener);
     return () => window.removeEventListener("pipeline:move-back", handler as EventListener);
   }, [handleMoveBack]);
-
-  // Only strip delivered shoots from non-delivered columns.
-  // The 'ready' column IS the delivered/ready column and must keep its shoots.
-  const filteredWorkflow = useMemo(() => {
-    if (!workflow || !Array.isArray(workflow.columns)) return null;
-
-    const columns = workflow.columns.map((column) => {
-      const shoots = Array.isArray(column.shoots) ? column.shoots : [];
-      const colKey = (column.key || "").toLowerCase();
-
-      // The 'ready' column is the delivered column - don't strip its shoots
-      const isDeliveredColumn = colKey === "ready" || colKey === "delivered";
-
-      const filteredShoots = isDeliveredColumn
-        ? shoots
-        : shoots.filter((shoot) => !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS));
-
-      return {
-        ...column,
-        shoots: filteredShoots,
-        count: filteredShoots.length,
-      };
-    });
-
-    return { columns };
-  }, [workflow]);
 
   return {
     deliveredShoots,

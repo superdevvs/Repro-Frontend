@@ -2,7 +2,15 @@
  * Service pricing utilities for sqft-based variable pricing
  */
 
-export type SqftRange = {
+export type PhotographerPayType = 'fixed' | 'percent';
+
+type PaySource = {
+  photographer_pay?: number | string | null;
+  photographer_pay_type?: PhotographerPayType | string | null;
+  photographer_pay_percent?: number | string | null;
+};
+
+export type SqftRange = PaySource & {
   id?: number;
   sqft_from: number;
   sqft_to: number;
@@ -12,7 +20,7 @@ export type SqftRange = {
   photo_count?: number | null;
 };
 
-export type ServiceWithPricing = {
+export type ServiceWithPricing = PaySource & {
   id: string | number;
   name: string;
   price: number | string;
@@ -56,22 +64,41 @@ export function calculateServicePrice(service: ServiceWithPricing, sqft: number 
   return range ? Number(range.price) || basePrice || 0 : basePrice || 0;
 }
 
+const toFiniteNumber = (value: unknown): number | null => {
+  if (value == null || value === '') return null;
+  const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const resolvePayFrom = (source: PaySource, price: number): number | null => {
+  if ((source.photographer_pay_type ?? 'fixed') === 'percent') {
+    const percent = toFiniteNumber(source.photographer_pay_percent);
+    return percent == null ? null : Number((price * (percent / 100)).toFixed(2));
+  }
+
+  return toFiniteNumber(source.photographer_pay);
+};
+
 /**
  * Calculate the photographer pay for a service based on square footage
  */
 export function calculatePhotographerPay(service: ServiceWithPricing, sqft: number | null | undefined): number | null {
-  const basePay = service.photographer_pay 
-    ? (typeof service.photographer_pay === 'string' ? parseFloat(service.photographer_pay) : service.photographer_pay)
-    : null;
+  const basePrice = toFiniteNumber(service.price) ?? 0;
   const sqftRanges = getSqftRanges(service);
 
   if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
-    return basePay;
+    return resolvePayFrom(service, basePrice);
   }
 
   const range = findSqftRange(sqftRanges, sqft);
-  const rangePay = range?.photographer_pay != null ? Number(range.photographer_pay) : null;
-  return rangePay ?? basePay;
+  if (range) {
+    const tierPay = resolvePayFrom(range, toFiniteNumber(range.price) ?? basePrice);
+    if (tierPay !== null) {
+      return tierPay;
+    }
+  }
+
+  return resolvePayFrom(service, range ? (toFiniteNumber(range.price) ?? basePrice) : basePrice);
 }
 
 /**

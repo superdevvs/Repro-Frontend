@@ -6,7 +6,6 @@ import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,6 +30,7 @@ import { useDesktopCalendarRowHeight } from "@/hooks/useDesktopCalendarRowHeight
 
 import { CalendarSyncModal } from "@/components/availability/CalendarSyncModal";
 import { ShootDetailsModal } from "@/components/shoots/ShootDetailsModal";
+import { AvailabilityPhotographerSelect } from "@/components/availability/AvailabilityPhotographerSelect";
 import { PhotographerListPanel } from "@/components/availability/PhotographerListPanel";
 import { ScheduleDetailsPanel } from "@/components/availability/ScheduleDetailsPanel";
 import { AvailabilityCalendarBody } from "@/components/availability/AvailabilityCalendarBody";
@@ -82,7 +82,9 @@ export default function Availability() {
 
   // Page state
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all");
+  const [selectedPhotographer, setSelectedPhotographer] = useState<string>(
+    () => (role === "photographer" && user?.id ? String(user.id) : "all"),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -142,6 +144,7 @@ export default function Availability() {
     viewMode,
     role,
     userId: user?.id,
+    viewerName: user?.name,
     isPhotographer,
     canManagePhotographerSelection,
     availabilitySessionScope,
@@ -755,9 +758,9 @@ export default function Availability() {
               </TabsList>
 
               <TabsContent value="calendar" className="mt-0 flex min-h-0 flex-col gap-2 pb-4">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {canManagePhotographerSelection && (
+                {canManagePhotographerSelection && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <PhotographerListPanel
                         variant="mobile-sheet"
                         photographers={photographers}
@@ -771,20 +774,18 @@ export default function Availability() {
                         open={isPhotographerSheetOpen}
                         onOpenChange={setIsPhotographerSheetOpen}
                       />
-                    )}
-                    <Select value={selectedPhotographer} onValueChange={(value) => { setSelectedPhotographer(value); setEditingWeeklySchedule(false); }}>
-                      <SelectTrigger className="w-full min-w-0 flex-1">
-                        <SelectValue placeholder="Select photographer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Photographers</SelectItem>
-                        {photographers.map((photographer) => (
-                          <SelectItem key={photographer.id} value={photographer.id}>{photographer.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <AvailabilityPhotographerSelect
+                        canManagePhotographerSelection={canManagePhotographerSelection}
+                        photographers={photographers}
+                        selectedPhotographer={selectedPhotographer}
+                        onSelect={(value) => {
+                          setSelectedPhotographer(value);
+                          setEditingWeeklySchedule(false);
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <Card className="p-2 sm:p-3 flex min-h-[360px] sm:min-h-[520px] flex-col border shadow-sm rounded-md">
                   <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
