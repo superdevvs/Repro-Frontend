@@ -426,4 +426,15 @@ describe('Shoot History mobile chrome', () => {
     const tabs = container.querySelector('.shoot-history-tabs [role="tablist"]')?.closest('.space-y-3')
     expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
   })
+
+  it('keeps the tab rails sticky so cards can scroll underneath', () => {
+    const { container } = render(<ViewHarness tab="delivered" />)
+    const sticky = container.querySelector('[data-shoot-history-sticky-tabs]')
+
+    expect(sticky).not.toBeNull()
+    expect(sticky?.className).toMatch(/\bsticky\b/)
+    expect(sticky?.className).toMatch(/top-0/)
+    expect(sticky?.querySelector('[role="tablist"]')).not.toBeNull()
+    expect(container.querySelector('.shoot-history-tabs')?.className).not.toMatch(/overflow-x-hidden/)
+  })
 })

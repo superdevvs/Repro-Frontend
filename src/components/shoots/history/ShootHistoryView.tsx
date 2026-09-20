@@ -464,7 +464,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-hidden px-2 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex items-start justify-between gap-3">
         {/* Compact title on phones (no description); full heading on desktop. */}
         <div className="min-w-0 space-y-1">
@@ -530,6 +530,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:pb-[4.75rem] sm:pb-0">
+        <div data-shoot-history-sticky-tabs className="sticky top-0 z-20 -mx-2 space-y-3 bg-background/95 px-2 pt-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/90">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1" />
@@ -640,6 +641,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           ) : (
             <div />
           )}
+        </div>
         </div>
 
         <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen}>
