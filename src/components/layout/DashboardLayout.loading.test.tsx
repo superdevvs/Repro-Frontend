@@ -82,6 +82,24 @@ describe('dashboard page loading integration', () => {
     expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
   });
 
+  it('ends compact dashboard content just above the measured bottom nav on every device height', () => {
+    viewport.mobile = true;
+    viewport.bottomNavHeight = 88;
+    const view = () => (
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout>
+          <button>Page action</button>
+        </DashboardLayout>
+      </MemoryRouter>
+    );
+    const { container, rerender } = render(view());
+    expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '88px' });
+
+    viewport.bottomNavHeight = 55;
+    rerender(view());
+    expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '55px' });
+  });
+
   it('hides the footer on the compact dashboard so tab panels can use the remaining viewport', () => {
     viewport.mobile = true;
     const { container } = render(

@@ -46,7 +46,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   // The compact shell keeps 12px at the sides but only 6px above the page: on a
   // phone the header already separates content from the chrome, and every page
   // adds its own top padding, so the old 12px doubled up into a visible gap.
-  const contentPadding = useCompactShell ? (isStudioWorkspace ? 'p-0 pb-20' : 'px-3 pt-1.5 pb-20') : 'p-3';
+  const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
+  const contentPadding = useCompactShell
+    ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 ? '' : 'pb-20'}`
+    : 'p-3';
+  const compactMainStyle = compactBottomInset > 0 ? { paddingBottom: compactBottomInset } : undefined;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const shouldHideFooter =
     hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
@@ -94,7 +98,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
-            <main className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
+            <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockCompactDashboard || isStudioWorkspace ? 'flex flex-1 min-h-0 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
                   {lockCompactDashboard ? (
