@@ -43,6 +43,20 @@ describe('mobile bottom navigation visibility', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
+  it('promotes Settings into the bar when availability is not available', () => {
+    menuState.filteredItems = [
+      { to: '/dashboard', label: 'Dashboard', icon: 'Home', isActive: true },
+      { to: '/shoot-history', label: 'Shoots', icon: 'Clipboard' },
+      { to: '/settings', label: 'Settings', icon: 'Settings' },
+    ];
+    menuState.isLoading = false;
+
+    renderNav();
+
+    expect(screen.getByRole('navigation')).toHaveTextContent('Settings');
+    expect(screen.queryByRole('link', { name: /availability/i })).not.toBeInTheDocument();
+  });
+
   it('shows the bar with a labelled Menu control once items exist', () => {
     menuState.filteredItems = [
       { to: '/dashboard', label: 'Dashboard', icon: 'Home', isActive: true },

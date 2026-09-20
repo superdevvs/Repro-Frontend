@@ -36,6 +36,9 @@ import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
 import { NotificationPreferencesCard } from '@/components/settings/NotificationPreferencesCard';
 import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
 import { AiEditingProviderSettings } from '@/components/settings/AiEditingProviderSettings';
+import { EditorPreferencesCard } from '@/components/settings/EditorPreferencesCard';
+import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
+import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -550,10 +553,11 @@ const Settings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="space-y-4 sm:space-y-6">
         <PageHeader
           title="Settings"
           description="Manage your account settings and preferences"
+          compactTitleOnMobile
         />
 
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
@@ -681,6 +685,8 @@ const Settings = () => {
                   </CardFooter>
                 </Card>
               )}
+
+              {role === 'editor' && <EditorPreferencesCard />}
             </TabsContent>
 
             <TabsContent value="account" className="space-y-4">
@@ -808,6 +814,12 @@ const Settings = () => {
                   </form>
                 </CardContent>
               </Card>
+              {role === 'editor' && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <ProfileActivityCard />
+                  <ProfileSecurityCard />
+                </div>
+              )}
             </TabsContent>
 
             <SettingsBrandingTab

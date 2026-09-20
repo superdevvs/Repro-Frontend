@@ -15,7 +15,7 @@ describe('photographer account navigation', () => {
     expect(destination).toBe('/photographer-account?tab=equipments&verify=equipment&photographer_id=42');
   });
 
-  it('opens Profile for missing or unsupported profile sections', () => {
+  it('opens the personal account section for missing or unsupported profile sections', () => {
     expect(resolvePhotographerAccountTab(new URLSearchParams())).toBe('personal');
     expect(resolvePhotographerAccountTab(new URLSearchParams('tab=unknown'))).toBe('personal');
   });

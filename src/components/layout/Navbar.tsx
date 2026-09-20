@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
+import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
 const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
@@ -422,38 +423,38 @@ export function Navbar() {
         >
         {/* Logo for simplified layout (photographer/editor) */}
         {isSimplifiedLayout && (
-          <div className="flex items-center gap-6">
+          <div className="flex min-w-0 items-center gap-3 xl:gap-6">
             {/* Dark logo for light mode */}
             <img 
               src="/Repro HQ dark.png" 
               alt="REPRO-HQ" 
-              className="h-8 cursor-pointer dark:hidden" 
+              className="h-7 shrink-0 cursor-pointer dark:hidden sm:h-8" 
               onClick={() => navigate('/dashboard')}
             />
             {/* Light logo for dark mode */}
             <img 
               src="/REPRO-HQ.png" 
               alt="REPRO-HQ" 
-              className="h-8 cursor-pointer hidden dark:block" 
+              className="hidden h-7 shrink-0 cursor-pointer dark:block sm:h-8" 
               onClick={() => navigate('/dashboard')}
             />
-            {/* Nav menu items */}
-            <nav className="hidden md:flex items-center gap-1">
+            {/* Nav menu items — icon-only until xl so tablets do not overflow */}
+            <nav className="hidden lg:flex min-w-0 items-center gap-0.5">
               {simplifiedNavItems.map((item) => (
                 <Button
                   key={item.to}
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'h-9 px-3 text-sm font-medium',
+                    'h-9 shrink-0 px-2 text-sm font-medium xl:px-3',
                     pathname === item.to || pathname.startsWith(item.to + '/') || (role === 'photographer' && item.to === '/settings' && pathname === '/photographer-account')
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                   onClick={() => navigate(item.to)}
                 >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {item.label}
+                  <item.icon className="h-4 w-4 xl:mr-2" />
+                  <span className="hidden xl:inline">{item.label}</span>
                 </Button>
               ))}
             </nav>
@@ -502,7 +503,7 @@ export function Navbar() {
           </div>
         )}
       
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         {showRobbieStrip && (
           <div className="hidden sm:block h-8 w-px shrink-0 bg-border/60" />
         )}
@@ -511,7 +512,10 @@ export function Navbar() {
           <button
             type="button"
             onClick={requestPreciseWeatherLocation}
-            className="hidden md:flex items-center gap-2 text-sm text-muted-foreground leading-none rounded-md px-2 py-1 transition-colors hover:bg-accent hover:text-foreground"
+            className={cn(
+              'hidden items-center gap-2 text-sm text-muted-foreground leading-none rounded-md px-2 py-1 transition-colors hover:bg-accent hover:text-foreground',
+              isSimplifiedLayout ? 'xl:flex' : 'md:flex',
+            )}
             title="Click to use your exact location"
           >
             {weatherLocationLabel && <span className="shrink-0">{weatherLocationLabel}</span>}
@@ -551,9 +555,9 @@ export function Navbar() {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Open account menu">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={getAvatarUrl(user?.avatar, user?.role, (user as any)?.gender, user?.id)} alt={user?.name} />
+                <AvatarImage src={getAvatarUrl(user?.avatar, user?.role, (user as { gender?: string } | undefined)?.gender, user?.id)} alt={user?.name} />
                 <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>
@@ -561,9 +565,11 @@ export function Navbar() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
-              Profile
-            </DropdownMenuItem>
+            {!usesSettingsOnlyAccount(role) && (
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
+                Profile
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => navigate('/settings')}>
               Settings
             </DropdownMenuItem>

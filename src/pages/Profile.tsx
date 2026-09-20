@@ -4,11 +4,11 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ClientProfile } from '@/components/profile/ClientProfile';
-import { EditorProfile } from '@/components/profile/EditorProfile';
 import { AdminProfile } from '@/components/profile/AdminProfile';
 import { toast } from '@/components/ui/use-toast';
 import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
+import { selfAccountDestination } from '@/pages/profileNavigation';
 
 const Profile = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -37,15 +37,9 @@ const Profile = () => {
     return <Navigate to="/" replace />;
   }
 
-  const searchParams = new URLSearchParams(location.search);
-  if (searchParams.get('tab') === 'equipments' || searchParams.get('verify') === 'equipment') {
-    const search = location.search || '?tab=equipments&verify=equipment';
-    return <Navigate to={`/photographer-account${search}`} replace />;
-  }
-
-  if (user?.role === 'photographer') {
-    const search = location.search || '';
-    return <Navigate to={`/photographer-account${search}`} replace />;
+  const settingsOnlyDestination = selfAccountDestination(user?.role, location.search);
+  if (settingsOnlyDestination) {
+    return <Navigate to={settingsOnlyDestination} replace />;
   }
 
   // Determine which profile component to render based on user role
@@ -53,8 +47,6 @@ const Profile = () => {
     switch (user?.role) {
       case 'client':
         return <ClientProfile />;
-      case 'editor':
-        return <EditorProfile />;
       case 'admin':
       case 'superadmin':
       case 'editing_manager':
@@ -76,7 +68,7 @@ const Profile = () => {
     <DashboardLayout>
       <div className="space-y-6 px-2 pt-1.5 pb-3 sm:p-6">
         {renderProfileByRole()}
-        {(user?.role === 'client' || user?.role === 'editor') && (
+        {user?.role === 'client' && (
           <section aria-label="Account security and activity" className="grid gap-6 lg:grid-cols-2">
             <ProfileActivityCard />
             <ProfileSecurityCard />

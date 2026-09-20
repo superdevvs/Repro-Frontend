@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList } from '@/components/ui/auto-expanding-tabs';
 import { Badge } from '@/components/ui/badge';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -218,8 +219,8 @@ const PhotographerAccount = () => {
                 <Button type="button" onClick={logout}>
                   Log Out
                 </Button>
-                <Button type="button" variant="outline" onClick={() => window.location.assign('/profile')}>
-                  Open My Profile
+                <Button type="button" variant="outline" onClick={() => window.location.assign('/settings')}>
+                  Open Settings
                 </Button>
               </div>
             </CardContent>
@@ -231,40 +232,38 @@ const PhotographerAccount = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
+      <div className="space-y-4 sm:space-y-6">
         <PageHeader
-          title="My Account"
-          description="Your profile, work preferences, equipment, and account security in one place."
+          title="Settings"
+          description="Your account, work preferences, equipment, and security in one place."
+          compactTitleOnMobile
           action={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
               {onboarding?.eligible && (
-                <Button asChild variant="outline">
-                  <Link to="/dashboard" onClick={() => requestDashboardOnboardingReplay('photographer')}>Replay dashboard tour</Link>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/dashboard" onClick={() => requestDashboardOnboardingReplay('photographer')}>Replay tour</Link>
                 </Button>
               )}
-              <Button asChild variant="outline">
-                <Link to="/availability"><CalendarDays className="mr-2 h-4 w-4" />Manage Availability</Link>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/availability"><CalendarDays className="mr-2 h-4 w-4" />Availability</Link>
               </Button>
             </div>
           }
         />
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList aria-label="Photographer account sections" className="flex h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
-            {[
-              { value: 'personal', icon: User, label: 'Profile' },
-              { value: 'work', icon: Settings, label: 'Work settings' },
+          <AutoExpandingTabsList
+            tabs={[
+              { value: 'personal', icon: User, label: 'Account' },
+              { value: 'work', icon: Settings, label: 'Work' },
               { value: 'specialties', icon: Camera, label: 'Specialties' },
               { value: 'equipments', icon: Wrench, label: 'Equipment' },
               { value: 'notifications', icon: Bell, label: 'Notifications' },
               { value: 'security', icon: ShieldCheck, label: 'Security' },
-            ].map(({ value, icon: Icon, label }) => (
-              <TabsTrigger key={value} value={value} className="gap-2 rounded-full bg-muted px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+            ]}
+            value={activeTab}
+            desktopExpanded
+          />
 
           {/* Personal Info Tab */}
           <TabsContent value="personal" className="space-y-4">
@@ -370,8 +369,8 @@ const PhotographerAccount = () => {
                                 <FormItem>
                                   <FormLabel>Portfolio Website</FormLabel>
                                   <FormControl>
-                                    <div className="flex">
-                                      <Input placeholder="https://your-portfolio.com" {...field} className="rounded-r-none" />
+                                    <div className="flex min-w-0">
+                                      <Input placeholder="https://your-portfolio.com" {...field} className="min-w-0 rounded-r-none" />
                                       <Button
                                         type="button"
                                         variant="outline"

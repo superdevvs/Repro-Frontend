@@ -20,6 +20,7 @@ import {
   Plus
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
+import { buildMobileBottomNavSlots } from './mobileBottomNavSlots';
 
 interface MobileBottomNavProps {
   toggleMenu: () => void;
@@ -59,25 +60,9 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
     return null;
   }
 
-  const dashboardItem = filteredItems.find((item) => item.to === '/dashboard');
-  const shootsItem = filteredItems.find((item) => item.to === '/shoot-history');
-  const bookItem = filteredItems.find((item) => item.to === '/book-shoot');
-  const availabilityItem = filteredItems.find((item) => item.to === '/availability');
-  const centerItem = bookItem
-    ? {
-        ...bookItem,
-        label: 'New Shoot',
-      }
-    : null;
-  // Roles without "Book Shoot" (photographers, sales reps, clients) get a
-  // clean 4-slot bar: Dashboard | Shoots | Availability | Menu — the menu
-  // sits at the end as the prominent action so the bar never has an empty
-  // middle. Roles with Book Shoot keep the 5-slot layout with center pill +
-  // trailing "More" toggle.
-  const hasBookShoot = Boolean(centerItem);
-  const navItems = hasBookShoot
-    ? [dashboardItem, shootsItem, centerItem, availabilityItem]
-    : [dashboardItem, shootsItem, availabilityItem];
+  const navItems = buildMobileBottomNavSlots(filteredItems);
+  const hasBookShoot = navItems.some((item) => item.to === '/book-shoot');
+  const columnCount = navItems.length + 1;
 
   // Function to render the correct icon based on the string name
   const renderIcon = (iconName: string, isActive: boolean) => {
@@ -132,14 +117,10 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
       <nav
         className={cn(
           'grid items-end max-w-md mx-auto',
-          hasBookShoot ? 'grid-cols-5' : 'grid-cols-4'
+          columnCount >= 5 ? 'grid-cols-5' : columnCount === 3 ? 'grid-cols-3' : 'grid-cols-4',
         )}
       >
         {navItems.map((item, index) => {
-          if (!item) {
-            return <div key={`empty-${index}`} />;
-          }
-
           // The center pill (only present when Book Shoot is available) sits at
           // index 2 and is rendered as the prominent gradient circle.
           const isCenter = hasBookShoot && index === 2;
