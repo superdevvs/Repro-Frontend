@@ -589,8 +589,9 @@ body {
    `data-radix-tabs-content` attribute, so the old selector matched nothing and
    this protection was inert. Use the role selector so the rule actually applies. */
 .shoot-history-tabs [role="tabpanel"][data-state="active"] {
-  flex: 0 1 auto !important;
-  height: auto !important;
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 0 auto !important;
   min-height: auto !important;
   max-height: none !important;
   overflow: visible !important;

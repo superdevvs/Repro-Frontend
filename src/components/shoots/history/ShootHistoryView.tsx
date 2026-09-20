@@ -200,7 +200,7 @@ function PaginationRow({
   return (
     <div
       data-shoot-history-pagination
-      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:fixed max-md:inset-x-3 max-md:z-30 max-md:bottom-[calc(var(--mobile-bottom-nav-height,5rem)+5px)]"
+      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:mt-auto max-md:mb-[5px]"
     >
       <div>
         Page {page} of {totalPages} · {total} records
@@ -464,7 +464,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className="shoot-history-tabs max-w-full space-y-4 overflow-x-clip px-2 pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
       <div className="flex items-start justify-between gap-3">
         {/* Compact title on phones (no description); full heading on desktop. */}
         <div className="min-w-0 space-y-1">
@@ -529,7 +529,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:pb-[4.75rem] sm:pb-0">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0">
         <div data-shoot-history-sticky-tabs className="sticky -top-1.5 z-20 -mx-2 space-y-3 bg-background px-2 backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:top-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -736,7 +736,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           { value: 'hold', content: holdOnContent },
           { value: 'featured', content: featuredContent },
         ].map(({ value, content }) => (
-          <TabsContent key={value} value={value} className="w-full space-y-6">
+          <TabsContent key={value} value={value} className="flex w-full flex-1 flex-col gap-6">
             {content}
             {operationalMeta && operationalMeta.total > 0 && (
               <PaginationRow page={operationalPage} total={operationalMeta.total} perPage={operationalMeta.per_page} onChange={handleOperationalPageChange} />
@@ -745,8 +745,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         ))}
 
         {canViewHistory && (
-          <TabsContent value="history" className="w-full space-y-6">
-            <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className="w-full">
+          <TabsContent value="history" className="flex w-full flex-1 flex-col gap-6">
+            <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className="flex w-full min-h-0 flex-1 flex-col">
               <Collapsible open={historyFiltersOpen} onOpenChange={setHistoryFiltersOpen}>
                 <CollapsibleContent>
                   <div className="rounded-2xl border bg-card p-4 mt-2">
@@ -856,7 +856,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                 </CollapsibleContent>
               </Collapsible>
 
-              <TabsContent value="all" className="w-full space-y-6">
+              <TabsContent value="all" className="flex w-full flex-1 flex-col gap-6">
                 {historyContent}
                 {historyMeta && historyFilters.groupBy === 'shoot' && (
                   <PaginationRow page={historyMeta.current_page} total={historyMeta.total} perPage={historyMeta.per_page} onChange={handleHistoryPageChange} />

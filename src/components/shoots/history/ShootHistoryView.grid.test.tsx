@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import React, { useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
@@ -403,7 +406,7 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
 })
 
 describe('Shoot History mobile chrome', () => {
-  it('uses a semibold title, moves bulk actions into the overflow menu, and pins pagination above the nav', async () => {
+  it('uses a semibold title, moves bulk actions into the overflow menu, and docks pagination after short lists', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab="delivered" isAdmin showPagination />)
 
@@ -420,11 +423,20 @@ describe('Shoot History mobile chrome', () => {
 
     const pagination = container.querySelector('[data-shoot-history-pagination]')
     expect(pagination).not.toBeNull()
-    expect(pagination?.className).toMatch(/max-md:fixed/)
-    expect(pagination?.className).toMatch(/--mobile-bottom-nav-height/)
+    expect(pagination?.className).not.toMatch(/\bfixed\b/)
+    expect(pagination?.className).not.toMatch(/\bsticky\b/)
+    expect(pagination?.className).toMatch(/mt-auto/)
     expect(pagination?.className).toMatch(/5px/)
 
+    const page = container.querySelector('.shoot-history-tabs')
+    expect(page?.className).toMatch(/min-h-full/)
+    expect(page?.className).toMatch(/\bflex-col\b/)
+
+    const panel = pagination?.closest('[role="tabpanel"]')
+    expect(panel?.className).toMatch(/flex-1/)
+
     const tabs = container.querySelector('.shoot-history-tabs [role="tablist"]')?.closest('.space-y-3')
+    expect(tabs?.className ?? '').not.toMatch(/4\.75rem/)
     expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
   })
 
@@ -438,5 +450,14 @@ describe('Shoot History mobile chrome', () => {
     expect(sticky?.className).not.toMatch(/(?:^|\s)pt-1\.5(?:\s|$)/)
     expect(sticky?.querySelector('[role="tablist"]')).not.toBeNull()
     expect(container.querySelector('.shoot-history-tabs')?.className).not.toMatch(/overflow-x-hidden/)
+  })
+
+  it('lets the active Shoot History panel grow so short lists can dock pagination', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../index.css'), 'utf8')
+    const rule = css.match(/\.shoot-history-tabs \[role="tabpanel"\]\[data-state="active"\] \{[\s\S]*?\}/)
+
+    expect(rule?.[0]).toMatch(/flex:\s*1 0 auto/)
+    expect(rule?.[0]).toMatch(/max-height:\s*none/)
+    expect(rule?.[0]).toMatch(/overflow:\s*visible/)
   })
 })
