@@ -81,5 +81,6 @@ describe('dashboard mobile tab CSS', () => {
   it('hides inactive tab panels so they cannot share the filled viewport', () => {
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[hidden\]/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="inactive"\]/);
+    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > \*/);
   });
 });
