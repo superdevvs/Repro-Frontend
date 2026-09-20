@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -5,6 +8,11 @@ import {
   DASHBOARD_MOBILE_PANEL_CLASS,
   resolveDashboardListMaxHeight,
 } from './dashboardMobilePanel';
+
+const indexCss = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), '../../../index.css'),
+  'utf8',
+);
 
 describe('resolveDashboardListMaxHeight', () => {
   it('does not stretch compact viewports to a multi-card desktop window', () => {
@@ -66,5 +74,12 @@ describe('DASHBOARD_MOBILE_PANEL_CLASS', () => {
   it('marks the page and cards so CSS can fill remaining mobile height', () => {
     expect(DASHBOARD_MOBILE_PAGE_CLASS).toBe('dashboard-mobile-page');
     expect(DASHBOARD_MOBILE_PANEL_CLASS).toBe('dashboard-mobile-panel');
+  });
+});
+
+describe('dashboard mobile tab CSS', () => {
+  it('hides inactive tab panels so they cannot share the filled viewport', () => {
+    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[hidden\]/);
+    expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="inactive"\]/);
   });
 });

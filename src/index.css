@@ -487,6 +487,13 @@ body {
   overflow: hidden !important;
 }
 
+/* Tailwind `flex` on TabsContent beats the hidden attribute, so inactive
+   panels were still flex items and split the remaining viewport five ways. */
+.dashboard-mobile-tabs [role="tabpanel"][data-state="inactive"],
+.dashboard-mobile-tabs [role="tabpanel"][hidden] {
+  display: none !important;
+}
+
 @media (max-width: 1024px) {
   .dashboard-mobile-page {
     display: flex;
@@ -545,8 +552,9 @@ body {
   overflow: visible !important;
 }
 
-[data-radix-tabs-content][data-state="inactive"] {
-  display: none;
+[data-radix-tabs-content][data-state="inactive"],
+[role="tabpanel"][data-state="inactive"] {
+  display: none !important;
 }
 
 /* Hidden scrollbar for upcoming shoots */
