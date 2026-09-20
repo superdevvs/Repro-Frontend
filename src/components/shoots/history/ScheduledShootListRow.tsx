@@ -235,6 +235,9 @@ export const ScheduledShootListRow = ({
   const overflowActionsAvailable = Boolean(
     canSendToEditing || onViewInvoice || ((isSuperAdmin || isAdmin) && onDelete),
   )
+  const hasMobilePrimaryActions = Boolean(
+    (clientHasPendingPayment && onPayNow) || canShowRequestedActions,
+  )
 
   const renderOverflowMenu = (triggerClassName: string) => (
     <DropdownMenu>
@@ -304,9 +307,9 @@ export const ScheduledShootListRow = ({
         {/* Mobile: Stack vertically, Desktop: Horizontal layout */}
         <div className="grid gap-3 md:grid-cols-[140px_minmax(0,1fr)] lg:grid-cols-[140px_minmax(220px,1fr)_minmax(220px,0.72fr)_auto] lg:items-start lg:gap-4 mb-2">
           {/* Top row on mobile: Date/Time and Status */}
-          <div className="flex items-start justify-between gap-3 md:hidden">
+          <div data-mobile-shoot-header className="flex items-start justify-between gap-3 md:hidden">
             {/* Date and Time - Left Side */}
-            <div className="flex flex-col gap-0.5">
+            <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex items-center gap-1.5 text-sm font-medium">
                 <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{formatDisplayDateLocal(shootLocalDate)}</span>
@@ -328,19 +331,13 @@ export const ScheduledShootListRow = ({
                 </div>
               )}
             </div>
-            {/* Status - Right Side (mobile only) */}
-            <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
-                  <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-                  {statusLabel}
-                </Badge>
-                {canShowPaymentStatus && <ShootPaymentBadge shoot={shoot} />}
-              </div>
-              {overflowActionsAvailable && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  {renderOverflowMenu('h-9 w-9 rounded-xl p-0')}
-                </div>
+            <div data-mobile-shoot-pills className="flex max-w-[48%] flex-col items-end gap-1.5">
+              <Badge variant="outline" className={cn('max-w-full capitalize font-medium', statusBadgeClass)}>
+                <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                {statusLabel}
+              </Badge>
+              {canShowPaymentStatus && (
+                <ShootPaymentBadge shoot={shoot} size="sm" className="max-w-full" />
               )}
             </div>
           </div>
@@ -471,7 +468,8 @@ export const ScheduledShootListRow = ({
                   <span>Services</span>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-1.5 sm:justify-between">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex w-full items-end justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap gap-1.5">
                     {normalizedServices.length > 0 ? (
                       normalizedServices.map((serviceName, idx) => (
                         <Badge 
@@ -485,10 +483,23 @@ export const ScheduledShootListRow = ({
                     ) : (
                       <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
                     )}
+                    </div>
+                    {overflowActionsAvailable && (
+                      <div
+                        data-mobile-shoot-menu
+                        className="shrink-0 self-end md:hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {renderOverflowMenu('h-9 w-9 rounded-xl p-0')}
+                      </div>
+                    )}
                   </div>
                   {hasBottomActions ? (
                     <div
-                      className="mt-1 flex w-full flex-col gap-2 sm:mt-0 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+                      className={cn(
+                        'mt-1 flex w-full flex-col gap-2 sm:mt-0 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end',
+                        !hasMobilePrimaryActions && 'max-md:hidden',
+                      )}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Primary row: primary action + overflow menu side by side */}
