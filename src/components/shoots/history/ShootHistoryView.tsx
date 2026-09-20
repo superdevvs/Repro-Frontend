@@ -200,7 +200,7 @@ function PaginationRow({
   return (
     <div
       data-shoot-history-pagination
-      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:fixed max-md:inset-x-3 max-md:z-30 max-md:bottom-[var(--mobile-bottom-nav-height,5rem)]"
+      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:fixed max-md:inset-x-3 max-md:z-30 max-md:bottom-[calc(var(--mobile-bottom-nav-height,5rem)+5px)]"
     >
       <div>
         Page {page} of {totalPages} · {total} records

@@ -422,6 +422,7 @@ describe('Shoot History mobile chrome', () => {
     expect(pagination).not.toBeNull()
     expect(pagination?.className).toMatch(/max-md:fixed/)
     expect(pagination?.className).toMatch(/--mobile-bottom-nav-height/)
+    expect(pagination?.className).toMatch(/5px/)
 
     const tabs = container.querySelector('.shoot-history-tabs [role="tablist"]')?.closest('.space-y-3')
     expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
