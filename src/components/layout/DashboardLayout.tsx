@@ -50,7 +50,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const contentPadding = useCompactShell
     ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 ? '' : 'pb-20'}`
     : 'p-3';
-  const compactMainStyle = compactBottomInset > 0 ? { paddingBottom: compactBottomInset } : undefined;
+  const compactMainStyle = compactBottomInset > 0
+    ? {
+        paddingBottom: compactBottomInset,
+        ['--mobile-bottom-nav-height' as string]: `${compactBottomInset}px`,
+      }
+    : undefined;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const shouldHideFooter =
     hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||

@@ -93,7 +93,9 @@ describe('dashboard page loading integration', () => {
       </MemoryRouter>
     );
     const { container, rerender } = render(view());
-    expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '88px' });
+    const main = container.querySelector('main');
+    expect(main).toHaveStyle({ paddingBottom: '88px' });
+    expect(main).toHaveAttribute('style', expect.stringContaining('--mobile-bottom-nav-height: 88px'));
 
     viewport.bottomNavHeight = 55;
     rerender(view());

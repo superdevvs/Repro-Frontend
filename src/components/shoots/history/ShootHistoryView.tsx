@@ -198,7 +198,10 @@ function PaginationRow({
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
   return (
-    <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+    <div
+      data-shoot-history-pagination
+      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:fixed max-md:inset-x-3 max-md:z-30 max-md:bottom-[var(--mobile-bottom-nav-height,5rem)]"
+    >
       <div>
         Page {page} of {totalPages} · {total} records
       </div>
@@ -465,25 +468,36 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       <div className="flex items-start justify-between gap-3">
         {/* Compact title on phones (no description); full heading on desktop. */}
         <div className="min-w-0 space-y-1">
-          <h1 className="text-lg font-bold tracking-tight md:text-3xl">Shoot History</h1>
+          <h1 className="text-lg font-semibold tracking-tight md:text-3xl">Shoot History</h1>
           <p className="hidden text-muted-foreground md:block">
             View and manage scheduled, completed, delivered, and on-hold shoots.
           </p>
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2">
           {(isSuperAdmin || isAdmin || isEditingManager) && (
-            <Button onClick={() => setIsBulkActionsOpen(true)} variant="outline" className="gap-2">
+            <Button
+              data-desktop-bulk-actions
+              onClick={() => setIsBulkActionsOpen(true)}
+              variant="outline"
+              className="hidden gap-2 sm:inline-flex"
+            >
               <Layers className="h-4 w-4" />
               Bulk Actions
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10 sm:hidden" title="View options">
+              <Button variant="outline" size="icon" className="h-10 w-10 sm:hidden" title="View options" aria-label="View options">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="sm:hidden w-52">
+              {(isSuperAdmin || isAdmin || isEditingManager) && (
+                <DropdownMenuItem data-mobile-bulk-actions onClick={() => setIsBulkActionsOpen(true)}>
+                  <Layers className="mr-2 h-4 w-4" />
+                  Bulk Actions
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => selectGrid(nextGridColumns)}>
                 <Grid3X3 className="mr-2 h-4 w-4" />
                 Grid view
@@ -515,7 +529,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 pb-[calc(2.75rem+env(safe-area-inset-bottom))] sm:pb-0">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:pb-[4.75rem] sm:pb-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1" />

@@ -237,9 +237,13 @@ const emptyOptions = { clients: [], photographers: [], services: [] }
 function ViewHarness({
   tab,
   initialView = 'grid',
+  isAdmin = false,
+  showPagination = false,
 }: {
   tab: 'delivered' | 'history'
   initialView?: 'grid' | 'list'
+  isAdmin?: boolean
+  showPagination?: boolean
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
@@ -255,7 +259,7 @@ function ViewHarness({
     gridColumns,
     setGridColumns,
     isSuperAdmin: false,
-    isAdmin: false,
+    isAdmin,
     isEditingManager: false,
     activeTab: tab,
     setActiveTab: noop,
@@ -291,11 +295,11 @@ function ViewHarness({
     operationalOptions: emptyOptions,
     operationalServicesSelected: false,
     resetOperationalFilters: noop,
-    operationalMeta: null,
+    operationalMeta: showPagination ? { current_page: 1, per_page: 20, total: 1 } : null,
     operationalPage: 1,
     handleOperationalPageChange: noop,
     scheduledContent: null,
-    completedContent: null,
+    completedContent: showPagination ? <div>Scheduled row</div> : null,
     holdOnContent: null,
     featuredContent: null,
     canViewHistory: true,
@@ -395,5 +399,31 @@ describe.each(['delivered', 'history'] as const)('Shoot History grid controls in
     await user.keyboard('{Enter}')
     expect(root).toHaveAttribute('data-grid-columns', '4')
     expect(grid).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+describe('Shoot History mobile chrome', () => {
+  it('uses a semibold title, moves bulk actions into the overflow menu, and pins pagination above the nav', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<ViewHarness tab="delivered" isAdmin showPagination />)
+
+    const title = screen.getByRole('heading', { name: 'Shoot History' })
+    expect(title.className).toMatch(/font-semibold/)
+    expect(title.className).not.toMatch(/font-bold/)
+
+    const standaloneBulk = container.querySelector('[data-desktop-bulk-actions]')
+    expect(standaloneBulk).not.toBeNull()
+    expect(standaloneBulk?.className).toMatch(/hidden/)
+
+    await user.click(screen.getByRole('button', { name: 'View options' }))
+    expect(screen.getByRole('menuitem', { name: 'Bulk Actions' })).toBeInTheDocument()
+
+    const pagination = container.querySelector('[data-shoot-history-pagination]')
+    expect(pagination).not.toBeNull()
+    expect(pagination?.className).toMatch(/max-md:fixed/)
+    expect(pagination?.className).toMatch(/--mobile-bottom-nav-height/)
+
+    const tabs = container.querySelector('.shoot-history-tabs [role="tablist"]')?.closest('.space-y-3')
+    expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
   })
 })
