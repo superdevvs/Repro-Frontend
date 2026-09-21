@@ -20,7 +20,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, ShieldCheck, ShieldAlert, X } from 'lucide-react';
+import { Check, MapPin, User, Camera, Clock, DollarSign, FileText, Layers, X } from 'lucide-react';
+import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
@@ -1133,22 +1134,7 @@ export function ShootApprovalModal({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Client</p>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'shrink-0 gap-1 px-1.5 py-0 text-[10px] font-medium',
-                            clientVerified
-                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                          )}
-                        >
-                          {clientVerified ? (
-                            <ShieldCheck className="h-3 w-3" />
-                          ) : (
-                            <ShieldAlert className="h-3 w-3" />
-                          )}
-                          {clientVerified ? 'Verified' : 'Unverified'}
-                        </Badge>
+                        <EmailHealthBadge verified={clientVerified} />
                       </div>
                       <p className="font-semibold text-foreground mt-0.5 truncate">{clientName}</p>
                       {clientEmail && (
