@@ -1,14 +1,20 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, Settings } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { getVoiceSettings, getVoiceLlmUsage, updateVoiceSettings } from '@/services/voice';
 import type { VoiceSettings } from '@/types/voice';
+import CallsNumbers from './CallsNumbers';
+import OutboundModeControl from './workspace/OutboundModeControl';
+import { useToast } from '@/hooks/use-toast';
+import { CallsQueryError } from './workspace/CallsQueryError';
+import { usePermissions } from '@/context/PermissionsContext';
+import { useBrowserPhone } from '@/context/BrowserPhoneContext';
+import { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
 
 const voiceTools = [
   'verify_caller',
@@ -26,6 +32,10 @@ const voiceTools = [
 
 export default function CallsSettings() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { can, isLoading: permissionsLoading } = usePermissions();
+  const canManage = can('voice-calls', 'manage');
+  const phone = useBrowserPhone();
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const usage = useQuery({ queryKey: ['voice-llm-usage'], queryFn: getVoiceLlmUsage });
   usePageLoading(settings.isLoading || usage.isLoading);
@@ -35,7 +45,10 @@ export default function CallsSettings() {
     mutationFn: updateVoiceSettings,
     onSuccess: (data) => {
       queryClient.setQueryData(['voice-settings'], data);
+      queryClient.invalidateQueries({ queryKey: ['voice-health'] });
+      toast({ title: 'Call settings saved' });
     },
+    onError: (error) => toast({ title: 'Could not save call settings', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' }),
   });
 
   useEffect(() => {
@@ -44,14 +57,31 @@ export default function CallsSettings() {
     }
   }, [settings.data]);
 
+  if (settings.isError) return <CallsQueryError message="Could not load call settings. Your saved settings have not changed." retry={() => void settings.refetch()} />;
+  if (!settings.data) return null;
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Settings className="h-4 w-4 text-blue-600" /> Voice Settings
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-[28px] font-semibold leading-9">The lines, the rules, the quiet parts.</h2>
+        <p className="mt-1 text-sm text-[var(--calls-muted)]">Numbers, recording, routing, and the tools Robbie may use. Nothing here is decorative.</p>
+        {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review these settings. Manage Calls permission is required to change them.</p>}
+      </div>
+      <CallsNumbers />
+      <section className="calls-panel p-5">
+        <h3 className="text-lg font-semibold">Team live calling</h3>
+        <p className="mt-2 text-sm text-[var(--calls-muted)]">
+          {phone.config?.ready ? 'Staff can call from the browser, select audio devices, mute, hold callers and use the keypad. Authorized supervisors can listen, coach staff privately, or join a supported call.' : phone.config?.blockers?.[0] || 'Browser calling readiness is unavailable. Calls permissions and a configured phone connection are required.'}
+        </p>
+        <div className="mt-3"><BrowserPhoneConnectButton /></div>
+      </section>
+      <fieldset disabled={!canManage} className="min-w-0 space-y-4">
+      <section className="calls-panel space-y-4 p-5">
+        <OutboundModeControl
+          mode={draft.outbound_mode}
+          canaryNumbers={draft.canary_numbers}
+          onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+        />
         <ToggleRow
           title="Voice AI enabled"
           description="Controls whether the AI receptionist should answer and route calls."
@@ -292,12 +322,13 @@ export default function CallsSettings() {
           />
         </div>
         <div className="flex justify-end">
-          <Button onClick={() => save.mutate(draft)} disabled={save.isPending}>
+          <Button className="calls-primary h-11 rounded-lg" onClick={() => canManage && save.mutate(draft)} disabled={!canManage || save.isPending}>
             <Save className="mr-2 h-4 w-4" /> {save.isPending ? 'Saving…' : 'Save settings'}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </section>
+      </fieldset>
+    </div>
   );
 }
 

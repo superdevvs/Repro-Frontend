@@ -67,6 +67,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@stripe/stripe-js": "^8.8.0",
     "@tanstack/react-query": "^5.56.2",
+    "@telnyx/webrtc": "2.27.10",
     "@types/uuid": "^10.0.0",
     "@xyflow/react": "^12.10.1",
     "axios": "^1.19.0",
@@ -101,6 +102,14 @@
     "vaul": "^0.9.3",
     "write-excel-file": "^4.1.1",
     "zod": "^3.23.8"
+  },
+  "overrides": {
+    "@telnyx/webrtc": {
+      "uuid": "11.1.1"
+    },
+    "@peermetrics/webrtc-stats": {
+      "uuid": "11.1.1"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

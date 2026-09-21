@@ -11,6 +11,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "rea
 import { AuthProvider, useAuth } from "./components/auth";
 import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
+import { BrowserPhoneProvider } from './components/voice/BrowserPhoneProvider';
 import { usePermission } from './hooks/usePermission';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
@@ -740,6 +741,7 @@ function App() {
                 <AuthProvider>
                   <UserPreferencesProvider>
                     <PermissionsProvider>
+                      <BrowserPhoneProvider>
                       <ShootsProvider>
                         <UploadProvider>
                           <SystemTelemetryProvider>
@@ -752,6 +754,7 @@ function App() {
                           </SystemTelemetryProvider>
                         </UploadProvider>
                       </ShootsProvider>
+                      </BrowserPhoneProvider>
                     </PermissionsProvider>
                   </UserPreferencesProvider>
                 </AuthProvider>

@@ -1,4 +1,3 @@
-import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,12 +18,17 @@ import {
   updateVoiceSettings,
 } from '@/services/voice';
 import type { VoiceScheduleOverride, VoiceSettings } from '@/types/voice';
+import { EmptyCalls } from './workspace/bits';
+import { CallsQueryError } from './workspace/CallsQueryError';
+import { usePermissions } from '@/context/PermissionsContext';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 export default function CallsSchedule() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { can, isLoading: permissionsLoading } = usePermissions();
+  const canManage = can('voice-calls', 'manage');
   const settings = useQuery({ queryKey: ['voice-settings'], queryFn: getVoiceSettings });
   const overrides = useQuery({ queryKey: ['voice-schedule-overrides'], queryFn: getScheduleOverrides });
   usePageLoading(settings.isLoading || overrides.isLoading);
@@ -43,6 +47,7 @@ export default function CallsSchedule() {
       queryClient.invalidateQueries({ queryKey: ['voice-schedule-state'] });
       toast({ title: 'Schedule saved' });
     },
+    onError: (error) => toast({ title: 'Could not save schedule', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' }),
   });
 
   const addOverride = useMutation({
@@ -53,10 +58,12 @@ export default function CallsSchedule() {
       setNewOverride({ starts_at: '', ends_at: '', mode: 'closed', label: '' });
       toast({ title: 'Override added' });
     },
+    onError: (error) => toast({ title: 'Could not add override', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' }),
   });
 
   const removeOverride = useMutation({
     mutationFn: (id: number) => deleteScheduleOverride(id),
+    onError: (error) => toast({ title: 'Could not remove override', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voice-schedule-overrides'] });
       queryClient.invalidateQueries({ queryKey: ['voice-schedule-state'] });
@@ -101,9 +108,18 @@ export default function CallsSchedule() {
     addOverride.mutate({ starts_at: now.toISOString(), ends_at: end.toISOString(), mode, label });
   };
 
+  if (settings.isError) return <CallsQueryError message="Could not load coverage settings. Your saved schedule has not changed." retry={() => void settings.refetch()} />;
+  if (!settings.data) return null;
+
   return (
     <div className="space-y-4">
-      <Card>
+      <div>
+        <h2 className="text-[28px] font-semibold leading-9">Coverage people can trust.</h2>
+        <p className="mt-1 text-sm text-[var(--calls-muted)]">Hours, holidays, quiet hours, and same-day overrides. Robbie follows what you save here.</p>
+        {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review coverage. Manage Calls permission is required to change it.</p>}
+      </div>
+      <fieldset disabled={!canManage} className="min-w-0 space-y-4">
+      <Card className="calls-panel border-[var(--calls-border)] shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between text-base">
             <span className="flex items-center gap-2">
@@ -374,10 +390,11 @@ export default function CallsSchedule() {
                 </Button>
               </div>
             ))}
-            {(overrides.data ?? []).length === 0 && <EmptyState icon="availability" title="No active overrides." size="compact" />}
+            {(overrides.data ?? []).length === 0 && <EmptyCalls title="No active overrides." />}
           </div>
         </CardContent>
       </Card>
+      </fieldset>
     </div>
   );
 }

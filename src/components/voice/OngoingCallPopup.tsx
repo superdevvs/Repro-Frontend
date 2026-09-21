@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, ExternalLink, Maximize2, PhoneCall, PhoneOff, Sparkles, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,11 @@ import { useCallLiveStream } from '@/hooks/useCallLiveStream';
 import { MoodChips } from '@/components/voice/MoodChips';
 import { scheduleStateMeta } from '@/components/voice/ScheduleBadge';
 import type { VoiceCall } from '@/types/voice';
+import { usePermissions } from '@/context/PermissionsContext';
+import { useBrowserPhone } from '@/context/BrowserPhoneContext';
+import { callerName as displayCallerName, getCallPhone } from '@/pages/voice/workspace/callDisplay';
 
-const ACTIVE_STATUSES = new Set(['dialing', 'ringing', 'active', 'in_progress']);
+const ACTIVE_STATUSES = new Set(['dialing', 'ringing', 'answered', 'active', 'in_progress', 'ai_active', 'tool_running', 'human_handoff']);
 
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -30,6 +33,9 @@ const computeElapsed = (call: VoiceCall): number => {
 
 export default function OngoingCallPopup() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const { can } = usePermissions();
+  const phone = useBrowserPhone();
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<number>>(new Set());
@@ -37,31 +43,34 @@ export default function OngoingCallPopup() {
 
   const calls = useQuery({
     queryKey: ['voice-calls', 'ongoing'],
-    queryFn: () => getVoiceCalls({ per_page: 5 }),
+    queryFn: () => getVoiceCalls({ per_page: 25, filter: 'live' }),
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
     staleTime: 0,
+    enabled: !phone.session && can('voice-calls', 'view'),
   });
 
   const ongoing = useMemo(() => {
     const rows = calls.data?.data ?? [];
     return rows.find(
-      (call) => ACTIVE_STATUSES.has((call.status || '').toLowerCase()) && !dismissedIds.has(call.id),
+      (call) => !call.ended_at && ACTIVE_STATUSES.has((call.status || '').toLowerCase()) && !dismissedIds.has(call.id),
     );
   }, [calls.data?.data, dismissedIds]);
 
-  const live = useCallLiveStream(ongoing?.id ?? null);
+  const onCockpit = location.pathname.startsWith('/calls/live/');
+  const hidden = onCockpit || Boolean(phone.session);
+  const live = useCallLiveStream(hidden ? null : ongoing?.id ?? null);
 
   useEffect(() => {
-    if (!ongoing) return;
+    if (!ongoing || hidden) return;
     const interval = window.setInterval(() => setTick((value) => value + 1), 1000);
     return () => window.clearInterval(interval);
-  }, [ongoing]);
+  }, [ongoing, hidden]);
 
   const hangup = useMutation({
     mutationFn: (id: number) => hangupVoiceCall(id),
     onSuccess: () => {
-      toast({ title: 'Call ended', description: 'Hangup signal sent to Telnyx.' });
+      toast({ title: 'Hangup requested', description: 'Waiting for the carrier to confirm the call has ended.' });
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
     },
@@ -79,18 +88,10 @@ export default function OngoingCallPopup() {
     },
   });
 
-  if (!ongoing) return null;
+  if (!ongoing || hidden) return null;
 
-  const callerName =
-    ongoing.callerUser?.name
-    || ongoing.caller_user?.name
-    || ongoing.callerContact?.name
-    || ongoing.caller_contact?.name
-    || ongoing.to_phone
-    || ongoing.from_phone
-    || 'Unknown caller';
-
-  const peerNumber = ongoing.direction === 'OUTBOUND' ? ongoing.to_phone : ongoing.from_phone;
+  const callerName = displayCallerName(ongoing);
+  const peerNumber = getCallPhone(ongoing);
   void tick;
   const elapsed = computeElapsed(ongoing);
   const status = (ongoing.status || '').toLowerCase();
@@ -111,7 +112,7 @@ export default function OngoingCallPopup() {
   const topAction = insights?.suggested_replies?.[0];
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2 sm:bottom-6 sm:right-6">
+    <div className="pointer-events-none fixed bottom-[calc(var(--mobile-bottom-nav-height,88px)+8px)] right-3 z-40 flex max-h-[65dvh] w-[min(380px,calc(100vw-1.5rem))] flex-col gap-2 overflow-y-auto md:bottom-6 md:right-6">
       <div className="pointer-events-auto rounded-xl border border-border bg-card text-card-foreground shadow-xl">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
@@ -130,7 +131,7 @@ export default function OngoingCallPopup() {
           <span className="font-mono text-xs text-muted-foreground">{formatDuration(elapsed)}</span>
           <Link
             to={`/calls/live/${ongoing.id}`}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Open full cockpit"
           >
             <Maximize2 className="h-4 w-4" />
@@ -138,7 +139,7 @@ export default function OngoingCallPopup() {
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={collapsed ? 'Expand call popup' : 'Collapse call popup'}
           >
             {collapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -146,7 +147,7 @@ export default function OngoingCallPopup() {
           <button
             type="button"
             onClick={dismiss}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Hide call popup"
           >
             <X className="h-4 w-4" />
@@ -226,7 +227,7 @@ export default function OngoingCallPopup() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={hangup.isPending}
+                  disabled={hangup.isPending || !ongoing.call_control_id || !can('voice-calls', 'operate')}
                   onClick={() => hangup.mutate(ongoing.id)}
                 >
                   <PhoneOff className="mr-1 h-4 w-4" />
@@ -237,7 +238,7 @@ export default function OngoingCallPopup() {
 
             <TabsContent value="memory" className="space-y-2 px-2 pt-2 text-xs">
               {(() => {
-                const t1 = (live.memory.tier1 ?? {}) as Record<string, any>;
+                const t1 = (live.memory.tier1 ?? {}) as { caller_name?: string; identified?: boolean; unpaid_invoices?: {count?: number; total?: number}; active_issue?: boolean };
                 return (
                   <>
                     <div className="flex flex-wrap gap-1">

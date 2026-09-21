@@ -1,0 +1,260 @@
+.calls-workspace {
+  /* Keep Calls and its portalled dialogs on the dashboard's shared theme. */
+  --calls-canvas: hsl(var(--background));
+  --calls-surface: hsl(var(--card));
+  --calls-text: hsl(var(--foreground));
+  --calls-muted: hsl(var(--muted-foreground));
+  --calls-border: hsl(var(--border));
+  --calls-subtle: hsl(var(--secondary));
+  --calls-brand: hsl(var(--primary));
+  --calls-brand-soft: hsl(var(--primary) / 0.1);
+  --calls-on-brand: hsl(var(--primary-foreground));
+  --calls-success: #047857;
+  --calls-success-soft: #ecfdf5;
+  --calls-warning: #8a5d14;
+  --calls-warning-soft: #fff3de;
+  --calls-danger: #b93849;
+  --calls-danger-soft: #fcecef;
+  --calls-ai: #6554b6;
+  --calls-ai-soft: #f0edfc;
+  --calls-radius: calc(var(--radius) + 4px);
+  --calls-radius-sm: calc(var(--radius) - 4px);
+  background: var(--calls-canvas);
+  color: var(--calls-text);
+  font-family: inherit;
+  word-spacing: normal;
+}
+
+.dark .calls-workspace {
+  --calls-success: #6ee7b7;
+  --calls-success-soft: #064e3b;
+  --calls-warning: #f0c27a;
+  --calls-warning-soft: #3a2c14;
+  --calls-danger: #e07a86;
+  --calls-danger-soft: #3a1c22;
+  --calls-ai: #a99be8;
+  --calls-ai-soft: #2a2440;
+}
+
+.calls-workspace ::selection {
+  background: color-mix(in srgb, var(--calls-brand) 28%, transparent);
+  color: var(--calls-text);
+}
+
+.calls-workspace {
+  scrollbar-color: var(--calls-border) transparent;
+}
+
+.calls-workspace :focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.calls-panel {
+  min-width: 0;
+  background: var(--calls-surface);
+  border: 1px solid var(--calls-border);
+  border-radius: var(--calls-radius);
+  overflow-wrap: anywhere;
+}
+
+.calls-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.calls-chip-neutral {
+  background: var(--calls-subtle);
+  color: var(--calls-muted);
+}
+
+.calls-chip-success {
+  background: var(--calls-success-soft);
+  color: var(--calls-success);
+}
+
+.calls-chip-warning {
+  background: var(--calls-warning-soft);
+  color: var(--calls-warning);
+}
+
+.calls-chip-danger {
+  background: var(--calls-danger-soft);
+  color: var(--calls-danger);
+}
+
+.calls-chip-ai {
+  background: var(--calls-ai-soft);
+  color: var(--calls-ai);
+}
+
+.calls-primary {
+  background: var(--calls-brand);
+  color: var(--calls-on-brand);
+}
+
+.calls-primary:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+
+.calls-secondary {
+  background: var(--calls-surface);
+  color: var(--calls-text);
+  border: 1px solid var(--calls-border);
+}
+
+.calls-secondary:hover {
+  background: var(--calls-subtle);
+}
+
+.calls-ai {
+  background: var(--calls-ai-soft);
+  color: var(--calls-ai);
+  border: 1px solid var(--calls-ai);
+}
+
+.calls-ai:hover {
+  background: color-mix(in srgb, var(--calls-ai-soft) 80%, var(--calls-ai));
+}
+
+.calls-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 0 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--calls-muted);
+}
+
+.calls-nav-link[data-active='true'] {
+  color: var(--calls-brand);
+}
+
+.calls-nav-link[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--calls-brand);
+}
+
+.calls-item[data-selected='true'] {
+  background: var(--calls-brand-soft);
+}
+
+.calls-wave {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.calls-wave span {
+  width: 4px;
+  min-width: 1px;
+  flex-shrink: 1;
+  border-radius: 999px;
+  background: var(--calls-border);
+}
+
+.calls-wave span[data-played='true'] {
+  background: var(--calls-brand);
+}
+
+.calls-filter {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--calls-border);
+  background: var(--calls-surface);
+  color: var(--calls-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.calls-filter[data-active='true'] {
+  background: var(--calls-brand-soft);
+  color: var(--calls-brand);
+  border-color: transparent;
+}
+
+.calls-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--calls-subtle);
+  color: var(--calls-text);
+  font-size: 12px;
+  line-height: 18px;
+  flex-shrink: 0;
+}
+
+.calls-bar-stack {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 160px;
+}
+
+.calls-bar-stack > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  border-radius: 6px 6px 2px 2px;
+  overflow: hidden;
+}
+
+.calls-workspace :where(.grid > *, .flex > *) {
+  min-width: 0;
+}
+
+.calls-workspace[role='dialog'] {
+  width: calc(100% - 24px);
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--calls-radius);
+}
+
+.calls-workspace[role='dialog'] :where(h2, [id$='description']) {
+  padding-right: 24px;
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  .calls-workspace :where(button:not([role='switch']):not([role='checkbox']), a.calls-primary, a.calls-secondary, .calls-filter, [role='combobox'], select, input:not([type='checkbox']):not([type='radio'])) {
+    min-height: 44px;
+  }
+
+  .calls-workspace button[aria-label] {
+    min-width: 44px;
+  }
+
+  .calls-workspace :where(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+    font-size: 16px;
+  }
+
+  .calls-workspace[role='dialog'] > button:last-child {
+    min-width: 44px;
+  }
+
+  .calls-wave {
+    gap: 2px;
+  }
+}

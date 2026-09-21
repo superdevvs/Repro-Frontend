@@ -7,11 +7,13 @@ import type {
   VoiceCallListResponse,
   VoiceHealth,
   VoiceInsights,
+  VoiceInsightsReport,
   VoiceLlmUsageSummary,
   VoiceNumberConfig,
   VoiceScheduleOverride,
   VoiceSettings,
   VoiceStats,
+  VoiceWrapUpPayload,
 } from '@/types/voice';
 
 export const getVoiceStats = async (range = '7d'): Promise<VoiceStats> => {
@@ -49,8 +51,33 @@ export const pageVoiceCallStaff = async (id: number, reason?: string): Promise<V
   return response.data;
 };
 
+export const transferVoiceCall = async (id: number, reason?: string): Promise<VoiceCall> => {
+  const response = await apiClient.post(`/voice/calls/${id}/transfer`, { reason });
+  return response.data;
+};
+
 export const hangupVoiceCall = async (id: number): Promise<VoiceCall> => {
   const response = await apiClient.post(`/voice/calls/${id}/hangup`);
+  return response.data;
+};
+
+export const wrapUpVoiceCall = async (id: number, data: VoiceWrapUpPayload): Promise<VoiceCall> => {
+  const response = await apiClient.patch(`/voice/calls/${id}/wrap-up`, data);
+  return response.data;
+};
+
+export const addVoiceCallNote = async (id: number, body: string): Promise<VoiceCall> => {
+  const response = await apiClient.post(`/voice/calls/${id}/note`, { body });
+  return response.data;
+};
+
+export const getVoiceCallRecordingUrl = async (id: number): Promise<string | null> => {
+  const response = await apiClient.get(`/voice/calls/${id}/recording-url`);
+  return response.data.url ?? null;
+};
+
+export const getVoiceInsights = async (range = '7d'): Promise<VoiceInsightsReport> => {
+  const response = await apiClient.get('/voice/calls/insights', { params: { range } });
   return response.data;
 };
 
@@ -82,6 +109,17 @@ export const getVoiceHealth = async (): Promise<VoiceHealth> => {
 export const updateVoiceSettings = async (data: Partial<VoiceSettings>): Promise<VoiceSettings> => {
   const response = await apiClient.patch('/voice/settings', data);
   return response.data;
+};
+
+export const syncVoiceAssistant = async (data?: { promote_to_main?: boolean }) => {
+  const response = await apiClient.post('/voice/assistant/sync', data ?? { promote_to_main: true });
+  return response.data as {
+    applied: boolean;
+    promote_to_main: boolean;
+    created_version_id?: string | null;
+    missing_tools?: string[];
+    desired_tools?: string[];
+  };
 };
 
 export const getScheduledVoiceCalls = async (params?: Record<string, string | number | boolean | undefined>): Promise<ScheduledVoiceCallListResponse> => {

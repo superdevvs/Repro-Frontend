@@ -7,9 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { getVoiceNumbers, updateVoiceNumber } from '@/services/voice';
 import type { VoiceNumberConfig } from '@/types/voice';
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function CallsNumbers() {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canManage = can('voice-calls', 'manage');
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
   usePageLoading(numbers.isLoading);
 
@@ -40,6 +43,7 @@ export default function CallsNumbers() {
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <Switch
+                  disabled={!canManage || update.isPending || numbers.isError}
                   checked={number.voice_ai_enabled ?? false}
                   onCheckedChange={(checked) =>
                     update.mutate({ id: number.id, data: { voice_ai_enabled: checked } })
@@ -49,6 +53,7 @@ export default function CallsNumbers() {
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <Switch
+                  disabled={!canManage || update.isPending || numbers.isError}
                   checked={number.sms_ai_enabled ?? false}
                   onCheckedChange={(checked) =>
                     update.mutate({ id: number.id, data: { sms_ai_enabled: checked } })

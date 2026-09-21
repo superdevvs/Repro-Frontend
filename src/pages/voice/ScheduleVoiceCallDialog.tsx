@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createScheduledVoiceCall } from '@/services/voice';
+import { usePermissions } from '@/context/PermissionsContext';
 
 interface ScheduleVoiceCallDialogProps {
   trigger?: ReactNode;
@@ -39,6 +40,8 @@ export default function ScheduleVoiceCallDialog({
 }: ScheduleVoiceCallDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { can } = usePermissions();
+  const canOperate = can('voice-calls', 'operate');
   const defaultTime = useMemo(() => localDateTime(new Date(Date.now() + 60 * 60 * 1000)), []);
   const [open, setOpen] = useState(false);
   const [targetPhone, setTargetPhone] = useState(initialTargetPhone);
@@ -87,19 +90,19 @@ export default function ScheduleVoiceCallDialog({
     },
   });
 
-  const canSubmit = targetPhone.trim().length > 0 && !create.isPending;
+  const canSubmit = canOperate && targetPhone.trim().length > 0 && !create.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => { if (!next || canOperate) setOpen(next); }}>
+      {trigger && <DialogTrigger asChild disabled={!canOperate}>{trigger}</DialogTrigger>}
+      <DialogContent className="calls-workspace">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4 text-blue-600" /> Schedule Callback
           </DialogTitle>
           <DialogDescription>Add a manual outbound follow-up to the callback queue.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4">
+        <fieldset disabled={!canOperate || create.isPending} className="grid min-w-0 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="scheduled-target-phone">Target phone</Label>
             <Input
@@ -149,7 +152,7 @@ export default function ScheduleVoiceCallDialog({
               placeholder="manual_callback"
             />
           </div>
-        </div>
+        </fieldset>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancel

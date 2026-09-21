@@ -5,7 +5,92 @@ export interface VoiceCaller {
   phone?: string | null;
 }
 
+export interface VoiceRelatedShoot {
+  id: number;
+  address?: string | null;
+  status?: string | null;
+  scheduled_at?: string | null;
+  photographer?: VoiceCaller | null;
+}
+
+export interface VoiceWrapUpTask {
+  id?: number;
+  status?: 'open' | 'completed';
+  title: string;
+  due_at?: string | null;
+  assigned_to_user_id?: number | null;
+  related_shoot_id?: number | null;
+  scheduled_voice_call_id?: number | null;
+  created_at?: string;
+}
+
+export interface VoiceWrapUpSms {
+  status?: 'draft' | 'sent' | 'failed' | 'blocked' | 'uncertain';
+  error?: string | null;
+  body?: string | null;
+  sent_at?: string | null;
+  drafted_at?: string | null;
+  message_id?: number | null;
+}
+
+export interface VoiceWrapUp {
+  recap_title?: string | null;
+  recap_body?: string | null;
+  outcome?: string | null;
+  task?: VoiceWrapUpTask | null;
+  sms?: VoiceWrapUpSms | null;
+  saved_at?: string | null;
+  saved_by?: number | null;
+  sms_sent?: boolean;
+}
+
+export interface VoiceCallNote {
+  body: string;
+  user_id?: number | null;
+  user_name?: string | null;
+  at: string;
+}
+
+export interface VoiceWrapUpPayload {
+  idempotency_key?: string;
+  task_status?: 'open' | 'completed';
+  recap_title?: string;
+  recap_body?: string;
+  outcome?: string;
+  create_task?: boolean;
+  task_title?: string;
+  task_due_at?: string | null;
+  attach_shoot?: boolean;
+  send_sms?: boolean;
+  sms_body?: string;
+}
+
+export interface VoiceInsightsReport {
+  range: string;
+  answered_rate: number | null;
+  answered_rate_delta: number | null;
+  median_answer_seconds: number | null;
+  median_answer_delta: number | null;
+  bookings_from_calls: number;
+  bookings_delta: number | null;
+  missed_recovered_rate: number | null;
+  missed_recovered_delta: number | null;
+  inbound_total: number;
+  volume_by_day: Array<{ date: string; label: string; team: number; ai: number; missed: number; total: number }>;
+  intents: Array<{ key: string; label: string; count: number; pct: number }>;
+  handoff_connected_rate: number | null;
+  handoffs_needing_callback: number;
+  opportunity?: { title: string; detail: string } | null;
+  updated_at: string;
+}
+
 export interface VoiceCall {
+  wrap_up_result?: {
+    operation_id: number | string;
+    sms_status: 'draft' | 'sent' | 'blocked' | 'failed' | 'uncertain';
+    sms_sent: boolean;
+    error?: string | null;
+  };
   id: number;
   provider?: string | null;
   vapi_call_id?: string | null;
@@ -56,8 +141,8 @@ export interface VoiceCall {
   callerUser?: VoiceCaller | null;
   caller_contact?: VoiceCaller | null;
   callerContact?: VoiceCaller | null;
-  related_shoot?: Record<string, unknown> | null;
-  relatedShoot?: Record<string, unknown> | null;
+  related_shoot?: VoiceRelatedShoot | null;
+  relatedShoot?: VoiceRelatedShoot | null;
   scheduled_callback?: ScheduledVoiceCall | null;
   scheduledCallback?: ScheduledVoiceCall | null;
 }
@@ -85,9 +170,13 @@ export interface VoiceNumberConfig {
   sms_ai_enabled?: boolean | null;
 }
 
+export type VoiceOutboundMode = 'all' | 'canary' | 'none';
+
 export interface VoiceSettings {
   provider?: 'telnyx' | 'vapi' | string;
+  outbound_mode?: VoiceOutboundMode;
   canary_mode?: boolean;
+  canary_numbers?: string[];
   enabled: boolean;
   assistant_id?: string | null;
   webhook_url?: string | null;
@@ -216,6 +305,7 @@ export interface VoiceHealth {
   enabled: boolean;
   can_place_calls: boolean;
   readiness_blockers: string[];
+  outbound_mode?: VoiceOutboundMode;
   canary_mode: boolean;
   canary_number_count: number;
   webhook_url_configured: boolean;

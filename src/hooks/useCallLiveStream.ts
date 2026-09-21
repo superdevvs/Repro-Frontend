@@ -65,6 +65,7 @@ export function useCallLiveStream(callId: number | null, callerTz?: string): Cal
 
     setState({ ...initialState });
     let cancelled = false;
+    let streamClosed = false;
     let retryTimer: number | undefined;
 
     const connect = async () => {
@@ -99,7 +100,7 @@ export function useCallLiveStream(callId: number | null, callerTz?: string): Cal
         while (true) {
           const { done, value } = await reader.read();
           if (done || cancelled) break;
-          buffer += decoder.decode(value, { stream: true });
+          buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, '\n');
 
           const frames = buffer.split('\n\n');
           buffer = frames.pop() ?? '';
@@ -107,14 +108,13 @@ export function useCallLiveStream(callId: number | null, callerTz?: string): Cal
             handleFrame(frame);
           }
         }
-      } catch (err) {
-        if (cancelled) return;
-        // schedule a reconnect unless we are closed
-        setState((prev) => {
-          if (prev.closed) return prev;
+      } catch {
+        // The polling call query remains available while the stream reconnects.
+      } finally {
+        if (!cancelled && !streamClosed) {
+          setState((prev) => ({ ...prev, connected: false }));
           retryTimer = window.setTimeout(connect, 2000);
-          return { ...prev, connected: false };
-        });
+        }
       }
     };
 
@@ -133,24 +133,27 @@ export function useCallLiveStream(callId: number | null, callerTz?: string): Cal
       } catch {
         return;
       }
-      applyEvent(event, payload);
+      if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+        applyEvent(event, payload as Record<string, unknown>);
+      }
     };
 
-    const applyEvent = (event: string, payload: any) => {
+    const applyEvent = (event: string, payload: Record<string, unknown>) => {
+      if (event === 'closed') streamClosed = true;
       setState((prev) => {
         switch (event) {
           case 'transcript':
-            return { ...prev, transcript: payload.chunks ?? prev.transcript };
+            return { ...prev, transcript: Array.isArray(payload.chunks) ? payload.chunks as TranscriptChunk[] : prev.transcript };
           case 'realtime':
-            return { ...prev, realtime: payload ?? prev.realtime };
+            return { ...prev, realtime: payload as RealtimeSignals };
           case 'insights':
-            return { ...prev, insights: payload ?? prev.insights };
+            return { ...prev, insights: payload as VoiceInsights };
           case 'memory':
-            return { ...prev, memory: payload ?? prev.memory };
+            return { ...prev, memory: payload as MemorySnapshot };
           case 'schedule_state':
-            return { ...prev, scheduleState: payload ?? prev.scheduleState };
+            return { ...prev, scheduleState: payload as unknown as ScheduleState };
           case 'final_summary':
-            return { ...prev, finalSummary: payload ?? prev.finalSummary };
+            return { ...prev, finalSummary: payload as VoiceInsights };
           case 'closed':
             return { ...prev, closed: true, connected: false };
           default:
