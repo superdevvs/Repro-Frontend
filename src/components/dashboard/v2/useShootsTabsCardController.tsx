@@ -28,6 +28,7 @@ import {
   getSummaryLocalDate,
   isShootInPast,
   matchesDateRange,
+  visiblePastDayGroups,
   type FiltersState,
   type ShootsTabsCardProps,
   type TabType,
@@ -263,13 +264,17 @@ export function useShootsTabsCardController({
     const futureGroups = allGroups
       .filter((group) => !group.isPast && !group.isToday)
       .sort((a, b) => (a.dayTime || Number.POSITIVE_INFINITY) - (b.dayTime || Number.POSITIVE_INFINITY));
-    const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : [];
+    const visiblePastGroups = visiblePastDayGroups(pastGroups, {
+      mode: isEditingManagerMode ? 'editing_manager' : 'default',
+      tabId: activeTab,
+      showPastDays,
+    });
     const hasPastDays = pastGroups.length > 0;
     return {
       groups: [...visiblePastGroups, ...todayGroups, ...futureGroups],
       hasPastDays,
     };
-  }, [formatDate, showPastDays]);
+  }, [activeTab, formatDate, isEditingManagerMode, showPastDays]);
   const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number }) => {
     const count = group.shoots.length;
     const suffix = count === 1 ? '1 shoot' : `${count} shoots`;

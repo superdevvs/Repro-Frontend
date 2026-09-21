@@ -102,6 +102,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-2">
+            {activeTab === 'scheduled' && (
             <Button
               variant="outline"
               size="sm"
@@ -116,6 +117,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
                 {editingManagerHasPastDays && showPastDays ? 'Hide' : 'Previous'}
               </span>
             </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -142,6 +144,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
         {isMenuOpen && (
           <div className="sm:hidden flex items-center gap-2 mb-3 -mt-1">
+            {activeTab === 'scheduled' && (
             <Button
               variant="outline"
               size="sm"
@@ -151,6 +154,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
             >
               {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
             </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"

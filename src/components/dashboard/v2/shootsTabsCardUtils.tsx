@@ -211,3 +211,25 @@ export const isShootInPast = (shoot: DashboardShootSummary) => {
   const today = startOfDay(new Date());
   return !isSameDay(shootDate, today) && !isAfter(shootDate, today);
 };
+
+export type ShootDayGroupVisibility = {
+  mode?: 'default' | 'editing_manager';
+  tabId: string;
+  showPastDays: boolean;
+};
+
+/** Pipeline tabs are current work even when the booked day is already past. */
+export const visiblePastDayGroups = <T,>(
+  pastGroups: T[],
+  { mode = 'default', tabId, showPastDays }: ShootDayGroupVisibility,
+): T[] => {
+  if (mode === 'editing_manager' && tabId !== 'scheduled') {
+    return pastGroups;
+  }
+
+  if (!showPastDays) {
+    return [];
+  }
+
+  return pastGroups.slice(0, 3);
+};

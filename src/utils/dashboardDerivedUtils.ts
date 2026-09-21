@@ -1,4 +1,4 @@
-import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid } from "date-fns";
+import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid, isAfter, isSameDay } from "date-fns";
 
 import type {
   DashboardIssueItem,
@@ -15,6 +15,7 @@ import {
   formatTimeForWallClockInput,
 } from "@/utils/wallClockDateTime";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
+import { getDashboardShootDisplayDate } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
@@ -630,24 +631,15 @@ export const filterReadyToDeliverShoots = (shoots: DashboardShootSummary[]) =>
     })
     .sort(sortByStartDesc);
 
+const isDashboardShootTodayOrFuture = (shoot: DashboardShootSummary, now = new Date()) => {
+  const shootDate = getDashboardShootDisplayDate(shoot);
+  if (!shootDate) return false;
+  const today = startOfDay(now);
+  return isSameDay(shootDate, today) || isAfter(shootDate, today);
+};
+
 export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) =>
-  shoots
-    .filter((shoot) => {
-      if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
-        return false;
-      }
-      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
-        return false;
-      }
-      if (matchesStatus(shoot, SCHEDULED_STATUS_KEYWORDS)) {
-        return false;
-      }
-      if (matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS)) {
-        return false;
-      }
-      return true;
-    })
-    .sort(sortByStartAsc);
+  filterUpcomingShoots(shoots, "editing_manager").filter((shoot) => isDashboardShootTodayOrFuture(shoot));
 
 export const filterPendingReviews = (shoots: DashboardShootSummary[]) =>
   []; // No pending reviews - review status removed
