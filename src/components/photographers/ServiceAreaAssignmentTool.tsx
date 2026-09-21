@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -230,9 +231,7 @@ export function ServiceAreaAssignmentTool() {
             )}
 
             {!previewQuery.isError && !isPreviewLoading && matches.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No photographers currently match this filter.
-              </p>
+              <EmptyState icon="map" title={<>No photographers currently match this filter.</>} size="compact" />
             )}
 
             {matches.length > 0 && (

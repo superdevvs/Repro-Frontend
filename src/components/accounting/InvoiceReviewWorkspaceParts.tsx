@@ -1,4 +1,5 @@
-import { AlertTriangle, CalendarRange, CheckCircle2, Clock3, FileText, MessageSquareMore, User2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { AlertTriangle, CalendarRange, Clock3, FileText, MessageSquareMore, User2 } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Badge } from '@/components/ui/badge';
@@ -48,11 +49,9 @@ const getTimelineTone = (event: WeeklyInvoiceTimelineEvent) => {
 
 export const EmptyQueueState = ({ statusLabel, payeePlural }: { statusLabel: string; payeePlural: string }) => (
   <div className="flex min-h-[16rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 bg-muted/15 px-6 py-10 text-center">
-    <div className="flex size-12 items-center justify-center rounded-full border border-border/70 bg-background">
-      <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-    </div>
+
     <div className="flex flex-col gap-1">
-      <p className="text-base font-semibold">No {statusLabel.toLowerCase()} invoices</p>
+      <EmptyState icon="invoices" title={<>No {statusLabel.toLowerCase()} invoices</>} size="compact" />
       <p className="text-sm text-muted-foreground">
         Adjust the filters or wait for the next {payeePlural} submission.
       </p>

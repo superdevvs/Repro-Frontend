@@ -1,4 +1,5 @@
-import { Info, MapPin, Plus } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state';
+import { Info, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -65,11 +66,9 @@ export function SidebarEmptyState({ kind, onAddListing, className }: SidebarEmpt
         )}
       >
         <CardContent className="flex flex-col items-center justify-center gap-4 px-6 py-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <MapPin className="h-5 w-5" aria-hidden="true" />
-          </div>
+
           <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">No listings in this view yet</p>
+            <EmptyState icon="listings" title={<>No listings in this view yet</>} size="compact" />
             <p className="text-xs text-muted-foreground">
               When you add a private listing, it will show up here.
             </p>
@@ -101,10 +100,8 @@ export function SidebarEmptyState({ kind, onAddListing, className }: SidebarEmpt
       )}
     >
       <CardContent className="flex flex-col items-center justify-center px-6 py-10 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <MapPin className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <p className="mt-4 text-sm font-medium text-foreground">{NEARBY_NOTE}</p>
+
+        <EmptyState icon="map" title={<>{NEARBY_NOTE}</>} size="compact" />
         <p className="mt-1 text-xs text-muted-foreground">
           {kind === 'low-data'
             ? 'Only a few listings are mapped so far.'

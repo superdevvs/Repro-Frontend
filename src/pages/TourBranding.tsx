@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -17,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { BrandingImageUpload } from '@/components/profile/BrandingImageUpload';
-import { Plus, Edit, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
 
@@ -241,8 +242,8 @@ export default function TourBranding() {
           ) : brandings.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
-                <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground mb-4">No branding information found</p>
+
+                <EmptyState icon="branding" title={<>No branding information found</>} size="compact" />
                 <Button onClick={() => handleOpenDialog()}>Create First Branding</Button>
               </CardContent>
             </Card>

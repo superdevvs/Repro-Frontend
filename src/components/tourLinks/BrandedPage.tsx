@@ -1,18 +1,15 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  MapPin, BedDouble, Bath, Maximize, Download, ChevronLeft, ChevronRight,
-  Video, Layers, FileText, Mail, Phone, User, Link2, ExternalLink, Users,
-  Car, Facebook, Linkedin, Instagram, DollarSign,
-} from "lucide-react";
+import { BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, FileText, Mail, Phone, Link2, ExternalLink, Car, Facebook, Linkedin, Instagram, DollarSign } from "lucide-react";
 import { NeoTour } from "./NeoTour";
-import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
+import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
@@ -385,7 +382,7 @@ export function BrandedPage() {
             </AnimatePresence>
           ) : (
             <div className="absolute inset-0 bg-muted flex items-center justify-center">
-              <span className="text-muted-foreground">No Image Available</span>
+              <EmptyState icon="photos" title={<>No Image Available</>} size="compact" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />

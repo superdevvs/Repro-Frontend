@@ -1,8 +1,9 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+
 import { ArrowLeft, Eye, Users, MousePointerClick, Share2, Globe, Monitor, Smartphone, Tablet, TrendingUp, Image as ImageIcon, BarChart3 } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
@@ -187,10 +188,8 @@ export function TourAnalyticsPanel({ shootId, onBack }: TourAnalyticsPanelProps)
 
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-            <BarChart3 className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-sm font-medium">No analytics data yet</h3>
+
+          <EmptyState icon="reports" title={<>No analytics data yet</>} size="compact" />
           <p className="text-xs text-muted-foreground text-center max-w-xs">
             Analytics will appear here once visitors start viewing your tour pages.
           </p>

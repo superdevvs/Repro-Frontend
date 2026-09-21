@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import { useEffect, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -431,7 +432,7 @@ export function UserProfileDialog({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No scheduled shoots yet.</p>
+                      <EmptyState icon="shoots" title={<>No scheduled shoots yet.</>} size="compact" />
                     )}
                   </div>
                 )}
@@ -451,7 +452,7 @@ export function UserProfileDialog({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No completed shoots yet.</p>
+                      <EmptyState icon="completed" title={<>No completed shoots yet.</>} size="compact" />
                     )}
                   </div>
                 )}

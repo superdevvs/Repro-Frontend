@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
@@ -7,7 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -24,18 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Plus,
-  Check,
-  CheckCircle2,
-  AlertTriangle,
-  Search,
-  Filter,
-  X,
-  MoreVertical,
-  Bell,
-  Image as ImageIcon,
-} from 'lucide-react';
+import { Plus, Check, Search, Filter, X, MoreVertical, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { cn } from '@/lib/utils';
@@ -620,12 +610,12 @@ export function ShootRequestManager({
                   <div className="text-muted-foreground mb-2">
                     {requests.length === 0 ? (
                       <>
-                        <p className="text-lg font-medium mb-1">No requests found</p>
+                        <EmptyState icon="clear" title={<>No requests found</>} size="compact" />
                         <p className="text-sm">All clear! No requests to manage.</p>
                       </>
                     ) : (
                       <>
-                        <p className="text-lg font-medium mb-1">No matching requests</p>
+                        <EmptyState icon="search" title={<>No matching requests</>} size="compact" />
                         <p className="text-sm">Try adjusting your filters or search query.</p>
                       </>
                     )}

@@ -1,5 +1,6 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo, useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -388,9 +389,7 @@ export function ShootDetailsIssuesTab({
       {/* Requests List */}
       {visibleRequests.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No requests found
-          </CardContent>
+          <EmptyState icon="clear" title={<>No requests found</>} size="compact" />
         </Card>
       ) : (
         <div className="space-y-4">

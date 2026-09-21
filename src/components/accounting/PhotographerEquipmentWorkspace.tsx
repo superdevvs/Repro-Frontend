@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -522,7 +523,7 @@ export function PhotographerEquipmentWorkspace() {
           {loading ? (
             <div className="rounded-md border p-6 text-sm text-muted-foreground">Loading equipments...</div>
           ) : filteredEquipments.length === 0 ? (
-            <div className="rounded-md border p-6 text-sm text-muted-foreground">No equipments found.</div>
+            <EmptyState icon="equipment" title={<>No equipments found.</>} size="compact" />
           ) : (
             filteredEquipments.map((equipment) => {
               const referencePhotos = equipment.photos.filter((photo) => photo.type === "admin_reference");

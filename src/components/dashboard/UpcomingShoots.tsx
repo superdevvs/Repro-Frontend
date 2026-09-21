@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,7 +105,7 @@ export function UpcomingShoots({ className }: UpcomingShootsProps) {
             </div>
           ) : (
             <div className={`flex flex-col items-center justify-center ${isMobile ? 'py-6' : 'py-8'} text-center`}>
-              <p className="text-muted-foreground">No upcoming shoots scheduled.</p>
+              <EmptyState icon="shoots" title={<>No upcoming shoots scheduled.</>} size="compact" />
               <Button
                 variant="outline"
                 size={isMobile ? "sm" : "default"}

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useEffect, useMemo } from 'react';
@@ -16,7 +17,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { fetchMyLinkedClientSharedData, fetchMyLinkedClients } from '@/services/accountLinkingService';
 import type { SharedDetails } from '@/types/auth';
-import { cn } from '@/lib/utils';
+
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { buildShootPath } from '@/utils/shootPath';
 import {
@@ -250,8 +251,8 @@ export default function Shared() {
         ) : !clientData ? (
           <Card className="rounded-3xl">
             <CardContent className="p-10 text-center">
-              <Link2 className="mx-auto h-10 w-10 text-muted-foreground" />
-              <p className="mt-4 text-base font-semibold">No client selected</p>
+
+              <EmptyState icon="linked" title={<>No client selected</>} size="compact" />
               <p className="mt-2 text-sm text-muted-foreground">Choose a linked client to load their shared view.</p>
             </CardContent>
           </Card>
@@ -271,9 +272,7 @@ export default function Shared() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {clientData.sharedData.sharedShoots.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                        No shared shoots are available from this client yet.
-                      </div>
+                      <EmptyState icon="shared" title={<>No shared shoots are available from this client yet.</>} size="compact" />
                     ) : (
                       clientData.sharedData.sharedShoots.map((shoot) => {
                         const heroImage = normalizeImageUrl(shoot.heroImage);
@@ -333,9 +332,7 @@ export default function Shared() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {invoices.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                        No invoices are shared from this client yet.
-                      </div>
+                      <EmptyState icon="invoices" title={<>No invoices are shared from this client yet.</>} size="compact" />
                     ) : (
                       invoices.map((invoice) => (
                         <div key={invoice.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
@@ -373,9 +370,7 @@ export default function Shared() {
                   </CardHeader>
                   <CardContent className="grid gap-3 md:grid-cols-2">
                     {clientData.sharedData.properties.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground md:col-span-2">
-                        No properties are shared from this client yet.
-                      </div>
+                      <EmptyState icon="listings" title={<>No properties are shared from this client yet.</>} size="compact" className="md:col-span-2" />
                     ) : (
                       clientData.sharedData.properties.map((property, index) => (
                         <div key={`${property.address}-${index}`} className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800">

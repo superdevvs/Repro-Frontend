@@ -1,11 +1,12 @@
+import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
-import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
+import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
-import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Plane, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Eye, Clock, Copy, Download } from 'lucide-react';
+import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Copy, Download } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
@@ -13,14 +14,14 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { downloadShootRawFiles } from '@/utils/shootMediaDownload';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
-import { getIconComponent } from '@/components/scheduling/IconPicker';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
@@ -1142,9 +1143,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       <div ref={filterPanelHostRef} />
 
       {paginatedGroups.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500">
-          {emptyText}
-        </div>
+        <ShootEmptyState title={emptyText} filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking={displayTitle === 'Upcoming shoots' || displayTitle === 'Scheduled shoots'} className="flex-1" />
       ) : (
         <div 
           ref={scrollContainerRef}

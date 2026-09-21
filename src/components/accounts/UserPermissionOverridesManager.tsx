@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
 import { AlertCircle, Check, Eraser, Lock, Minus, RotateCcw, Save, Search, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -427,7 +428,7 @@ export function UserPermissionOverridesManager({ initialUserId = null }: UserPer
     <div className="flex min-h-full flex-col gap-4">
       {visibleGroups.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-          <p className="font-medium">No permissions match that search.</p>
+          <EmptyState icon="search" title={<>No permissions match that search.</>} size="compact" />
           <p className="mt-1 text-sm text-muted-foreground">
             Try a broader term like dashboard, messaging, accounting, or media.
           </p>

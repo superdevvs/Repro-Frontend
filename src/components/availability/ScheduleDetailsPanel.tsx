@@ -1,18 +1,7 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import {
-  Ban,
-  CalendarIcon,
-  ChevronRight,
-  Clock,
-  Edit,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Trash2,
-  User,
-  Users,
-} from "lucide-react";
+import { Ban, CalendarIcon, ChevronRight, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -267,9 +256,9 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+
               <p className="text-sm font-medium text-muted-foreground mb-1">Select a photographer</p>
-              <p className="text-xs text-muted-foreground">Choose a photographer to view their schedule</p>
+              <EmptyState icon="availability" title={<>Choose a photographer to view their schedule</>} size="compact" />
             </div>
           )}
         </div>
@@ -562,11 +551,9 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+
             <h2 className="text-lg font-semibold mb-2">Weekly Schedule</h2>
-            <p className="text-muted-foreground">
-              Select a specific photographer to view their weekly schedule
-            </p>
+            <EmptyState icon="availability" title={<>Select a specific photographer to view their weekly schedule</>} size="compact" />
           </div>
         </div>
       )}

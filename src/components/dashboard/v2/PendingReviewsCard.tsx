@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
 import { Card } from './SharedComponents';
@@ -253,7 +254,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
             {displayClientRequests ? (
               activeClientRequests.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground sm:pb-3">
-                  {clientRequestsLoading ? 'Loading requests...' : emptyRequestsText}
+                  {clientRequestsLoading ? 'Loading requests...' : <EmptyState icon="requests" title={emptyRequestsText} size="compact" />}
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -316,7 +317,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 </div>
               )
             ) : visibleIssues.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground sm:pb-3">{emptyRequestsText}</div>
+              <EmptyState icon="clear" title={emptyRequestsText} size="compact" className="flex-1" />
             ) : (
               <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -357,7 +358,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground sm:pb-0">Loading...</div>
             ) : activeEditingRequests.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center px-3 sm:pb-3">
-                <p className="text-xs text-muted-foreground italic mb-3">No active requests.</p>
+                <EmptyState icon="clear" title={<>No active requests.</>} size="compact" />
                 {onCreateEditingRequest && (
                   <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
                     {editingActionLabel}
@@ -407,9 +408,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
         {activeTab === 'cancellation' && showCancellationTab && (
           <div className="flex-1 flex flex-col min-h-0">
             {safeCancellationShoots.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground sm:pb-3">
-                No pending cancellations.
-              </div>
+              <EmptyState icon="clear" title={<>No pending cancellations.</>} size="compact" />
             ) : (
               <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>

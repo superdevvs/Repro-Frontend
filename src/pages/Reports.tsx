@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -114,6 +115,8 @@ function ReportState({ state, title, description, onRetry }: ReportStateProps) {
       </div>
     );
   }
+
+  if (state === 'empty') return <EmptyState icon="reports" title={title || 'No report data yet'} description={description} size="compact" className="h-full" />;
 
   const isError = state === 'error';
   const Icon = isError ? AlertCircle : BarChart3;

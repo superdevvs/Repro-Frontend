@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect } from 'react';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { normalizeImageUrl } from '@/utils/imageUrl';
@@ -155,9 +156,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         <span className="text-[10px] sm:text-xs text-muted-foreground">{safeShoots.length} ready</span>
       </div>
       {safeShoots.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground">
-          {emptyStateText}
-        </div>
+        <EmptyState icon="completed" title={emptyStateText} description="Completed work will appear here when it is ready." className="flex-1" />
       ) : (
         <div className="space-y-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {

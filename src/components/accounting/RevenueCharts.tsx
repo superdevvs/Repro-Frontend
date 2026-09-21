@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -190,7 +191,7 @@ export function RevenueCharts({
               {!hasExpenses ? (
                 <div className="flex flex-1 rounded-xl border border-dashed border-border/60 dark:border-white/10 bg-card/50 p-6 text-sm text-slate-500 dark:text-slate-400">
                   <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 text-center">
-                    <p>No expenses recorded for {timeFilterLabel.toLowerCase()}. Upload a receipt or add a new expense to get started.</p>
+                    <EmptyState icon="expenses" title={<>No expenses recorded for {timeFilterLabel.toLowerCase()}. Upload a receipt or add a new expense to get started.</>} size="compact" />
                     <div className="flex flex-wrap gap-3">
                       <Button variant="outline" onClick={handleUploadClick}>
                         Upload receipt
@@ -539,7 +540,7 @@ export function RevenueCharts({
                 ))}
 
                 {filteredExpenses.length === 0 && (
-                  <p className="text-muted-foreground text-sm">No expenses found.</p>
+                  <EmptyState icon="expenses" title={<>No expenses found.</>} size="compact" />
                 )}
               </div>
 

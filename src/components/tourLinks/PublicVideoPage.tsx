@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { getStoredAuthToken } from '@/utils/authToken';
@@ -343,7 +344,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
               <div className="flex aspect-video w-full items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-black/40 px-6 text-center">
                 <div>
                   <h2 className="text-lg font-semibold">Video unavailable</h2>
-                  <p className="mt-2 text-sm text-white/60">No video link has been configured for this page yet.</p>
+                  <EmptyState icon="videos" title={<>No video link has been configured for this page yet.</>} size="compact" />
                 </div>
               </div>
             )}

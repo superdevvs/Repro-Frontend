@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
@@ -88,7 +89,7 @@ export function CouponsList() {
   if (!coupons?.length) {
     return (
       <div className="rounded-md border border-gray-200 bg-white p-8 text-center text-gray-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-        <p className="mb-2 text-lg font-medium">No Discounts Found</p>
+        <EmptyState icon="discounts" title={<>No Discounts Found</>} size="compact" />
         <p className="text-sm opacity-90">
           Create your first discount by clicking the &quot;Create Discount&quot; button above.
         </p>

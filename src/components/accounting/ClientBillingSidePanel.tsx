@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo } from 'react';
 import { AlertTriangle, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -103,7 +104,7 @@ export function ClientBillingSidePanel({
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">No payment methods recorded yet</p>
+                <EmptyState icon="payments" title={<>No payment methods recorded yet</>} size="compact" />
               )}
             </div>
           </div>
@@ -155,7 +156,7 @@ export function ClientBillingSidePanel({
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No recent payments</p>
+            <EmptyState icon="payments" title={<>No recent payments</>} size="compact" />
           )}
         </CardContent>
       </Card>

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,19 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
-import {
-  Home,
-  Search,
-  Plus,
-  LayoutGrid,
-  List,
-  Map as MapIcon,
-  User,
-  X,
-  Globe,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Map as MapIcon, User, X, Globe, Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListingsShowcase';
@@ -68,6 +57,7 @@ const PrivateListingPortal = () => {
   const { role } = useAuth();
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listingsError, setListingsError] = useState(false);
   usePageLoading(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
@@ -252,6 +242,7 @@ const PrivateListingPortal = () => {
   const fetchPrivateListings = useCallback(async () => {
     try {
       setLoading(true);
+      setListingsError(false);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const params = new URLSearchParams({
         tab: 'delivered',
@@ -289,6 +280,7 @@ const PrivateListingPortal = () => {
 
       setListings(formattedListings);
     } catch (error: unknown) {
+      setListingsError(true);
       console.error('Error fetching private listings:', error);
       toast({
         title: 'Error',
@@ -823,7 +815,7 @@ const PrivateListingPortal = () => {
         </Dialog>
 
         {/* Empty State */}
-        {viewMode === 'showcase' ? (
+        {listingsError ? <Card><CardContent role="alert" className="py-12 text-center"><p>Could not load private listings.</p><Button variant="outline" className="mt-3" onClick={() => void fetchPrivateListings()}>Try Again</Button></CardContent></Card> : viewMode === 'showcase' ? (
           <ExclusiveListingsShowcase
             compactMode={compactMap}
             onToggleCompactMode={toggleCompactMap}
@@ -864,8 +856,8 @@ const PrivateListingPortal = () => {
         ) : sortedListings.length === 0 ? (
           <Card>
             <CardContent className="py-24 text-center">
-              <Home className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No exclusive listings found</h3>
+
+              <EmptyState icon={searchQuery ? 'search' : 'listings'} title={searchQuery ? 'No matching listings' : 'No exclusive listings yet'} action={searchQuery ? <Button variant="outline" onClick={() => setSearchQuery('')}>Clear Search</Button> : undefined} />
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {searchQuery
                   ? 'Try adjusting your search terms'

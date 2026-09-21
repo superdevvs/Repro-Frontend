@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -710,7 +711,7 @@ function CloudSourceDialog({
                   <Loader2 className="h-6 w-6" />
                 </div>
               ) : items.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">No files found.</div>
+                <EmptyState icon="search" title={<>No files found.</>} size="compact" />
               ) : (
                 <div className="divide-y">
                   {items.map((item) => {

@@ -1,5 +1,6 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { lazy, Suspense } from 'react'
-import { AlertTriangle, MapPin } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useTheme } from '@/hooks/useTheme'
 import { GoogleShootHistoryMap } from './GoogleShootHistoryMap'
@@ -45,8 +46,8 @@ const MapLoadingState = ({ label = 'Loading map…' }: { label?: string }) => (
 const EmptyMapState = () => (
   <div className={`${MAP_FRAME_CLASSES} grid place-items-center`}>
     <div className="max-w-sm px-6 text-center" role="status">
-      <MapPin className="mx-auto h-7 w-7 text-muted-foreground/70" aria-hidden="true" />
-      <p className="mt-3 text-sm font-medium text-foreground">No mapped addresses</p>
+
+      <EmptyState icon="map" title={<>No mapped addresses</>} size="compact" />
       <p className="mt-1 text-sm text-muted-foreground">
         Locations will appear here as soon as valid coordinates are available.
       </p>

@@ -1,6 +1,7 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Headphones, PhoneForwarded } from 'lucide-react';
+import { PhoneForwarded } from 'lucide-react';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,10 +114,9 @@ export default function CallsLog() {
         {calls.isLoading && (
           <div className="p-6 text-center text-sm text-muted-foreground">Loading calls…</div>
         )}
-        {!calls.isLoading && rows.length === 0 && (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            <Headphones className="mx-auto mb-2 h-6 w-6" /> No calls yet.
-          </div>
+        {calls.isError && <div role="alert" className="py-6 text-center text-sm text-destructive"><p>Could not load calls.</p><Button variant="outline" className="mt-3" onClick={() => void calls.refetch()}>Try Again</Button></div>}
+          {!calls.isLoading && !calls.isError && rows.length === 0 && (
+          <EmptyState icon={filter ? "search" : "calls"} title={filter ? "No calls match this filter" : "No calls yet"} size="compact" action={filter ? <Button variant="outline" onClick={() => setFilter('')}>Clear Filter</Button> : undefined} />
         )}
       </CardContent>
     </Card>

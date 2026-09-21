@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import {
   AlertCircle, ArrowLeft, CalendarClock, Eye, EyeOff, Hash, Info, Paperclip, Send, Sparkles, Trash2, X,
@@ -578,7 +579,7 @@ export function EmailComposeView(props: EmailComposeViewProps) {
   
                     <div className="mt-4 space-y-3">
                       {attachments.length === 0 && draftAttachments.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No files attached yet.</p>
+                        <EmptyState icon="downloads" title={<>No files attached yet.</>} size="compact" />
                       ) : null}
   
                       {attachments.map((file) => (

@@ -1,8 +1,9 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Calendar, Clock, MapPin, ChevronRight, Building, Search, Filter } from 'lucide-react';
+import { Eye, Calendar, Clock, ChevronRight, Building, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -20,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ShootCard } from '@/components/dashboard/ShootCard';
+
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const statusColors = {
@@ -246,7 +247,7 @@ const PhotographerShootHistory = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center p-4">No scheduled shoots found</TableCell>
+                <TableCell colSpan={6} className="text-center p-4"><EmptyState icon="shoots" title={<>No scheduled shoots found</>} size="compact" /></TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -283,8 +284,8 @@ const PhotographerShootHistory = () => {
   // Render empty state when no shoots are available
   const renderEmptyState = (message: string) => (
     <div className="flex flex-col items-center justify-center p-8 text-center">
-      <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-      <h3 className="text-xl font-medium mb-2">No shoots to display</h3>
+
+      <EmptyState icon="shoots" title={<>No shoots to display</>} size="compact" />
       <p className="text-muted-foreground mb-6">{message}</p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useState } from 'react';
 import { Search, RefreshCw, Mail, Clock, Send, AlertCircle, Filter, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import type { Message } from '@/types/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -164,8 +165,8 @@ export function EmailMessageList({
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             <div className="text-center space-y-2">
-              <Mail className="h-12 w-12 mx-auto opacity-20" />
-              <p>No messages yet</p>
+
+              <EmptyState icon="email" title={<>No messages yet</>} size="compact" />
               <p className="text-sm">Try sending your first message</p>
             </div>
           </div>

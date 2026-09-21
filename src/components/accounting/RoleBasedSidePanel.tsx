@@ -1,8 +1,9 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
-import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, DollarSign, CheckCircle2, MapPin } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth, type User } from '@/components/auth/AuthProvider';
@@ -263,7 +264,7 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No payment data available</p>
+                  <EmptyState icon="payments" title={<>No payment data available</>} size="compact" />
                 )}
               </div>
             </div>
@@ -323,7 +324,7 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No recent payments</p>
+            <EmptyState icon="payments" title={<>No recent payments</>} size="compact" />
           )}
         </CardContent>
       </Card>
@@ -402,7 +403,7 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: Us
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No payment methods on file</p>
+              <EmptyState icon="payments" title={<>No payment methods on file</>} size="compact" />
             )}
           </div>
         </CardContent>
@@ -599,8 +600,8 @@ function PhotographerSidePanel({
           ) : (
             <div className="flex flex-1 items-center justify-center p-5">
               <div className="w-full rounded-3xl border border-dashed border-border/60 bg-muted/20 px-6 py-10 text-center">
-                <DollarSign className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-                <p className="text-sm font-semibold">No completed shoots in {periodLabel.toLowerCase()}</p>
+
+                <EmptyState icon="completed" title={<>No completed shoots in {periodLabel.toLowerCase()}</>} size="compact" />
                 <p className="mt-2 text-xs text-muted-foreground">
                   Recent earnings will appear here as soon as completed shoots fall into the selected time range.
                 </p>

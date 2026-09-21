@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -120,10 +121,8 @@ export function UpcomingPayments({ invoices }: UpcomingPaymentsProps) {
           </div>
         ) : (
           <div className="py-8 flex flex-col items-center justify-center text-center">
-            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <CalendarIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="font-medium text-lg">No upcoming payments</h3>
+
+            <EmptyState icon="payments" title={<>No upcoming payments</>} size="compact" />
             <p className="text-sm text-muted-foreground mt-1">
               All invoices are paid or due dates are far in the future.
             </p>

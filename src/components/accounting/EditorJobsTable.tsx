@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Edit, Eye, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
@@ -444,7 +445,7 @@ function EditorJobCard({
 function EmptyJobsState() {
   return (
     <div className="py-10 text-center">
-      <p className="text-sm text-muted-foreground">No editing jobs found</p>
+      <EmptyState icon="studio" title={<>No editing jobs found</>} size="compact" />
     </div>
   );
 }

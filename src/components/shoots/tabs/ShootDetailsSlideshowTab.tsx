@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,15 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Play,
-  Download,
-  Eye,
-  EyeOff,
-  Edit,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { Download, Eye, EyeOff, Edit, Plus, Trash2 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
@@ -326,9 +319,7 @@ export function ShootDetailsSlideshowTab({
         </CardHeader>
         <CardContent>
           {slideshows.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No slideshows created yet
-            </div>
+            <EmptyState icon="slideshows" title={<>No slideshows created yet</>} size="compact" />
           ) : (
             <div className="space-y-4">
               {slideshows.map((slideshow) => (

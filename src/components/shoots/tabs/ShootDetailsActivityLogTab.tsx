@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,30 +15,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  ChevronDown,
-  ChevronUp,
-  Mail,
-  DollarSign,
-  Upload,
-  CheckCircle,
-  FileText,
-  User,
-  Clock,
-  AlertCircle,
-  RefreshCw,
-  LinkIcon,
-} from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, DollarSign, Upload, CheckCircle, FileText, Clock, AlertCircle, RefreshCw, LinkIcon } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 
 interface ShootDetailsActivityLogTabProps {
   shoot: ShootData;
@@ -219,6 +203,7 @@ export function ShootDetailsActivityLogTab({
   const { toast } = useToast();
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activityError, setActivityError] = useState<string | null>(null);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [pendingRefundEntry, setPendingRefundEntry] = useState<ActivityLogEntry | null>(null);
   const [refundOperationId, setRefundOperationId] = useState('');
@@ -244,6 +229,7 @@ export function ShootDetailsActivityLogTab({
 
   const loadActivities = async () => {
     setLoading(true);
+    setActivityError(null);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/activity-log`, {
@@ -254,19 +240,14 @@ export function ShootDetailsActivityLogTab({
       });
       
       if (!res.ok) {
-        // Silently handle errors - just show empty state
-        // Don't show error message to user
-        setActivities([]);
-        return;
+        throw new Error('Could not load activity. Please try again.');
       }
 
       const json = await res.json();
       const activitiesData = json.data || json || [];
       
       if (!Array.isArray(activitiesData)) {
-        console.warn('Activity log data is not an array:', activitiesData);
-        setActivities([]);
-        return;
+        throw new Error('Could not read the activity response. Please try again.');
       }
       
       // Transform API data to ActivityLogEntry format
@@ -277,8 +258,7 @@ export function ShootDetailsActivityLogTab({
       ));
     } catch (error: unknown) {
       console.error('Error loading activity log:', error);
-      // Silently handle errors - don't show error to user
-      setActivities([]);
+      setActivityError('Could not load activity. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -513,10 +493,9 @@ export function ShootDetailsActivityLogTab({
           <CardDescription>Timeline of all activities and events for this shoot</CardDescription>
         </CardHeader>
         <CardContent>
-          {activities.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No activity logged yet
-            </div>
+          {activityError && <div role="alert" className="py-6 text-center text-sm text-destructive"><p>{activityError}</p><Button className="mt-3" variant="outline" onClick={() => void loadActivities()}>Try Again</Button></div>}
+          {!activityError && activities.length === 0 ? (
+            <EmptyState icon="activity" title={<>No activity logged yet</>} size="compact" />
           ) : (
             <div className="space-y-6">
               {Object.entries(groupedActivities).map(([date, dateActivities]) => (

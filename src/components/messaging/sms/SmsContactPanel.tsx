@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,7 +100,7 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
         <CardHeader>
           <CardTitle>Contact</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">Select a thread to view contact details.</CardContent>
+        <EmptyState icon="conversations" title={<>Select a thread to view contact details.</>} size="compact" />
       </Card>
     );
   }

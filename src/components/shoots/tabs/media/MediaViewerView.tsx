@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -96,7 +97,6 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     fitMediaClassName,
   } = model;
   const isDownloadingCurrentFile = downloadingFileIds.has(String(currentFile.id));
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
@@ -670,7 +670,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                         </div>
                       </div>
                     ) : fileComments.length === 0 ? (
-                      <p className="mt-2 text-xs text-white/55">No comments on this image yet.</p>
+                      <EmptyState icon="conversations" title={<>No comments on this image yet.</>} size="compact" />
                     ) : null}
                     {fileComments.length > 0 && (
                       <div className="mt-2 max-h-28 space-y-2 overflow-auto pr-1">
@@ -887,7 +887,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       {canInteractSingleMedia && onAddComment && (
                         <div className="mt-3 flex flex-col gap-2">
                           {fileComments.length === 0 && (
-                            <p className="text-sm text-white/55">No comments yet. Use the composer below to add one.</p>
+                            <EmptyState icon="conversations" title={<>No comments yet. Use the composer below to add one.</>} size="compact" />
                           )}
                           <Textarea
                             value={commentDraft}

@@ -1,3 +1,4 @@
+import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { createPortal } from 'react-dom';
 import { Avatar, Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -7,8 +8,8 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { ChevronsDown, Filter, List, MoreVertical, X } from 'lucide-react';
+
+import { ChevronsDown, Filter, List, MoreVertical } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
@@ -533,9 +534,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DASHBOARD_MOBILE_LIST_SHELL_CLASS)}>
         {activeTab === 'upcoming' ? (
           paginatedGroups.length === 0 ? (
-            <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
-              No upcoming shoots found.
-            </div>
+            <ShootEmptyState title="No upcoming shoots" filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking onViewRequested={() => setActiveTab('requested')} className="flex-1" />
           ) : (
             <div 
               ref={scrollContainerRef}
@@ -582,9 +581,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           )
         ) : (
           filteredRequestedShoots.length === 0 ? (
-            <div className="min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
-              No pending requests.
-            </div>
+            <ShootEmptyState title="No pending requests" requested filtered={activeFilterCount > 0} onReset={resetFilters} className="flex-1" />
           ) : (
             <div 
               className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar"

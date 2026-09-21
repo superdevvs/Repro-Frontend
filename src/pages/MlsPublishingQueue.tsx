@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -24,7 +25,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { RefreshCw, Eye, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
+import { RefreshCw, Eye, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   Dialog,
@@ -184,8 +185,8 @@ const MlsPublishingQueue = () => {
                 <HorizontalLoader message="Loading MLS queue..." className="px-4" />
               ) : queueItems.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No shoots with MLS IDs found.</p>
+
+                  <EmptyState icon="requests" title={<>No shoots with MLS IDs found.</>} size="compact" />
                 </div>
               ) : (
                 <Table>

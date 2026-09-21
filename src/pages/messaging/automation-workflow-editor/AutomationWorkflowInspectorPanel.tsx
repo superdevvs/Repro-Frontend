@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Clock3 } from 'lucide-react';
 import { SCHEDULE_TRIGGER_TYPES, type AutomationRecipientRole } from '@/components/messaging/automations/automationWorkflowTypes';
 import { getNodePresentation, triggerGroups, triggerLabels } from '@/components/messaging/automations/workflow-utils';
@@ -861,7 +862,7 @@ export function AutomationWorkflowInspectorPanel({
         </div>
         <div className="mt-4 space-y-3">
           {(recentRuns ?? []).length === 0 ? (
-            <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No execution history yet.</div>
+            <EmptyState icon="activity" title={<>No execution history yet.</>} size="compact" />
           ) : (
             (recentRuns ?? []).slice(0, 5).map((run) => (
               <div key={run.id} className="rounded-2xl border p-3">

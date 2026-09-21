@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle2, Check, Bell, MoreVertical } from 'lucide-react';
 import { Card } from './SharedComponents';
@@ -77,7 +78,7 @@ export const IssuesListCard: React.FC<IssuesListCardProps> = ({
         <span className="text-xs text-muted-foreground">{visibleIssues.length}</span>
       </div>
       {visibleIssues.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground">{emptyStateText}</div>
+        <EmptyState icon="clear" title={<>{emptyStateText}</>} size="compact" />
       ) : (
         <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0">
           {visibleIssues.map((issue) => (

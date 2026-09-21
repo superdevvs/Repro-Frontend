@@ -1,70 +1,34 @@
+import { EmptyStateArtwork } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Upload, 
-  Image as ImageIcon,
-  FileIcon,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  AlertCircle,
-  ChevronUp,
-  ChevronDown,
 
-  Check,
-  ArrowUpDown,
-  Trash2,
-  CloudUpload,
-  Circle,
-  MinusCircle,
-  Link2,
-  Share2,
-  LayoutGrid,
-  List,
-  Play,
-  ExternalLink,
-  EyeOff,
-  Eye,
-} from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+
+
+
+
+
+
+
+import { Upload } from 'lucide-react';
+
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 // FileUploader import removed - using RawUploadSection and EditedUploadSection instead
-import { useAuth } from '@/components/auth/AuthProvider';
+
 import { useUpload } from '@/context/UploadContext';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+
+
 import { autoenhanceService, type EditingType } from '@/services/autoenhanceService';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
-import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
+
 import { MediaGrid } from './MediaGrid';
 import { MediaServiceSections } from './MediaServiceSections';
 import { ClientWorkInProgressPanel } from './ClientWorkInProgressPanel';
-import { MediaViewer } from './MediaViewer';
+
 import {
   getMediaImageUrl as getImageUrl,
   getMediaSrcSet as getSrcSet,
@@ -74,7 +38,7 @@ import {
   buildMediaFilesFingerprint,
 } from './mediaPreviewUtils';
 import VideoThumbnail from '../../VideoThumbnail';
-import { getServicePricingForSqft } from '@/utils/servicePricing';
+
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
@@ -1100,16 +1064,9 @@ export function useShootDetailsMediaTab({
       return (
         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-            <div className="relative mb-6">
-              <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
-                  <CloudUpload className="h-10 w-10 text-primary" />
-                </div>
-              </div>
-              <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
-            </div>
+            <EmptyStateArtwork icon={/video/i.test(emptyTitle) ? 'videos' : /floor|tour|3d/i.test(emptyTitle) ? 'tours' : 'photos'} className="mx-auto mb-4 h-24 w-24 sm:h-28 sm:w-28" />
             <h3 className="text-xl font-semibold mb-2">{emptyTitle}</h3>
-            <p className="text-sm text-muted-foreground mb-6">{emptyDescription}</p>
+            <p className="text-sm text-muted-foreground mb-6">{canUploadInDisplayTab ? emptyDescription : 'Media will appear here when it is ready.'}</p>
             {canUploadInDisplayTab && (
               <Button
                 type="button"

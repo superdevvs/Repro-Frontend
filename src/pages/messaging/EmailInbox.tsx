@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -130,7 +131,7 @@ export default function EmailInbox() {
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   <div className="text-center space-y-2">
-                    <p>Select a message to view</p>
+                    <EmptyState icon="email" title={<>Select a message to view</>} size="compact" />
                     <p className="text-sm">
                       Or press <kbd className="px-2 py-1 bg-muted rounded">C</kbd> to compose
                     </p>

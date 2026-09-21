@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -444,7 +445,7 @@ const PhotographerAccount = () => {
                           <Button type="button" variant="outline" onClick={() => void fetchEquipments()}>Retry</Button>
                         </div>
                       ) : equipments.length === 0 ? (
-                        <div className="rounded-md border p-6 text-sm text-muted-foreground">No equipment is assigned to you. There is nothing to verify. Assigned equipment will appear here.</div>
+                        <EmptyState icon="equipment" title={<>No equipment is assigned to you. There is nothing to verify. Assigned equipment will appear here.</>} size="compact" />
                       ) : (
                         equipments.map((equipment) => {
                           const referencePhotos = equipment.photos.filter((photo) => photo.type === 'admin_reference');

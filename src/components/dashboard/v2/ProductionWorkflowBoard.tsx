@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { format } from 'date-fns';
@@ -174,7 +175,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
             })}
             {filteredShoots.length === 0 && (
               <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-4 text-center">
-                <p className="text-sm font-medium text-foreground">No shoots in this stage</p>
+                <EmptyState icon="clear" title="No shoots in this stage" size="compact" />
                 <p className="mt-1 text-xs text-muted-foreground">Work will appear here as shoots move forward.</p>
               </div>
             )}

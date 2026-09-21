@@ -1,35 +1,9 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  Bot,
-  CalendarClock,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Delete,
-  FileText,
-  Flag,
-  Hash,
-  Headphones,
-  Link as LinkIcon,
-  MessageCircle,
-  MoreVertical,
-  Phone,
-  PhoneCall,
-  PhoneIncoming,
-  PhoneMissed,
-  PhoneOff,
-  PhoneOutgoing,
-  Search,
-  Sparkles,
-  UserRoundPlus,
-  Users,
-  Voicemail,
-  XCircle,
-} from 'lucide-react';
+import { Bot, CalendarClock, ChevronRight, Clock3, Delete, FileText, Flag, Headphones, MessageCircle, MoreVertical, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, Search, Sparkles, Users } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
 import {
   AlertDialog,
@@ -521,7 +495,7 @@ function RecentCallsPanel({
           );
         })}
         {loading && <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Loading calls...</div>}
-        {!loading && calls.length === 0 && <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No voice calls yet.</div>}
+        {!loading && calls.length === 0 && <EmptyState icon="calls" title={<>No voice calls yet.</>} size="compact" />}
       </div>
       {calls.length > 0 && <div className="mt-3 text-xs text-muted-foreground">Showing 1 to {calls.length} recent calls</div>}
     </section>
@@ -545,7 +519,7 @@ function TimelinePanel({ call }: { call?: VoiceCall | null }) {
             <Badge className={`${statusClasses(row.status)} justify-center`}>{row.status}</Badge>
           </div>
         ))}
-        {rows.length === 0 && <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Select a call to see AI activity.</div>}
+        {rows.length === 0 && <EmptyState icon="calls" title={<>Select a call to see AI activity.</>} size="compact" />}
       </div>
     </section>
   );

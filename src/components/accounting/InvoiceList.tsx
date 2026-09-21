@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
@@ -544,9 +545,7 @@ export function InvoiceList({
                 })}
 
                 {paginatedInvoices.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground text-sm">
-                    No invoices found
-                  </div>
+                  <EmptyState icon={data.invoices.length ? 'search' : 'invoices'} title={data.invoices.length ? 'No matching invoices' : 'No invoices found'} description={data.invoices.length ? 'Try a different date range or invoice status.' : 'Invoices will appear here when they are created.'} size="compact" action={data.invoices.length ? <Button variant="outline" size="sm" onClick={() => { setDateFilter(DEFAULT_INVOICE_DATE_FILTER); setActiveTab('all'); setCurrentPage(1); }}>Reset Filters</Button> : undefined} />
                 )}
               </div>
             ) : (
@@ -647,9 +646,7 @@ export function InvoiceList({
                     ))}
                     {paginatedInvoices.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-4 text-center text-muted-foreground text-sm">
-                          No invoices found
-                        </td>
+                        <td colSpan={7} className="py-4 text-center text-muted-foreground text-sm"><EmptyState icon={data.invoices.length ? 'search' : 'invoices'} title={data.invoices.length ? 'No matching invoices' : 'No invoices found'} description={data.invoices.length ? 'Try a different date range or invoice status.' : 'Invoices will appear here when they are created.'} size="compact" action={data.invoices.length ? <Button variant="outline" size="sm" onClick={() => { setDateFilter(DEFAULT_INVOICE_DATE_FILTER); setActiveTab('all'); setCurrentPage(1); }}>Reset Filters</Button> : undefined} /></td>
                       </tr>
                     )}
                   </tbody>
@@ -680,9 +677,7 @@ export function InvoiceList({
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  No invoices found
-                </div>
+                <EmptyState icon={data.invoices.length ? 'search' : 'invoices'} title={data.invoices.length ? 'No matching invoices' : 'No invoices found'} description={data.invoices.length ? 'Try a different date range or invoice status.' : 'Invoices will appear here when they are created.'} size="compact" action={data.invoices.length ? <Button variant="outline" size="sm" onClick={() => { setDateFilter(DEFAULT_INVOICE_DATE_FILTER); setActiveTab('all'); setCurrentPage(1); }}>Reset Filters</Button> : undefined} />
               )}
             </div>
           )}

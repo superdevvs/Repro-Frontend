@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,7 +82,7 @@ export const SmsThreadList = ({
 
       <div className="flex-1 overflow-y-auto">
         {threads.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">No conversations yet.</div>
+          <EmptyState icon="conversations" title={<>No conversations yet.</>} size="compact" />
         ) : (
           threads.map((thread) => (
             <SmsThreadListItem

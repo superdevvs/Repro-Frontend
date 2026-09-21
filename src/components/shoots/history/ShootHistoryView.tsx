@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel'
 import React from 'react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
@@ -257,9 +258,7 @@ function ShootHistoryLinkedAccountsTab({
             ) : (
               <>
                 {linkedAccountsLoaded && linkedAccounts.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                    No linked accounts yet. Invite another account to collaborate here.
-                  </div>
+                  <EmptyState icon="linked" title={<>No linked accounts yet. Invite another account to collaborate here.</>} size="compact" />
                 )}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">

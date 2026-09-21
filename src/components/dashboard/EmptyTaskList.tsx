@@ -1,7 +1,8 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ListChecks, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { TaskPriority, TaskStatus } from './TaskTypes';
 
 interface EmptyTaskListProps {
@@ -14,10 +15,8 @@ interface EmptyTaskListProps {
 export function EmptyTaskList({ filter, priorityFilter, onCreateTask, canCreateTask }: EmptyTaskListProps) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="p-5 rounded-full bg-muted/30 mb-3">
-        <ListChecks className="h-8 w-8 text-muted-foreground opacity-40" />
-      </div>
-      <p className="text-muted-foreground text-lg">No tasks found</p>
+
+      <EmptyState icon="clear" title={<>No tasks found</>} size="compact" />
       <p className="text-muted-foreground/70 text-sm max-w-md mt-1">
         {filter !== 'all' || priorityFilter !== 'all' 
           ? "Try changing your filters or" 

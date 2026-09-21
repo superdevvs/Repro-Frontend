@@ -1,7 +1,8 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -592,12 +593,8 @@ export function ClientPortal() {
                 </div>
               ) : (
                 <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
-                  <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
-                    <Camera className="h-12 w-12 opacity-20" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {listingsTab === 'current' ? 'No current listings' : listingsTab === 'pending' ? 'No pending listings' : 'No sold listings'}
-                  </h3>
+
+                  <EmptyState icon="listings" title={<>{listingsTab === 'current' ? 'No current listings' : listingsTab === 'pending' ? 'No pending listings' : 'No sold listings'}</>} size="compact" />
                   <p className="text-muted-foreground max-w-sm mx-auto">
                     {listingsTab === 'current' ? 'Delivered listings will appear here.' : listingsTab === 'pending' ? 'Shoots in progress will appear here.' : 'Sold or rented properties will appear here.'}
                   </p>
@@ -952,9 +949,7 @@ export function ClientPortal() {
               )}
             </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              No images available for this listing yet.
-            </div>
+            <EmptyState icon="photos" title={<>No images available for this listing yet.</>} size="compact" />
           )}
         </DialogContent>
       </Dialog>

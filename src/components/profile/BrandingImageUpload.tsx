@@ -1,7 +1,8 @@
+import { EmptyStateArtwork } from '@/components/ui/empty-state';
 
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Upload, X, RefreshCw } from 'lucide-react';
+import { Upload, X, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import axios from 'axios';
@@ -143,7 +144,7 @@ export function BrandingImageUpload({
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full bg-muted/20 p-4">
-              <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+              <EmptyStateArtwork icon="branding" className="h-16 w-16 mb-2" />
               <p className="text-sm text-center text-muted-foreground">
                 Click to upload image
               </p>

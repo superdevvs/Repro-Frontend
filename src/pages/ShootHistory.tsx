@@ -1,3 +1,5 @@
+import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -22,20 +24,9 @@ import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
-import { Calendar as CalendarIcon, CheckCircle2, PauseCircle, Star, Trash2 } from 'lucide-react'
-import {
-  DEFAULT_OPERATIONAL_FILTERS,
-  HISTORY_ALLOWED_ROLES,
-  MapMarker,
-  STATUS_FILTERS_BY_TAB,
-  filterEditorActiveOperationalShoots,
-  filterEditorDeliveredOperationalShoots,
-  formatCurrency,
-  getShootStatusBadgeClass,
-  isFeaturedTabShoot,
-  resolveShootThumbnail,
-} from '@/components/shoots/history/shootHistoryUtils'
-import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
+import { Calendar as CalendarIcon, CheckCircle2, Trash2 } from 'lucide-react'
+import { DEFAULT_OPERATIONAL_FILTERS, HISTORY_ALLOWED_ROLES, MapMarker, filterEditorActiveOperationalShoots, filterEditorDeliveredOperationalShoots, formatCurrency, getShootStatusBadgeClass, isFeaturedTabShoot, resolveShootThumbnail } from '@/components/shoots/history/shootHistoryUtils'
+import { ShootData, ShootHistoryRecord } from '@/types/shoots'
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
 import {
   getStripeConfirmationFailureMessage,
@@ -171,9 +162,10 @@ const ShootHistory: React.FC = () => {
     }))
   }
 
-  const resetOperationalFilters = () => {
+  const resetOperationalFilters = useCallback(() => {
     setOperationalFilters(DEFAULT_OPERATIONAL_FILTERS)
-  }
+  }, [setOperationalFilters])
+  const hasOperationalFilters = JSON.stringify(operationalFilters) !== JSON.stringify(DEFAULT_OPERATIONAL_FILTERS)
 
   const onHistoryFilterChange = (
     key: keyof typeof historyFilters,
@@ -563,22 +555,18 @@ const ShootHistory: React.FC = () => {
     if (!filteredOperationalData.length) {
       // Determine the message based on sub-tab
       let message = 'No scheduled shoots found'
-      let description = 'Try adjusting your filters or book a new shoot.'
+
       
       if (scheduledSubTab === 'requested') {
         message = 'No requested shoots'
-        description = 'Shoots awaiting approval will appear here.'
+
       } else if (scheduledSubTab === 'scheduled') {
         message = 'No scheduled shoots'
-        description = 'Approved and scheduled shoots will appear here.'
+
       }
       
       return (
-        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
-          <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="font-medium text-lg">{message}</p>
-          <p className="text-sm mt-1">{description}</p>
-        </div>
+        <ShootEmptyState title={message} requested={scheduledSubTab === "requested"} filtered={hasOperationalFilters} onReset={resetOperationalFilters} allowBooking={scheduledSubTab !== "requested"} className="min-h-[300px] rounded-xl border border-dashed" />
       )
     }
 
@@ -651,7 +639,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -700,11 +688,7 @@ const ShootHistory: React.FC = () => {
       }
       
       return (
-        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
-          <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="font-medium text-lg">{message}</p>
-          <p className="text-sm mt-1">{description}</p>
-        </div>
+        <EmptyState icon={hasOperationalFilters ? 'search' : 'completed'} title={hasOperationalFilters ? 'No shoots match these filters' : message} description={hasOperationalFilters ? 'Clear your filters to see more shoots.' : description} action={hasOperationalFilters ? <Button variant="outline" onClick={resetOperationalFilters}>Clear Filters</Button> : undefined} className="min-h-[300px] rounded-xl border border-dashed" />
       )
     }
 
@@ -774,7 +758,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -796,11 +780,7 @@ const ShootHistory: React.FC = () => {
       }
       
       return (
-        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
-          <PauseCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="font-medium text-lg">{message}</p>
-          <p className="text-sm mt-1">{description}</p>
-        </div>
+        <EmptyState icon={hasOperationalFilters ? 'search' : 'requests'} title={hasOperationalFilters ? 'No shoots match these filters' : message} description={hasOperationalFilters ? 'Clear your filters to see more shoots.' : description} action={hasOperationalFilters ? <Button variant="outline" onClick={resetOperationalFilters}>Clear Filters</Button> : undefined} className="min-h-[300px] rounded-xl border border-dashed" />
       )
     }
 
@@ -864,7 +844,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   const featuredContent = useMemo(() => {
     if (loading && activeTab === 'featured') {
@@ -874,8 +854,8 @@ const ShootHistory: React.FC = () => {
     if (!filteredOperationalData.length) {
       return (
         <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
-          <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="font-medium text-lg">No featured shoots</p>
+
+          <EmptyState icon="completed" title={<>No featured shoots</>} size="compact" />
           <p className="text-sm mt-1">Shoots marked as Featured will appear here for admins.</p>
         </div>
       )
@@ -976,9 +956,7 @@ const ShootHistory: React.FC = () => {
     if (historyFilters.groupBy === 'services') {
       if (!historyAggregates.length) {
         return (
-          <div className="rounded-xl border p-8 text-center text-muted-foreground">
-            No aggregates found for the selected filters.
-          </div>
+          <EmptyState icon="search" title={<>No aggregates found for the selected filters.</>} size="compact" />
         )
       }
       return (
@@ -996,9 +974,7 @@ const ShootHistory: React.FC = () => {
 
     if (!historyRecords.length) {
       return (
-        <div className="rounded-xl border p-8 text-center text-muted-foreground">
-          No history records match the current filters.
-        </div>
+        <EmptyState icon="search" title={<>No history records match the current filters.</>} size="compact" />
       )
     }
 

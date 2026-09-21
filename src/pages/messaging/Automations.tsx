@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -427,7 +428,7 @@ export default function Automations() {
           {isLoading ? (
             <Card className="p-6 text-sm text-muted-foreground">Loading automations...</Card>
           ) : systemAutomations.length === 0 ? (
-            <Card className="p-6 text-sm text-muted-foreground">No system automations found.</Card>
+            <EmptyState icon="automations" title={<>No system automations found.</>} size="compact" />
           ) : (
             <div className="space-y-3">
               {systemAutomations.map((automation) => (
@@ -461,7 +462,7 @@ export default function Automations() {
 
           {customAutomations.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No custom automations yet.</p>
+              <EmptyState icon="automations" title={<>No custom automations yet.</>} size="compact" />
               <Button onClick={() => openCreateDialog('create', null)} className="mt-4">
                 Create your first automation
                 <ArrowRight className="ml-2 h-4 w-4" />

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useMemo, useRef, useState } from 'react';
 import { Archive, Download, FileArchive, FileText, Film, Image as ImageIcon } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -394,8 +395,8 @@ export function ShootDownloadCenterDialog({
             <div className="min-h-0 overflow-y-auto px-5 py-4">
               {!hasDownloads ? (
                 <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
-                  <FileArchive className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-                  <div className="font-medium">No downloadable files yet</div>
+
+                  <EmptyState icon="downloads" title={<>No downloadable files yet</>} size="compact" />
                   <div className="mt-1 text-sm text-muted-foreground">
                     Delivered photos, videos, PDFs, and floorplans will appear here.
                   </div>

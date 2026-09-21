@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useState } from 'react';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
@@ -158,12 +159,7 @@ export default function Templates() {
                 <Button variant="outline" className="mt-4" onClick={() => void refetch()}>Retry templates</Button>
               </Card>
             ) : filteredTemplates.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No templates found</p>
-                <Button onClick={() => setIsCreating(true)} className="mt-4">
-                  Create your first template
-                </Button>
-              </Card>
+              <Card className="p-6"><EmptyState icon={searchQuery || selectedScope !== 'all' ? 'search' : 'templates'} title={searchQuery || selectedScope !== 'all' ? 'No matching templates' : 'No templates yet'} description={searchQuery || selectedScope !== 'all' ? 'Clear your search and scope filter to see more templates.' : 'Create a reusable starting point for your emails.'} action={searchQuery || selectedScope !== 'all' ? <Button variant="outline" onClick={() => { setSearchQuery(''); setSelectedScope('all'); }}>Clear Filters</Button> : <Button onClick={() => setIsCreating(true)}>Create your first template</Button>} /></Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredTemplates.map((template) => (

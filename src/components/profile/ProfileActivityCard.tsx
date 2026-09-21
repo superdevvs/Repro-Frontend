@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useCallback, useEffect, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -93,9 +94,7 @@ export function ProfileActivityCard() {
       </Button>
     </div>
   ) : activities.length === 0 ? (
-    <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
-      New sign-ins and account changes will appear here.
-    </div>
+    <EmptyState icon="activity" title={<>New sign-ins and account changes will appear here.</>} size="compact" />
   ) : (
     <div>{activities.slice(0, 3).map((activity) => <ActivityRow key={activity.id} activity={activity} />)}</div>
   );

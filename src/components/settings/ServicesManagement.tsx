@@ -1,10 +1,11 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { CategorySelect } from './CategorySelect';
@@ -294,7 +295,7 @@ export function ServicesManagement() {
             
             {filteredServices?.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-muted-foreground">No services found.</p>
+                <EmptyState icon="services" title={<>No services found.</>} size="compact" />
               </div>
             )}
           </div>

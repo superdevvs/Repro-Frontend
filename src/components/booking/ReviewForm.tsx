@@ -1,13 +1,14 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Card } from '@/components/ui/card';
+
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getStateFullName } from '@/utils/stateUtils';
+
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { PricingBreakdown } from '@/utils/pricing';
@@ -206,8 +207,7 @@ export function ReviewForm({
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <div>
-        {/* <Label>Select Photographer</Label>
+      <EmptyState icon="assignments" title={<>{/* <Label>Select Photographer</Label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
           {photographers.length > 0 ? (
             photographers.map((p) => (
@@ -258,8 +258,7 @@ export function ReviewForm({
               </div>
             </div>
           )} 
-        </div> */}
-      </div>
+        </div> */}</>} size="compact" />
 
       {isMobile && reviewToggles}
 

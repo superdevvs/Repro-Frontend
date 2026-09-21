@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 interface DeletedAccount {
@@ -149,8 +150,8 @@ export function DeletedAccountsPanel() {
   if (accounts.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-8 text-center text-card-foreground shadow-sm">
-        <Trash2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No deleted accounts in the restore window.</p>
+
+        <EmptyState icon="clear" title={<>No deleted accounts in the restore window.</>} size="compact" />
         <p className="mt-1 text-xs text-muted-foreground">
           Deleted accounts can be restored for 14 days before they are permanently anonymized.
         </p>

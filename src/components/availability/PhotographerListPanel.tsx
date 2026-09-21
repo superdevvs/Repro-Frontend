@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Search, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export function PhotographerListPanel({
       )}>
         {filteredPhotographers.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            <p className="text-sm">No photographers found</p>
+            <EmptyState icon="assignments" title={<>No photographers found</>} size="compact" />
           </div>
         )}
         {filteredPhotographers.map((photographer) => {

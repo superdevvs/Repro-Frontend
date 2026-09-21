@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -35,7 +36,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { UsersIcon, PlusCircle, Search } from 'lucide-react';
-import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
+
 import { Input } from '@/components/ui/input';
 import { ClientDetails } from '@/components/clients/ClientDetails';
 import { ClientForm } from '@/components/clients/ClientForm';
@@ -1417,6 +1418,8 @@ export default function Accounts() {
 
             {loading ? (
               <HorizontalLoader message="Loading accounts..." />
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState icon={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? 'search' : 'accounts'} title={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? 'No matching accounts' : 'No accounts yet'} description="Accounts will appear here when they are added and match your filters." className="rounded-lg bg-muted/30" action={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? <Button variant="outline" onClick={() => { setSearchQuery(''); setFilterRole('all'); setRepFilter('all'); }}>Clear Filters</Button> : can('accounts', 'create') ? <Button onClick={handleAddAccount}>Add Account</Button> : undefined} />
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                 {accountListUsers.map((user) => (
@@ -1438,23 +1441,6 @@ export default function Accounts() {
                     clientMenuActions={getClientMenuHandlers(user)}
                   />
                 ))}
-
-                {filteredUsers.length === 0 && (
-                  <div className="col-span-full bg-muted/30 p-8 rounded-lg text-center">
-                    <h3 className="text-lg font-medium mb-2">No accounts found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      {searchQuery
-                        ? "Try adjusting your search or filter criteria."
-                        : "Get started by adding a new account."}
-                    </p>
-                    <button
-                      onClick={handleAddAccount}
-                      className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-md"
-                    >
-                      Add Account
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <AccountList
@@ -1552,7 +1538,7 @@ export default function Accounts() {
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-12 text-center">
-                <p className="text-base font-medium text-slate-700 dark:text-white">No momentum data yet</p>
+                <EmptyState icon="reports" title={<>No momentum data yet</>} size="compact" />
                 <p className="mt-1 text-sm text-muted-foreground">
                   Bookings for this role will appear here once shoots are logged this month.
                 </p>

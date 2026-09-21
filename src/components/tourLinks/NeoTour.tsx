@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
@@ -5,12 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
-import {
-  MapPin, BedDouble, Bath, Maximize, ChevronDown,
-  ChevronLeft, ChevronRight, Video, Layers, FileText, Mail, Phone,
-  User, Thermometer, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users
-} from "lucide-react";
+import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { MapPin, BedDouble, Bath, Maximize, ChevronDown, ChevronLeft, ChevronRight, Mail, Phone, User, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
 import { Public3dTourViewer } from './Public3dTourViewer';
@@ -520,7 +517,7 @@ export function NeoTour() {
             />
           ) : (
             <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-              <span className="text-slate-500">No Image Available</span>
+              <EmptyState icon="photos" title={<>No Image Available</>} size="compact" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />

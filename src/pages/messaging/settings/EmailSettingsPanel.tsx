@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -141,7 +142,7 @@ export function EmailSettingsPanel({
         </div>
       ) : channels.length === 0 ? (
         <Card className="p-12 text-center">
-          <p className="text-muted-foreground">No email accounts configured</p>
+          <EmptyState icon="integrations" title={<>No email accounts configured</>} size="compact" />
         </Card>
       ) : (
         <div className="space-y-3">

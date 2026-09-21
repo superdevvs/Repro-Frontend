@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { lazy, Suspense, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
@@ -438,10 +439,8 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                             </div>
                           ) : sessions.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-6 text-center">
-                              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                                <MessageSquare className="h-5 w-5 text-primary" />
-                              </div>
-                              <p className="text-sm font-medium">No conversations yet</p>
+
+                              <EmptyState icon="conversations" title={<>No conversations yet</>} size="compact" />
                               <p className="mt-1 text-xs text-muted-foreground">
                                 Start a chat above to see it here.
                               </p>

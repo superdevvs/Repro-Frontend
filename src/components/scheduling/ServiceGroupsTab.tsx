@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -566,7 +567,7 @@ export function ServiceGroupsTab() {
       ) : (
         <Card>
           <CardContent className="flex min-h-56 flex-col items-center justify-center gap-3 text-center">
-            <h3 className="text-lg font-semibold">No service groups yet</h3>
+            <EmptyState icon="services" title={<>No service groups yet</>} size="compact" />
             <p className="max-w-md text-sm text-muted-foreground">
               Create your first service group to control which services specific clients can see while booking.
             </p>

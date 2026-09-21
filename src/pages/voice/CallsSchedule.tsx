@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -373,7 +374,7 @@ export default function CallsSchedule() {
                 </Button>
               </div>
             ))}
-            {(overrides.data ?? []).length === 0 && <p className="text-xs text-muted-foreground">No active overrides.</p>}
+            {(overrides.data ?? []).length === 0 && <EmptyState icon="availability" title="No active overrides." size="compact" />}
           </div>
         </CardContent>
       </Card>

@@ -557,7 +557,7 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Open account menu">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={getAvatarUrl(user?.avatar, user?.role, (user as { gender?: string } | undefined)?.gender, user?.id)} alt={user?.name} />
+                <AvatarImage src={getAvatarUrl(user?.avatar, user?.role, user?.gender, user?.id)} alt={user?.name} />
                 <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>

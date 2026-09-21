@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
@@ -223,9 +224,7 @@ const CubiCasaScanning = () => {
               />
             ) : (
               <Card>
-                <CardContent className="p-6 text-center text-muted-foreground">
-                  No order selected
-                </CardContent>
+                <EmptyState icon="scanning" title={<>No order selected</>} size="compact" />
               </Card>
             )}
           </TabsContent>

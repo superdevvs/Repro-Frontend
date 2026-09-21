@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { DashboardActivityItem } from '@/types/dashboard';
 import { Card } from './SharedComponents';
@@ -75,7 +76,7 @@ export const ActivityMonitorCard: React.FC<ActivityMonitorCardProps> = ({ activi
           );
         })}
         {activity.length === 0 && (
-          <div className="text-center text-sm text-muted-foreground py-6">No activity logged yet today.</div>
+          <EmptyState icon="activity" title={<>No activity logged yet today.</>} size="compact" />
         )}
       </div>
     </Card>

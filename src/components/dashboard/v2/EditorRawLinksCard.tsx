@@ -1,6 +1,7 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowUpRight, CalendarClock, Copy, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CalendarClock, Copy } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -332,8 +333,8 @@ export function EditorRawLinksCard({
           </div>
         ) : sortedShoots.length === 0 ? (
           <div className="mt-5 flex min-h-[210px] flex-1 flex-col items-center justify-center rounded-[24px] border border-dashed border-border/60 bg-muted/10 px-6 text-center">
-            <UploadCloud className="mb-3 h-8 w-8 text-muted-foreground/70" />
-            <p className="text-base font-medium">No active raw files to manage.</p>
+
+            <EmptyState icon="shared" title={<>No active raw files to manage.</>} size="compact" />
             <p className="mt-2 text-sm text-muted-foreground">
               New assigned edits will appear here automatically.
             </p>

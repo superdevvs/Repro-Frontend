@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
@@ -6,12 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  MapPin, BedDouble, Bath, Maximize, Download, ChevronLeft, ChevronRight,
-  Link2, ExternalLink, Car, DollarSign, FileText,
-} from "lucide-react";
+import { MapPin, BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, Link2, ExternalLink, Car, DollarSign, FileText } from "lucide-react";
 import { NeoTour } from "./NeoTour";
-import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
+import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
@@ -350,7 +348,7 @@ export function MlsCompliant() {
             </AnimatePresence>
           ) : (
             <div className="absolute inset-0 bg-muted flex items-center justify-center">
-              <span className="text-muted-foreground">No Image Available</span>
+              <EmptyState icon="photos" title={<>No Image Available</>} size="compact" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />

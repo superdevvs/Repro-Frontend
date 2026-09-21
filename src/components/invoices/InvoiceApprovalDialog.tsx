@@ -7,27 +7,13 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import {
-  WeeklyInvoice,
-  WeeklyInvoiceItem,
-  addWeeklyInvoiceCharge,
-  addWeeklyInvoiceExpense,
-  removeWeeklyInvoiceCharge,
-  removeWeeklyInvoiceExpense,
-  updateWeeklyInvoiceItem,
-} from '@/services/invoiceService';
+import { WeeklyInvoice, WeeklyInvoiceItem, addWeeklyInvoiceCharge, addWeeklyInvoiceExpense, removeWeeklyInvoiceCharge, removeWeeklyInvoiceExpense, updateWeeklyInvoiceItem } from '@/services/invoiceService';
 
 import { BRAND_EMAIL, BRAND_NAME, BRAND_PHONE } from '@/config/brand';
 

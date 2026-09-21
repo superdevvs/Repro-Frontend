@@ -1,3 +1,5 @@
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PhoneCall } from 'lucide-react';
@@ -58,8 +60,9 @@ export default function CallsNumbers() {
           </div>
         ))}
         {numbers.isLoading && <p className="text-sm text-muted-foreground">Loading numbers…</p>}
-        {!numbers.isLoading && rows.length === 0 && (
-          <p className="text-sm text-muted-foreground">No Telnyx numbers configured yet.</p>
+        {numbers.isError && <div role="alert" className="py-6 text-center text-sm text-destructive"><p>Could not load numbers.</p><Button variant="outline" className="mt-3" onClick={() => void numbers.refetch()}>Try Again</Button></div>}
+          {!numbers.isLoading && !numbers.isError && rows.length === 0 && (
+          <EmptyState icon="calls" title={<>No Telnyx numbers configured yet.</>} size="compact" />
         )}
       </CardContent>
     </Card>

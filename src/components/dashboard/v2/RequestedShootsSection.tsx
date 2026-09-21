@@ -1,26 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format, startOfDay, isSameDay, isAfter } from 'date-fns';
+import { EmptyState } from '@/components/ui/empty-state';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { startOfDay, isSameDay, isAfter } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
-import { Card, Avatar } from './SharedComponents';
+import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
-import {
-  MapPin,
-  Flag,
-  Sun,
-  CloudRain,
-  Cloud,
-  Snowflake,
-  Camera,
-  Plane,
-  Film,
-  Map as MapIcon,
-  Home,
-  Sparkles,
-  Check,
-  X,
-  Edit,
-  Clock,
-} from 'lucide-react';
+import { MapPin, Flag, Sun, CloudRain, Cloud, Snowflake, Camera, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Clock } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { Button } from '@/components/ui/button';
@@ -220,7 +204,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
               Previous requests ({pastRequests.length})
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-3">No pending requests</p>
+          <EmptyState icon="requests" title={<>No pending requests</>} size="compact" />
         </Card>
       );
     }

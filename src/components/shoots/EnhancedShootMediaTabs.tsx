@@ -1,8 +1,9 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Upload, Image as ImageIcon, AlertTriangle, Star, Trash2, Flag } from 'lucide-react';
+import { Download, Flag } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { RawImagePreview } from '@/components/media/RawImagePreview';
 import { useAuth } from '@/components/auth';
@@ -336,8 +337,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     if (files.length === 0) {
       return (
         <div className="text-center py-12">
-          <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No files uploaded yet</p>
+
+          <EmptyState icon="photos" title={<>No files uploaded yet</>} size="compact" />
         </div>
       );
     }
@@ -561,8 +562,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
             <CardContent>
               {flaggedFiles.length === 0 ? (
                 <div className="text-center py-12">
-                  <Flag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No flagged photos</p>
+
+                  <EmptyState icon="clear" title={<>No flagged photos</>} size="compact" />
                 </div>
               ) : (
                 renderMediaGrid(flaggedFiles)

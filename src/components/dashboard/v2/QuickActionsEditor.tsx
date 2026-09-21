@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -460,9 +461,7 @@ export const QuickActionsEditor: React.FC<QuickActionsEditorProps> = ({
         </DialogHeader>
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           {emptyState && (
-            <div className="rounded-2xl border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
-              No custom quick actions yet. Use the button below to create your first shortcut.
-            </div>
+            <EmptyState icon="automations" title={<>No custom quick actions yet. Use the button below to create your first shortcut.</>} size="compact" />
           )}
           {draftActions.map((action, index) => {
             const Icon = QUICK_ACTION_ICON_MAP[action.icon];

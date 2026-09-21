@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -59,7 +60,7 @@ export function PhotographerList({ photographers, onSelect }: PhotographerListPr
                     ))}
                 </TooltipProvider>
                 {photographers.length === 0 && (
-                    <div className="text-muted-foreground text-sm">No photographers found</div>
+                    <EmptyState icon="assignments" title={<>No photographers found</>} size="compact" />
                 )}
             </div>
         </div>

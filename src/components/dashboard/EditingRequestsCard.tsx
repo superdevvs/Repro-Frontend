@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { Card } from './v2/SharedComponents';
 import { Badge } from '@/components/ui/badge';
@@ -80,7 +81,7 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
         <EditingRequestsCardSkeleton />
       ) : list.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-[120px] px-4">
-          <p className="text-xs sm:text-sm text-muted-foreground italic mb-4">{emptyStateText}</p>
+          <EmptyState icon="requests" title={<>{emptyStateText}</>} size="compact" />
           {onCreate && (
             <Button size="sm" onClick={onCreate} className="w-full">
               {actionLabel}

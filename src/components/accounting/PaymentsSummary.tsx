@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -300,7 +301,7 @@ export function PaymentsSummary({ invoices, className }: PaymentsSummaryProps) {
           })}
         </div>
       ) : (
-              <p className="text-sm text-slate-600 dark:text-slate-400">No recent payments</p>
+              <EmptyState icon="payments" title={<>No recent payments</>} size="compact" />
       )}
     </CardContent>
   </Card>

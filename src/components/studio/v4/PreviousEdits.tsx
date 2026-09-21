@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useId, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Download, History, ImageIcon, RefreshCw } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -100,7 +101,7 @@ export function PreviousEdits() {
     {open && <div id={contentId} className="border-t p-4">
       <div className="mb-4 flex flex-wrap items-center gap-2"><div className="flex flex-wrap gap-1" aria-label="Previous edit type">{kinds.map(item => <Button key={item.id} variant={kind === item.id ? 'secondary' : 'ghost'} className="min-h-11" aria-pressed={kind === item.id} onClick={() => { setKind(item.id); setPage(1); }}>{item.label}</Button>)}</div><Button variant="ghost" size="icon" className="ml-auto h-11 w-11" aria-label="Refresh previous edits" disabled={busy} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16} /></Button></div>
       {error && <p role="alert" className="mb-3 text-sm text-destructive">{error}</p>}
-      {busy ? <p role="status" className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4" />Loading previous edits…</p> : !items.length && !error ? <p className="py-6 text-sm text-muted-foreground">No previous {kinds.find(item => item.id === kind)?.label.toLowerCase()} found.</p> : <div className="divide-y">{items.map(item => {
+      {busy ? <p role="status" className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4" />Loading previous edits…</p> : !items.length && !error ? <EmptyState icon="studio" title={<>No previous {kinds.find(item => item.id === kind)?.label.toLowerCase()} found.</>} size="compact" /> : <div className="divide-y">{items.map(item => {
         const href = item.shootId ? buildShootStudioHref({ shootId: item.shootId, media: kind === 'photos' ? 'images' : 'videos', presetId: kind === 'photos' ? 'listing-ready' : 'walkthrough' }) : null;
         const date = new Date(item.date);
         return <article key={`${kind}-${item.id}`} className="flex flex-wrap items-center gap-3 py-4 first:pt-0">

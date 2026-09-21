@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
@@ -41,30 +42,16 @@ import {
 } from '@/utils/invoiceDateFilters';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import type { DashboardShootSummary } from '@/types/dashboard';
-import type { ShootData, ShootServiceObject } from '@/types/shoots';
+import type { ShootData } from '@/types/shoots';
 import type { InvoiceData } from '@/utils/invoiceUtils';
-import {
-  DELIVERED_STATUS_KEYWORDS,
-  UPLOADED_STATUS_KEYWORDS,
-  shootDataToSummary,
-} from '@/utils/dashboardDerivedUtils';
+import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 
 export type { EditingAccountingVerificationRow } from './editingManagerVerificationUtils';
 import type {
   EditingManagerVerificationViewProps,
   VerificationStatusFilter,
 } from './editingManagerVerificationUtils';
-import {
-  buildPaginationItems,
-  buildVerificationRow,
-  currencyFormatter,
-  getInvoiceLinkedShootIds,
-  normalizeText,
-  parseDateValue,
-  rowsPerPageOptions,
-  statusLabelMap,
-  summaryCardTone,
-} from './editingManagerVerificationUtils';
+import { buildPaginationItems, buildVerificationRow, currencyFormatter, getInvoiceLinkedShootIds, normalizeText, rowsPerPageOptions, statusLabelMap, summaryCardTone } from './editingManagerVerificationUtils';
 export function EditingManagerVerificationView({
   shoots,
   invoices,
@@ -415,7 +402,7 @@ export function EditingManagerVerificationView({
             </div>
           ) : filteredRows.length === 0 ? (
             <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-              <p>No shoots match the current verification filters.</p>
+              <EmptyState icon="search" title={<>No shoots match the current verification filters.</>} size="compact" />
               {hasActiveFilters && (
                 <div className="mt-4">
                   <Button type="button" variant="outline" onClick={resetFilters}>

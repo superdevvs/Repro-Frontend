@@ -1,18 +1,7 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import {
-  ArrowUpRight,
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Eye,
-  LayoutGrid,
-  List,
-  MapPin,
-  Wallet,
-} from 'lucide-react';
+import { ArrowUpRight, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock3, Eye, LayoutGrid, List, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -181,8 +170,8 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
       {filteredShoots.length === 0 ? (
         <div className="px-4 py-14 text-center sm:px-5">
           <div className="mx-auto max-w-md rounded-3xl border border-dashed border-border/60 bg-muted/20 px-6 py-10">
-            <Wallet className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-            <p className="text-sm font-semibold">No photographer-assigned shoots yet</p>
+
+            <EmptyState icon="shoots" title={<>No photographer-assigned shoots yet</>} size="compact" />
             <p className="mt-2 text-xs text-muted-foreground">
               Assigned shoots will appear here with photographer pay and payout details.
             </p>

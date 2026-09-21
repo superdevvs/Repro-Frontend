@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useMemo, useState } from 'react';
@@ -358,8 +359,8 @@ export default function EmailRecovery() {
                       <TableRow>
                         <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                           <div className="flex flex-col items-center gap-2">
-                            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                            <p>No deliveries match this filter — you're all caught up.</p>
+
+                            <EmptyState icon="clear" title={<>No deliveries match this filter — you're all caught up.</>} size="compact" />
                           </div>
                         </TableCell>
                       </TableRow>

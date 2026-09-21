@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -144,7 +145,7 @@ export default function CallLiveCockpit() {
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
             {filteredTranscript.length === 0 && (
-              <p className="text-xs text-muted-foreground">No transcript yet.</p>
+              <EmptyState icon="conversations" title="No transcript yet." size="compact" />
             )}
             {filteredTranscript.map((chunk) => (
               <div key={chunk.seq} className="flex gap-2">

@@ -1,18 +1,12 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Save, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -176,6 +170,7 @@ export interface ServicesTabHandle {
 
 export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_props, ref) {
   const [isLoading, setIsLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -550,6 +545,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
+    setCatalogError(false);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const headers = {
@@ -577,6 +573,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
       setServices(mappedServices);
     } catch (error) {
+      setCatalogError(true);
       console.error('Error fetching services:', error);
       toast({
         title: 'Error',
@@ -700,6 +697,8 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {catalogError && <div role="alert" className="col-span-full py-8 text-center text-sm text-destructive"><p>Could not load services.</p><Button variant="outline" className="mt-3" onClick={() => void fetchServices()}>Try Again</Button></div>}
+        {!isLoading && !catalogError && filteredServices.length === 0 && <EmptyState icon={selectedCategory ? 'search' : 'services'} title={selectedCategory ? 'No services in this category' : 'No services yet'} description="Services will appear here when they are added." className="col-span-full" action={selectedCategory ? <Button variant="outline" onClick={() => setSelectedCategory(null)}>View All Services</Button> : <Button onClick={() => setIsAddDialogOpen(true)}>Add Service</Button>} />}
         {filteredServices.map(service => (
           <ServiceCard
             key={service.id}

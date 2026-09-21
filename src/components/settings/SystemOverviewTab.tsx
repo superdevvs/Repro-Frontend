@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
@@ -42,9 +43,7 @@ import {
   fetchSystemOverviewTrace,
 } from '@/services/systemOverviewService';
 import { useTheme } from '@/hooks/useTheme';
-import type {
-  SystemHistory,
-} from '@/types/systemOverview';
+
 import styles from './SystemOverviewTab.module.css';
 
 import {
@@ -552,7 +551,7 @@ export function SystemOverviewTab() {
                           </div>
                         </div>
                       ))}
-                      {liveUsers.length === 0 && <div className="text-sm text-slate-500">No live users detected in the last two minutes.</div>}
+                      {liveUsers.length === 0 && <EmptyState icon="activity" title={<>No live users detected in the last two minutes.</>} size="compact" />}
                     </div>
                   </ScrollArea>
                 </CardContent>
@@ -613,7 +612,7 @@ export function SystemOverviewTab() {
                               <div className="mt-1 text-xs text-muted-foreground">{trace.durationMs}ms • {trace.occurredAt || 'recent'}</div>
                             </button>
                           ))}
-                          {relatedTraces.length === 0 && <div className="text-sm text-muted-foreground">No matching traces yet.</div>}
+                          {relatedTraces.length === 0 && <EmptyState icon="activity" title={<>No matching traces yet.</>} size="compact" />}
                         </div>
                       </div>
 
@@ -629,7 +628,7 @@ export function SystemOverviewTab() {
                               <div className="mt-1 text-xs text-amber-800/80">{error.routePath || error.componentName || error.errorClass}</div>
                             </div>
                           ))}
-                          {relatedErrors.length === 0 && <div className="text-sm text-muted-foreground">No blockers currently linked to this node.</div>}
+                          {relatedErrors.length === 0 && <EmptyState icon="clear" title={<>No blockers currently linked to this node.</>} size="compact" />}
                         </div>
                       </div>
 

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CalendarClock, PhoneForwarded, Plus, RefreshCw, Workflow, XCircle } from 'lucide-react';
@@ -148,10 +149,9 @@ export default function CallsAutomations() {
             </div>
           ))}
           {scheduled.isLoading && <div className="p-6 text-center text-sm text-muted-foreground">Loading scheduled calls...</div>}
-          {!scheduled.isLoading && rows.length === 0 && (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              <PhoneForwarded className="mx-auto mb-2 h-6 w-6" /> No scheduled calls yet.
-            </div>
+          {scheduled.isError && <div role="alert" className="py-6 text-center text-sm text-destructive"><p>Could not load scheduled calls.</p><Button variant="outline" className="mt-3" onClick={() => void scheduled.refetch()}>Try Again</Button></div>}
+          {!scheduled.isLoading && !scheduled.isError && rows.length === 0 && (
+            <EmptyState icon="availability" title="No scheduled calls yet." size="compact" />
           )}
         </CardContent>
       </Card>

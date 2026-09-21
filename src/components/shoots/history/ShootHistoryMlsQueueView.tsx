@@ -1,6 +1,7 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useEffect, useState } from 'react'
-import { Eye, Clock, XCircle, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Eye, Clock, XCircle, CheckCircle2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -139,8 +140,8 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
             <HorizontalLoader message="Loading shoots..." className="px-4" />
           ) : queueItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No shoots with MLS IDs found.</p>
+
+              <EmptyState icon="requests" title={<>No shoots with MLS IDs found.</>} size="compact" />
             </div>
           ) : (
             <div className="overflow-x-auto">

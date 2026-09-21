@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -5,18 +6,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Mail,
-  MessageSquare,
-  Send,
-  Clock,
-  AlertCircle,
-  Zap,
-  Settings,
-  FileText,
-  Inbox,
-  ArrowRight,
-} from 'lucide-react';
+import { Mail, MessageSquare, Send, Clock, AlertCircle, Zap, Settings, FileText, ArrowRight } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getEmailMessages, getMessagingOverview, getSmsThreads } from '@/services/messaging';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -184,8 +174,8 @@ export default function MessagingOverview() {
                 latestEmails.map((message) => <LatestEmailRow key={message.id} message={message} />)
               ) : (
                 <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-4 py-8 text-center text-sm text-muted-foreground">
-                  <Inbox className="h-10 w-10 opacity-25" />
-                  <p>No email messages yet.</p>
+
+                  <EmptyState icon="email" title={<>No email messages yet.</>} size="compact" />
                 </div>
               )}
             </div>
@@ -216,8 +206,8 @@ export default function MessagingOverview() {
                 latestSmsThreads.map((thread) => <LatestSmsRow key={thread.id} thread={thread} />)
               ) : (
                 <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-4 py-8 text-center text-sm text-muted-foreground">
-                  <MessageSquare className="h-10 w-10 opacity-25" />
-                  <p>No SMS conversations yet.</p>
+
+                  <EmptyState icon="conversations" title={<>No SMS conversations yet.</>} size="compact" />
                 </div>
               )}
             </div>

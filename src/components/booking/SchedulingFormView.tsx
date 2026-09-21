@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -120,9 +121,7 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
               </div>
             ) : availabilityPanel?.kind === 'empty' ? (
               // Fetched successfully but zero bookable slots that day (Req 5.4).
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
-                No bookable times available for the selected day. Choose another photographer or date.
-              </div>
+              <EmptyState icon="availability" title={<>No bookable times available for the selected day. Choose another photographer or date.</>} size="compact" />
             ) : suggestedTimes.length > 0 ? (
               <div className="relative overflow-hidden bg-white dark:bg-card/40">
                 <div

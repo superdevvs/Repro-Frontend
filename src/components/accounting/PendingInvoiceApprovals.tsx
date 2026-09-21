@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CheckCircle, XCircle, Clock, AlertTriangle, DollarSign, Calendar, User, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, User, FileText } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   WeeklyInvoice,
@@ -109,8 +110,8 @@ export const PendingInvoiceApprovals: React.FC = () => {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-8">
-          <CheckCircle className="w-10 h-10 text-green-400 mb-3" />
-          <h3 className="text-base font-semibold">All Caught Up</h3>
+
+          <EmptyState icon="clear" title={<>All Caught Up</>} size="compact" />
           <p className="text-muted-foreground text-sm mt-1">No invoices pending approval.</p>
         </CardContent>
       </Card>

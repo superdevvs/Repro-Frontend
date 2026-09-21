@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -20,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { BellIcon, CheckIcon, CameraIcon, ClockIcon, MessageSquare, CalendarPlus, CalendarCheck, Play, CheckCircle2, XCircle, PauseCircle, Pencil, Eye, DollarSign, Upload, AlertCircle, Send, RefreshCw } from "lucide-react";
+import { BellIcon, CheckIcon, CameraIcon, ClockIcon, MessageSquare, CalendarPlus, CalendarCheck, Play, CheckCircle2, XCircle, PauseCircle, Pencil, Eye, DollarSign, Upload, AlertCircle, RefreshCw } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
@@ -682,6 +683,8 @@ export function NotificationCenter() {
                   <Loader2 className="h-4 w-4" />
                   <span>Loading notifications…</span>
                 </div>
+              ) : error ? (
+                <div role="alert" className="py-8 text-center text-sm text-destructive"><p>Could not load notifications.</p><Button variant="outline" className="mt-3" onClick={() => void refresh()}>Try Again</Button></div>
               ) : filteredNotifications.length > 0 ? (
                 <div className="space-y-2">
                   {/* Recent notifications section */}
@@ -721,13 +724,7 @@ export function NotificationCenter() {
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-60 text-center">
-                  <BellIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <h3 className="text-lg font-medium mb-1">No notifications</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {error || "You're all caught up! Any new notifications will appear here."}
-                  </p>
-                </div>
+                <EmptyState icon="notifications" title="No notifications" description="You’re all caught up. New updates will appear here." className="min-h-60" />
               )}
             </ScrollArea>
           </div>

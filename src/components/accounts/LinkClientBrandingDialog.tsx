@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/ui/empty-state';
 
 import { useState, useEffect } from "react";
 import { User } from "@/components/auth/AuthProvider";
@@ -248,7 +249,7 @@ export function LinkClientBrandingDialog({
             <div className="border rounded-lg p-4 min-h-[200px]">
               <h3 className="font-medium mb-2">Linked Clients</h3>
               {linkedClients.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No clients linked yet</p>
+                <EmptyState icon="linked" title={<>No clients linked yet</>} size="compact" />
               ) : (
                 <ul className="space-y-2">
                   {linkedClients.map(clientId => {
