@@ -146,10 +146,10 @@ export default function CallsInbox() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <h2 className="text-[28px] font-semibold leading-9">Your conversations</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="calls-chip calls-chip-warning">{attention.data?.total ?? 0} need attention</span>
             <span className="calls-chip calls-chip-success">{live.data?.total ?? liveRows.length} live</span>
           </div>
