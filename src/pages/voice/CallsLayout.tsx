@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, PhoneCall, Plus } from 'lucide-react';
@@ -38,6 +39,16 @@ const tabs = [
 
 export default function CallsLayout() {
   const { pathname } = useLocation();
+  const navigationRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    const activeTab = navigation?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!navigation || !activeTab) return;
+    const viewport = navigation.getBoundingClientRect();
+    const tab = activeTab.getBoundingClientRect();
+    if (tab.left < viewport.left) navigation.scrollLeft += tab.left - viewport.left;
+    else if (tab.right > viewport.right) navigation.scrollLeft += tab.right - viewport.right;
+  }, [pathname]);
   const { can } = usePermissions();
   const canOperate = can('voice-calls', 'operate');
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
@@ -97,7 +108,7 @@ export default function CallsLayout() {
             </div>
           </div>
 
-          <nav aria-label="Calls navigation" className="flex min-w-0 gap-5 overflow-x-auto border-b border-[var(--calls-border)] sm:gap-6">
+          <nav ref={navigationRef} aria-label="Calls navigation" className="flex min-w-0 gap-5 overflow-x-auto border-b border-[var(--calls-border)] sm:gap-6">
             {tabs.map((tab) => (
               <Link key={tab.to} to={tab.to} data-active={tab.match(pathname)} aria-current={tab.match(pathname) ? 'page' : undefined} className="calls-nav-link shrink-0 whitespace-nowrap">
                 {tab.label}

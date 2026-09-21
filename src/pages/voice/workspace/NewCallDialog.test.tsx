@@ -101,6 +101,19 @@ describe('NewCallDialog', () => {
     expect(mocks.placeVoiceCall).not.toHaveBeenCalled();
   });
 
+  it('marks a non-E164 legacy source unavailable while keeping the valid default usable', async () => {
+    mocks.getVoiceNumbers.mockResolvedValue([
+      { id: 1, phone_number: '+18888041663', label: 'Main line', is_default: true },
+      { id: 2, phone_number: '2028681663', label: 'Legacy line', is_default: false },
+    ]);
+    renderDialog();
+    await userEvent.click(screen.getByRole('button', { name: 'Open new call' }));
+    expect(await screen.findByRole('option', { name: 'Legacy line · 2028681663 · Unavailable for calling' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Main line · +18888041663' })).toBeEnabled();
+    expect(screen.getByLabelText('From')).toHaveValue('+18888041663');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start call' })).toBeEnabled());
+  });
+
   it('requires a registered browser phone for Me mode', async () => {
     renderDialog();
     await userEvent.click(screen.getByRole('button', { name: 'Open new call' }));

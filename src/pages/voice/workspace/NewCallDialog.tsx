@@ -202,11 +202,12 @@ export default function NewCallDialog({
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="" disabled>Choose a business line</option>
-                {(numbers.data ?? []).map((item) => (
-                  <option key={item.id} value={item.phone_number}>
-                    {item.label || 'Line'} · {item.phone_number}
-                  </option>
-                ))}
+                {(numbers.data ?? []).map((item) => {
+                  const available = /^\+[1-9]\d{7,14}$/.test(item.phone_number.replace(/[\s().-]/g, ''));
+                  return <option key={item.id} value={item.phone_number} disabled={!available}>
+                    {item.label || 'Line'} · {item.phone_number}{!available ? ' · Unavailable for calling' : ''}
+                  </option>;
+                })}
               </select>
               {!numbers.isLoading && !numbers.isError && !validFrom && <p className="text-xs text-[var(--calls-warning)]">Select an available business line.</p>}
             </div>

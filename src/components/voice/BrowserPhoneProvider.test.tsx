@@ -110,7 +110,23 @@ describe('browser phone lifecycle and customer controls', () => {
     renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
     await userEvent.click(screen.getByText('Connect test phone'));
     expect(await screen.findByText('Microphone permission denied')).toBeInTheDocument();
+    expect(screen.getByText('Your browser phone')).toBeInTheDocument();
     expect(mocks.createVoiceBrowserSession).not.toHaveBeenCalled(); expect(mocks.constructor).not.toHaveBeenCalled();
+  });
+
+  it('keeps an idle phone to one status row with expandable audio and a direct disconnect', async () => {
+    renderPhone(); const user = await connectPhone();
+    expect(await screen.findByText('Phone ready')).toBeInTheDocument();
+    expect(screen.queryByText('Your browser phone')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Phone connected' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Call microphone')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Audio' }));
+    expect(screen.getByLabelText('Call microphone')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Audio' }));
+    expect(screen.queryByLabelText('Call microphone')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Disconnect phone' }));
+    await waitFor(() => expect(mocks.deleteVoiceBrowserSession).toHaveBeenCalledWith('session-1'));
+    expect(screen.queryByRole('complementary', { name: 'Browser phone' })).not.toBeInTheDocument();
   });
 
   it('rejects unknown carrier legs instead of accepting arbitrary browser calls', async () => {
@@ -218,12 +234,58 @@ describe('browser phone lifecycle and customer controls', () => {
   it('recreates an idle failed connection before registering again', async () => {
     renderPhone(); const user = await connectPhone();
     act(() => { mocks.handlers['telnyx.error']?.(); });
-    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('error'));
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
     await user.click(screen.getByText('Connect test phone'));
     await waitFor(() => expect(mocks.createVoiceBrowserSession).toHaveBeenCalledTimes(2));
     expect(mocks.deleteVoiceBrowserSession).toHaveBeenCalledWith('session-1');
     expect(mocks.disconnect).toHaveBeenCalledOnce();
     await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+  });
+
+  it('recovers registration on visibility without a new SDK ready event or credentials', async () => {
+    renderPhone(); await connectPhone();
+    mocks.registered.mockResolvedValueOnce(false).mockResolvedValue(true);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
+    expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false);
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true);
+    expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
+    expect(mocks.login).not.toHaveBeenCalled();
+  });
+
+  it('keeps polling through a hung registration check and config cache updates without reauthenticating', async () => {
+    vi.useFakeTimers();
+    try {
+      const { client } = renderPhone();
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => {
+        screen.getByText('Connect test phone').click();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByTestId('phone-status')).toHaveTextContent('ready');
+      expect(mocks.registered).toHaveBeenCalledOnce();
+      mocks.registered.mockReturnValueOnce(new Promise(() => undefined));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+        client.setQueryData(['voice-browser-config', 9], { ...client.getQueryData<object>(['voice-browser-config', 9]), blockers: [] });
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mocks.registered).toHaveBeenCalledTimes(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false);
+      await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+      expect(screen.getByTestId('phone-status')).toHaveTextContent('ready');
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true);
+      expect(mocks.registered).toHaveBeenCalledTimes(3);
+      expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
+      expect(mocks.constructor).toHaveBeenCalledOnce();
+      expect(mocks.login).not.toHaveBeenCalled();
+    } finally { cleanup(); vi.useRealTimers(); }
   });
 
   it('refreshes short-lived credentials without persisting the new token or replacing the phone', async () => {

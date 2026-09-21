@@ -8,6 +8,7 @@ import * as api from '@/services/voiceBrowser';
 import type { VoiceBrowserSession, VoiceBrowserToken } from '@/types/voiceBrowser';
 import { useBrowserPhoneActions } from './useBrowserPhoneActions';
 import { matchesBrowserOffer } from './browserPhoneIdentity';
+import { createBrowserPhonePresence } from './browserPhonePresence';
 
 const BrowserPhoneBar = lazy(() => import('./BrowserPhoneBar'));
 
@@ -39,6 +40,8 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
   const epoch = useRef(0);
   const busyRef = useRef(false);
   const reconciling = useRef(new Set<string>());
+  const presence = useRef<ReturnType<typeof createBrowserPhonePresence> | null>(null);
+  const presenceError = useRef<string | null>(null);
   const eligibleRef = useRef(eligible);
   eligibleRef.current = eligible;
 
@@ -69,11 +72,11 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     if (!current) return null;
     const next = registered === undefined ? await api.getVoiceBrowserSession(current.id) : await api.heartbeatVoiceBrowserSession(current.id, registered);
     if (sessionRef.current?.id !== current.id || epoch.current !== currentEpoch) return null;
-    updateSession(next);
+    updateSession({ ...next, registered: Boolean(sessionRef.current?.registered && next.registered) });
     const live = activeRef.current;
     if (live) {
       const server = await api.getVoiceBrowserCallState(live.offer.voice_call_id);
-      if (activeRef.current?.offer.agent_call_control_id === live.offer.agent_call_control_id) {
+      if (epoch.current === currentEpoch && sessionRef.current?.id === current.id && activeRef.current?.offer.agent_call_control_id === live.offer.agent_call_control_id) {
         if (['ended', 'failed'].includes(server.state)) {
           const terminalCall = sdkCall.current;
           sdkCall.current = null; updateActive(null); invalidate();
@@ -146,6 +149,7 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     const current = sessionRef.current;
     const client = rtc.current;
     rtc.current = null; sdkCall.current = null;
+    presence.current = null; presenceError.current = null;
     reconciling.current.clear();
     updateSession(null); updateActive(null); setStatus('disconnected'); setPlaybackBlocked(false);
     if (client) { client.off('telnyx.ready'); client.off('telnyx.notification'); client.off('telnyx.error'); client.off('telnyx.socket.close'); await client.disconnect().catch(() => undefined); }
@@ -179,23 +183,38 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       if (connectionEpoch !== epoch.current) return;
       const client = new sdk.TelnyxRTC({ login_token: credential.token, debug: false, enableCallReports: false, enableCallRecording: false, hangupOnBeforeUnload: true });
       rtc.current = client;
+      const monitor = createBrowserPhonePresence({
+        isCurrent: () => connectionEpoch === epoch.current && rtc.current === client && sessionRef.current?.id === credential.id && eligibleRef.current,
+        getIsRegistered: () => client.getIsRegistered(),
+        heartbeat: (registered) => api.heartbeatVoiceBrowserSession(credential.id, registered),
+        onSession: (next) => {
+          updateSession(next);
+          if (activeRef.current) void sync().catch(() => undefined);
+        },
+        onReady: () => {
+          setStatus('ready');
+          const previousPresenceError = presenceError.current;
+          presenceError.current = null;
+          setError((current) => current === previousPresenceError ? null : current);
+        },
+        onUnavailable: (message) => {
+          const current = sessionRef.current;
+          if (current) updateSession({ ...current, registered: false });
+          presenceError.current = message; setError(message); setStatus('reconnecting');
+        },
+      });
+      presence.current = monitor;
       if (audio.current) client.remoteElement = audio.current;
       client.on('telnyx.ready', () => {
         if (connectionEpoch !== epoch.current) return;
-        void (async () => {
-          let registered = await client.getIsRegistered();
-          for (let attempt = 0; !registered && attempt < 8 && connectionEpoch === epoch.current; attempt += 1) { await wait(500); registered = await client.getIsRegistered(); }
-          if (connectionEpoch !== epoch.current) return;
-          if (!registered) throw new Error('The phone could not register. Reconnect to try again.');
-          await sync(true);
-          if (connectionEpoch !== epoch.current) return;
-          setStatus('ready'); setError(null);
-          await refreshDevices();
-        })().catch((cause) => { if (connectionEpoch === epoch.current) { setError(errorText(cause)); setStatus('error'); } });
+        void monitor.check();
+        void refreshDevices().catch(() => undefined);
       });
-      client.on('telnyx.notification', (event: INotification) => { void handleNotification(event, connectionEpoch).catch((cause) => setError(errorText(cause))); });
-      client.on('telnyx.error', () => { if (connectionEpoch === epoch.current) { setError('The phone connection failed. Reconnect or check your network.'); setStatus('error'); } });
-      client.on('telnyx.socket.close', () => { if (connectionEpoch === epoch.current) { setStatus('reconnecting'); void sync(false).catch(() => undefined); } });
+      client.on('telnyx.notification', (event: INotification) => {
+        void handleNotification(event, connectionEpoch).catch((cause) => { if (connectionEpoch === epoch.current) setError(errorText(cause)); });
+      });
+      client.on('telnyx.error', () => { if (connectionEpoch === epoch.current) void monitor.lost('The phone connection failed. Retrying…'); });
+      client.on('telnyx.socket.close', () => { if (connectionEpoch === epoch.current) void monitor.lost('Phone connection was lost. Retrying…'); });
       await client.connect();
     } catch (cause) {
       if (connectionEpoch === epoch.current) { await closeConnection().catch(() => undefined); setStatus('error'); }
@@ -210,28 +229,30 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session?.id) return;
-    const timer = window.setInterval(() => {
-      void (async () => {
-        const registered = status === 'ready' && Boolean(await rtc.current?.getIsRegistered());
-        await sync(registered);
-        if (!registered && status === 'ready') { setStatus('reconnecting'); setError('Phone registration was lost. Reconnecting…'); }
-      })().catch((cause) => setError(errorText(cause)));
-    }, 15000);
-    return () => window.clearInterval(timer);
-  }, [session?.id, status, sync]);
+    const check = () => { void presence.current?.check(); };
+    const visible = () => { if (document.visibilityState === 'visible') check(); };
+    const timer = window.setInterval(check, 15000);
+    document.addEventListener('visibilitychange', visible);
+    window.addEventListener('online', check);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', check); };
+  }, [session?.id]);
 
   useEffect(() => {
     const current = sessionRef.current;
+    const refreshEpoch = epoch.current;
     if (!current) return;
     const delay = Math.max(1000, new Date(current.expires_at).getTime() - Date.now() - 120000);
     if (!Number.isFinite(delay)) return;
     const timer = window.setTimeout(() => {
       void (async () => {
         const token: VoiceBrowserToken = await api.refreshVoiceBrowserToken(current.id, current.device_id);
-        if (sessionRef.current?.id !== current.id || !rtc.current) return;
+        if (sessionRef.current?.id !== current.id || epoch.current !== refreshEpoch || !rtc.current) return;
         await rtc.current.login({ creds: { login_token: token.token } });
+        if (sessionRef.current?.id !== current.id || epoch.current !== refreshEpoch) return;
         updateSession(token);
-      })().catch(() => { setError('Phone authentication could not be refreshed. Finish this call and reconnect.'); });
+      })().catch(() => {
+        if (epoch.current === refreshEpoch && sessionRef.current?.id === current.id) setError('Phone authentication could not be refreshed. Finish this call and reconnect.');
+      });
     }, delay);
     return () => window.clearTimeout(timer);
   }, [session?.id, session?.expires_at, session?.device_id, updateSession]);
