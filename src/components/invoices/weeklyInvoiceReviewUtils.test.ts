@@ -4,6 +4,7 @@ import type { WeeklyInvoice } from '@/services/invoiceService';
 import {
   fetchAllWeeklyInvoicePages,
   filterWeeklyInvoicesByDate,
+  getWeeklyInvoiceAggregateStats,
   getWeeklyInvoiceExportScope,
   normalizeWeeklyInvoiceRole,
 } from './weeklyInvoiceReviewUtils';
@@ -86,5 +87,20 @@ describe('weekly invoice filtering and export scope', () => {
     expect(getWeeklyInvoiceExportScope(invoices, new Set([2])).map(({ id }) => id)).toEqual([2]);
     expect(getWeeklyInvoiceExportScope(invoices, new Set()).map(({ id }) => id)).toEqual([1, 2]);
     expect(getWeeklyInvoiceExportScope(invoices, new Set([999])).map(({ id }) => id)).toEqual([1, 2]);
+  });
+});
+
+describe('getWeeklyInvoiceAggregateStats', () => {
+  it('counts unique shoots instead of charge line items', () => {
+    const invoice = makeInvoice(122, '2026-09-13', '2026-09-19', {
+      total_amount: 123.75,
+      items: [
+        { id: 308, invoice_id: 122, type: 'charge', shoot_id: 89, quantity: 1, unit_amount: 78.75, total_amount: 78.75, description: '25 HDR Photos' },
+        { id: 309, invoice_id: 122, type: 'charge', shoot_id: 89, quantity: 1, unit_amount: 45, total_amount: 45, description: '10 Exterior HDR Photos' },
+        { id: 310, invoice_id: 122, type: 'expense', shoot_id: 89, quantity: 1, unit_amount: 0, total_amount: 0, description: 'Mileage' },
+      ],
+    });
+
+    expect(getWeeklyInvoiceAggregateStats([invoice]).totalShoots).toBe(1);
   });
 });

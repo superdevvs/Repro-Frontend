@@ -503,13 +503,13 @@ export const WeeklyInvoiceReview: React.FC = () => {
           {
             icon: <Camera className="h-5 w-5" />,
             value: aggregateStats.totalShoots.toString(),
-            label: 'Shoots',
+            label: reviewCopy.chargeCountLabel,
             iconBg: 'bg-violet-500/10 text-violet-500',
           },
           {
             icon: <ReceiptText className="h-5 w-5" />,
             value: formatCurrency(aggregateStats.totalExpensesAmount),
-            label: 'Expenses',
+            label: reviewCopy.expenseLabel,
             iconBg: 'bg-teal-500/10 text-teal-500',
           },
           {

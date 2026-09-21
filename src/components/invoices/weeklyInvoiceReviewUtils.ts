@@ -166,14 +166,33 @@ export const getWeeklyInvoiceTotal = (invoice: WeeklyInvoice): number => {
   );
 };
 
+const uniqueShootCount = (items: WeeklyInvoice['items']): number => {
+  const shootIds = new Set<number>();
+  let unlinkedCharges = 0;
+
+  for (const item of items || []) {
+    if (item.type !== 'charge') {
+      continue;
+    }
+
+    if (item.shoot_id != null) {
+      shootIds.add(Number(item.shoot_id));
+      continue;
+    }
+
+    unlinkedCharges += 1;
+  }
+
+  return shootIds.size + unlinkedCharges;
+};
+
 export const getWeeklyInvoiceAggregateStats = (invoices: readonly WeeklyInvoice[]) =>
   invoices.reduce(
     (stats, invoice) => {
-      const charges = (invoice.items || []).filter((item) => item.type === 'charge');
       const expenses = (invoice.items || []).filter((item) => item.type === 'expense');
 
       stats.totalAmount += getWeeklyInvoiceTotal(invoice);
-      stats.totalShoots += charges.length;
+      stats.totalShoots += uniqueShootCount(invoice.items);
       stats.totalExpensesAmount += expenses.reduce(
         (sum, item) => sum + Number.parseFloat(String(item.total_amount || 0)),
         0,
