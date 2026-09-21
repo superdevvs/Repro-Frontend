@@ -37,6 +37,7 @@ import { NotificationPreferencesCard } from '@/components/settings/NotificationP
 import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
 import { AiEditingProviderSettings } from '@/components/settings/AiEditingProviderSettings';
 import { EditorPreferencesCard } from '@/components/settings/EditorPreferencesCard';
+import { ShortLinkSettings } from '@/components/settings/ShortLinkSettings';
 import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 
@@ -899,6 +900,8 @@ const Settings = () => {
                       </p>
                     </CardContent>
                   </Card>
+
+                  <ShortLinkSettings />
 
                   <ToursSection
                     onOpenSettings={() => {

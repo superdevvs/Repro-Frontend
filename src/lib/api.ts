@@ -91,6 +91,9 @@ export const API_ROUTES = {
       get: (key: string) => `${BASE_URL}/api/admin/settings/${key}`,
       store: `${BASE_URL}/api/admin/settings`,
     },
+    shortLinks: {
+      settings: `${BASE_URL}/api/admin/short-links/settings`,
+    },
   },
   googleCalendar: {
     connect: `${BASE_URL}/api/google-calendar/connect`,
