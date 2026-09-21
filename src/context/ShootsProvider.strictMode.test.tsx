@@ -106,6 +106,53 @@ describe('authenticated dashboard hydration in StrictMode', () => {
     window.removeEventListener('unhandledrejection', unhandled)
   })
 
+  it('loads scheduled, completed, and delivered shoots for sales reps', async () => {
+    localStorage.setItem('user', JSON.stringify({
+      id: '7',
+      name: 'Riley Rep',
+      email: 'riley@example.test',
+      role: 'salesRep',
+      metadata: {},
+    }))
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/user')) {
+        return jsonResponse({
+          id: 7,
+          name: 'Riley Rep',
+          email: 'riley@example.test',
+          role: 'salesRep',
+          metadata: {},
+        })
+      }
+      return jsonResponse({
+        data: [],
+        meta: { current_page: 1, last_page: 1, count: 0, per_page: 25 },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <AuthProvider>
+          <ShootsProvider>
+            <div>ready</div>
+          </ShootsProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      const shootUrls = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => url.includes('/api/shoots?'))
+      expect(shootUrls).toHaveLength(3)
+      expect(shootUrls.some((url) => url.includes('tab=scheduled'))).toBe(true)
+      expect(shootUrls.some((url) => url.includes('tab=completed'))).toBe(true)
+      expect(shootUrls.some((url) => url.includes('tab=delivered'))).toBe(true)
+    })
+  })
+
   it('waits for initial shoot data and keeps background refreshes usable', async () => {
     const pending: Array<(response: Response) => void> = []
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {

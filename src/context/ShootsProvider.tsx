@@ -202,12 +202,13 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const isEditor = clientRole === 'editor';
       const isEditingManager = clientRole === 'editing_manager';
       const isPhotographer = clientRole === 'photographer';
+      const isSalesRep = ['salesRep', 'sales_rep', 'salesrep', 'rep', 'representative'].includes(String(clientRole));
       
       let allShoots: ShootData[] = [];
       
-      if (isAdmin || isPhotographer || isEditor || isEditingManager) {
+      if (isAdmin || isPhotographer || isEditor || isEditingManager || isSalesRep) {
         const headers = buildFetchHeaders(token);
-        if (isEditor || isPhotographer || isEditingManager) {
+        if (isEditor || isPhotographer || isEditingManager || isSalesRep) {
           const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
               headers,
@@ -414,7 +415,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           perPage: perPage,
         });
       } else {
-        // For other roles (salesRep, etc.), use default scheduled tab
+        // Remaining roles use the default scheduled tab
         const headers = buildFetchHeaders(token);
         const response = await fetch(`${API_BASE_URL}/api/shoots?page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
           headers,
