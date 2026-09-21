@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 9 }, isAuthenticated: true, isImpersonating: false }) }));
 vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({ can: mocks.can }) }));
 vi.mock('@/services/voiceBrowser', () => mocks);
-vi.mock('@telnyx/webrtc', () => ({ TelnyxRTC: class {
+vi.mock('@telnyx/webrtc', () => ({ TELNYX_ERROR_CODES: { NETWORK_OFFLINE: 48001 }, TelnyxRTC: class {
   constructor(options: unknown) { mocks.constructor(options); }
   on(name: string, handler: (event?: unknown) => void) { mocks.handlers[name] = handler; }
   off(name: string) { delete mocks.handlers[name]; }
@@ -316,6 +316,53 @@ describe('browser phone lifecycle and customer controls', () => {
     await waitFor(() => expect(mocks.deleteVoiceBrowserSession).toHaveBeenCalledWith('session-1'));
     expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
     expect(screen.getByTestId('phone-status')).toHaveTextContent('disconnected');
+  });
+
+  it('recovers from the SDK offline error on an open socket only after fresh carrier confirmation', async () => {
+    renderPhone(); await connectPhone();
+    act(() => { mocks.handlers['telnyx.error']?.({ error: { code: 48001, message: 'Device is offline' } }); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
+    expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false);
+    mocks.heartbeatVoiceBrowserSession.mockResolvedValueOnce({ ...session(), registered: false });
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true));
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
+    expect(mocks.constructor).toHaveBeenCalledOnce();
+    expect(mocks.login).not.toHaveBeenCalled();
+    expect(mocks.registered).not.toHaveBeenCalled();
+  });
+
+  it('still requires a fresh ready event when an SDK error occurs with the socket closed', async () => {
+    renderPhone(); await connectPhone();
+    mocks.connected = false;
+    act(() => { mocks.handlers['telnyx.error']?.(); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
+    mocks.connected = true;
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false));
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+    act(() => { mocks.handlers['telnyx.ready']?.(); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+    expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { code: 46001, fatal: false, description: 'failed authentication' },
+    { code: 48001, fatal: true, description: 'fatal offline error' },
+  ])('invalidates ready proof after $description even if the socket stays open', async (error) => {
+    renderPhone(); await connectPhone();
+    act(() => { mocks.handlers['telnyx.error']?.({ error }); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false));
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+    act(() => { mocks.handlers['telnyx.ready']?.(); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+    expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
   });
 
   it('does not connect to a server that cannot verify carrier registration', async () => {

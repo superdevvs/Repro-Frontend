@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Call, INotification, TelnyxRTC } from '@telnyx/webrtc';
+import type { Call, INotification, ITelnyxErrorEvent, TelnyxRTC } from '@telnyx/webrtc';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermissions } from '@/context/PermissionsContext';
 import { BrowserPhoneContext, type BrowserPhoneActiveCall, type BrowserPhoneContextValue } from '@/context/BrowserPhoneContext';
@@ -219,8 +219,14 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       client.on('telnyx.notification', (event: INotification) => {
         void handleNotification(event, connectionEpoch).catch((cause) => { if (connectionEpoch === epoch.current) setError(errorText(cause)); });
       });
-      client.on('telnyx.error', () => {
-        if (connectionEpoch === epoch.current) { readyObserved = false; void monitor.lost('The phone connection failed. Retrying…'); }
+      client.on('telnyx.error', (event: ITelnyxErrorEvent) => {
+        if (connectionEpoch !== epoch.current) return;
+        // The SDK's offline error can leave an authenticated socket open and
+        // emits no new ready event on recovery. Authentication errors cannot
+        // reuse this proof, even when their socket remains open.
+        const recoverableOffline = event?.error?.code === sdk.TELNYX_ERROR_CODES.NETWORK_OFFLINE && event.error.fatal !== true;
+        if (!recoverableOffline || client.connected !== true) readyObserved = false;
+        void monitor.lost('The phone connection failed. Retrying…');
       });
       client.on('telnyx.socket.close', () => {
         if (connectionEpoch === epoch.current) { readyObserved = false; void monitor.lost('Phone connection was lost. Retrying…'); }
