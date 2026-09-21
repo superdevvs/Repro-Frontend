@@ -22,6 +22,9 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
   const eligible = isAuthenticated && !isImpersonating && can('voice-calls', 'view') && (can('voice-calls', 'operate') || can('voice-calls', 'supervise'));
   const queryClient = useQueryClient();
   const config = useQuery({ queryKey: ['voice-browser-config', user?.id], queryFn: api.getVoiceBrowserConfig, enabled: eligible, retry: false, refetchInterval: 60000 });
+  const verifiedConfig = config.data && config.data.presence_verification !== 'provider'
+    ? { ...config.data, ready: false, blockers: [...config.data.blockers, 'Browser presence verification requires a server update.'] }
+    : config.data;
   const [status, setStatus] = useState<BrowserPhoneContextValue['status']>('disconnected');
   const [session, setSession] = useState<VoiceBrowserSession | null>(null);
   const [active, setActive] = useState<BrowserPhoneActiveCall | null>(null);
@@ -66,11 +69,11 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     finally { busyRef.current = false; setBusy(false); }
   }, []);
 
-  const sync = useCallback(async (registered?: boolean) => {
+  const sync = useCallback(async () => {
     const current = sessionRef.current;
     const currentEpoch = epoch.current;
     if (!current) return null;
-    const next = registered === undefined ? await api.getVoiceBrowserSession(current.id) : await api.heartbeatVoiceBrowserSession(current.id, registered);
+    const next = await api.getVoiceBrowserSession(current.id);
     if (sessionRef.current?.id !== current.id || epoch.current !== currentEpoch) return null;
     updateSession({ ...next, registered: Boolean(sessionRef.current?.registered && next.registered) });
     const live = activeRef.current;
@@ -163,6 +166,7 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       await closeConnection();
     }
     if (!config.data?.ready || config.isError) throw new Error(config.data?.blockers?.[0] || 'Browser calling is not configured yet.');
+    if (config.data.presence_verification !== 'provider') throw new Error('Browser presence verification requires a server update.');
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Use a browser that supports microphone access over HTTPS.');
     setStatus('connecting');
     const connectionEpoch = ++epoch.current;
@@ -183,9 +187,10 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       if (connectionEpoch !== epoch.current) return;
       const client = new sdk.TelnyxRTC({ login_token: credential.token, debug: false, enableCallReports: false, enableCallRecording: false, hangupOnBeforeUnload: true });
       rtc.current = client;
+      let readyObserved = false;
       const monitor = createBrowserPhonePresence({
         isCurrent: () => connectionEpoch === epoch.current && rtc.current === client && sessionRef.current?.id === credential.id && eligibleRef.current,
-        getIsRegistered: () => client.getIsRegistered(),
+        getTransportConnected: () => readyObserved && client.connected === true,
         heartbeat: (registered) => api.heartbeatVoiceBrowserSession(credential.id, registered),
         onSession: (next) => {
           updateSession(next);
@@ -207,14 +212,19 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       if (audio.current) client.remoteElement = audio.current;
       client.on('telnyx.ready', () => {
         if (connectionEpoch !== epoch.current) return;
+        readyObserved = true;
         void monitor.check();
         void refreshDevices().catch(() => undefined);
       });
       client.on('telnyx.notification', (event: INotification) => {
         void handleNotification(event, connectionEpoch).catch((cause) => { if (connectionEpoch === epoch.current) setError(errorText(cause)); });
       });
-      client.on('telnyx.error', () => { if (connectionEpoch === epoch.current) void monitor.lost('The phone connection failed. Retrying…'); });
-      client.on('telnyx.socket.close', () => { if (connectionEpoch === epoch.current) void monitor.lost('Phone connection was lost. Retrying…'); });
+      client.on('telnyx.error', () => {
+        if (connectionEpoch === epoch.current) { readyObserved = false; void monitor.lost('The phone connection failed. Retrying…'); }
+      });
+      client.on('telnyx.socket.close', () => {
+        if (connectionEpoch === epoch.current) { readyObserved = false; void monitor.lost('Phone connection was lost. Retrying…'); }
+      });
       await client.connect();
     } catch (cause) {
       if (connectionEpoch === epoch.current) { await closeConnection().catch(() => undefined); setStatus('error'); }
@@ -264,7 +274,7 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
 
   const actions = useBrowserPhoneActions({ rtc, sdkCall, sessionRef, activeRef, status, eligible, run, sync, updateActive, invalidate, playAudio, inputId, outputId, setInputId, setOutputId });
   const value: BrowserPhoneContextValue = {
-    status, eligible, config: config.isError ? undefined : config.data, configLoading: config.isLoading, session, active, busy,
+    status, eligible, config: config.isError ? undefined : verifiedConfig, configLoading: config.isLoading, session, active, busy,
     error: error || (config.isError ? 'Could not check browser calling readiness.' : null), playbackBlocked, inputs, outputs, inputId, outputId,
     connect, disconnect: () => run(async () => { if (activeRef.current) throw new Error('End or leave the active call before disconnecting.'); await closeConnection(); }),
     playAudio, refreshConfig: () => { void config.refetch(); }, ...actions,

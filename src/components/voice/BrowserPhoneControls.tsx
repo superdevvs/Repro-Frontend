@@ -39,6 +39,7 @@ export default function BrowserPhoneControls({ compact = false, idleCompact = fa
       </> : null}
       <Button variant="outline" className="calls-secondary h-11" disabled={phone.status !== 'ready'} aria-expanded={devices} onClick={() => setDevices((value) => !value)}><Settings2 className="h-4 w-4" />Audio</Button>
       {idleCompact && <Button type="button" variant="outline" className="calls-secondary h-11 w-11 shrink-0 p-0" disabled={phone.busy} aria-label="Disconnect phone" title="Disconnect phone" onClick={() => invoke(phone.disconnect)}><PhoneOff className="h-4 w-4" /></Button>}
+      {!active && phone.session && phone.status !== 'ready' && <Button type="button" variant="outline" className="calls-secondary h-11" disabled={phone.busy} onClick={() => invoke(phone.disconnect)}><PhoneOff className="h-4 w-4" />Disconnect phone</Button>}
       {phone.playbackBlocked && <Button className="calls-primary h-11" onClick={() => invoke(phone.playAudio)}>Enable call audio</Button>}
     </div>
     {supervisor && !ringing && <div className="flex flex-wrap gap-2" aria-label="Supervision mode">

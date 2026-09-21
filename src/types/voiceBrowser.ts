@@ -3,6 +3,7 @@ export type VoiceSupervisorMode = 'monitor' | 'whisper' | 'barge';
 export interface VoiceBrowserConfig {
   enabled: boolean;
   ready: boolean;
+  presence_verification?: 'provider';
   blockers: string[];
   capabilities: { human_outbound: boolean; receive_calls: boolean; takeover: boolean; monitor: boolean; whisper: boolean; barge: boolean };
 }

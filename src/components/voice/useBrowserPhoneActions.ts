@@ -13,7 +13,7 @@ interface PhoneRuntime {
   status: BrowserPhoneContextValue['status'];
   eligible: boolean;
   run: <T>(operation: () => Promise<T>) => Promise<T>;
-  sync: (registered?: boolean) => Promise<VoiceBrowserSession | null>;
+  sync: () => Promise<VoiceBrowserSession | null>;
   updateActive: (active: BrowserPhoneActiveCall | null) => void;
   invalidate: () => void;
   playAudio: () => Promise<void>;

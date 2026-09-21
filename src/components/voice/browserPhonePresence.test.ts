@@ -10,11 +10,11 @@ function deferred<T>() {
 }
 function fixture() {
   const isCurrent = vi.fn(() => true);
-  const getIsRegistered = vi.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const getTransportConnected = vi.fn(() => true);
   const heartbeat = vi.fn<(registered: boolean) => Promise<VoiceBrowserSession>>().mockImplementation(async (registered) => session(registered));
   const onSession = vi.fn(), onReady = vi.fn(), onUnavailable = vi.fn();
-  const monitor = createBrowserPhonePresence({ isCurrent, getIsRegistered, heartbeat, onSession, onReady, onUnavailable });
-  return { monitor, isCurrent, getIsRegistered, heartbeat, onSession, onReady, onUnavailable };
+  const monitor = createBrowserPhonePresence({ isCurrent, getTransportConnected, heartbeat, onSession, onReady, onUnavailable });
+  return { monitor, isCurrent, getTransportConnected, heartbeat, onSession, onReady, onUnavailable };
 }
 
 describe('browser phone presence', () => {
@@ -22,24 +22,23 @@ describe('browser phone presence', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it('shares one registration check across ready, timer and visibility callers', async () => {
-    const f = fixture(), registration = deferred<boolean>();
-    f.getIsRegistered.mockReturnValue(registration.promise);
+    const f = fixture(), registration = deferred<VoiceBrowserSession>();
+    f.heartbeat.mockReturnValue(registration.promise);
     const first = f.monitor.check(), second = f.monitor.check(), third = f.monitor.check();
     expect(second).toBe(first); expect(third).toBe(first);
-    expect(f.getIsRegistered).toHaveBeenCalledOnce();
-    registration.resolve(true); await first;
+    expect(f.getTransportConnected).toHaveBeenCalledOnce();
+    registration.resolve(session(true)); await first;
     expect(f.heartbeat).toHaveBeenCalledExactlyOnceWith(true);
     expect(f.onReady).toHaveBeenCalledOnce();
   });
 
-  it('times out a never-resolving SDK request, reports unavailable, then recovers on the next poll', async () => {
+  it('requires provider registration even with a ready local transport and recovers on the next poll', async () => {
     const f = fixture();
-    f.getIsRegistered.mockReturnValueOnce(new Promise(() => undefined));
-    const pending = f.monitor.check();
-    await vi.advanceTimersByTimeAsync(PHONE_PRESENCE_TIMEOUT_MS);
-    await pending;
+    f.heartbeat.mockResolvedValueOnce(session(false));
+    await f.monitor.check();
     expect(f.onUnavailable).toHaveBeenCalled();
-    expect(f.heartbeat).toHaveBeenCalledExactlyOnceWith(false);
+    expect(f.heartbeat).toHaveBeenCalledExactlyOnceWith(true);
+    expect(f.onSession).toHaveBeenLastCalledWith(session(false));
     expect(f.onReady).not.toHaveBeenCalled();
     await f.monitor.check();
     expect(f.heartbeat).toHaveBeenLastCalledWith(true);
@@ -65,12 +64,10 @@ describe('browser phone presence', () => {
     expect(f.onReady).toHaveBeenCalledOnce();
   });
 
-  it('ignores a stale SDK result after the connection epoch changes', async () => {
-    const f = fixture(), registration = deferred<boolean>();
-    f.getIsRegistered.mockReturnValue(registration.promise);
-    const pending = f.monitor.check();
+  it('does not make a request after the connection epoch changes', async () => {
+    const f = fixture();
     f.isCurrent.mockReturnValue(false);
-    registration.resolve(true); await pending;
+    await f.monitor.check();
     expect(f.heartbeat).not.toHaveBeenCalled();
     expect(f.onReady).not.toHaveBeenCalled(); expect(f.onSession).not.toHaveBeenCalled();
   });
@@ -90,6 +87,27 @@ describe('browser phone presence', () => {
     f.isCurrent.mockReturnValue(false);
     response.resolve(session(true)); await pending;
     expect(f.onReady).not.toHaveBeenCalled(); expect(f.onSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects a positive response if the socket closed before its close event arrived', async () => {
+    const f = fixture(), response = deferred<VoiceBrowserSession>();
+    f.heartbeat.mockReturnValueOnce(response.promise);
+    const pending = f.monitor.check();
+    f.getTransportConnected.mockReturnValue(false);
+    response.resolve(session(true)); await pending; await vi.advanceTimersByTimeAsync(0);
+    expect(f.heartbeat).toHaveBeenLastCalledWith(false);
+    expect(f.onReady).not.toHaveBeenCalled();
+    expect(f.onSession).toHaveBeenLastCalledWith(session(false));
+  });
+
+  it('keeps an unready transport unavailable even if the server returns a stale positive', async () => {
+    const f = fixture();
+    f.getTransportConnected.mockReturnValue(false);
+    f.heartbeat.mockResolvedValue(session(true));
+    await f.monitor.check();
+    expect(f.heartbeat).toHaveBeenCalledExactlyOnceWith(false);
+    expect(f.onSession).toHaveBeenLastCalledWith(session(false));
+    expect(f.onReady).not.toHaveBeenCalled();
   });
 
   it('serializes a socket-loss report after an in-flight positive heartbeat', async () => {

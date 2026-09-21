@@ -11,15 +11,15 @@ function bounded<T>(operation: Promise<T>, message: string): Promise<T> {
 
 interface PresenceOptions {
   isCurrent: () => boolean;
-  getIsRegistered: () => Promise<boolean>;
-  heartbeat: (registered: boolean) => Promise<VoiceBrowserSession>;
+  getTransportConnected: () => boolean;
+  heartbeat: (transportConnected: boolean) => Promise<VoiceBrowserSession>;
   onSession: (session: VoiceBrowserSession) => void;
   onReady: () => void;
   onUnavailable: (message: string) => void;
 }
 
-/** Telnyx RegisterAgent has one pending request slot. Serialize all callers,
- * including ready events, polling, and visibility checks, with a deadline. */
+/** Presence is confirmed by the server's carrier lookup. The browser supplies
+ * only current authenticated transport state; serialize all checks and losses. */
 export function createBrowserPhonePresence(options: PresenceOptions) {
   let inFlight: Promise<void> | null = null;
   let revision = 0;
@@ -31,34 +31,31 @@ export function createBrowserPhonePresence(options: PresenceOptions) {
     if (inFlight) return inFlight;
     if (!options.isCurrent()) return Promise.resolve();
     inFlight = (async () => {
-      let checkedRevision = revision;
-      let registered = false;
-      let failure = pendingLoss;
+      const checkedRevision = revision;
+      const failure = pendingLoss;
       pendingLoss = null;
-      if (!failure) {
-        try { registered = await bounded(options.getIsRegistered(), 'Phone registration could not be confirmed. Retrying…'); }
-        catch { failure = 'Phone registration could not be confirmed. Retrying…'; }
-      }
-      if (!options.isCurrent()) return;
-      if (checkedRevision !== revision) {
-        registered = false; failure = pendingLoss || 'Phone connection was lost. Retrying…';
-        pendingLoss = null; checkedRevision = revision;
-      }
-      if (!registered) options.onUnavailable(failure || 'Phone is not registered. Retrying…');
+      const connected = !failure && options.getTransportConnected();
+      if (!connected) options.onUnavailable(failure || 'Phone connection is not ready. Retrying…');
       try {
-        const session = await report(registered);
+        const session = await report(connected);
         if (!options.isCurrent()) return;
         if (checkedRevision !== revision) return; // A loss during HTTP must be reported next.
-        apply(session);
-        if (registered && session.registered && session.status === 'ready') options.onReady();
-        else options.onUnavailable(failure || 'Phone is not registered. Retrying…');
+        if (connected && !options.getTransportConnected()) {
+          pendingLoss = 'Phone connection was lost. Retrying…';
+          options.onUnavailable(pendingLoss);
+          return;
+        }
+        const ready = connected && session.registered && session.status === 'ready';
+        apply({ ...session, registered: ready });
+        if (ready) options.onReady();
+        else options.onUnavailable(failure || 'Carrier registration is not confirmed. Retrying…');
       } catch {
         if (!options.isCurrent()) return;
         options.onUnavailable('Could not confirm phone availability with the server. Retrying…');
-        // The SDK may be registered while the server cannot accept presence.
+        // The transport may be open while the server cannot confirm presence.
         // Mark it unavailable if possible; neither request can block polling forever.
-        if (registered) {
-          try { const session = await report(false); if (checkedRevision === revision) apply(session); }
+        if (connected) {
+          try { const session = await report(false); if (checkedRevision === revision) apply({ ...session, registered: false }); }
           catch { /* The next bounded check retries; the UI remains unavailable. */ }
         }
       }

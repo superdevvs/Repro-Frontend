@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   can: vi.fn(), gum: vi.fn(), stop: vi.fn(), constructor: vi.fn<(options: unknown) => void>(), connect: vi.fn(), disconnect: vi.fn(), login: vi.fn(), registered: vi.fn(),
   getVoiceBrowserConfig: vi.fn(), createVoiceBrowserSession: vi.fn(), getVoiceBrowserSession: vi.fn(), heartbeatVoiceBrowserSession: vi.fn(), deleteVoiceBrowserSession: vi.fn(), refreshVoiceBrowserToken: vi.fn(),
   getVoiceBrowserCallState: vi.fn(), startHumanVoiceCall: vi.fn(), takeOverVoiceCall: vi.fn(), superviseVoiceCall: vi.fn(), changeVoiceSupervision: vi.fn(), leaveVoiceSupervision: vi.fn(), performVoiceBrowserAction: vi.fn(), setVoiceBrowserConsent: vi.fn(),
-  handlers: {} as Record<string, (event?: unknown) => void>,
+  handlers: {} as Record<string, (event?: unknown) => void>, connected: true, emitReady: true,
 }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 9 }, isAuthenticated: true, isImpersonating: false }) }));
 vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({ can: mocks.can }) }));
@@ -21,7 +21,8 @@ vi.mock('@telnyx/webrtc', () => ({ TelnyxRTC: class {
   constructor(options: unknown) { mocks.constructor(options); }
   on(name: string, handler: (event?: unknown) => void) { mocks.handlers[name] = handler; }
   off(name: string) { delete mocks.handlers[name]; }
-  async connect() { mocks.connect(); mocks.handlers['telnyx.ready']?.(); }
+  async connect() { mocks.connect(); if (mocks.emitReady) mocks.handlers['telnyx.ready']?.(); }
+  get connected() { return mocks.connected; }
   getIsRegistered = mocks.registered;
   disconnect = mocks.disconnect;
   login = mocks.login;
@@ -72,17 +73,17 @@ async function incoming(role: VoiceBrowserOffer['role'] = 'agent', mode?: VoiceB
 
 describe('browser phone lifecycle and customer controls', () => {
   beforeEach(() => {
-    vi.clearAllMocks(); offers = []; mocks.handlers = {}; sessionStorage.clear();
+    vi.clearAllMocks(); offers = []; mocks.handlers = {}; mocks.connected = true; mocks.emitReady = true; sessionStorage.clear();
     mocks.can.mockReturnValue(true);
     mocks.registered.mockResolvedValue(true);
     mocks.refreshVoiceBrowserToken.mockImplementation(async () => ({ ...session(), token: 'refreshed-transient-jwt' }));
     mocks.login.mockResolvedValue(undefined);
     mocks.gum.mockResolvedValue({ getTracks: () => [{ stop: mocks.stop }] });
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: mocks.gum, addEventListener: vi.fn(), removeEventListener: vi.fn() } });
-    mocks.getVoiceBrowserConfig.mockResolvedValue({ enabled: true, ready: true, blockers: [], capabilities: { human_outbound: true, receive_calls: true, takeover: true, monitor: true, whisper: true, barge: true } });
+    mocks.getVoiceBrowserConfig.mockResolvedValue({ enabled: true, ready: true, presence_verification: 'provider', blockers: [], capabilities: { human_outbound: true, receive_calls: true, takeover: true, monitor: true, whisper: true, barge: true } });
     mocks.createVoiceBrowserSession.mockImplementation(async () => ({ ...session(), token: 'transient-secret-jwt', registration_delay_ms: 0 }));
     mocks.getVoiceBrowserSession.mockImplementation(async () => session());
-    mocks.heartbeatVoiceBrowserSession.mockImplementation(async () => session());
+    mocks.heartbeatVoiceBrowserSession.mockImplementation(async (_id, connected) => ({ ...session(), registered: connected }));
     mocks.deleteVoiceBrowserSession.mockResolvedValue(undefined); mocks.disconnect.mockResolvedValue(undefined);
     mocks.getVoiceBrowserCallState.mockImplementation(async () => state());
     mocks.performVoiceBrowserAction.mockImplementation(async () => state());
@@ -244,20 +245,21 @@ describe('browser phone lifecycle and customer controls', () => {
 
   it('recovers registration on visibility without a new SDK ready event or credentials', async () => {
     renderPhone(); await connectPhone();
-    mocks.registered.mockResolvedValueOnce(false).mockResolvedValue(true);
+    mocks.heartbeatVoiceBrowserSession.mockResolvedValueOnce({ ...session(), registered: false });
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
     act(() => { document.dispatchEvent(new Event('visibilitychange')); });
     await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
-    expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false);
+    expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true);
     act(() => { document.dispatchEvent(new Event('visibilitychange')); });
     await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true);
     expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
     expect(mocks.login).not.toHaveBeenCalled();
+    expect(mocks.registered).not.toHaveBeenCalled();
   });
 
-  it('keeps polling through a hung registration check and config cache updates without reauthenticating', async () => {
+  it('keeps polling through a hung provider check and config cache updates without reauthenticating', async () => {
     vi.useFakeTimers();
     try {
       const { client } = renderPhone();
@@ -267,25 +269,64 @@ describe('browser phone lifecycle and customer controls', () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       expect(screen.getByTestId('phone-status')).toHaveTextContent('ready');
-      expect(mocks.registered).toHaveBeenCalledOnce();
-      mocks.registered.mockReturnValueOnce(new Promise(() => undefined));
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenCalledOnce();
+      mocks.heartbeatVoiceBrowserSession.mockReturnValueOnce(new Promise(() => undefined));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10000);
         client.setQueryData(['voice-browser-config', 9], { ...client.getQueryData<object>(['voice-browser-config', 9]), blockers: [] });
         await vi.advanceTimersByTimeAsync(5000);
       });
-      expect(mocks.registered).toHaveBeenCalledTimes(2);
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenCalledTimes(2);
       await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
       expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
       expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false);
       await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
       expect(screen.getByTestId('phone-status')).toHaveTextContent('ready');
       expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', true);
-      expect(mocks.registered).toHaveBeenCalledTimes(3);
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenCalledTimes(4);
+      expect(mocks.registered).not.toHaveBeenCalled();
       expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
       expect(mocks.constructor).toHaveBeenCalledOnce();
       expect(mocks.login).not.toHaveBeenCalled();
     } finally { cleanup(); vi.useRealTimers(); }
+  });
+
+  it('requires a ready event before an open transport can become available', async () => {
+    mocks.emitReady = false;
+    renderPhone();
+    await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Connect test phone'));
+    await waitFor(() => expect(mocks.connect).toHaveBeenCalled());
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenCalledWith('session-1', false));
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+    act(() => { mocks.handlers['telnyx.ready']?.(); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('ready'));
+    expect(mocks.registered).not.toHaveBeenCalled();
+  });
+
+  it('requires a fresh ready event after socket loss and allows disconnect while reconnecting', async () => {
+    renderPhone(); const user = await connectPhone();
+    act(() => { mocks.handlers['telnyx.socket.close']?.(); });
+    await waitFor(() => expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting'));
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenLastCalledWith('session-1', false));
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('reconnecting');
+    await user.click(screen.getByRole('button', { name: 'Disconnect phone' }));
+    await waitFor(() => expect(mocks.deleteVoiceBrowserSession).toHaveBeenCalledWith('session-1'));
+    expect(mocks.createVoiceBrowserSession).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('phone-status')).toHaveTextContent('disconnected');
+  });
+
+  it('does not connect to a server that cannot verify carrier registration', async () => {
+    mocks.getVoiceBrowserConfig.mockResolvedValue({ enabled: true, ready: true, blockers: [], capabilities: {} });
+    renderPhone();
+    await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Connect test phone'));
+    expect(await screen.findByText('Browser presence verification requires a server update.')).toBeInTheDocument();
+    expect(mocks.gum).not.toHaveBeenCalled();
+    expect(mocks.createVoiceBrowserSession).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Connect phone' })).toBeDisabled();
   });
 
   it('refreshes short-lived credentials without persisting the new token or replacing the phone', async () => {
