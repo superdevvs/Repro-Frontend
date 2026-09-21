@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
+import NotFound from './NotFound';
 
 export default function ShootShareRedirect() {
   const { token } = useParams<{ token: string }>();
@@ -57,25 +58,22 @@ export default function ShootShareRedirect() {
     };
   }, [token]);
 
+  if (error) {
+    return <NotFound />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        {error ? (
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold">Share Link Unavailable</h1>
-            <p className="text-sm text-muted-foreground">{error}</p>
+        <div className="space-y-3 text-center">
+          <div className="flex justify-center">
+            <Loader2 className="h-8 w-8 text-primary" />
           </div>
-        ) : (
-          <div className="space-y-3 text-center">
-            <div className="flex justify-center">
-              <Loader2 className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-xl font-semibold">Opening Shared Files</h1>
-            <p className="text-sm text-muted-foreground">
-              Preparing your download. You will be redirected automatically.
-            </p>
-          </div>
-        )}
+          <h1 className="text-xl font-semibold">Opening Shared Files</h1>
+          <p className="text-sm text-muted-foreground">
+            Preparing your download. You will be redirected automatically.
+          </p>
+        </div>
       </div>
     </div>
   );

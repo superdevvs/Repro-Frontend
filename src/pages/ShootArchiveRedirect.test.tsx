@@ -43,8 +43,7 @@ describe('archive download page lifecycle', () => {
     resolveArchive.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
     const { container } = render(<MemoryRouter initialEntries={[route(requestUrl)]}><ShootArchiveRedirect /></MemoryRouter>);
     await act(async () => { fail(new Error('Unable to download this archive. Please try again.')); });
-    expect(screen.getByRole('heading', { name: 'Download Unavailable' })).toBeInTheDocument();
-    expect(screen.getByText('Unable to download this archive. Please try again.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'This page is under a different plan' })).toBeInTheDocument();
     expect(container.querySelector('svg.animate-spin')).toBeNull();
     expect(container.querySelector('image[href^="/brand/re/"]')).toBeNull();
   });

@@ -19,6 +19,7 @@ import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData } from './publicTourData';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
+import NotFound from '@/pages/NotFound';
 
 const HomeifyTour = lazy(() => import('./homeify/HomeifyTour').then((module) => ({ default: module.HomeifyTour })));
 const LandorThemeRouter = lazy(() => import('./landor/LandorThemeRouter').then((module) => ({ default: module.LandorThemeRouter })));
@@ -334,14 +335,7 @@ export function BrandedPage() {
   }
 
   if (loadError) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
-        <div className="max-w-md rounded-3xl border border-border bg-card p-8 text-center" role="alert">
-          <h1 className="text-2xl font-semibold">Tour unavailable</h1>
-          <p className="mt-3 text-sm text-muted-foreground">{loadError}</p>
-        </div>
-      </div>
-    );
+    return <NotFound />;
   }
 
   const resolvedStyle = resolvePublicTourStyle(tourStyle, new URLSearchParams(window.location.search).get('layout'));

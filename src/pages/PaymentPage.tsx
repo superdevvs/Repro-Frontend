@@ -17,6 +17,7 @@ import {
   isStripeSessionRefundedAsStale,
 } from '@/utils/stripeConfirmation';
 import { PaymentAlreadyPaidState, PaymentErrorState, PaymentLoadingState } from './PaymentPageStates';
+import NotFound from './NotFound';
 import { PaymentSuccessReceipt } from './PaymentSuccessReceipt';
 import { getPaymentErrorMessage } from '@/components/payments/paymentErrorMessage';
 
@@ -68,6 +69,11 @@ export default function PaymentPage() {
       setShoot(response.data.data || response.data);
     } catch (error: unknown) {
       console.error('Failed to fetch shoot details:', error);
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 403 || status === 404 || status === 410) {
+        setError('missing');
+        return;
+      }
       const message = axios.isAxiosError<{ message?: string }>(error)
         ? error.response?.data?.message
         : undefined;
@@ -469,6 +475,10 @@ export default function PaymentPage() {
         onPayRemainingBalance={handlePayRemainingBalance}
       />
     );
+  }
+
+  if (error === 'missing') {
+    return <NotFound />;
   }
 
   if (error) {

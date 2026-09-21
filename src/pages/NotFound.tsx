@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { BRAND_NAME } from '@/config/brand';
 import './NotFound.css';
@@ -10,12 +9,14 @@ const PAGE_TITLE = `Page not found · ${BRAND_NAME}`;
 type PageTheme = 'light' | 'dark';
 
 const NotFound = () => {
-  const location = useLocation();
   const [theme, setTheme] = useState<PageTheme>('dark');
 
   useEffect(() => {
-    console.error('404 Error: User attempted to access non-existent route:', location.pathname);
-  }, [location.pathname]);
+    console.error(
+      '404 Error: User attempted to access non-existent route:',
+      window.location.pathname,
+    );
+  }, []);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -61,9 +62,9 @@ const NotFound = () => {
       </div>
 
       <main className="not-found-page">
-        <Link className="not-found-brand" to="/" aria-label={BRAND_NAME}>
+        <a className="not-found-brand" href="/" aria-label={BRAND_NAME}>
           <Logo variant={theme === 'dark' ? 'light' : 'dark'} />
-        </Link>
+        </a>
 
         <div className="not-found-drawing" aria-hidden="true">
           <svg viewBox="0 0 1040 400">
@@ -220,9 +221,9 @@ const NotFound = () => {
           <h1>This page is under a different plan</h1>
           <p>It might have been moved, renamed, or doesn’t exist.</p>
           <div className="not-found-actions">
-            <Link className="not-found-cta" to="/">
+            <a className="not-found-cta" href="/">
               Go to Homepage <span aria-hidden="true">→</span>
-            </Link>
+            </a>
             <a
               className="not-found-ghost"
               href={SERVICES_URL}

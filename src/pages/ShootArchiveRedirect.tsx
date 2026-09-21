@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { resolveShootMediaArchiveRequest } from '@/utils/shootMediaDownload';
+import NotFound from './NotFound';
 
 export default function ShootArchiveRedirect() {
   const [searchParams] = useSearchParams();
@@ -63,23 +64,20 @@ export default function ShootArchiveRedirect() {
     };
   }, [searchParams]);
 
+  if (error) {
+    return <NotFound />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        {error ? (
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold">Download Unavailable</h1>
-            <p className="text-sm text-muted-foreground">{error}</p>
+        <div className="space-y-3 text-center">
+          <div className="flex justify-center">
+            {complete ? <CheckCircle2 className="h-8 w-8 text-primary" /> : <Loader2 className="h-8 w-8 text-primary" />}
           </div>
-        ) : (
-          <div className="space-y-3 text-center">
-            <div className="flex justify-center">
-              {complete ? <CheckCircle2 className="h-8 w-8 text-primary" /> : <Loader2 className="h-8 w-8 text-primary" />}
-            </div>
-            <h1 className="text-xl font-semibold">{complete ? 'Download Started' : 'Downloading Files'}</h1>
-            <p className="text-sm text-muted-foreground">{message}</p>
-          </div>
-        )}
+          <h1 className="text-xl font-semibold">{complete ? 'Download Started' : 'Downloading Files'}</h1>
+          <p className="text-sm text-muted-foreground">{message}</p>
+        </div>
       </div>
     </div>
   );

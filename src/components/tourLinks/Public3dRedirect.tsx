@@ -7,6 +7,7 @@ import {
   resolvePublicIguideSources,
   type PublicIguideSources,
 } from './publicIguideModel';
+import NotFound from '@/pages/NotFound';
 
 type Variant = 'branded' | 'mls';
 type Provider = 'matterport' | 'iguide' | 'zillow';
@@ -36,6 +37,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
       ? requestedProvider
       : null;
   const [message, setMessage] = useState('Opening the 3D walkthrough…');
+  const [missing, setMissing] = useState(false);
   const [inlineIguide, setInlineIguide] = useState<PublicIguideSources | null>(null);
 
   const fallbackPath = variant === 'mls' ? '/tour/mls' : '/tour/branded';
@@ -45,7 +47,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
 
   useEffect(() => {
     if (!shootId || !/^[1-9][0-9]*$/.test(shootId)) {
-      setMessage('This 3D tour link is missing a valid shoot.');
+      setMissing(true);
       return;
     }
 
@@ -58,6 +60,10 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
           `${API_BASE_URL}/api/public/shoots/${encodeURIComponent(shootId)}/${endpoint}`,
           { signal: controller.signal },
         );
+        if (response.status === 403 || response.status === 404 || response.status === 410) {
+          setMissing(true);
+          return;
+        }
         if (!response.ok) throw new Error(`Tour request failed (${response.status})`);
 
         const payload = asRecord(await response.json());
@@ -102,6 +108,10 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
     void openTour();
     return () => controller.abort();
   }, [provider, shootId, variant]);
+
+  if (missing) {
+    return <NotFound />;
+  }
 
   if (inlineIguide) {
     return (

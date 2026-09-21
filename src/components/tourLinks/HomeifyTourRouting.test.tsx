@@ -197,7 +197,7 @@ describe.each([
 
     render(<Component />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Tour unavailable');
+    expect(await screen.findByRole('heading', { name: 'This page is under a different plan' })).toBeInTheDocument();
     expect(screen.queryByTestId(`${layout}-tour`)).not.toBeInTheDocument();
   });
 
@@ -207,7 +207,7 @@ describe.each([
 
     render(<Component />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Tour unavailable');
+    expect(await screen.findByRole('heading', { name: 'This page is under a different plan' })).toBeInTheDocument();
     expect(screen.queryByTestId(`${layout}-tour`)).not.toBeInTheDocument();
   });
 
@@ -216,7 +216,7 @@ describe.each([
 
     render(<Component />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('This property tour could not be found.');
+    expect(await screen.findByRole('heading', { name: 'This page is under a different plan' })).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId(`${layout}-tour`)).not.toBeInTheDocument();
   });

@@ -34,7 +34,7 @@ describe('NotFound', () => {
     expect(container.querySelector('svg[viewBox="0 0 1040 400"]')).not.toBeNull();
     expect(console.error).toHaveBeenCalledWith(
       '404 Error: User attempted to access non-existent route:',
-      '/missing-route',
+      expect.any(String),
     );
   });
 
