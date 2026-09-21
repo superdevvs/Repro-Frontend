@@ -37,6 +37,7 @@ import {
   dayViewStartHour,
   dayViewTotalMinutes,
   getInitials,
+  normalizeAvailabilityDate,
   toHhMm,
   weekViewEndHour,
   weekViewEndLabel,
@@ -251,8 +252,8 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                 ? allBackendSlots
                 : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
 
-              const specific = rows.filter(s => s.date === dayStr);
-              const weekly = rows.filter(s => !s.date && s.day_of_week?.toLowerCase() === dow);
+              const specific = rows.filter(s => normalizeAvailabilityDate(s.date) === dayStr);
+              const weekly = rows.filter(s => !normalizeAvailabilityDate(s.date) && s.day_of_week?.toLowerCase() === dow);
               const allSlots = [...specific, ...weekly];
 
               const isSelected = date && isSameDay(day, date);
@@ -687,8 +688,8 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
             const dayStr = format(day, 'yyyy-MM-dd');
             const dow = day.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
             const rows = selectedPhotographer === 'all' ? allBackendSlots : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
-            const specific = rows.filter(s => s.date === dayStr);
-            const weekly = rows.filter(s => !s.date && s.day_of_week?.toLowerCase() === dow);
+            const specific = rows.filter(s => normalizeAvailabilityDate(s.date) === dayStr);
+            const weekly = rows.filter(s => !normalizeAvailabilityDate(s.date) && s.day_of_week?.toLowerCase() === dow);
             const bookedSlots = specific.filter(s => s.status === 'booked');
             const nonBookedSpecific = specific.filter(s => s.status !== 'booked');
             const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;

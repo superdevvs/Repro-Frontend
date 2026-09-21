@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
 
 import type { Availability, WeeklyScheduleItem } from "@/types/availability";
-import { toHhMm, uiTimeToHhmm } from "@/lib/availability/utils";
+import { normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "@/lib/availability/utils";
 import {
   buildMonthAvailabilities, buildPhotographerAvailabilityLabel, buildSelectedDateAvailabilities,
   buildWeekAvailabilities, checkTimeOverlap as checkTimeOverlapFn,
@@ -645,8 +645,8 @@ export default function Availability() {
                   const dayStr = format(day, 'yyyy-MM-dd');
                   const dow = day.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
                   const rows = selectedPhotographer === 'all' ? allBackendSlots : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
-                  const specific = rows.filter(s => s.date === dayStr);
-                  const weekly = rows.filter(s => !s.date && s.day_of_week?.toLowerCase() === dow);
+                  const specific = rows.filter(s => normalizeAvailabilityDate(s.date) === dayStr);
+                  const weekly = rows.filter(s => !normalizeAvailabilityDate(s.date) && s.day_of_week?.toLowerCase() === dow);
                   // Apply the "specific overrides weekly" rule PER photographer, so that
                   // one person's specific-date override doesn't swallow everyone else's
                   // weekly/recurring slots on the same day.

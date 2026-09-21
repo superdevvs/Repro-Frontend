@@ -1,4 +1,25 @@
+import { format } from "date-fns";
+import { calendarDay } from "@/lib/date";
 import type { BackendSlot } from "@/types/availability";
+
+/** Keep availability dates as YYYY-MM-DD so UTC midnight never becomes the previous local day. */
+export const normalizeAvailabilityDate = (value?: string | null): string | null => {
+  if (value == null) return null;
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(value).trim());
+  return match ? match[1] : null;
+};
+
+export const formatAvailabilityDate = (value: string, pattern: string): string => {
+  const day = calendarDay(value);
+  if (Number.isNaN(day.getTime())) return "";
+  return format(day, pattern);
+};
+
+export const availabilityWeekday = (value: string): string => {
+  const day = calendarDay(value);
+  if (Number.isNaN(day.getTime())) return "";
+  return day.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+};
 
 export const availabilityDateButtonClass =
   "w-full justify-start text-left font-normal rounded-md border-input bg-background dark:border-white/10 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900";
@@ -46,7 +67,7 @@ export const mapBackendSlots = (
     return {
       id,
       photographer_id: photographerIdValue,
-      date: (row.date as string | null | undefined) ?? null,
+      date: normalizeAvailabilityDate((row.date as string | null | undefined) ?? null),
       day_of_week: (row.day_of_week as string | null | undefined) ?? null,
       start_time: String(row.start_time ?? ""),
       end_time: String(row.end_time ?? ""),

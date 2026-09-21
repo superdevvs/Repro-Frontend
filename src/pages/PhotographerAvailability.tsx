@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { TimeSelect } from '@/components/ui/time-select';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { normalizeAvailabilityDate } from '@/lib/availability/utils';
 
 const PhotographerAvailability = () => {
   const { user, role } = useAuth();
@@ -39,11 +40,11 @@ const PhotographerAvailability = () => {
   const slotsForDay = useMemo(() => {
     if (!dayOfWeek) return [] as typeof slots;
     if (isSpecificDate && dateStr) {
-      const specific = slots.filter(s => s.date && s.date === dateStr);
+      const specific = slots.filter(s => normalizeAvailabilityDate(s.date) === dateStr);
       if (specific.length > 0) return specific as any;
       return [] as any;
     }
-    return slots.filter(s => !s.date && s.day_of_week === dayOfWeek) as any;
+    return slots.filter(s => !normalizeAvailabilityDate(s.date) && s.day_of_week === dayOfWeek) as any;
   }, [slots, dayOfWeek, isSpecificDate, dateStr]);
   const toHhMm = (t?: string) => (t ? t.slice(0,5) : '');
   const activeStartSet = useMemo(() => new Set(slotsForDay.map(s => toHhMm(s.start_time))), [slotsForDay]);
@@ -54,7 +55,12 @@ const PhotographerAvailability = () => {
       try {
         const res = await fetch(API_ROUTES.photographerAvailability.list(user.id));
         const json = await res.json();
-        setSlots(json?.data || []);
+        setSlots(
+          (json?.data || []).map((slot: { date?: string | null }) => ({
+            ...slot,
+            date: normalizeAvailabilityDate(slot.date),
+          }))
+        );
       } catch (e) {
         toast({ title: 'Failed to load availability', variant: 'destructive' });
       } finally {
@@ -91,7 +97,9 @@ const PhotographerAvailability = () => {
           body: JSON.stringify(payload)
         });
         const json = await res.json();
-        if (json?.data) setSlots(prev => [...prev, json.data]);
+        if (json?.data) {
+          setSlots((prev) => [...prev, { ...json.data, date: normalizeAvailabilityDate(json.data.date) }]);
+        }
       } catch (e) {
         toast({ title: 'Failed to add slot', variant: 'destructive' });
       }
@@ -120,7 +128,9 @@ const PhotographerAvailability = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       const json = await res.json();
-      if (json?.data) setSlots(prev => [...prev, json.data]);
+      if (json?.data) {
+        setSlots((prev) => [...prev, { ...json.data, date: normalizeAvailabilityDate(json.data.date) }]);
+      }
       setIsAddOpen(false); setNewStart(''); setNewEnd('');
     } catch (e) {
       toast({ title: 'Failed to add interval', variant: 'destructive' });

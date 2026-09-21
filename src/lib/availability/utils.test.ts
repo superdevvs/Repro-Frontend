@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { format } from "date-fns";
 import {
+  formatAvailabilityDate,
   getInitials,
   mapBackendSlots,
+  normalizeAvailabilityDate,
   normalizePhotographerNumericId,
   toHhMm,
   uiTimeToHhmm,
@@ -102,11 +105,58 @@ describe("normalizePhotographerNumericId", () => {
   });
 });
 
+describe("normalizeAvailabilityDate", () => {
+  it("keeps a calendar-day string unchanged", () => {
+    expect(normalizeAvailabilityDate("2026-09-19")).toBe("2026-09-19");
+  });
+
+  it("strips a UTC midnight suffix so the selected day is the stored day", () => {
+    expect(normalizeAvailabilityDate("2026-09-19T00:00:00.000000Z")).toBe("2026-09-19");
+    expect(normalizeAvailabilityDate("2026-09-19 00:00:00")).toBe("2026-09-19");
+  });
+
+  it("returns null for empty or invalid values", () => {
+    expect(normalizeAvailabilityDate(null)).toBeNull();
+    expect(normalizeAvailabilityDate(undefined)).toBeNull();
+    expect(normalizeAvailabilityDate("")).toBeNull();
+    expect(normalizeAvailabilityDate("next Tuesday")).toBeNull();
+  });
+});
+
+describe("formatAvailabilityDate", () => {
+  it("formats the selected calendar day without a west-of-UTC shift", () => {
+    expect(formatAvailabilityDate("2026-09-19", "d")).toBe("19");
+    expect(formatAvailabilityDate("2026-09-19T00:00:00.000000Z", "MMMM d")).toBe("September 19");
+
+    const unsafe = format(new Date("2026-09-19"), "d");
+    if (unsafe !== "19") {
+      expect(formatAvailabilityDate("2026-09-19", "d")).not.toBe(unsafe);
+    }
+  });
+});
+
 describe("mapBackendSlots", () => {
   it("returns empty array for empty/nullish input", () => {
     expect(mapBackendSlots([], "1")).toEqual([]);
     expect(mapBackendSlots(null, "1")).toEqual([]);
     expect(mapBackendSlots(undefined, "1")).toEqual([]);
+  });
+
+  it("keeps a blocked calendar day as YYYY-MM-DD so US viewers do not shift to the previous day", () => {
+    const result = mapBackendSlots(
+      [
+        {
+          id: 9,
+          photographer_id: 10,
+          date: "2026-09-19T00:00:00.000000Z",
+          start_time: "09:00",
+          end_time: "17:00",
+          status: "unavailable",
+        },
+      ],
+      "10"
+    );
+    expect(result[0].date).toBe("2026-09-19");
   });
 
   it("preserves a well-formed row", () => {

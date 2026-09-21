@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
+import { calendarDay } from "@/lib/date";
 import { CalendarIcon, Check, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from "@/lib/utils";
@@ -127,7 +128,7 @@ export function CalendarSyncModal({
     return availabilitySlots.filter((slot) => {
       // Handle specific date slots
       if (slot.date) {
-        const slotDate = new Date(slot.date);
+        const slotDate = calendarDay(slot.date);
         return (
           (isAfter(slotDate, dateRange.start) || slotDate.getTime() === dateRange.start.getTime()) &&
           (isBefore(slotDate, dateRange.end) || slotDate.getTime() === dateRange.end.getTime())
@@ -161,7 +162,7 @@ export function CalendarSyncModal({
 
       let eventDate: Date;
       if (slot.date) {
-        eventDate = new Date(slot.date);
+        eventDate = calendarDay(slot.date);
       } else {
         // For weekly slots, use the start of the range as a placeholder
         // In a real implementation, you'd generate events for each occurrence

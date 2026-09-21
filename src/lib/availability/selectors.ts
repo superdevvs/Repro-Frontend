@@ -12,7 +12,10 @@ import type {
   BackendSlot,
   WeeklyScheduleItem,
 } from "@/types/availability";
-import { toHhMm, uiTimeToHhmm } from "./utils";
+import { normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "./utils";
+
+const slotCalendarDate = (slot: BackendSlot): string | null =>
+  normalizeAvailabilityDate(slot.date ?? null);
 
 const slotsForPhotographer = (
   selectedPhotographer: string,
@@ -55,8 +58,8 @@ export const buildSelectedDateAvailabilities = (
   const dateStr = format(date, "yyyy-MM-dd");
   const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   const rows = slotsForPhotographer(deps.selectedPhotographer, deps.backendSlots, deps.allBackendSlots);
-  const specific = rows.filter((s) => s.date === dateStr);
-  const weekly = rows.filter((s) => !s.date && s.day_of_week && s.day_of_week.toLowerCase() === dayOfWeek);
+  const specific = rows.filter((s) => slotCalendarDate(s) === dateStr);
+  const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week && s.day_of_week.toLowerCase() === dayOfWeek);
   const bookedSlots = specific.filter((s) => s.status === "booked");
   const nonBookedSpecific = specific.filter((s) => s.status !== "booked");
   const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
@@ -76,8 +79,8 @@ export const buildWeekAvailabilities = (
   weekDays.forEach((day) => {
     const dayStr = format(day, "yyyy-MM-dd");
     const dow = day.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-    const specific = rows.filter((s) => s.date === dayStr);
-    const weekly = rows.filter((s) => !s.date && s.day_of_week?.toLowerCase() === dow);
+    const specific = rows.filter((s) => slotCalendarDate(s) === dayStr);
+    const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
     const bookedSlots = specific.filter((s) => s.status === "booked");
     const nonBookedSpecific = specific.filter((s) => s.status !== "booked");
     const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
@@ -100,8 +103,8 @@ export const buildMonthAvailabilities = (
   monthDays.forEach((day) => {
     const dayStr = format(day, "yyyy-MM-dd");
     const dow = day.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-    const specific = rows.filter((s) => s.date === dayStr);
-    const weekly = rows.filter((s) => !s.date && s.day_of_week?.toLowerCase() === dow);
+    const specific = rows.filter((s) => slotCalendarDate(s) === dayStr);
+    const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
     const allSlots = specific.length > 0 ? specific : weekly;
     allSlots.forEach((s, idx) => result.push(toAvailability(s, dayStr, idx, specific)));
   });
@@ -130,13 +133,13 @@ export const checkTimeOverlap = (
   const relevantSlots = rows.filter((slot) => {
     if (excludeSlotId && String(slot.id) === excludeSlotId) return false;
     if (dateStr) {
-      if (slot.date === dateStr) return true;
-      if (!slot.date && slot.day_of_week && dayOfWeek) {
+      if (slotCalendarDate(slot) === dateStr) return true;
+      if (!slotCalendarDate(slot) && slot.day_of_week && dayOfWeek) {
         return slot.day_of_week.toLowerCase() === dayOfWeek.toLowerCase();
       }
       return false;
     } else if (dayOfWeek) {
-      return !slot.date && slot.day_of_week?.toLowerCase() === dayOfWeek.toLowerCase();
+      return !slotCalendarDate(slot) && slot.day_of_week?.toLowerCase() === dayOfWeek.toLowerCase();
     }
     return false;
   });
@@ -175,8 +178,8 @@ export const buildPhotographerAvailabilityLabel = (
 
   const dayStr = format(date, "yyyy-MM-dd");
   const dow = date.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-  const specific = slots.filter((s) => s.date === dayStr);
-  const weekly = slots.filter((s) => !s.date && s.day_of_week?.toLowerCase() === dow);
+  const specific = slots.filter((s) => slotCalendarDate(s) === dayStr);
+  const weekly = slots.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
   const relevantSlots = specific.length > 0 ? specific : weekly;
 
   const availableSlot = relevantSlots.find((s) => (s.status ?? "available") !== "unavailable");

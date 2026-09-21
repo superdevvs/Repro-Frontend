@@ -43,6 +43,25 @@ describe("buildSelectedDateAvailabilities", () => {
     ).toEqual([]);
   });
 
+  it("places a blocked UTC midnight date on the selected local calendar day", () => {
+    const slots = [
+      makeSlot({
+        id: 19,
+        date: "2026-04-19T00:00:00.000000Z",
+        start_time: "09:00",
+        end_time: "17:00",
+        status: "unavailable",
+      }),
+    ];
+    const result = buildSelectedDateAvailabilities(
+      deps(slots),
+      APR_19_2026_SUNDAY
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].date).toBe("2026-04-19");
+    expect(result[0].status).toBe("unavailable");
+  });
+
   it("returns specific-date slots tagged origin=specific", () => {
     const slots = [
       makeSlot({

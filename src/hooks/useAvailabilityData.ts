@@ -3,7 +3,7 @@ import { addDays, format, startOfMonth, endOfMonth, startOfWeek } from "date-fns
 import API_ROUTES from "@/lib/api";
 import { API_BASE_URL } from "@/config/env";
 import type { BackendSlot, Photographer } from "@/types/availability";
-import { mapBackendSlots } from "@/lib/availability/utils";
+import { mapBackendSlots, normalizeAvailabilityDate } from "@/lib/availability/utils";
 import {
   resolveSelectedPhotographer,
   scopePhotographersForViewer,
@@ -251,6 +251,7 @@ export function useAvailabilityData({
             ...(row as Partial<BackendSlot>),
             id: (row.id as number | string | undefined) || `shoot_${shootId ?? ''}`,
             photographer_id: Number(selectedPhotographer),
+            date: normalizeAvailabilityDate(readString(row.date) ?? null),
             start_time: readString(row.start_time) ?? "",
             end_time: readString(row.end_time) ?? "",
           } as BackendSlot;

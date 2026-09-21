@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatAvailabilityDate, uiTimeToHhmm } from "@/lib/availability/utils";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { TimeSelect } from "@/components/ui/time-select";
 import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
-import { uiTimeToHhmm } from "@/lib/availability/utils";
 import type { Availability, AvailabilityToastFn, BackendSlot } from "@/types/availability";
 
 interface EditAvailabilityDialogProps {
@@ -135,7 +134,7 @@ export function EditAvailabilityDialog({
         setEditedAvailability({});
         toast({
           title: "Availability updated",
-          description: `Updated availability for ${editedAvailability.date ? format(new Date(editedAvailability.date), "MMMM d, yyyy") : "the selected date"}`,
+          description: `Updated availability for ${editedAvailability.date ? formatAvailabilityDate(editedAvailability.date, "MMMM d, yyyy") : "the selected date"}`,
         });
       } else {
         const errorData = await res.json().catch(() => ({}));
@@ -160,7 +159,7 @@ export function EditAvailabilityDialog({
         <DialogHeader>
           <DialogTitle>Edit Availability</DialogTitle>
           <DialogDescription>
-            Update availability for {getPhotographerName(selectedPhotographer)} on {editedAvailability.date ? format(new Date(editedAvailability.date), "MMMM d, yyyy") : "the selected date"}.
+            Update availability for {getPhotographerName(selectedPhotographer)} on {editedAvailability.date ? formatAvailabilityDate(editedAvailability.date, "MMMM d, yyyy") : "the selected date"}.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,6 +1,7 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import { availabilityWeekday, formatAvailabilityDate, normalizeAvailabilityDate } from "@/lib/availability/utils";
 import { Ban, CalendarIcon, ChevronRight, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -183,7 +184,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                     {to12HourDisplay(slot.startTime)} - {to12HourDisplay(slot.endTime)}
                                   </div>
-                                  {slot.date && <div className="text-xs text-muted-foreground mt-1">{format(new Date(slot.date), 'MMM d, yyyy')}</div>}
+                                  {slot.date && <div className="text-xs text-muted-foreground mt-1">{formatAvailabilityDate(slot.date, 'MMM d, yyyy')}</div>}
                                   {slot.shootTitle && <div className="text-xs text-muted-foreground mt-1">{slot.shootTitle}</div>}
                                 </div>
                                 {canEditAvailability && (
@@ -337,7 +338,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                         <div key={dateKey} data-date-key={dateKey === 'weekly' ? undefined : dateKey}>
                           {viewMode !== "day" && (
                             <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
-                              {dateKey === 'weekly' ? 'Recurring' : format(new Date(dateKey), 'EEEE, MMMM d')}
+                              {dateKey === 'weekly' ? 'Recurring' : formatAvailabilityDate(dateKey, 'EEEE, MMMM d')}
                             </h3>
                           )}
                           <div className="space-y-2">
@@ -713,8 +714,7 @@ function WeeklyScheduleEditor({
               const dayBookings = backendSlots.filter(slot => {
                 if (slot.status !== 'booked') return false;
                 if (slot.date) {
-                  const slotDate = new Date(slot.date);
-                  const slotDayName = slotDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                  const slotDayName = availabilityWeekday(slot.date);
                   return slotDayName === dayName;
                 }
                 return slot.day_of_week?.toLowerCase() === dayName;
@@ -777,7 +777,7 @@ function WeeklyScheduleEditor({
                 const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
                 const dayName = dayNames[index];
                 const daySlots = backendSlots.filter(s =>
-                  !s.date && s.day_of_week?.toLowerCase() === dayName
+                  !normalizeAvailabilityDate(s.date) && s.day_of_week?.toLowerCase() === dayName
                 );
 
                 return (
