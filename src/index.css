@@ -151,6 +151,14 @@ body {
   background-color: #060a0e;
 }
 
+/* Keep the dvh declaration after the fallback so browser toolbars reduce the
+   dashboard's available height. The app root already reserves the top safe
+   area; the measured mobile navigation owns the bottom safe area. */
+.dashboard-viewport {
+  height: calc(100vh - env(safe-area-inset-top, 0px));
+  height: calc(100dvh - env(safe-area-inset-top, 0px));
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;

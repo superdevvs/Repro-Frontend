@@ -77,10 +77,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
 
   return (
     <DashboardLayoutContext.Provider value={true}>
-      {/* h-dvh (dynamic viewport height) so the shell tracks the *visible* viewport on
-          mobile — especially landscape, where 100vh over-reports and locks page scroll
-          (QA #18). Fallback to h-screen for engines without dvh support. */}
-      <div className="h-screen h-dvh flex overflow-hidden">
+      {/* The viewport rule keeps the dynamic height after its legacy fallback;
+          combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
+      <div className="dashboard-viewport flex overflow-hidden">
         {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
