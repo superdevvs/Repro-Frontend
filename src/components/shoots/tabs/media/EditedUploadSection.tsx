@@ -523,7 +523,6 @@ export function EditedUploadSection({
         description="Drag and drop edited deliverables here. Use the quick markers below to tag VS, GG, TW, DR, FP, or EX before sending."
         buttonLabel="Choose Edited Files"
         browseLabel="Drag and drop more edited files here or click to browse"
-        onBrowse={() => document.getElementById(inputId)?.click()}
         onDrop={(event) => {
           event.preventDefault();
           mergeSelectedFiles(Array.from(event.dataTransfer.files || []));

@@ -78,14 +78,13 @@ interface UploadDropzoneProps {
   /**
    * Optional stable `data-testid` for the underlying file `<input>`. Used by the photographer
    * onboarding QA harness selector contract (e.g. `raw-upload-input`). Distinct from `inputId`,
-   * which remains the per-shoot HTML element id used by the `<label htmlFor>` association.
+   * which is a readable prefix for this dropzone's unique HTML id.
    */
   inputTestId?: string;
   title: string;
   description: string;
   buttonLabel: string;
   browseLabel: string;
-  onBrowse: () => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -160,13 +159,16 @@ export function UploadDropzone({
   description,
   buttonLabel,
   browseLabel,
-  onBrowse,
   onDrop,
   onDragOver,
   onFileSelect,
   onFilesPicked,
   sourceImport,
 }: UploadDropzoneProps) {
+  const instanceId = React.useId();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  // A shoot can have a background tab and a visible upload dialog mounted together.
+  const uniqueInputId = `${inputId}-${instanceId}`;
   return empty ? (
     <div className="flex flex-1 min-h-[250px] flex-col gap-3 md:flex-row">
       <div
@@ -175,15 +177,16 @@ export function UploadDropzone({
         className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border/50 bg-card p-8 text-center shadow-sm transition-colors hover:border-primary/50"
       >
         <input
+          ref={fileInputRef}
           type="file"
           multiple
           accept={accept}
           onChange={onFileSelect}
           className="hidden"
-          id={inputId}
+          id={uniqueInputId}
           data-testid={inputTestId}
         />
-        <label htmlFor={inputId} className="flex w-full cursor-pointer flex-col items-center">
+        <label htmlFor={uniqueInputId} className="flex w-full cursor-pointer flex-col items-center">
           <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
             <ImageIcon className="h-10 w-10 text-primary/60" />
           </div>
@@ -197,7 +200,7 @@ export function UploadDropzone({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onBrowse();
+              fileInputRef.current?.click();
             }}
           >
             <Upload className="mr-2 h-4 w-4" />
@@ -214,15 +217,16 @@ export function UploadDropzone({
         className="cursor-pointer rounded-lg border-2 border-dashed p-3 text-center transition-colors hover:border-primary/50"
       >
         <input
+          ref={fileInputRef}
           type="file"
           multiple
           accept={accept}
           onChange={onFileSelect}
           className="hidden"
-          id={inputId}
+          id={uniqueInputId}
           data-testid={inputTestId}
         />
-        <label htmlFor={inputId} className="flex cursor-pointer items-center justify-center gap-2">
+        <label htmlFor={uniqueInputId} className="flex cursor-pointer items-center justify-center gap-2">
           <Upload className="h-4 w-4 text-muted-foreground" />
           <div className="text-xs text-muted-foreground">{browseLabel}</div>
         </label>

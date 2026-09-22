@@ -35,13 +35,13 @@ describe('local upload surfaces after Dropbox retirement', () => {
   });
 
   it('keeps device selection on the current media dropzone', () => {
-    const browse = vi.fn();
     const select = vi.fn();
     render(<UploadDropzone empty accept="image/*" inputId="raw-files" inputTestId="raw-files"
       title="Upload RAW photos" description="Select local photos" buttonLabel="Choose files" browseLabel="Browse"
-      onBrowse={browse} onDrop={vi.fn()} onDragOver={vi.fn()} onFileSelect={select}
+      onDrop={vi.fn()} onDragOver={vi.fn()} onFileSelect={select}
       sourceImport={{ shootId: 42, uploadType: 'raw' }} />);
     expect(screen.queryByText(/dropbox/i)).not.toBeInTheDocument();
+    const browse = vi.spyOn(screen.getByTestId('raw-files'), 'click');
     fireEvent.click(screen.getByRole('button', { name: 'Choose files' }));
     expect(browse).toHaveBeenCalledOnce();
     const file = new File(['photo'], 'front.jpg', { type: 'image/jpeg' });

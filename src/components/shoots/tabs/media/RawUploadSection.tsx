@@ -771,7 +771,6 @@ export function RawUploadSection({
         } You can drag and drop files or use the upload button.`}
         buttonLabel="Upload Files"
         browseLabel="Drag and drop more raw files here or click to browse"
-        onBrowse={() => document.getElementById(inputId)?.click()}
         onDrop={(event) => {
           event.preventDefault();
           mergeSelectedFiles(Array.from(event.dataTransfer.files || []));
