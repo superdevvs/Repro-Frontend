@@ -81,7 +81,6 @@ const minutesToHhmm = (minutes: number): string => {
  */
 const splitAvailableAroundUnavailable = (slots: Availability[]): Availability[] => {
   const result: Availability[] = [];
-
   for (const slot of slots) {
     if (slot.status !== "available") {
       result.push(slot);
