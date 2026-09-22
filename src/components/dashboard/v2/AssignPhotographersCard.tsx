@@ -280,7 +280,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         className={cn(
           listGutter,
-          "flex-1 overflow-y-auto py-3 sm:py-4 hidden-scrollbar min-h-0",
+          "flex-1 overflow-y-auto overflow-x-hidden py-3 sm:py-4 hidden-scrollbar min-h-0",
           filteredPhotographers.length === 0 ? "flex items-center justify-center" : "space-y-2",
         )}
       >

@@ -11,7 +11,12 @@ import { cn } from "@/lib/utils";
 import type { DashboardOverview } from "@/types/dashboard";
 
 import { DASHBOARD_DESCRIPTION } from "../constants";
-import { DASHBOARD_MOBILE_PAGE_CLASS } from "../utils/dashboardMobilePanel";
+import {
+  DASHBOARD_MOBILE_PAGE_CLASS,
+  DASHBOARD_MOBILE_TAB_LIST_CLASS,
+  DASHBOARD_MOBILE_TAB_ROW_CLASS,
+  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
+} from "../utils/dashboardMobilePanel";
 import type { MobileDashboardTab } from "../types";
 import { CollapsibleColumnHandle } from "../components/CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -205,13 +210,13 @@ export const AdminDashboardView = ({
             stuck it sits whole on its own backdrop with no strip of content
             scrolling past between header and pill. */}
         <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <div className="overflow-x-auto hidden-scrollbar">
-            <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-background/80 pl-1.5 pr-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+          <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
+            <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
               {mobileTabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
-                  className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                  className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
                 >
                   <tab.icon className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {tab.label}
@@ -232,7 +237,7 @@ export const AdminDashboardView = ({
   );
 
   return (
-    <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "flex min-h-full flex-col gap-2.5 px-2 pt-1.5 pb-3 sm:gap-6 sm:px-6 sm:pb-6 sm:pt-0 max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:pb-0")}>
+    <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "flex min-h-0 flex-1 flex-col gap-2.5 px-2 pt-1.5 pb-3 sm:gap-6 sm:px-6 sm:pb-6 sm:pt-0 lg:min-h-full max-lg:gap-0 max-lg:px-0 max-lg:pt-0")}>
       <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div className="contents md:block md:flex-1">
           <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} hideIntroOnMobile />

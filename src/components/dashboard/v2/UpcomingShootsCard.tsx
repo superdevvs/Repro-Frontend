@@ -1148,7 +1148,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+          className="flex-1 min-h-0 space-y-6 overflow-y-auto overflow-x-hidden hidden-scrollbar"
           style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         >
           {paginatedGroups.map((group) => (

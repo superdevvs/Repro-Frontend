@@ -52,8 +52,8 @@ export function PageLoadingBoundary({ children, bottomInset = 0 }: { children: R
 
   return (
     <PageLoadingContext.Provider value={registry}>
-      <div className="relative isolate flex min-h-0 min-w-0 flex-1 overflow-hidden" data-page-loading={ready ? 'ready' : 'loading'}>
-        <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1" aria-busy={!ready} aria-hidden={!ready || undefined}>
+      <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-page-loading={ready ? 'ready' : 'loading'}>
+        <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden" aria-busy={!ready} aria-hidden={!ready || undefined}>
           {children}
         </div>
         {!ready && <PageLoadingOverlay bottomInset={bottomInset} />}

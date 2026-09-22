@@ -341,16 +341,16 @@ export const useDashboardSections = ({
   ];
 
   const renderPipelineSection = () => (
-    <div id="pipeline-section" className="space-y-3 w-full max-w-full">
-      <div className="flex items-center justify-between">
+    <div id="pipeline-section" className="space-y-3 w-full max-w-full min-w-0">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Delivered
           </span>
-          <div className="flex gap-1">
+          <div className="flex min-w-0 flex-wrap gap-1">
             {pipelineFilterButtons.map((btn) => (
               <button
                 key={btn.key}

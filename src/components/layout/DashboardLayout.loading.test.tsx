@@ -94,12 +94,32 @@ describe('dashboard page loading integration', () => {
     );
     const { container, rerender } = render(view());
     const main = container.querySelector('main');
-    expect(main).toHaveStyle({ paddingBottom: '88px' });
+    // The filled dashboard page ignores main padding on phones, so the inset
+    // is a CSS variable consumed by .dashboard-mobile-page, not main padding.
+    expect(main).not.toHaveStyle({ paddingBottom: '88px' });
     expect(main).toHaveAttribute('style', expect.stringContaining('--mobile-bottom-nav-height: 88px'));
 
     viewport.bottomNavHeight = 55;
     rerender(view());
-    expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '55px' });
+    expect(container.querySelector('main')).toHaveAttribute(
+      'style',
+      expect.stringContaining('--mobile-bottom-nav-height: 55px'),
+    );
+  });
+
+  it('does not stretch the compact dashboard page to 100% of main, which ignores bottom-nav padding on phones', () => {
+    viewport.mobile = true;
+    const { container } = render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout>
+          <button>Page action</button>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+    const lock = container.querySelector('main > div > div');
+    expect(lock?.className).toMatch(/flex-1/);
+    expect(lock?.className).toMatch(/min-w-0/);
+    expect(lock?.className).not.toMatch(/\bh-full\b/);
   });
 
   it('hides the footer on the compact dashboard so tab panels can use the remaining viewport', () => {

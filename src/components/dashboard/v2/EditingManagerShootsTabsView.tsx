@@ -462,7 +462,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
                 <div key={group.label} className="space-y-3">
                   <div
                     className={cn(
-                      group.shoots.length > 7 && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
+                      group.shoots.length > 7 && 'sticky top-0 z-10 bg-card py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">

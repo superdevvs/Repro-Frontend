@@ -495,17 +495,27 @@ body {
 }
 
 @media (max-width: 1024px) {
+  /* Pad the page itself with the measured nav height. Main padding-bottom is
+     ignored by filled descendants on phones, so last cards sat behind the bar.
+     The page's own padding always shrinks its content box. */
   .dashboard-mobile-page {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 0%;
+    width: 100%;
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    padding-bottom: var(--mobile-bottom-nav-height, 5.5rem) !important;
+    box-sizing: border-box;
   }
 
   .dashboard-mobile-page .dashboard-mobile-tabs {
     flex: 1 1 0%;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
   }
 
@@ -517,6 +527,7 @@ body {
     flex: 1 1 0%;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     height: 100%;
     overflow: hidden;
   }
@@ -529,6 +540,7 @@ body {
     overflow: hidden;
     flex: 1 1 0% !important;
     min-height: 0;
+    min-width: 0;
   }
 
   /* Editing-manager (and similar) tabs wrap these ids inside an extra
@@ -539,6 +551,7 @@ body {
     flex: 1 1 0%;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     height: 100%;
     overflow: hidden;
   }
@@ -548,7 +561,9 @@ body {
     flex: 1 1 0%;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     height: 100%;
+    overflow-x: hidden;
     overflow-y: auto;
   }
 
@@ -560,7 +575,15 @@ body {
     flex: 1 1 0%;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
+  }
+
+  /* overflow-y:auto computes overflow-x to auto. Wide children (negative
+     margins, nowrap pills) then let the list pan sideways on real phones. */
+  .dashboard-mobile-page .overflow-y-auto,
+  .dashboard-mobile-tabs .overflow-y-auto {
+    overflow-x: hidden;
   }
 }
 

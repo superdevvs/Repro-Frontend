@@ -46,16 +46,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
+  const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const contentPadding = useCompactShell
-    ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 ? '' : 'pb-20'}`
+    ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : 'p-3';
+  // Filled dashboard cards ignore main padding-bottom on phones. Publish the
+  // measured nav height as a variable; .dashboard-mobile-page consumes it.
   const compactMainStyle = compactBottomInset > 0
     ? {
-        paddingBottom: compactBottomInset,
+        ...(lockCompactDashboard ? {} : { paddingBottom: compactBottomInset }),
         ['--mobile-bottom-nav-height' as string]: `${compactBottomInset}px`,
       }
     : undefined;
-  const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const shouldHideFooter =
     hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
@@ -102,11 +104,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
-            <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
-              <PageTransition className={lockCompactDashboard || isStudioWorkspace ? 'flex flex-1 min-h-0 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
+            <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
+              <PageTransition className={lockCompactDashboard || isStudioWorkspace ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
                   {lockCompactDashboard ? (
-                    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />
                   )}

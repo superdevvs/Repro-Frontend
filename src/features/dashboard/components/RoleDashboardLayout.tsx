@@ -13,7 +13,12 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 import type { RoleDashboardLayoutProps } from "../types";
-import { DASHBOARD_MOBILE_PAGE_CLASS } from "../utils/dashboardMobilePanel";
+import {
+  DASHBOARD_MOBILE_PAGE_CLASS,
+  DASHBOARD_MOBILE_TAB_LIST_CLASS,
+  DASHBOARD_MOBILE_TAB_ROW_CLASS,
+  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
+} from "../utils/dashboardMobilePanel";
 import { DevProfiler } from "./DevProfiler";
 import { CollapsibleColumnHandle } from "./CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -87,7 +92,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:p-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:px-0 max-lg:pt-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
           <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="contents md:block md:flex-1">
               <PageHeader title={title} description={description} hideIntroOnMobile />
@@ -110,13 +115,13 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 <div
                   className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
                 >
-                  <div className="overflow-x-auto hidden-scrollbar">
-                    <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+                  <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
+                    <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
                       {mobileTabs.map((tab) => (
                         <TabsTrigger
                           key={tab.id}
                           value={tab.id}
-                          className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                          className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
                         >
                           {tab.label}
                         </TabsTrigger>

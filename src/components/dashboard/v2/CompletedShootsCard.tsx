@@ -158,7 +158,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       {safeShoots.length === 0 ? (
         <EmptyState icon="completed" title={emptyStateText} description="Completed work will appear here when it is ready." className="flex-1" />
       ) : (
-        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {
             const images = getShootImages(shoot);
             const scheduleLabel = formatDashboardShootSchedule(shoot);

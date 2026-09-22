@@ -93,6 +93,27 @@ describe('dashboard mobile tab CSS', () => {
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #pipeline-section/);
   });
 
+  it('insets the compact page with the measured bottom nav so last cards stay above it', () => {
+    const pageRule = indexCss.match(/@media \(max-width: 1024px\) \{[\s\S]*?\.dashboard-mobile-page \{([\s\S]*?)\}/)?.[1] ?? '';
+    expect(pageRule).toMatch(/flex:\s*1 1 0%/);
+    expect(pageRule).toMatch(/min-width:\s*0/);
+    expect(pageRule).toMatch(/overflow-x:\s*hidden/);
+    expect(pageRule).toMatch(/padding-bottom:\s*var\(--mobile-bottom-nav-height[^)]*\)\s*!important/);
+    expect(pageRule).not.toMatch(/height:\s*100%/);
+  });
+
+  it('keeps tab panels and lists from growing wider than the viewport', () => {
+    expect(indexCss).toMatch(
+      /\.dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] > div > div \{[\s\S]*?min-width:\s*0/,
+    );
+    expect(indexCss).toMatch(
+      /\.dashboard-mobile-list-shell\s*\{[\s\S]*?min-width:\s*0/,
+    );
+    expect(indexCss).toMatch(
+      /\.dashboard-mobile-page \.overflow-y-auto[\s\S]*?overflow-x:\s*hidden/,
+    );
+  });
+
   it('keeps assign photographer name styles in the stylesheet, not a card sibling', () => {
     const assignCard = readFileSync(
       resolve(

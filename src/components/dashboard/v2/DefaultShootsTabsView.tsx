@@ -539,10 +539,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
               style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
-              <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
+              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderStickyCompactToggle()}
               </div>
               {paginatedGroups.map((group, groupIndex) => (
@@ -550,7 +550,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
-                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
+                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 bg-card py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
@@ -584,10 +584,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <ShootEmptyState title="No pending requests" requested filtered={activeFilterCount > 0} onReset={resetFilters} className="flex-1" />
           ) : (
             <div 
-              className="flex-1 min-h-0 overflow-y-auto hidden-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
               style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
-              <div className="pointer-events-none sticky top-0 z-20 -mx-2 flex h-0 justify-end px-2">
+              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderStickyCompactToggle()}
               </div>
               {requestedGroups.map((group, groupIndex) => (
@@ -595,7 +595,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                   <div
                     className={cn(
                       'flex items-center justify-between gap-2',
-                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 -mx-2 bg-card px-2 py-0.5'
+                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 bg-card py-0.5'
                     )}
                   >
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">

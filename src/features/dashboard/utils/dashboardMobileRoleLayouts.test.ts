@@ -36,6 +36,16 @@ describe('role dashboard compact mobile tabs', () => {
     expect(invoices).toContain('DASHBOARD_MOBILE_PANEL_CLASS');
   });
 
+  it('keeps compact dashboard tabs in a contained horizontally scrollable pill row', () => {
+    const panel = read('features/dashboard/utils/dashboardMobilePanel.ts');
+    const admin = read('features/dashboard/views/AdminDashboardView.tsx');
+
+    expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_ROW_CLASS =\s*'[^']*overflow-x-auto/);
+    expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_LIST_CLASS =\s*'[^']*inline-flex/);
+    expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_TRIGGER_CLASS =\s*'[^']*shrink-0/);
+    expect(admin).toMatch(/<tab\.icon/);
+  });
+
   it('keeps photographer and editor on RoleDashboardLayout mobile tabs', () => {
     const photographer = read('features/dashboard/views/PhotographerDashboardView.tsx');
     const editor = read('features/dashboard/views/EditorDashboardView.tsx');

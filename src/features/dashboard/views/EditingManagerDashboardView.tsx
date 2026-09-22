@@ -10,6 +10,11 @@ import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
 import type { MobileEditingManagerTab } from "../types";
+import {
+  DASHBOARD_MOBILE_TAB_LIST_CLASS,
+  DASHBOARD_MOBILE_TAB_ROW_CLASS,
+  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
+} from "../utils/dashboardMobilePanel";
 
 interface EditingManagerDashboardViewProps {
   isMobile: boolean;
@@ -140,13 +145,13 @@ export const EditingManagerDashboardView = ({
       className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
     >
       <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="overflow-x-auto hidden-scrollbar">
-          <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+        <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
+          <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
             {editingManagerMobileTabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
-                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
               >
                 {tab.label}
               </TabsTrigger>
