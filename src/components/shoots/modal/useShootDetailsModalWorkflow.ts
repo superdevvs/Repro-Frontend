@@ -447,7 +447,13 @@ export function useShootDetailsModalWorkflow({
       const res = kind === 'raw'
         ? await finalizeRawUploadQueue(shoot.id, headers)
         : await finalizeEditedUploadQueue(shoot.id, headers);
-      const changed = Boolean((res as any)?.workflow_status_changed);
+      const changed = Boolean(res.workflow_status_changed);
+      const submittedStatus = String(res.shoot_status || '').toLowerCase();
+      const submittedDescription = submittedStatus === 'ready'
+        ? 'Shoot moved to Ready for finalization.'
+        : ['review', 'in_review'].includes(submittedStatus)
+          ? 'Shoot moved to In Review for approval.'
+          : 'Edited files submitted.';
       toast({
         title: changed
           ? kind === 'raw' ? 'Raw files submitted' : 'Edited files submitted'
@@ -455,7 +461,7 @@ export function useShootDetailsModalWorkflow({
         description: (res as any)?.message || (changed
           ? (kind === 'raw'
               ? 'Shoot moved to Uploaded.'
-              : 'Shoot moved to Ready for finalization.')
+              : submittedDescription)
           : 'No changes were applied to the shoot.'),
       });
       await refreshShoot();

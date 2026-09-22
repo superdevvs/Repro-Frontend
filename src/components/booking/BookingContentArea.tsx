@@ -13,6 +13,7 @@ import { getBookingWizardConfig, type ServicePackage } from '@/pages/bookShootMo
 type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
 
 interface BookingContentAreaProps {
+  enforceNewBookingEligibility: boolean;
   step: number;
   formErrors: Record<string, string>;
   setFormErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -71,6 +72,7 @@ interface BookingContentAreaProps {
 }
 
 export function BookingContentArea({
+  enforceNewBookingEligibility,
   step,
   formErrors,
   setFormErrors,
@@ -182,6 +184,7 @@ export function BookingContentArea({
       
       {step === wizard.schedulingStep && (
         <SchedulingForm
+          enforceNewBookingEligibility={enforceNewBookingEligibility}
           date={date}
           setDate={setDate}
           time={time}

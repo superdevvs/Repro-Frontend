@@ -16,6 +16,7 @@ export type ConfirmSubmitKind = 'raw' | 'edited';
 interface ConfirmSubmitDialogProps {
   open: boolean;
   kind: ConfirmSubmitKind | null;
+  submittingRole: string;
   fileCount: number;
   isSubmitting: boolean;
   hasInflightUploads: boolean;
@@ -26,6 +27,7 @@ interface ConfirmSubmitDialogProps {
 export function ConfirmSubmitDialog({
   open,
   kind,
+  submittingRole,
   fileCount,
   isSubmitting,
   hasInflightUploads,
@@ -34,8 +36,9 @@ export function ConfirmSubmitDialog({
 }: ConfirmSubmitDialogProps) {
   const isRaw = kind === 'raw';
   const title = isRaw ? 'Submit raw files?' : 'Submit edited files?';
-  const newStatusLabel = isRaw ? 'Uploaded' : 'Ready';
-  const roleContext = isRaw ? 'editing team' : 'admin';
+  const canSubmitReady = ['admin', 'superadmin', 'super_admin', 'editing_manager'].includes(submittingRole.trim().toLowerCase());
+  const newStatusLabel = isRaw ? 'Uploaded' : canSubmitReady ? 'Ready' : 'In Review';
+  const roleContext = isRaw ? 'editing team' : canSubmitReady ? 'admin' : 'review team';
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => (!next ? onCancel() : undefined)}>

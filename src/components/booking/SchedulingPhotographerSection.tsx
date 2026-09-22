@@ -30,8 +30,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     getPhotographerForService, isPhotographerTimeDisabled, selectedServices,
     formatScheduleLine, handlePhotographerDialogOpen, handleConfirmServicePhotographer,
     formatLocationLabel, availabilityCardWindow, timeToMinutes, minutesToTime,
-    normalizeSlotTime, formErrors,
+    normalizeSlotTime, formErrors, showPhotographerAddress, bookingEligibilityError, retryBookingEligibility, canConfirmPhotographer,
   } = controller;
+  const canSeePhotographerAddress = showPhotographerAddress === true;
   const photographerHeadingId = React.useId();
   const otherSchedulesHeadingId = React.useId();
   // Single-photographer mode has exactly one photographer-required service; the
@@ -49,7 +50,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or area..."
+            placeholder={canSeePhotographerAddress ? 'Search by name or area...' : 'Search by name...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={cn("pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50", mobileDrawer && "h-10")}
@@ -107,6 +108,14 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     </div>
   );
   const renderPhotographerResults = (mobileDrawer = false) => {
+    if (bookingEligibilityError) {
+      return (
+        <div role="alert" className="space-y-2 py-8 text-center text-sm text-destructive">
+          <p>{bookingEligibilityError}</p>
+          <Button type="button" variant="outline" onClick={retryBookingEligibility}>Try again</Button>
+        </div>
+      );
+    }
     if (isCalculatingDistances) {
       return (
         <div className="flex items-center justify-center py-8">
@@ -129,7 +138,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           {searchQuery
             ? 'No photographers found matching your search.'
             : showAllPhotographers
-              ? 'No photographers found in the system.'
+              ? 'No eligible photographers found for this booking.'
               : (
                 <div className="space-y-2">
                   <p>No photographers available for the selected date and time.</p>
@@ -205,13 +214,19 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             .filter((slot) => slot.start_time && slot.end_time)
             .map(clampTimelineSlot)
             .filter((slot): slot is SchedulingSlot => Boolean(slot));
-          const distanceMiles = typeof photographerItem.distance === 'number' && Number.isFinite(photographerItem.distance)
+          const parsedDistance = typeof photographerItem.distance === 'number'
             ? photographerItem.distance
-            : null;
+            : Number.parseFloat(String(photographerItem.distance ?? ''));
+          const distanceMiles = Number.isFinite(parsedDistance) ? parsedDistance : null;
           const distanceLabel = distanceMiles !== null ? `${distanceMiles.toFixed(1)} mi` : null;
           const distanceFromLabel = photographerItem.distanceFrom === 'previous_shoot'
             ? 'from previous shoot'
             : 'from home';
+          const clientDistanceLabel = distanceLabel
+            ? photographerItem.distanceFrom === 'previous_shoot'
+              ? `${distanceLabel} from previous shoot`
+              : `${distanceLabel} away`
+            : 'Distance unavailable';
           const getLocationInitials = (slot: SchedulingSlot) => {
             const parts = [slot.address, slot.city, slot.state]
               .filter(Boolean)
@@ -242,7 +257,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] whitespace-nowrap px-2 py-1 text-xs">
-                  {label}{slot.address ? ` · ${getLocationInitials(slot)}` : ''} · {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
+                  {label}{canSeePhotographerAddress && slot.address ? ` · ${getLocationInitials(slot)}` : ''} · {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
                 </TooltipContent>
               </Tooltip>
             );
@@ -278,7 +293,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                     <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
                       {photographerItem.name}
                     </p>
-                    {distanceLabel ? (
+                    {canSeePhotographerAddress && distanceLabel ? (
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -310,7 +325,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                     })()}
                   </div>
                   <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
-                    {publicLocationLabel || 'Service area unavailable'}
+                    {canSeePhotographerAddress
+                      ? (publicLocationLabel || 'Service area unavailable')
+                      : clientDistanceLabel}
                   </p>
                   <TooltipProvider delayDuration={100}>
                     <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
@@ -436,7 +453,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           <Button
             onClick={handleConfirmPhotographer}
             className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
-            disabled={!photographer}
+            disabled={!canConfirmPhotographer}
           >
             Confirm Assignment
           </Button>
@@ -498,7 +515,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   </Button>
                   <Button
                     onClick={handleConfirmPhotographer}
-                    disabled={!photographer}
+                    disabled={!canConfirmPhotographer}
                   >
                     Confirm Assignment
                   </Button>
@@ -677,7 +694,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       <Button
                         onClick={handleConfirmServicePhotographer}
                         className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
-                        disabled={!photographer}
+                        disabled={!canConfirmPhotographer}
                       >
                         Confirm Assignment
                       </Button>
@@ -748,7 +765,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                               </Button>
                               <Button
                                 onClick={handleConfirmServicePhotographer}
-                                disabled={!photographer}
+                                disabled={!canConfirmPhotographer}
                               >
                                 Confirm Assignment
                               </Button>

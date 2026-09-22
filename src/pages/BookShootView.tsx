@@ -125,6 +125,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
               >
                 <div className="order-2 lg:order-1 w-full">
                 <BookingContentArea
+                  enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}
                   step={step}
                   formErrors={formErrors}
                   setFormErrors={setFormErrors}

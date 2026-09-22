@@ -26,6 +26,7 @@ import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
 import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { buildBookShootServiceSchedule } from './bookShootServiceSchedule';
+import { submitNewShootWithEligibility } from './bookShootEligibility';
 import { createComplimentaryReshoot } from '@/features/complimentary-reshoots/api';
 import { useCompReshootBooking } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
@@ -396,7 +397,6 @@ export const useBookShootController = () => {
             getTaxRateForState(normalizedState)
           );
       const baseQuote = pricingForSubmission.discountedSubtotal;
-      const photographerRate = getPackagePrice();
       const taxAmount = pricingForSubmission.taxAmount;
       const totalQuote = pricingForSubmission.totalQuote;
       const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
@@ -603,7 +603,7 @@ export const useBookShootController = () => {
           );
           compReshoot.rotateIdempotencyKey();
         } else {
-          const response = await axios.post(requestUrl, payload, requestConfig);
+          const response = await submitNewShootWithEligibility(requestUrl, payload, requestConfig);
           responsePayload = response.data;
         }
         const isClientRole = user?.role === 'client';

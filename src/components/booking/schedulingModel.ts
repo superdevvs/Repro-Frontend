@@ -95,6 +95,7 @@ export const canUseProtectedAvailabilityRoutes = (
 ): boolean => Boolean(user && String(user.role ?? '').toLowerCase() !== 'client');
 
 export interface SchedulingFormProps {
+  enforceNewBookingEligibility?: boolean;
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;

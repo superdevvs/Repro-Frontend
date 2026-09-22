@@ -30,7 +30,7 @@ function Picker({ mobile = false, time = '10:00', overrides = {} }: PickerProps)
     time, date: new Date('2026-10-05T12:00:00'), isMobile: mobile,
     photographerDialogOpen: open, setPhotographerDialogOpen: setOpen,
     handlePhotographerDialogOpen: (value: boolean) => { if (!value || time) setOpen(value); },
-    photographer, setPhotographer,
+    photographer, setPhotographer, canConfirmPhotographer: Boolean(photographer),
     selectedPhotographer: photographer ? person : undefined,
     selectedPhotographerDetails: photographer ? person : undefined,
     handleConfirmPhotographer: () => setOpen(false),
@@ -61,6 +61,18 @@ const mixedSelection = {
 };
 
 describe('booking photographer picker', () => {
+  it('shows a failed eligibility check with retry and disables confirmation', async () => {
+    const retry = vi.fn();
+    render(<Picker overrides={{
+      bookingEligibilityError: 'Could not check photographer eligibility. Please try again.',
+      retryBookingEligibility: retry, canConfirmPhotographer: false,
+    }} />);
+    await userEvent.click(screen.getByText('Select a photographer'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not check photographer eligibility');
+    expect(screen.getByRole('button', { name: 'Confirm Assignment' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
   it.each([false, true])('opens and confirms a photographer (mobile=%s)', async (mobile) => {
     const user = userEvent.setup();
     render(<Picker mobile={mobile} />);
@@ -100,6 +112,59 @@ describe('booking photographer picker', () => {
     const photographerCard = screen.getByRole('region', { name: 'Photographer' });
     expect(within(photographerCard).getByText('Assign a photographer for 25 Flash Photos.')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Other service schedules' })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])('shows clients distance without location (mobile=%s)', async (mobile) => {
+    const user = userEvent.setup();
+    render(<Picker mobile={mobile} overrides={{
+      showPhotographerAddress: false,
+      filteredAndSortedPhotographers: [{
+        id: '9',
+        name: 'Jay Snap',
+        city: 'Rockville',
+        state: 'MD',
+        address: '10 Private Lane',
+        serviceAreaLabel: 'Rockville, MD',
+        distance: 12.4,
+      }],
+    }} />);
+
+    await user.click(screen.getByText('Select a photographer'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('12.4 mi away')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Rockville, MD')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('10 Private Lane')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Service area unavailable')).not.toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText('Search by name...')).toBeInTheDocument();
+  });
+
+  it('shows an unavailable distance without falling back to a private location', async () => {
+    render(<Picker overrides={{
+      showPhotographerAddress: false,
+      filteredAndSortedPhotographers: [{ id: '9', name: 'Jay Snap', serviceAreaLabel: 'Private area' }],
+    }} />);
+    await userEvent.click(screen.getByText('Select a photographer'));
+    expect(screen.getByText('Distance unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Private area')).not.toBeInTheDocument();
+  });
+
+  it('shows sales reps and admins the photographer location', async () => {
+    const user = userEvent.setup();
+    render(<Picker overrides={{
+      showPhotographerAddress: true,
+      filteredAndSortedPhotographers: [{
+        id: '9',
+        name: 'Jay Snap',
+        serviceAreaLabel: 'Rockville, MD',
+        distance: 12.4,
+      }],
+    }} />);
+
+    await user.click(screen.getByText('Select a photographer'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Rockville, MD')).toBeInTheDocument();
+    expect(within(dialog).getByText('12.4 mi')).toBeInTheDocument();
+    expect(within(dialog).queryByText('12.4 mi away')).not.toBeInTheDocument();
   });
 
   it('shows the photographer validation error inside the photographer card', () => {

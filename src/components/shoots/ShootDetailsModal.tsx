@@ -940,6 +940,7 @@ export function ShootDetailsModal({
       <ShootDetailsModalTransientDialogs
         shoot={shoot}
         submitConfirm={submitConfirm}
+        submittingRole={currentUserRole}
         isSubmittingRaw={isSubmittingRaw}
         isSubmittingEdits={isSubmittingEdits}
         hasInflightUploads={hasInflightShootUploads}

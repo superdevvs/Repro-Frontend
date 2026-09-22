@@ -6,6 +6,7 @@ import { getShootSubmitFileCount } from './shootDetailsModalHelpers';
 type ShootDetailsModalTransientDialogsProps = {
   shoot: ShootData | null;
   submitConfirm: { kind: 'raw' | 'edited' } | null;
+  submittingRole: string;
   isSubmittingRaw: boolean;
   isSubmittingEdits: boolean;
   hasInflightUploads: boolean;
@@ -19,6 +20,7 @@ type ShootDetailsModalTransientDialogsProps = {
 export function ShootDetailsModalTransientDialogs({
   shoot,
   submitConfirm,
+  submittingRole,
   isSubmittingRaw,
   isSubmittingEdits,
   hasInflightUploads,
@@ -36,6 +38,7 @@ export function ShootDetailsModalTransientDialogs({
         <ConfirmSubmitDialog
           open
           kind={submitConfirm.kind}
+          submittingRole={submittingRole}
           fileCount={getShootSubmitFileCount(shoot, submitConfirm.kind)}
           isSubmitting={submitConfirm.kind === 'raw' ? isSubmittingRaw : isSubmittingEdits}
           hasInflightUploads={hasInflightUploads}
