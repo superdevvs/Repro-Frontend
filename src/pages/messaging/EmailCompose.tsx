@@ -862,17 +862,23 @@ export default function EmailCompose() {
     const selected = recipients[field];
     const canType = !singleRecipient || selected.length === 0;
 
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <Label className="text-sm font-medium">{label}</Label>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
-          {canSendExternal && renderDirectoryContent(field)}
-        </div>
+    const compact = description === '';
 
-        <div className="rounded-xl border border-border/70 bg-background p-3">
+    return (
+      <div className={compact ? 'min-w-0 flex-1' : 'space-y-2'}>
+        {!compact && (
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label className="text-sm font-medium">{label}</Label>
+              <p className="text-xs text-muted-foreground">{description}</p>
+            </div>
+            {canSendExternal && renderDirectoryContent(field)}
+          </div>
+        )}
+
+        <div className={compact ? 'flex min-w-0 items-start gap-2' : 'rounded-xl border border-border/70 bg-background p-3'}>
+          {compact && canSendExternal ? <div className="shrink-0 pt-1">{renderDirectoryContent(field)}</div> : null}
+          <div className="min-w-0 flex-1">
           <div className="flex flex-wrap gap-2">
             {selected.map((email) => (
               <Badge key={email} variant="secondary" className="gap-1 rounded-full px-3 py-1 text-xs">
@@ -893,8 +899,10 @@ export default function EmailCompose() {
                     commitRecipientInput(field);
                   }
                 }}
-                placeholder={singleRecipient ? 'recipient@example.com' : 'Add addresses and press Enter'}
-                className="h-9 min-w-[220px] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+                placeholder={compact ? 'Email' : singleRecipient ? 'recipient@example.com' : 'Add addresses and press Enter'}
+                className={compact
+                  ? 'h-9 min-w-0 flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0'
+                  : 'h-9 min-w-[220px] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0'}
               />
             )}
           </div>
@@ -904,6 +912,7 @@ export default function EmailCompose() {
               <span>{recipientErrors[field]}</span>
             </div>
           )}
+          </div>
         </div>
       </div>
     );

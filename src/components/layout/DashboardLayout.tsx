@@ -43,7 +43,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
-  const fillSms = location.pathname === '/messaging/sms' && isCompactDashboardShell;
+  const fillSms =
+    (location.pathname === '/messaging/sms' || location.pathname === '/messaging/email/compose')
+    && isCompactDashboardShell;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
