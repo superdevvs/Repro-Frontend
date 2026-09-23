@@ -18,7 +18,7 @@ export const SmsThreadFilterTabs = ({ value, onValueChange }: SmsThreadFilterTab
     <Tabs value={value} onValueChange={(v) => onValueChange(v as SmsThreadFilter)} className="mt-4">
       <TabsList className="flex w-full justify-start overflow-x-auto p-1 sm:grid sm:grid-cols-4">
         {filters.map((filter) => (
-          <TabsTrigger key={filter.value} value={filter.value} className="whitespace-nowrap px-2 text-xs sm:px-3 sm:text-sm">
+          <TabsTrigger key={filter.value} value={filter.value} className="min-h-10 whitespace-nowrap px-3 text-sm lg:min-h-0 lg:px-3 lg:text-sm">
             {filter.label}
           </TabsTrigger>
         ))}

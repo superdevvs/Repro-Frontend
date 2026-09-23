@@ -30,7 +30,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full border-b border-border/70 px-4 py-3 text-left transition hover:bg-muted/60',
+        'min-h-[4.5rem] w-full border-b border-border/70 px-4 py-3.5 text-left transition hover:bg-muted/60 active:bg-muted',
         active && 'bg-muted/60 shadow-inner',
       )}
     >
@@ -43,7 +43,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
             <span className="truncate font-semibold tracking-tight">{name}</span>
             <span className="text-xs text-muted-foreground whitespace-nowrap">{formattedTime}</span>
           </div>
-          <p className="text-xs text-muted-foreground truncate">{thread.lastMessageSnippet || 'No messages yet'}</p>
+          <p className="truncate text-sm text-muted-foreground lg:text-xs">{thread.lastMessageSnippet || 'No messages yet'}</p>
           <div className="mt-1 flex items-center gap-2">
             {thread.unread && <span className="h-2 w-2 rounded-full bg-primary" />}
             {thread.contact?.type && (

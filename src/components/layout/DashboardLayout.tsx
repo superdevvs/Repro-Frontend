@@ -43,13 +43,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
+  const fillSms = location.pathname === '/messaging/sms' && isCompactDashboardShell;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
+  const lockMainScroll = lockCompactDashboard || isStudioWorkspace || fillSms;
   const contentPadding = useCompactShell
-    ? `${isStudioWorkspace ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
-    : 'p-3';
+    ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
+    : fillSms
+      ? 'p-0'
+      : 'p-3';
   // Filled dashboard cards ignore main padding-bottom on phones. Publish the
   // measured nav height as a variable; .dashboard-mobile-page consumes it.
   const compactMainStyle = compactBottomInset > 0
@@ -103,10 +107,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
-            <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockCompactDashboard || isStudioWorkspace ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
-              <PageTransition className={lockCompactDashboard || isStudioWorkspace ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
+            <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
+              <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {lockCompactDashboard ? (
+                  {lockCompactDashboard || fillSms ? (
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />

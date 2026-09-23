@@ -30,7 +30,7 @@ export default function SmsCenter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState<SmsThreadFilter>('all');
   const [search, setSearch] = useState('');
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [desktopThreadId, setDesktopThreadId] = useState<string | null>(null);
   const [composerText, setComposerText] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
@@ -54,31 +54,40 @@ export default function SmsCenter() {
 
   const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
 
-  // Adopt the thread from the URL only when it actually changes (deep-link or
-  // browser navigation). Comparing against activeThreadId here caused a
-  // feedback loop with the URL-sync effect below, making activeThreadId
-  // oscillate between threads and firing mark-read in a runaway loop.
+  // On a phone the list is the home screen. The open thread comes only from
+  // ?thread=, so Back (and the browser back gesture) can clear it and stay
+  // cleared. Auto-selecting the first thread here reopened that conversation
+  // the moment Back set the selection to null.
+  // Desktop keeps a split view: adopt a deep link, otherwise open the first
+  // thread. The ref ignores URL echoes of our own writes; comparing the URL
+  // to state on every run oscillated the selection and flooded mark-read.
   const lastRequestedThreadRef = useRef<string | null>(null);
+  const activeThreadId = isMobile ? requestedThreadId : desktopThreadId;
+
   useEffect(() => {
+    if (isMobile) return;
+
     if (requestedThreadId && requestedThreadId !== lastRequestedThreadRef.current) {
       lastRequestedThreadRef.current = requestedThreadId;
-      setActiveThreadId(requestedThreadId);
+      setDesktopThreadId(requestedThreadId);
       return;
     }
 
-    if (!activeThreadId && threads.length > 0) {
-      setActiveThreadId(threads[0].id);
+    if (!desktopThreadId && threads.length > 0) {
+      setDesktopThreadId(threads[0].id);
     }
-  }, [threads, activeThreadId, requestedThreadId]);
+  }, [isMobile, threads, desktopThreadId, requestedThreadId]);
 
   useEffect(() => {
+    if (isMobile) return;
+
     const nextParams = new URLSearchParams(searchParamsKey);
     const currentThread = nextParams.get('thread');
 
-    if (activeThreadId) {
-      if (currentThread === activeThreadId) return;
-      lastRequestedThreadRef.current = activeThreadId;
-      nextParams.set('thread', activeThreadId);
+    if (desktopThreadId) {
+      if (currentThread === desktopThreadId) return;
+      lastRequestedThreadRef.current = desktopThreadId;
+      nextParams.set('thread', desktopThreadId);
       setSearchParams(nextParams, { replace: true });
       return;
     }
@@ -86,7 +95,27 @@ export default function SmsCenter() {
     if (!currentThread) return;
     nextParams.delete('thread');
     setSearchParams(nextParams, { replace: true });
-  }, [activeThreadId, searchParamsKey, setSearchParams]);
+  }, [isMobile, desktopThreadId, searchParamsKey, setSearchParams]);
+
+  const openThread = (id: string) => {
+    if (!isMobile) {
+      setDesktopThreadId(id);
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('thread', id);
+    setContactDrawerOpen(false);
+    // Push so the browser or system back gesture returns to the list.
+    setSearchParams(nextParams);
+  };
+
+  const closeThread = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (!nextParams.has('thread')) return;
+    nextParams.delete('thread');
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const threadDetailQuery = useQuery({
     queryKey: ['sms-thread', activeThreadId],
@@ -158,7 +187,7 @@ export default function SmsCenter() {
       }),
     onSuccess: ({ thread }) => {
       setComposeOpen(false);
-      setActiveThreadId(thread.id);
+      openThread(thread.id);
       queryClient.invalidateQueries({ queryKey: threadsKey });
       queryClient.invalidateQueries({ queryKey: ['sms-thread', thread.id] });
       toast.success('Message sent');
@@ -276,9 +305,15 @@ export default function SmsCenter() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100dvh-9.75rem)] min-h-0 gap-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20 shadow-sm sm:h-[calc(100dvh-9rem)] md:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-5rem)] lg:rounded-3xl">
+      <div
+        className={
+          isMobile
+            ? 'flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background'
+            : 'flex h-[calc(100vh-5rem)] min-h-0 gap-0 overflow-hidden rounded-3xl border border-border/60 bg-muted/20 shadow-sm'
+        }
+      >
         {listVisible && (
-          <div className="min-h-0 w-full lg:max-w-md">
+          <div className="flex h-full min-h-0 w-full flex-1 flex-col lg:max-w-md lg:flex-none">
             <SmsThreadList
               threads={threads}
               activeThreadId={activeThreadId ?? undefined}
@@ -286,12 +321,7 @@ export default function SmsCenter() {
               onFilterChange={setFilter}
               search={search}
               onSearchChange={setSearch}
-              onSelectThread={(id) => {
-                setActiveThreadId(id);
-                if (isMobile) {
-                  setContactDrawerOpen(false);
-                }
-              }}
+              onSelectThread={openThread}
               onRefresh={() => threadsQuery.refetch()}
               onCompose={() => setComposeOpen(true)}
               isRefreshing={threadsQuery.isFetching}
@@ -300,7 +330,7 @@ export default function SmsCenter() {
         )}
 
         {conversationVisible ? (
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
             {showThreadSkeleton && (
               <div className="space-y-4 p-6">
                 <Skeleton className="h-10 w-1/3" />
@@ -322,7 +352,7 @@ export default function SmsCenter() {
                 onSend={handleSend}
                 sending={sendMutation.isPending}
                 isMobile={!!isMobile}
-                onBack={() => setActiveThreadId(null)}
+                onBack={closeThread}
                 onOpenContact={() => {
                   if (isMobile) {
                     setContactDrawerOpen(true);

@@ -34,7 +34,7 @@ export const SmsThreadList = ({
   isRefreshing,
 }: SmsThreadListProps) => {
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-border/70 bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background lg:border-r lg:border-border/70">
       <div className="border-b border-border/70 p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -42,16 +42,16 @@ export const SmsThreadList = ({
             <p className="text-xs text-muted-foreground">Auto updated</p>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <Button variant="ghost" size="icon" onClick={onCompose} title="Compose SMS">
+            <Button variant="ghost" size="icon" onClick={onCompose} title="Compose SMS" className="h-11 w-11 lg:h-10 lg:w-10">
               <MessageSquarePlus className="h-4 w-4" />
               <span className="sr-only">Compose SMS</span>
             </Button>
-            <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing} title="Refresh conversations">
+            <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing} title="Refresh conversations" className="h-11 w-11 lg:h-10 lg:w-10">
               {isRefreshing ? <InlineSpinner aria-hidden="true" className="h-4 w-4" /> : <RefreshCcw className="h-4 w-4" />}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="h-11 w-11 lg:h-10 lg:w-10">
                   <MoreHorizontal className="h-4 w-4" />
                   <span className="sr-only">Conversation actions</span>
                 </Button>

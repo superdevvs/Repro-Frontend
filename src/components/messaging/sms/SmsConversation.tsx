@@ -76,15 +76,46 @@ export const SmsConversation = ({
     return acc;
   }, []);
 
+  const subtitle = contact?.email || contact?.primaryNumber;
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-background">
-      <div className="flex flex-col gap-3 border-b border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-        <div className="flex min-w-0 items-start gap-2 sm:items-center sm:gap-3">
-          {isMobile && (
-            <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
-              <ArrowLeft className="h-4 w-4" />
+      {isMobile ? (
+        <div className="flex h-14 shrink-0 items-center gap-0.5 border-b border-border/70 px-1">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onBack}
+            aria-label="Back to messages"
+            className="h-11 shrink-0 gap-1 px-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Messages</span>
+          </Button>
+          <button type="button" onClick={onOpenContact} className="min-w-0 flex-1 px-1 text-left">
+            <p className="truncate text-sm font-semibold leading-tight">{name}</p>
+            {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+          </button>
+          {contact?.primaryNumber && (
+            <Button variant="ghost" size="icon" asChild className="h-11 w-11 shrink-0">
+              <a href={`tel:${contact.primaryNumber}`} aria-label={`Call ${name}`}>
+                <Phone className="h-5 w-5" />
+              </a>
             </Button>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onOpenContact}
+            aria-label="Contact details"
+            className="h-11 w-11 shrink-0"
+          >
+            <UserRound className="h-5 w-5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 p-4">
           <div className="min-w-0">
             <p className="truncate text-base font-semibold">{name}</p>
             <p className="truncate text-xs text-muted-foreground">{contact?.email || contact?.primaryNumber}</p>
@@ -96,32 +127,32 @@ export const SmsConversation = ({
               ))}
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {onToggleContactAi && (
-            <label className="hidden items-center gap-2 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground sm:flex">
-              <input
-                type="checkbox"
-                checked={contact?.smsAiEnabled === true || thread.contactAiEnabled === true}
-                disabled={togglingContactAi || contact?.smsOptOut === true || thread.contactOptedOut === true}
-                onChange={(event) => onToggleContactAi(event.target.checked)}
-              />
-              AI replies enabled
-            </label>
-          )}
-          {contact?.primaryNumber && (
-            <Button variant="outline" size="sm" asChild className="shrink-0">
-              <a href={`tel:${contact.primaryNumber}`}>
-                <Phone className="mr-2 h-4 w-4" />
-                Call
-              </a>
+          <div className="flex shrink-0 items-center gap-2">
+            {onToggleContactAi && (
+              <label className="flex items-center gap-2 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={contact?.smsAiEnabled === true || thread.contactAiEnabled === true}
+                  disabled={togglingContactAi || contact?.smsOptOut === true || thread.contactOptedOut === true}
+                  onChange={(event) => onToggleContactAi(event.target.checked)}
+                />
+                AI replies enabled
+              </label>
+            )}
+            {contact?.primaryNumber && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`tel:${contact.primaryNumber}`}>
+                  <Phone className="mr-2 h-4 w-4" />
+                  Call
+                </a>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onOpenContact}>
+              Details
             </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={onOpenContact} className="shrink-0">
-            Details
-          </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {thread.aiPausedUntil && new Date(thread.aiPausedUntil) > new Date() && (
         <div className="flex flex-col gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
@@ -141,22 +172,22 @@ export const SmsConversation = ({
         </div>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/20 p-3 sm:p-4">
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/20 px-3 py-4 sm:p-4">
         {grouped.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground">
             No messages yet. Start the conversation below.
           </div>
         ) : (
-          grouped.map((group) => (
-            <div key={group.date} className="space-y-3">
-              <div className="text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {group.date}
+          <div className="mt-auto space-y-5">
+            {grouped.map((group) => (
+              <div key={group.date} className="space-y-3">
+                <div className="text-center text-xs text-muted-foreground">{group.date}</div>
+                {group.items.map((message) => (
+                  <SmsMessageBubble key={message.id} message={message} />
+                ))}
               </div>
-              {group.items.map((message) => (
-                <SmsMessageBubble key={message.id} message={message} />
-              ))}
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
@@ -167,6 +198,7 @@ export const SmsConversation = ({
         disabled={sending || !composerValue.trim()}
         placeholder={`Write a message to ${name}`}
         templates={templates}
+        compact={isMobile}
         onSelectTemplate={(text) => {
           onSelectTemplate?.(text);
         }}
