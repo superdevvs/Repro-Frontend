@@ -148,7 +148,7 @@ describe('compact page gutters', () => {
   it('matches Availability: layout keeps 12px sides and pages add none', () => {
     expect(DASHBOARD_COMPACT_PAGE_X_CLASS).toBe('px-0');
     expect(src('../../../components/layout/DashboardLayout.tsx')).toMatch(
-      /isStudioWorkspace \? 'p-0' : 'px-3 pt-1\.5'/,
+      /isStudioWorkspace \|\| fillSms \? 'p-0' : 'px-3 pt-1\.5'/,
     );
     expect(src('../../../pages/Availability.tsx')).toMatch(
       /isCompactLayout \? "px-0 pt-1\.5 pb-6"/,
