@@ -221,8 +221,8 @@ export function ShootHistoryModalHost({
           }
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
+          <AlertDialogHeader className="text-left">
             <AlertDialogTitle>Delete Shoot</AlertDialogTitle>
             <AlertDialogDescription>
               Choose whether this should remove only the shoot from the dashboard
@@ -238,12 +238,12 @@ export function ShootHistoryModalHost({
                     <MapPin className="h-3.5 w-3.5" />
                     Property
                   </div>
-                  <p className="text-sm font-semibold text-foreground">{primaryAddress}</p>
+                  <p className="break-words text-sm font-semibold text-foreground">{primaryAddress}</p>
                 </div>
                 {statusLabel ? <Badge variant="outline">{statusLabel}</Badge> : null}
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <CalendarClock className="h-3.5 w-3.5" />
@@ -333,13 +333,13 @@ export function ShootHistoryModalHost({
             shoot is deleted. Leave the checkbox off if you only want to remove the shoot entry from the dashboard.
           </div>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogCancel disabled={isDeleting} className="mt-0 h-11 w-full">Cancel</AlertDialogCancel>
             <Button
               type="button"
               onClick={() => onConfirmDelete({ deleteMedia })}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="h-11 w-full bg-red-600 hover:bg-red-700"
             >
               {isDeleting ? (
                 <>
