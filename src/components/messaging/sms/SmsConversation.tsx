@@ -85,12 +85,12 @@ export const SmsConversation = ({
           <Button
             type="button"
             variant="ghost"
+            size="icon"
             onClick={onBack}
             aria-label="Back to messages"
-            className="h-11 shrink-0 gap-1 px-2"
+            className="h-11 w-11 shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span className="text-sm font-medium">Messages</span>
           </Button>
           <button type="button" onClick={onOpenContact} className="min-w-0 flex-1 px-1 text-left">
             <p className="truncate text-sm font-semibold leading-tight">{name}</p>
