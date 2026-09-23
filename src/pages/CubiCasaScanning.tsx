@@ -1,237 +1,215 @@
-import { EmptyState } from '@/components/ui/empty-state';
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { AlertTriangle } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import { ScanOrderForm } from '@/components/cubicasa/ScanOrderForm';
-import { ScanOrderList } from '@/components/cubicasa/ScanOrderList';
-import { ScanOrderDetail } from '@/components/cubicasa/ScanOrderDetail';
-import { cubicasaService, CubiCasaOrder } from '@/services/cubicasaService';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { InlineSpinner } from '@/components/ui/inline-spinner';
+import { toast } from '@/components/ui/use-toast';
+import {
+  createCubicasaOrder,
+  getCubicasaTrackedShoots,
+  type CubicasaTrackedShoot,
+} from '@/services/cubicasaTracking';
 
-const CubiCasaScanning = () => {
-  const { role, isAuthenticated, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('create');
-  const [selectedOrder, setSelectedOrder] = useState<CubiCasaOrder | null>(null);
-  const [orders, setOrders] = useState<CubiCasaOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type TrackerStatus = 'missing' | 'linked';
 
-  // Check if user has access
-  useEffect(() => {
-    if (authLoading) return; // Wait for auth to load
-    
-    if (!isAuthenticated) {
-      navigate('/');
-      return;
-    }
+const canCreateCubicasaOrder = (role?: string | null) =>
+  role === 'admin' || role === 'superadmin' || role === 'editing_manager';
 
-    if (role !== 'photographer' && role !== 'admin' && role !== 'superadmin') {
-      toast({
-        title: 'Access Denied',
-        description: 'This page is only accessible to photographers and administrators.',
-        variant: 'destructive',
-      });
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, role, navigate, authLoading]);
+const errorMessage = (error: unknown) => {
+  const response = (error as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+  return response?.message || response?.error || 'Could not load CubiCasa shoots.';
+};
 
-  // Load orders on mount
-  useEffect(() => {
-    if (authLoading) return;
-    if (isAuthenticated && (role === 'photographer' || role === 'admin' || role === 'superadmin')) {
-      loadOrders();
-    }
-  }, [isAuthenticated, role, authLoading]);
+export default function CubiCasaScanning() {
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<TrackerStatus>('missing');
+  const [search, setSearch] = useState('');
+  const canCreate = canCreateCubicasaOrder(role);
 
-  const loadOrders = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await cubicasaService.getOrders();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      console.error('Failed to load orders:', error);
-      console.error('Error details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
-      });
-      
-      // Extract more detailed error message
-      let errorMessage = 'Failed to load scan orders';
-      if (error.response?.data) {
-        if (typeof error.response.data === 'string') {
-          errorMessage = error.response.data;
-        } else if (error.response.data.error) {
-          errorMessage = error.response.data.error;
-        } else if (error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else {
-          errorMessage = JSON.stringify(error.response.data);
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const shootsQuery = useQuery({
+    queryKey: ['cubicasa-shoots', status, search],
+    queryFn: () => getCubicasaTrackedShoots({ status, search }),
+  });
 
-  const handleOrderCreated = (order: CubiCasaOrder) => {
-    setOrders([order, ...orders]);
-    setSelectedOrder(order);
-    setActiveTab('detail');
-    toast({
-      title: 'Scan Order Created',
-      description: 'Your scan order has been created successfully.',
-    });
-  };
+  const createMutation = useMutation({
+    mutationFn: (shootId: number) => createCubicasaOrder(shootId),
+    onSuccess: () => {
+      toast({ title: 'CubiCasa order created', description: 'The shoot is now connected.' });
+      queryClient.invalidateQueries({ queryKey: ['cubicasa-shoots'] });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not create the order', description: errorMessage(error), variant: 'destructive' });
+    },
+  });
 
-  const handleOrderSelected = (order: CubiCasaOrder) => {
-    setSelectedOrder(order);
-    setActiveTab('detail');
-  };
-
-  const handleBackToList = () => {
-    setSelectedOrder(null);
-    setActiveTab('list');
-    loadOrders();
-  };
-
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <p className="text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Show loading or access denied
-  if (!isAuthenticated) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <p className="text-muted-foreground mb-4">Please log in to continue</p>
-              <Button onClick={() => navigate('/')}>
-                Go to Login
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (role !== 'photographer' && role !== 'admin' && role !== 'superadmin') {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Access Denied</AlertTitle>
-                <AlertDescription className="mt-2">
-                  This page is only accessible to photographers and administrators.
-                </AlertDescription>
-              </Alert>
-              <Button
-                onClick={() => navigate('/dashboard')}
-                className="w-full mt-4"
-              >
-                Go to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  const rows = shootsQuery.data?.data ?? [];
+  const counts = shootsQuery.data?.counts ?? { missing: 0, linked: 0 };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <PageHeader
           badge="Property"
           title="Property Scan"
-          description="Create and manage floor plan scans"
+          description="Floor plan bookings and the CubiCasa orders created for them."
+          compactTitleOnMobile
         />
 
-        {error && (
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by address"
+          aria-label="Search by address"
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <FilterButton
+            active={status === 'missing'}
+            onClick={() => setStatus('missing')}
+            label="Needs an order"
+            count={counts.missing}
+          />
+          <FilterButton
+            active={status === 'linked'}
+            onClick={() => setStatus('linked')}
+            label="Connected"
+            count={counts.linked}
+          />
+        </div>
+
+        {shootsQuery.isError && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>Could not load shoots</AlertTitle>
+            <AlertDescription>{errorMessage(shootsQuery.error)}</AlertDescription>
           </Alert>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="create">New Scan</TabsTrigger>
-            <TabsTrigger value="list">My Scans</TabsTrigger>
-            <TabsTrigger value="detail" disabled={!selectedOrder}>
-              Details
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="create" className="mt-6">
-            <ScanOrderForm
-              onOrderCreated={handleOrderCreated}
-              onCancel={() => setActiveTab('list')}
-            />
-          </TabsContent>
-
-          <TabsContent value="list" className="mt-6">
-            <ScanOrderList
-              orders={orders}
-              isLoading={isLoading}
-              onOrderSelect={handleOrderSelected}
-              onRefresh={loadOrders}
-            />
-          </TabsContent>
-
-          <TabsContent value="detail" className="mt-6">
-            {selectedOrder ? (
-              <ScanOrderDetail
-                order={selectedOrder}
-                onBack={handleBackToList}
-                onOrderUpdated={loadOrders}
+        {shootsQuery.isLoading ? (
+          <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+            <InlineSpinner className="mr-2 h-4 w-4" />
+            Loading shoots
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon="scanning"
+            title={status === 'missing' ? 'Every floor plan booking has an order.' : 'No connected CubiCasa orders yet.'}
+            size="compact"
+          />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {rows.map((shoot) => (
+              <ShootRow
+                key={shoot.id}
+                shoot={shoot}
+                canCreate={canCreate}
+                creating={createMutation.isPending && createMutation.variables === shoot.id}
+                onCreate={() => createMutation.mutate(shoot.id)}
               />
-            ) : (
-              <Card>
-                <EmptyState icon="scanning" title={<>No order selected</>} size="compact" />
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+            ))}
+          </ul>
+        )}
       </div>
     </DashboardLayout>
   );
-};
+}
 
-export default CubiCasaScanning;
+function FilterButton({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`${label}, ${count}`}
+      className={`flex h-11 items-center justify-center gap-2 rounded-lg border px-2 text-sm font-medium ${
+        active
+          ? 'border-primary bg-primary/10 text-foreground'
+          : 'border-border bg-background text-muted-foreground'
+      }`}
+    >
+      <span>{label}</span>
+      <span className="tabular-nums text-xs">{count}</span>
+    </button>
+  );
+}
+
+function ShootRow({
+  shoot,
+  canCreate,
+  creating,
+  onCreate,
+}: {
+  shoot: CubicasaTrackedShoot;
+  canCreate: boolean;
+  creating: boolean;
+  onCreate: () => void;
+}) {
+  const when = shoot.scheduled_at ? format(new Date(shoot.scheduled_at), 'MMM d, yyyy') : null;
+  const who = [shoot.client_name, shoot.photographer_name].filter(Boolean).join(' · ');
+
+  return (
+    <li className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4">
+      <div className="min-w-0">
+        <p className="font-semibold leading-snug">{shoot.address || `Shoot #${shoot.id}`}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {[when, who].filter(Boolean).join(' · ') || 'Scheduled'}
+        </p>
+        {shoot.services.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">{shoot.services.join(', ')}</p>
+        )}
+      </div>
+
+      {shoot.linked ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="font-medium">{shoot.cubicasa_status || 'Connected'}</span>
+          {shoot.cubicasa_order_id && (
+            <span className="truncate text-muted-foreground">{shoot.cubicasa_order_id}</span>
+          )}
+          {shoot.cubicasa_last_sync_error && (
+            <span className="text-destructive">{shoot.cubicasa_last_sync_error}</span>
+          )}
+        </div>
+      ) : (
+        shoot.cubicasa_last_sync_error && (
+          <p className="text-sm text-destructive">{shoot.cubicasa_last_sync_error}</p>
+        )
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/shoots/${shoot.id}`}>Open shoot</Link>
+        </Button>
+        {!shoot.linked && canCreate && (
+          <Button
+            size="sm"
+            onClick={onCreate}
+            disabled={creating}
+            aria-label={`Create order for ${shoot.address || `shoot ${shoot.id}`}`}
+          >
+            {creating && <InlineSpinner className="mr-2 h-4 w-4" />}
+            Create order
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}

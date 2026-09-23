@@ -34,14 +34,6 @@ export const API_ROUTES = {
     availablePhotographers: `${BASE_URL}/api/photographer/availability/available-photographers`,
     forBooking: `${BASE_URL}/api/photographer/availability/for-booking`,
   },
-  cubicasa: {
-    createOrder: `${BASE_URL}/api/cubicasa/orders`,
-    listOrders: `${BASE_URL}/api/cubicasa/orders`,
-    getOrder: (id: number | string) => `${BASE_URL}/api/cubicasa/orders/${id}`,
-    uploadPhotos: (id: number | string) => `${BASE_URL}/api/cubicasa/orders/${id}/photos`,
-    getOrderStatus: (id: number | string) => `${BASE_URL}/api/cubicasa/orders/${id}/status`,
-    linkToShoot: (id: number | string) => `${BASE_URL}/api/cubicasa/orders/${id}/link-shoot`,
-  },
   integrations: {
     property: {
       lookup: `${BASE_URL}/api/integrations/property/lookup`,
