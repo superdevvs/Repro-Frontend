@@ -35,6 +35,11 @@ async function expectCardBottomsAboveNavigation(page: Page, testInfo?: TestInfo)
     }, { message: `${name}: the active panel must end above the navigation` }).toBeLessThanOrEqual(1);
 
     const scrollingLists = panel.locator('.overflow-y-auto.hidden-scrollbar, .overflow-y-auto.custom-scrollbar');
+    // The production bundle loads these cards on demand. Wait for the list,
+    // not just the tab panel or its skeleton, before checking its scroll end.
+    if (['Shoots', 'Completed', 'Assign'].includes(name)) {
+      await expect(scrollingLists.first()).toBeVisible();
+    }
     for (const list of await scrollingLists.all()) {
       if (!(await list.isVisible())) continue;
       if (name === 'Shoots') {
