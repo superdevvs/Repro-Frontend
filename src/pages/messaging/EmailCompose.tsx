@@ -1,63 +1,14 @@
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  ArrowLeft,
-  CalendarClock,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  Hash,
-  Info,
-  Paperclip,
-  Send,
-  Sparkles,
-  Trash2,
-  Users,
-  X,
-} from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { toast } from '@/lib/sonner-toast';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '@/components/ui/command';
-import { cn } from '@/lib/utils';
 import { apiClient } from '@/services/api';
 import {
   composeEmail,
@@ -75,6 +26,7 @@ import type {
   MessagingJsonObject,
   MessagingJsonValue,
 } from '@/types/messaging';
+import { ComposeDirectoryButton } from './ComposeDirectory';
 import { EmailComposeView } from './EmailComposeView';
 import {
   bodyTextToHtml,
@@ -113,6 +65,7 @@ export default function EmailCompose() {
   const originalMessage = composeState.message;
   const isInternalReply = composeMode === 'reply' && originalMessage?.provider === 'INTERNAL';
   const canSendExternal = canSendExternalEmail(role) && !isInternalReply;
+  const compactDirectory = useMediaQuery('(max-width: 1024px)');
 
   const [form, setForm] = useState<ComposeFormState>(EMPTY_FORM);
   const [recipients, setRecipients] = useState<ComposeRecipients>(EMPTY_RECIPIENTS);
@@ -742,114 +695,30 @@ export default function EmailCompose() {
   };
 
   const renderDirectoryContent = (field: RecipientField) => {
-    const selectedEmails = new Set([
-      ...recipients.to,
-      ...recipients.cc,
-      ...recipients.bcc,
-    ]);
+    const selectedEmails = new Set([...recipients.to, ...recipients.cc, ...recipients.bcc]);
+    const groups = [
+      recentRecipients.length ? { heading: 'Recent recipients', people: recentRecipients } : null,
+      groupedDirectoryMatches.contacts.length ? { heading: 'Contacts', people: groupedDirectoryMatches.contacts } : null,
+      groupedDirectoryMatches.clients.length ? { heading: 'Clients', people: groupedDirectoryMatches.clients } : null,
+      groupedDirectoryMatches.users.length ? { heading: 'Users', people: groupedDirectoryMatches.users } : null,
+    ].filter((group): group is { heading: string; people: typeof recentRecipients } => Boolean(group));
 
     return (
-      <Popover open={directoryField === field} onOpenChange={(open) => (open ? openDirectory(field) : closeDirectory())}>
-        <PopoverTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-9 px-3" disabled={!canSendExternal}>
-            <Users className="mr-2 h-4 w-4" />
-            Browse
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[360px] p-0" align="end">
-          <Command>
-            <CommandInput
-              placeholder="Search contacts, clients, and users..."
-              value={directorySearch}
-              onValueChange={setDirectorySearch}
-            />
-            <CommandList>
-              <CommandEmpty>No matching recipients found.</CommandEmpty>
-              {recentRecipients.length > 0 && (
-                <CommandGroup heading="Recent recipients">
-                  {recentRecipients.map((recipient) => (
-                    <CommandItem
-                      key={recipient.id}
-                      value={`${recipient.name ?? ''} ${recipient.email}`}
-                      onSelect={() => {
-                        addRecipient(field, recipient.email);
-                        if (field === 'to') closeDirectory();
-                      }}
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
-                        <span className="truncate text-xs text-muted-foreground">{recipient.email}</span>
-                      </div>
-                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {recentRecipients.length > 0 && filteredDirectoryMatches.length > 0 && <CommandSeparator />}
-              {groupedDirectoryMatches.contacts.length > 0 && (
-                <CommandGroup heading="Contacts">
-                  {groupedDirectoryMatches.contacts.map((recipient) => (
-                    <CommandItem
-                      key={recipient.id}
-                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
-                      onSelect={() => {
-                        addRecipient(field, recipient.email);
-                        if (field === 'to') closeDirectory();
-                      }}
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
-                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
-                      </div>
-                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {groupedDirectoryMatches.clients.length > 0 && (
-                <CommandGroup heading="Clients">
-                  {groupedDirectoryMatches.clients.map((recipient) => (
-                    <CommandItem
-                      key={recipient.id}
-                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
-                      onSelect={() => {
-                        addRecipient(field, recipient.email);
-                        if (field === 'to') closeDirectory();
-                      }}
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
-                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
-                      </div>
-                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {groupedDirectoryMatches.users.length > 0 && (
-                <CommandGroup heading="Users">
-                  {groupedDirectoryMatches.users.map((recipient) => (
-                    <CommandItem
-                      key={recipient.id}
-                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
-                      onSelect={() => {
-                        addRecipient(field, recipient.email);
-                        if (field === 'to') closeDirectory();
-                      }}
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
-                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
-                      </div>
-                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <ComposeDirectoryButton
+        field={field}
+        compact={compactDirectory}
+        disabled={!canSendExternal}
+        open={directoryField === field}
+        search={directorySearch}
+        onSearch={setDirectorySearch}
+        onOpenChange={(open) => (open ? openDirectory(field) : closeDirectory())}
+        groups={groups}
+        selectedEmails={selectedEmails}
+        onPick={(email) => {
+          addRecipient(field, email);
+          if (field === 'to') closeDirectory();
+        }}
+      />
     );
   };
 
@@ -876,8 +745,7 @@ export default function EmailCompose() {
           </div>
         )}
 
-        <div className={compact ? 'flex min-w-0 items-start gap-2' : 'rounded-xl border border-border/70 bg-background p-3'}>
-          {compact && canSendExternal ? <div className="shrink-0 pt-1">{renderDirectoryContent(field)}</div> : null}
+        <div className={compact ? 'flex min-w-0 items-center gap-2' : 'rounded-xl border border-border/70 bg-background p-3'}>
           <div className="min-w-0 flex-1">
           <div className="flex flex-wrap gap-2">
             {selected.map((email) => (
@@ -899,6 +767,7 @@ export default function EmailCompose() {
                     commitRecipientInput(field);
                   }
                 }}
+                aria-label={label}
                 placeholder={compact ? 'Email' : singleRecipient ? 'recipient@example.com' : 'Add addresses and press Enter'}
                 className={compact
                   ? 'h-9 min-w-0 flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0'
@@ -913,6 +782,7 @@ export default function EmailCompose() {
             </div>
           )}
           </div>
+          {compact && canSendExternal ? <div className="shrink-0">{renderDirectoryContent(field)}</div> : null}
         </div>
       </div>
     );
