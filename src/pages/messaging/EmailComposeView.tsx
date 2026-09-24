@@ -3,10 +3,9 @@ import { EmailComposeDesk } from './EmailComposeDesk';
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import type {
   Message, MessageChannelConfig, MessageTemplate, MessagingJsonObject, TemplatePreviewResult,
 } from '@/types/messaging';
@@ -75,16 +74,7 @@ export function EmailComposeView(props: EmailComposeViewProps) {
           <DialogTitle>Schedule this message</DialogTitle>
         </DialogHeader>
         <div className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="compose-scheduled-at">Send at</Label>
-            <Input
-              id="compose-scheduled-at"
-              type="datetime-local"
-              value={form.scheduled_at}
-              onChange={(event) => setFormValue('scheduled_at', event.target.value)}
-              min={new Date().toISOString().slice(0, 16)}
-            />
-          </div>
+          <ScheduleAtField value={form.scheduled_at} onChange={(value) => setFormValue('scheduled_at', value)} />
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
             <p>{previewSubject || 'No subject yet'}</p>
             <p className="mt-2">
@@ -108,4 +98,35 @@ export function EmailComposeView(props: EmailComposeViewProps) {
   }
 
   return <EmailComposeDesk {...props} scheduleDialog={scheduleDialog} />;
+}
+
+function ScheduleAtField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [date = '', rawTime = ''] = value.split('T');
+  const time = rawTime.slice(0, 5);
+  const today = new Date();
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const options = buildServiceTimeOptions(time);
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Date</p>
+        <ServiceDatePicker
+          value={date}
+          minDate={minDate}
+          triggerClassName="h-11 text-sm"
+          onChange={(nextDate) => onChange(nextDate ? `${nextDate}T${time || '09:00'}` : '')}
+        />
+      </div>
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Time</p>
+        <ServiceTimePicker
+          value={time}
+          options={options}
+          triggerClassName="h-11 text-sm"
+          onChange={(nextTime) => onChange(date ? `${date}T${nextTime}` : `${minDate}T${nextTime}`)}
+        />
+      </div>
+    </div>
+  );
 }
