@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { apiClient } from '@/services/api';
 import type { MessagingJsonObject } from '@/types/messaging';
 import { formatFileSize, type DraftAttachmentPlaceholder } from './emailComposeModel';
 
@@ -160,21 +161,33 @@ export function ComposeRobbie({
   onSubject: (value: string) => void;
 }) {
   const [ask, setAsk] = useState('');
-  const [note, setNote] = useState('Uses the details already on this email.');
+  const [note, setNote] = useState('Ask Robbie what the email should say.');
   const [undo, setUndo] = useState<{ body: string; subject: string } | null>(null);
+  const [writing, setWriting] = useState(false);
 
   const remember = () => setUndo({ body, subject });
-  const applyBody = (next: string, message: string) => {
-    remember();
-    onBody(next);
-    setNote(message);
-  };
-
-  const fromShoot = () => {
-    const name = String(variables?.client_name || 'there');
-    const address = String(variables?.shoot_address || 'the property');
-    const when = [variables?.shoot_date, variables?.shoot_time].filter(Boolean).join(' at ') || 'the scheduled time';
-    applyBody(`Hi ${name},\n\nYour shoot at ${address} is ${when}. Reply if anything needs to change.`, 'Drafted from the shoot details on this email.');
+  const assist = async (mode: 'write' | 'shorter' | 'warmer' | 'clearer' | 'subject' | 'from_shoot', instruction?: string) => {
+    if (writing) return;
+    setWriting(true);
+    setNote('Writing...');
+    try {
+      const response = await apiClient.post<{ subject: string; body: string }>('/messaging/email/assist', {
+        mode,
+        instruction,
+        subject,
+        body,
+        variables: variables ?? {},
+      });
+      remember();
+      if (response.data.subject) onSubject(response.data.subject);
+      if (response.data.body) onBody(response.data.body);
+      setNote('Robbie updated the letter. You can still edit it.');
+      if (mode === 'write') setAsk('');
+    } catch {
+      setNote('Robbie could not write that. Try again.');
+    } finally {
+      setWriting(false);
+    }
   };
 
   return (
@@ -189,28 +202,18 @@ export function ComposeRobbie({
           onChange={(event) => setAsk(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || !ask.trim()) return;
-            applyBody(`Hi ${String(variables?.client_name || 'there')},\n\n${ask.trim()}\n\nReply if anything needs to change.`, 'Wrote from your note.');
-            setAsk('');
+            void assist('write', ask.trim());
           }}
         />
-        <button type="button" className="text-sm text-primary" onClick={() => {
-          if (!ask.trim()) return;
-          applyBody(`Hi ${String(variables?.client_name || 'there')},\n\n${ask.trim()}\n\nReply if anything needs to change.`, 'Wrote from your note.');
-          setAsk('');
-        }}>Write</button>
+        <button type="button" className="text-sm text-primary" disabled={writing} onClick={() => { if (ask.trim()) void assist('write', ask.trim()); }}>{writing ? 'Writing' : 'Write'}</button>
       </div>
       <p className="mt-1 truncate px-1 text-xs text-muted-foreground">{note}</p>
       <div className="flex items-center gap-1 overflow-x-auto">
-        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={fromShoot}>From shoot</button>
-        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.split(/\n{2,}/).map((part) => part.split(/(?<=[.!?])\s/)[0] || part).join('\n\n'), 'Shortened the letter.')}>Shorter</button>
-        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.includes('Hope you') ? body : body.replace(/\n\n/, '\n\nHope you are well.\n\n'), 'Warmed the tone.')}>Warmer</button>
-        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.replace(/[ \t]{2,}/g, ' ').trim(), 'Cleared extra spacing.')}>Clearer</button>
-        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => {
-          remember();
-          const next = [variables?.shoot_time, variables?.shoot_address].filter(Boolean).join(' — ');
-          if (next) onSubject(String(next));
-          setNote(next ? 'Subject now leads with the shoot.' : 'Add a shoot time or address first.');
-        }}>Subject</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('from_shoot')}>From shoot</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('shorter')}>Shorter</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('warmer')}>Warmer</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('clearer')}>Clearer</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('subject')}>Subject</button>
         {undo && (
           <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-primary" onClick={() => { onBody(undo.body); onSubject(undo.subject); setUndo(null); setNote('Restored the previous letter.'); }}>Undo</button>
         )}
