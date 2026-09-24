@@ -34,7 +34,7 @@ import {
 } from '@/services/messaging';
 import type { AutomationRule, AutomationSimulationResult, WorkflowDefinition, WorkflowNode, WorkflowNodeType } from '@/types/messaging';
 import { AutomationWorkflowCanvasPanel } from './automation-workflow-editor/AutomationWorkflowCanvasPanel';
-import { AutomationWorkflowDiagnosticsPanel } from './automation-workflow-editor/AutomationWorkflowDiagnosticsPanel';
+import { AutomationWorkflowDock } from './automation-workflow-editor/AutomationWorkflowDock';
 import { AutomationWorkflowEditorHeader } from './automation-workflow-editor/AutomationWorkflowEditorHeader';
 import { AutomationWorkflowInspectorPanel } from './automation-workflow-editor/AutomationWorkflowInspectorPanel';
 import { AutomationWorkflowSidebar } from './automation-workflow-editor/AutomationWorkflowSidebar';
@@ -52,6 +52,13 @@ const canvasNodeTypes: NodeTypes = {
   automationNode: AutomationWorkflowNode,
 };
 
+const mobileSheetClass = (isMobile: boolean, open: boolean) => {
+  if (!isMobile) return 'min-h-0';
+  return open
+    ? 'fixed inset-x-3 bottom-[4.75rem] z-30 max-h-[min(72vh,36rem)] overflow-auto rounded-2xl border bg-background p-1 shadow-xl'
+    : 'hidden';
+};
+
 export default function AutomationWorkflowEditor() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,6 +68,7 @@ export default function AutomationWorkflowEditor() {
   const duplicateAutomation = state.duplicateAutomation;
 
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth < 1024);
+  const [mobilePanel, setMobilePanel] = useState<'details' | 'step' | 'run' | null>(null);
   const [meta, setMeta] = useState(() => createMetaFromAutomation(duplicateAutomation));
   const [workflowMeta, setWorkflowMeta] = useState<Record<string, unknown>>({});
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -169,7 +177,11 @@ export default function AutomationWorkflowEditor() {
   const isStructureLocked = meta.is_system_locked;
 
   useEffect(() => {
-    const handleResize = () => setIsMobileViewport(window.innerWidth < 1024);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobileViewport(mobile);
+      if (!mobile) setMobilePanel(null);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -467,82 +479,116 @@ export default function AutomationWorkflowEditor() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="flex flex-col gap-4 px-0 pt-3 pb-4 sm:px-6 sm:pt-6">
+      <div className="flex min-h-[calc(100dvh-8.5rem)] flex-col gap-3 px-0 pt-3 pb-24 sm:px-6 sm:pt-4 lg:pb-4">
         <AutomationWorkflowEditorHeader
           automationId={automationId}
           meta={meta}
           triggerType={triggerType}
-          summary={summary}
           isReadOnlyMobile={isReadOnlyMobile}
           isDirty={isDirty}
           currentAutomation={currentAutomation}
           currentWorkflow={currentWorkflow}
-          validationValid={Boolean(validationState?.valid)}
-          validatePending={validateMutation.isPending}
           savePending={saveMutation.isPending}
-          simulatePending={simulateMutation.isPending}
           togglePending={toggleMutation.isPending}
-          runPending={runMutation.isPending}
           onBack={() => navigate('/messaging/email/automations')}
           onSave={handleSave}
-          onValidate={handleValidate}
-          onSimulate={handleSimulate}
           onDuplicate={handleDuplicate}
           onToggle={handleToggle}
-          onRun={handleRun}
         />
 
-        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-          <AutomationWorkflowSidebar
-            meta={meta}
-            triggerType={triggerType}
-            summary={summary}
-            availableVariables={availableVariables}
-            isReadOnlyMobile={isReadOnlyMobile}
-            isStructureLocked={isStructureLocked}
-            onMetaChange={(updater) => {
-              setMeta((current) => updater(current));
-              setIsDirty(true);
-            }}
-            onAddNode={handleAddNode}
-            nodePalette={nodeTypesPalette}
-          />
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:grid-rows-[minmax(420px,1fr)_auto]">
+          <div className={mobileSheetClass(isReadOnlyMobile, mobilePanel === 'details')}>
+            <AutomationWorkflowSidebar
+              meta={meta}
+              triggerType={triggerType}
+              availableVariables={availableVariables}
+              isReadOnlyMobile={isReadOnlyMobile}
+              onMetaChange={(updater) => {
+                setMeta((current) => updater(current));
+                setIsDirty(true);
+              }}
+            />
+          </div>
 
-          <AutomationWorkflowCanvasPanel
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={canvasNodeTypes}
-            isReadOnlyMobile={isReadOnlyMobile}
-            isStructureLocked={isStructureLocked}
-            isDirty={isDirty}
-            validationValid={Boolean(validationState?.valid)}
-            onInit={(instance) => {
-              flowRef.current = instance;
-            }}
-            onNodeClick={setSelectedNodeId}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
-            onMoveEnd={setFlowViewport}
-          />
+          <div className="min-h-[420px] lg:col-start-2 lg:row-start-1">
+            <AutomationWorkflowCanvasPanel
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={canvasNodeTypes}
+              isReadOnlyMobile={isReadOnlyMobile}
+              isStructureLocked={isStructureLocked}
+              isDirty={isDirty}
+              validationValid={Boolean(validationState?.valid)}
+              onInit={(instance) => {
+                flowRef.current = instance;
+              }}
+              onNodeClick={(nodeId) => {
+                setSelectedNodeId(nodeId);
+                if (isReadOnlyMobile) setMobilePanel('step');
+              }}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              onMoveEnd={setFlowViewport}
+            />
+          </div>
 
-          <AutomationWorkflowInspectorPanel
-            selectedRawNode={selectedRawNode}
-            currentAutomation={currentAutomation}
-            availableVariables={availableVariables}
-            isReadOnlyMobile={isReadOnlyMobile}
-            isStructureLocked={isStructureLocked}
-            isSystemLocked={meta.is_system_locked}
-            emailTemplates={emailTemplates}
-            smsTemplates={smsTemplates}
-            emailChannels={emailChannels}
-            recentRuns={automationQuery.data?.recent_runs}
-            onDeleteSelectedNode={handleDeleteSelectedNode}
-            updateNode={updateNode}
-          />
+          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'step')} lg:col-start-3 lg:row-start-1 lg:max-h-full lg:overflow-auto`}>
+            <AutomationWorkflowInspectorPanel
+              selectedRawNode={selectedRawNode}
+              currentAutomation={currentAutomation}
+              availableVariables={availableVariables}
+              isReadOnlyMobile={isReadOnlyMobile}
+              isStructureLocked={isStructureLocked}
+              isSystemLocked={meta.is_system_locked}
+              emailTemplates={emailTemplates}
+              smsTemplates={smsTemplates}
+              emailChannels={emailChannels}
+              recentRuns={automationQuery.data?.recent_runs}
+              onDeleteSelectedNode={handleDeleteSelectedNode}
+              updateNode={updateNode}
+            />
+          </div>
+
+          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'run')} lg:col-span-3`}>
+            <AutomationWorkflowDock
+              summary={summary}
+              validationState={validationState ?? null}
+              simulationResult={simulationResult}
+              isReadOnlyMobile={isReadOnlyMobile}
+              isStructureLocked={isStructureLocked}
+              canRun={Boolean(automationId) && meta.scope === 'SYSTEM'}
+              hasSavedAutomation={Boolean(automationId)}
+              nodePalette={nodeTypesPalette}
+              validatePending={validateMutation.isPending}
+              simulatePending={simulateMutation.isPending}
+              runPending={runMutation.isPending}
+              onAddNode={handleAddNode}
+              onValidate={handleValidate}
+              onSimulate={handleSimulate}
+              onRun={handleRun}
+            />
+          </div>
         </div>
 
-        <AutomationWorkflowDiagnosticsPanel validationState={validationState ?? null} simulationResult={simulationResult} />
+        {isReadOnlyMobile && mobilePanel && (
+          <button type="button" className="fixed inset-0 z-20 bg-black/40" aria-label="Close panel" onClick={() => setMobilePanel(null)} />
+        )}
+        {isReadOnlyMobile && (
+          <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 gap-2 border-t bg-background p-2" aria-label="Panels">
+            {(['details', 'step', 'run'] as const).map((panel) => (
+              <Button
+                key={panel}
+                type="button"
+                variant={mobilePanel === panel ? 'default' : 'outline'}
+                aria-pressed={mobilePanel === panel}
+                onClick={() => setMobilePanel((current) => (current === panel ? null : panel))}
+              >
+                {panel === 'details' ? 'Details' : panel === 'step' ? 'This step' : 'Run'}
+              </Button>
+            ))}
+          </nav>
+        )}
       </div>
     </DashboardLayout>
   );

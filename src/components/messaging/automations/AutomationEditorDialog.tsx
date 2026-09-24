@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowRight, Clock3, Sparkles } from 'lucide-react';
 import { toast } from '@/lib/sonner-toast';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +48,22 @@ import {
   weekdayOptions,
 } from './automationEditorModel';
 
+const conditionFieldPresets = [
+  ['shoot.status', 'Shoot status'],
+  ['presence_option', 'Who is on site'],
+  ['has_contact_details', 'Has contact details'],
+  ['has_lockbox_details', 'Has lockbox details'],
+  ['shoot_services', 'Services'],
+  ['shoot_address', 'Address'],
+  ['shoot_notes', 'Notes'],
+  ['notify_client', 'Notify client'],
+  ['notify_photographer', 'Notify photographer'],
+  ['photographer_changed', 'Photographer changed'],
+] as const;
+
+const shootStatusValues = ['requested', 'scheduled', 'uploaded', 'editing', 'review', 'ready', 'delivered', 'on_hold', 'cancelled', 'declined'];
+const presenceValues = ['self', 'other', 'lockbox'];
+
 export function AutomationEditorDialog({ automation, mode, open, onClose, onSuccess }: AutomationEditorDialogProps) {
   const [draft, setDraft] = useState<SimpleAutomationDraft>(createDefaultDraft());
   const isEditMode = mode === 'edit';
@@ -88,6 +102,20 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
 
   const selectedTemplate = filteredTemplates.find((template) => String(template.id) === draft.template_id);
   const flowSteps = getFlowSteps(draft);
+  const conditionPreset = conditionFieldPresets.find(([value]) => value === draft.condition_field);
+  const conditionChoices = draft.condition_field === 'shoot.status'
+    ? shootStatusValues
+    : draft.condition_field === 'presence_option'
+      ? presenceValues
+      : null;
+  const recipientLine = isSystemCommandWorkflow
+    ? 'the system'
+    : draft.recipient_mode === 'automation_default'
+      ? 'the default recipients'
+      : draft.recipient_mode === 'context'
+        ? contextRecipientOptions.find((option) => option.value === draft.context_key)?.label ?? 'a contact from the trigger'
+        : draft.recipient_roles.map((role) => recipientRoleOptions.find((option) => option.value === role)?.label ?? role).join(', ') || 'someone';
+  const liveSentence = `When ${triggerLabels[draft.trigger_type] || draft.trigger_type}, ${actionOptions.find((option) => option.value === draft.action_type)?.label.toLowerCase() ?? 'send'} to ${recipientLine}.`;
 
   useEffect(() => {
     setDraft((current) => {
@@ -287,394 +315,159 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="flex h-[min(92vh,920px)] w-[min(96vw,1200px)] max-w-6xl flex-col overflow-hidden p-0">
+      <DialogContent className="flex max-h-[min(92vh,860px)] w-[min(96vw,760px)] max-w-3xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>
-            {isEditMode ? 'Edit Automation' : automation ? 'Duplicate Automation' : 'Create Automation'}
+            {isEditMode ? 'Change automation' : automation ? 'Duplicate automation' : 'New automation'}
           </DialogTitle>
-          <DialogDescription>
-            Start with a quick form for the common case. We&apos;ll build the workflow for you, then open the advanced editor so you can fine-tune it.
-          </DialogDescription>
+          <DialogDescription>{liveSentence}</DialogDescription>
+          <p className="text-xs text-muted-foreground">{flowSteps.join(' → ')}</p>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="space-y-5">
-            <div className="rounded-3xl border bg-gradient-to-br from-muted/40 to-background p-5">
-              <div className="flex items-center gap-2 text-sm font-medium">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Generated workflow preview
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          {willSimplifyAdvancedWorkflow && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              This automation was built in the workflow editor. Saving here replaces that path with this one-message version.
             </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                {flowSteps.map((step, index) => (
-                  <div key={`${step}-${index}`} className="flex items-center gap-2">
-                    <span className="rounded-full border bg-background px-3 py-1 font-medium text-foreground shadow-sm">{step}</span>
-                  {index < flowSteps.length - 1 && <ArrowRight className="h-4 w-4" />}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                This quick builder creates a clean one-action workflow first. You can branch it out in the editor right after saving.
-              </p>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0">
+              <Label htmlFor="automation-when">When</Label>
+              <Select
+                value={draft.trigger_type}
+                onValueChange={(value) => setDraft((current) => ({ ...current, trigger_type: value as AutomationRule['trigger_type'] }))}
+                disabled={lockStructure}
+              >
+                <SelectTrigger id="automation-when">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {triggerGroups.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.triggers.map((trigger) => (
+                        <SelectItem key={trigger} value={trigger}>
+                          {triggerLabels[trigger] || trigger}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            {willSimplifyAdvancedWorkflow && (
-              <div className="rounded-3xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-                This automation was built in advanced mode. Saving here will convert it into the normal single-action workflow format.
-              </div>
-            )}
-
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
-              <div className="space-y-5">
-                <div className="rounded-3xl border p-5">
-                <div className="mb-4">
-                  <h3 className="font-semibold">Automation Basics</h3>
-                  <p className="text-sm text-muted-foreground">Define what starts the automation and how it should be labeled.</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label>Name</Label>
-                    <Input
-                      value={draft.name}
-                      onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                      placeholder="Property access follow-up"
-                    />
-                  </div>
-                  <div>
-                    <Label>Description</Label>
-                    <Textarea
-                      value={draft.description}
-                      onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-                      placeholder="Explain what this automation should do."
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label>Automation type</Label>
-                      <Select
-                        value={draft.trigger_mode}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            trigger_mode: value as SimpleAutomationDraft['trigger_mode'],
-                            timing_mode: value === 'schedule' ? 'immediate' : current.timing_mode,
-                          }))
-                        }
-                        disabled={lockStructure}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="event">Event-based</SelectItem>
-                          <SelectItem value="schedule">Scheduled weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Trigger</Label>
-                      <Select
-                        value={draft.trigger_type}
-                        onValueChange={(value) => setDraft((current) => ({ ...current, trigger_type: value as AutomationRule['trigger_type'] }))}
-                        disabled={lockStructure}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {triggerGroups.map((group) => (
-                            <SelectGroup key={group.label}>
-                              <SelectLabel>{group.label}</SelectLabel>
-                              {group.triggers.map((trigger) => (
-                                <SelectItem key={trigger} value={trigger}>
-                                  {triggerLabels[trigger] || trigger}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Scope</Label>
-                      <Select
-                        value={draft.scope}
-                        onValueChange={(value) => setDraft((current) => ({ ...current, scope: value as AutomationRule['scope'] }))}
-                        disabled={lockStructure || draft.trigger_mode === 'schedule'}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="GLOBAL">Global</SelectItem>
-                          <SelectItem value="ACCOUNT">Account</SelectItem>
-                          <SelectItem value="USER">User</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {isScheduleWorkflow && (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <Label>Runs every</Label>
-                        <Select
-                          value={draft.schedule_day_of_week}
-                          onValueChange={(value) => setDraft((current) => ({ ...current, schedule_day_of_week: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {weekdayOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Run time</Label>
-                        <Input
-                          type="time"
-                          value={draft.schedule_time}
-                          onChange={(event) => setDraft((current) => ({ ...current, schedule_time: event.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between rounded-2xl border p-4">
-                    <div>
-                      <div className="font-medium">Active on save</div>
-                      <div className="text-sm text-muted-foreground">You can toggle it off later from the workflow view.</div>
-                    </div>
-                    <Switch
-                      checked={draft.is_active}
-                      onCheckedChange={(checked) => setDraft((current) => ({ ...current, is_active: checked }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-                <div className="rounded-3xl border p-5">
-                <div className="mb-4">
-                  <h3 className="font-semibold">Action</h3>
-                  <p className="text-sm text-muted-foreground">Choose the channel and message source for this automation.</p>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
+            <div className="min-w-0">
+              <Label htmlFor="automation-runs">Runs</Label>
+              <Select
+                value={draft.trigger_mode}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    trigger_mode: value as SimpleAutomationDraft['trigger_mode'],
+                    timing_mode: value === 'schedule' ? 'immediate' : current.timing_mode,
+                  }))
+                }
+                disabled={lockStructure}
+              >
+                <SelectTrigger id="automation-runs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="event">When that happens</SelectItem>
+                  <SelectItem value="schedule">Every week</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-0">
+              <Label htmlFor="automation-sends">Sends</Label>
+              <Select
+                value={draft.action_type}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    action_type: value as SimpleAutomationDraft['action_type'],
+                    trigger_mode: value === 'system_command' ? 'schedule' : current.trigger_mode,
+                    template_id: '',
+                    channel_id: value === 'email' ? current.channel_id : '',
+                    recipient_mode: value === 'internal_notification' ? 'roles' : current.recipient_mode,
+                    recipient_roles:
+                      value === 'internal_notification' && current.recipient_roles.length === 0
+                        ? ['admin']
+                        : current.recipient_roles,
+                  }))
+                }
+                disabled={lockStructure}
+              >
+                <SelectTrigger id="automation-sends">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {actionOptions
                     .filter((option) => option.value !== 'system_command' || isScheduleWorkflow || isSystemCommandWorkflow)
-                    .map((option) => {
-                    const Icon = option.icon;
-                    const isActive = draft.action_type === option.value;
+                    .map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-0">
+              <Label htmlFor="automation-name">Name</Label>
+              <Input
+                id="automation-name"
+                value={draft.name}
+                onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Property access follow-up"
+              />
+            </div>
+          </div>
 
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`rounded-2xl border p-4 text-left transition ${isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
-                        disabled={lockStructure}
-                        onClick={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            action_type: option.value,
-                            trigger_mode: option.value === 'system_command' ? 'schedule' : current.trigger_mode,
-                            template_id: '',
-                            channel_id: option.value === 'email' ? current.channel_id : '',
-                            recipient_mode: option.value === 'internal_notification' ? 'roles' : current.recipient_mode,
-                            recipient_roles:
-                              option.value === 'internal_notification' && current.recipient_roles.length === 0
-                                ? ['admin']
-                                : current.recipient_roles,
-                          }))
-                        }
-                      >
-                        <Icon className="h-5 w-5 text-primary" />
-                        <div className="mt-3 font-medium">{option.label}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">{option.description}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-5 space-y-4">
-                  {isSystemCommandWorkflow && (
-                    <div className="rounded-2xl border bg-muted/20 p-4">
-                      <div className="font-medium">System command workflow</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        This automation is executed by the system runner on a weekly schedule.
-                      </div>
-                      <div className="mt-3 rounded-xl border bg-background px-3 py-2 text-sm">
-                        {draft.system_command || 'No command configured'}
-                      </div>
-                    </div>
-                  )}
-
-                  {draft.action_type !== 'internal_notification' && (
-                    <div>
-                      <Label>{draft.action_type === 'sms' ? 'SMS Template' : 'Email Template'}</Label>
-                      <Select
-                        value={draft.template_id || 'inline'}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            template_id: value === 'inline' ? '' : value,
-                          }))
-                        }
-                        disabled={isSystemCommandWorkflow}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="inline">Write inline copy</SelectItem>
-                          {filteredTemplates.map((template) => (
-                            <SelectItem key={template.id} value={String(template.id)}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedTemplate && (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Using template: <span className="font-medium text-foreground">{selectedTemplate.name}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {draft.action_type === 'email' && (
-                    <div>
-                      <Label>Email Channel</Label>
-                      <Select
-                        value={draft.channel_id || 'default'}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            channel_id: value === 'default' ? '' : value,
-                          }))
-                        }
-                        disabled={isSystemCommandWorkflow}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="default">Use default sending channel</SelectItem>
-                          {emailChannels.map((channel) => (
-                            <SelectItem key={channel.id} value={String(channel.id)}>
-                              {channel.display_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {!draft.template_id && draft.action_type === 'email' && (
-                    <>
-                      <div>
-                        <Label>Email Subject</Label>
-                        <Input
-                          value={draft.subject}
-                          onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))}
-                          placeholder="Your shoot has been confirmed"
-                        />
-                      </div>
-                      <div>
-                        <Label>Email Copy</Label>
-                        <Textarea
-                          value={draft.body_text}
-                          onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
-                          placeholder="Hi {{client.name}}, here is your update..."
-                          rows={4}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {!draft.template_id && draft.action_type === 'sms' && (
-                    <div>
-                      <Label>SMS Copy</Label>
-                      <Textarea
-                        value={draft.body_text}
-                        onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
-                        placeholder="Hi {{client.name}}, please send over the lockbox details."
-                        rows={4}
-                      />
-                    </div>
-                  )}
-
-                  {draft.action_type === 'internal_notification' && (
-                    <>
-                      <div>
-                        <Label>Notification Title</Label>
-                        <Input
-                          value={draft.title}
-                          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                          placeholder="Review missing access details"
-                        />
-                      </div>
-                      <div>
-                        <Label>Notification Body</Label>
-                        <Textarea
-                          value={draft.body_text}
-                          onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
-                          placeholder="Property contact details are still missing for {{shoot_address}}."
-                          rows={4}
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label>Destination Link</Label>
-                          <Input
-                            value={draft.destination_url}
-                            onChange={(event) => setDraft((current) => ({ ...current, destination_url: event.target.value }))}
-                            placeholder="/shoot-history"
-                          />
-                        </div>
-                        <div>
-                          <Label>Priority</Label>
-                          <Select
-                            value={draft.priority}
-                            onValueChange={(value) => setDraft((current) => ({ ...current, priority: value as SimpleAutomationDraft['priority'] }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="normal">Normal</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+          {isScheduleWorkflow && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Day</Label>
+                <Select
+                  value={draft.schedule_day_of_week}
+                  onValueChange={(value) => setDraft((current) => ({ ...current, schedule_day_of_week: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekdayOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
+              <div>
+                <Label htmlFor="automation-time">Time</Label>
+                <Input
+                  id="automation-time"
+                  type="time"
+                  value={draft.schedule_time}
+                  onChange={(event) => setDraft((current) => ({ ...current, schedule_time: event.target.value }))}
+                />
               </div>
+            </div>
+          )}
 
-              <div className="space-y-5">
-                <div className="rounded-3xl border p-5">
-                <div className="mb-4">
-                  <h3 className="font-semibold">Recipients</h3>
-                  <p className="text-sm text-muted-foreground">Choose who should receive the generated action.</p>
-                </div>
+          {isSystemCommandWorkflow && (
+            <div className="rounded-2xl border bg-muted/30 px-4 py-3 text-sm">
+              <div className="font-medium">System command</div>
+              <div className="mt-1 text-muted-foreground">{draft.system_command || 'No command configured'}</div>
+            </div>
+          )}
 
-                {isSystemCommandWorkflow ? (
-                  <div className="rounded-2xl border bg-muted/20 p-4 text-sm text-muted-foreground">
-                    System command automations run internally and do not send to recipients directly.
-                  </div>
-                ) : (
-                  <>
+          {!isSystemCommandWorkflow && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <Label>Who</Label>
                 {draft.action_type !== 'internal_notification' && (
-                  <div className="space-y-3">
-                    <Label>Recipient source</Label>
+                  <div className="min-w-[16rem]">
                     <Select
                       value={draft.recipient_mode}
                       onValueChange={(value) =>
@@ -684,241 +477,432 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                         }))
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Recipient source">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="roles">Choose recipients here</SelectItem>
-                        <SelectItem value="automation_default">Use automation default recipients</SelectItem>
-                        <SelectItem value="context">Use one contact from the trigger</SelectItem>
+                        <SelectItem value="roles">Choose people here</SelectItem>
+                        <SelectItem value="automation_default">Use the automation default</SelectItem>
+                        <SelectItem value="context">Use a contact from the trigger</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 )}
-
-                {draft.recipient_mode === 'context' && draft.action_type !== 'internal_notification' ? (
-                  <div className="mt-4">
-                    <Label>Context recipient</Label>
-                    <Select
-                      value={draft.context_key}
-                      onValueChange={(value) =>
-                        setDraft((current) => ({
-                          ...current,
-                          context_key: value as SimpleAutomationDraft['context_key'],
-                        }))
-                      }
+              </div>
+              {draft.recipient_mode === 'context' && draft.action_type !== 'internal_notification' ? (
+                <Select
+                  value={draft.context_key}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      context_key: value as SimpleAutomationDraft['context_key'],
+                    }))
+                  }
+                >
+                  <SelectTrigger aria-label="Context recipient">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contextRecipientOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Who">
+                  {recipientRoleOptions.map((role) => (
+                    <button
+                      key={role.value}
+                      type="button"
+                      aria-pressed={draft.recipient_roles.includes(role.value)}
+                      className={`rounded-full border px-3 py-1.5 text-sm ${draft.recipient_roles.includes(role.value) ? 'border-primary bg-primary/10' : 'bg-background'}`}
+                      onClick={() => toggleRecipient(role.value)}
                     >
-                      <SelectTrigger>
+                      {role.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {draft.action_type !== 'internal_notification' && draft.action_type !== 'system_command' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
+                <Label htmlFor="automation-message">Message</Label>
+                <Select
+                  value={draft.template_id || 'inline'}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      template_id: value === 'inline' ? '' : value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="automation-message">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inline">Write the message</SelectItem>
+                    {filteredTemplates.map((template) => (
+                      <SelectItem key={template.id} value={String(template.id)}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedTemplate && <p className="mt-2 text-xs text-muted-foreground">Using {selectedTemplate.name}</p>}
+              </div>
+              {draft.action_type === 'email' && (
+                <div className="min-w-0">
+                  <Label>Sending channel</Label>
+                  <Select
+                    value={draft.channel_id || 'default'}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        channel_id: value === 'default' ? '' : value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default channel</SelectItem>
+                      {emailChannels.map((channel) => (
+                        <SelectItem key={channel.id} value={String(channel.id)}>
+                          {channel.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!draft.template_id && draft.action_type === 'email' && (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="automation-subject">Subject</Label>
+                <Input
+                  id="automation-subject"
+                  value={draft.subject}
+                  onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))}
+                  placeholder="Your shoot has been confirmed"
+                />
+              </div>
+              <div>
+                <Label htmlFor="automation-body">Message</Label>
+                <Textarea
+                  id="automation-body"
+                  value={draft.body_text}
+                  onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
+                  placeholder="Hi {{client.name}}, here is your update..."
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+
+          {!draft.template_id && draft.action_type === 'sms' && (
+            <div>
+              <Label htmlFor="automation-sms">Text</Label>
+              <Textarea
+                id="automation-sms"
+                value={draft.body_text}
+                onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
+                placeholder="Hi {{client.name}}, please send over the lockbox details."
+                rows={4}
+              />
+            </div>
+          )}
+
+          {draft.action_type === 'internal_notification' && (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="automation-title">Notification title</Label>
+                <Input
+                  id="automation-title"
+                  value={draft.title}
+                  onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                  placeholder="Review missing access details"
+                />
+              </div>
+              <div>
+                <Label htmlFor="automation-note">Notification message</Label>
+                <Textarea
+                  id="automation-note"
+                  value={draft.body_text}
+                  onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))}
+                  placeholder="Property contact details are still missing for {{shoot_address}}."
+                  rows={4}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="automation-link">Destination link</Label>
+                  <Input
+                    id="automation-link"
+                    value={draft.destination_url}
+                    onChange={(event) => setDraft((current) => ({ ...current, destination_url: event.target.value }))}
+                    placeholder="/shoot-history"
+                  />
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Select
+                    value={draft.priority}
+                    onValueChange={(value) => setDraft((current) => ({ ...current, priority: value as SimpleAutomationDraft['priority'] }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label htmlFor="automation-description">Description</Label>
+              <Textarea
+                id="automation-description"
+                value={draft.description}
+                onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+                placeholder="Explain what this automation should do."
+                rows={2}
+              />
+            </div>
+            <div>
+              <Label>Scope</Label>
+              <Select
+                value={draft.scope === 'SYSTEM' ? 'GLOBAL' : draft.scope}
+                onValueChange={(value) => setDraft((current) => ({ ...current, scope: value as AutomationRule['scope'] }))}
+                disabled={lockStructure || draft.trigger_mode === 'schedule'}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GLOBAL">Global</SelectItem>
+                  <SelectItem value="ACCOUNT">Account</SelectItem>
+                  <SelectItem value="USER">User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {!isScheduleWorkflow && (
+            <div className="space-y-3">
+              <Label>Wait</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  aria-pressed={draft.timing_mode === 'immediate'}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${draft.timing_mode === 'immediate' ? 'border-primary bg-primary/10' : 'bg-background'}`}
+                  onClick={() => setDraft((current) => ({ ...current, timing_mode: 'immediate' }))}
+                >
+                  Right away
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={draft.timing_mode === 'offset'}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${draft.timing_mode === 'offset' ? 'border-primary bg-primary/10' : 'bg-background'} ${!shootBasedTriggers.has(draft.trigger_type) ? 'cursor-not-allowed opacity-60' : ''}`}
+                  disabled={!shootBasedTriggers.has(draft.trigger_type)}
+                  onClick={() =>
+                    shootBasedTriggers.has(draft.trigger_type) &&
+                    setDraft((current) => ({ ...current, timing_mode: 'offset' }))
+                  }
+                >
+                  From the shoot time
+                </button>
+              </div>
+              {!shootBasedTriggers.has(draft.trigger_type) && (
+                <p className="text-xs text-amber-700">This trigger has no shoot time, so it sends right away.</p>
+              )}
+              {draft.timing_mode === 'offset' && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Select
+                    value={draft.offset_direction}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        offset_direction: value as SimpleAutomationDraft['offset_direction'],
+                      }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Direction">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="before">Before the shoot</SelectItem>
+                      <SelectItem value="after">After the shoot</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min="1"
+                    aria-label="Amount"
+                    value={draft.offset_value}
+                    onChange={(event) => setDraft((current) => ({ ...current, offset_value: event.target.value }))}
+                  />
+                  <Select
+                    value={draft.offset_unit}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        offset_unit: value as SimpleAutomationDraft['offset_unit'],
+                      }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Unit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="m">Minutes</SelectItem>
+                      <SelectItem value="h">Hours</SelectItem>
+                      <SelectItem value="d">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3 rounded-2xl border px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={draft.use_condition}
+                onCheckedChange={(checked) => setDraft((current) => ({ ...current, use_condition: checked }))}
+                aria-label="Only send if"
+              />
+              <span className="text-sm font-medium">Only send if</span>
+            </div>
+            {draft.use_condition && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Select
+                  value={conditionPreset ? draft.condition_field : 'custom'}
+                  onValueChange={(value) =>
+                    setDraft((current) => {
+                      const choices = value === 'shoot.status' ? shootStatusValues : value === 'presence_option' ? presenceValues : null;
+                      return {
+                        ...current,
+                        condition_field: value === 'custom'
+                          ? (conditionFieldPresets.some(([preset]) => preset === current.condition_field) ? '' : current.condition_field)
+                          : value,
+                        condition_value: choices && current.condition_operator !== 'exists' && !choices.includes(current.condition_value)
+                          ? choices[0]
+                          : current.condition_value,
+                      };
+                    })
+                  }
+                >
+                  <SelectTrigger aria-label="Field">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {conditionFieldPresets.map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom field</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={draft.condition_operator}
+                  onValueChange={(value) => setDraft((current) => ({ ...current, condition_operator: value }))}
+                >
+                  <SelectTrigger aria-label="Check">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eq">Equals</SelectItem>
+                    <SelectItem value="neq">Does not equal</SelectItem>
+                    <SelectItem value="gt">Greater than</SelectItem>
+                    <SelectItem value="gte">Greater than or equal</SelectItem>
+                    <SelectItem value="lt">Less than</SelectItem>
+                    <SelectItem value="lte">Less than or equal</SelectItem>
+                    <SelectItem value="contains">Contains</SelectItem>
+                    <SelectItem value="in">Is one of</SelectItem>
+                    <SelectItem value="exists">Exists</SelectItem>
+                  </SelectContent>
+                </Select>
+                {!conditionPreset && (
+                  <Input
+                    aria-label="Field name"
+                    value={draft.condition_field}
+                    onChange={(event) => setDraft((current) => ({ ...current, condition_field: event.target.value }))}
+                    placeholder="days_before"
+                  />
+                )}
+                {draft.condition_operator !== 'exists' && (
+                  conditionChoices ? (
+                    <Select
+                      value={conditionChoices.includes(draft.condition_value) ? draft.condition_value : conditionChoices[0]}
+                      onValueChange={(value) => setDraft((current) => ({ ...current, condition_value: value }))}
+                    >
+                      <SelectTrigger aria-label="Value">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {contextRecipientOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {conditionChoices.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value.replace(/_/g, ' ')}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                ) : (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    {recipientRoleOptions.map((role) => (
-                      <label key={role.value} className="flex items-center gap-3 rounded-2xl border p-3">
-                        <Checkbox
-                          checked={draft.recipient_roles.includes(role.value)}
-                          onCheckedChange={() => toggleRecipient(role.value)}
-                        />
-                        <span className="text-sm font-medium">{role.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                  </>
-                )}
-              </div>
-
-                <div className="rounded-3xl border p-5">
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold">Timing & Filter</h3>
-                    <p className="text-sm text-muted-foreground">Optionally wait from shoot time or add one quick rule.</p>
-                  </div>
-                  <Clock3 className="h-5 w-5 text-muted-foreground" />
-                </div>
-
-                <div className="space-y-4">
-                  {!isScheduleWorkflow && (
-                  <div>
-                    <Label>Send timing</Label>
-                    <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-                      <button
-                        type="button"
-                        className={`rounded-2xl border p-3 text-left transition ${draft.timing_mode === 'immediate' ? 'border-primary bg-primary/5' : 'border-border'}`}
-                        onClick={() => setDraft((current) => ({ ...current, timing_mode: 'immediate' }))}
-                      >
-                        <div className="font-medium">Immediately on trigger</div>
-                        <div className="text-xs text-muted-foreground">Best for confirmations and instant alerts.</div>
-                      </button>
-                      <button
-                        type="button"
-                        className={`rounded-2xl border p-3 text-left transition ${draft.timing_mode === 'offset' ? 'border-primary bg-primary/5' : 'border-border'} ${!shootBasedTriggers.has(draft.trigger_type) ? 'cursor-not-allowed opacity-60' : ''}`}
-                        onClick={() =>
-                          shootBasedTriggers.has(draft.trigger_type) &&
-                          setDraft((current) => ({ ...current, timing_mode: 'offset' }))
-                        }
-                        disabled={!shootBasedTriggers.has(draft.trigger_type)}
-                      >
-                        <div className="font-medium">Wait from shoot time</div>
-                        <div className="text-xs text-muted-foreground">Useful for reminders before or after the scheduled shoot.</div>
-                      </button>
-                    </div>
-                  </div>
-                  )}
-
-                  {!isScheduleWorkflow && draft.timing_mode === 'offset' && (
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div>
-                        <Label>Direction</Label>
-                        <Select
-                          value={draft.offset_direction}
-                          onValueChange={(value) =>
-                            setDraft((current) => ({
-                              ...current,
-                              offset_direction: value as SimpleAutomationDraft['offset_direction'],
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="before">Before shoot</SelectItem>
-                            <SelectItem value="after">After shoot</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Amount</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={draft.offset_value}
-                          onChange={(event) => setDraft((current) => ({ ...current, offset_value: event.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label>Unit</Label>
-                        <Select
-                          value={draft.offset_unit}
-                          onValueChange={(value) =>
-                            setDraft((current) => ({
-                              ...current,
-                              offset_unit: value as SimpleAutomationDraft['offset_unit'],
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="m">Minutes</SelectItem>
-                            <SelectItem value="h">Hours</SelectItem>
-                            <SelectItem value="d">Days</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isScheduleWorkflow && !shootBasedTriggers.has(draft.trigger_type) && (
-                    <p className="text-xs text-amber-600">This trigger does not carry a shoot date/time, so only immediate delivery is supported.</p>
-                  )}
-
-                  <div className="flex items-center justify-between rounded-2xl border p-4">
-                    <div>
-                      <div className="font-medium">Add one condition</div>
-                      <div className="text-sm text-muted-foreground">Filter this workflow before the action runs.</div>
-                    </div>
-                    <Switch
-                      checked={draft.use_condition}
-                      onCheckedChange={(checked) => setDraft((current) => ({ ...current, use_condition: checked }))}
+                  ) : (
+                    <Input
+                      aria-label="Value"
+                      value={draft.condition_value}
+                      onChange={(event) => setDraft((current) => ({ ...current, condition_value: event.target.value }))}
+                      placeholder={draft.condition_operator === 'in' ? 'scheduled, completed' : 'Value'}
                     />
-                  </div>
-
-                  {draft.use_condition && (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <Label>Field</Label>
-                        <Input
-                          value={draft.condition_field}
-                          onChange={(event) => setDraft((current) => ({ ...current, condition_field: event.target.value }))}
-                          placeholder="status or days_before"
-                        />
-                      </div>
-                      <div>
-                        <Label>Operator</Label>
-                        <Select
-                          value={draft.condition_operator}
-                          onValueChange={(value) => setDraft((current) => ({ ...current, condition_operator: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="eq">Equals</SelectItem>
-                            <SelectItem value="neq">Does not equal</SelectItem>
-                            <SelectItem value="gt">Greater than</SelectItem>
-                            <SelectItem value="gte">Greater than or equal</SelectItem>
-                            <SelectItem value="lt">Less than</SelectItem>
-                            <SelectItem value="lte">Less than or equal</SelectItem>
-                            <SelectItem value="contains">Contains</SelectItem>
-                            <SelectItem value="exists">Exists</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Match rule</Label>
-                        <Select
-                          value={draft.condition_match}
-                          onValueChange={(value) =>
-                            setDraft((current) => ({
-                              ...current,
-                              condition_match: value as SimpleAutomationDraft['condition_match'],
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All rules must pass</SelectItem>
-                            <SelectItem value="any">Any rule can pass</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {draft.condition_operator !== 'exists' && (
-                        <div className="sm:col-span-2">
-                          <Label>Value</Label>
-                          <Input
-                            value={draft.condition_value}
-                            onChange={(event) => setDraft((current) => ({ ...current, condition_value: event.target.value }))}
-                            placeholder="scheduled"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  )
+                )}
+                <Select
+                  value={draft.condition_match}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      condition_match: value as SimpleAutomationDraft['condition_match'],
+                    }))
+                  }
+                >
+                  <SelectTrigger aria-label="Match rule">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All rules must pass</SelectItem>
+                    <SelectItem value="any">Any rule can pass</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
           </div>
-        </div>
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            After saving, the advanced workflow editor opens so you can inspect or expand the generated flow.
-          </p>
+          <label className="flex items-center gap-3 text-sm">
+            <Switch
+              checked={draft.is_active}
+              onCheckedChange={(checked) => setDraft((current) => ({ ...current, is_active: checked }))}
+              aria-label="On when saved"
+            />
+            On when saved
+          </label>
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -927,10 +911,10 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
               {saveMutation.isPending
                 ? 'Saving...'
                 : isEditMode
-                  ? 'Save and Open Workflow'
+                  ? 'Save and open workflow'
                   : automation
-                    ? 'Duplicate and Open Workflow'
-                    : 'Create and Open Workflow'}
+                    ? 'Duplicate and open workflow'
+                    : 'Create and open workflow'}
             </Button>
           </div>
         </div>
