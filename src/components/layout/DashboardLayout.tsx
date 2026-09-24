@@ -67,7 +67,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const shouldHideFooter =
     hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
-    location.pathname === '/messaging/sms';
+    location.pathname === '/messaging/sms' ||
+    location.pathname === '/messaging/email/compose';
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';

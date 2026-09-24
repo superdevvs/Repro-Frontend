@@ -38,7 +38,7 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
           <Button type="button" variant="ghost" className="h-11" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(true)}>Details</Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {!canSendExternal && (
             <div className="space-y-3 border-b border-border/70 px-4 py-3">
               <div className="grid grid-cols-2 gap-2">
@@ -114,7 +114,7 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
               value={form.body_text}
               onChange={(event) => writeBody(event.target.value)}
               placeholder="Write your message"
-              className="min-h-[40vh] resize-none rounded-none border-0 px-4 py-3 text-base shadow-none focus-visible:ring-0"
+              className="min-h-0 flex-1 resize-none rounded-none border-0 px-4 py-3 text-base shadow-none focus-visible:ring-0"
             />
           )}
 
@@ -136,7 +136,7 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
           />
         )}
 
-        <div className="flex shrink-0 items-center gap-1 border-t border-border/70 px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        <div className="flex shrink-0 items-center gap-1 border-t border-border/70 px-2 py-1">
           {canSendExternal && (
             <Button type="button" variant="ghost" className="h-11 px-2" aria-label={previewMode ? 'Edit message' : 'Preview message'} onClick={() => setPreviewMode((value) => !value)}>
               {previewMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}

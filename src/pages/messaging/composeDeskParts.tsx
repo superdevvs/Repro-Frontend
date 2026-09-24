@@ -178,7 +178,7 @@ export function ComposeRobbie({
   };
 
   return (
-    <div className="border-t border-border/70 bg-muted/20 px-3 py-2">
+    <div className="shrink-0 border-t border-border/70 bg-muted/20 px-3 py-2">
       <div className="flex min-h-11 items-center gap-2 rounded-xl border border-border/70 bg-background px-3">
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Robbie</span>
         <input
@@ -199,20 +199,20 @@ export function ComposeRobbie({
           setAsk('');
         }}>Write</button>
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-        <span className="mr-auto min-w-0 text-xs text-muted-foreground">{note}</span>
-        <button type="button" className="h-11 rounded-lg px-2 text-sm text-muted-foreground" onClick={fromShoot}>From shoot</button>
-        <button type="button" className="h-11 rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.split(/\n{2,}/).map((part) => part.split(/(?<=[.!?])\s/)[0] || part).join('\n\n'), 'Shortened the letter.')}>Shorter</button>
-        <button type="button" className="h-11 rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.includes('Hope you') ? body : body.replace(/\n\n/, '\n\nHope you are well.\n\n'), 'Warmed the tone.')}>Warmer</button>
-        <button type="button" className="h-11 rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.replace(/[ \t]{2,}/g, ' ').trim(), 'Cleared extra spacing.')}>Clearer</button>
-        <button type="button" className="h-11 rounded-lg px-2 text-sm text-muted-foreground" onClick={() => {
+      <p className="mt-1 truncate px-1 text-xs text-muted-foreground">{note}</p>
+      <div className="flex items-center gap-1 overflow-x-auto">
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={fromShoot}>From shoot</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.split(/\n{2,}/).map((part) => part.split(/(?<=[.!?])\s/)[0] || part).join('\n\n'), 'Shortened the letter.')}>Shorter</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.includes('Hope you') ? body : body.replace(/\n\n/, '\n\nHope you are well.\n\n'), 'Warmed the tone.')}>Warmer</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => applyBody(body.replace(/[ \t]{2,}/g, ' ').trim(), 'Cleared extra spacing.')}>Clearer</button>
+        <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" onClick={() => {
           remember();
           const next = [variables?.shoot_time, variables?.shoot_address].filter(Boolean).join(' — ');
           if (next) onSubject(String(next));
           setNote(next ? 'Subject now leads with the shoot.' : 'Add a shoot time or address first.');
         }}>Subject</button>
         {undo && (
-          <button type="button" className="h-11 rounded-lg px-2 text-sm text-primary" onClick={() => { onBody(undo.body); onSubject(undo.subject); setUndo(null); setNote('Restored the previous letter.'); }}>Undo</button>
+          <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-primary" onClick={() => { onBody(undo.body); onSubject(undo.subject); setUndo(null); setNote('Restored the previous letter.'); }}>Undo</button>
         )}
       </div>
     </div>
