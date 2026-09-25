@@ -122,6 +122,7 @@ def restore(records,check=True):
         if r['backup']:atomic(path,P(r['backup']).read_bytes(),r['mode'],r['uid'],r['gid'])
         elif path.exists():path.unlink()
     cache();run(['/usr/sbin/php-fpm8.3','-t']);run(['/usr/sbin/nginx','-t']);run(['systemctl','reload','php8.3-fpm','nginx'])
+    run(['runuser','--user','maverick','--group','www-data','--','php','artisan','queue:restart'],cwd='/var/www/backend')
 def activate(args):
     installation=json.loads((STATE/'installation.json').read_text());manifest=installation['manifest'];release=(PREFIX/'current').resolve();wait_ready()
     if (STATE/'activation.json').exists():raise RuntimeError('Activation already recorded')
