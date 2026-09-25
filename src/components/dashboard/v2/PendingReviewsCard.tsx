@@ -1,3 +1,5 @@
+import { HoldRequestsPanel } from './HoldRequestsPanel';
+import type { HoldRequestsState } from '@/features/dashboard/hooks/useHoldRequests';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
@@ -13,11 +15,12 @@ import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
-type RequestsTab = 'client' | 'editing' | 'cancellation';
+type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold';
 
 export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
+  holdRequests?: HoldRequestsState;
   reviews: DashboardShootSummary[];
   issues: DashboardIssueItem[];
   onSelect: (shoot: DashboardShootSummary) => void;
@@ -110,6 +113,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(({
+  holdRequests,
   reviews,
   issues,
   onSelect,
@@ -218,6 +222,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     tabs.push({ id: 'cancellation', label: 'Cancellation', count: safeCancellationShoots.length });
   }
 
+  if (holdRequests) {
+    tabs.push({ id: 'hold', label: 'Hold', count: holdRequests.shoots.length });
+  }
+
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
   const isEmpty = totalRequests === 0;
 
@@ -230,7 +238,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
 
         {/* Tabs */}
         {tabs.length > 1 && (
-          <div className="flex gap-1 mb-2 flex-shrink-0 border-b border-border pb-2">
+          <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 border-b border-border pb-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -247,6 +255,8 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
             ))}
           </div>
         )}
+
+        {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
 
         {/* Client Tab Content */}
         {activeTab === 'client' && (

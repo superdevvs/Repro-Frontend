@@ -15,6 +15,7 @@ interface AvailabilityWindow {
 }
 
 interface AssignPhotographersCardProps {
+  initialTab?: Tab;
   photographers: DashboardPhotographerSummary[];
   onPhotographerSelect: (photographer: DashboardPhotographerSummary) => void;
   onViewSchedule?: () => void;
@@ -89,6 +90,7 @@ const HoverMarqueeText: React.FC<{ text: string; className?: string }> = ({ text
 };
 
 export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = ({
+  initialTab = 'available',
   photographers,
   onPhotographerSelect,
   onViewSchedule,
@@ -102,7 +104,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   const { openModal } = usePhotographerAssignment();
   const sectionGutter = 'px-3 sm:px-5';
   const listGutter = 'px-0.5 sm:px-3';
-  const [tab, setTab] = useState<Tab>('available');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');

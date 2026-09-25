@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, format, startOfMonth, endOfMonth, startOfWeek } from "date-fns";
 import API_ROUTES from "@/lib/api";
+import { getAuthToken } from "@/utils/authToken";
 import { API_BASE_URL } from "@/config/env";
 import type { BackendSlot, Photographer } from "@/types/availability";
 import { mapBackendSlots, normalizeAvailabilityDate } from "@/lib/availability/utils";
@@ -67,7 +68,7 @@ export function useAvailabilityData({
   const photographersCacheTimeKey = `photographers_cache_time:${availabilitySessionScope}`;
 
   const authHeaders = useCallback(() => {
-    const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+    const token = getAuthToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
@@ -126,9 +127,7 @@ export function useAvailabilityData({
         ? format(weekEnd, 'yyyy-MM-dd')
         : format(monthEnd, 'yyyy-MM-dd');
 
-      const token = localStorage.getItem('authToken');
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const headers = authHeaders();
 
       if (selectedPhotographer === 'all') {
         if (isPhotographer || !photographers || photographers.length === 0) {
@@ -196,7 +195,7 @@ export function useAvailabilityData({
             const batchResults = await Promise.all(
               batch.map(async (p) => {
                 try {
-                  const response = await fetch(API_ROUTES.photographerAvailability.list(p.id), { signal });
+                  const response = await fetch(API_ROUTES.photographerAvailability.list(p.id), { signal, headers });
                   if (!response.ok) throw new Error('Failed to load availability');
                   const json = await response.json();
                   return { id: p.id, slots: mapBackendSlots((json?.data || []) as readonly unknown[], p.id) };
@@ -218,7 +217,7 @@ export function useAvailabilityData({
       }
 
       const [availabilityResponse, bookedResponse] = await Promise.all([
-        fetch(API_ROUTES.photographerAvailability.list(selectedPhotographer), { signal }),
+        fetch(API_ROUTES.photographerAvailability.list(selectedPhotographer), { signal, headers }),
         fetch(API_ROUTES.photographerAvailability.bookedSlots, {
           method: 'POST',
           headers,
@@ -276,7 +275,7 @@ export function useAvailabilityData({
     } finally {
       setLoading(false);
     }
-  }, [selectedPhotographer, photographers, date, viewMode, isPhotographer]);
+  }, [selectedPhotographer, photographers, date, viewMode, isPhotographer, authHeaders]);
 
   // Listen for availability updates from other components.
   // refreshPhotographerSlots is intentionally excluded: its identity changes on
@@ -329,7 +328,7 @@ export function useAvailabilityData({
       try {
         const apiRoutesExt = API_ROUTES as ApiRoutesWithPeople;
         const publicUrl = apiRoutesExt.people?.photographers || `${API_BASE_URL}/api/photographers`;
-        const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+        const token = getAuthToken();
 
         const mapUser = (raw: unknown): Photographer => {
           const u = (raw ?? {}) as Record<string, unknown>;
@@ -354,7 +353,7 @@ export function useAvailabilityData({
 
         let list: Photographer[] = [];
         try {
-          const r = await fetch(publicUrl);
+          const r = await fetch(publicUrl, { headers: authHeaders() });
           if (r.ok) {
             const json = await r.json();
             list = extractUsers(json).map(mapUser);
@@ -390,7 +389,7 @@ export function useAvailabilityData({
     };
 
     loadPhotographers();
-  }, [isPhotographer, photographersCacheKey, photographersCacheTimeKey, userId, viewerName]);
+  }, [isPhotographer, photographersCacheKey, photographersCacheTimeKey, userId, viewerName, authHeaders]);
 
   // Photographers can only manage their own calendar. Re-pin if the UI tries
   // to switch to "all" or another teammate (the compact picker used to allow that).

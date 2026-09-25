@@ -1,3 +1,4 @@
+import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -44,6 +45,7 @@ interface SalesDashboardViewProps {
     start_time: string;
     end_time: string;
   };
+  holdRequests?: HoldRequestsState;
   cancellationShoots: DashboardCancellationItem[];
   clientRequests: DashboardClientRequest[];
   clientRequestsLoading: boolean;
@@ -72,6 +74,7 @@ export const SalesDashboardView = ({
   availabilityError,
   availabilityLoading,
   availabilityWindow,
+  holdRequests,
   cancellationShoots,
   clientRequests,
   clientRequestsLoading,
@@ -115,7 +118,8 @@ export const SalesDashboardView = ({
         clientRequests={clientRequests}
         clientRequestsLoading={clientRequestsLoading}
         showClientTab
-        cancellationShoots={cancellationShoots}
+        holdRequests={holdRequests}
+          cancellationShoots={cancellationShoots}
         showCancellationTab
         onApproveCancellation={onApproveCancellation}
         onRejectCancellation={onRejectCancellation}
@@ -138,6 +142,7 @@ export const SalesDashboardView = ({
       >
         <Suspense fallback={<AssignPhotographersCardSkeleton />}>
           <LazyAssignPhotographersCard
+            initialTab="all"
             photographers={photographers}
             onPhotographerSelect={onSetSelectedPhotographer}
             onViewSchedule={() => navigate("/availability")}
@@ -208,7 +213,7 @@ export const SalesDashboardView = ({
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
         collapsibleColumns
-        pendingIndicatorCount={pendingReviews.length}
+        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0)}
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"

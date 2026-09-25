@@ -104,6 +104,7 @@ const useActiveRequestCounts = (
 
 export const useAdminDashboardMetrics = ({
   allSummaries,
+  holdRequestCount = 0,
   cancellationRequestCount,
   clientRequests,
   editingRequests,
@@ -114,6 +115,7 @@ export const useAdminDashboardMetrics = ({
   setMobileDashboardTab,
 }: {
   allSummaries: DashboardShootSummary[];
+  holdRequestCount?: number;
   cancellationRequestCount: number;
   clientRequests: DashboardClientRequest[];
   editingRequests: EditingRequest[];
@@ -130,8 +132,8 @@ export const useAdminDashboardMetrics = ({
     editingRequests,
   );
   const totalAdminPendingRequestCount = useMemo(
-    () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount,
-    [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount],
+    () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount + holdRequestCount,
+    [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount, holdRequestCount],
   );
   const adminDeliveredSummaries = useMemo(() => filterDeliveredShoots(allSummaries), [allSummaries]);
 

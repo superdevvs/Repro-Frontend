@@ -38,6 +38,8 @@ import { DevProfiler } from "@/features/dashboard/components/DevProfiler";
 import { useDashboardSections } from "@/features/dashboard/components/DashboardSections";
 import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
+import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
+import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
 import { useCancellationRequests } from "@/features/dashboard/hooks/useCancellationRequests";
 import { useClientDashboardActions } from "@/features/dashboard/hooks/useClientDashboardActions";
 import { useClientDashboardLayoutMeasure } from "@/features/dashboard/hooks/useClientDashboardLayoutMeasure";
@@ -420,6 +422,12 @@ const Dashboard = () => {
     toast,
   });
 
+  const holdRequests = useHoldRequests(
+    ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
+    `${role}:${user?.id ?? "guest"}`,
+  );
+  const schedulingPhotographers = useSchedulingPhotographers(role === "salesRep", `${role}:${user?.id ?? "guest"}`);
+
   const openSupportEmail = useCallback(
     (subject: string, body?: string) => {
       const fallback = () =>
@@ -469,6 +477,7 @@ const Dashboard = () => {
   );
 
   const adminMetricTiles = useAdminDashboardMetrics({
+    holdRequestCount: holdRequests.shoots.length,
     allSummaries,
     cancellationRequestCount,
     clientRequests,
@@ -489,7 +498,12 @@ const Dashboard = () => {
     scrollToDashboardSection,
   });
 
-  const assignPhotographers = Array.isArray(data?.photographers) && data.photographers.length
+  const assignPhotographers = role === "salesRep"
+    ? (schedulingPhotographers.data ?? []).map((photographer) => ({
+        ...photographer,
+        ...fallbackPhotographers.find((existing) => existing.id === photographer.id),
+      }))
+    : Array.isArray(data?.photographers) && data.photographers.length
     ? data.photographers
     : Array.isArray(fallbackPhotographers) ? fallbackPhotographers : [];
 
@@ -529,6 +543,7 @@ const Dashboard = () => {
     renderPipelineSection,
     renderShootsTabsCard,
   } = useDashboardSections({
+    holdRequests,
     assignPhotographers,
     availablePhotographerIds,
     availabilityError,
@@ -655,9 +670,10 @@ const Dashboard = () => {
         <Suspense fallback={<DashboardViewFallback />}>
           <SalesDashboardView
             availablePhotographerIds={availablePhotographerIds}
-            availabilityError={availabilityError}
-            availabilityLoading={availabilityLoading}
+            availabilityError={schedulingPhotographers.error?.message || availabilityError}
+            availabilityLoading={schedulingPhotographers.isLoading || availabilityLoading}
             availabilityWindow={availabilityWindow}
+            holdRequests={holdRequests}
             cancellationShoots={cancellationShoots}
             clientRequests={clientRequests}
             clientRequestsLoading={clientRequestsLoading}
@@ -782,7 +798,7 @@ const Dashboard = () => {
             requestIndicatorCount={
               clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
               editingRequests.filter((request) => request.status !== 'completed').length +
-              cancellationShoots.length
+              cancellationShoots.length + holdRequests.shoots.length
             }
             refresh={refresh}
             renderAssignPhotographersCard={renderAssignPhotographersCard}
