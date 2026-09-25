@@ -22,6 +22,24 @@ describe('photo generation scope and selected versions', () => {
     expect(screen.getByRole('button', { name: 'Needs review 0' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Ready 1' })).toBeVisible();
   });
+  it('requires explicit full-shoot review and approval before delivery', async () => {
+    const props = makeProps();
+    props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };
+    props.workspace = { ...props.workspace, presetId: 'full-shoot', shootId: 42, status: 'completed', outputs: [{ id: 'out-1', mediaId: 'a', url: 'https://media.test/edited.jpg', kind: 'image', version: 1, status: 'completed' }] };
+    props.onApproveShoot = vi.fn().mockRejectedValueOnce(new Error('Wait for the other editing lanes.')).mockResolvedValue(undefined);
+    const { container } = render(<PhotoWorkspace {...props} />);
+    expect(screen.getByRole('button', { name: 'Needs review 1' })).toBeVisible();
+    const actions = within(container.querySelector('.v4-editor-desktop-actions') as HTMLElement);
+    expect(actions.getByRole('button', { name: 'Approve shoot edits' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Use this photo' }));
+    fireEvent.click(actions.getByRole('button', { name: 'Approve shoot edits' }));
+    await screen.findByText('Wait for the other editing lanes.');
+    expect(screen.queryByRole('heading', { name: 'Your photos are ready' })).not.toBeInTheDocument();
+    fireEvent.click(actions.getByRole('button', { name: 'Approve shoot edits' }));
+    await screen.findByRole('heading', { name: 'Your photos are ready' });
+    expect(props.onApproveShoot).toHaveBeenCalledTimes(2);
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ reviewedOutputIds: ['out-1'] }));
+  });
   it('places live progress over the photo instead of a separate banner and removes it on completion', () => {
     const props = makeProps();
     props.workspace = { ...props.workspace, status: 'generating', progress: 37 };

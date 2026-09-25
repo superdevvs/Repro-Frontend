@@ -17,6 +17,8 @@ import type { V4Config, V4Media, V4Preset, V4Workspace, V4WorkspaceProps } from 
 import { PhotoWorkspace } from '@/components/ai-editing/v4/PhotoWorkspace';
 import { VideoWorkspace } from '@/components/ai-editing/v4/VideoWorkspace';
 import { presetAvailability, studioProviderService, type StudioCapabilities } from '@/services/studioProviderService';
+import { approveEditingReview } from '@/services/shootMediaService';
+import { getApiHeaders } from '@/services/api';
 
 /** Shares the dashboard shell and persists edits before running provider jobs. */
 export default function AiEditing() {
@@ -142,6 +144,10 @@ export default function AiEditing() {
       else setPicker(true);
     },
     onSave: config => mutate(() => studioWorkspaceService.update(workspace.id, { config, version: workspace.version })),
+    onApproveShoot: workspace.shootId && workspace.presetId === 'full-shoot' ? () => mutate(async () => {
+      await approveEditingReview(workspace.shootId!, getApiHeaders());
+      return studioWorkspaceService.get(workspace.id);
+    }) : undefined,
     onGenerate: config => saveAndRun(config, 'generate'), onPrepare: config => saveAndRun(config, 'prepare'),
     onRefine: feedback => mutate(() => studioWorkspaceService.revise(workspace.id, feedback)),
     onUpscale: (mediaId, outputId) => mutate(() => studioWorkspaceService.upscale(workspace.id, mediaId, outputId)),
@@ -154,7 +160,7 @@ export default function AiEditing() {
       {workspace?.shootId && <nav aria-label="Shoot editing projects" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs">
         <span className="font-medium">Shoot #{workspace.shootId}</span>
         {history.filter(project => project.shootId === workspace.shootId).sort((a, b) => Number(Boolean(a.parentWorkspaceId)) - Number(Boolean(b.parentWorkspaceId))).map(project => <Button key={project.id} size="sm" variant={project.id === workspace.id ? 'secondary' : 'ghost'} onClick={() => openWorkspace(project.id)}>{project.parentWorkspaceId ? 'Subproject: ' : ''}{findPreset(project.presetId).name} - {project.status}</Button>)}
-        <span className="text-muted-foreground">Finished AI photos are saved in the shoot's Edited tab.</span>
+        <span className="text-muted-foreground">{workspace.presetId === 'full-shoot' ? 'Full-shoot photos require review and approval.' : "Finished AI photos are saved in the shoot's Edited tab."}</span>
       </nav>}
       {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
         {(error || historyError) && <div role="alert" className="mx-auto mb-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm"><AlertCircle size={17} className="shrink-0 text-destructive" /><span className="flex-1">{error || historyError}</span><Button variant="ghost" size="sm" onClick={() => workspaceId ? void refreshWorkspace(workspaceId) : void refreshHistory()}><RefreshCw size={14} className="mr-1" />Retry</Button>{workspaceId && <Button variant="outline" size="sm" onClick={back}>Back</Button>}</div>}

@@ -30,6 +30,7 @@ export interface V4WorkspaceProps {
   capabilities?: StudioCapabilities | null;
   onBack: () => void; onChangeMedia: () => void;
   onSave: (config: V4Config) => Promise<void>;
+  onApproveShoot?: () => Promise<void>;
   onGenerate: (config: V4Config) => Promise<void>;
   onPrepare: (config: V4Config) => Promise<void>;
   onRefine: (feedback: V4Feedback) => Promise<void>;

@@ -23,7 +23,7 @@ import { MediaGenerationOverlay } from './MediaGenerationOverlay';
 
 const LOOKS = ['Natural', 'Bright', 'Editorial'];
 
-export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, onUpscale, onBack, onChangeMedia, onSave, onGenerate, onRefine, onCancel, onRefresh, onDetect }: V4WorkspaceProps) {
+export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, onUpscale, onBack, onChangeMedia, onSave, onApproveShoot, onGenerate, onRefine, onCancel, onRefresh, onDetect }: V4WorkspaceProps) {
   const media = workspace.media.filter(item => item.kind !== 'video');
   const { config, setConfig, dirty } = useWorkspaceDraft(workspace);
   const [activeId, setActiveId] = useState(media[0]?.id || '');
@@ -32,8 +32,10 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const [comparePosition, setComparePosition] = useState(50);
   const [versionId, setVersionId] = useState<string | null>(null);
   const [manualReviewed, setReviewed] = useState<Set<string>>(new Set(workspace.config.reviewedOutputIds || []));
-  const reviewed = useMemo(() => workspace.shootId ? new Set(workspace.outputs.filter(output => output.status === 'completed').map(output => output.id)) : manualReviewed, [workspace.shootId, workspace.outputs, manualReviewed]);
-  const reviewDirty = !workspace.shootId && JSON.stringify([...reviewed].sort()) !== JSON.stringify([...(workspace.config.reviewedOutputIds || [])].sort());
+  const fullShoot = preset.id === 'full-shoot';
+  const autoReviewed = Boolean(workspace.shootId) && !fullShoot;
+  const reviewed = useMemo(() => autoReviewed ? new Set(workspace.outputs.filter(output => output.status === 'completed').map(output => output.id)) : manualReviewed, [autoReviewed, workspace.outputs, manualReviewed]);
+  const reviewDirty = !autoReviewed && JSON.stringify([...reviewed].sort()) !== JSON.stringify([...(workspace.config.reviewedOutputIds || [])].sort());
   const [feedback, setFeedback] = useState<V4Media | null>(null);
   const [detectOnOpen, setDetectOnOpen] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -50,7 +52,6 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const active = media.find(item => item.id === activeId) || media[0];
   const latest = useMemo(() => latestOutputs(workspace.outputs.filter(output => output.kind === 'image')), [workspace.outputs]);
   const outputs = useMemo(() => reviewedOutputs(workspace.outputs.filter(output => output.kind === 'image'), reviewed), [workspace.outputs, reviewed]);
-  const fullShoot = preset.id === 'full-shoot';
   const selectedIds = useMemo(() => new Set(fullShoot ? workspace.media.map(item => item.id) : config.frames.map(frame => frame.mediaId)), [config.frames, fullShoot, workspace.media]);
   const selected = media.filter(item => selectedIds.has(item.id));
   const activeGenerating = running && (!selectedIds.size || selectedIds.has(active?.id));
@@ -107,7 +108,7 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
     finally { setHumanBusy(false); }
   };
 
-  const actions = running ? <><Button variant="outline" onClick={() => void perform(onCancel)} disabled={busy}>Cancel job</Button><Button data-variant="primary" disabled><Loader2 aria-hidden="true" className="" />{staging ? 'Staging photos' : 'Editing photos'}</Button></> : view === 'deliver' ? <><Button variant="outline" onClick={() => setView('gallery')}>Back to review</Button><Button data-variant="primary" disabled={!readyCount || busy} onClick={() => void perform(shareReviewed)}><Share2 />Share photos</Button></> : view === 'gallery' || view === 'focus' ? <><Button variant="outline" onClick={() => setView('configure')}><SlidersHorizontal />Edit recipe</Button><Button data-variant="primary" disabled={readyCount !== selected.length || selected.length === 0} onClick={() => void perform(async () => { const next = { ...withScope(), reviewedOutputIds: [...reviewed] }; await onSave(next); setConfig(next); setView('deliver'); })}>Finish review</Button></> : <><Button variant="outline" disabled={busy} onClick={() => void perform(async () => { const next = { ...withScope(), reviewedOutputIds: [...reviewed] }; await onSave(next); setConfig(next); setNotice('Recipe saved.'); })}>Save</Button><Button data-variant="primary" disabled={blocked} onClick={() => void perform(() => onGenerate(withScope()))}>{busy ? <Loader2 aria-hidden="true" className="" /> : <Sparkles />}{generateLabel}</Button></>;
+  const actions = running ? <><Button variant="outline" onClick={() => void perform(onCancel)} disabled={busy}>Cancel job</Button><Button data-variant="primary" disabled><Loader2 aria-hidden="true" className="" />{staging ? 'Staging photos' : 'Editing photos'}</Button></> : view === 'deliver' ? <><Button variant="outline" onClick={() => setView('gallery')}>Back to review</Button><Button data-variant="primary" disabled={!readyCount || busy} onClick={() => void perform(shareReviewed)}><Share2 />Share photos</Button></> : view === 'gallery' || view === 'focus' ? <><Button variant="outline" onClick={() => setView('configure')}><SlidersHorizontal />Edit recipe</Button><Button data-variant="primary" disabled={busy || readyCount !== selected.length || selected.length === 0 || (Boolean(workspace.shootId) && fullShoot && !onApproveShoot)} onClick={() => void perform(async () => { const next = { ...withScope(), reviewedOutputIds: [...reviewed] }; await onSave(next); setConfig(next); if (workspace.shootId && fullShoot) await onApproveShoot?.(); setView('deliver'); })}>{workspace.shootId && fullShoot ? 'Approve shoot edits' : 'Finish review'}</Button></> : <><Button variant="outline" disabled={busy} onClick={() => void perform(async () => { const next = { ...withScope(), reviewedOutputIds: [...reviewed] }; await onSave(next); setConfig(next); setNotice('Recipe saved.'); })}>Save</Button><Button data-variant="primary" disabled={blocked} onClick={() => void perform(() => onGenerate(withScope()))}>{busy ? <Loader2 aria-hidden="true" className="" /> : <Sparkles />}{generateLabel}</Button></>;
 
   const settings = <>
     {!availability.ready && <p className="v4-inline-error">{availability.reason || 'This edit is not configured yet.'}</p>}
