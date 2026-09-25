@@ -18,13 +18,14 @@ export interface VirtualStagingUsage { stagingUsed: number; stagingLimit: number
 export interface StudioProviderSettings {
   services: StudioServiceRoute[];
   credentials: {
+    autoenhance?: { keyConfigured: boolean; webhookConfigured: boolean };
     fotello: { keyConfigured: boolean; teamIdConfigured: boolean };
     virtualStagingAi: { keyConfigured: boolean; usage: VirtualStagingUsage | null };
   };
 }
 export interface StudioProviderUpdate {
   services?: { id: string; provider: string; model: string; fallback?: { provider: string; model: string } | null }[];
-  credentials?: { fotello?: { apiKey?: string; teamId?: string }; virtualStagingAi?: { apiKey?: string; refresh?: boolean } };
+  credentials?: { autoenhance?: { apiKey?: string; webhookSecret?: string }; fotello?: { apiKey?: string; teamId?: string }; virtualStagingAi?: { apiKey?: string; refresh?: boolean } };
 }
 
 export const studioProviderService = {

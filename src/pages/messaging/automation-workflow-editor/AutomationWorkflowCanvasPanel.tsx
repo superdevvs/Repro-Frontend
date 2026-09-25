@@ -41,11 +41,11 @@ export function AutomationWorkflowCanvasPanel({
           {isReadOnlyMobile ? 'Viewing the path. Edit it on a larger screen.' : 'Select a step to change it.'}
         </p>
         <div className="flex items-center gap-2">
-          {isDirty && <Badge className="bg-amber-100 text-amber-800">Unsaved</Badge>}
-          {validationValid && <Badge className="bg-emerald-100 text-emerald-800">Ready</Badge>}
+          {isDirty && <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">Unsaved</Badge>}
+          {validationValid && <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">Ready</Badge>}
         </div>
       </div>
-      <div className="min-h-[420px] flex-1 bg-[#f3f6fa]">
+      <div className="automation-canvas min-h-[420px] flex-1 bg-background">
         <ReactFlow<AutomationFlowNode, Edge>
           nodes={nodes}
           edges={edges}

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { studioError } from '@/services/studioWorkspaceService';
 import { studioProviderService, type StudioProviderSettings, type StudioProviderUpdate, type StudioServiceRoute } from '@/services/studioProviderService';
 
-const PHOTO_SERVICES = new Set(['listing-ready', 'color-correction', 'full-shoot', 'sky-replacement', 'perspective-correction']);
+const PHOTO_SERVICES = new Set(['full-shoot']);
 const routePayload = (services: StudioServiceRoute[]) => services.map(({ id, provider, model, fallback }) => ({ id, provider, model, ...(id === 'outpaint' ? { fallback: fallback ?? null } : {}) }));
 const selectClass = 'h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm';
 
@@ -25,6 +25,8 @@ function ProviderSettingsForm() {
   const [apiKey, setApiKey] = useState('');
   const [teamId, setTeamId] = useState('');
   const [vsaiKey, setVsaiKey] = useState('');
+  const [autoenhanceKey, setAutoenhanceKey] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState('');
   const [loading, setLoading] = useState(true);
   usePageLoading(loading);
   const [saving, setSaving] = useState(false);
@@ -50,7 +52,7 @@ function ProviderSettingsForm() {
       // Saving a key must neither switch routes nor discard pending route choices.
       if (!credentialsOnly) setServices(next.services);
       else setServices(current => next.services.map(service => { const draft = current.find(item => item.id === service.id); return draft ? { ...service, provider: draft.provider, model: draft.model, fallback: draft.fallback } : service; }));
-      if (credentialsOnly) { setApiKey(''); setTeamId(''); setVsaiKey(''); }
+      if (credentialsOnly) { setApiKey(''); setTeamId(''); setVsaiKey(''); setAutoenhanceKey(''); setWebhookSecret(''); }
       setNotice(credentialsOnly ? 'Connection details saved. Service routing is unchanged.' : 'Service routing saved. New jobs will use these choices.');
     } catch (reason) { setError(studioError(reason)); }
     finally { setSaving(false); }
@@ -73,6 +75,17 @@ function ProviderSettingsForm() {
     <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm"><ShieldCheck className="h-4 w-4 shrink-0" />Superadmin settings · AI Editing remains unavailable to clients.</div>
     {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
     {notice && <p role="status" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">{notice}</p>}
+    <Card>
+      <CardHeader><CardTitle className="text-base">Autoenhance connection</CardTitle><CardDescription>Individual photo enhancement uses Autoenhance. Full shoot edits use Fotello, and virtual staging uses its separate API.</CardDescription></CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm">{saved.credentials.autoenhance?.keyConfigured ? 'Autoenhance API key saved' : 'Autoenhance API key needed'} · {saved.credentials.autoenhance?.webhookConfigured ? 'Webhook authentication saved' : 'Webhook authentication needed'}</p>
+        <form className="space-y-4" onSubmit={event => { event.preventDefault(); void save({ credentials: { autoenhance: { ...(autoenhanceKey.trim() ? { apiKey: autoenhanceKey.trim() } : {}), ...(webhookSecret.trim() ? { webhookSecret: webhookSecret.trim() } : {}) } } }, true); }}>
+          <label className="block space-y-2 text-sm"><span>Autoenhance API key</span><Input type="password" autoComplete="new-password" value={autoenhanceKey} onChange={event => setAutoenhanceKey(event.target.value)} disabled={saving} placeholder="Leave blank to keep saved key" /></label>
+          <label className="block space-y-2 text-sm"><span>Autoenhance webhook authentication</span><Input type="password" autoComplete="new-password" value={webhookSecret} onChange={event => setWebhookSecret(event.target.value)} disabled={saving} placeholder="Leave blank to keep saved value" /></label>
+          <Button type="submit" variant="outline" disabled={saving || (!autoenhanceKey.trim() && !webhookSecret.trim())}>Save Autoenhance connection</Button>
+        </form>
+      </CardContent>
+    </Card>
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2 text-base"><KeyRound className="h-4 w-4" />Fotello connection</CardTitle><CardDescription>Save an API key now and add the team ID when available. Saving credentials does not change any service provider.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
@@ -99,10 +112,10 @@ function ProviderSettingsForm() {
       </CardContent>
     </Card>
     <Card>
-      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between"><div><CardTitle className="text-base">Service routing</CardTitle><CardDescription className="mt-1">Use the available model options for each API. Readiness reflects saved configuration.</CardDescription></div><Button variant="outline" disabled={!configured || saving} onClick={usePhotoProvider}>Use Fotello for enhancement</Button></CardHeader>
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between"><div><CardTitle className="text-base">Service routing</CardTitle><CardDescription className="mt-1">Use the available model options for each API. Readiness reflects saved configuration.</CardDescription></div><Button variant="outline" disabled={!configured || saving} onClick={usePhotoProvider}>Use Fotello for full shoot</Button></CardHeader>
       <CardContent className="space-y-4">
-        {!configured && <p className="text-sm text-muted-foreground">Photo routing can stay on the current API until both connection details are saved.</p>}
-        <p className="text-sm text-muted-foreground">Virtual staging always uses Virtual Staging AI and becomes available after its API key is saved. Fotello enhancement is available after setup. Other routes need verified settings or a result-retrieval contract before use.</p>
+        {!configured && <p className="text-sm text-muted-foreground">Full shoot editing becomes available when both Fotello connection details are saved.</p>}
+        <p className="text-sm text-muted-foreground">Virtual staging always uses Virtual Staging AI and becomes available after its API key is saved. Fotello is reserved for full shoot editing. Autoenhance handles individual photo enhancement. Other routes need verified settings or a result-retrieval contract before use.</p>
         {services.map(service => {
           const stored = saved.services.find(item => item.id === service.id);
           const changed = stored?.provider !== service.provider || stored?.model !== service.model || JSON.stringify(stored?.fallback) !== JSON.stringify(service.fallback);

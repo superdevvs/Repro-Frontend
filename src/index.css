@@ -763,6 +763,28 @@ body {
   background: linear-gradient(to bottom, hsl(var(--card) / 0.68), hsl(var(--card) / 0.86) 40%, hsl(var(--card) / 0.98));
 }
 
+.automation-canvas .react-flow {
+  --xy-background-color: transparent;
+  background-color: transparent;
+}
+
+.dark .automation-canvas .react-flow {
+  --xy-background-pattern-color: hsl(210 20% 98% / 0.18);
+  --xy-edge-stroke: hsl(210 20% 78% / 0.8);
+  --xy-edge-stroke-selected: hsl(var(--primary));
+  --xy-connectionline-stroke: hsl(var(--primary));
+  --xy-minimap-background-color: hsl(var(--card));
+  --xy-minimap-mask-background-color: hsl(210 40% 4% / 0.45);
+  --xy-minimap-node-background-color: hsl(210 20% 78% / 0.55);
+  --xy-controls-button-background-color: hsl(var(--card));
+  --xy-controls-button-background-color-hover: hsl(var(--accent));
+  --xy-controls-button-color: hsl(var(--foreground));
+  --xy-controls-button-color-hover: hsl(var(--foreground));
+  --xy-controls-button-border-color: hsl(var(--border));
+  --xy-controls-box-shadow: none;
+  --xy-attribution-background-color: transparent;
+}
+
 .system-overview-flow .react-flow__controls {
   background: hsl(var(--card) / 0.96);
   border: 1px solid hsl(var(--border) / 0.9);
