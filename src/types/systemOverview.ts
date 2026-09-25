@@ -100,6 +100,8 @@ export interface SystemSnapshot {
     activeSessions: number;
     requestsPerMinute: number;
     errorCount24h: number;
+    warningCount24h?: number;
+    uniqueIssueCount24h?: number;
     slowRouteCount: number;
     integrationFailures24h: number;
   };

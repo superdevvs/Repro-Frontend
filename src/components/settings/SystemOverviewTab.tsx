@@ -403,7 +403,12 @@ export function SystemOverviewTab() {
             {[
               { label: 'Active Sessions', value: snapshot?.stats.activeSessions ?? 0, icon: Users },
               { label: 'Requests / min', value: snapshot?.stats.requestsPerMinute ?? 0, icon: Activity },
-              { label: 'Errors 24h', value: snapshot?.stats.errorCount24h ?? 0, icon: AlertTriangle },
+              {
+                label: 'Issue types 24h', value: snapshot?.stats.uniqueIssueCount24h ?? '—', icon: AlertTriangle,
+                detail: snapshot?.stats.warningCount24h !== undefined
+                  ? `${(snapshot.stats.errorCount24h - snapshot.stats.warningCount24h).toLocaleString()} error events · ${snapshot.stats.warningCount24h.toLocaleString()} warnings`
+                  : `${(snapshot?.stats.errorCount24h ?? 0).toLocaleString()} events`,
+              },
               { label: 'Slow Routes', value: snapshot?.stats.slowRouteCount ?? 0, icon: Clock3 },
               { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug },
             ].map((stat) => (
@@ -422,6 +427,7 @@ export function SystemOverviewTab() {
                   </div>
                   <stat.icon className="h-5 w-5 text-sky-600" />
                 </div>
+                {stat.detail && <p className="mt-2 text-xs text-muted-foreground">{stat.detail}<br />Includes repeated events</p>}
               </motion.div>
             ))}
           </div>
@@ -546,7 +552,7 @@ export function SystemOverviewTab() {
                           </div>
                           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                             <div>{user.currentRoute || 'No route captured yet'}</div>
-                            <div>{user.currentAction || 'Browsing'}</div>
+                            <div>{({ component_mount: 'Page loaded', component_unmount: 'Leaving page', view: 'Viewing page', heartbeat: 'Active', route_enter: 'Viewing page' } as Record<string, string>)[user.currentAction ?? ''] ?? user.currentAction ?? 'Browsing'}</div>
                             {user.blockerMessage && <div className="text-amber-700">{user.blockerMessage}</div>}
                           </div>
                         </div>
