@@ -27,8 +27,7 @@ def main():
                 dest=app/'packages'/workspace.name;dest.mkdir(parents=True);shutil.copy2(workspace/'package.json',dest/'package.json')
         for workspace in ['monitor-contracts','server-monitor']:shutil.copytree(REPO/'packages'/workspace/'dist',app/'packages'/workspace/'dist')
         subprocess.run(['npm','ci','--omit=dev','--ignore-scripts','--include-workspace-root=false','--workspace=@repro/server-monitor','--workspace=@repro/monitor-contracts'],cwd=app,check=True)
-        native=app/'node_modules/better-sqlite3/build/Release';native.mkdir(parents=True,exist_ok=True)
-        shutil.copy2(REPO/'node_modules/better-sqlite3/build/Release/better_sqlite3.node',native/'better_sqlite3.node')
+        # better-sqlite3 13 ships its N-API prebuild in the integrity-checked npm package.
         bins=root/'bin';bins.mkdir()
         for name in ['node','prometheus','promtool','loki','alloy']:shutil.copy2(tools/name,bins/name)
         subprocess.run([str(bins/'node'),'--input-type=module','-e',"import Database from 'better-sqlite3'; const d=new Database(':memory:'); d.prepare('SELECT 1').get(); d.close(); console.log('Native SQLite runtime verified');"],cwd=app,check=True)
