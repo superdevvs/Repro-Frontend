@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -251,34 +252,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
       }
 
       try {
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        };
-
-        if (shoot.editor?.id) {
-          const assignResponse = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ editor_id: shoot.editor.id }),
-          });
-
-          if (!assignResponse.ok) {
-            const errorData = await assignResponse.json().catch(() => ({}));
-            throw new Error(errorData.message || "Failed to assign editor");
-          }
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
-          method: "POST",
-          headers,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Failed to send to editing");
-        }
+        if (!await sendShootToEditing(shoot.id)) return;
 
         toast({
           title: "Success",

@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
@@ -78,7 +79,6 @@ export function useShootDetailsModalWorkflow({
 
     try {
       setIsSendingToEditing(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const currentStatus = shoot.status || shoot.workflowStatus || 'booked';
 
       if (String(currentStatus).toLowerCase() === 'editing') {
@@ -94,19 +94,7 @@ export function useShootDetailsModalWorkflow({
         throw new Error('Shoot must be in Uploaded status before sending to editing');
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to send to editing' }));
-        throw new Error(errorData.message || 'Failed to send to editing');
-      }
+      if (!await sendShootToEditing(shoot.id)) return;
 
       toast({
         title: 'Success',

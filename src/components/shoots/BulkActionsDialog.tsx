@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
@@ -263,12 +264,14 @@ export function BulkActionsDialog({
           description: `${eligibleShoots.length} shoot(s) deleted successfully.`,
         });
       } else if (activeAction === 'editing') {
-        await Promise.all(
-          eligibleShoots.map((shoot) => apiClient.post(`/shoots/${shoot.id}/start-editing`)),
-        );
+        let sent = 0;
+        for (const shoot of eligibleShoots) {
+          if (!await sendShootToEditing(shoot.id)) break;
+          sent += 1;
+        }
         toast({
           title: 'Sent to editing',
-          description: `${eligibleShoots.length} shoot(s) moved to editing.`,
+          description: `${sent} shoot(s) moved to editing.`,
         });
       } else if (activeAction === 'finalize') {
         // Not awaited on purpose: the shared runner keeps one aggregate

@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -151,36 +152,8 @@ export function ShootDetailsQuickActions({
   // Send to editing
   const handleSendToEditing = async () => {
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+      if (!await sendShootToEditing(shoot.id)) return;
 
-      if (selectedEditorId) {
-        const assignRes = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ editor_id: selectedEditorId }),
-        });
-
-        if (!assignRes.ok) {
-          const errorData = await assignRes.json().catch(() => ({ message: 'Failed to assign editor' }));
-          throw new Error(errorData.message || 'Failed to assign editor');
-        }
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
-        method: 'POST',
-        headers,
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to send to editing' }));
-        throw new Error(errorData.message || 'Failed to send to editing');
-      }
-      
       toast({
         title: 'Success',
         description: 'Shoot sent to editing',

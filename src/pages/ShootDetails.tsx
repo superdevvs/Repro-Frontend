@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -237,26 +238,8 @@ const ShootDetails: React.FC = () => {
     if (!shoot || isSendingToEditing) return;
     try {
       setIsSendingToEditing(true);
-      const headers = getApiHeaders();
-      if (shoot.editor?.id) {
-        const assignRes = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ editor_id: shoot.editor.id }),
-        });
-        if (!assignRes.ok) {
-          const errorData = await assignRes.json().catch(() => ({ message: 'Failed to assign editor' }));
-          throw new Error(errorData.message || 'Failed to assign editor');
-        }
-      }
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
-        method: 'POST',
-        headers,
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to send to editing' }));
-        throw new Error(errorData.message || 'Failed to send to editing');
-      }
+      if (!await sendShootToEditing(shoot.id)) return;
+
       toast({
         title: 'Success',
         description: 'Shoot sent to editing',

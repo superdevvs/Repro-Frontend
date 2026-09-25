@@ -31,8 +31,9 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const [comparison, setComparison] = useState<'before' | 'after' | 'compare'>('before');
   const [comparePosition, setComparePosition] = useState(50);
   const [versionId, setVersionId] = useState<string | null>(null);
-  const [reviewed, setReviewed] = useState<Set<string>>(new Set(workspace.config.reviewedOutputIds || []));
-  const reviewDirty = JSON.stringify([...reviewed].sort()) !== JSON.stringify([...(workspace.config.reviewedOutputIds || [])].sort());
+  const [manualReviewed, setReviewed] = useState<Set<string>>(new Set(workspace.config.reviewedOutputIds || []));
+  const reviewed = useMemo(() => workspace.shootId ? new Set(workspace.outputs.filter(output => output.status === 'completed').map(output => output.id)) : manualReviewed, [workspace.shootId, workspace.outputs, manualReviewed]);
+  const reviewDirty = !workspace.shootId && JSON.stringify([...reviewed].sort()) !== JSON.stringify([...(workspace.config.reviewedOutputIds || [])].sort());
   const [feedback, setFeedback] = useState<V4Media | null>(null);
   const [detectOnOpen, setDetectOnOpen] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -49,13 +50,13 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const active = media.find(item => item.id === activeId) || media[0];
   const latest = useMemo(() => latestOutputs(workspace.outputs.filter(output => output.kind === 'image')), [workspace.outputs]);
   const outputs = useMemo(() => reviewedOutputs(workspace.outputs.filter(output => output.kind === 'image'), reviewed), [workspace.outputs, reviewed]);
-  const selectedIds = useMemo(() => new Set(config.frames.map(frame => frame.mediaId)), [config.frames]);
+  const fullShoot = preset.id === 'full-shoot';
+  const selectedIds = useMemo(() => new Set(fullShoot ? workspace.media.map(item => item.id) : config.frames.map(frame => frame.mediaId)), [config.frames, fullShoot, workspace.media]);
   const selected = media.filter(item => selectedIds.has(item.id));
   const activeGenerating = running && (!selectedIds.size || selectedIds.has(active?.id));
   const activeVersions = workspace.outputs.filter(output => output.mediaId === active?.id && output.kind === 'image' && output.url && ['completed', 'ready'].includes(output.status)).sort((a, b) => b.version - a.version);
   const activeOutput = activeVersions.find(output => output.id === versionId) || outputs.get(active?.id);
   const readyCount = selected.filter(item => { const output = outputs.get(item.id); return output && reviewed.has(output.id); }).length;
-  const fullShoot = /full.?shoot|raw/i.test(preset.id + preset.name);
   const staging = /stag/i.test(preset.id + preset.name);
   const bracketSize = 1;
   const arrangements = staging ? Math.min(20, Math.max(1, Number(config.adjustments.variationCount) || 1)) : 1;
@@ -113,7 +114,7 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
     <InspectorSection title={staging ? 'Virtual staging' : 'Photo style'}>
       {staging && active ? <VirtualStagingControls workspaceId={workspace.id} mediaId={active.id} config={config} patch={patchAdjustments} disabled={busy || running} /> : null}
       {!staging && <><p>Balanced rooms and true-to-life color.</p><div className="v4-look-options">{LOOKS.map(look => <button type="button" key={look} aria-pressed={String(config.adjustments.look || 'Natural') === look} onClick={() => adjust('look', look)}><StudioImage src={active?.thumbnailUrl || active?.url} alt="" /><span>{look}</span></button>)}</div></>}
-      <Button variant="outline" onClick={() => setScopeOpen(true)}>Apply to selected photos</Button>
+      {fullShoot ? <p>Full Shoot always edits all original shoot photos. Use photo enhancement for a smaller selection.</p> : <Button variant="outline" onClick={() => setScopeOpen(true)}>Apply to selected photos</Button>}
     </InspectorSection>
     {!staging && <>
     <InspectorSection title="Included edits"><span className="v4-included"><Check />White balance & exposure</span><span className="v4-included"><Check />Window frames & detail</span><span className="v4-included"><Check />Preserve the architecture</span></InspectorSection>

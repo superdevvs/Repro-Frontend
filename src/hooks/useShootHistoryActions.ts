@@ -1,3 +1,4 @@
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect } from 'react'
 import axios from 'axios'
@@ -427,7 +428,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
         throw new Error('Shoot must be in Uploaded status before sending to editing')
       }
 
-      await apiClient.post(`/shoots/${shoot.id}/start-editing`)
+      if (!await sendShootToEditing(shoot.id)) return
       toast({ title: 'Success', description: 'Shoot sent to editing' })
       await refreshActiveTabData()
 

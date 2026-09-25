@@ -13,6 +13,8 @@ export interface V4Config {
 export interface V4Output { id: string; mediaId: string; url: string; thumbnailUrl?: string; kind: 'image' | 'video'; version: number; status: string; label?: string }
 export interface V4PreparedFrame { mediaId: string; url: string; method: 'extend' | 'crop' | 'fit'; ratio?: StudioRatio; status: string; version: number }
 export interface V4Workspace {
+  shootId?: number | null;
+  parentWorkspaceId?: string | null;
   version?: number;
   generation?: { phase: 'submitting' | 'generating' | 'rendering'; total: number; submitted: number; completed: number } | null;
   id: string; name: string; presetId: string; media: V4Media[]; config: V4Config;

@@ -7,6 +7,7 @@ export const V4_PRESETS: V4Preset[] = [
   { id: 'walkthrough', name: 'Walkthrough', description: 'Smooth, drone-like motion through the property.', kind: 'video', tag: 'Popular', icon: 'video', color: 'workflow-listing-video', workflow: 'reel-generator' },
   { id: 'color-correction', name: 'Color correction', description: 'True whites, balanced exposure, crisp detail.', kind: 'image', tag: 'Most used', icon: 'sliders', color: 'hero-before', workflow: 'photo-enhancement' },
   { id: 'full-shoot', name: 'Full shoot edit', description: 'A consistent professional finish, across a shoot.', kind: 'image', tag: 'Batch', icon: 'layers', color: 'workflow-batch-ai-jobs', workflow: 'photo-enhancement' },
+  { id: 'upscale', name: 'Upscale', description: 'Increase photo resolution with Autoenhance.', kind: 'image', tag: 'Resolution', icon: 'maximize', color: 'workflow-batch-ai-jobs', workflow: 'photo-enhancement' },
   { id: 'green-grass', name: 'Green grass', description: 'Refresh the lawn while keeping its texture.', kind: 'image', tag: 'New', icon: 'leaf', color: 'selected-shoot', workflow: 'photo-enhancement' },
   { id: 'sky-replacement', name: 'Sky replacement', description: 'A natural sky, matched to the property light.', kind: 'image', tag: 'New', icon: 'cloud', color: 'workflow-twilight', workflow: 'photo-enhancement' },
   { id: 'perspective-correction', name: 'Perspective correction', description: 'Straighten verticals while preserving the room.', kind: 'image', tag: 'New', icon: 'scan', color: 'hero-after', workflow: 'photo-enhancement' },

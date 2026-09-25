@@ -15,6 +15,13 @@ const makeProps = (): V4WorkspaceProps => ({
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
+  it('makes completed shoot AI outputs ready without requiring manual review', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, shootId: 42, status: 'completed', outputs: [{ id: 'out-1', mediaId: 'a', url: 'https://media.test/edited.jpg', kind: 'image', version: 1, status: 'completed' }] };
+    render(<PhotoWorkspace {...props} />);
+    expect(screen.getByRole('button', { name: 'Needs review 0' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ready 1' })).toBeVisible();
+  });
   it('places live progress over the photo instead of a separate banner and removes it on completion', () => {
     const props = makeProps();
     props.workspace = { ...props.workspace, status: 'generating', progress: 37 };
