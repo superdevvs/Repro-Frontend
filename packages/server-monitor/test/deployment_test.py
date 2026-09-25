@@ -1,4 +1,5 @@
 import importlib.util,io,json,pathlib,tarfile,tempfile,unittest,hashlib,sys,subprocess
+from unittest.mock import patch
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('installer',ROOT/'deploy/install-monitor.py');installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
 class ArchivePreflight(unittest.TestCase):
@@ -20,6 +21,16 @@ class ArchivePreflight(unittest.TestCase):
             root=tarfile.TarInfo('repro-monitor-release');root.type=tarfile.DIRTYPE
             path,digest=self.archive(directory,root)
             self.assertEqual(installer.verify_bundle(path,digest)['validation'],'passed')
+    def test_application_probe_requires_laravel_json_not_a_spa_status_200(self):
+        class Response(io.BytesIO):
+            status=200
+        def pong(request,timeout):
+            self.assertEqual(request.full_url,'https://reprodashboard.com/api/ping')
+            self.assertEqual(request.get_header('User-agent'),'RePro-Server-Monitor/1.0')
+            return Response(b'{"message":"pong"}')
+        with patch.object(installer.urllib.request,'urlopen',side_effect=pong):installer.application_health()
+        with patch.object(installer.urllib.request,'urlopen',return_value=Response(b'<html>Application shell</html>')):
+            with self.assertRaises((ValueError,RuntimeError)):installer.application_health()
     def test_archive_cannot_link_to_host_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             link=tarfile.TarInfo('repro-monitor-release/leak');link.type=tarfile.SYMTYPE;link.linkname='/etc/shadow';path,digest=self.archive(directory,link)

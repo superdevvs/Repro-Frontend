@@ -39,6 +39,10 @@ def health():
         try:result[name]=urllib.request.urlopen(url,timeout=3).status==200
         except Exception:result[name]=False
     return result
+def application_health():
+    request=urllib.request.Request('https://reprodashboard.com/api/ping',headers={'User-Agent':'RePro-Server-Monitor/1.0','Accept':'application/json'})
+    with urllib.request.urlopen(request,timeout=10) as response:
+        if response.status!=200 or json.loads(response.read(4096)).get('message')!='pong':raise RuntimeError('Laravel API health check failed')
 def wait_ready():
     for attempt in range(30):
         state=health()
@@ -142,8 +146,9 @@ def activate(args):
         run(['/usr/sbin/php-fpm8.3','-t']);run(['/usr/sbin/nginx','-t'])
         change_env(True);cache();run(['systemctl','reload','php8.3-fpm','nginx'])
         run(['runuser','--user','maverick','--group','www-data','--','php','artisan','queue:restart'],cwd='/var/www/backend')
-        for url in ['http://127.0.0.1:9471/nginx-status','http://127.0.0.1:9471/fpm-status?json','https://reprodashboard.com/up']:
+        for url in ['http://127.0.0.1:9471/nginx-status','http://127.0.0.1:9471/fpm-status?json']:
             if urllib.request.urlopen(url,timeout=10).status!=200:raise RuntimeError('Activation health check failed')
+        application_health()
         if protect_storage()!=before:raise RuntimeError('Storage/scheduler invariant failed')
         for r in records:r['installedHash']=sha(r['path'])
         atomic(STATE/'activation.json',json.dumps({'activatedAt':time.time(),'files':records,'storageBefore':before},indent=2),0o600)
