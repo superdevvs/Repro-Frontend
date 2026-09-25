@@ -71,6 +71,22 @@ describe('photo generation scope and selected versions', () => {
     expect(screen.queryByText(/fotello/i)).not.toBeInTheDocument();
   });
 
+  it('stages through room, style, removal, and arrangement controls', () => {
+    const props = makeProps();
+    props.preset = { ...props.preset, id: 'virtual-staging', name: 'Virtual staging' };
+    props.workspace = { ...props.workspace, presetId: 'virtual-staging', config: { ...props.workspace.config, adjustments: { roomType: 'living', furnitureStyle: 'modern', removal: 'off', addFurniture: true, variationCount: 1 } } };
+    props.capabilities = { presets: { 'virtual-staging': { ready: true } }, revision: { ready: true, referenceImages: false }, upscale: { ready: false }, outpaint: { ready: true } };
+    render(<PhotoWorkspace {...props} />);
+    expect(screen.getByLabelText('Room type')).toHaveValue('living');
+    expect(screen.getByRole('option', { name: 'Kitchen' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Furniture style')).toHaveValue('modern');
+    expect(screen.getByRole('option', { name: 'Coastal' })).toBeInTheDocument();
+    expect(screen.getByLabelText('What to do')).toHaveValue('off');
+    expect(screen.getByLabelText('Arrangements')).toHaveValue('1');
+    expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Stage 1 photo' }).every(button => !button.hasAttribute('disabled'))).toBe(true);
+  });
+
   it('disables generation for an unconfigured photo service', () => {
     const props = makeProps();
     props.capabilities = { presets: { 'listing-ready': { ready: false, reason: 'An administrator needs to configure this edit.' } }, revision: { ready: true, referenceImages: false }, upscale: { ready: false }, outpaint: { ready: true } };

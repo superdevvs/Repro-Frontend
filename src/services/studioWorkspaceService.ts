@@ -26,6 +26,9 @@ export const studioWorkspaceService = {
   async detect(id: string, mediaId: string): Promise<V4Segment[]> {
     return (await apiClient.post(`${path(id)}/segments`, { mediaId })).data.data;
   },
+  async analyzeFurniture(id: string, mediaId: string): Promise<{ percentageMasked: number; previewUrl: string }> {
+    return (await apiClient.post(`${path(id)}/furniture-analysis`, { mediaId })).data.data;
+  },
 };
 
 /** Source endpoints apply client delivery visibility as well as shoot access. */

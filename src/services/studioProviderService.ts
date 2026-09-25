@@ -14,13 +14,17 @@ export interface StudioServiceRoute {
   providers: StudioProviderOption[];
   fallback?: { provider: string; model: string } | null;
 }
+export interface VirtualStagingUsage { stagingUsed: number; stagingLimit: number | string; checkedAt: string }
 export interface StudioProviderSettings {
   services: StudioServiceRoute[];
-  credentials: { fotello: { keyConfigured: boolean; teamIdConfigured: boolean } };
+  credentials: {
+    fotello: { keyConfigured: boolean; teamIdConfigured: boolean };
+    virtualStagingAi: { keyConfigured: boolean; usage: VirtualStagingUsage | null };
+  };
 }
 export interface StudioProviderUpdate {
   services?: { id: string; provider: string; model: string; fallback?: { provider: string; model: string } | null }[];
-  credentials?: { fotello?: { apiKey?: string; teamId?: string } };
+  credentials?: { fotello?: { apiKey?: string; teamId?: string }; virtualStagingAi?: { apiKey?: string; refresh?: boolean } };
 }
 
 export const studioProviderService = {

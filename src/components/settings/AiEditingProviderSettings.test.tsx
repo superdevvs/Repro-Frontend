@@ -15,7 +15,7 @@ const fixture = (): StudioProviderSettings => ({
     providers: [{ id: 'fal', label: 'fal.ai', models: [{ id: 'image-model', label: 'Current image model' }] }, { id: 'fotello', label: 'Fotello', models: [{ id: 'enhance', label: 'Photo enhancement' }] }],
     ...(id === 'outpaint' ? { fallback: null } : {}),
   })),
-  credentials: { fotello: { keyConfigured: false, teamIdConfigured: false } },
+  credentials: { fotello: { keyConfigured: false, teamIdConfigured: false }, virtualStagingAi: { keyConfigured: false, usage: null } },
 });
 beforeEach(() => { vi.clearAllMocks(); mocks.role = 'superadmin'; mocks.settings.mockResolvedValue(fixture()); });
 afterEach(cleanup);
@@ -60,6 +60,20 @@ describe('Superadmin AI Editing provider settings', () => {
       { id: 'twilight', provider: 'fal', model: 'image-model' },
       { id: 'outpaint', provider: 'fal', model: 'image-model', fallback: null },
     ] }));
+  });
+
+  it('saves the virtual staging key on its own and shows the returned usage', async () => {
+    const saved = fixture();
+    saved.credentials.virtualStagingAi = { keyConfigured: true, usage: { stagingUsed: 4, stagingLimit: 100, checkedAt: '2026-09-25T00:00:00Z' } };
+    mocks.save.mockResolvedValue(saved);
+    render(<AiEditingProviderSettings />);
+    fireEvent.change(await screen.findByLabelText('Virtual Staging AI API key'), { target: { value: 'vsai-test-key' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save virtual staging key' }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ credentials: { virtualStagingAi: { apiKey: 'vsai-test-key' } } }));
+    expect(await screen.findByText('4 of 100 virtual staging photos used in this period.')).toBeVisible();
+    expect(screen.getByLabelText('Virtual Staging AI API key')).toHaveValue('');
+    expect(screen.getByLabelText('Listing ready API')).toHaveValue('fal');
+    expect(screen.queryByDisplayValue('vsai-test-key')).not.toBeInTheDocument();
   });
 
   it('keeps the unsaved key and reports a failed save without claiming success', async () => {

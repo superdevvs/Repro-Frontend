@@ -24,6 +24,7 @@ function ProviderSettingsForm() {
   const [services, setServices] = useState<StudioServiceRoute[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [teamId, setTeamId] = useState('');
+  const [vsaiKey, setVsaiKey] = useState('');
   const [loading, setLoading] = useState(true);
   usePageLoading(loading);
   const [saving, setSaving] = useState(false);
@@ -49,7 +50,7 @@ function ProviderSettingsForm() {
       // Saving a key must neither switch routes nor discard pending route choices.
       if (!credentialsOnly) setServices(next.services);
       else setServices(current => next.services.map(service => { const draft = current.find(item => item.id === service.id); return draft ? { ...service, provider: draft.provider, model: draft.model, fallback: draft.fallback } : service; }));
-      if (credentialsOnly) { setApiKey(''); setTeamId(''); }
+      if (credentialsOnly) { setApiKey(''); setTeamId(''); setVsaiKey(''); }
       setNotice(credentialsOnly ? 'Connection details saved. Service routing is unchanged.' : 'Service routing saved. New jobs will use these choices.');
     } catch (reason) { setError(studioError(reason)); }
     finally { setSaving(false); }
@@ -87,10 +88,21 @@ function ProviderSettingsForm() {
       </CardContent>
     </Card>
     <Card>
+      <CardHeader><CardTitle className="flex items-center gap-2 text-base"><KeyRound className="h-4 w-4" />Virtual Staging AI</CardTitle><CardDescription>Every virtual staging job uses this API. Saving the key does not change any other service.</CardDescription></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><span>{saved.credentials.virtualStagingAi?.keyConfigured ? 'API key saved' : 'API key needed'}</span>{saved.credentials.virtualStagingAi?.usage && <span>{saved.credentials.virtualStagingAi.usage.stagingLimit === 'UNLIMITED' ? `${saved.credentials.virtualStagingAi.usage.stagingUsed} virtual staging photos used in this period. The plan limit is unlimited.` : `${saved.credentials.virtualStagingAi.usage.stagingUsed} of ${saved.credentials.virtualStagingAi.usage.stagingLimit} virtual staging photos used in this period.`}</span>}</div>
+        <form onSubmit={event => { event.preventDefault(); if (vsaiKey.trim()) void save({ credentials: { virtualStagingAi: { apiKey: vsaiKey.trim() } } }, true); }} className="space-y-4">
+          <label className="block max-w-md space-y-2 text-sm font-medium"><span>Virtual Staging AI API key</span><Input type="password" autoComplete="new-password" value={vsaiKey} onChange={event => setVsaiKey(event.target.value)} placeholder={saved.credentials.virtualStagingAi?.keyConfigured ? 'Leave blank to keep saved key' : 'Enter API key'} disabled={saving} /></label>
+          <p className="text-xs text-muted-foreground">The key is checked with Virtual Staging AI before it is saved. Saved values are never displayed.</p>
+          <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={saving || !vsaiKey.trim()}>{saving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}Save virtual staging key</Button><Button type="button" variant="outline" disabled={saving || !saved.credentials.virtualStagingAi?.keyConfigured} onClick={() => void save({ credentials: { virtualStagingAi: { refresh: true } } }, true)}>Check connection</Button></div>
+        </form>
+      </CardContent>
+    </Card>
+    <Card>
       <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between"><div><CardTitle className="text-base">Service routing</CardTitle><CardDescription className="mt-1">Use the available model options for each API. Readiness reflects saved configuration.</CardDescription></div><Button variant="outline" disabled={!configured || saving} onClick={usePhotoProvider}>Use Fotello for enhancement</Button></CardHeader>
       <CardContent className="space-y-4">
         {!configured && <p className="text-sm text-muted-foreground">Photo routing can stay on the current API until both connection details are saved.</p>}
-        <p className="text-sm text-muted-foreground">Fotello enhancement is available after setup. Other routes need verified settings or a result-retrieval contract before use. Unavailable choices stay disabled; existing APIs remain available.</p>
+        <p className="text-sm text-muted-foreground">Virtual staging always uses Virtual Staging AI and becomes available after its API key is saved. Fotello enhancement is available after setup. Other routes need verified settings or a result-retrieval contract before use.</p>
         {services.map(service => {
           const stored = saved.services.find(item => item.id === service.id);
           const changed = stored?.provider !== service.provider || stored?.model !== service.model || JSON.stringify(stored?.fallback) !== JSON.stringify(service.fallback);
