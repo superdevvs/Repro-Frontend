@@ -26,7 +26,8 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
-import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
+import OverviewWithServer from '@/features/server-monitor/OverviewWithServer';
+import { hasMonitorRole } from '@/features/server-monitor/client';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAreaAssignmentTool';
 import { TestShootPanel } from '@/components/photographers/TestShootPanel';
@@ -42,8 +43,6 @@ import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
-const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
-const SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY = 'settings.systemOverview.unlocked';
 
 // Roles that participate in the dashboard onboarding tour. `role` is treated as
 // a RoleKey only when it is one of these values.
@@ -70,7 +69,7 @@ const formatRoleLabel = (value?: string | null) => {
 };
 
 const Settings = () => {
-  const { user, role } = useAuth();
+  const { user, role, isImpersonating } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { saveProfile } = useSelfProfileSave();  const permission = usePermission();
@@ -82,14 +81,6 @@ const Settings = () => {
   const canViewWatermark = permission.can('watermark-settings', 'view');
   const canViewRobbieSettings = permission.can('robbie-settings', 'view');
   const canViewServiceAreas = permission.forResource('accounts').canView();
-  const [systemOverviewUnlocked, setSystemOverviewUnlocked] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    return window.sessionStorage.getItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY) === 'true';
-  });
-  const [accountTabTapCount, setAccountTabTapCount] = React.useState(0);
   const [createCouponOpen, setCreateCouponOpen] = React.useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
@@ -123,7 +114,7 @@ const Settings = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
-  const showSystemOverviewTab = systemOverviewUnlocked;
+  const showSystemOverviewTab = !isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles);
 
   // Compute the onboarding block directly from the authenticated user without
   // calling useDashboardOnboarding (avoids duplicate sidebar-state emissions).
@@ -255,37 +246,8 @@ const Settings = () => {
     setSearchParams(nextParams, { replace: true });
   }, [availableTabs, searchParams, setSearchParams]);
 
-  const unlockSystemOverview = React.useCallback(() => {
-    if (systemOverviewUnlocked) {
-      return;
-    }
-
-    setSystemOverviewUnlocked(true);
-
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY, 'true');
-    }
-
-    toast({
-      title: 'System Overview unlocked',
-      description: 'The overview tab is now available in Settings for this session.',
-    });
-  }, [systemOverviewUnlocked, toast]);
-
-  React.useEffect(() => {
-    if (accountTabTapCount < SYSTEM_OVERVIEW_UNLOCK_CLICKS) {
-      return;
-    }
-
-    unlockSystemOverview();
-    setAccountTabTapCount(0);
-  }, [accountTabTapCount, unlockSystemOverview]);
-
   const handleTabChange = (value: string) => {
     const nextTab = getValidTab(value);
-    if (nextTab !== 'account') {
-      setAccountTabTapCount(0);
-    }
     setActiveTab(nextTab);
 
     const nextParams = new URLSearchParams(searchParams);
@@ -297,21 +259,6 @@ const Settings = () => {
 
     setSearchParams(nextParams, { replace: true });
   };
-
-  const handleTabInteraction = React.useCallback((value: string) => {
-    if (systemOverviewUnlocked) {
-      return;
-    }
-
-    if (value !== 'account') {
-      setAccountTabTapCount(0);
-      return;
-    }
-
-    setAccountTabTapCount((current) => {
-      return current + 1;
-    });
-  }, [systemOverviewUnlocked]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -566,7 +513,7 @@ const Settings = () => {
               tabs={tabsConfig} 
               value={activeTab}
               className="mb-6"
-              onTabInteraction={handleTabInteraction}
+
             />
 
             <TabsContent value="profile" className="space-y-4">
@@ -973,7 +920,7 @@ const Settings = () => {
 
             {showSystemOverviewTab && (
               <TabsContent value="overview" className="space-y-6">
-                <SystemOverviewTab />
+                <OverviewWithServer />
               </TabsContent>
             )}
           </Tabs>
@@ -985,7 +932,7 @@ const Settings = () => {
 function SettingsPage() {
   const { user, role } = useAuth();
   const [searchParams] = useSearchParams();
-  if ((role || user?.role) === 'photographer') {
+  if ((role || user?.role) === 'photographer' && !hasMonitorRole(role || user?.role, user?.secondary_roles)) {
     return <Navigate to={photographerSettingsDestination(searchParams)} replace />;
   }
   return <Settings />;

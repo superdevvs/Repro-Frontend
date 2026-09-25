@@ -1,0 +1,57 @@
+logging {
+  level = "warn"
+}
+
+loki.source.file "repro" {
+  targets = [
+    {__path__ = "/var/www/backend/storage/logs/laravel.log", source = "laravel"},
+    {__path__ = "/var/www/backend/storage/logs/scheduler.log", source = "scheduler"},
+    {__path__ = "/var/www/backend/storage/logs/worker.log", source = "worker"},
+    {__path__ = "/var/www/backend/storage/logs/uploads-*.log", source = "uploads"},
+    {__path__ = "/var/www/backend/storage/logs/auth-security-*.log", source = "auth-security"},
+    {__path__ = "/var/www/backend/storage/logs/stripe-webhooks-*.log", source = "stripe-webhooks"},
+    {__path__ = "/var/log/nginx/access.log", source = "nginx-access"},
+    {__path__ = "/var/log/nginx/error.log", source = "nginx-error"},
+    {__path__ = "/var/log/php8.3-fpm.log", source = "php-fpm"},
+    {__path__ = "/home/maverick/.local/share/repro-studio/logs/*.log", source = "studio"},
+  ]
+  file_match {
+    enabled = true
+    sync_period = "10s"
+  }
+  // Initial deployment follows new lines; saved positions survive service restarts.
+  tail_from_end = true
+  forward_to = [loki.process.repro.receiver]
+}
+
+loki.source.journal "system" {
+  max_age = "1h"
+  labels = {source = "system"}
+  forward_to = [loki.process.repro.receiver]
+}
+
+loki.process "repro" {
+  stage.multiline {
+    firstline = "^(\\[?[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{1,3}\\.|[A-Za-z]{3} [0-9 ]{2}|[0-9]{4}/|\\[?[0-9]{2}-[A-Za-z]{3}-)"
+    max_wait_time = "1s"
+    max_lines = 50
+  }
+  stage.label_keep { values = ["source"] }
+  forward_to = [loki.write.redaction_gateway.receiver]
+}
+
+loki.write "redaction_gateway" {
+  max_streams = 30
+  endpoint {
+    url = "http://127.0.0.1:9470/ingest/logs"
+    bearer_token_file = "/etc/repro-monitor/ingest.token"
+    batch_wait = "1s"
+    batch_size = "64KiB"
+    remote_timeout = "5s"
+    max_backoff_retries = 3
+    max_backoff_period = "5s"
+    follow_redirects = false
+  }
+  // Raw logs must never enter a disk queue. Redaction happens before Loki storage.
+  wal { enabled = false }
+}

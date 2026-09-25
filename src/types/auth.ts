@@ -85,6 +85,7 @@ export interface LegalStatus {
 }
 
 export interface UserData {
+  secondary_roles?: string[];
   id: string;
   name: string;
   firstName?: string;

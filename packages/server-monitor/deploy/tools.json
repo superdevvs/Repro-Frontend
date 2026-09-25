@@ -1,0 +1,39 @@
+[
+  {
+    "name": "prometheus",
+    "version": "3.15.0",
+    "url": "https://github.com/prometheus/prometheus/releases/download/v3.15.0/prometheus-3.15.0.linux-amd64.tar.gz",
+    "sha256": "2a542df32eac02ee17b9d844fb2aa1de00dafa5476579ba8a3ba862e9d572ea0",
+    "files": {
+      "prometheus-3.15.0.linux-amd64/prometheus": "prometheus",
+      "prometheus-3.15.0.linux-amd64/promtool": "promtool"
+    }
+  },
+  {
+    "name": "loki",
+    "version": "3.7.8",
+    "url": "https://github.com/grafana/loki/releases/download/v3.7.8/loki-linux-amd64.zip",
+    "sha256": "62aea42c9cba52cd1642b3666ab37019a0ce4c24ab50b07e85dccc8d812f7d61",
+    "files": {
+      "loki-linux-amd64": "loki"
+    }
+  },
+  {
+    "name": "alloy",
+    "version": "1.20.0",
+    "url": "https://github.com/grafana/alloy/releases/download/v1.20.0/alloy-linux-amd64.zip",
+    "sha256": "5b3c5c71e682e17562d224b1841c3126dda71dbd4d049b3123f300de46215e65",
+    "files": {
+      "alloy-linux-amd64": "alloy"
+    }
+  },
+  {
+    "name": "node",
+    "version": "24.13.0",
+    "url": "https://nodejs.org/dist/v24.13.0/node-v24.13.0-linux-x64.tar.xz",
+    "sha256": "e798599612f4bb71333a3397ab0d095fd62214e115aea45aa858a145fc72d67e",
+    "files": {
+      "node-v24.13.0-linux-x64/bin/node": "node"
+    }
+  }
+]

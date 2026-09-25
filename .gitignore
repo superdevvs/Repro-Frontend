@@ -63,3 +63,9 @@ vite.config.ts.timestamp-*.mjs
 
 # npm-only alternate lockfile
 bun.lockb
+
+# Desktop build products
+packages/monitor-desktop/renderer/
+packages/monitor-desktop/artifact/
+
+__pycache__/
