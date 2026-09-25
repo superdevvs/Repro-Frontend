@@ -233,7 +233,7 @@ export class Store {
     this.db.prepare("DELETE FROM markers WHERE created < ?").run(cutoff);
     this.db
       .prepare(
-        "DELETE FROM incidents WHERE json_extract(value,'state')='resolved' AND json_extract(value,'updatedAt') < ?",
+        "DELETE FROM incidents WHERE json_extract(value,'$.state')='resolved' AND json_extract(value,'$.updatedAt') < ?",
       )
       .run(new Date(cutoff).toISOString());
   }

@@ -274,3 +274,47 @@ test("conversation paging preserves recent context and isolates owners", () => {
     store.close();
   }
 });
+
+test("90-day retention removes expired resolved history and preserves open or recent incidents", () => {
+  const store = new Store(":memory:"),
+    engine = new Incidents(store),
+    s = snapshot();
+  const now = Date.now(),
+    old = now - 91 * 86400_000;
+  try {
+    s.disks = [
+      {
+        id: "media",
+        mount: "/mnt/16tb",
+        device: "unmounted",
+        uuid: null,
+        bytes: 0,
+        free: 0,
+        inodesFree: null,
+        expected: true,
+        valid: false,
+      },
+    ];
+    engine.evaluate(s, old);
+    const first = store.incidents()[0];
+    store.saveIncident({
+      ...first,
+      id: "old-resolved",
+      state: "resolved",
+      resolvedAt: new Date(old).toISOString(),
+    });
+    store.saveIncident({
+      ...first,
+      id: "recent-resolved",
+      state: "resolved",
+      updatedAt: new Date(now).toISOString(),
+      resolvedAt: new Date(now).toISOString(),
+    });
+    assert.doesNotThrow(() => store.prune(now));
+    assert.equal(store.incident("old-resolved"), null);
+    assert.equal(store.incident(first.id)?.state, "open");
+    assert.equal(store.incident("recent-resolved")?.state, "resolved");
+  } finally {
+    store.close();
+  }
+});

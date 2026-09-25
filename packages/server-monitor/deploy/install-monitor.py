@@ -30,6 +30,7 @@ def verify_bundle(bundle,expected):
         if manifest.get('validation')!='passed':raise RuntimeError('Required release checks have not passed')
         for member in tar.getmembers():
             tarfile.data_filter(member,'/repro-monitor-archive-verification')
+            if member.name=='repro-monitor-release' and member.isdir():continue
             if not member.name.startswith('repro-monitor-release/') or '..' in P(member.name).parts:raise RuntimeError('Unsafe archive entry')
     return manifest
 def health():
@@ -71,7 +72,7 @@ def install(args):
     try:
         try:monitor=pwd.getpwnam('repro-monitor')
         except KeyError:run(['useradd','--system','--home-dir','/var/lib/repro-monitor','--no-create-home','--shell','/usr/sbin/nologin','repro-monitor']);monitor=pwd.getpwnam('repro-monitor')
-        CONFIG.mkdir(mode=0o750,exist_ok=True);os.chown(CONFIG,0,web)
+        CONFIG.mkdir(mode=0o755,exist_ok=True);os.chown(CONFIG,0,0);os.chmod(CONFIG,0o755)
         for name,owner,group in [('auth.key',0,web),('operator.token',uid,monitor.pw_gid),('broker.token',uid,monitor.pw_gid),('ingest.token',0,grp.getgrnam('adm').gr_gid)]:
             path=CONFIG/name
             if path.exists():raise RuntimeError('Unexpected existing monitor credentials')
@@ -95,6 +96,8 @@ def install(args):
         run(['dpkg','--install',str(release/'desktop/repro-server-monitor_1.0.0_amd64.deb')],timeout=120)
         # Autostart only for the designated operator, preserving unrelated startup entries.
         autostart=P('/home/maverick/.config/autostart/repro-server-monitor.desktop')
+        if not autostart.parent.exists():
+            autostart.parent.mkdir(mode=0o755,parents=True);os.chown(autostart.parent,uid,pwd.getpwnam('maverick').pw_gid)
         atomic(autostart,'[Desktop Entry]\nType=Application\nName=RePro Server Monitor\nExec=/opt/repro-monitor-desktop/electron\nTerminal=false\nX-GNOME-Autostart-enabled=true\n',0o644,uid,pwd.getpwnam('maverick').pw_gid)
         print('Collection installed. Application instrumentation and automatic AI remain disabled. Run the guarded application release before activate.')
     except Exception:

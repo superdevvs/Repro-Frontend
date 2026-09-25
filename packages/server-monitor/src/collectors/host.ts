@@ -399,8 +399,12 @@ export async function sensors(): Promise<{
       observedAt,
       intervalMs: 300000,
       detail: redactText(
-        e instanceof Error ? e.message : "GPU unavailable",
-      ).slice(0, 350),
+        [
+          e instanceof Error ? e.message : "GPU unavailable",
+          (e as { stdout?: string }).stdout ?? "",
+          (e as { stderr?: string }).stderr ?? "",
+        ].join("\n"),
+      ).slice(0, 700),
     });
   }
   return { metrics, sources };

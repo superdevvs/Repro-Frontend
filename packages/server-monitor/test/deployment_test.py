@@ -15,6 +15,11 @@ class ArchivePreflight(unittest.TestCase):
             with self.assertRaises(RuntimeError):installer.verify_bundle(path,'0'*64)
             path,digest=self.archive(directory,tarfile.TarInfo('repro-monitor-release/../../escape'))
             with self.assertRaises((RuntimeError,tarfile.TarError)):installer.verify_bundle(path,digest)
+    def test_archive_accepts_the_builder_root_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=tarfile.TarInfo('repro-monitor-release');root.type=tarfile.DIRTYPE
+            path,digest=self.archive(directory,root)
+            self.assertEqual(installer.verify_bundle(path,digest)['validation'],'passed')
     def test_archive_cannot_link_to_host_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             link=tarfile.TarInfo('repro-monitor-release/leak');link.type=tarfile.SYMTYPE;link.linkname='/etc/shadow';path,digest=self.archive(directory,link)

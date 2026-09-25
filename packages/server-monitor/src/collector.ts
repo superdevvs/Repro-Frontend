@@ -434,6 +434,14 @@ export class Collector {
     const app = this.sources.get("application")!;
     app.observedAt = last;
     if (last && now - Date.parse(last) > 180000) app.status = "stale";
+    const counters = this.sources.get("event-counters");
+    if (counters && counters.status !== "unavailable") {
+      counters.status = app.status;
+      counters.observedAt = last;
+      counters.detail = !last
+        ? "Awaiting application instrumentation; zero observations are not proof of zero traffic."
+        : "Cumulative event counters since gateway start; freshness follows the application heartbeat.";
+    }
     this.source(
       "schedules",
       "Laravel scheduler heartbeat",
