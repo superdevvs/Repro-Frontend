@@ -1,3 +1,4 @@
+import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -114,7 +115,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const approvalNotes = getApprovalNotes(shoot.notes);
   const editingNotes = getEditingNotes(shoot.notes);
   const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
-  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || (normalizedStatus === 'requested' && canManageRequestedShoots(role)));
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
   const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded';
@@ -420,8 +421,8 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           </div>
         </div>
 
-        {/* Action buttons for requested shoots - Only visible to admin/superadmin */}
-        {normalizedStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify) && (
+        {/* Action buttons for requested shoots - Visible to requested-shoot managers */}
+        {normalizedStatus === 'requested' && canManageRequestedShoots(role) && (onApprove || onDecline || onModify) && (
           <div className="flex flex-wrap gap-2 pt-4 border-t border-blue-200">
             {onApprove && (
               <Button

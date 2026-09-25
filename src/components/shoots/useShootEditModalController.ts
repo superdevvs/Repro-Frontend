@@ -120,7 +120,7 @@ export function useShootEditModalController({
             headers: { Authorization: `Bearer ${token}` }
           }),
           axios.get(`${API_BASE_URL}/api/services`),
-          loadPhotographerOptions(),
+          loadPhotographerOptions(isRep),
         ]);
         const servicesData = servicesResponse.data?.data || [];
         const mappedServices = servicesData.map((s: ServiceApiRecord) => ({
@@ -266,7 +266,7 @@ export function useShootEditModalController({
       }
     };
     fetchData();
-  }, [isOpen, shootId, toast]);
+  }, [isOpen, shootId, toast, isRep]);
   const clearAddressDerivedState = React.useCallback(() => {
     setCity('');
     setState('');

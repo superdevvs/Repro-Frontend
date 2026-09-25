@@ -100,7 +100,7 @@ export function useShootsTabsCardController({
     };
   }, [requestedShoots]);
   const visibleRequestedShoots = useMemo(() => {
-    if (showPastRequests) {
+    if (showPastRequests || currentRequests.length === 0) {
       return [...currentRequests, ...pastRequests];
     }
     return currentRequests;
@@ -841,7 +841,7 @@ export function useShootsTabsCardController({
     );
   };
   const upcomingCount = totalShootsCount;
-  const requestedCount = currentRequests.length;
+  const requestedCount = requestedShoots.length;
   useEffect(() => {
     if (requestedCount === 0) {
       setHasUnreadRequests(false);

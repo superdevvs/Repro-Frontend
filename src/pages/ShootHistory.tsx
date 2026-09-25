@@ -253,6 +253,7 @@ const ShootHistory: React.FC = () => {
     role,
     user,
     activeTab,
+    scheduledSubTab,
     operationalFilters,
     historyFilters,
     viewMode,

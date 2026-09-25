@@ -35,6 +35,7 @@ export interface RoleDashboardLayoutProps {
   upcomingShoots: DashboardShootSummary[];
   pendingReviews: DashboardShootSummary[];
   onSelectShoot: (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => void;
+  upcomingCard?: React.ReactNode;
   upcomingTitle?: string;
   upcomingSubtitle?: string;
   upcomingEmptyStateText?: string;

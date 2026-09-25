@@ -1,3 +1,4 @@
+import { useRequestedShoots } from '@/features/dashboard/hooks/useRequestedShoots';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useLocation, useNavigate } from "react-router-dom";
@@ -588,6 +589,69 @@ const Dashboard = () => {
     updateEditingRequest,
   });
 
+  const salesRequestedShoots = useRequestedShoots(role === 'salesRep', `${role}:${user?.id ?? ''}`);
+
+  const requestedShootModals = (
+    <>
+      {/* Approval Modal for requested shoots */}
+      {approvalModalShoot && (
+        <Suspense fallback={null}>
+          <LazyShootApprovalModal
+            isOpen={!!approvalModalShoot}
+            onClose={() => setApprovalModalShoot(null)}
+            shootId={approvalModalShoot.id}
+            shootAddress={approvalModalShoot.addressLine || ''}
+            currentScheduledAt={approvalModalShoot.startTime}
+            onApproved={() => {
+              setApprovalModalShoot(null);
+              refresh();
+              if (role === 'salesRep') void salesRequestedShoots.refetch();
+            }}
+            photographers={Array.isArray(assignPhotographers) ? assignPhotographers.map((p) => ({
+              id: p.id,
+              name: p.name,
+              avatar: p.avatar,
+            })) : []}
+          />
+        </Suspense>
+      )}
+
+      {/* Decline Modal for requested shoots */}
+      {declineModalShoot && (
+        <Suspense fallback={null}>
+          <LazyShootDeclineModal
+            isOpen={!!declineModalShoot}
+            onClose={() => setDeclineModalShoot(null)}
+            shootId={declineModalShoot.id}
+            shootAddress={declineModalShoot.addressLine || ''}
+            onDeclined={() => {
+              setDeclineModalShoot(null);
+              refresh();
+              if (role === 'salesRep') void salesRequestedShoots.refetch();
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* Edit Modal for modifying shoot requests */}
+      {editModalShoot && (
+        <Suspense fallback={null}>
+          <LazyShootEditModal
+            isOpen={!!editModalShoot}
+            onClose={() => setEditModalShoot(null)}
+            shootId={editModalShoot.id}
+            onSaved={() => {
+              setEditModalShoot(null);
+              refresh();
+              if (role === 'salesRep') void salesRequestedShoots.refetch();
+            }}
+          />
+        </Suspense>
+      )}
+
+    </>
+  );
+
   if (dashboardRoleState.kind === "loading") {
     return <DashboardViewFallback />;
   }
@@ -685,6 +749,14 @@ const Dashboard = () => {
             repDelivered={repDelivered}
             repPendingReviews={repPendingReviews}
             repUpcoming={repUpcoming}
+            requestedShoots={salesRequestedShoots.data ?? requestedShoots}
+            requestedShootsLoading={salesRequestedShoots.isLoading}
+            requestedShootsError={salesRequestedShoots.error?.message}
+            onReloadRequestedShoots={() => { void salesRequestedShoots.refetch(); }}
+            requestedShootModals={requestedShootModals}
+            onApproveShoot={setApprovalModalShoot}
+            onDeclineShoot={setDeclineModalShoot}
+            onModifyShoot={setEditModalShoot}
             salesMetricTiles={salesMetricTiles}
             shootDetailsModal={shootDetailsModal}
             shouldLoadEditingRequests={shouldLoadEditingRequests}
@@ -814,58 +886,7 @@ const Dashboard = () => {
 
       {shootDetailsModal}
 
-      {/* Approval Modal for requested shoots */}
-      {approvalModalShoot && (
-        <Suspense fallback={null}>
-          <LazyShootApprovalModal
-            isOpen={!!approvalModalShoot}
-            onClose={() => setApprovalModalShoot(null)}
-            shootId={approvalModalShoot.id}
-            shootAddress={approvalModalShoot.addressLine || ''}
-            currentScheduledAt={approvalModalShoot.startTime}
-            onApproved={() => {
-              setApprovalModalShoot(null);
-              refresh();
-            }}
-            photographers={Array.isArray(data?.photographers) ? data.photographers.map((p) => ({
-              id: p.id,
-              name: p.name,
-              avatar: p.avatar,
-            })) : []}
-          />
-        </Suspense>
-      )}
-
-      {/* Decline Modal for requested shoots */}
-      {declineModalShoot && (
-        <Suspense fallback={null}>
-          <LazyShootDeclineModal
-            isOpen={!!declineModalShoot}
-            onClose={() => setDeclineModalShoot(null)}
-            shootId={declineModalShoot.id}
-            shootAddress={declineModalShoot.addressLine || ''}
-            onDeclined={() => {
-              setDeclineModalShoot(null);
-              refresh();
-            }}
-          />
-        </Suspense>
-      )}
-
-      {/* Edit Modal for modifying shoot requests */}
-      {editModalShoot && (
-        <Suspense fallback={null}>
-          <LazyShootEditModal
-            isOpen={!!editModalShoot}
-            onClose={() => setEditModalShoot(null)}
-            shootId={editModalShoot.id}
-            onSaved={() => {
-              setEditModalShoot(null);
-              refresh();
-            }}
-          />
-        </Suspense>
-      )}
+      {requestedShootModals}
 
       <Suspense fallback={null}>
         <LazySpecialEditingRequestDialog

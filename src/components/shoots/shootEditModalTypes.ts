@@ -275,7 +275,7 @@ export const availabilityScaleStartMinutes = 8 * 60;
 export const availabilityScaleTotalMinutes = 12 * 60;
 export const availabilityScaleTickCount = 9;
 
-export const loadPhotographerOptions = async (): Promise<Photographer[]> => {
+export const loadPhotographerOptions = async (useSchedulingRoster = false): Promise<Photographer[]> => {
   const token = localStorage.getItem('authToken') || localStorage.getItem('token');
   const headers: Record<string, string> = {};
   if (token) {
@@ -283,7 +283,7 @@ export const loadPhotographerOptions = async (): Promise<Photographer[]> => {
   }
 
   try {
-    const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
+    const response = await axios.get(useSchedulingRoster ? API_ROUTES.people.photographers : API_ROUTES.people.adminPhotographers, { headers });
     const data = response.data?.data || response.data || [];
     const formatted = Array.isArray(data) ? data.map(mapPhotographerOption) : [];
     if (formatted.length > 0) {

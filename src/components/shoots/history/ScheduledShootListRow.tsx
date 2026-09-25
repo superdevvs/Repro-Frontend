@@ -1,3 +1,4 @@
+import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -194,11 +195,11 @@ export const ScheduledShootListRow = ({
   })
   const approvalNotes = getApprovalNotes(shoot.notes)
   const editingNotes = getEditingNotes(shoot.notes)
-  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager)
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || (displayStatus === 'requested' && canManageRequestedShoots(viewerRole)))
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
-  const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify)
+  const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin || canManageRequestedShoots(viewerRole)) && (onApprove || onDecline || onModify)
   const hasBottomActions = Boolean(
     (clientHasPendingPayment && onPayNow) ||
       canSendToEditing ||

@@ -189,8 +189,8 @@ export const useDashboardDerivedData = ({
 
   // Requested shoots for admin/rep dashboard - component handles past/present filtering
   const requestedShoots = useMemo(
-    () => (isAdminExperience ? filterRequestedShoots(allSummaries) : []),
-    [allSummaries, isAdminExperience],
+    () => (isAdminExperience || isSalesRep ? filterRequestedShoots(allSummaries) : []),
+    [allSummaries, isAdminExperience, isSalesRep],
   );
 
   // Filter out requested shoots from upcoming shoots data for UpcomingShootsCard

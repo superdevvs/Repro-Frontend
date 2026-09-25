@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
-import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
+import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { AssignPhotographersCardSkeleton } from "@/components/dashboard/v2/AssignPhotographersCardSkeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -57,6 +57,14 @@ interface SalesDashboardViewProps {
   repDelivered: DashboardShootSummary[];
   repPendingReviews: DashboardShootSummary[];
   repUpcoming: DashboardShootSummary[];
+  requestedShoots: DashboardShootSummary[];
+  requestedShootsLoading: boolean;
+  requestedShootsError?: string;
+  onReloadRequestedShoots: () => void;
+  requestedShootModals: React.ReactNode;
+  onApproveShoot: (shoot: DashboardShootSummary) => void;
+  onDeclineShoot: (shoot: DashboardShootSummary) => void;
+  onModifyShoot: (shoot: DashboardShootSummary) => void;
   salesMetricTiles: DashboardMetricTile[];
   shootDetailsModal: React.ReactNode;
   shouldLoadEditingRequests: boolean;
@@ -86,6 +94,14 @@ export const SalesDashboardView = ({
   repDelivered,
   repPendingReviews,
   repUpcoming,
+  requestedShoots,
+  requestedShootsLoading,
+  requestedShootsError,
+  onReloadRequestedShoots,
+  requestedShootModals,
+  onApproveShoot,
+  onDeclineShoot,
+  onModifyShoot,
   salesMetricTiles,
   shootDetailsModal,
   shouldLoadEditingRequests,
@@ -176,16 +192,32 @@ export const SalesDashboardView = ({
     </div>
   );
 
+  const shootsCard = requestedShootsError ? (
+    <div role="alert" className="rounded-2xl border p-4 text-sm">
+      <p>Unable to load requested shoots.</p>
+      <button className="mt-2 underline" onClick={onReloadRequestedShoots}>Retry</button>
+    </div>
+  ) : requestedShootsLoading ? (
+    <div role="status" className="rounded-2xl border p-4 text-sm">Loading shoots…</div>
+  ) : (
+    <ShootsTabsCard
+      upcomingShoots={repUpcoming.filter((shoot) => (shoot.workflowStatus || shoot.status) !== 'requested')}
+      requestedShoots={requestedShoots}
+      onSelect={onSelectShoot}
+      onApprove={onApproveShoot}
+      onDecline={onDeclineShoot}
+      onModify={onModifyShoot}
+      role="salesRep"
+    />
+  );
+
   const salesMobileTabs = [
     {
       id: "shoots",
       label: "Shoots",
       content: (
         <div data-onboarding-target="salesrep-upcoming">
-          <UpcomingShootsCard
-            shoots={repUpcoming}
-            onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
-          />
+          {shootsCard}
         </div>
       ),
     },
@@ -220,6 +252,7 @@ export const SalesDashboardView = ({
         leftColumnCard={assignCard}
         rightColumnCards={[deliveredCard]}
         upcomingShoots={repUpcoming}
+        upcomingCard={shootsCard}
         pendingReviews={repPendingReviews}
         pendingCard={salesRepRequestsCard}
         onSelectShoot={onSelectShoot}
@@ -248,6 +281,7 @@ export const SalesDashboardView = ({
         onHelpMessage={salesOnboarding.recordHelpMessage}
       />
       {shootDetailsModal}
+      {requestedShootModals}
     </>
   );
 };

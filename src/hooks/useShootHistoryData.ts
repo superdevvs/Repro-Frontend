@@ -80,6 +80,7 @@ export interface UseShootHistoryDataArgs {
   role: string | null | undefined
   user: UserData | null | undefined
   activeTab: AvailableTab
+  scheduledSubTab?: 'all' | 'requested' | 'scheduled'
   operationalFilters: OperationalFiltersState
   historyFilters: HistoryFiltersState
   viewMode: 'grid' | 'list' | 'map'
@@ -208,6 +209,7 @@ export function useShootHistoryData({
   role,
   user,
   activeTab,
+  scheduledSubTab = 'all',
   operationalFilters,
   historyFilters,
   viewMode,
@@ -269,6 +271,8 @@ export function useShootHistoryData({
 
   const activeTabRef = useRef(activeTab)
   activeTabRef.current = activeTab
+  const scheduledSubTabRef = useRef(scheduledSubTab)
+  scheduledSubTabRef.current = scheduledSubTab
   const operationalFiltersRef = useRef(operationalFilters)
   operationalFiltersRef.current = operationalFilters
   const operationalPageRef = useRef(operationalPage)
@@ -297,14 +301,14 @@ export function useShootHistoryData({
   }, [shouldHideClientDetails])
 
   useEffect(() => {
-    if (!(isAdmin || isSuperAdmin)) return
+    if (!(isAdmin || isSuperAdmin || isEditingManager || isSalesRepRole(role))) return
     if (!approvalModalShoot) return
     if (photographers.length) return
 
     const fetchPhotographers = async () => {
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-        const response = await axios.get(`${API_BASE_URL}/api/admin/photographers`, {
+        const response = await axios.get(`${API_BASE_URL}/api/photographers`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = response.data?.data || response.data || []
@@ -321,7 +325,7 @@ export function useShootHistoryData({
     }
 
     fetchPhotographers()
-  }, [approvalModalShoot, isAdmin, isSuperAdmin, photographers.length])
+  }, [approvalModalShoot, isAdmin, isSuperAdmin, isEditingManager, role, photographers.length])
 
   useEffect(() => {
     if (deleteShootId === null) {
@@ -511,6 +515,9 @@ export function useShootHistoryData({
         per_page: 12,
         include_files: 'true',
         no_cache: 'true',
+      }
+      if (backendTab === 'scheduled' && scheduledSubTabRef.current !== 'all') {
+        params.scheduled_status = scheduledSubTabRef.current
       }
       if (currentFilters.search) params.search = currentFilters.search
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
@@ -773,10 +780,11 @@ export function useShootHistoryData({
     return () => clearTimeout(timeoutId)
   }, [loading])
 
-  const lastActiveTabRef = useRef(activeTab)
+  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}`
+  const lastActiveTabRef = useRef(operationalScope)
   useEffect(() => {
-    const tabChanged = lastActiveTabRef.current !== activeTab
-    lastActiveTabRef.current = activeTab
+    const tabChanged = lastActiveTabRef.current !== operationalScope
+    lastActiveTabRef.current = operationalScope
 
     if (tabChanged) {
       if (activeTab === 'history') {
@@ -785,7 +793,7 @@ export function useShootHistoryData({
         setOperationalPage(1)
       }
     }
-  }, [activeTab])
+  }, [activeTab, operationalScope])
 
   useEffect(() => {
     if (activeTab === 'history' && canViewHistory) {
@@ -797,7 +805,7 @@ export function useShootHistoryData({
     if (activeTab !== 'history') {
       fetchOperationalData()
     }
-  }, [operationalPage, activeTab, operationalFilters, fetchOperationalData])
+  }, [operationalPage, activeTab, scheduledSubTab, operationalFilters, fetchOperationalData])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {

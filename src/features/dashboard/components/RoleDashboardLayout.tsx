@@ -32,6 +32,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   upcomingShoots,
   pendingReviews,
   onSelectShoot,
+  upcomingCard,
   upcomingTitle,
   upcomingSubtitle,
   upcomingEmptyStateText,
@@ -77,6 +78,17 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
       : {
           defaultValue: mobileTabs[0]?.id,
         };
+  const upcomingContent = upcomingCard ?? (
+    <UpcomingShootsCard
+      shoots={upcomingShoots}
+      onSelect={onSelectShoot}
+      role={role}
+      title={upcomingTitle}
+      subtitle={upcomingSubtitle}
+      emptyStateText={upcomingEmptyStateText}
+      defaultShowPastDays={upcomingDefaultShowPastDays}
+    />
+  );
   const pendingContent =
     pendingCard ||
     (
@@ -223,15 +235,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                     </div>
                   }
                 >
-                  <UpcomingShootsCard
-                    shoots={upcomingShoots}
-                    onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
-                    role={role}
-                    title={upcomingTitle}
-                    subtitle={upcomingSubtitle}
-                    emptyStateText={upcomingEmptyStateText}
-                    defaultShowPastDays={upcomingDefaultShowPastDays}
-                  />
+                  {upcomingContent}
                 </ErrorBoundary>
               </div>
 
@@ -332,15 +336,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   </div>
                 }
               >
-                <UpcomingShootsCard 
-                  shoots={upcomingShoots} 
-                  onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
-                  role={role}
-                  title={upcomingTitle}
-                  subtitle={upcomingSubtitle}
-                  emptyStateText={upcomingEmptyStateText}
-                  defaultShowPastDays={upcomingDefaultShowPastDays}
-                />
+                {upcomingContent}
               </ErrorBoundary>
             </div>
             {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
