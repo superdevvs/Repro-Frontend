@@ -6,23 +6,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL } from "@/config/env";
+import { fetchRobbieInsights, INSIGHTS_REFRESH_MS, type InsightPriority, type RobbieInsight } from "@/services/robbieInsightsService";
 import type { UserRole } from "@/types/auth";
 import type { AiChatRequest } from "@/types/ai";
-
-type InsightPriority = "blocking" | "attention" | "insight" | "assistive";
-
-interface RobbieInsight {
-  id: string;
-  priority: InsightPriority;
-  message: string;
-  prompt: string;
-  intent?: string;
-  action?: string;
-  insightType?: string;
-  entity?: string;
-  filters?: Record<string, any>;
-}
 
 interface RobbieInsightStripProps {
   role?: UserRole;
@@ -60,18 +46,11 @@ const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string;
 
 const allowedRoles: UserRole[] = ["admin", "superadmin", "editing_manager", "salesRep", "client", "photographer", "editor"];
 
-const REFRESH_INTERVAL_MS = 60000; // Auto-refresh every 60 seconds
 
 const getRotationDelay = () => ROTATION_INTERVAL_MS;
 
 export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, className }) => {
   const { role: authRole, session } = useAuth();
-  const token = session?.accessToken
-    || (typeof window !== 'undefined'
-      ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
-      : null);
-  const tokenRef = React.useRef(token);
-  React.useEffect(() => { tokenRef.current = token; }, [token]);
   const navigate = useNavigate();
   const location = useLocation();
   const activeRole = role ?? authRole;
@@ -103,56 +82,35 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Fetch insights from API
-  const fetchInsights = useCallback(async (signal?: AbortSignal) => {
-    const currentToken = tokenRef.current;
-    if (!isAllowedRole || !currentToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setError(null);
-      const response = await fetch(`${API_BASE_URL}/api/robbie/insights`, {
-        headers: {
-          'Authorization': `Bearer ${currentToken}`,
-          'Accept': 'application/json',
-        },
-        signal,
-      });
-
-      if (!response.ok) {
-        setApiInsights([]);
-        setError('Unable to load insights right now.');
-        return;
-      }
-
-      const data = await response.json();
-      if (data?.success && Array.isArray(data.insights)) {
-        setApiInsights(data.insights);
-      } else {
-        setApiInsights([]);
-      }
-    } catch (error) {
-      if ((error as DOMException)?.name === 'AbortError') return;
-      console.error('Failed to fetch Robbie insights:', error);
-      setApiInsights([]);
-      setError('Unable to load insights right now.');
-    } finally {
-      setIsLoading(false);
-    }
+  const refreshSequence = useRef(0);
+  const refreshController = useRef<AbortController | null>(null);
+  const fetchInsights = useCallback(async (signal: AbortSignal) => {
+    if (!isAllowedRole || document.visibilityState === 'hidden') return;
+    const sequence = ++refreshSequence.current;
+    const result = await fetchRobbieInsights();
+    // A shared request can finish after this strip unmounts or changes identity.
+    if (signal.aborted || sequence !== refreshSequence.current) return;
+    setApiInsights(result.insights);
+    setError(result.error);
+    setIsLoading(false);
   }, [isAllowedRole]);
 
-  // Initial fetch and auto-refresh
   useEffect(() => {
     const controller = new AbortController();
-    fetchInsights(controller.signal);
-    const interval = setInterval(() => fetchInsights(controller.signal), REFRESH_INTERVAL_MS);
+    refreshController.current = controller;
+    setApiInsights([]);
+    const refresh = () => { void fetchInsights(controller.signal); };
+    refresh();
+    const interval = window.setInterval(refresh, INSIGHTS_REFRESH_MS);
+    window.addEventListener('storage', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       controller.abort();
-      clearInterval(interval);
+      window.clearInterval(interval);
+      window.removeEventListener('storage', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [fetchInsights]);
+  }, [fetchInsights, session?.accessToken, session?.user?.id]);
 
   // Use API insights - prioritize blocking and rotate through the top insights
   const insights = useMemo(() => {
@@ -168,7 +126,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       (a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
     );
     return sorted.slice(0, 5);
-  }, [isAllowedRole, roleKey, apiInsights]);
+  }, [isAllowedRole, apiInsights]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -248,8 +206,8 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
 
   const handleOpenChat = () => {
     if (!activeInsight || !activeInsight.prompt) {
-      if (error) {
-        fetchInsights();
+      if (error && refreshController.current) {
+        void fetchInsights(refreshController.current.signal);
       }
       return;
     }
