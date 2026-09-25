@@ -22,6 +22,10 @@ export function MonitorAi({
   const [connections, setConnections] = useState<ProviderConnection[]>([]),
     [provider, setProvider] = useState<ProviderId>("codex"),
     [messages, setMessages] = useState<ChatMessage[]>([]),
+    [sessionList, setSessionList] = useState<{ id: string; lastAt: string }[]>(
+      [],
+    ),
+    [before, setBefore] = useState<string | undefined>(undefined),
     [question, setQuestion] = useState(""),
     [error, setError] = useState(""),
     [stream, setStream] = useState(""),
@@ -59,16 +63,20 @@ export function MonitorAi({
     let closed = false;
     const update = async () => {
       try {
-        const [all, data] = await Promise.all([
-          client.request<ChatMessage[]>("/ai/messages"),
+        const [all, data, sessions] = await Promise.all([
+          client.request<ChatMessage[]>(
+            `/ai/messages?session=${encodeURIComponent(session)}${before ? `&before=${before}` : ""}`,
+          ),
           client.request<{
             settings: MonitorSettings;
             budget: Budget;
             automaticAiStatus: { ok: boolean; error?: string } | null;
           }>("/settings"),
+          client.request<{ id: string; lastAt: string }[]>("/ai/sessions"),
         ]);
         if (!closed) {
           setMessages(all);
+          setSessionList(sessions);
           setSettings(data.settings);
           setBudget(data.budget);
           setAutomaticStatus(data.automaticAiStatus);
@@ -88,7 +96,7 @@ export function MonitorAi({
       closed = true;
       clearInterval(timer);
     };
-  }, [client, session]);
+  }, [client, session, before]);
   useEffect(() => {
     if (delta?.sessionId === session) setStream((s) => s + delta.delta);
   }, [delta, session]);
@@ -141,7 +149,7 @@ export function MonitorAi({
       await loadConnections();
     });
   const sessions = [
-    ...new Set(["operations", ...messages.map((m) => m.sessionId)]),
+    ...new Set(["operations", ...sessionList.map((s) => s.id)]),
   ];
   const own = messages
     .filter((m) => m.sessionId === session)
@@ -170,7 +178,10 @@ export function MonitorAi({
           <select
             aria-label="Conversation"
             value={session}
-            onChange={(e) => setSession(e.target.value)}
+            onChange={(e) => {
+              setSession(e.target.value);
+              setBefore(undefined);
+            }}
           >
             {sessions.map((s) => (
               <option key={s}>{s}</option>
@@ -182,6 +193,20 @@ export function MonitorAi({
             {error}
           </p>
         )}
+        <div className="rm-actions">
+          <Button
+            variant="ghost"
+            disabled={messages.length < 100}
+            onClick={() => setBefore(messages[0]?.id)}
+          >
+            Earlier messages
+          </Button>
+          {before && (
+            <Button variant="ghost" onClick={() => setBefore(undefined)}>
+              Latest messages
+            </Button>
+          )}
+        </div>
         <div className="rm-messages">
           {!own.length && (
             <div className="rm-empty">

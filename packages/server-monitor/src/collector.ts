@@ -128,6 +128,14 @@ export class Collector {
     this.task("services", "System services", 15000, async () => {
       this.snapshot.services = [...(await services()), ...this.workers];
     });
+    this.task(
+      "event-counters",
+      "Job and integration counters",
+      15000,
+      async () => {
+        this.metrics.set("event-counters", await this.telemetry.eventMetrics());
+      },
+    );
     this.task("database", "Read-only application database", 15000, async () => {
       const r = await database(this.cfg.database);
       this.snapshot.queues = r.queues;
@@ -146,9 +154,18 @@ export class Collector {
     this.task("log-files", "Log file inventory", 60000, async () => {
       for (const source of await logCoverage(this.logSources))
         this.sources.set(source.id, source);
+      this.source(
+        "log:system",
+        "System and monitoring service journal",
+        60000,
+        this.logSources.has("system") ? "healthy" : "awaiting_instrumentation",
+        this.logSources.has("system")
+          ? `Last ingested ${this.logSources.get("system")}`
+          : "Awaiting the first Alloy journal batch.",
+      );
     });
     this.task("alloy", "Live log collector", 15000, async () => {
-      const r = await fetch("http://127.0.0.1:12345/-/ready", {
+      const r = await fetch("http://127.0.0.1:12345/-/healthy", {
         signal: AbortSignal.timeout(1500),
       });
       if (!r.ok) throw new Error("Alloy is not ready");

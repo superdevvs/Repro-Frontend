@@ -73,9 +73,7 @@ describe("server monitoring interface", () => {
     const { unmount } = render(<MonitorDashboard client={client} desktop />);
     expect(await screen.findByText(/fixture-host/)).toBeInTheDocument();
     expect(screen.getByText("12%")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Coverage" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Coverage" }));
     expect(
       await screen.findByText("Driver/library version mismatch"),
     ).toBeInTheDocument();

@@ -216,3 +216,61 @@ test("structured personal fields, cookies, SQL bindings and credential aliases a
     ).includes("AliceCanary"),
   );
 });
+
+test("recurring incidents preserve the earlier recovery record and get a distinct incident ID", () => {
+  const store = new Store(":memory:"),
+    engine = new Incidents(store),
+    s = snapshot();
+  try {
+    s.disks = [
+      {
+        id: "media",
+        mount: "/mnt/16tb",
+        device: "unmounted",
+        uuid: null,
+        bytes: 0,
+        free: 0,
+        inodesFree: null,
+        expected: true,
+        valid: false,
+      },
+    ];
+    engine.evaluate(s, 1000);
+    const original = store.incidents()[0].id;
+    s.disks[0].valid = true;
+    engine.evaluate(s, 2000);
+    s.disks[0].valid = false;
+    engine.evaluate(s, 3000);
+    assert.equal(store.incidents().length, 2);
+    assert.equal(
+      store.incidents().find((i) => i.id === original)?.state,
+      "resolved",
+    );
+    assert.notEqual(store.incidents()[0].id, original);
+  } finally {
+    store.close();
+  }
+});
+test("conversation paging preserves recent context and isolates owners", () => {
+  const store = new Store(":memory:");
+  try {
+    for (let n = 0; n < 105; n++)
+      store.saveMessage("alice", {
+        id: `message-${n}`,
+        sessionId: "operations",
+        role: "user",
+        provider: "codex",
+        content: `line ${n}`,
+        createdAt: new Date(n * 1000).toISOString(),
+        status: "complete",
+      });
+    const latest = store.messages("alice", "operations");
+    assert.equal(latest[0].content, "line 5");
+    assert.equal(latest.at(-1)?.content, "line 104");
+    assert.equal(store.messages("alice", "operations", latest[0].id).length, 5);
+    assert.deepEqual(store.messages("bob", "operations", latest[0].id), []);
+    assert.equal(store.sessions("alice")[0].id, "operations");
+  } finally {
+    store.close();
+  }
+});

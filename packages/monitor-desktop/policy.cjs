@@ -1,5 +1,5 @@
 const allowedGet =
-  /^\/(session|snapshot|settings|traces|services|schedules|incidents|pairing|history\?[^#]*|logs\?[^#]*|ai\/connections|ai\/messages(?:\?[^#]*)?)$/;
+  /^\/(session|snapshot|settings|traces|services|schedules|incidents(?:\?[^#]*)?|pairing|history\?[^#]*|logs\?[^#]*|ai\/connections|ai\/sessions|ai\/messages(?:\?[^#]*)?)$/;
 const allowedPost =
   /^\/(incidents\/[a-f0-9-]{36}|ai\/(chat|connect|disconnect|model)|operator\/link)$/;
 function allowed(path, method) {

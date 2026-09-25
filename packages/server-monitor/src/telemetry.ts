@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:net";
+import { createServer, connect, type Server } from "node:net";
 import { chmod, lstat, unlink } from "node:fs/promises";
 import { Counter, Histogram, Gauge, Registry } from "prom-client";
 import { z } from "zod";
@@ -59,6 +59,27 @@ export async function removeStaleSocket(path: string) {
     const stat = await lstat(path);
     if (!stat.isSocket())
       throw new Error("Refusing to replace a non-socket path");
+    await new Promise<void>((resolve, reject) => {
+      const probe = connect(path);
+      const timer = setTimeout(() => {
+        probe.destroy();
+        reject(new Error("Cannot establish whether socket is active"));
+      }, 250);
+      probe.once("connect", () => {
+        clearTimeout(timer);
+        probe.destroy();
+        reject(new Error("Refusing to replace an active socket"));
+      });
+      probe.once("error", (error: NodeJS.ErrnoException) => {
+        clearTimeout(timer);
+        probe.destroy();
+        if (error.code === "ECONNREFUSED" || error.code === "ENOENT") resolve();
+        else reject(error);
+      });
+    });
+    const current = await lstat(path);
+    if (current.ino !== stat.ino || current.dev !== stat.dev)
+      throw new Error("Socket changed during startup");
     await unlink(path);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
@@ -237,6 +258,53 @@ export class Telemetry {
       }
     }
     return true;
+  }
+  async eventMetrics(): Promise<Metric[]> {
+    const metrics: Metric[] = [];
+    for (const [counter, source] of [
+      [this.jobs, "jobs"],
+      [this.integrations, "integrations"],
+    ] as const) {
+      const data = await counter.get();
+      for (const item of data.values) {
+        const labels = Object.values(item.labels ?? {})
+          .map(String)
+          .join(" · ");
+        metrics.push({
+          key: safeLabel(data.name + "_" + labels),
+          label: labels + " · observed count since gateway start",
+          value: item.value,
+          unit: "count",
+          source,
+        });
+      }
+    }
+    for (const [histogram, source] of [
+      [this.jobDurations, "jobs"],
+      [this.integrationDurations, "integrations"],
+    ] as const) {
+      const data = await histogram.get();
+      for (const sum of data.values.filter((v) =>
+        v.metricName?.endsWith("_sum"),
+      )) {
+        const count = data.values.find(
+          (v) =>
+            v.metricName?.endsWith("_count") &&
+            JSON.stringify(v.labels) === JSON.stringify(sum.labels),
+        );
+        const labels = Object.values(sum.labels ?? {})
+          .map(String)
+          .join(" · ");
+        metrics.push({
+          key: safeLabel(data.name + "_" + labels),
+          label: labels + " · mean observed duration since gateway start",
+          value: count?.value ? (sum.value / count.value) * 1000 : null,
+          unit: "ms",
+          source,
+        });
+      }
+    }
+    return metrics;
   }
   latestMetrics(): Metric[] {
     const now = Math.floor(Date.now() / 1000);

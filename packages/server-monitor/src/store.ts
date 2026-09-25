@@ -29,12 +29,28 @@ export class Store {
     this.db.pragma("busy_timeout = 1000");
     this.db
       .exec(`CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL UNIQUE, value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, owner TEXT NOT NULL, session TEXT NOT NULL, created INTEGER NOT NULL, value TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS messages_owner ON messages(owner, session, created);
       CREATE TABLE IF NOT EXISTS spend (id TEXT PRIMARY KEY, month TEXT NOT NULL, automatic INTEGER NOT NULL, reserved REAL NOT NULL, actual REAL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, created INTEGER NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS markers (id TEXT PRIMARY KEY, created INTEGER NOT NULL, value TEXT NOT NULL);`);
+    const definition = (
+      this.db
+        .prepare("SELECT sql FROM sqlite_master WHERE name='incidents'")
+        .get() as { sql: string }
+    ).sql;
+    if (definition.includes("UNIQUE"))
+      this.db
+        .transaction(() =>
+          this.db.exec(
+            "ALTER TABLE incidents RENAME TO incidents_legacy; CREATE TABLE incidents (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, value TEXT NOT NULL); INSERT INTO incidents SELECT * FROM incidents_legacy; DROP TABLE incidents_legacy;",
+          ),
+        )
+        .immediate();
+    this.db.exec(
+      "CREATE INDEX IF NOT EXISTS incidents_fingerprint ON incidents(fingerprint)",
+    );
     const columns = this.db.prepare("PRAGMA table_info(spend)").all() as {
       name: string;
     }[];
@@ -65,10 +81,16 @@ export class Store {
         .all() as { value: string }[]
     ).map((r) => JSON.parse(r.value) as Incident);
   }
+  incident(id: string): Incident | null {
+    const row = this.db
+      .prepare("SELECT value FROM incidents WHERE id=?")
+      .get(id) as { value: string } | undefined;
+    return row ? JSON.parse(row.value) : null;
+  }
   saveIncident(i: Incident) {
     this.db
       .prepare(
-        "INSERT INTO incidents VALUES (?,?,?) ON CONFLICT(fingerprint) DO UPDATE SET value=excluded.value",
+        "INSERT INTO incidents VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",
       )
       .run(i.id, i.fingerprint, JSON.stringify(i));
   }
@@ -90,21 +112,51 @@ export class Store {
         JSON.stringify(m),
       );
   }
-  messages(owner: string, session?: string): ChatMessage[] {
+  sessions(owner: string) {
+    return (
+      this.db
+        .prepare(
+          "SELECT session, MAX(created) lastAt FROM messages WHERE owner=? GROUP BY session ORDER BY lastAt DESC LIMIT 1000",
+        )
+        .all(owner) as { session: string; lastAt: number }[]
+    ).map((r) => ({ id: r.session, lastAt: new Date(r.lastAt).toISOString() }));
+  }
+  messages(owner: string, session?: string, before?: string): ChatMessage[] {
+    let cursor = Number.MAX_SAFE_INTEGER;
+    if (before) {
+      const row = this.db
+        .prepare(
+          "SELECT rowid FROM messages WHERE id=? AND owner=? AND session=?",
+        )
+        .get(before, owner, session) as { rowid: number } | undefined;
+      if (!row) return [];
+      cursor = row.rowid;
+    }
     const rows = session
       ? this.db
           .prepare(
-            "SELECT value FROM messages WHERE owner=? AND session=? ORDER BY created LIMIT 100",
+            "SELECT value FROM messages WHERE owner=? AND session=? AND rowid<? ORDER BY rowid DESC LIMIT 100",
           )
-          .all(owner, session)
+          .all(owner, session, cursor)
       : this.db
           .prepare(
-            "SELECT value FROM messages WHERE owner=? ORDER BY created DESC LIMIT 100",
+            "SELECT value FROM messages WHERE owner=? AND rowid<? ORDER BY rowid DESC LIMIT 100",
           )
-          .all(owner);
-    return (rows as { value: string }[]).map(
-      (r) => JSON.parse(r.value) as ChatMessage,
-    );
+          .all(owner, cursor);
+    return (rows as { value: string }[])
+      .reverse()
+      .map((r) => JSON.parse(r.value));
+  }
+  incidentPage(before = Number.MAX_SAFE_INTEGER) {
+    const rows = this.db
+      .prepare(
+        "SELECT rowid,value FROM incidents WHERE rowid<? ORDER BY rowid DESC LIMIT 100",
+      )
+      .all(before) as { rowid: number; value: string }[];
+    return {
+      incidents: rows.map((r) => JSON.parse(r.value) as Incident),
+      nextBefore: rows.length === 100 ? rows[rows.length - 1].rowid : null,
+    };
   }
   month(now = new Date()): string {
     return new Intl.DateTimeFormat("en-CA", {

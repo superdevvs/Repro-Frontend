@@ -1,3 +1,4 @@
+import { MonitorIncidentHistory } from "./MonitorIncidentHistory";
 import { MonitorEvidence } from "./MonitorEvidence";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import React, { useEffect, useState } from "react";
@@ -29,6 +30,7 @@ import { MonitorAi } from "./MonitorAi";
 import "./monitor.css";
 const tabs = [
   ["overview", "Overview", Activity],
+  ["incidents", "Incidents", CircleAlert],
   ["host", "Host & storage", HardDrive],
   ["application", "Application", Layers],
   ["jobs", "Jobs", ListChecks],
@@ -49,7 +51,6 @@ export default function MonitorDashboard({
     [error, setError] = useState(""),
     [tab, setTab] = useState("overview"),
     [paused, setPaused] = useState(false),
-    [history, setHistory] = useState(false),
     [hours, setHours] = useState(1),
     [selected, setSelected] = useState<Incident | null>(null),
     [delta, setDelta] = useState<{ sessionId: string; delta: string } | null>(
@@ -68,7 +69,6 @@ export default function MonitorDashboard({
     [client, paused],
   );
   const open = snapshot?.incidents.filter((i) => i.state !== "resolved") ?? [];
-  const inbox = history ? (snapshot?.incidents ?? []) : open;
   const active = open.filter(
     (i) => !i.snoozedUntil || Date.parse(i.snoozedUntil) < Date.now(),
   );
@@ -192,6 +192,9 @@ export default function MonitorDashboard({
             </span>
             <span>Observed {timeLabel(snapshot.generatedAt)}</span>
           </div>
+          {tab === "incidents" && (
+            <MonitorIncidentHistory client={client} onSelect={setSelected} />
+          )}
           {tab === "overview" && (
             <>
               <div className="rm-stats">
@@ -235,19 +238,18 @@ export default function MonitorDashboard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setHistory((v) => !v)}
+                      onClick={() => setTab("incidents")}
                     >
-                      {history ? "Show active" : "History"} · {open.length}{" "}
-                      active
+                      History · {open.length} active
                     </Button>
                   </div>
-                  {!inbox.length ? (
+                  {!open.length ? (
                     <p className="rm-note">
                       No active incidents. Review coverage for unavailable
                       sources.
                     </p>
                   ) : (
-                    inbox.map((i) => (
+                    open.map((i) => (
                       <button
                         className="rm-incident"
                         key={i.id}

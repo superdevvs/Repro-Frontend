@@ -100,6 +100,10 @@ export function createServer(d: Dependencies, operator = false) {
       ["/health", "/metrics", "/ingest/logs"].includes(req.url.split("?")[0])
     )
       return;
+    if (req.headers["x-impersonate-user-id"] !== undefined)
+      return reply
+        .code(403)
+        .send({ error: "Impersonation cannot access server monitoring" });
     const token = String(req.headers.authorization ?? "").replace(
       /^Bearer /,
       "",
@@ -205,7 +209,20 @@ export function createServer(d: Dependencies, operator = false) {
   });
   app.get("/v1/services", async () => collector.snapshot.services);
   app.get("/v1/schedules", async () => collector.snapshot.schedules);
-  app.get("/v1/incidents", async () => store.incidents());
+  app.get("/v1/incidents", async (req) => {
+    const q = z
+      .object({
+        before: z.coerce
+          .number()
+          .int()
+          .positive()
+          .max(Number.MAX_SAFE_INTEGER)
+          .optional(),
+      })
+      .strict()
+      .parse(req.query);
+    return store.incidentPage(q.before);
+  });
   app.get("/v1/traces", async () =>
     telemetry.recent
       .filter((e) => e.kind === "request")
@@ -238,7 +255,7 @@ export function createServer(d: Dependencies, operator = false) {
       })
       .strict()
       .parse(req.body);
-    const i = store.incidents().find((i) => i.id === id);
+    const i = store.incident(id);
     if (!i) return reply.code(404).send({ error: "Incident not found" });
     if (action.action === "acknowledge" && i.state !== "resolved")
       i.state = "acknowledged";
@@ -290,12 +307,18 @@ export function createServer(d: Dependencies, operator = false) {
     ai.select(principals.get(req)!, b.provider, b.model, b.price);
     return { ok: true };
   });
+  app.get("/v1/ai/sessions", async (req) =>
+    store.sessions(ai.owner(principals.get(req)!)),
+  );
   app.get("/v1/ai/messages", async (req) => {
     const q = z
-      .object({ session: z.string().max(100).optional() })
+      .object({
+        session: z.string().max(100).optional(),
+        before: z.string().uuid().optional(),
+      })
       .strict()
       .parse(req.query);
-    return store.messages(ai.owner(principals.get(req)!), q.session);
+    return store.messages(ai.owner(principals.get(req)!), q.session, q.before);
   });
   app.post("/v1/ai/chat", async (req, reply) => {
     const b = z

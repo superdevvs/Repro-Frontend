@@ -134,47 +134,54 @@ export function MonitorTables({
         <MetricTable
           title="Processing workflows"
           snapshot={s}
-          filter={(m) => m.source === "workflows"}
+          filter={(m) => ["workflows", "jobs"].includes(m.source)}
         />
       </>
     );
   if (tab === "usage")
     return (
-      <article className="rm-panel">
-        <h2>Integration usage & costs</h2>
-        <p className="rm-note">
-          Application estimates are separate from provider billing and the
-          monitor’s own AI budget.
-        </p>
-        <Table
-          headers={[
-            "Provider / period",
-            "Requests",
-            "Input tokens",
-            "Output tokens",
-            "Cost",
-            "Basis",
-          ]}
-        >
-          {s.usage.map((u, i) => (
-            <tr key={i}>
-              <td>
-                {u.provider}
-                <small>{u.detail}</small>
-              </td>
-              <td>{valueLabel(u.requests, "count")}</td>
-              <td>{valueLabel(u.inputTokens, "count")}</td>
-              <td>{valueLabel(u.outputTokens, "count")}</td>
-              <td>
-                {u.costUsd === null
-                  ? "Unavailable"
-                  : `$${u.costUsd.toFixed(4)}`}
-              </td>
-              <td>{u.basis}</td>
-            </tr>
-          ))}
-        </Table>
-      </article>
+      <>
+        <MetricTable
+          title="Observed integration traffic"
+          snapshot={s}
+          filter={(m) => m.source === "integrations"}
+        />
+        <article className="rm-panel">
+          <h2>Integration usage & costs</h2>
+          <p className="rm-note">
+            Application estimates are separate from provider billing and the
+            monitor’s own AI budget.
+          </p>
+          <Table
+            headers={[
+              "Provider / period",
+              "Requests",
+              "Input tokens",
+              "Output tokens",
+              "Cost",
+              "Basis",
+            ]}
+          >
+            {s.usage.map((u, i) => (
+              <tr key={i}>
+                <td>
+                  {u.provider}
+                  <small>{u.detail}</small>
+                </td>
+                <td>{valueLabel(u.requests, "count")}</td>
+                <td>{valueLabel(u.inputTokens, "count")}</td>
+                <td>{valueLabel(u.outputTokens, "count")}</td>
+                <td>
+                  {u.costUsd === null
+                    ? "Unavailable"
+                    : `$${u.costUsd.toFixed(4)}`}
+                </td>
+                <td>{u.basis}</td>
+              </tr>
+            ))}
+          </Table>
+        </article>
+      </>
     );
   if (tab === "application")
     return (

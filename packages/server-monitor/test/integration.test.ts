@@ -1,3 +1,6 @@
+import { createServer as netServer } from "node:net";
+import { lstat } from "node:fs/promises";
+import { removeStaleSocket } from "../src/telemetry.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -113,6 +116,18 @@ test("every monitoring data endpoint denies missing authorization; operator AI s
           url: "/v1/settings",
           headers: { authorization: `Bearer ${key}` },
           payload: f.store.settings(),
+        })
+      ).statusCode,
+      403,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          url: "/v1/snapshot",
+          headers: {
+            authorization: `Bearer ${key}`,
+            "x-impersonate-user-id": "12",
+          },
         })
       ).statusCode,
       403,
@@ -343,4 +358,19 @@ test("daily New York schedule remains 9am across daylight-saving transitions", (
         .toISOString(),
       expected,
     );
+});
+
+test("duplicate starts cannot replace a live local socket", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "monitor-socket-")),
+    path = join(dir, "active.sock"),
+    server = netServer((socket) => socket.end());
+  await new Promise<void>((resolve) => server.listen(path, resolve));
+  try {
+    await assert.rejects(removeStaleSocket(path), /active socket/);
+    assert.ok((await lstat(path)).isSocket());
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await removeStaleSocket(path);
+    await rm(dir, { recursive: true, force: true });
+  }
 });

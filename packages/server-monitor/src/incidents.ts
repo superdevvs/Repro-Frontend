@@ -24,7 +24,7 @@ export class Incidents {
       if (old && old.state !== "resolved" && old.severity === severity) return;
       const time = new Date(now).toISOString();
       this.store.saveIncident({
-        id: old?.id ?? randomUUID(),
+        id: old && old.state !== "resolved" ? old.id : randomUUID(),
         fingerprint: key,
         title,
         severity,
