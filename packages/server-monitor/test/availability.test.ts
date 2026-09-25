@@ -141,3 +141,42 @@ test("missing scheduler starts alert after grace and successful observations rec
     store.close();
   }
 });
+
+test("quiet traffic does not stale freshly collected counters between minute heartbeats", () => {
+  const store = new Store(":memory:"),
+    telemetry = new Telemetry(store);
+  const collector = new Collector(configSchema.parse({}), store, telemetry);
+  const sources = Reflect.get(collector, "sources") as Map<
+    string,
+    {
+      id: string;
+      label: string;
+      intervalMs: number;
+      status: string;
+      observedAt: string;
+    }
+  >;
+  try {
+    sources.set("event-counters", {
+      id: "event-counters",
+      label: "Event counters",
+      intervalMs: 15000,
+      status: "healthy",
+      observedAt: new Date().toISOString(),
+    });
+    telemetry.lastAt = new Date(Date.now() - 70000).toISOString();
+    collector.publish();
+    assert.equal(
+      collector.snapshot.sources.find((s) => s.id === "event-counters")?.status,
+      "healthy",
+    );
+    telemetry.lastAt = new Date(Date.now() - 190000).toISOString();
+    collector.publish();
+    assert.equal(
+      collector.snapshot.sources.find((s) => s.id === "event-counters")?.status,
+      "stale",
+    );
+  } finally {
+    store.close();
+  }
+});

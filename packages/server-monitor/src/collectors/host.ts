@@ -218,7 +218,7 @@ export async function disks(cfg: Config): Promise<Disk[]> {
       uuid: actual.uuid,
       bytes: stat.blocks * stat.bsize,
       free: stat.bavail * stat.bsize,
-      inodesFree: stat.ffree,
+      inodesFree: stat.files > 0 ? stat.ffree : null,
       expected: mount !== "/media/maverick/Expansion",
       valid: mount !== "/mnt/16tb" || actual.uuid === cfg.expectedMediaUuid,
     });

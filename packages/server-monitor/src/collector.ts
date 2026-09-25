@@ -437,7 +437,7 @@ export class Collector {
     const counters = this.sources.get("event-counters");
     if (counters && counters.status !== "unavailable") {
       counters.status = app.status;
-      counters.observedAt = last;
+      if (!last) counters.observedAt = null;
       counters.detail = !last
         ? "Awaiting application instrumentation; zero observations are not proof of zero traffic."
         : "Cumulative event counters since gateway start; freshness follows the application heartbeat.";
