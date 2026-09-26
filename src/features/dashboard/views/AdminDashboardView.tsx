@@ -5,6 +5,7 @@ import { Camera, CheckCircle2, KanbanSquare, MessageCircle, Users } from "lucide
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
+import { ProfileCompletionNotice } from "@/features/dashboard/components/ProfileCompletionNotice";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleMetricTilesCard, type DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import { cn } from "@/lib/utils";
@@ -244,6 +245,7 @@ export const AdminDashboardView = ({
         </div>
         <DashboardNoticeStack label="Dashboard notices">
           <UploadStatusWidget />
+          <ProfileCompletionNotice />
           {cancellationRequestCount > 0 && (
             <button
               onClick={() => setCancellationDialogOpen(true)}

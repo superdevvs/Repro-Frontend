@@ -31,6 +31,7 @@ import { useRequestManager } from "@/context/RequestManagerContext";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
+import { ProfileCompletionNotice } from "@/features/dashboard/components/ProfileCompletionNotice";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { usePermission } from "@/hooks/usePermission";
 import { DashboardRouteSkeleton } from "@/components/layout/DashboardRouteSkeleton";
@@ -813,6 +814,7 @@ const Dashboard = () => {
             </div>
             <DashboardNoticeStack label="Dashboard notices">
               <UploadStatusWidget />
+              <ProfileCompletionNotice />
               {cancellationRequestCount > 0 && (
                 <button
                   onClick={() => setCancellationDialogOpen(true)}

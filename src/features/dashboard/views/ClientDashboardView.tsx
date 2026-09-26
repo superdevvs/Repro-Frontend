@@ -43,6 +43,7 @@ import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
 import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
 import { ClientDeliveryBanner } from "../components/ClientDeliveryBanner";
+import { ProfileCompletionNotice } from "../components/ProfileCompletionNotice";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import {
   DASHBOARD_MOBILE_PAGE_CLASS,
@@ -269,6 +270,7 @@ export const ClientDashboardView = ({
             onOpen={handleOpenLatestDelivery}
           />
         ) : null}
+        <ProfileCompletionNotice />
       </DashboardNoticeStack>
       <DashboardOnboarding
         roleKey="client"

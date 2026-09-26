@@ -7,6 +7,7 @@ import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard
 import { RoleMetricTilesCard } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
+import { ProfileCompletionNotice } from "@/features/dashboard/components/ProfileCompletionNotice";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -105,12 +106,13 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
         <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:px-0 max-lg:pt-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
-          <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="contents md:block md:flex-1">
+          <div className="contents md:flex md:flex-row md:items-start md:justify-between md:gap-4">
+            <div className="contents md:block md:min-w-0 md:flex-1">
               <PageHeader title={title} description={description} hideIntroOnMobile />
             </div>
-            <DashboardNoticeStack label="Dashboard notices">
+            <DashboardNoticeStack label="Dashboard notices" className="md:shrink-0 md:self-start">
               <UploadStatusWidget />
+              <ProfileCompletionNotice />
             </DashboardNoticeStack>
           </div>
           {isCompactDashboardLayout && mobileTabs.length > 0 ? (
