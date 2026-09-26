@@ -31,7 +31,6 @@ export const ICONS = {
   settings: Settings2,
 };
 
-const STORAGE_KEY = 'system-overview.flow.positions.v6';
 const DOMAIN_H = 196;
 const PAGE_W = 248;
 const PAGE_H = 184;
@@ -52,29 +51,10 @@ export const nodeTypes = {
   overviewNode: SystemOverviewNode,
 } satisfies NodeTypes;
 
-const loadSavedPositions = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Record<string, { x: number; y: number }>;
-  } catch {
-    return {};
-  }
-};
-
-export const saveNodePositions = (nodes: FlowNode[]) => {
-  try {
-    const positions = nodes.reduce<Record<string, { x: number; y: number }>>((acc, node) => {
-      acc[node.id] = node.position;
-      return acc;
-    }, {});
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-  } catch {
-    // Ignore persistence failures.
-  }
-};
-
 export const clearNodePositions = () => {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('system-overview.flow.positions.v5');
+    localStorage.removeItem('system-overview.flow.positions.v6');
   } catch {
     // Ignore persistence failures.
   }
@@ -111,10 +91,13 @@ export const buildFlow = (
   expandedDomains: string[],
   showEverything: boolean,
 ) => {
-  const savedPositions = loadSavedPositions();
+  const savedPositions: Record<string, { x: number; y: number }> = {};
   const nodes: FlowNode[] = [];
   const edges: Edge[] = [];
+  let cursorX = 40;
   let cursorY = 40;
+  let rowHeight = 0;
+  const rowLimit = 1720;
 
   systemOverviewCatalog.forEach((domain) => {
     const domainIsExpanded = expandedDomains.includes(domain.id);
@@ -139,11 +122,21 @@ export const buildFlow = (
     const tallestPageStack = Math.max(0, ...pageLayouts.map((layout) => layout.totalHeight));
     const extraRows = Math.ceil(extraRoutes.length / 2);
     const extraHeight = extraRows > 0 ? V_GAP + getStackHeight(extraRows) : 0;
+    const clusterWidth = domainIsExpanded
+      ? Math.max(300, pageLayouts.length * PAIR_W + Math.max(0, pageLayouts.length - 1) * PAGE_GAP)
+      : 300;
     const clusterHeight = domainIsExpanded ? DOMAIN_OFFSET + tallestPageStack + extraHeight : DOMAIN_H;
 
-    const clusterX = 40;
+    if (cursorX > 40 && cursorX + clusterWidth > rowLimit) {
+      cursorY += rowHeight + CLUSTER_GAP;
+      cursorX = 40;
+      rowHeight = 0;
+    }
+
+    const clusterX = cursorX;
     const clusterY = cursorY;
-    cursorY += clusterHeight + CLUSTER_GAP;
+    rowHeight = Math.max(rowHeight, clusterHeight);
+    cursorX += clusterWidth + 56;
 
     const domainId = `domain:${domain.id}`;
     const domainPosition = savedPositions[domainId] ?? { x: clusterX, y: clusterY };

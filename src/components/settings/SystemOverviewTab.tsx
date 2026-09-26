@@ -1,6 +1,7 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import {
   Background,
@@ -52,18 +53,17 @@ import {
   clearNodePositions,
   ICONS,
   nodeTypes,
-  saveNodePositions,
   type FlowNode,
 } from './systemOverviewFlow';
 
-function OverviewFit({ signature }: { signature: string }) {
+function OverviewFit({ signature, expanded }: { signature: string; expanded: boolean }) {
   const { fitView } = useReactFlow();
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.18, duration: 250, maxZoom: 0.85 });
+      void fitView({ padding: expanded ? 0.08 : 0.16, duration: 250, maxZoom: expanded ? 1 : 0.9 });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [fitView, signature]);
+  }, [expanded, fitView, signature]);
   return null;
 }
 
@@ -171,7 +171,15 @@ export function SystemOverviewTab() {
   const hasError = snapshotQuery.isError || historyQuery.isError || routesQuery.isError;
 
   useEffect(() => {
+    clearNodePositions();
+  }, []);
+
+  useEffect(() => {
     setNodes((currentNodes) => {
+      const sameNodes =
+        currentNodes.length === flow.nodes.length &&
+        currentNodes.every((node) => flow.nodes.some((next) => next.id === node.id));
+      if (!sameNodes) return flow.nodes;
       const positionLookup = new Map(currentNodes.map((node) => [node.id, node.position]));
       return flow.nodes.map((node) => {
         const preservedPosition = positionLookup.get(node.id);
@@ -277,10 +285,9 @@ export function SystemOverviewTab() {
           proOptions={{ hideAttribution: true }}
           nodesDraggable
           onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-          onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
           defaultEdgeOptions={{ animated: false, type: 'smoothstep' }}
         >
-          <OverviewFit signature={`${expandedDomains.join(',')}|${showEverything}|${nodes.length}|${expandedView}`} />
+          <OverviewFit expanded={expandedView} signature={`${expandedDomains.join(',')}|${showEverything}|${nodes.length}|${expandedView}`} />
           <Background gap={24} />
           <Controls position="top-left" showInteractive={false} />
         </ReactFlow>
@@ -748,18 +755,13 @@ export function SystemOverviewTab() {
             </Card>
       </div>
 
-      {isCanvasExpanded && (
-        <div className="fixed inset-0 z-50 p-3 sm:p-4">
-          <button
-            type="button"
-            aria-label="Exit full view"
-            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
-            onClick={() => setIsCanvasExpanded(false)}
-          />
-          <div className="relative flex h-full flex-col">
+      {isCanvasExpanded && createPortal(
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background p-3 sm:p-4">
+          <div className="min-h-0 flex-1">
             {renderSystemMap(true)}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
