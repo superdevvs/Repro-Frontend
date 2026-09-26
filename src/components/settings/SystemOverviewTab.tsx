@@ -25,8 +25,8 @@ import {
   Workflow,
   ZoomIn,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { toast } from '@/lib/sonner-toast';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,9 +55,18 @@ import {
   type FlowNode,
 } from './systemOverviewFlow';
 
+const liveActionLabels: Record<string, string> = {
+  component_mount: 'Page loaded',
+  component_unmount: 'Leaving page',
+  view: 'Viewing page',
+  heartbeat: 'Active',
+  route_enter: 'Viewing page',
+};
+
+const liveActionLabel = (action?: string | null) => liveActionLabels[action ?? ''] ?? action ?? 'Browsing';
+
 export function SystemOverviewTab() {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [expandedDomains, setExpandedDomains] = useState<string[]>([]);
   const [showEverything, setShowEverything] = useState(false);
@@ -218,21 +227,19 @@ export function SystemOverviewTab() {
     };
   }, [queryClient]);
 
-  const renderSystemMap = (heightClass: string, expandedView = false) => (
-    <div className={`overflow-hidden rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950' : 'border-slate-200/80 bg-white'}`}>
-      <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-700'}`}>
-        <div>
-          <div className="text-sm font-semibold">System map</div>
-          <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+  const renderSystemMap = (expandedView = false) => (
+    <div className={cn('flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm', expandedView && 'h-full')}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">System map</div>
+          <div className="text-xs text-muted-foreground">
             Drag nodes or the canvas, then use the inspector for details instead of scanning everything at once.
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className={isDark ? 'bg-sky-500/15 text-sky-100' : 'bg-sky-100 text-sky-700'}>
-            {nodes.length} nodes
-          </Badge>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="secondary">{nodes.length} nodes</Badge>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             className="h-8 rounded-full px-3 text-xs"
             onClick={() => setIsCanvasExpanded((current) => !current)}
@@ -242,13 +249,10 @@ export function SystemOverviewTab() {
           </Button>
         </div>
       </div>
-      <div
-        className={`${heightClass} w-full ${
-          isDark ? styles.canvasDark : styles.canvasLight
-        }`}
-      >
+      <div className={cn(styles.canvas, 'w-full', expandedView ? 'min-h-0 flex-1' : 'h-[70vh] min-h-[28rem] max-h-[700px]')}>
         <ReactFlow
           className="system-overview-flow"
+          colorMode={theme}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -262,8 +266,8 @@ export function SystemOverviewTab() {
           onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
           defaultEdgeOptions={{ animated: false }}
         >
-          <Background color={isDark ? '#1e293b' : '#cbd5e1'} gap={24} />
-          <Controls position="top-left" showInteractive={false} style={{}} />
+          <Background gap={24} />
+          <Controls position="top-left" showInteractive={false} />
         </ReactFlow>
       </div>
     </div>
@@ -271,15 +275,15 @@ export function SystemOverviewTab() {
 
   if (isLoading) {
     return (
-      <Card className="border-slate-200/70">
+      <Card>
         <CardHeader>
           <CardTitle>System Overview</CardTitle>
           <CardDescription>Loading live topology, traces, and system metrics for superadmin view.</CardDescription>
         </CardHeader>
         <CardContent className="relative">
           <div className="space-y-3">
-            <div className="h-28 rounded-2xl bg-slate-100" />
-            <div className="h-[520px] rounded-3xl bg-slate-100" />
+            <div className="h-28 animate-pulse rounded-2xl bg-muted" />
+            <div className="h-[520px] animate-pulse rounded-2xl bg-muted" />
           </div>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <InlineSpinner className="h-12 w-12" label="Loading system overview" />
@@ -291,13 +295,13 @@ export function SystemOverviewTab() {
 
   if (hasError) {
     return (
-      <Card className="border-amber-200 bg-amber-50/60">
+      <Card className="border-amber-500/30 bg-amber-500/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-950">
+          <CardTitle className="flex items-center gap-2 text-amber-950 dark:text-amber-50">
             <AlertTriangle className="h-5 w-5" />
             System overview is unavailable
           </CardTitle>
-          <CardDescription className="text-amber-900/80">
+          <CardDescription className="text-amber-800 dark:text-amber-200">
             The overview endpoints did not respond correctly. Refresh the page or check the telemetry API and broadcast worker.
           </CardDescription>
         </CardHeader>
@@ -307,35 +311,37 @@ export function SystemOverviewTab() {
 
   if (!telemetryAvailable) {
     return (
-      <Card className="overflow-hidden rounded-3xl border-border/70 shadow-sm">
-        <CardHeader className={`border-b border-border/70 text-white ${styles.setupHeader}`}>
+      <Card>
+        <CardHeader>
           <div className="flex items-center gap-3">
-            <Network className="h-5 w-5 text-sky-300" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Network className="h-5 w-5" />
+            </div>
             <div>
               <CardTitle>System Overview</CardTitle>
-              <CardDescription className="text-slate-200">
+              <CardDescription>
                 Telemetry is not initialized yet, so the observability workspace is in setup mode.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4 p-6">
-          <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/70 p-5">
-            <div className="text-sm font-medium text-slate-950">Telemetry not initialized</div>
-            <div className="mt-2 text-sm text-slate-600">
+        <CardContent className="space-y-4">
+          <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-5">
+            <div className="text-sm font-medium text-foreground">Telemetry not initialized</div>
+            <div className="mt-2 text-sm text-muted-foreground">
               The app is healthy, but the system overview tables have not been migrated in this environment yet. The dashboard and normal pages continue to work while this feature stays paused.
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200/70 p-4">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-500">What to run</div>
-              <div className="mt-2 text-sm text-slate-700">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="text-sm font-medium text-foreground">What to run</div>
+              <div className="mt-2 text-sm text-muted-foreground">
                 Apply only the four `2026_03_28_000001` through `2026_03_28_000004` system overview migrations in the backend.
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200/70 p-4">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Current behavior</div>
-              <div className="mt-2 text-sm text-slate-700">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="text-sm font-medium text-foreground">Current behavior</div>
+              <div className="mt-2 text-sm text-muted-foreground">
                 Telemetry requests are now suppressed temporarily, and the rest of the app remains fully usable.
               </div>
             </div>
@@ -345,95 +351,74 @@ export function SystemOverviewTab() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden rounded-3xl border-border/70 shadow-sm">
-        <CardHeader
-          className={`border-b border-border/70 ${
-            isDark
-              ? `${styles.headerDark} text-white`
-              : `${styles.headerLight} text-slate-950`
-          }`}
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-            <div className="space-y-2">
-              <div className={`flex items-center gap-2 ${isDark ? 'text-sky-200' : 'text-sky-700'}`}>
-                <Network className="h-4 w-4" />
-                Superadmin Observability
-              </div>
-              <CardTitle className="text-2xl">System Overview</CardTitle>
-              <CardDescription className={`max-w-2xl ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>
-                A focused observability workspace for route health, live user presence, blockers, and recent traces without the previous control overload.
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end lg:self-start xl:flex-nowrap">
-              <Tabs value={timeMode} onValueChange={(value) => setTimeMode(value as 'live' | 'history')}>
-                <TabsList className={`h-12 ${isDark ? 'bg-white/10' : 'bg-slate-950/5'}`}>
-                  <TabsTrigger value="live" className="px-4 text-sm whitespace-nowrap">
-                    Live
-                  </TabsTrigger>
-                  <TabsTrigger value="history" className="px-4 text-sm whitespace-nowrap">
-                    Last 24h
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <div
-                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
-                  isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
-                }`}
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                {snapshot?.stats.activeSessions ?? 0} live sessions
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCanvasExpanded(true)}
-                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
-                  isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
-                }`}
-              >
-                <ZoomIn className="h-3.5 w-3.5" />
-                <span>Canvas workspace</span>
-              </button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6 p-4 sm:p-6">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {[
-              { label: 'Active Sessions', value: snapshot?.stats.activeSessions ?? 0, icon: Users },
-              { label: 'Requests / min', value: snapshot?.stats.requestsPerMinute ?? 0, icon: Activity },
-              {
-                label: 'Issue types 24h', value: snapshot?.stats.uniqueIssueCount24h ?? '—', icon: AlertTriangle,
-                detail: snapshot?.stats.warningCount24h !== undefined
-                  ? `${(snapshot.stats.errorCount24h - snapshot.stats.warningCount24h).toLocaleString()} error events · ${snapshot.stats.warningCount24h.toLocaleString()} warnings`
-                  : `${(snapshot?.stats.errorCount24h ?? 0).toLocaleString()} events`,
-              },
-              { label: 'Slow Routes', value: snapshot?.stats.slowRouteCount ?? 0, icon: Clock3 },
-              { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug },
-            ].map((stat) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`rounded-3xl border p-4 shadow-sm ${
-                  isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/80 bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{stat.label}</div>
-                    <div className="mt-2 text-2xl font-semibold text-foreground">{stat.value}</div>
-                  </div>
-                  <stat.icon className="h-5 w-5 text-sky-600" />
-                </div>
-                {stat.detail && <p className="mt-2 text-xs text-muted-foreground">{stat.detail}<br />Includes repeated events</p>}
-              </motion.div>
-            ))}
-          </div>
+  const errorEvents = snapshot?.stats.errorCount24h ?? 0;
+  const warningCount = snapshot?.stats.warningCount24h;
+  const issueTypes = snapshot?.stats.uniqueIssueCount24h;
+  const issueDetail = warningCount !== undefined
+    ? `${(errorEvents - warningCount).toLocaleString()} error events · ${warningCount.toLocaleString()} warnings`
+    : `${errorEvents.toLocaleString()} events`;
+  const stats = [
+    { label: 'Active Sessions', value: snapshot?.stats.activeSessions ?? 0, icon: Users, attention: false, detail: '' },
+    { label: 'Requests / min', value: snapshot?.stats.requestsPerMinute ?? 0, icon: Activity, attention: false, detail: '' },
+    {
+      label: 'Issue types 24h',
+      value: issueTypes ?? '—',
+      icon: AlertTriangle,
+      attention: (issueTypes ?? 0) > 0,
+      detail: issueDetail,
+    },
+    { label: 'Slow Routes', value: snapshot?.stats.slowRouteCount ?? 0, icon: Clock3, attention: (snapshot?.stats.slowRouteCount ?? 0) > 0, detail: '' },
+    { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug, attention: (snapshot?.stats.integrationFailures24h ?? 0) > 0, detail: '' },
+  ];
 
-          <Card className={`rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950/55' : 'border-slate-200/80 bg-white'}`}>
-            <CardContent className="space-y-3 p-4">
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">System Overview</h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            A focused observability workspace for route health, live user presence, blockers, and recent traces without the previous control overload.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={timeMode} onValueChange={(value) => setTimeMode(value as 'live' | 'history')}>
+            <TabsList>
+              <TabsTrigger value="live">Live</TabsTrigger>
+              <TabsTrigger value="history">Last 24h</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
+            {snapshot?.stats.activeSessions ?? 0} live sessions
+          </div>
+          <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setIsCanvasExpanded(true)}>
+            <ZoomIn className="mr-1.5 h-3.5 w-3.5" />
+            Canvas workspace
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-medium text-muted-foreground">{stat.label}</div>
+              <stat.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <div
+              className={cn(
+                'mt-2 text-2xl font-semibold tabular-nums tracking-tight',
+                stat.attention ? 'text-amber-700 dark:text-amber-300' : 'text-foreground',
+              )}
+            >
+              {stat.value}
+            </div>
+            {stat.detail && <p className="mt-2 text-xs leading-5 text-muted-foreground">{stat.detail}<br />Includes repeated events</p>}
+          </div>
+        ))}
+      </div>
+
+      <section className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-[120px]">
                   <div className="text-sm font-semibold text-foreground">Map scope</div>
@@ -468,19 +453,22 @@ export function SystemOverviewTab() {
                   Reset layout
                 </Button>
                 <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Deep links</span>
-                  <Switch checked={showEverything} onCheckedChange={setShowEverything} />
+                  <span id="overview-deep-links">Deep links</span>
+                  <Switch checked={showEverything} onCheckedChange={setShowEverything} aria-labelledby="overview-deep-links" />
                 </div>
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {domainSummaries.map((domain) => {
                   const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
                   const active = domain.isExpanded;
+                  const errors = domain.stats?.errors ?? 0;
                   return (
                     <button
                       key={domain.id}
                       type="button"
+                      aria-pressed={active}
+                      title={domain.description}
                       onClick={() =>
                         setExpandedDomains((current) =>
                           current.includes(domain.id)
@@ -488,27 +476,28 @@ export function SystemOverviewTab() {
                             : [...current, domain.id],
                         )
                       }
-                      className={`min-w-[220px] rounded-2xl border p-3 text-left transition-colors ${
+                      className={cn(
+                        'w-[16rem] shrink-0 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         active
-                          ? 'border-sky-300 bg-sky-50 text-slate-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                          : 'border-border/70 bg-background hover:border-sky-200 hover:bg-muted/40'
-                      }`}
+                          ? 'border-primary/40 bg-primary/10 text-foreground'
+                          : 'border-border bg-background text-foreground hover:bg-muted/50',
+                      )}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                          <Icon className="h-4.5 w-4.5" />
+                        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                          <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium">{domain.label}</div>
-                            <Badge variant="outline" className="h-7 px-2 text-[11px]">
+                            <div className="truncate text-sm font-medium">{domain.label}</div>
+                            <Badge variant="outline" className="h-6 shrink-0 px-2 text-[11px]">
                               {domain.stats?.requests ?? 0} req
                             </Badge>
                           </div>
-                          <div className="mt-1 text-[13px] leading-6 text-muted-foreground">{domain.description}</div>
+                          <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{domain.description}</div>
                           <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
                             <span>{domain.stats?.activeUsers ?? 0} live users</span>
-                            <span>{domain.stats?.errors ?? 0} errors</span>
+                            <span className={cn(errors > 0 && 'font-medium text-amber-700 dark:text-amber-300')}>{errors} errors</span>
                           </div>
                         </div>
                       </div>
@@ -516,14 +505,13 @@ export function SystemOverviewTab() {
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+      </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            {renderSystemMap('h-[700px]')}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            {renderSystemMap()}
 
-            <div className="grid min-h-0 gap-4">
-              <Card className="rounded-3xl border-border/70 shadow-sm min-h-0">
+            <div className="grid min-h-0 content-start gap-4">
+              <Card className="min-h-0">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -532,7 +520,13 @@ export function SystemOverviewTab() {
                         <CardDescription>See who is active now and which route or blocker needs attention.</CardDescription>
                       )}
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setLiveUsersCollapsed((current) => !current)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-expanded={!liveUsersCollapsed}
+                      aria-label={liveUsersCollapsed ? 'Expand live users' : 'Collapse live users'}
+                      onClick={() => setLiveUsersCollapsed((current) => !current)}
+                    >
                       {liveUsersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -542,18 +536,18 @@ export function SystemOverviewTab() {
                   <ScrollArea className="h-[360px] xl:h-[420px] pr-3">
                     <div className="space-y-3 pb-4">
                       {liveUsers.map((user) => (
-                        <div key={user.sessionKey} className="rounded-2xl border border-border/70 p-3">
+                        <div key={user.sessionKey} className="rounded-xl border border-border bg-muted/30 p-3">
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-medium text-foreground">{user.userName || 'Unknown user'}</div>
+                            <div className="min-w-0">
+                              <div className="truncate font-medium text-foreground">{user.userName || 'Unknown user'}</div>
                               <div className="text-xs text-muted-foreground">{user.userRole || 'unknown role'}</div>
                             </div>
-                            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="mt-1 h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
                           </div>
                           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                            <div>{user.currentRoute || 'No route captured yet'}</div>
-                            <div>{({ component_mount: 'Page loaded', component_unmount: 'Leaving page', view: 'Viewing page', heartbeat: 'Active', route_enter: 'Viewing page' } as Record<string, string>)[user.currentAction ?? ''] ?? user.currentAction ?? 'Browsing'}</div>
-                            {user.blockerMessage && <div className="text-amber-700">{user.blockerMessage}</div>}
+                            <div className="break-all">{user.currentRoute || 'No route captured yet'}</div>
+                            <div>{liveActionLabel(user.currentAction)}</div>
+                            {user.blockerMessage && <div className="text-amber-800 dark:text-amber-200">{user.blockerMessage}</div>}
                           </div>
                         </div>
                       ))}
@@ -564,7 +558,7 @@ export function SystemOverviewTab() {
                 )}
               </Card>
 
-              <Card className="rounded-3xl border-border/70 shadow-sm">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Inspector</CardTitle>
                   <CardDescription>Route chains, trace detail, blockers, and recent activity for the currently selected node.</CardDescription>
@@ -572,27 +566,27 @@ export function SystemOverviewTab() {
                 <CardContent className="space-y-4">
                   {selectedNode?.data ? (
                     <>
-                      <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/70 bg-slate-50'}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{selectedNode.data.kind}</div>
-                            <div className="mt-1 text-lg font-semibold text-foreground">{selectedNode.data.label}</div>
-                            <div className="mt-1 text-sm text-muted-foreground">{selectedNode.data.description}</div>
+                      <div className="rounded-xl border border-border bg-muted/40 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{selectedNode.data.kind}</div>
+                            <div className="mt-1 break-words text-lg font-semibold text-foreground">{selectedNode.data.label}</div>
+                            <div className="mt-1 break-words text-sm text-muted-foreground">{selectedNode.data.description}</div>
                           </div>
-                          <Badge>{selectedNode.data.domain}</Badge>
+                          <Badge className="shrink-0">{selectedNode.data.domain}</Badge>
                         </div>
-                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+                          <div className="rounded-xl bg-background p-3">
                             <div className="text-xs text-muted-foreground">Users</div>
-                            <div className="font-semibold">{selectedNode.data.activeUsers ?? 0}</div>
+                            <div className="font-semibold tabular-nums">{selectedNode.data.activeUsers ?? 0}</div>
                           </div>
-                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                          <div className="rounded-xl bg-background p-3">
                             <div className="text-xs text-muted-foreground">Requests</div>
-                            <div className="font-semibold">{selectedNode.data.requests ?? 0}</div>
+                            <div className="font-semibold tabular-nums">{selectedNode.data.requests ?? 0}</div>
                           </div>
-                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                          <div className="rounded-xl bg-background p-3">
                             <div className="text-xs text-muted-foreground">Errors</div>
-                            <div className="font-semibold">{selectedNode.data.errors ?? 0}</div>
+                            <div className={cn('font-semibold tabular-nums', (selectedNode.data.errors ?? 0) > 0 && 'text-amber-700 dark:text-amber-300')}>{selectedNode.data.errors ?? 0}</div>
                           </div>
                         </div>
                       </div>
@@ -605,15 +599,16 @@ export function SystemOverviewTab() {
                               key={trace.traceId}
                               type="button"
                               onClick={() => setSelectedTraceId(trace.traceId)}
-                              className={`w-full rounded-2xl border p-3 text-left transition ${
-                                isDark
-                                  ? 'border-white/10 hover:border-sky-500/40 hover:bg-sky-500/10'
-                                  : 'border-slate-200/70 hover:border-sky-300 hover:bg-sky-50/60'
-                              }`}
+                              className={cn(
+                                'w-full rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                selectedTraceId === trace.traceId
+                                  ? 'border-primary/50 bg-primary/10'
+                                  : 'border-border hover:border-primary/40 hover:bg-primary/5',
+                              )}
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <div className="text-sm font-medium text-foreground">{trace.method} {trace.path}</div>
-                                <Badge variant="outline">{trace.statusCode ?? 'n/a'}</Badge>
+                                <div className="min-w-0 break-all text-sm font-medium text-foreground">{trace.method} {trace.path}</div>
+                                <Badge variant="outline" className="shrink-0">{trace.statusCode ?? 'n/a'}</Badge>
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">{trace.durationMs}ms • {trace.occurredAt || 'recent'}</div>
                             </button>
@@ -626,12 +621,12 @@ export function SystemOverviewTab() {
                         <div className="text-sm font-medium text-foreground">Blockers & errors</div>
                         <div className="space-y-2">
                           {relatedErrors.slice(0, 4).map((error, index) => (
-                            <div key={`${error.traceId || index}-${error.message}`} className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                              <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
-                                <AlertTriangle className="h-4 w-4" />
-                                {error.message}
+                            <div key={`${error.traceId || index}-${error.message}`} className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                              <div className="flex items-start gap-2 text-sm font-medium text-amber-950 dark:text-amber-50">
+                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                <span className="min-w-0 break-words">{error.message}</span>
                               </div>
-                              <div className="mt-1 text-xs text-amber-800/80">{error.routePath || error.componentName || error.errorClass}</div>
+                              <div className="mt-1 break-all text-xs text-amber-800 dark:text-amber-200">{error.routePath || error.componentName || error.errorClass}</div>
                             </div>
                           ))}
                           {relatedErrors.length === 0 && <EmptyState icon="clear" title={<>No blockers currently linked to this node.</>} size="compact" />}
@@ -643,8 +638,8 @@ export function SystemOverviewTab() {
                           <Separator />
                           <div className="space-y-2">
                             <div className="text-sm font-medium text-foreground">Trace detail</div>
-                            <div className={`rounded-2xl border p-4 text-sm ${isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/70 bg-slate-50'}`}>
-                              <div className="font-medium text-foreground">{traceQuery.data.trace.method} {traceQuery.data.trace.path}</div>
+                            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+                              <div className="break-all font-medium text-foreground">{traceQuery.data.trace.method} {traceQuery.data.trace.path}</div>
                               <div className="mt-1 text-muted-foreground">{traceQuery.data.trace.controllerAction || 'Controller not resolved'}</div>
                               <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                                 <div>Status: {traceQuery.data.trace.statusCode ?? 'n/a'}</div>
@@ -661,7 +656,7 @@ export function SystemOverviewTab() {
                       )}
                     </>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
                       Select a node in the flowchart to inspect traces, payload summaries, blockers, and live user activity.
                     </div>
                   )}
@@ -670,8 +665,8 @@ export function SystemOverviewTab() {
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-            <Card className="rounded-3xl border-border/70 shadow-sm">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">{timeMode === 'live' ? 'Busiest routes right now' : '24h timeline'}</CardTitle>
                 <CardDescription>
@@ -684,64 +679,70 @@ export function SystemOverviewTab() {
                 {timeMode === 'live' ? (
                   <div className="space-y-3">
                     {topRoutes.map((route) => (
-                      <div key={route.path} className="rounded-2xl border border-border/70 p-4">
+                      <div key={route.path} className="rounded-xl border border-border bg-muted/20 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="font-medium text-foreground">{route.path}</div>
-                          <Badge variant="outline">{route.requestCount} req</Badge>
+                          <div className="min-w-0 truncate font-medium text-foreground" title={route.path}>{route.path}</div>
+                          <Badge variant="outline" className="shrink-0">{route.requestCount} req</Badge>
                         </div>
                         <div className="mt-2 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
-                          <div>Errors: {route.errorCount}</div>
-                          <div>Avg: {route.avgDurationMs}ms</div>
-                          <div>Max: {route.maxDurationMs}ms</div>
+                          <div className={cn(route.errorCount > 0 && 'font-medium text-amber-700 dark:text-amber-300')}>Errors: {route.errorCount}</div>
+                          <div className="tabular-nums">Avg: {route.avgDurationMs}ms</div>
+                          <div className="tabular-nums">Max: {route.maxDurationMs}ms</div>
                         </div>
                       </div>
                     ))}
+                    {topRoutes.length === 0 && <EmptyState icon="activity" title={<>No route traffic in this window.</>} size="compact" />}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {(history?.timeline ?? []).slice(-8).map((point) => (
-                      <div key={point.bucketStart} className="grid grid-cols-[110px_1fr_56px] items-center gap-3 text-sm">
-                        <div className="text-muted-foreground">{new Date(point.bucketStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div className={`h-3 overflow-hidden rounded-full ${isDark ? 'bg-slate-900/80' : 'bg-slate-100'}`}>
+                      <div key={point.bucketStart} className="grid grid-cols-[5.5rem_1fr_2.5rem] items-center gap-3 text-sm">
+                        <div className="tabular-nums text-muted-foreground">{new Date(point.bucketStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500"
+                            className="h-full rounded-full bg-primary"
                             style={{ width: `${Math.min(100, point.requests * 6)}%` }}
                           />
                         </div>
-                        <div className="text-right text-muted-foreground">{point.requests}</div>
+                        <div className="text-right tabular-nums text-muted-foreground">{point.requests}</div>
                       </div>
                     ))}
+                    {(history?.timeline ?? []).length === 0 && <EmptyState icon="activity" title={<>No timeline data for the last 24 hours.</>} size="compact" />}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-border/70 shadow-sm">
+            <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Latest blockers</CardTitle>
                 <CardDescription>Recent frontend and backend errors across the monitored system.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(snapshot?.recentErrors ?? []).slice(0, 6).map((error) => (
-                  <div key={`${error.traceId || error.message}-${error.occurredAt}`} className="rounded-2xl border border-border/70 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium text-foreground">{error.message}</div>
-                      <Badge variant="outline">{error.source}</Badge>
+                  <div key={`${error.traceId || error.message}-${error.occurredAt}`} className="rounded-xl border border-border bg-muted/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 break-words font-medium text-foreground">{error.message}</div>
+                      <Badge variant="outline" className="shrink-0">{error.source}</Badge>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">{error.routePath || error.componentName || error.errorClass}</div>
+                    <div className="mt-1 break-all text-xs text-muted-foreground">{error.routePath || error.componentName || error.errorClass}</div>
                   </div>
                 ))}
+                {(snapshot?.recentErrors ?? []).length === 0 && <EmptyState icon="clear" title={<>No blockers recorded recently.</>} size="compact" />}
               </CardContent>
             </Card>
-          </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {isCanvasExpanded && (
-        <div className="fixed inset-4 z-50">
-          <div className="absolute inset-0 rounded-[2rem] bg-slate-950/70 backdrop-blur-sm" onClick={() => setIsCanvasExpanded(false)} />
+        <div className="fixed inset-0 z-50 p-3 sm:p-4">
+          <button
+            type="button"
+            aria-label="Exit full view"
+            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+            onClick={() => setIsCanvasExpanded(false)}
+          />
           <div className="relative flex h-full flex-col">
-            {renderSystemMap('h-[calc(100vh-8rem)]', true)}
+            {renderSystemMap(true)}
           </div>
         </div>
       )}

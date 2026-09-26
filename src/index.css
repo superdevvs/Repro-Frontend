@@ -785,11 +785,24 @@ body {
   --xy-attribution-background-color: transparent;
 }
 
+.system-overview-flow {
+  --xy-background-color: transparent;
+  --xy-background-color-default: transparent;
+  --xy-background-pattern-color: hsl(210 18% 42% / 0.28);
+}
+
+.system-overview-flow.dark {
+  --xy-background-color: transparent;
+  --xy-background-color-default: transparent;
+  --xy-background-pattern-color: hsl(210 20% 78% / 0.22);
+  --xy-background-pattern-dots-color-default: hsl(210 20% 78% / 0.22);
+}
+
 .system-overview-flow .react-flow__controls {
-  background: hsl(var(--card) / 0.96);
-  border: 1px solid hsl(var(--border) / 0.9);
-  border-radius: 1rem;
-  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.18);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px hsl(var(--foreground) / 0.08);
   overflow: hidden;
 }
 
