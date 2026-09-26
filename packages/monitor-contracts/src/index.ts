@@ -29,11 +29,12 @@ export interface Disk {
   mount: string;
   device: string;
   uuid: string | null;
-  bytes: number;
-  free: number;
+  bytes: number | null;
+  free: number | null;
   inodesFree: number | null;
   expected: boolean;
   valid: boolean;
+  readingError?: string;
 }
 export interface Schedule {
   id: string;

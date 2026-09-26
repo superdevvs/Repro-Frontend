@@ -242,6 +242,7 @@ export function MonitorTables({
               <td>
                 <strong>{d.mount}</strong>
                 <small>{d.device}</small>
+                {d.readingError && <small role="status">Readings unavailable: {d.readingError}</small>}
               </td>
               <td>
                 <span
@@ -256,7 +257,7 @@ export function MonitorTables({
                 <small>{d.uuid ?? "No UUID"}</small>
               </td>
               <td>
-                {d.bytes
+                {d.bytes && d.free !== null
                   ? valueLabel(d.bytes - d.free, "bytes")
                   : "Unavailable"}
               </td>

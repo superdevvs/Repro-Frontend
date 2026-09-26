@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
+import { redactText } from "../privacy.js";
 export type RpcMessage = {
   id?: number | string;
   method?: string;
@@ -10,6 +11,8 @@ export type RpcMessage = {
 export class Rpc {
   child: ChildProcessWithoutNullStreams;
   private nextId = 0;
+  private failure: string | null = null;
+  private stderr = "";
   private pending = new Map<
     number,
     {
@@ -39,7 +42,7 @@ export class Rpc {
             else p.resolve(m.result);
           }
         } else if (m.id !== undefined && m.method) {
-          this.child.stdin.write(
+          this.write(
             JSON.stringify({
               id: m.id,
               jsonrpc: "2.0",
@@ -55,15 +58,23 @@ export class Rpc {
         /* Non-protocol output is not forwarded. */
       }
     });
-    this.child.stderr.resume();
-    this.child.on("error", () => this.fail("Provider process unavailable"));
-    this.child.on("exit", () => this.fail("Provider process exited"));
+    this.child.stderr.on("data", (chunk: Buffer) => {
+      if (this.stderr.length < 8192)
+        this.stderr += chunk.toString().slice(0, 8192 - this.stderr.length);
+    });
+    this.child.stdin.on("error", (error: NodeJS.ErrnoException) =>
+      this.fail(this.diagnostic(`Provider input unavailable (${error.code ?? "unknown"})`)));
+    this.child.on("error", (error: NodeJS.ErrnoException) =>
+      this.fail(this.diagnostic(`Provider process unavailable (${error.code ?? "unknown"})`)));
+    this.child.on("close", (code, signal) =>
+      this.fail(this.diagnostic(`Provider process exited (${signal ?? code ?? "unknown"})`)));
   }
   call<T = unknown>(
     method: string,
     params: unknown,
     timeout = 20000,
   ): Promise<T> {
+    if (this.failure) return Promise.reject(new Error(this.failure));
     const id = ++this.nextId;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -71,17 +82,33 @@ export class Rpc {
         reject(new Error(`Provider timed out: ${method}`));
       }, timeout);
       this.pending.set(id, { resolve: (v) => resolve(v as T), reject, timer });
-      this.child.stdin.write(
+      this.write(
         JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n",
       );
     });
   }
   notify(method: string, params: unknown = {}) {
-    this.child.stdin.write(
+    this.write(
       JSON.stringify({ jsonrpc: "2.0", method, params }) + "\n",
     );
   }
+  private diagnostic(message: string) {
+    const detail = redactText(this.stderr).trim().slice(0, 1000);
+    return detail ? `${message}: ${detail}` : message;
+  }
+  private write(data: string) {
+    if (this.failure) return;
+    try {
+      this.child.stdin.write(data, (error) => {
+        if (error) this.fail(this.diagnostic("Provider input closed"));
+      });
+    } catch {
+      this.fail(this.diagnostic("Provider input closed"));
+    }
+  }
   private fail(message: string) {
+    if (this.failure) return;
+    this.failure = message;
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(new Error(message));

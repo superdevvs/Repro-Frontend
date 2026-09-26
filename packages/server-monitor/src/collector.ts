@@ -121,6 +121,12 @@ export class Collector {
     });
     this.task("storage", "Mounted storage", 15000, async () => {
       this.snapshot.disks = await disks(this.cfg);
+      for (const disk of this.snapshot.disks)
+        this.source(`storage:${disk.mount}`, disk.mount, 15000,
+          disk.valid && !disk.readingError ? "healthy" : "unavailable",
+          disk.readingError ?? (disk.valid ? undefined : "Mount absent or identity mismatch"));
+      const failed = this.snapshot.disks.filter((disk) => disk.readingError);
+      if (failed.length) throw new Error(`Storage readings unavailable: ${failed.map((disk) => disk.mount).join(", ")}`);
     });
     this.task("processes", "Process memory", 15000, async () => {
       this.metrics.set("processes", await processes());

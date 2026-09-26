@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Reviewed, phased installation. Never deploys application code or touches media/schedules."""
-import socket
+import socket, importlib.util, http.client
 import argparse, hashlib, json, os, pathlib, pwd, grp, secrets, shutil, subprocess, sys, tarfile, tempfile, time, urllib.request
 P=pathlib.Path
 PREFIX=P('/opt/repro-monitor'); CONFIG=P('/etc/repro-monitor'); STATE=P('/var/lib/repro-monitor-install')
@@ -49,6 +49,23 @@ def wait_ready():
         if all(state.values()):return state
         time.sleep(2)
     raise RuntimeError('Monitoring readiness failed: '+json.dumps(state))
+def platform_module(release):
+    spec=importlib.util.spec_from_file_location('collection_platform',release/'deploy/collection-platform.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+def operator_api(path):
+    config=json.loads((CONFIG/'desktop.json').read_text())
+    class Connection(http.client.HTTPConnection):
+        def connect(self):
+            self.sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);self.sock.settimeout(35);self.sock.connect(config['socket'])
+    connection=Connection('localhost')
+    try:
+        connection.request('GET',path,headers={'Authorization':'Bearer '+P(config['tokenFile']).read_text().strip()})
+        response=connection.getresponse();body=response.read(2_000_001)
+        if response.status!=200 or len(body)>2_000_000:raise RuntimeError('Operator verification failed: '+path)
+        return json.loads(body)
+    finally:connection.close()
+
 def install(args):
     manifest=verify_bundle(args.bundle,args.sha256)
     if (PREFIX/'current').exists():raise RuntimeError('An installation already exists; review an upgrade separately')
@@ -91,6 +108,7 @@ def install(args):
         run([str(release/'bin/promtool'),'check','config',str(CONFIG/'prometheus.yml')])
         run([str(release/'bin/loki'),'-config.file='+str(CONFIG/'loki.yml'),'-verify-config=true'])
         run([str(release/'bin/alloy'),'validate',str(CONFIG/'config.alloy')])
+        platform_module(release).configure()
         for unit in (release/'units').iterdir():atomic(P('/etc/systemd/system')/unit.name,unit.read_bytes())
         run(['systemctl','daemon-reload']);run(['systemd-analyze','verify',*[str(p) for p in (release/'units').glob('*.service')]])
         atomic(STATE/'installation.json',json.dumps({'manifest':manifest,'storageBefore':before,'installedAt':time.time()},indent=2),0o600)
@@ -106,6 +124,8 @@ def install(args):
         print('Collection installed. Application instrumentation and automatic AI remain disabled. Run the guarded application release before activate.')
     except Exception:
         subprocess.run(['systemctl','disable','--now','repro-monitor.target'],capture_output=True)
+        try:platform_module(release).restore(check=False)
+        except Exception as restoration:print('Platform restoration requires review: '+str(restoration),file=sys.stderr)
         print('Installation stopped on failure. Monitoring is disabled; retained files and diagnostics are under /opt/repro-monitor and /var/lib/repro-monitor-install.',file=sys.stderr)
         raise
 
@@ -158,24 +178,94 @@ def activate(args):
         print('Activation failed; previous web/PHP/application configuration restored.',file=sys.stderr)
         raise
 
+def upgrade(args):
+    """Update only an installed passive monitor; preserve its history and application state."""
+    manifest=verify_bundle(args.bundle,args.sha256)
+    previous=(PREFIX/'current').resolve(strict=True)
+    installation=json.loads((STATE/'installation.json').read_text())
+    if manifest['backendCommit']!=installation['manifest']['backendCommit']:raise RuntimeError('Backend candidate changed; review upgrade separately')
+    if (STATE/'activation.json').exists():raise RuntimeError('This update is limited to passive installations before application activation')
+    if operator_api('/v1/settings')['settings']['automaticAi']:raise RuntimeError('Automatic AI must remain disabled during this update')
+    if previous.name==manifest['frontendCommit']:raise RuntimeError('This release is already installed')
+    before=protect_storage()
+    release=PREFIX/'releases'/manifest['frontendCommit']
+    if release.exists():raise RuntimeError('Release directory exists; inspect the previous attempt before retrying')
+    if shutil.disk_usage(PREFIX).free<5*1024**3:raise RuntimeError('At least 5 GiB free is required to preserve rollback files')
+    with tempfile.TemporaryDirectory(dir=PREFIX,prefix='update-stage-') as temp:
+        with tarfile.open(args.bundle,'r:gz') as tar:tar.extractall(temp,filter='data')
+        source=P(temp)/'repro-monitor-release'
+        for rel,expected in json.loads((source/'files.json').read_text()).items():
+            path=source/rel
+            if P(rel).is_absolute() or '..' in P(rel).parts or not path.resolve().is_relative_to(source.resolve()) or path.is_symlink() or sha(path)!=expected:raise RuntimeError('Update file verification failed: '+rel)
+        platform=platform_module(source)
+        if platform.PROFILE.read_text()!=platform.PROFILE_TEXT:raise RuntimeError('Complete the validated V4 platform repair before this runtime update')
+        shutil.move(source,release)
+    units={str(P('/etc/systemd/system')/p.name):(P('/etc/systemd/system')/p.name).read_text() for p in (release/'units').iterdir()}
+    state_path=STATE/('upgrade-'+str(time.time_ns())+'.json')
+    record={'previousRelease':str(previous),'release':str(release),'before':before,'unitsBefore':units,'installationBefore':json.loads(json.dumps(installation)),'status':'prepared'}
+    atomic(state_path,json.dumps(record,indent=2),0o600)
+    def select(path):
+        link=PREFIX/('current-next-'+str(os.getpid()));os.symlink(path,link);os.replace(link,PREFIX/'current')
+    desktop_attempted=False
+    try:
+        run(['systemctl','stop','repro-monitor.service','repro-monitor-ai.service'])
+        select(release)
+        for unit in (release/'units').iterdir():atomic(P('/etc/systemd/system')/unit.name,unit.read_bytes())
+        run(['systemctl','daemon-reload'])
+        run(['systemd-analyze','verify',*[str(P('/etc/systemd/system')/p.name) for p in (release/'units').glob('*.service')]])
+        desktop_attempted=True
+        run(['dpkg','--install',str(release/'desktop/repro-server-monitor_1.0.0_amd64.deb')],timeout=120)
+        run(['systemctl','start','repro-monitor.service','repro-monitor-ai.service'])
+        wait_ready()
+        for attempt in range(20):
+            disks=operator_api('/v1/snapshot')['disks']
+            if len(disks)==3 and all(d['valid'] and d['bytes'] and not d.get('readingError') for d in disks):break
+            time.sleep(1)
+        else:raise RuntimeError('Updated storage collection failed verification')
+        connections=operator_api('/v1/ai/connections')
+        if not any(c['id']=='codex' and c['connected'] for c in connections):raise RuntimeError('Updated Codex broker failed authentication/isolation verification')
+        if operator_api('/v1/settings')['settings']['automaticAi']:raise RuntimeError('Automatic AI changed unexpectedly')
+        if protect_storage()!=before:raise RuntimeError('Application or storage/schedule invariants changed')
+        installation['manifest']=manifest;installation['updatedAt']=time.time()
+        atomic(STATE/'installation.json',json.dumps(installation,indent=2),0o600)
+        record['status']='complete';record['completedAt']=time.time();atomic(state_path,json.dumps(record,indent=2),0o600)
+        print('Monitoring runtime updated and verified. Application deployment and automatic AI remain disabled.')
+    except Exception as error:
+        failures=[]
+        def attempt(fn):
+            try:fn()
+            except Exception as restoration:failures.append(str(restoration))
+        attempt(lambda:run(['systemctl','stop','repro-monitor.service','repro-monitor-ai.service']))
+        attempt(lambda:select(previous))
+        for path,content in units.items():attempt(lambda path=path,content=content:atomic(P(path),content))
+        if desktop_attempted:attempt(lambda:run(['dpkg','--install',str(previous/'desktop/repro-server-monitor_1.0.0_amd64.deb')],timeout=120))
+        attempt(lambda:run(['systemctl','daemon-reload']))
+        attempt(lambda:run(['systemctl','start','repro-monitor.service','repro-monitor-ai.service']))
+        attempt(wait_ready)
+        attempt(lambda:atomic(STATE/'installation.json',json.dumps(record['installationBefore'],indent=2),0o600))
+        record['status']='rolled-back' if not failures else 'rollback-needs-review';record['failure']=str(error);record['rollbackErrors']=failures
+        atomic(state_path,json.dumps(record,indent=2),0o600)
+        raise RuntimeError(str(error)+'; monitor update '+record['status']) from error
+
 def rollback(args):
     path=STATE/'activation.json'
     if path.exists():
         data=json.loads(path.read_text());restore(data['files']);path.rename(STATE/('activation-rolled-back-'+str(int(time.time()))+'.json'))
     run(['systemctl','disable','--now','repro-monitor.target'])
+    platform_module((PREFIX/'current').resolve()).restore()
     autostart=P('/home/maverick/.config/autostart/repro-server-monitor.desktop')
     if autostart.exists():autostart.unlink()
     print('Monitoring disabled. Media tiering, retained source copies, application schedules and monitoring history are retained.')
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('phase',choices=['preflight','collect','activate','rollback','status']);parser.add_argument('--bundle');parser.add_argument('--sha256');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('phase',choices=['preflight','collect','upgrade','activate','rollback','status']);parser.add_argument('--bundle');parser.add_argument('--sha256');args=parser.parse_args()
     if args.phase=='status':print(json.dumps(health(),indent=2));return
-    if args.phase in ['preflight','collect']:
+    if args.phase in ['preflight','collect','upgrade']:
         if not args.bundle or not args.sha256:parser.error('--bundle and --sha256 are required')
         manifest=verify_bundle(args.bundle,args.sha256)
         if args.phase=='preflight':print(json.dumps({'archiveVerified':True,**manifest,'applicationDeploymentRequired':True},indent=2));return
     if os.geteuid()!=0:raise SystemExit('Root access is required for systemd, /opt installation and reviewed Nginx/PHP configuration. Run this exact reviewed script with sudo.')
-    {'collect':install,'activate':activate,'rollback':rollback}[args.phase](args)
+    {'collect':install,'upgrade':upgrade,'activate':activate,'rollback':rollback}[args.phase](args)
 if __name__=='__main__':
     try:main()
     except Exception as e:print('STOP: '+str(e),file=sys.stderr);sys.exit(1)

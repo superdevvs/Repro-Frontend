@@ -177,6 +177,7 @@ export class HostCollector {
     };
   }
 }
+type MountedStorage = { target: string; source: string; uuid: string | null; fstype: string };
 export async function disks(cfg: Config): Promise<Disk[]> {
   const inventory = JSON.parse(
     await command("/usr/bin/findmnt", [
@@ -186,12 +187,15 @@ export async function disks(cfg: Config): Promise<Disk[]> {
       "TARGET,SOURCE,UUID,FSTYPE",
     ]),
   );
-  const mounts = inventory.filesystems as {
-    target: string;
-    source: string;
-    uuid: string | null;
-    fstype: string;
-  }[];
+  return diskReadings(cfg, inventory.filesystems as MountedStorage[]);
+}
+export async function diskReadings(
+  cfg: Config,
+  mounts: MountedStorage[],
+  readStats: (path: string) => Promise<{
+    blocks: number; bsize: number; bavail: number; files: number; ffree: number;
+  }> = (path) => statfs(path),
+): Promise<Disk[]> {
   const wanted = ["/", "/mnt/16tb", "/media/maverick/Expansion"];
   const result: Disk[] = [];
   for (const mount of wanted) {
@@ -202,26 +206,34 @@ export async function disks(cfg: Config): Promise<Disk[]> {
         mount,
         device: "unmounted",
         uuid: null,
-        bytes: 0,
-        free: 0,
+        bytes: null,
+        free: null,
         inodesFree: null,
         expected: mount !== "/media/maverick/Expansion",
         valid: false,
       });
       continue;
     }
-    const stat = await statfs(mount);
-    result.push({
+    const disk: Disk = {
       id: mount,
       mount,
       device: actual.source,
       uuid: actual.uuid,
-      bytes: stat.blocks * stat.bsize,
-      free: stat.bavail * stat.bsize,
-      inodesFree: stat.files > 0 ? stat.ffree : null,
+      bytes: null,
+      free: null,
+      inodesFree: null,
       expected: mount !== "/media/maverick/Expansion",
       valid: mount !== "/mnt/16tb" || actual.uuid === cfg.expectedMediaUuid,
-    });
+    };
+    try {
+      const stat = await readStats(mount);
+      disk.bytes = stat.blocks * stat.bsize;
+      disk.free = stat.bavail * stat.bsize;
+      disk.inodesFree = stat.files > 0 ? stat.ffree : null;
+    } catch (error) {
+      disk.readingError = redactText(error instanceof Error ? error.message : "Storage reading unavailable").slice(0, 350);
+    }
+    result.push(disk);
   }
   return result;
 }

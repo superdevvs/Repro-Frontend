@@ -46,7 +46,7 @@ export class Incidents {
           "storage",
           [d.mount, d.device],
         );
-      if (d.bytes && d.valid) {
+      if (d.bytes && d.free !== null && d.valid && !d.readingError) {
         const free = (d.free / d.bytes) * 100;
         if (free < settings.thresholds.diskFreeWarning)
           flag(
