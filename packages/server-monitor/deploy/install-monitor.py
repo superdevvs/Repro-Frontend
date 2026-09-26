@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Reviewed, phased installation. Never deploys application code or touches media/schedules."""
-import socket, importlib.util, http.client
+import socket, importlib.util, http.client, re
 import argparse, hashlib, json, os, pathlib, pwd, grp, secrets, shutil, subprocess, sys, tarfile, tempfile, time, urllib.request
 P=pathlib.Path
 PREFIX=P('/opt/repro-monitor'); CONFIG=P('/etc/repro-monitor'); STATE=P('/var/lib/repro-monitor-install')
@@ -49,6 +49,25 @@ def wait_ready():
         if all(state.values()):return state
         time.sleep(2)
     raise RuntimeError('Monitoring readiness failed: '+json.dumps(state))
+def log_counters():
+    with urllib.request.urlopen('http://127.0.0.1:12345/metrics',timeout=5) as response:
+        data=response.read(2_000_001)
+    if len(data)>2_000_000:raise RuntimeError('Alloy metrics response too large')
+    text=data.decode()
+    def total(name):
+        return sum(float(value) for value in re.findall(r'^'+name+r'(?:\{[^\n]*\})? ([0-9.e+]+)$',text,re.MULTILINE))
+    return {'dropped':total('loki_write_dropped_entries_total'),'sent':total('loki_write_sent_entries_total')}
+
+def verify_log_forwarding(seconds=90):
+    before=log_counters();deadline=time.monotonic()+seconds
+    while True:
+        time.sleep(min(5,max(0,deadline-time.monotonic())))
+        current=log_counters()
+        if current['dropped']>before['dropped']:raise RuntimeError('Live log forwarding dropped new entries during verification')
+        if any(current[k]<before[k] for k in before):raise RuntimeError('Alloy counters reset during log verification')
+        if time.monotonic()>=deadline:break
+    if current['sent']<=before['sent']:raise RuntimeError('No live log delivery observed during verification')
+    return {'seconds':seconds,'newDroppedEntries':0,'newSentEntries':current['sent']-before['sent']}
 def platform_module(release):
     spec=importlib.util.spec_from_file_location('collection_platform',release/'deploy/collection-platform.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
@@ -224,6 +243,8 @@ def upgrade(args):
         else:raise RuntimeError('Updated storage collection failed verification')
         connections=operator_api('/v1/ai/connections')
         if not any(c['id']=='codex' and c['connected'] for c in connections):raise RuntimeError('Updated Codex broker failed authentication/isolation verification')
+        print('Verifying live log delivery for 90 seconds; application deployment remains disabled.',flush=True)
+        record['logForwarding']=verify_log_forwarding()
         if operator_api('/v1/settings')['settings']['automaticAi']:raise RuntimeError('Automatic AI changed unexpectedly')
         if protect_storage()!=before:raise RuntimeError('Application or storage/schedule invariants changed')
         installation['manifest']=manifest;installation['updatedAt']=time.time()

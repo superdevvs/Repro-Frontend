@@ -16,38 +16,62 @@ const groups: Record<string, [string, RegExp]> = {
   "php-fpm": ["/var/log", /^php8\.3-fpm\.log$/],
   studio: ["/home/maverick/.local/share/repro-studio/logs", /\.log$/],
 };
+export type AlloyLogFiles = { observedAt: number; sources: Map<string, number> };
+export function alloyLogFiles(metrics: string, now = Date.now()): AlloyLogFiles {
+  const sources = new Map<string, number>();
+  const files = new Set<string>();
+  for (const line of metrics.split("\n")) {
+    if (!line.startsWith("loki_source_file_read_bytes_total{")) continue;
+    const match = line.match(/\bpath=("(?:\\.|[^"\\])*")/);
+    if (!match) continue;
+    let path: string;
+    try { path = JSON.parse(match[1]); } catch { continue; }
+    if (files.has(path)) continue;
+    files.add(path);
+    for (const [id, [directory, pattern]] of Object.entries(groups)) {
+      const name = path.slice(directory.length + 1);
+      if (path.startsWith(directory + "/") && !name.includes("/") && pattern.test(name))
+        sources.set(id, (sources.get(id) ?? 0) + 1);
+    }
+  }
+  return { observedAt: now, sources };
+}
+async function readableFiles(directory: string, pattern: RegExp) {
+  const files = (await readdir(directory)).filter((f) => pattern.test(f)).slice(-100);
+  if (!files.length) throw new Error("No matching log file has been created");
+  await Promise.all(files.map((file) => access(`${directory}/${file}`, constants.R_OK)));
+  return files.length;
+}
 export async function logCoverage(
   last: Map<string, string>,
+  alloy: AlloyLogFiles | null = null,
+  probe = readableFiles,
+  now = Date.now(),
 ): Promise<Coverage[]> {
-  const observedAt = new Date().toISOString(),
+  const observedAt = new Date(now).toISOString(),
     sources: Coverage[] = [];
   for (const [id, [directory, pattern]] of Object.entries(groups)) {
     try {
-      const files = (await readdir(directory))
-        .filter((f) => pattern.test(f))
-        .slice(-100);
-      if (!files.length)
-        throw new Error("No matching log file has been created");
-      await Promise.all(
-        files.map((file) => access(`${directory}/${file}`, constants.R_OK)),
-      );
+      const files = await probe(directory, pattern);
       sources.push({
         id: `log:${id}`,
         label: `${id} logs`,
         status: "healthy",
         observedAt,
         intervalMs: 60000,
-        detail: `${files.length} readable files. ${last.has(id) ? `Last ingested ${last.get(id)}` : "No lines ingested in this gateway session; quiet sources are expected."}`,
+        detail: `${files} readable files. ${last.has(id) ? `Last ingested ${last.get(id)}` : "No lines ingested in this gateway session; quiet sources are expected."}`,
       });
     } catch {
-      if (last.has(id)) {
+      const tracked = alloy && now >= alloy.observedAt && now - alloy.observedAt < 45000
+        ? alloy.sources.get(id) : undefined;
+      if (tracked) {
         sources.push({
           id: `log:${id}`,
           label: `${id} logs`,
           status: "healthy",
           observedAt,
           intervalMs: 60000,
-          detail: `Collected by the operator-owned Alloy service; last ingested ${last.get(id)}`,
+          detail: `Alloy reports ${tracked} tracked files. ${last.has(id) ? `Last ingested ${last.get(id)}` : "No lines ingested in this gateway session; quiet sources are expected."}`,
         });
         continue;
       }
@@ -58,7 +82,8 @@ export async function logCoverage(
         observedAt: null,
         intervalMs: 60000,
         detail:
-          "No readable matching file. Verify file creation and collection permissions.",
+          "Gateway cannot verify readable files and no fresh Alloy target evidence is available." +
+          (last.has(id) ? ` Last ingested ${last.get(id)}; this does not establish current collection health.` : ""),
       });
     }
   }

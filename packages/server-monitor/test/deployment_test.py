@@ -93,9 +93,17 @@ class PassiveUpgrade(unittest.TestCase):
                 if endpoint=='/v1/settings':return {'settings':{'automaticAi':False}}
                 if endpoint=='/v1/snapshot':return {'disks':[{'valid':True,'bytes':1}]*3}
                 return [{'id':'codex','connected':True}]
-            with patch.multiple(installer,PREFIX=prefix,STATE=state,P=path),patch.object(installer,'verify_bundle',return_value=manifest),patch.object(installer,'platform_module',return_value=module),patch.object(installer,'operator_api',side_effect=api),patch.object(installer,'protect_storage',return_value={'unchanged':True}),patch.object(installer,'run',side_effect=lambda args,**kw:calls.append(args) or ''),patch.object(installer,'atomic',side_effect=atomic),patch.object(installer,'wait_ready'),patch.object(installer.shutil,'disk_usage',return_value=SimpleNamespace(free=100*1024**3)):
+            with patch.multiple(installer,PREFIX=prefix,STATE=state,P=path),patch.object(installer,'verify_bundle',return_value=manifest),patch.object(installer,'platform_module',return_value=module),patch.object(installer,'operator_api',side_effect=api),patch.object(installer,'protect_storage',return_value={'unchanged':True}),patch.object(installer,'run',side_effect=lambda args,**kw:calls.append(args) or ''),patch.object(installer,'atomic',side_effect=atomic),patch.object(installer,'wait_ready'),patch.object(installer,'verify_log_forwarding',return_value={'newDroppedEntries':0}),patch.object(installer.shutil,'disk_usage',return_value=SimpleNamespace(free=100*1024**3)):
                 with self.assertRaisesRegex(RuntimeError,'monitor update rolled-back'):installer.upgrade(SimpleNamespace(bundle=archive,sha256='fixture'))
             self.assertEqual((prefix/'current').resolve(),old);self.assertEqual(unit.read_text(),'original unit');self.assertEqual(json.loads((state/'installation.json').read_text()),original)
             self.assertIn(['systemctl','start','repro-monitor.service','repro-monitor-ai.service'],calls)
+
+class LogForwarding(unittest.TestCase):
+    def test_requires_new_delivery_and_rejects_drops_or_counter_reset(self):
+        for after,expected in [({'sent':12,'dropped':5},True),({'sent':12,'dropped':6},False),({'sent':10,'dropped':5},False),({'sent':1,'dropped':0},False)]:
+            with self.subTest(after=after),patch.object(installer,'log_counters',side_effect=[{'sent':10,'dropped':5},after]),patch.object(installer.time,'sleep'):
+                if expected:self.assertEqual(installer.verify_log_forwarding(seconds=0)['newSentEntries'],2)
+                else:
+                    with self.assertRaises(RuntimeError):installer.verify_log_forwarding(seconds=0)
 
 if __name__=='__main__':unittest.main()

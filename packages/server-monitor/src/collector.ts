@@ -1,4 +1,5 @@
-import { logCoverage, providerInventory } from "./collectors/coverage.js";
+import { alloyLogFiles, logCoverage, providerInventory, type AlloyLogFiles } from "./collectors/coverage.js";
+import { logDelivery, type LogDeliveryState } from "./collectors/log-delivery.js";
 import { CronExpressionParser } from "cron-parser";
 import { hostname } from "node:os";
 import { readFile, statfs } from "node:fs/promises";
@@ -49,6 +50,7 @@ export class Collector {
   listeners = new Set<(s: Snapshot) => void>();
   logReceivedAt: string | null = null;
   logSources = new Map<string, string>();
+  private alloyFiles: AlloyLogFiles | null = null;
   ingestionAllowed = true;
   constructor(
     public cfg: Config,
@@ -158,7 +160,7 @@ export class Collector {
       );
     });
     this.task("log-files", "Log file inventory", 60000, async () => {
-      for (const source of await logCoverage(this.logSources))
+      for (const source of await logCoverage(this.logSources, this.alloyFiles))
         this.sources.set(source.id, source);
       this.source(
         "log:system",
@@ -187,11 +189,22 @@ export class Collector {
             new RegExp("^" + name + "(?:\\{[^\\n]*\\})? ([0-9.e+]+)$", "gm"),
           ),
         ].reduce((sum, m) => sum + Number(m[1]), 0);
+      this.alloyFiles = alloyLogFiles(metrics);
+      const delivery = logDelivery(
+        this.store.get<LogDeliveryState | null>("log-delivery", null),
+        sum("loki_write_dropped_entries_total"),
+      );
+      this.store.set("log-delivery", delivery);
+      this.source("log-delivery", "Log forwarding", 15000,
+        delivery.recentLosses ? "unavailable" : "healthy",
+        delivery.recentLosses
+          ? `${delivery.recentLosses} entries dropped during the current loss episode. Last loss ${new Date(delivery.lastLossAt!).toISOString()}; recovery requires five minutes without further loss.`
+          : `No new drops observed in the last five minutes or since observation began; ${delivery.total} dropped since Alloy started.`);
       this.metrics.set("alloy", [
         {
           key: "log_dropped_entries",
           label: "Dropped log entries since Alloy start",
-          value: sum("loki_write_dropped_entries_total"),
+          value: delivery.total,
           unit: "count",
           source: "alloy",
         },

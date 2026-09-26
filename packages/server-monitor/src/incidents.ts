@@ -98,6 +98,9 @@ export class Incidents {
         );
     }
     for (const s of snapshot.sources) {
+      if (s.id === "log-delivery" && s.status === "unavailable")
+        flag("log-delivery", "Monitoring log entries are being dropped", "warning",
+          "log-delivery", [s.detail ?? "Alloy reported dropped entries"]);
       if (s.status === "stale")
         flag(
           `stale:${s.id}`,

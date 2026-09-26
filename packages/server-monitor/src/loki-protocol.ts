@@ -25,7 +25,7 @@ export function decodeLokiPush(input: Buffer) {
       labels: string;
       entries: {
         timestamp: { seconds: string; nanos?: number };
-        line: string;
+        line?: string;
       }[];
     }[];
   };
@@ -41,7 +41,8 @@ export function decodeLokiPush(input: Buffer) {
             BigInt(e.timestamp.seconds) * 1000000000n +
             BigInt(e.timestamp.nanos ?? 0)
           ).toString(),
-          e.line,
+          // Proto3 omits an empty string on the wire; it is a valid blank log line.
+          e.line ?? "",
         ]),
       };
     }),
