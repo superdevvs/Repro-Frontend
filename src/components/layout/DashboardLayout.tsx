@@ -1,5 +1,3 @@
-import MonitorNotifications from '@/features/server-monitor/MonitorNotifications';
-
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
@@ -85,7 +83,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
 
   return (
     <DashboardLayoutContext.Provider value={true}>
-      <MonitorNotifications />
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
