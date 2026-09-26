@@ -103,6 +103,8 @@ export interface UserData {
   timezone?: string;
   company?: string;
   companyNotes?: string;
+  license_number?: string | null;
+  licenseNumber?: string | null;
   bio?: string;
   about?: string;
   username?: string;

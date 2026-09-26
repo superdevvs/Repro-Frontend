@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { DefaultBracketModeField } from '@/components/accounts/DefaultBracketModeField';
+import { PhotographerCredentialSettings } from '@/components/profile/PhotographerCredentialSettings';
 import { TaxDocumentCard } from '@/components/profile/TaxDocumentCard';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { useToast } from '@/hooks/use-toast';
@@ -230,6 +231,7 @@ export function PhotographerWorkSettings() {
 
         </form>
       </Form>
+      <PhotographerCredentialSettings key={`credentials-${user?.id ?? 'self'}`} />
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-base">Tax & license documents</CardTitle>

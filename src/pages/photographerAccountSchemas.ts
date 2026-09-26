@@ -43,7 +43,23 @@ export const notificationsSchema = z.object({
   email_notifications: z.boolean().default(true),
 });
 
+const optionalDocumentUrl = z.string().trim().max(2048).refine(
+  (value) => value === '' || z.string().url().safeParse(value).success,
+  { message: 'Upload a document before saving.' },
+);
+
+/** Credentials collected when an admin creates a photographer account. */
+export const photographerCredentialSchema = z.object({
+  licenseNumber: z.string().trim().max(100),
+  insuranceNumber: z.string().trim().max(255),
+  insuranceFile: optionalDocumentUrl,
+  insuranceFileName: z.string().trim().max(255),
+  pilotLicenseFile: optionalDocumentUrl,
+  pilotLicenseFileName: z.string().trim().max(255),
+});
+
 export type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 export type PhotographerWorkSettingsValues = z.infer<typeof photographerWorkSettingsSchema>;
 export type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
 export type NotificationsFormValues = z.infer<typeof notificationsSchema>;
+export type PhotographerCredentialValues = z.infer<typeof photographerCredentialSchema>;
