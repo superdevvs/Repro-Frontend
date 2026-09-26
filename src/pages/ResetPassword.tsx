@@ -10,6 +10,11 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
 import { accountPasswordError } from '@/utils/accountPassword';
 
+const resetLinkParam = (params: URLSearchParams, name: 'token' | 'email' | 'mode') =>
+  // Older email buttons escaped query separators twice, leaving literal `&amp;` in the URL.
+  // Only recover those parameter names; decoding values again would corrupt tokens and email aliases.
+  params.get(name) ?? params.get(`amp;${name}`);
+
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -23,9 +28,9 @@ export default function ResetPassword() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  const token = searchParams.get('token');
-  const email = searchParams.get('email');
-  const isCreateMode = searchParams.get('mode') === 'create';
+  const token = resetLinkParam(searchParams, 'token');
+  const email = resetLinkParam(searchParams, 'email');
+  const isCreateMode = resetLinkParam(searchParams, 'mode') === 'create';
   const pageCopy = isCreateMode
     ? {
         successToastTitle: 'Password Created',
