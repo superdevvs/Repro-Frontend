@@ -12,7 +12,7 @@ const kindStyles: Record<FlowNodeData['kind'], string> = {
 };
 
 export default function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
-  const sizeClass = data.kind === 'domain' ? 'w-[300px]' : data.kind === 'page' ? 'w-[268px]' : 'w-[220px]';
+  const sizeClass = data.kind === 'domain' ? 'h-[196px] w-[300px]' : data.kind === 'page' ? 'h-[184px] w-[248px]' : 'h-[180px] w-[216px]';
   const metricGridClass = data.kind === 'domain' ? 'gap-2 text-[11px]' : 'gap-1.5 text-[10px]';
   const metricPadClass = data.kind === 'domain' ? 'px-2 py-2' : 'px-2 py-1.5';
 
@@ -23,11 +23,11 @@ export default function SystemOverviewNode({ data, selected }: NodeProps<FlowNod
       }`}
     >
       <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-primary" />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <div className="text-[10px] font-medium uppercase tracking-wide opacity-70">{data.kind}</div>
-          <div className="mt-1 break-words text-sm font-semibold leading-5">{data.label}</div>
-          <div className="mt-1 break-words text-xs leading-5 opacity-75">{data.description || data.domain}</div>
+          <div className="mt-1 line-clamp-2 break-words text-sm font-semibold leading-5" title={data.label}>{data.label}</div>
+          <div className="mt-1 line-clamp-2 break-words text-xs leading-5 opacity-75" title={data.description || data.domain}>{data.description || data.domain}</div>
         </div>
         {(data.activeUsers || 0) > 0 && (
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-foreground/10 px-2 py-1 text-[11px]">
@@ -37,17 +37,17 @@ export default function SystemOverviewNode({ data, selected }: NodeProps<FlowNod
         )}
       </div>
       <div className={`mt-3 grid grid-cols-3 ${metricGridClass}`}>
-        <div className={`rounded-xl ${metricPadClass} bg-foreground/5`}>
+        <div className={`min-w-0 rounded-xl ${metricPadClass} bg-foreground/5`}>
           <div className="opacity-60">Req</div>
-          <div className="font-semibold tabular-nums">{data.requests ?? 0}</div>
+          <div className="truncate font-semibold tabular-nums">{data.requests ?? 0}</div>
         </div>
-        <div className={`rounded-xl ${metricPadClass} bg-foreground/5`}>
+        <div className={`min-w-0 rounded-xl ${metricPadClass} bg-foreground/5`}>
           <div className="opacity-60">Err</div>
-          <div className="font-semibold tabular-nums">{data.errors ?? 0}</div>
+          <div className="truncate font-semibold tabular-nums">{data.errors ?? 0}</div>
         </div>
-        <div className={`rounded-xl ${metricPadClass} bg-foreground/5`}>
+        <div className={`min-w-0 rounded-xl ${metricPadClass} bg-foreground/5`}>
           <div className="opacity-60">Avg</div>
-          <div className="font-semibold tabular-nums">{data.avgDurationMs ?? 0}ms</div>
+          <div className="truncate font-semibold tabular-nums">{data.avgDurationMs ?? 0}ms</div>
         </div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-0 !bg-primary" />

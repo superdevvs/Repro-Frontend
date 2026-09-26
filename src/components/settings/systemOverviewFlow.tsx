@@ -31,19 +31,22 @@ export const ICONS = {
   settings: Settings2,
 };
 
-const STORAGE_KEY = 'system-overview.flow.positions.v5';
-const PAGE_NODE_WIDTH = 268;
-const CHILD_NODE_WIDTH = 220;
-const PAGE_GROUP_WIDTH = CHILD_NODE_WIDTH * 2 + 28;
-const PAGE_COLUMN_GAP = 56;
-const PAGE_DETAIL_GAP = 164;
-const PAGE_SECTION_GAP = 38;
-const STACK_STEP = 138;
-const DOMAIN_ROW_GAP = 140;
-const DOMAIN_COLUMN_GAP = 140;
-const DOMAIN_COLUMNS = 2;
+const STORAGE_KEY = 'system-overview.flow.positions.v6';
+const DOMAIN_H = 196;
+const PAGE_W = 248;
+const PAGE_H = 184;
+const CHILD_W = 216;
+const CHILD_H = 180;
+const COL_GAP = 28;
+const PAGE_GAP = 64;
+const V_GAP = 40;
+const PAIR_W = CHILD_W * 2 + COL_GAP;
+const STACK_STEP = CHILD_H + V_GAP;
+const PAGE_DETAIL_GAP = PAGE_H + V_GAP;
+const DOMAIN_OFFSET = DOMAIN_H + 56;
+const CLUSTER_GAP = 80;
 
-const getStackHeight = (count: number) => (count > 0 ? count * STACK_STEP : 0);
+const getStackHeight = (count: number) => (count > 0 ? count * CHILD_H + (count - 1) * V_GAP : 0);
 
 export const nodeTypes = {
   overviewNode: SystemOverviewNode,
@@ -111,10 +114,7 @@ export const buildFlow = (
   const savedPositions = loadSavedPositions();
   const nodes: FlowNode[] = [];
   const edges: Edge[] = [];
-  let currentX = 120;
-  let currentY = 80;
-  let currentColumn = 0;
-  let currentRowHeight = 0;
+  let cursorY = 40;
 
   systemOverviewCatalog.forEach((domain) => {
     const domainIsExpanded = expandedDomains.includes(domain.id);
@@ -127,7 +127,7 @@ export const buildFlow = (
       const totalHeight =
         PAGE_DETAIL_GAP +
         topRowHeight +
-        (bottomRowHeight > 0 ? PAGE_SECTION_GAP + bottomRowHeight : 0);
+        (bottomRowHeight > 0 ? V_GAP + bottomRowHeight : 0);
 
       return {
         page,
@@ -137,27 +137,13 @@ export const buildFlow = (
       };
     });
     const tallestPageStack = Math.max(0, ...pageLayouts.map((layout) => layout.totalHeight));
-    const clusterWidth = domainIsExpanded
-      ? Math.max(360, domain.pages.length * PAGE_GROUP_WIDTH + Math.max(0, domain.pages.length - 1) * PAGE_COLUMN_GAP)
-      : 320;
-    const clusterHeight = domainIsExpanded
-      ? 260 + tallestPageStack + (extraRoutes.length > 0 ? 140 + Math.ceil(extraRoutes.length / 2) * 148 : 0)
-      : 180;
+    const extraRows = Math.ceil(extraRoutes.length / 2);
+    const extraHeight = extraRows > 0 ? V_GAP + getStackHeight(extraRows) : 0;
+    const clusterHeight = domainIsExpanded ? DOMAIN_OFFSET + tallestPageStack + extraHeight : DOMAIN_H;
 
-    const clusterX = currentX;
-    const clusterY = currentY;
-
-    currentColumn += 1;
-    currentRowHeight = Math.max(currentRowHeight, clusterHeight);
-
-    if (currentColumn >= DOMAIN_COLUMNS) {
-      currentY += currentRowHeight + DOMAIN_ROW_GAP;
-      currentX = 120;
-      currentColumn = 0;
-      currentRowHeight = 0;
-    } else {
-      currentX += clusterWidth + DOMAIN_COLUMN_GAP;
-    }
+    const clusterX = 40;
+    const clusterY = cursorY;
+    cursorY += clusterHeight + CLUSTER_GAP;
 
     const domainId = `domain:${domain.id}`;
     const domainPosition = savedPositions[domainId] ?? { x: clusterX, y: clusterY };
@@ -185,13 +171,13 @@ export const buildFlow = (
     }
 
     const childStartX = domainPosition.x;
-    const childStartY = domainPosition.y + 220;
+    const childStartY = domainPosition.y + DOMAIN_OFFSET;
 
     pageLayouts.forEach(({ page, topRowHeight }, pageIndex) => {
-      const pageGroupX = childStartX + pageIndex * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP);
+      const pageGroupX = childStartX + pageIndex * (PAIR_W + PAGE_GAP);
       const pageId = `page:${page.id}`;
       const pagePosition = savedPositions[pageId] ?? {
-        x: pageGroupX + Math.round((PAGE_GROUP_WIDTH - PAGE_NODE_WIDTH) / 2),
+        x: pageGroupX + Math.round((PAIR_W - PAGE_W) / 2),
         y: childStartY,
       };
       const pageMetrics = aggregateRouteMetrics(page.apis, snapshot, routes);
@@ -224,7 +210,7 @@ export const buildFlow = (
       });
 
       const firstRowY = pagePosition.y + PAGE_DETAIL_GAP;
-      const secondRowY = firstRowY + (topRowHeight > 0 ? topRowHeight + PAGE_SECTION_GAP : 0);
+      const secondRowY = firstRowY + (topRowHeight > 0 ? topRowHeight + V_GAP : 0);
 
       page.components.forEach((component, componentIndex) => {
         const componentId = `component:${page.id}:${component}`;
@@ -263,7 +249,7 @@ export const buildFlow = (
       page.apis.forEach((apiPath, apiIndex) => {
         const apiId = `api:${page.id}:${apiPath}`;
         const apiPosition = savedPositions[apiId] ?? {
-          x: pageGroupX + CHILD_NODE_WIDTH + 28,
+          x: pageGroupX + CHILD_W + COL_GAP,
           y: firstRowY + apiIndex * STACK_STEP,
         };
         const routeMetric = aggregateRouteMetrics([apiPath], snapshot, routes);
@@ -329,7 +315,7 @@ export const buildFlow = (
       (page.externals ?? []).forEach((external, externalIndex) => {
         const externalId = `external:${page.id}:${external}`;
         const externalPosition = savedPositions[externalId] ?? {
-          x: pageGroupX + CHILD_NODE_WIDTH + 28,
+          x: pageGroupX + CHILD_W + COL_GAP,
           y: secondRowY + externalIndex * STACK_STEP,
         };
 
@@ -365,8 +351,8 @@ export const buildFlow = (
       const extraColumn = routeIndex % 2;
       const extraRow = Math.floor(routeIndex / 2);
       const apiPosition = savedPositions[apiId] ?? {
-        x: childStartX + extraColumn * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP),
-        y: childStartY + tallestPageStack + 100 + extraRow * 148,
+        x: childStartX + extraColumn * (PAIR_W + PAGE_GAP),
+        y: childStartY + tallestPageStack + V_GAP + extraRow * STACK_STEP,
       };
       const metric = route.metrics;
 

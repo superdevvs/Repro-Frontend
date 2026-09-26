@@ -569,3 +569,145 @@
     flex-wrap: wrap;
   }
 }
+
+.dark .rm {
+  --rm-bg: hsl(var(--card));
+  --rm-surface: hsl(var(--background));
+  --rm-text: hsl(var(--card-foreground));
+  --rm-muted: hsl(var(--muted-foreground));
+  --rm-line: hsl(var(--border));
+  color: var(--rm-text);
+  background: var(--rm-bg);
+  border-color: var(--rm-line);
+}
+
+.dark .rm-logo {
+  background: hsl(var(--primary) / 0.16);
+  color: hsl(var(--primary));
+}
+
+.dark .rm-eyebrow,
+.dark .rm-muted,
+.dark .rm-muted i {
+  color: var(--rm-muted);
+}
+
+.dark .rm-live {
+  color: #5eead4;
+}
+
+.dark .rm-live i {
+  background: #2dd4bf;
+  box-shadow: 0 0 0 4px rgb(45 212 191 / 0.16);
+}
+
+.dark .rm-tabs {
+  border-bottom-color: var(--rm-line);
+}
+
+.dark .rm-tabs button[aria-current] {
+  color: #5eead4;
+  border-bottom-color: #2dd4bf;
+}
+
+.dark .rm-tabs b {
+  background: rgb(251 191 36 / 0.16);
+  color: #fcd34d;
+}
+
+.dark .rm-stat,
+.dark .rm-panel,
+.dark .rm input:not([type="checkbox"]),
+.dark .rm textarea,
+.dark .rm select {
+  background: var(--rm-surface);
+  border-color: var(--rm-line);
+  color: var(--rm-text);
+}
+
+.dark .rm-stat small {
+  color: #5eead4;
+}
+
+.dark .rm-chart-empty {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 39px,
+    hsl(var(--border)) 40px
+  );
+}
+
+.dark .rm th,
+.dark .rm td,
+.dark .rm-incident {
+  border-bottom-color: var(--rm-line);
+}
+
+.dark .rm-pill {
+  background: hsl(var(--muted));
+  color: var(--rm-text);
+}
+
+.dark .rm-pill.healthy,
+.dark .rm-pill.success,
+.dark .rm-pill.active {
+  background: rgb(16 185 129 / 0.16);
+  color: #6ee7b7;
+}
+
+.dark .rm-pill.critical,
+.dark .rm-pill.failed,
+.dark .rm-pill.error,
+.dark .rm-pill.unavailable {
+  background: rgb(244 63 94 / 0.16);
+  color: #fda4af;
+}
+
+.dark .rm-pill.stale,
+.dark .rm-pill.warning,
+.dark .rm-pill.running {
+  background: rgb(245 158 11 / 0.16);
+  color: #fcd34d;
+}
+
+.dark .rm-banner {
+  background: rgb(245 158 11 / 0.14);
+  color: #fcd34d;
+}
+
+.dark .rm-button {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .rm-message {
+  background: hsl(var(--muted));
+}
+
+.dark .rm-message.user {
+  background: rgb(16 185 129 / 0.14);
+}
+
+.dark .rm-overlay {
+  background: rgb(0 0 0 / 0.62);
+}
+
+.dark .rm-detail {
+  background: var(--rm-bg);
+  box-shadow: -12px 0 48px rgb(0 0 0 / 0.45);
+}
+
+.dark .rm-log-list {
+  background: hsl(var(--background));
+  color: var(--rm-text);
+  border: 1px solid var(--rm-line);
+}
+
+.dark .rm-log {
+  border-bottom-color: var(--rm-line);
+}
+
+.dark .rm-log time {
+  color: var(--rm-muted);
+}

@@ -81,7 +81,7 @@ export function MonitorChart({
               <CartesianGrid
                 strokeDasharray="3 5"
                 vertical={false}
-                stroke="#dce5e9"
+                stroke="var(--rm-line)"
               />
               <XAxis
                 dataKey="timestamp"
@@ -92,13 +92,13 @@ export function MonitorChart({
                   })
                 }
                 minTickGap={50}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: "var(--rm-muted)" }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 width={42}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: "var(--rm-muted)" }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => Number(v).toFixed(0)}
@@ -109,6 +109,12 @@ export function MonitorChart({
                   v.toFixed(2),
                   metric === "memory_used" ? "GiB" : title,
                 ]}
+                contentStyle={{
+                  background: "var(--rm-surface)",
+                  border: "1px solid var(--rm-line)",
+                  borderRadius: 8,
+                  color: "var(--rm-text)",
+                }}
               />
               <Area
                 type="monotone"

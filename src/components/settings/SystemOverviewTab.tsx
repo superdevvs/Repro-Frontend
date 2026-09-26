@@ -8,6 +8,7 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,6 +55,17 @@ import {
   saveNodePositions,
   type FlowNode,
 } from './systemOverviewFlow';
+
+function OverviewFit({ signature }: { signature: string }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      void fitView({ padding: 0.18, duration: 250, maxZoom: 0.85 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [fitView, signature]);
+  return null;
+}
 
 const liveActionLabels: Record<string, string> = {
   component_mount: 'Page loaded',
@@ -229,10 +241,10 @@ export function SystemOverviewTab() {
 
   const renderSystemMap = (expandedView = false) => (
     <div className={cn('flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm', expandedView && 'h-full')}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="min-w-0">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-foreground">System map</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs leading-5 text-muted-foreground">
             Drag nodes or the canvas, then use the inspector for details instead of scanning everything at once.
           </div>
         </div>
@@ -259,13 +271,16 @@ export function SystemOverviewTab() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           fitView
-          fitViewOptions={{ padding: expandedView ? 0.08 : 0.14, maxZoom: expandedView ? 1.2 : 0.98 }}
+          fitViewOptions={{ padding: 0.18, maxZoom: 0.85 }}
+          minZoom={0.15}
+          maxZoom={1.25}
           proOptions={{ hideAttribution: true }}
           nodesDraggable
           onNodeClick={(_, node) => setSelectedNodeId(node.id)}
           onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
-          defaultEdgeOptions={{ animated: false }}
+          defaultEdgeOptions={{ animated: false, type: 'smoothstep' }}
         >
+          <OverviewFit signature={`${expandedDomains.join(',')}|${showEverything}|${nodes.length}|${expandedView}`} />
           <Background gap={24} />
           <Controls position="top-left" showInteractive={false} />
         </ReactFlow>
