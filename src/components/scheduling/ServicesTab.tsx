@@ -17,6 +17,7 @@ import { useServiceGroups } from '@/hooks/useServiceGroups';
 import API_ROUTES from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { ServiceCreateDialog } from './ServiceCreateDialog';
+import { serviceMatchesSearch } from './catalogSearch';
 import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
 
 type Service = {
@@ -173,6 +174,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const [catalogError, setCatalogError] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [serviceQuery, setServiceQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newService, setNewService] = useState<ServiceDraft>({
     name: '',
@@ -594,9 +596,11 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     ? normalizeCategoryName(selectedCategoryName)
     : null;
 
-  const filteredServices = selectedCategory && normalizedSelectedCategory
-    ? services.filter(service => normalizeCategoryName(service.category || '') === normalizedSelectedCategory)
-    : services;
+  const filteredServices = services.filter((service) => {
+    const inCategory = !selectedCategory || !normalizedSelectedCategory
+      || normalizeCategoryName(service.category || '') === normalizedSelectedCategory;
+    return inCategory && serviceMatchesSearch(service.name, service.description, serviceQuery);
+  });
   const sortedCategories = React.useMemo(() => {
     if (!mergedCategories.length) return [];
 
@@ -623,6 +627,13 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
   return (
     <div className="space-y-3 sm:space-y-4">
+      <Input
+        value={serviceQuery}
+        onChange={(event) => setServiceQuery(event.target.value)}
+        placeholder="Search services"
+        aria-label="Search services"
+        className="max-w-md"
+      />
       <div>
         {categoriesLoading ? (
           <div className="flex justify-center py-4">
@@ -698,7 +709,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
         {catalogError && <div role="alert" className="col-span-full py-8 text-center text-sm text-destructive"><p>Could not load services.</p><Button variant="outline" className="mt-3" onClick={() => void fetchServices()}>Try Again</Button></div>}
-        {!isLoading && !catalogError && filteredServices.length === 0 && <EmptyState icon={selectedCategory ? 'search' : 'services'} title={selectedCategory ? 'No services in this category' : 'No services yet'} description="Services will appear here when they are added." className="col-span-full" action={selectedCategory ? <Button variant="outline" onClick={() => setSelectedCategory(null)}>View All Services</Button> : <Button onClick={() => setIsAddDialogOpen(true)}>Add Service</Button>} />}
+        {!isLoading && !catalogError && filteredServices.length === 0 && <EmptyState icon={selectedCategory || serviceQuery.trim() ? 'search' : 'services'} title={serviceQuery.trim() ? 'No matching services' : selectedCategory ? 'No services in this category' : 'No services yet'} description={serviceQuery.trim() ? 'Try a different name or clear the search.' : 'Services will appear here when they are added.'} className="col-span-full" action={serviceQuery.trim() ? <Button variant="outline" onClick={() => setServiceQuery('')}>Clear search</Button> : selectedCategory ? <Button variant="outline" onClick={() => setSelectedCategory(null)}>View All Services</Button> : <Button onClick={() => setIsAddDialogOpen(true)}>Add Service</Button>} />}
         {filteredServices.map(service => (
           <ServiceCard
             key={service.id}
