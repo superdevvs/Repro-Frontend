@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Trash2, Users } from 'lucide-react';
+import { CheckCircle2, Trash2, Users, X } from 'lucide-react';
+import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +38,12 @@ const memberFromDirectory = (person: SmsDirectoryRecipient): SmsGroupDraftMember
   userId: person.user_id,
 });
 
+const ROLE_OPTIONS = [
+  { role: 'photographer', label: 'All photographers' },
+  { role: 'client', label: 'All clients' },
+  { role: 'editor', label: 'All editors' },
+];
+
 export const SmsGroupsDialog = ({
   open,
   onOpenChange,
@@ -49,8 +56,11 @@ export const SmsGroupsDialog = ({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<{ id: number | null; name: string; members: SmsGroupDraftMember[] } | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activeRoles, setActiveRoles] = useState<string[]>([]);
+  const [roleBusy, setRoleBusy] = useState<string | null>(null);
   const initialKey = initialMembers.map((member) => member.key).join('|');
 
   const groupsQuery = useQuery({
@@ -59,9 +69,14 @@ export const SmsGroupsDialog = ({
     enabled: open,
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const directoryQuery = useQuery({
-    queryKey: ['sms-directory', search],
-    queryFn: () => getSmsRecipients({ search: search || undefined, limit: 20 }),
+    queryKey: ['sms-directory', debouncedSearch],
+    queryFn: () => getSmsRecipients({ search: debouncedSearch || undefined, limit: 30 }),
     enabled: open && editing !== null,
   });
 
@@ -69,8 +84,11 @@ export const SmsGroupsDialog = ({
     if (!open) {
       setEditing(null);
       setSearch('');
+      setDebouncedSearch('');
       setPhoneInput('');
       setConfirmDelete(false);
+      setActiveRoles([]);
+      setRoleBusy(null);
       return;
     }
     if (initialMembers.length > 0) {
@@ -128,6 +146,45 @@ export const SmsGroupsDialog = ({
     });
   };
 
+  const toggleRole = async (role: string) => {
+    if (!editing || roleBusy) return;
+    setRoleBusy(role);
+    try {
+      const people = await getSmsRecipients({ role, limit: 100 });
+      const incoming = people.map(memberFromDirectory);
+      const incomingKeys = new Set(incoming.map((member) => member.key));
+      if (activeRoles.includes(role)) {
+        setEditing((current) => current ? {
+          ...current,
+          members: current.members.filter((member) => !incomingKeys.has(member.key)),
+        } : current);
+        setActiveRoles((current) => current.filter((item) => item !== role));
+        return;
+      }
+      let added = 0;
+      setEditing((current) => {
+        if (!current) return current;
+        const keys = new Set(current.members.map((member) => member.key));
+        const next = incoming.filter((member) => !keys.has(member.key));
+        added = next.length;
+        return { ...current, members: [...current.members, ...next] };
+      });
+      const label = ROLE_OPTIONS.find((option) => option.role === role)?.label.replace(/^All /, '') ?? 'people';
+      if (people.length === 0) {
+        toast.error(`No ${label} have a phone number on file.`);
+        return;
+      }
+      setActiveRoles((current) => [...current, role]);
+      toast.success(added === 0
+        ? `Every ${label.replace(/s$/, '')} with a phone is already in this group.`
+        : `Added ${added} ${label}.`);
+    } catch (error) {
+      toast.error(getComposeErrorMessage(error, 'Unable to load that group'));
+    } finally {
+      setRoleBusy(null);
+    }
+  };
+
   const addPhone = () => {
     const key = phoneKey(phoneInput);
     if (key.length < 10) return;
@@ -150,7 +207,7 @@ export const SmsGroupsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex !h-auto max-h-[min(860px,calc(100dvh-2rem))] !w-[min(960px,calc(100vw-2rem))] !max-w-[min(960px,calc(100vw-2rem))] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>SMS groups</DialogTitle>
           <DialogDescription>Save people you text together, then send to the whole group.</DialogDescription>
@@ -188,80 +245,120 @@ export const SmsGroupsDialog = ({
         )}
 
         {editing && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sms-group-name">Name</Label>
-              <Input
-                id="sms-group-name"
-                value={editing.name}
-                onChange={(event) => setEditing({ ...editing, name: event.target.value })}
-                placeholder="Weekend crew"
-              />
-            </div>
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:overflow-hidden">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sms-group-name">Name</Label>
+                <Input
+                  id="sms-group-name"
+                  value={editing.name}
+                  onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                  placeholder="Weekend crew"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>People</Label>
-              <div className="flex flex-wrap gap-2">
-                {editing.members.map((member) => (
-                  <Badge key={member.key} variant="secondary" className="gap-1 rounded-full px-3 py-1">
-                    {member.name}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${member.name}`}
-                      onClick={() => setEditing({
-                        ...editing,
-                        members: editing.members.filter((item) => item.key !== member.key),
-                      })}
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                ))}
-                {editing.members.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Add people from the directory or a phone number.</p>
-                )}
+              <div className="space-y-2">
+                <Label>Add a role</Label>
+                <div className="flex flex-wrap gap-2">
+                  {ROLE_OPTIONS.map((option) => {
+                    const selected = activeRoles.includes(option.role);
+                    return (
+                      <Button
+                        key={option.role}
+                        type="button"
+                        size="sm"
+                        variant={selected ? 'default' : 'outline'}
+                        disabled={roleBusy !== null}
+                        onClick={() => void toggleRole(option.role)}
+                      >
+                        {roleBusy === option.role ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" /> : null}
+                        {option.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">Selects everyone in that role who has a phone number.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sms-group-phone">Phone number</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="sms-group-phone"
+                    value={phoneInput}
+                    onChange={(event) => setPhoneInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addPhone();
+                      }
+                    }}
+                    placeholder="Add a phone number"
+                    autoComplete="tel"
+                  />
+                  <Button type="button" variant="outline" onClick={addPhone} disabled={phoneKey(phoneInput).length < 10}>
+                    Add
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Input
-                value={phoneInput}
-                onChange={(event) => setPhoneInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    addPhone();
-                  }
-                }}
-                placeholder="Add a phone number"
-                autoComplete="tel"
-              />
-              <Button type="button" variant="outline" onClick={addPhone} disabled={phoneKey(phoneInput).length < 10}>
-                Add
-              </Button>
-            </div>
-
-            <Command className="rounded-xl border border-border/70">
-              <CommandInput placeholder="Search users and contacts..." value={search} onValueChange={setSearch} />
-              <CommandList className="max-h-40">
-                <CommandEmpty>No matching people with a phone number.</CommandEmpty>
-                <CommandGroup>
-                  {(directoryQuery.data ?? []).map((person) => (
-                    <CommandItem
-                      key={person.id}
-                      value={`${person.name} ${person.phone} ${person.subtitle ?? ''}`}
-                      onSelect={() => addMember(memberFromDirectory(person))}
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{person.name}</span>
-                        <span className="truncate text-xs text-muted-foreground">{person.subtitle || person.phone}</span>
-                      </div>
-                      {selectedKeys.has(phoneKey(person.phone)) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
-                    </CommandItem>
+            <div className="flex min-h-0 flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label>People</Label>
+                <span className="text-xs text-muted-foreground">
+                  {editing.members.length} {editing.members.length === 1 ? 'person' : 'people'}
+                </span>
+              </div>
+              <div className="max-h-36 overflow-y-auto rounded-xl border border-border/70 p-3 md:max-h-40">
+                <div className="flex flex-wrap gap-2">
+                  {editing.members.map((member) => (
+                    <Badge key={member.key} variant="secondary" className="gap-1 rounded-full px-3 py-1">
+                      {member.name}
+                      <button
+                        type="button"
+                        className="rounded-full text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${member.name}`}
+                        onClick={() => {
+                          setActiveRoles([]);
+                          setEditing({
+                            ...editing,
+                            members: editing.members.filter((item) => item.key !== member.key),
+                          });
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
                   ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+                  {editing.members.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Add a role, search for someone, or enter a phone number.</p>
+                  )}
+                </div>
+              </div>
+
+              <Command className="min-h-0 rounded-xl border border-border/70 md:flex-1">
+                <CommandInput placeholder="Search users and contacts..." value={search} onValueChange={setSearch} />
+                <CommandList className="max-h-52 md:max-h-none md:flex-1">
+                  <CommandEmpty>No matching people with a phone number.</CommandEmpty>
+                  <CommandGroup>
+                    {(directoryQuery.data ?? []).map((person) => (
+                      <CommandItem
+                        key={person.id}
+                        value={`${person.name} ${person.phone} ${person.subtitle ?? ''}`}
+                        onSelect={() => addMember(memberFromDirectory(person))}
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-medium">{person.name}</span>
+                          <span className="truncate text-xs text-muted-foreground">{person.subtitle || person.phone}</span>
+                        </div>
+                        {selectedKeys.has(phoneKey(person.phone)) && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-primary" />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </div>
           </div>
         )}
 

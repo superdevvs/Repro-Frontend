@@ -441,7 +441,7 @@ export interface SmsSendResult {
   results?: Array<{ to: string; status: 'sent' | 'failed'; error?: string }>;
 }
 
-export const getSmsRecipients = async (params?: { search?: string; limit?: number }): Promise<SmsDirectoryRecipient[]> => {
+export const getSmsRecipients = async (params?: { search?: string; limit?: number; role?: string }): Promise<SmsDirectoryRecipient[]> => {
   const response = await apiClient.get('/messaging/sms/recipients', { params });
   return Array.isArray(response.data) ? response.data : [];
 };
