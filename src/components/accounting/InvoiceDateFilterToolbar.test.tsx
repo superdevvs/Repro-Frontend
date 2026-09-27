@@ -59,10 +59,10 @@ describe('InvoiceDateFilterToolbar', () => {
       },
     });
 
-    expect(screen.getAllByRole('button', { pressed: false })).toHaveLength(6);
-    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('option')).toHaveLength(7);
+    expect(screen.getByRole('combobox', { name: 'Filter invoices by date' })).toHaveValue('all');
 
-    await user.click(screen.getByRole('button', { name: 'Week' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Filter invoices by date' }), 'week');
 
     expect(onFilterChange).toHaveBeenCalledWith({
       preset: 'week',

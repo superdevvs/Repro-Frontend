@@ -1,12 +1,11 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { format, formatDistanceToNowStrict } from 'date-fns';
-import { AlertTriangle, CalendarRange, CheckCircle2, ChevronRight, Clock3, DollarSign, Download, FileText, MessageSquareMore, RefreshCw, Search, User2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { AlertTriangle, Clock3, DollarSign, Download, FileText, MessageSquareMore, RefreshCw, Search } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -26,18 +25,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import {
   adminRejectWeeklyInvoice,
@@ -47,7 +37,6 @@ import {
   fetchAdminInvoiceReviewQueue,
   type WeeklyInvoice,
   type WeeklyInvoiceReviewQueueResponse,
-  type WeeklyInvoiceTimelineEvent,
 } from '@/services/invoiceService';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import { downloadInvoicePdf, downloadInvoicesPdf } from '@/utils/invoiceDownloads';
@@ -85,18 +74,17 @@ export function PhotographerInvoiceReviewWorkspace({
   pluralLabel,
 }: InvoiceReviewWorkspaceProps) {
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [workspaceTab, setWorkspaceTab] = useState<ReviewWorkspaceTab>('review-queue');
   const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('pending_approval');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
   const [queueResponse, setQueueResponse] = useState<WeeklyInvoiceReviewQueueResponse | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<WeeklyInvoice | null>(null);
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
@@ -108,6 +96,8 @@ export function PhotographerInvoiceReviewWorkspace({
     () => new Map(),
   );
   const queueRequestId = useRef(0);
+  const selectedIdRef = useRef(selectedInvoiceId);
+  selectedIdRef.current = selectedInvoiceId;
   const deferredSearch = useDeferredValue(search.trim());
   const resolvedShortLabel = shortLabel || (role === 'salesRep' ? 'Sales Rep' : 'Photographer');
   const resolvedPluralLabel = pluralLabel || (role === 'salesRep' ? 'Sales Reps' : 'Photographers');
@@ -167,12 +157,12 @@ export function PhotographerInvoiceReviewWorkspace({
     try {
       const response = await fetchAdminInvoiceReviewQueue({
         role,
-        approval_status: statusFilter,
+        approval_status: statusFilter === 'all' ? undefined : statusFilter,
         search: deferredSearch || undefined,
         start: startDate || undefined,
         end: endDate || undefined,
         page,
-        per_page: 10,
+        per_page: pageSize,
       });
 
       if (requestId !== queueRequestId.current) return null;
@@ -189,7 +179,6 @@ export function PhotographerInvoiceReviewWorkspace({
 
       if (!response.data.length) {
         setSelectedInvoice(null);
-        setMobileDetailOpen(false);
       }
 
       return response;
@@ -209,7 +198,7 @@ export function PhotographerInvoiceReviewWorkspace({
         setQueueLoading(false);
       }
     }
-  }, [deferredSearch, endDate, page, resolvedShortLabel, role, startDate, statusFilter, toast]);
+  }, [deferredSearch, endDate, page, pageSize, resolvedShortLabel, role, startDate, statusFilter, toast]);
 
   useEffect(() => {
     if (workspaceTab !== 'review-queue') {
@@ -226,6 +215,7 @@ export function PhotographerInvoiceReviewWorkspace({
 
     let active = true;
     setDetailLoading(true);
+    setSelectedInvoice(null);
 
     void fetchAdminInvoiceReviewDetail(selectedInvoiceId)
       .then((invoice) => {
@@ -262,9 +252,6 @@ export function PhotographerInvoiceReviewWorkspace({
   const handleSelectInvoice = (invoiceId: number) => {
     setSelectedInvoiceId(invoiceId);
 
-    if (isMobile) {
-      setMobileDetailOpen(true);
-    }
   };
 
   const handleRefresh = async () => {
@@ -273,7 +260,7 @@ export function PhotographerInvoiceReviewWorkspace({
       setDetailLoading(true);
       try {
         const detail = await fetchAdminInvoiceReviewDetail(selectedInvoiceId);
-        setSelectedInvoice(detail);
+        if (selectedIdRef.current === detail.id) setSelectedInvoice(detail);
       } catch (error) {
         toast({
           title: 'Failed to refresh invoice detail',
@@ -293,7 +280,7 @@ export function PhotographerInvoiceReviewWorkspace({
       if (exportQueue.length === 0) {
         const baseParams = {
           role,
-          approval_status: statusFilter,
+          approval_status: statusFilter === 'all' ? undefined : statusFilter,
           search: deferredSearch || undefined,
           start: startDate || undefined,
           end: endDate || undefined,
@@ -422,7 +409,7 @@ export function PhotographerInvoiceReviewWorkspace({
   };
 
   const handleApprove = async (overrideReasonOverride?: string) => {
-    if (!selectedInvoice) return;
+    if (!selectedInvoice || selectedInvoice.id !== selectedInvoiceId) return;
 
     const warnings = getInvoiceWarnings(selectedInvoice);
     const overrideReason = (overrideReasonOverride ?? warningOverrideReason).trim();
@@ -458,7 +445,7 @@ export function PhotographerInvoiceReviewWorkspace({
   };
 
   const handleReturnForChanges = async (reasonOverride?: string) => {
-    if (!selectedInvoice) return;
+    if (!selectedInvoice || selectedInvoice.id !== selectedInvoiceId) return;
     const reason = (reasonOverride ?? returnReason).trim();
     if (!reason) return;
 
@@ -488,7 +475,7 @@ export function PhotographerInvoiceReviewWorkspace({
     <Tabs
       value={workspaceTab}
       onValueChange={(value) => setWorkspaceTab(value as ReviewWorkspaceTab)}
-      className="flex flex-col gap-5"
+      className="ar-workspace flex min-w-0 flex-col gap-4"
     >
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <TabsList className="grid w-full grid-cols-2 xl:max-w-[26rem]">
@@ -506,275 +493,51 @@ export function PhotographerInvoiceReviewWorkspace({
         ) : null}
       </div>
 
-      <TabsContent value="review-queue" className="mt-0 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4 xl:gap-3">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <Card key={card.label} className="border-border/70 bg-card/80 shadow-none sm:shadow-sm">
-                <CardContent className="flex items-start justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-[11px]">
-                      {card.label}
-                    </div>
-                    <div className="mt-1 truncate text-lg font-semibold sm:mt-2 sm:text-2xl">{card.value}</div>
-                  </div>
-                  <div className="hidden size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25 sm:flex">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      <TabsContent value="review-queue" className="mt-0 flex min-w-0 flex-col gap-4">
+        <div className="ar-summary">
+          {summaryCards.map((card) => <div key={card.label}><span>{card.label}</span><strong>{card.value}</strong></div>)}
         </div>
-
-        <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
-          <CardHeader className="gap-3 border-b border-border/70 pb-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-base">{resolvedTitle}</CardTitle>
-                <CardDescription>
-                  Filter {resolvedPluralLabel.toLowerCase()} weekly invoices by review state, week, or {resolvedShortLabel.toLowerCase()}.
-                </CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-xs font-medium">
-                  {summary.invoice_count} filtered
-                </Badge>
-                <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-xs font-medium">
-                  {selectedStatusLabel}
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 pt-5">
-            <div className="grid gap-3">
+        <div className="ar-period-toolbar">
+          <p className="text-xs font-medium text-muted-foreground">Billing period · invoices overlapping your dates</p>
+          <InvoiceDateFilterToolbar filter={dateFilter} onFilterChange={setDateFilter}
+            resultCount={queueResponse?.total || 0} selectedCount={selectedDownloadInvoices.size}
+            onClearSelection={() => setSelectedDownloadInvoices(new Map())} onExport={handleExport}
+            onBulkPdf={handleBulkInvoiceDownload} exporting={exporting} exportDisabled={queueLoading} resultNoun="invoice" />
+        </div>
+        <div className="ar-review-grid">
+          <section className="ar-queue" aria-label={resolvedTitle}>
+            <div className="ar-queue-controls">
+              <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{resolvedTitle}</h2><span className="text-xs text-muted-foreground">{queueResponse?.total || 0} invoices</span></div>
               <div className="relative">
-                <Label htmlFor="invoice-review-search" className="sr-only">
-                  Search {resolvedPluralLabel.toLowerCase()} by name or email
-                </Label>
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="invoice-review-search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={`Search ${resolvedShortLabel.toLowerCase()} name or email`}
-                  className="h-11 rounded-xl border-border/70 bg-background pl-9"
-                />
+                <Label htmlFor={`invoice-review-search-${role}`} className="sr-only">Search {resolvedPluralLabel.toLowerCase()} by name or email</Label>
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id={`invoice-review-search-${role}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="h-9 pl-9" />
               </div>
-
-              <InvoiceDateFilterToolbar
-                filter={dateFilter}
-                onFilterChange={setDateFilter}
-                resultCount={queueResponse?.total || 0}
-                selectedCount={selectedDownloadInvoices.size}
-                onClearSelection={() => setSelectedDownloadInvoices(new Map())}
-                onExport={handleExport}
-                onBulkPdf={handleBulkInvoiceDownload}
-                exporting={exporting}
-                exportDisabled={queueLoading}
-                resultNoun="invoice"
-              />
+              <select aria-label="Review status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ReviewStatusFilter)} className="ar-select">
+                {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
             </div>
-
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="inline-flex min-w-max items-center gap-1.5 rounded-2xl border border-border/70 bg-muted/20 p-1.5">
-                  {STATUS_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setStatusFilter(option.value)}
-                      aria-pressed={statusFilter === option.value}
-                      className={cn(
-                        'rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all sm:px-4 sm:py-2 sm:text-sm',
-                        statusFilter === option.value
-                          ? 'bg-background text-foreground shadow-sm ring-1 ring-border/60'
-                          : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                Reviewing <span className="font-medium text-foreground">{resolvedPluralLabel.toLowerCase()}</span> with{' '}
-                <span className="font-medium text-foreground">{selectedStatusLabel.toLowerCase()}</span> status.
-              </div>
+            <div className="ar-queue-list" aria-busy={queueLoading}>
+              {queueLoading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4" /> Loading invoices…</div> : queue.length === 0 ? <EmptyQueueState statusLabel={selectedStatusLabel} payeePlural={resolvedPluralLabel.toLowerCase()} /> : queue.map((invoice) => {
+                const payee = (role === 'salesRep' ? invoice.salesRep : invoice.photographer) ?? invoice.payee;
+                return <div key={invoice.id} className={cn('ar-queue-row', invoice.id === selectedInvoiceId && 'ar-selected')}>
+                  <Checkbox checked={selectedDownloadInvoices.has(invoice.id)} onCheckedChange={(checked) => toggleDownloadSelection(invoice, checked === true)} aria-label={`Select invoice W-${invoice.id} for export`} className="mt-1" />
+                  <button type="button" className="min-w-0 flex-1 text-left" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => handleSelectInvoice(invoice.id)}>
+                    <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1"><span className="truncate text-sm font-semibold">{payee?.name || resolvedShortLabel}</span><span className="text-sm font-semibold tabular-nums">{formatCurrency(invoice.total_amount)}</span></div>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</p>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">W-{invoice.id} · {invoice.shoot_count || 0} shoots · {invoice.expense_count || 0} expenses</span><Badge variant="outline" className={cn('text-[10px]', getStatusBadgeClassName(invoice.approval_status))}>{getStatusLabel(invoice.approval_status)}</Badge></div>
+                  </button>
+                  <ReviewInvoiceDownloadMenu invoice={invoice} onDownload={handleInvoiceDownload} />
+                </div>;
+              })}
             </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(22rem,26rem)_minmax(0,1fr)]">
-          <Card className="border-border/70 bg-card/80">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                  <CardTitle className="text-base">{selectedStatusLabel}</CardTitle>
-                  <CardDescription>
-                    {queueResponse?.total || 0} invoice{(queueResponse?.total || 0) === 1 ? '' : 's'} in this view
-                  </CardDescription>
-                </div>
-                {queueLoading ? <Loader2 className="h-4 w-4 text-muted-foreground" /> : null}
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {queue.length === 0 && !queueLoading ? (
-                <EmptyQueueState statusLabel={selectedStatusLabel} payeePlural={resolvedPluralLabel.toLowerCase()} />
-              ) : (
-                queue.map((invoice) => {
-                  const isSelected = invoice.id === selectedInvoiceId;
-                  const isNeedsReview = ['pending', 'pending_approval'].includes(invoice.approval_status);
-                  const payee = role === 'salesRep' ? invoice.salesRep : invoice.photographer;
-
-                  return (
-                    <div
-                      key={invoice.id}
-                      className={cn(
-                        'flex w-full items-start gap-3 rounded-xl border px-3 py-4 transition-colors',
-                        isSelected
-                          ? 'border-primary/35 bg-primary/5'
-                          : isNeedsReview
-                            ? 'border-primary/20 bg-card hover:border-primary/30'
-                            : 'border-border/70 bg-card hover:border-border',
-                      )}
-                    >
-                      <Checkbox
-                        checked={selectedDownloadInvoices.has(invoice.id)}
-                        onCheckedChange={(checked) => toggleDownloadSelection(invoice, checked === true)}
-                        aria-label={`Select invoice W-${invoice.id}`}
-                        className="mt-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSelectInvoice(invoice.id)}
-                        className="min-w-0 flex-1 space-y-3 text-left"
-                      >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate font-semibold">{payee?.name || resolvedShortLabel}</span>
-                            <Badge
-                              variant="outline"
-                              className={cn('font-medium', getStatusBadgeClassName(invoice.approval_status))}
-                            >
-                              {getStatusLabel(invoice.approval_status)}
-                            </Badge>
-                          </div>
-                          <span className="truncate text-sm text-muted-foreground">
-                            {payee?.email || 'No email available'}
-                          </span>
-                        </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
-                          <div className="mt-1 font-semibold">{formatCurrency(invoice.total_amount)}</div>
-                        </div>
-                        <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Shoots</div>
-                          <div className="mt-1 font-semibold">{invoice.shoot_count || 0}</div>
-                        </div>
-                        <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Expenses</div>
-                          <div className="mt-1 font-semibold">{invoice.expense_count || 0}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                        <span>{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</span>
-                        <span>Updated {formatRelativeTimestamp(invoice.last_activity_at)}</span>
-                      </div>
-                      </button>
-                      <ReviewInvoiceDownloadMenu invoice={invoice} onDownload={handleInvoiceDownload} />
-                    </div>
-                  );
-                })
-              )}
-
-              {queueResponse && queueResponse.last_page > 1 ? (
-                <>
-                  <Separator />
-                  <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                    <span>
-                      Page {queueResponse.current_page} of {queueResponse.last_page}
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((current) => Math.max(1, current - 1))}
-                        disabled={queueLoading || queueResponse.current_page === 1}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((current) => Math.min(queueResponse.last_page, current + 1))}
-                        disabled={queueLoading || queueResponse.current_page >= queueResponse.last_page}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          {isMobile ? (
-            <>
-              <Sheet open={mobileDetailOpen} onOpenChange={setMobileDetailOpen}>
-                <SheetContent side="right" className="w-full sm:max-w-2xl">
-                  <SheetHeader className="flex flex-col gap-2 border-b border-border/70 pb-4">
-                    <SheetTitle>Invoice Review Detail</SheetTitle>
-                    <SheetDescription>
-                      Review {resolvedShortLabel.toLowerCase()} payout lines, notes, and approval history.
-                    </SheetDescription>
-                  </SheetHeader>
-                  <div className="mt-4 flex flex-col gap-4 overflow-y-auto pb-6">
-                    <DetailShell
-                      invoice={selectedInvoice}
-                      detailLoading={detailLoading}
-                      onApprove={() => setApproveDialogOpen(true)}
-                      onReturn={() => setReturnDialogOpen(true)}
-                      onOpenInvoice={() => setInvoiceModalOpen(true)}
-                      role={role}
-                    />
-                  </div>
-                </SheetContent>
-              </Sheet>
-
-              <Card className="border-border/70 bg-card/80">
-                <CardContent className="flex min-h-[14rem] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-                  <div className="flex size-12 items-center justify-center rounded-full border border-border/70 bg-background">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-base font-semibold">Open invoice detail</p>
-                    <p className="text-sm text-muted-foreground">
-                      Tap any queue item to open the full review detail in a side sheet.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <DetailShell
-              invoice={selectedInvoice}
-              detailLoading={detailLoading}
-              onApprove={() => setApproveDialogOpen(true)}
-              onReturn={() => setReturnDialogOpen(true)}
-              onOpenInvoice={() => setInvoiceModalOpen(true)}
-              role={role}
-            />
-          )}
+            <footer className="ar-pagination">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">Rows<select aria-label="Invoices per page" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="ar-select w-auto">{[6, 12, 24].map((size) => <option key={size}>{size}</option>)}</select></label>
+              <span className="text-xs text-muted-foreground">{queueResponse?.current_page || 1} / {queueResponse?.last_page || 1}</span>
+              <div className="flex gap-1"><Button variant="outline" size="sm" aria-label="Previous invoice page" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={queueLoading || page <= 1}>‹</Button><Button variant="outline" size="sm" aria-label="Next invoice page" onClick={() => setPage((current) => current + 1)} disabled={queueLoading || page >= (queueResponse?.last_page || 1)}>›</Button></div>
+            </footer>
+          </section>
+          <DetailShell invoice={selectedInvoice?.id === selectedInvoiceId ? selectedInvoice : null} detailLoading={detailLoading || queueLoading} onApprove={() => setApproveDialogOpen(true)} onReturn={() => setReturnDialogOpen(true)} onOpenInvoice={() => setInvoiceModalOpen(true)} role={role} />
         </div>
       </TabsContent>
 

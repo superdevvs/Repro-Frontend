@@ -65,36 +65,10 @@ export function InvoiceDateFilterToolbar({
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="min-w-0 overflow-x-auto">
-          <div
-            className="inline-flex min-w-max items-center gap-0.5 rounded-md bg-muted/70 p-0.5"
-            role="group"
-            aria-label={`Filter ${pluralResultNoun} by date`}
-          >
-            {INVOICE_DATE_PRESETS.map((preset) => {
-              const active = filter.preset === preset.value;
-
-              return (
-                <button
-                  key={preset.value}
-                  type="button"
-                  disabled={disabled}
-                  aria-pressed={active}
-                  onClick={() => onFilterChange({ ...filter, preset: preset.value })}
-                  className={cn(
-                    'h-8 rounded-[5px] px-2.5 text-xs font-medium text-muted-foreground transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    'disabled:pointer-events-none disabled:opacity-50 sm:px-3',
-                    active
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'hover:bg-background/60 hover:text-foreground',
-                  )}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
+        <div role="group" aria-label={`Filter ${pluralResultNoun} by date`}>
+          <select aria-label={`Filter ${pluralResultNoun} by date`} value={filter.preset} disabled={disabled} onChange={event => onFilterChange({ ...filter, preset: event.target.value as InvoiceDateFilter['preset'] })} className="h-9 max-w-full rounded-md border bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {INVOICE_DATE_PRESETS.map(preset => <option key={preset.value} value={preset.value}>{preset.value === 'all' ? 'All dates' : preset.label}</option>)}
+          </select>
         </div>
 
         {filter.preset === 'custom' ? (

@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -17,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FileText, CheckCircle, Clock, Plus, Trash2, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, ReceiptText, Camera, Info, Eye } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   WeeklyInvoice,
@@ -34,11 +33,6 @@ import {
   InvoiceDateFilterToolbar,
   type InvoiceExportFormat,
 } from '@/components/accounting/InvoiceDateFilterToolbar';
-import {
-  getMatchingShootServiceForInvoiceItem,
-  getPhotographerPayForService,
-  getPhotographerPayForShoot,
-} from '@/components/accounting/photographerEarningsUtils';
 import { cn } from '@/lib/utils';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import { downloadInvoicesPdf } from '@/utils/invoiceDownloads';
@@ -48,7 +42,6 @@ import {
 } from '@/utils/invoiceDateFilters';
 
 import {
-  ITEMS_PER_PAGE,
   WEEKLY_INVOICE_EXPORT_COLUMNS,
   approvalStatusConfig,
   buildWeeklyInvoiceExportRows,
@@ -66,7 +59,7 @@ import {
 import { WeeklyInvoiceEmptyState, WeeklyInvoiceLoadingState } from './WeeklyInvoiceReviewStates';
 
 export const WeeklyInvoiceReview: React.FC = () => {
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const { toast } = useToast();
   const { shoots } = useShoots();
   const [invoices, setInvoices] = useState<WeeklyInvoice[]>([]);
@@ -79,8 +72,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [expandedInvoiceId, setExpandedInvoiceId] = useState<number | null>(null);
+
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(3);
   const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<number>>(() => new Set());
   const [exporting, setExporting] = useState(false);
@@ -95,54 +89,6 @@ export const WeeklyInvoiceReview: React.FC = () => {
     });
     return map;
   }, [shoots]);
-
-  const getChargeDisplayAmount = useCallback(
-    (invoice: WeeklyInvoice, item: WeeklyInvoiceItem) => {
-      const rawAmount = typeof item.total_amount === 'string' ? parseFloat(item.total_amount) : item.total_amount;
-      if (invoiceRole !== 'photographer') {
-        return Number(rawAmount || 0);
-      }
-
-      const shoot =
-        item.shoot_id != null
-          ? shootLookup.get(String(item.shoot_id))
-          : null;
-
-      if (!shoot) {
-        return Number(rawAmount || 0);
-      }
-
-      const matchedService = getMatchingShootServiceForInvoiceItem(shoot, item.description);
-      if (matchedService) {
-        return getPhotographerPayForService(shoot, matchedService);
-      }
-
-      const sameShootCharges = (invoice.items || []).filter(
-        (invoiceItem) =>
-          invoiceItem.type === 'charge' &&
-          invoiceItem.shoot_id != null &&
-          item.shoot_id != null &&
-          String(invoiceItem.shoot_id) === String(item.shoot_id),
-      );
-
-      if (sameShootCharges.length === 1) {
-        return getPhotographerPayForShoot(shoot, user);
-      }
-
-      // Distribute the shoot's photographer pay equally across its charges so
-      // line totals reflect photographer payout (and sum to the shoot's pay)
-      // rather than the client-billed line amount.
-      if (sameShootCharges.length > 1) {
-        const shootPay = getPhotographerPayForShoot(shoot, user);
-        if (shootPay > 0) {
-          return Number((shootPay / sameShootCharges.length).toFixed(2));
-        }
-      }
-
-      return Number(rawAmount || 0);
-    },
-    [invoiceRole, shootLookup, user],
-  );
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -185,20 +131,19 @@ export const WeeklyInvoiceReview: React.FC = () => {
     });
     setCurrentPage((page) => Math.min(
       page,
-      Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE)),
+      Math.max(1, Math.ceil(filteredInvoices.length / pageSize)),
     ));
-  }, [filteredInvoices]);
+  }, [filteredInvoices, pageSize]);
 
   const canModify = (invoice: WeeklyInvoice) =>
-    ['pending', 'rejected'].includes(invoice.approval_status) &&
+    invoice.can_edit !== false && ['pending', 'rejected'].includes(invoice.approval_status) &&
     invoice.status !== 'paid' &&
     !invoice.is_paid &&
     !invoice.paid_at;
 
   // A new or admin-returned invoice remains with the payee until they submit it.
   // Once submitted, pending_approval locks editing while the admin reviews it.
-  const canReview = (invoice: WeeklyInvoice) =>
-    ['pending', 'rejected'].includes(invoice.approval_status);
+  const canReview = canModify;
 
   const handleSubmitChangesForReview = async (reasonOverride?: string) => {
     if (!selectedInvoice) return;
@@ -428,11 +373,11 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const aggregateStats = getWeeklyInvoiceAggregateStats(filteredInvoices);
 
   // Client-side pagination of the left list.
-  const clientLastPage = Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE));
+  const clientLastPage = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
   const safePage = Math.min(currentPage, clientLastPage);
   const pagedInvoices = filteredInvoices.slice(
-    (safePage - 1) * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE,
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
   );
 
   // Detail computations for the right pane.
@@ -458,437 +403,90 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const expensePct = detailTotal > 0 ? Math.round((detailExpensesTotal / detailTotal) * 100) : 0;
 
   return (
-    // Outer wrapper for the redesigned Weekly Invoices section.
-    <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <FileText className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold">{reviewCopy.sectionTitle}</h2>
-            <p className="text-sm text-muted-foreground">{reviewCopy.sectionDescription}.</p>
-          </div>
-        </div>
+    <section className="overflow-hidden rounded-xl border border-border/70 bg-card" aria-label={reviewCopy.sectionTitle}>
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 sm:px-5">
+        <h2 className="text-base font-semibold">{invoiceRole === 'salesRep' ? 'Commission reviews' : 'Weekly invoices'}</h2>
+        <span className="text-xs text-muted-foreground">Sun–Sat</span>
       </div>
-
-      <InvoiceDateFilterToolbar
-        filter={dateFilter}
-        onFilterChange={handleDateFilterChange}
-        resultCount={filteredInvoices.length}
-        selectedCount={selectedCount}
-        onClearSelection={() => setSelectedInvoiceIds(new Set())}
-        onExport={handleExport}
-        onBulkPdf={handleBulkPdf}
-        exportDisabled={filteredInvoices.length === 0}
-        exporting={loading || exporting}
-      />
-
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/60 bg-card/50 p-3 sm:grid-cols-3 sm:gap-4 sm:p-4 lg:grid-cols-5">
-        {[
-          {
-            icon: <FileText className="h-5 w-5" />,
-            value: filteredInvoices.length.toString(),
-            label: 'Invoices',
-            iconBg: 'bg-blue-500/10 text-blue-500',
-          },
-          {
-            icon: <DollarSign className="h-5 w-5" />,
-            value: formatCurrency(aggregateStats.totalAmount),
-            label: 'Total Invoice Amount',
-            iconBg: 'bg-emerald-500/10 text-emerald-500',
-          },
-          {
-            icon: <Camera className="h-5 w-5" />,
-            value: aggregateStats.totalShoots.toString(),
-            label: reviewCopy.chargeCountLabel,
-            iconBg: 'bg-violet-500/10 text-violet-500',
-          },
-          {
-            icon: <ReceiptText className="h-5 w-5" />,
-            value: formatCurrency(aggregateStats.totalExpensesAmount),
-            label: reviewCopy.expenseLabel,
-            iconBg: 'bg-teal-500/10 text-teal-500',
-          },
-          {
-            icon: <Clock className="h-5 w-5" />,
-            value: aggregateStats.pendingReviewCount.toString(),
-            label: 'Pending Review',
-            iconBg: 'bg-amber-500/10 text-amber-500',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="flex items-center gap-2 sm:gap-3">
-            <div className={cn('hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg sm:flex', stat.iconBg)}>
-              {stat.icon}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold">{stat.value}</p>
-              <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-            </div>
-          </div>
-        ))}
+      <div className="px-3 py-3 sm:px-4">
+        <InvoiceDateFilterToolbar
+          filter={dateFilter} onFilterChange={handleDateFilterChange}
+          resultCount={filteredInvoices.length} selectedCount={selectedCount}
+          onClearSelection={() => setSelectedInvoiceIds(new Set())}
+          onExport={handleExport} onBulkPdf={handleBulkPdf}
+          exportDisabled={filteredInvoices.length === 0} exporting={loading || exporting}
+          className="border-0 bg-transparent p-0"
+        />
       </div>
-
-      {/* Two-column layout: invoice list + detail */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* LEFT: invoice list */}
-        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/50 p-4 lg:col-span-1">
-          <div className="flex-1 min-h-0 space-y-2 overflow-y-auto">
+      <div className="flex flex-wrap gap-x-5 gap-y-2 border-y border-border/60 px-4 py-3 text-xs text-muted-foreground sm:px-5" aria-label="Weekly review totals">
+        <span><strong className="text-foreground">{filteredInvoices.length}</strong> invoices</span>
+        <span><strong className="text-foreground">{aggregateStats.pendingReviewCount}</strong> pending review</span>
+        <span><strong className="text-foreground">{formatCurrency(aggregateStats.totalAmount)}</strong> total</span>
+        <span><strong className="text-foreground">{aggregateStats.totalShoots}</strong> {reviewCopy.chargeCountLabel.toLowerCase()}</span>
+        <span><strong className="text-foreground">{formatCurrency(aggregateStats.totalExpensesAmount)}</strong> {reviewCopy.expenseLabel.toLowerCase()}</span>
+      </div>
+      <div className="grid min-w-0 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.7fr)]">
+        <div className="flex h-[24rem] min-w-0 flex-col border-b border-border/60 p-3 lg:h-[32.5rem] lg:border-b-0 lg:border-r sm:p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-medium">Review history</h3>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">Rows
+              <select aria-label="Weekly reviews per page" className="h-8 rounded-md border bg-background px-2 text-foreground" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setCurrentPage(1); }}>
+                <option value={3}>3</option><option value={5}>5</option>
+              </select>
+            </label>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice history">
             {pagedInvoices.map((invoice) => {
-              const isActive = detailInvoice?.id === invoice.id;
-              const charges = (invoice.items || []).filter((i) => i.type === 'charge');
-              const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
-              const itemTotal = getWeeklyInvoiceTotal(invoice);
-              const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
-              const statusDot = invoice.approval_status === 'pending'
-                ? 'bg-amber-500'
-                : invoice.approval_status === 'rejected'
-                  ? 'bg-destructive'
-                  : 'bg-emerald-500';
-              const subLabel = charges.length === 0 && expenses.length === 0
-                ? 'No payout'
-                : `${charges.length} shoot${charges.length === 1 ? '' : 's'}`;
-
-              return (
-                <div
-                  key={invoice.id}
-                  className={cn(
-                    'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
-                    isActive
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border/60 hover:border-border hover:bg-muted/40',
-                  )}
-                >
-                  <Checkbox
-                    checked={selectedInvoiceIds.has(invoice.id)}
-                    onCheckedChange={(checked) => toggleInvoiceSelection(invoice.id, checked === true)}
-                    aria-label={`Select invoice for ${formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSelectedInvoice(invoice)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  >
-                    <div className={cn(
-                      'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
-                      isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-                    )}>
-                      <Calendar className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', statusDot)} />
-                        <span className="truncate">{statusCfg.label} · {subLabel}</span>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <p className="text-sm font-semibold tabular-nums">{formatCurrency(itemTotal)}</p>
-                      <ChevronRight className={cn('hidden h-4 w-4 sm:block', isActive ? 'text-primary' : 'text-muted-foreground')} />
-                    </div>
-                  </button>
-                </div>
-              );
+              const active = detailInvoice?.id === invoice.id;
+              const status = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
+              return <div key={invoice.id} className={cn('flex items-center gap-2 rounded-lg border p-3', active ? 'border-primary/60 bg-primary/5' : 'border-border/60')}>
+                <Checkbox checked={selectedInvoiceIds.has(invoice.id)} onCheckedChange={(checked) => toggleInvoiceSelection(invoice.id, checked === true)} aria-label={`Select invoice for ${formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}`} />
+                <button type="button" onClick={() => { setSelectedInvoice(invoice); }} aria-pressed={active} className="min-w-0 flex-1 text-left">
+                  <span className="block text-xs font-medium">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">{invoice.is_paid || invoice.status === 'paid' ? 'Paid' : status.label}</span>
+                </button>
+                <strong className="shrink-0 text-xs tabular-nums">{formatCurrency(getWeeklyInvoiceTotal(invoice))}</strong>
+              </div>;
             })}
+            {pagedInvoices.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No invoices in this period.</p>}
           </div>
-
-          {/* Left-pane pagination */}
-          <div className="flex flex-col gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Showing {pagedInvoices.length} of {filteredInvoices.length} invoice{filteredInvoices.length === 1 ? '' : 's'}
-            </span>
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+            <span>{filteredInvoices.length ? (safePage - 1) * pageSize + 1 : 0}–{Math.min(safePage * pageSize, filteredInvoices.length)} of {filteredInvoices.length}</span>
             <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md p-0"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={safePage === 1}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </Button>
-              {Array.from({ length: clientLastPage }).map((_, idx) => {
-                const pageNum = idx + 1;
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={pageNum === safePage ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 w-7 rounded-md p-0 text-xs"
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md p-0"
-                onClick={() => setCurrentPage((page) => Math.min(clientLastPage, page + 1))}
-                disabled={safePage >= clientLastPage}
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
+              <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Previous weekly review page" aria-disabled={safePage === 1} onClick={() => { if (safePage > 1) setCurrentPage(safePage - 1); }}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+              <span className="px-1">{safePage} / {clientLastPage}</span>
+              <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Next weekly review page" aria-disabled={safePage >= clientLastPage} onClick={() => { if (safePage < clientLastPage) setCurrentPage(safePage + 1); }}><ChevronRight className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         </div>
-
-        {/* RIGHT: Selected invoice detail */}
-        {detailInvoice && detailStatusCfg ? (
-          <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card/50 p-4 lg:col-span-2">
-            {/* Title + actions */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold">
-                    {formatBillingPeriod(detailInvoice.billing_period_start, detailInvoice.billing_period_end)}
-                  </h3>
-                  <Badge variant="outline" className={cn('flex items-center gap-1 font-medium', detailStatusCfg.className)}>
-                    {detailStatusCfg.icon}
-                    {detailStatusCfg.label}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">{reviewCopy.cardDescription}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                {canReview(detailInvoice) && (
-                  <Button size="sm" className="w-full sm:w-auto" onClick={() => openReviewDialog(detailInvoice)}>
-                    {detailInvoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response'}
-                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  variant={expandedInvoiceId === detailInvoice.id ? 'default' : 'outline'}
-                  onClick={() => setExpandedInvoiceId(expandedInvoiceId === detailInvoice.id ? null : detailInvoice.id)}
-                >
-                  <Eye className="mr-1.5 h-3.5 w-3.5" />
-                  {expandedInvoiceId === detailInvoice.id ? 'Back to Summary' : 'View Details'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Summary view (shown by default; hidden when View Details is active) */}
-            {expandedInvoiceId !== detailInvoice.id && (
-            <>
-            {/* 4 stat tiles */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {[
-                {
-                  icon: <DollarSign className="h-5 w-5" />,
-                  iconBg: 'bg-blue-500/10 text-blue-500',
-                  label: 'Invoice Total',
-                  value: formatCurrency(detailTotal),
-                },
-                {
-                  icon: <Camera className="h-5 w-5" />,
-                  iconBg: 'bg-emerald-500/10 text-emerald-500',
-                  label: reviewCopy.chargeLabel,
-                  value: formatCurrency(detailShootPay),
-                },
-                {
-                  icon: <ReceiptText className="h-5 w-5" />,
-                  iconBg: 'bg-violet-500/10 text-violet-500',
-                  label: reviewCopy.expenseLabel,
-                  value: formatCurrency(detailExpensesTotal),
-                  subtitle: `${detailExpenses.length} expense item${detailExpenses.length === 1 ? '' : 's'}`,
-                },
-                {
-                  icon: <Camera className="h-5 w-5" />,
-                  iconBg: 'bg-teal-500/10 text-teal-500',
-                  label: reviewCopy.chargeCountLabel,
-                  value: detailCharges.length.toString(),
-                },
-              ].map((tile) => (
-                <div key={tile.label} className="rounded-xl border border-border/60 bg-background/40 p-3">
-                  <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', tile.iconBg)}>
-                    {tile.icon}
-                  </div>
-                  <p className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">{tile.label}</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums">{tile.value}</p>
-                  {'subtitle' in tile && tile.subtitle && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{tile.subtitle}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Payout Breakdown */}
-            <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-              <h4 className="text-sm font-semibold">Payout Breakdown</h4>
-              <div className="mt-3 space-y-2.5 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-blue-500" />
-                    <span>{reviewCopy.chargeLabel}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold tabular-nums">{formatCurrency(detailShootPay)}</span>
-                    <Badge variant="outline" className="border-blue-500/20 bg-blue-500/10 text-blue-500">
-                      {shootPayPct}%
-                    </Badge>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span>{reviewCopy.expenseLabel}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold tabular-nums">{formatCurrency(detailExpensesTotal)}</span>
-                    <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-500">
-                      {expensePct}%
-                    </Badge>
-                  </div>
-                </div>
-                <Separator className="my-2" />
-                <div className="flex items-center justify-between gap-3 text-base font-semibold">
-                  <span>Total Invoice Amount</span>
-                  <span className="tabular-nums">{formatCurrency(detailTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Status banner */}
-            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-                  <Info className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">
-                    {detailInvoice.approval_status === 'pending' && 'This invoice is ready for your review.'}
-                    {detailInvoice.approval_status === 'rejected' && 'The admin returned this invoice for changes.'}
-                    {detailInvoice.approval_status === 'pending_approval' && 'Submitted — awaiting super admin review.'}
-                    {(detailInvoice.approval_status === 'approved' || detailInvoice.approval_status === 'accounts_approved')
-                      && 'Approved — payment is being processed.'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {detailInvoice.approval_status === 'pending'
-                      ? 'Review the line items, edit anything needed, then submit the invoice.'
-                      : detailInvoice.approval_status === 'rejected'
-                        ? detailInvoice.rejection_reason || 'Make the requested changes, then resubmit the invoice.'
-                        : 'No further action required from you on this invoice.'}
-                  </p>
-                </div>
-              </div>
-              {canReview(detailInvoice) && (
-                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:flex-shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40 sm:w-auto"
-                    onClick={() => openReviewDialog(detailInvoice)}
-                  >
-                    <ReceiptText className="h-3.5 w-3.5 mr-1.5" />
-                    Edit &amp; Submit Changes
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="w-full bg-violet-600 hover:bg-violet-700 text-white sm:w-auto"
-                    onClick={() => openReviewDialog(detailInvoice)}
-                  >
-                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                    Approve &amp; Submit
-                  </Button>
-                </div>
-              )}
-            </div>
-            </>
-            )}
-
-            {/* Detail view (shown only when View Details is active; replaces the summary) */}
-            {expandedInvoiceId === detailInvoice.id && (
-              <div className="grid gap-4 rounded-xl border border-border/60 bg-background/40 p-4 lg:grid-cols-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <ReceiptText className="h-4 w-4 text-primary" />
-                    <h5 className="text-sm font-semibold">{reviewCopy.breakdownTitle}</h5>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {detailCharges.length === 0 && (
-                      <p className="rounded-lg border border-dashed border-border/50 px-3 py-4 text-center text-xs text-muted-foreground">
-                        {reviewCopy.breakdownEmpty}
-                      </p>
-                    )}
-                    {detailCharges.map((item) => (
-                      <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{item.description}</p>
-                          <p className="text-xs text-muted-foreground">{reviewCopy.breakdownItemDescription}</p>
-                        </div>
-                        <p className="font-semibold tabular-nums">
-                          {formatCurrency(parseFloat(String(item.total_amount ?? 0)))}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      <h5 className="text-sm font-semibold">{reviewCopy.expensesTitle}</h5>
-                    </div>
-                    {canModify(detailInvoice) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setSelectedInvoice(detailInvoice);
-                          setExpenseOpen(true);
-                        }}
-                      >
-                        <Plus className="mr-1 h-3 w-3" />
-                        {reviewCopy.addExpenseLabel}
-                      </Button>
-                    )}
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {detailExpenses.length === 0 && (
-                      <p className="rounded-lg border border-dashed border-border/50 px-3 py-4 text-center text-xs text-muted-foreground">
-                        {reviewCopy.expensesEmpty}
-                      </p>
-                    )}
-                    {detailExpenses.map((item) => (
-                      <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{item.description}</p>
-                          <p className="text-xs text-muted-foreground">Expense reimbursement</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold tabular-nums">+{formatCurrency(item.total_amount)}</p>
-                          {canModify(detailInvoice) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveExpense(detailInvoice, item)}
-                              disabled={actionLoading}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+        {detailInvoice && detailStatusCfg ? <article className="flex h-[32.5rem] min-w-0 flex-col p-4 sm:p-5">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+            <h3 className="text-sm font-semibold">{formatBillingPeriod(detailInvoice.billing_period_start, detailInvoice.billing_period_end)}</h3>
+            <Badge variant="outline" className={cn('text-[10px]', detailStatusCfg.className)}>{detailInvoice.is_paid || detailInvoice.status === 'paid' ? 'Paid' : detailStatusCfg.label}</Badge>
           </div>
-        ) : (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/50 p-8 lg:col-span-2">
-            <p className="text-sm text-muted-foreground">Select an invoice from the left to view details.</p>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice detail">
+            <div className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
+              {[[reviewCopy.totalLabel, formatCurrency(detailTotal)], [reviewCopy.chargeLabel, formatCurrency(detailShootPay)], [reviewCopy.expenseLabel, formatCurrency(detailExpensesTotal)], [reviewCopy.chargeCountLabel, detailCharges.length.toString()]].map(([label, value]) => <div key={label}><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold tabular-nums">{value}</p></div>)}
+            </div>
+            <h4 className="text-xs font-semibold">Payout breakdown</h4>
+            <div className="my-3 h-1.5 overflow-hidden rounded-full bg-emerald-500/20"><div className="h-full bg-primary" style={{ width: `${shootPayPct}%` }} /></div>
+            <div className="flex justify-between gap-3 text-[11px] text-muted-foreground"><span>{reviewCopy.chargeLabel} {shootPayPct}%</span><span>{reviewCopy.expenseLabel} {expensePct}%</span></div>
+            <h4 className="mb-1 mt-5 text-xs font-semibold">{reviewCopy.breakdownTitle}</h4>
+            {detailCharges.map((item) => <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/50 py-3 text-xs"><div className="min-w-0"><p className="break-words font-medium">{item.description}</p><p className="mt-1 text-[11px] text-muted-foreground">{reviewCopy.breakdownItemDescription}</p></div><strong className="shrink-0 tabular-nums">{formatCurrency(Number(item.total_amount || 0))}</strong></div>)}
+            {!detailCharges.length && <p className="py-3 text-xs text-muted-foreground">{reviewCopy.breakdownEmpty}</p>}
+            <div className="mt-5 flex items-center justify-between gap-2"><h4 className="text-xs font-semibold">{reviewCopy.expensesTitle}</h4>{canModify(detailInvoice) && <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => { setSelectedInvoice(detailInvoice); setExpenseOpen(true); }}><Plus className="mr-1 h-3 w-3" />{reviewCopy.addExpenseLabel}</Button>}</div>
+            {detailExpenses.map((item) => <div key={item.id} className="flex items-center gap-2 border-b border-border/50 py-3 text-xs"><p className="min-w-0 flex-1 break-words">{item.description}</p><strong className="shrink-0 tabular-nums">{formatCurrency(item.total_amount)}</strong>{canModify(detailInvoice) && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label={`Remove ${item.description}`} onClick={() => handleRemoveExpense(detailInvoice, item)} disabled={actionLoading}><Trash2 className="h-3.5 w-3.5" /></Button>}</div>)}
+            {!detailExpenses.length && <p className="py-3 text-xs text-muted-foreground">{reviewCopy.expensesEmpty}</p>}
+            <div className="my-4 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
+              {detailInvoice.is_paid || detailInvoice.status === 'paid' ? 'This invoice has been paid and is locked.' : detailInvoice.approval_status === 'pending' ? 'Ready for your review. Check the items before submitting.' : detailInvoice.approval_status === 'rejected' ? detailInvoice.rejection_reason || 'Returned for changes. Update the invoice and resubmit.' : detailInvoice.approval_status === 'pending_approval' ? 'Submitted — awaiting admin review.' : 'Approved — awaiting payment.'}
+              {detailInvoice.modification_notes && <p className="mt-2">Notes: {detailInvoice.modification_notes}</p>}
+            </div>
           </div>
-        )}
+          <div className="mt-3 flex shrink-0 flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
+            {invoiceRole === 'photographer' && <Button variant="outline" size="sm" onClick={() => { setSelectedInvoice(detailInvoice); setApprovalDialogOpen(true); }}>View invoice details</Button>}
+            {canReview(detailInvoice) && <><Button variant="outline" size="sm" onClick={() => openReviewDialog(detailInvoice)}>Edit &amp; submit changes</Button><Button size="sm" onClick={() => openReviewDialog(detailInvoice)}>{detailInvoice.approval_status === 'rejected' ? 'Review response' : 'Review & submit'}</Button></>}
+          </div>
+        </article> : <div className="flex min-h-48 items-center justify-center p-6 text-sm text-muted-foreground">Choose another period to see invoice details.</div>}
       </div>
 
       {/* Photographer invoice approval dialog (replaces simple review dialog for photographers) */}
@@ -978,6 +576,6 @@ export const WeeklyInvoiceReview: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 };

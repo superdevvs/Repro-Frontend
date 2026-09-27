@@ -1,498 +1,182 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Calendar as CalendarIcon, CreditCard, Download, FileText } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, CreditCard, Download, LayoutGrid, List } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import type { ClientBillingItem } from '@/types/clientBilling';
-import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from './InvoiceDateFilterToolbar';
-import {
-  DEFAULT_INVOICE_DATE_FILTER,
-  filterInvoiceItemsByDate,
-  parseInvoiceDateInput,
-  type InvoiceDateFilter,
-} from '@/utils/invoiceDateFilters';
+import { DEFAULT_INVOICE_DATE_FILTER, EMPTY_INVOICE_CUSTOM_RANGE, filterInvoiceItemsByDate, parseInvoiceDateInput, type InvoiceDateFilter } from '@/utils/invoiceDateFilters';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
+import { clientBillingCurrency } from './clientBillingPresentation';
 
 interface ClientBillingListProps {
   items: ClientBillingItem[];
   loading?: boolean;
   onView: (item: ClientBillingItem) => void;
-  /**
-   * Start payment for a billing row. Optional so the table still renders in
-   * contexts that cannot take payment.
-   */
   onPay?: (item: ClientBillingItem) => void;
   onDownload?: (item: ClientBillingItem, format: 'pdf' | 'csv') => void | Promise<void>;
   onDownloadMultiple?: (items: ClientBillingItem[]) => void | Promise<void>;
 }
 
-/** A row is payable when money is actually outstanding on it. */
-const isPayable = (item: ClientBillingItem) =>
-  item.paymentRequired !== false
-  && item.bucket !== 'paid'
-  && item.bucket !== 'no_payment_required'
-  && item.balance > 0.01;
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
-
+const isPayable = (item: ClientBillingItem) => item.paymentRequired !== false && item.bucket !== 'paid' && item.bucket !== 'no_payment_required' && item.balance > 0.01;
 const formatDate = (value?: string | null) => {
-  if (!value) return '—';
-  const parsed = parseInvoiceDateInput(value);
-  if (!parsed) return '—';
-  return format(parsed, 'MMM d, yyyy');
+  const date = parseInvoiceDateInput(value);
+  return date ? format(date, 'MMM d, yyyy') : '—';
 };
+const statusLabel = (item: ClientBillingItem) => item.status === 'no_payment_required' ? 'No payment required' : item.status.charAt(0).toUpperCase() + item.status.slice(1).replace(/_/g, ' ');
+const sourceLabel = (item: ClientBillingItem) => item.documentType === 'complimentary_receipt' ? 'Complimentary receipt' : item.sourceLabel;
+const sourceAndBucket = (item: ClientBillingItem) => <><span>{sourceLabel(item)}</span>{(item.bucket === 'due_now' || item.bucket === 'upcoming') && <> · <span>{item.bucket === 'due_now' ? 'Due now' : 'Upcoming'}</span></>}</>;
+const referenceLabel = (item: ClientBillingItem) => item.number ? `#${item.number}` : item.shootId != null ? `Shoot #${item.shootId}` : item.id;
+const selectionLabel = (item: ClientBillingItem) => item.number ? `invoice ${item.number}` : `billing item ${item.id}`;
+const statusColor = (status: ClientBillingItem['status']) => ({
+  paid: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  pending: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  overdue: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  no_payment_required: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+}[status]);
+const buckets = [
+  ['all', 'All billing'], ['due_now', 'Due now'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['no_payment_required', 'No payment required'],
+] as const;
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'paid':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    case 'no_payment_required':
-      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200';
-    case 'overdue':
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-    default:
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-  }
-};
-
-const getStatusLabel = (status: ClientBillingItem['status']) => {
-  if (status === 'no_payment_required') return 'No payment required';
-  return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
-};
-
-const getBucketLabel = (bucket: ClientBillingItem['bucket']) => {
-  switch (bucket) {
-    case 'due_now':
-      return 'Due now';
-    case 'upcoming':
-      return 'Upcoming';
-    case 'no_payment_required':
-      return 'No payment required';
-    default:
-      return 'Paid';
-  }
-};
-
-const getSourceLabel = (item: ClientBillingItem) =>
-  item.documentType === 'complimentary_receipt' ? 'Complimentary receipt' : item.sourceLabel;
-
-export function ClientBillingList({
-  items,
-  loading = false,
-  onView,
-  onPay,
-  onDownload,
-  onDownloadMultiple,
-}: ClientBillingListProps) {
+export function ClientBillingList({ items, loading = false, onView, onPay, onDownload, onDownloadMultiple }: ClientBillingListProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'all' | 'due_now' | 'upcoming' | 'paid' | 'no_payment_required'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | ClientBillingItem['bucket']>('all');
   const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const [view, setView] = useState<'list' | 'cards' | null>(null);
+  const showCards = view ? view === 'cards' : isMobile;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [exporting, setExporting] = useState(false);
-
-  const filteredItems = useMemo(() => {
-    const dateFiltered = filterInvoiceItemsByDate(
-      items,
-      dateFilter,
-      (item) => item.issueDate || item.dueDate,
-    );
-    if (activeTab === 'all') return dateFiltered;
-    return dateFiltered.filter((item) => item.bucket === activeTab);
-  }, [activeTab, dateFilter, items]);
-
-  const selectedItems = useMemo(
-    () => filteredItems.filter((item) => selectedIds.has(item.id)),
-    [filteredItems, selectedIds],
-  );
-  const exportItems = selectedItems.length > 0 ? selectedItems : filteredItems;
-  const allFilteredSelected = filteredItems.length > 0 && selectedItems.length === filteredItems.length;
-  const someFilteredSelected = selectedItems.length > 0 && !allFilteredSelected;
+  const [downloading, setDownloading] = useState(false);
+  const recordsRef = useRef<HTMLDivElement>(null);
+  const filteredItems = useMemo(() => filterInvoiceItemsByDate(items, dateFilter, (item) => item.issueDate || item.dueDate)
+    .filter((item) => activeTab === 'all' || item.bucket === activeTab), [activeTab, dateFilter, items]);
+  const selectedItems = useMemo(() => filteredItems.filter((item) => selectedIds.has(item.id)), [filteredItems, selectedIds]);
+  const exportItems = selectedItems.length ? selectedItems : filteredItems;
+  const allSelected = filteredItems.length > 0 && selectedItems.length === filteredItems.length;
+  const pages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const currentPage = Math.min(page, pages);
+  const pageItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const releaseCount = items.filter((item) => item.paymentRequiredToRelease).length;
 
   useEffect(() => {
     const visibleIds = new Set(filteredItems.map((item) => item.id));
     setSelectedIds((current) => {
       const next = new Set([...current].filter((id) => visibleIds.has(id)));
-      if (next.size === current.size && [...next].every((id) => current.has(id))) return current;
-      return next;
+      return next.size === current.size ? current : next;
     });
   }, [filteredItems]);
+  useEffect(() => { setPage((current) => Math.min(current, pages)); }, [pages]);
+  useEffect(() => { if (recordsRef.current) recordsRef.current.scrollTop = 0; }, [currentPage, pageSize, activeTab, dateFilter, showCards]);
 
-  const toggleSelected = (id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const updateFilter = (next: InvoiceDateFilter) => { setDateFilter(next); setPage(1); };
+  const toggleSelected = (id: string) => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(filteredItems.map((item) => item.id)));
 
-  const toggleAllFiltered = () => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (allFilteredSelected) filteredItems.forEach((item) => next.delete(item.id));
-      else filteredItems.forEach((item) => next.add(item.id));
-      return next;
-    });
-  };
-
-  const handleExport = async (exportFormat: InvoiceExportFormat) => {
-    const rows = exportItems.map((item) => ({
-      reference: item.number || (item.shootId != null ? `Shoot ${item.shootId}` : item.id),
-      source: getSourceLabel(item),
-      property: item.property || '',
-      status: getStatusLabel(item.status),
-      amount: item.amount,
-      paid: item.amountPaid,
-      balance: item.balance,
-      issueDate: formatDate(item.issueDate),
-      dueDate: formatDate(item.dueDate),
-    }));
+  const handleExport = async (exportFormat: 'csv' | 'excel' | 'pdf') => {
+    const rows = exportItems.map((item) => ({ reference: item.number || (item.shootId != null ? `Shoot ${item.shootId}` : item.id), source: sourceLabel(item), property: item.property || '', status: statusLabel(item), amount: item.amount, paid: item.amountPaid, balance: item.balance, issueDate: formatDate(item.issueDate), dueDate: formatDate(item.dueDate) }));
     const columns = [
-      { key: 'reference', label: 'Reference' },
-      { key: 'source', label: 'Source' },
-      { key: 'property', label: 'Property' },
-      { key: 'status', label: 'Status' },
-      { key: 'amount', label: 'Amount' },
-      { key: 'paid', label: 'Paid' },
-      { key: 'balance', label: 'Balance' },
-      { key: 'issueDate', label: 'Issue Date' },
-      { key: 'dueDate', label: 'Due Date' },
+      { key: 'reference', label: 'Reference' }, { key: 'source', label: 'Source' }, { key: 'property', label: 'Property' }, { key: 'status', label: 'Status' }, { key: 'amount', label: 'Amount' }, { key: 'paid', label: 'Paid' }, { key: 'balance', label: 'Balance' }, { key: 'issueDate', label: 'Issue Date' }, { key: 'dueDate', label: 'Due Date' },
     ] as const;
-    const fileName = `billing-${format(new Date(), 'yyyy-MM-dd')}`;
+    const filename = `billing-${format(new Date(), 'yyyy-MM-dd')}`;
     setExporting(true);
     try {
-      if (exportFormat === 'csv') exportRowsAsCsv(fileName, columns, rows);
-      else if (exportFormat === 'excel') await exportRowsAsExcel(fileName, 'Billing', columns, rows);
-      else await exportRowsAsPdf(fileName, 'Billing Report', columns, rows);
+      if (exportFormat === 'csv') exportRowsAsCsv(filename, columns, rows);
+      else if (exportFormat === 'excel') await exportRowsAsExcel(filename, 'Billing', columns, rows);
+      else await exportRowsAsPdf(filename, 'Billing Report', columns, rows);
     } catch (error) {
-      toast({
-        title: 'Export failed',
-        description: error instanceof Error ? error.message : 'Unable to export these billing items.',
-        variant: 'destructive',
-      });
-    } finally {
-      setExporting(false);
-    }
+      toast({ title: 'Export failed', description: error instanceof Error ? error.message : 'Unable to export these billing items.', variant: 'destructive' });
+    } finally { setExporting(false); }
   };
-
   const handleDownload = async (item: ClientBillingItem, downloadFormat: 'pdf' | 'csv') => {
     if (!onDownload) return;
     try {
       await onDownload(item, downloadFormat);
-      toast({
-        title: 'Billing file downloaded',
-        description: `${item.number ? `Invoice #${item.number}` : item.sourceLabel} was downloaded as ${downloadFormat.toUpperCase()}.`,
-      });
+      toast({ title: 'Billing file downloaded', description: `${referenceLabel(item)} was downloaded as ${downloadFormat.toUpperCase()}.` });
     } catch (error) {
-      toast({
-        title: 'Download failed',
-        description: error instanceof Error ? error.message : 'Unable to download this billing item.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Download failed', description: error instanceof Error ? error.message : 'Unable to download this billing item.', variant: 'destructive' });
     }
   };
-
   const handleBulkPdf = async () => {
-    if (!onDownloadMultiple || selectedItems.length === 0) return;
+    if (!onDownloadMultiple || !selectedItems.length) return;
+    setDownloading(true);
     try {
       await onDownloadMultiple(selectedItems);
-      toast({
-        title: 'Billing statements downloaded',
-        description: `${selectedItems.length} statements were combined into one PDF.`,
-      });
+      toast({ title: 'Billing statements downloaded', description: `${selectedItems.length} statements were combined into one PDF.` });
     } catch (error) {
-      toast({
-        title: 'Download failed',
-        description: error instanceof Error ? error.message : 'Unable to download the selected billing statements.',
-        variant: 'destructive',
-      });
-    }
+      toast({ title: 'Download failed', description: error instanceof Error ? error.message : 'Unable to download the selected billing statements.', variant: 'destructive' });
+    } finally { setDownloading(false); }
   };
+  const actions = (item: ClientBillingItem) => <div className="flex flex-wrap items-center gap-1.5">
+    {onPay && isPayable(item) && <Button size="sm" className="h-8 gap-1 px-2.5 text-xs" onClick={() => onPay(item)}><CreditCard className="h-3.5 w-3.5" />Pay {clientBillingCurrency.format(item.balance)}</Button>}
+    <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs" aria-label={`View ${selectionLabel(item)}`} onClick={() => onView(item)}>View</Button>
+    {onDownload && <BillingDownloadMenu item={item} onDownload={handleDownload} />}
+  </div>;
+  const selection = (item: ClientBillingItem) => <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSelected(item.id)} aria-label={`Select ${selectionLabel(item)}`} />;
+  const status = (item: ClientBillingItem) => <div className="flex flex-wrap gap-1.5"><Badge variant="outline" className={statusColor(item.status)}>{statusLabel(item)}</Badge>{item.paymentRequiredToRelease && <Badge variant="outline" className="border-rose-500/30 text-rose-600 dark:text-rose-300">Release blocked</Badge>}</div>;
 
   return (
-    <div className="w-full">
-      <Card className="mb-6">
-        <div className="flex flex-col gap-2 border-b p-3 lg:flex-row lg:items-center lg:justify-between">
-          <Tabs
-            value={activeTab}
-            className="min-w-0 flex-1"
-            onValueChange={(value) => setActiveTab(value as 'all' | 'due_now' | 'upcoming' | 'paid' | 'no_payment_required')}
-          >
-            <div className="overflow-x-auto pb-1 sm:pb-0">
-              <TabsList className="inline-flex min-w-max">
-                <TabsTrigger value="all" className="py-1 text-sm">All billing</TabsTrigger>
-                <TabsTrigger value="due_now" className="py-1 text-sm">Due now</TabsTrigger>
-                <TabsTrigger value="upcoming" className="py-1 text-sm">Upcoming</TabsTrigger>
-                <TabsTrigger value="paid" className="py-1 text-sm">Paid</TabsTrigger>
-                <TabsTrigger value="no_payment_required" className="py-1 text-sm">No payment required</TabsTrigger>
-              </TabsList>
-            </div>
-          </Tabs>
-
-          <InvoiceDateFilterToolbar
-            filter={dateFilter}
-            onFilterChange={setDateFilter}
-            resultCount={filteredItems.length}
-            selectedCount={selectedItems.length}
-            onClearSelection={() => setSelectedIds(new Set())}
-            onExport={handleExport}
-            onBulkPdf={onDownloadMultiple ? handleBulkPdf : undefined}
-            bulkPdfLabel="Selected billing statements"
-            resultNoun="billing item"
-            className="rounded-none border-0 bg-transparent p-0 lg:w-auto lg:flex-none"
-            exportDisabled={loading}
-            exporting={exporting}
-          />
+    <Card className="min-w-0 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <h2 className="text-sm font-semibold">Your billing</h2>
+        {releaseCount > 0 && <span className="text-xs text-rose-600 dark:text-rose-300">{releaseCount} payment{releaseCount === 1 ? '' : 's'} required to release delivery</span>}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 border-b px-3 pb-3" role="group" aria-label="Billing controls">
+        <Tabs value={activeTab} className="min-w-0 max-w-full" onValueChange={(value) => { setActiveTab(value as typeof activeTab); setPage(1); }}>
+          <TabsList className="h-auto max-w-full flex-wrap justify-start gap-0.5">
+            {buckets.map(([value, label]) => <TabsTrigger key={value} value={value} className="px-2.5 py-1.5 text-xs">{label}</TabsTrigger>)}
+          </TabsList>
+        </Tabs>
+        <select className="h-8 max-w-full rounded-md border bg-background px-2 text-xs" aria-label="Filter billing items by date" value={dateFilter.preset} onChange={(event) => updateFilter({ ...dateFilter, preset: event.target.value as InvoiceDateFilter['preset'] })}>
+          <option value="all">All billing dates</option><option value="day">Today</option><option value="week">This week</option><option value="month">This month</option><option value="quarter">This quarter</option><option value="year">This year</option><option value="custom">Custom dates</option>
+        </select>
+        {dateFilter.preset === 'custom' && <DateRangePicker value={dateFilter.customRange || EMPTY_INVOICE_CUSTOM_RANGE} onChange={(customRange) => updateFilter({ preset: 'custom', customRange })} triggerClassName="h-8 max-w-full text-xs" />}
+        <div className="flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="Billing view">
+          <Button variant={!showCards ? 'secondary' : 'ghost'} className="h-7 w-7 p-0" aria-label="List view" aria-pressed={!showCards} onClick={() => setView('list')}><List className="h-4 w-4" /></Button>
+          <Button variant={showCards ? 'secondary' : 'ghost'} className="h-7 w-7 p-0" aria-label="Cards view" aria-pressed={showCards} onClick={() => setView('cards')}><LayoutGrid className="h-4 w-4" /></Button>
         </div>
-
-        {loading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading billing data…</div>
-        ) : isMobile ? (
-          <div className="space-y-3 p-3">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="rounded-xl border bg-card p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <Checkbox
-                      checked={selectedIds.has(item.id)}
-                      onCheckedChange={() => toggleSelected(item.id)}
-                      aria-label={`Select ${item.number ? `invoice ${item.number}` : `billing item ${item.id}`}`}
-                      className="mt-1"
-                    />
-                    <div>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {getSourceLabel(item)}
-                    </p>
-                    <p className="text-base font-semibold">
-                      {item.number ? `#${item.number}` : `Shoot #${item.shootId}`}
-                    </p>
-                    </div>
-                  </div>
-                  <Badge className={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Badge>
-                </div>
-
-                <div className="mt-3 space-y-2 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Property</p>
-                    <p className="font-medium">{item.property || '—'}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Amount</p>
-                      <p className="font-semibold">{currencyFormatter.format(item.amount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Open balance</p>
-                      <p className="font-semibold">{currencyFormatter.format(item.balance)}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">Date</p>
-                      <p className="font-medium">{formatDate(item.issueDate || item.dueDate)}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{getBucketLabel(item.bucket)}</Badge>
-                    {item.paymentRequiredToRelease && (
-                      <Badge variant="destructive">Release blocked</Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {/* An overdue balance needs a way to pay it; View alone was the
-                      only action on this table. */}
-                  {onPay && isPayable(item) && (
-                    <Button
-                      size="sm"
-                      className="h-8 bg-red-600 px-3 text-xs text-white hover:bg-red-700"
-                      onClick={() => onPay(item)}
-                    >
-                      <CreditCard className="mr-1 h-3.5 w-3.5" />
-                      Pay {currencyFormatter.format(item.balance)}
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => onView(item)}>
-                    View
-                  </Button>
-                  {onDownload && (
-                    <BillingDownloadMenu item={item} onDownload={handleDownload} />
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {!filteredItems.length && (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No billing items found
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="w-10 px-3 py-2 text-left">
-                    <Checkbox
-                      checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
-                      onCheckedChange={toggleAllFiltered}
-                      aria-label="Select all filtered billing items"
-                    />
-                  </th>
-                  <th className="px-3 py-2 text-left">Source</th>
-                  <th className="px-3 py-2 text-left">Reference</th>
-                  <th className="px-3 py-2 text-left">Property</th>
-                  <th className="px-3 py-2 text-left">Date</th>
-                  <th className="px-3 py-2 text-left">Balance</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                  <th className="px-3 py-2 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className="border-b transition hover:bg-muted/30">
-                    <td className="px-3 py-3">
-                      <Checkbox
-                        checked={selectedIds.has(item.id)}
-                        onCheckedChange={() => toggleSelected(item.id)}
-                        aria-label={`Select ${item.number ? `invoice ${item.number}` : `billing item ${item.id}`}`}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs font-semibold">{getSourceLabel(item)}</p>
-                          <p className="text-[11px] text-muted-foreground">{getBucketLabel(item.bucket)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-xs font-medium">
-                      {item.number ? `#${item.number}` : `Shoot #${item.shootId}`}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-start gap-2">
-                        {item.paymentRequiredToRelease && (
-                          <AlertTriangle className="mt-0.5 h-4 w-4 text-rose-500" />
-                        )}
-                        <div>
-                          <p className="text-xs font-medium">{item.property || '—'}</p>
-                          {item.paymentRequiredToRelease && (
-                            <p className="text-[11px] text-rose-500">Payment required to release delivery</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-xs">
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {formatDate(item.issueDate || item.dueDate)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-xs font-semibold">
-                      <div>{currencyFormatter.format(item.balance)}</div>
-                      <div className="text-[11px] font-normal text-muted-foreground">
-                        Total {currencyFormatter.format(item.amount)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge className={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Badge>
-                        {item.paymentRequiredToRelease && (
-                          <Badge variant="destructive">Release blocked</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {onPay && isPayable(item) && (
-                          <Button
-                            size="sm"
-                            className="bg-red-600 text-white hover:bg-red-700"
-                            onClick={() => onPay(item)}
-                          >
-                            <CreditCard className="mr-1 h-3.5 w-3.5" />
-                            Pay {currencyFormatter.format(item.balance)}
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => onView(item)}>
-                          View
-                        </Button>
-                        {onDownload && (
-                          <BillingDownloadMenu item={item} onDownload={handleDownload} />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!filteredItems.length && (
-                  <tr>
-                    <td colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
-                      No billing items found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs" aria-label="Export billing items" disabled={loading || exporting || !filteredItems.length}><Download className="h-3.5 w-3.5" />{exporting ? 'Exporting…' : 'Export'}</Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end"><DropdownMenuLabel>{selectedItems.length ? `${selectedItems.length} selected` : `All ${filteredItems.length} filtered items`}</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => void handleExport('csv')}>Export CSV</DropdownMenuItem><DropdownMenuItem onClick={() => void handleExport('excel')}>Export Excel</DropdownMenuItem><DropdownMenuItem onClick={() => void handleExport('pdf')}>Export PDF report</DropdownMenuItem></DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {selectedItems.length > 0 && <div className="flex flex-wrap items-center gap-2 border-b bg-primary/5 px-3 py-2 text-xs" aria-live="polite"><span className="font-medium">{selectedItems.length} selected across all pages</span><Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedIds(new Set())}>Clear selection</Button>{onDownloadMultiple && <Button variant="outline" size="sm" disabled={downloading} className="ml-auto h-7 px-2 text-xs" onClick={() => void handleBulkPdf()}>{downloading ? 'Downloading…' : 'Selected billing statements'}</Button>}</div>}
+      {loading ? <div className="p-8 text-center text-sm text-muted-foreground" role="status">Loading billing data…</div> : !filteredItems.length ? <div className="p-10 text-center text-sm text-muted-foreground">No billing items found</div> : showCards ? <>
+        <label className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground"><Checkbox checked={allSelected ? true : selectedItems.length ? 'indeterminate' : false} onCheckedChange={toggleAll} aria-label="Select all filtered billing items" />Select all {filteredItems.length} filtered items</label>
+        <div ref={recordsRef} className="grid max-h-[480px] grid-cols-1 gap-3 overflow-y-auto overscroll-auto p-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Billing cards">
+          {pageItems.map((item) => <article key={item.id} className="min-w-0 rounded-lg border p-3">
+            <div className="flex items-start gap-2"><span className="pt-0.5">{selection(item)}</span><div className="min-w-0"><p className="break-words text-sm font-semibold">{referenceLabel(item)}</p><p className="text-xs text-muted-foreground">{sourceAndBucket(item)}</p></div></div>
+            <p className="mt-3 break-words text-sm font-medium">{item.property || 'Property unavailable'}</p>
+            <div className="my-3 flex flex-wrap justify-between gap-2 text-xs"><div><p className="text-muted-foreground">Open balance</p><p className="mt-0.5 text-lg font-semibold tabular-nums">{clientBillingCurrency.format(item.balance)}</p><p className="text-muted-foreground">Total {clientBillingCurrency.format(item.amount)}</p></div><div className="text-muted-foreground"><p>Issued {formatDate(item.issueDate || item.dueDate)}</p><p className="mt-1">Due {formatDate(item.dueDate)}</p></div></div>
+            {status(item)}<div className="mt-3 border-t pt-3">{actions(item)}</div>
+          </article>)}
+        </div>
+      </> : <div ref={recordsRef} className="max-h-[380px] overflow-auto overscroll-auto" tabIndex={0} role="region" aria-label="Billing records">
+        <table className="w-full min-w-[850px] text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-card text-muted-foreground"><tr className="border-b"><th className="w-10 px-3 py-3"><Checkbox checked={allSelected ? true : selectedItems.length ? 'indeterminate' : false} onCheckedChange={toggleAll} aria-label="Select all filtered billing items" /></th><th className="px-3 py-3 font-medium">Reference / source</th><th className="px-3 py-3 font-medium">Property</th><th className="px-3 py-3 font-medium">Issued / due</th><th className="px-3 py-3 font-medium">Open balance</th><th className="px-3 py-3 font-medium">Status</th><th className="px-3 py-3 font-medium">Actions</th></tr></thead>
+          <tbody>{pageItems.map((item) => <tr key={item.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-3 py-3">{selection(item)}</td><td className="px-3 py-3"><p className="font-semibold">{referenceLabel(item)}</p><p className="mt-1 text-muted-foreground">{sourceAndBucket(item)}</p></td><td className="max-w-[240px] break-words px-3 py-3 font-medium">{item.property || '—'}</td><td className="whitespace-nowrap px-3 py-3">{formatDate(item.issueDate || item.dueDate)}<p className="mt-1 text-muted-foreground">Due {formatDate(item.dueDate)}</p></td><td className="whitespace-nowrap px-3 py-3 font-semibold tabular-nums">{clientBillingCurrency.format(item.balance)}<p className="mt-1 font-normal text-muted-foreground">Total {clientBillingCurrency.format(item.amount)}</p></td><td className="px-3 py-3">{status(item)}</td><td className="px-3 py-3">{actions(item)}</td></tr>)}</tbody>
+        </table>
+      </div>}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2.5 text-xs">
+        <span className="text-muted-foreground" aria-live="polite">{filteredItems.length ? `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredItems.length)} of ${filteredItems.length} billing items` : '0 billing items'}</span>
+        <div className="flex flex-wrap items-center gap-2"><label className="flex items-center gap-1.5 text-muted-foreground">Rows<select aria-label="Billing items per page" className="h-8 rounded-md border bg-background px-1.5 text-foreground" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>{[5, 10, 20].map((size) => <option key={size}>{size}</option>)}</select></label><span>Page {currentPage} of {pages}</span><Button variant="outline" className="h-8 w-8 p-0" disabled={loading || currentPage === 1} aria-label="Previous billing page" onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" className="h-8 w-8 p-0" disabled={loading || currentPage === pages} aria-label="Next billing page" onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button></div>
+      </div>
+    </Card>
   );
 }
 
-function BillingDownloadMenu({
-  item,
-  onDownload,
-}: {
-  item: ClientBillingItem;
-  onDownload: (item: ClientBillingItem, format: 'pdf' | 'csv') => void | Promise<void>;
-}) {
-  const reference = item.number ? `invoice ${item.number}` : `billing item ${item.id}`;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 px-3 text-xs"
-          aria-label={`Download ${reference}`}
-        >
-          <Download className="h-3.5 w-3.5" />
-          Download
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Download</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void onDownload(item, 'pdf')}>
-          PDF statement
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={item.invoiceId == null}
-          onClick={() => void onDownload(item, 'csv')}
-        >
-          CSV detail
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+function BillingDownloadMenu({ item, onDownload }: { item: ClientBillingItem; onDownload: (item: ClientBillingItem, format: 'pdf' | 'csv') => void | Promise<void> }) {
+  return <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-xs" aria-label={`Download ${selectionLabel(item)}`}><Download className="h-3.5 w-3.5" /><span className="sr-only">Download</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuLabel>Download</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => void onDownload(item, 'pdf')}>PDF statement</DropdownMenuItem><DropdownMenuItem disabled={item.invoiceId == null} onClick={() => void onDownload(item, 'csv')}>CSV detail</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
 }

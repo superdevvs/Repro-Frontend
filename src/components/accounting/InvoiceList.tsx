@@ -183,7 +183,7 @@ export function InvoiceList({
     [activeTab, dateFilteredInvoices],
   );
 
-  const itemsPerPage = viewMode === 'list' ? 15 : 10;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
   const safePage = Math.min(currentPage, totalPages);
   const startIndex = (safePage - 1) * itemsPerPage;
@@ -462,7 +462,7 @@ export function InvoiceList({
           />
         </div>
 
-        <div>
+        <div role="region" aria-label="Invoice results, scroll for more" tabIndex={0} className="max-h-[430px] overflow-auto overscroll-contain">
           {viewMode === 'list' ? (
             isMobile ? (
               <div className="space-y-2 p-3">
@@ -689,6 +689,7 @@ export function InvoiceList({
           <p className="text-muted-foreground text-xs sm:text-sm">
             Showing {showingFrom}-{showingTo} of {filteredInvoices.length} invoices
           </p>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">Rows per page<select aria-label="Invoice rows per page" value={itemsPerPage} className="h-8 rounded-md border bg-background px-2" onChange={event => { setItemsPerPage(Number(event.target.value)); setCurrentPage(1); }}>{[5, 10, 20].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
           {totalPages > 1 && (
             <Pagination>
               <PaginationContent>

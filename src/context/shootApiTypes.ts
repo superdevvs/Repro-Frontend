@@ -342,6 +342,9 @@ export type ApiShoot = {
   totalPhotographerPay?: number | string | null;
   photographerPay?: number | string | null;
   photographer_pay?: number | string | null;
+  photographerPaidAt?: string | null;
+  photographer_paid_at?: string | null;
+  paid_at_photographer?: string | null;
   property_details?: ShootData['propertyDetails'];
   cancellationRequestedAt?: string;
   cancellation_requested_at?: string;

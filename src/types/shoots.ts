@@ -602,6 +602,7 @@ export interface ShootData {
   extraPhotoCount?: number;
   totalPhotographerPay?: number;
   photographerPay?: number;
+  photographerPaidAt?: string | null;
   taxPercent?: number;
   tax_percent?: number;
   rawMissingCount?: number;

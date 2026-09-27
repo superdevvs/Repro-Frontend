@@ -900,6 +900,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     featured_approved_by: shoot.featured_approved_by ?? shoot.featuredApprovedBy ?? null,
     photographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
     totalPhotographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
+    photographerPaidAt: shoot.photographerPaidAt ?? shoot.photographer_paid_at ?? shoot.paid_at_photographer ?? undefined,
     propertyDetails: shoot.property_details || undefined,
     cancellationRequestedAt: shoot.cancellationRequestedAt || shoot.cancellation_requested_at || undefined,
     cancellationReason: shoot.cancellationReason || shoot.cancellation_reason || undefined,

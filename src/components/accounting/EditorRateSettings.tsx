@@ -10,9 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { DollarSign, Plus, Save, Trash2 } from 'lucide-react';
+import { Plus, Save, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useServices } from '@/hooks/useServices';
 import { useEditorRates } from '@/hooks/useEditorRates';
@@ -51,6 +52,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     enabled: Boolean(user?.id),
     services: activeServices,
   });
+  const [editing, setEditing] = useState(false);
   const [rates, setRates] = useState<EditorServiceRate[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
@@ -153,15 +155,16 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
       const nextSavedRates = await saveRates(rates);
       setRates(nextSavedRates.service_rates);
       setHasLocalEdits(false);
+      setEditing(false);
 
       toast({
         title: 'Rates Saved',
         description: 'Your editing rates have been updated successfully.',
         variant: 'default',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving rates:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
         toast({
           title: 'Connection Error',
           description:
@@ -171,7 +174,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
       } else {
         toast({
           title: 'Error',
-          description: error.message || 'Failed to save rates. Please try again.',
+          description: error instanceof Error ? error.message : 'Failed to save rates. Please try again.',
           variant: 'destructive',
         });
       }
@@ -192,18 +195,23 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     );
   }
 
-  return (
-    <Card className={cn('flex h-full min-h-0 flex-col overflow-hidden', className)}>
-      <CardHeader className="flex-shrink-0">
-        <CardTitle className="flex items-center gap-2">
-          <DollarSign className="h-5 w-5" />
-          Editing Rates
-        </CardTitle>
-        <CardDescription>
-          Choose services and set a rate for each one. Remove any row you do not need.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col">
+  const closeEditor = () => { if (isSaving) return; setRates(savedRates); setHasLocalEdits(false); setEditing(false); };
+  return <>
+    <Card className={cn('flex min-h-0 flex-col overflow-hidden border-border/70', className)}>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4 sm:p-5"><CardTitle className="text-base">My service rates</CardTitle><Button variant="outline" size="sm" onClick={() => setEditing(true)}>Edit rates</Button></CardHeader>
+      <CardContent className="px-4 pb-4 sm:px-5">
+        {isRatesError && <p className="mb-3 text-xs text-destructive">Saved rates are temporarily unavailable.</p>}
+        <div className="max-h-64 divide-y overflow-y-auto overscroll-contain [scrollbar-gutter:stable]" tabIndex={0} aria-label="Saved editing service rates">
+          {savedRates.map((rate) => <div key={rate.serviceId || rate.serviceName} className="flex items-center justify-between gap-3 py-3 text-xs"><span>{rate.serviceName}</span><strong className="shrink-0 tabular-nums">${Number(rate.rate || 0).toFixed(2)} / item</strong></div>)}
+          {!savedRates.length && <p className="py-6 text-sm text-muted-foreground">No service rates configured yet.</p>}
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Saved earnings keep their recorded rates. Current rates only estimate work without a saved payout.</p>
+      </CardContent>
+    </Card>
+    <Dialog open={editing} onOpenChange={(open) => { if (!open) closeEditor(); else setEditing(true); }}>
+      <DialogContent className="flex max-h-[85dvh] max-w-xl flex-col overflow-hidden">
+        <DialogHeader><DialogTitle>Edit service rates</DialogTitle><DialogDescription>Choose your services and rate per item. Save to apply your changes.</DialogDescription></DialogHeader>
+      <div className="min-h-0 flex-1 overflow-y-auto px-1">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           {isRatesError && (
             <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
@@ -219,7 +227,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
             </div>
           )}
 
-          <div className="rounded-lg border border-dashed p-3">
+          <div className="rounded-lg border p-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="editing-rate-service">Add Service</Label>
@@ -253,10 +261,10 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
                   !selectedServiceId ||
                   remainingServices.length === 0
                 }
-                className="sm:min-w-[140px]"
+                className="sm:min-w-[100px]"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add Field
+                Add service
               </Button>
             </div>
           </div>
@@ -267,13 +275,13 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
             </div>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto pr-2">
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {rates.map((rate) => {
                   const serviceKey =
                     rate.serviceId || normalizeEditorServiceName(rate.serviceName);
 
                   return (
-                    <div key={serviceKey} className="rounded-lg border p-4">
+                    <div key={serviceKey} className="rounded-lg border p-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <div className="flex-1 space-y-2">
                           <Label htmlFor={`rate-${serviceKey}`}>
@@ -293,7 +301,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
                           type="button"
                           variant="outline"
                           onClick={() => handleRemoveService(serviceKey)}
-                          className="sm:min-w-[120px]"
+                          className="sm:min-w-[95px]"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Remove
@@ -307,15 +315,19 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           )}
         </div>
 
+        <div className="sticky bottom-0 mt-4 flex gap-2 border-t bg-background pt-3">
+        <Button variant="outline" onClick={() => { setRates(savedRates); setHasLocalEdits(false); setEditing(false); }} disabled={isSaving}>Cancel</Button>
         <Button
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className="mt-4 w-full flex-shrink-0"
+          className="flex-1"
         >
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Saving...' : 'Save Rates'}
         </Button>
-      </CardContent>
-    </Card>
-  );
+        </div>
+      </div>
+      </DialogContent>
+    </Dialog>
+  </>;
 }

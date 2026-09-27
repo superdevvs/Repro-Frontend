@@ -4,7 +4,7 @@ import type { WeeklyInvoice } from '@/services/invoiceService';
 import { parseInvoiceDateInput } from '@/utils/invoiceDateFilters';
 
 export type ReviewWorkspaceTab = 'review-queue' | 'payout-report';
-export type ReviewStatusFilter = 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
+export type ReviewStatusFilter = 'all' | 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
 export type ReviewWorkspaceRole = 'photographer' | 'salesRep';
 
 export interface InvoiceReviewWorkspaceProps {
@@ -15,6 +15,7 @@ export interface InvoiceReviewWorkspaceProps {
 }
 
 export const STATUS_OPTIONS: Array<{ value: ReviewStatusFilter; label: string }> = [
+  { value: 'all', label: 'All records' },
   { value: 'pending_approval', label: 'Needs review' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Returned' },
@@ -66,3 +67,28 @@ export const getStatusBadgeClassName = (status: string) => {
 };
 
 export const getInvoiceWarnings = (invoice: WeeklyInvoice | null) => invoice?.unresolved_warnings || [];
+
+const numberFromRecord = (record: Record<string, unknown> | null | undefined, key: string) => {
+  const value = record?.[key];
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const getSalesRepCommissionSummary = (invoice: WeeklyInvoice) => {
+  const snapshot = invoice.approval_snapshot;
+  const metadata = (invoice.items || []).map((item) => item.meta || {});
+  return {
+    commissionableGross: snapshot
+      ? numberFromRecord(snapshot, 'commissionable_gross') ?? 0
+      : metadata.reduce((total, meta) => total + (numberFromRecord(meta, 'commissionable_gross') ?? 0), 0),
+    excludedFeeTotal: snapshot
+      ? numberFromRecord(snapshot, 'excluded_fees_total') ?? numberFromRecord(snapshot, 'excluded_fee_total') ?? 0
+      : metadata.reduce((total, meta) => total + (numberFromRecord(meta, 'excluded_fees_total') ?? numberFromRecord(meta, 'excluded_fee_total') ?? 0), 0),
+    commissionRate: snapshot
+      ? numberFromRecord(snapshot, 'commission_rate')
+      : numberFromRecord(metadata.find((meta) => meta.commission_rate != null), 'commission_rate'),
+    commissionAmount: Number(invoice.total_amount || 0),
+    isFrozen: Boolean(snapshot),
+  };
+};

@@ -1,18 +1,8 @@
-
 import React from 'react';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { Plus, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, MoreVertical } from 'lucide-react';
-import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SegmentedDays } from './OverviewCards';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 type AccountingTab = 'home' | 'photographers' | 'equipments' | 'editors' | 'sales-reps';
 
@@ -29,6 +19,7 @@ interface AccountingHeaderProps {
   daysWindow?: number;
   onDaysWindowChange?: (v: number) => void;
   onExport?: (format: 'csv' | 'excel' | 'pdf') => void;
+  reportingControl?: React.ReactNode;
   payoutActions?: {
     refresh: () => void;
     download: () => Promise<void>;
@@ -37,249 +28,29 @@ interface AccountingHeaderProps {
   } | null;
 }
 
-export function AccountingHeader({ 
-  onCreateInvoice, 
-  onCreateBatch,
-  title = "Accounting",
-  description = "Manage your finances, invoices, and payments",
-  badge = "Accounting",
-  showCreateButton = true,
-  activeTab = 'home',
-  onTabChange,
-  showTabs = false,
-  daysWindow,
-  onDaysWindowChange,
-  onExport,
-  payoutActions,
+export function AccountingHeader({
+  onCreateInvoice, onCreateBatch, title = 'Accounting', description = 'Manage your finances, invoices, and payments',
+  showCreateButton = true, activeTab = 'home', onTabChange, showTabs = false,
+  daysWindow, onDaysWindowChange, onExport, payoutActions, reportingControl,
 }: AccountingHeaderProps) {
-  const showPayoutActions = activeTab === 'photographers' && Boolean(payoutActions);
-  const showActionControls = showCreateButton || showPayoutActions;
-  const showDaysFilter = activeTab === 'home' && daysWindow != null && onDaysWindowChange != null;
-
-  return (
-    <div className="space-y-3">
-      <PageHeader
-        badge={badge}
-        title={title}
-        description={description}
-        icon={BarChart3Icon}
-        compactTitleOnMobile
-        action={
-          showActionControls ? (
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-3">
-                {showPayoutActions && payoutActions && (
-                  <>
-                    <Button variant="outline" className="gap-2" onClick={payoutActions.refresh} disabled={payoutActions.loading}>
-                      {payoutActions.loading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                      Refresh
-                    </Button>
-                    <Button variant="outline" className="gap-2" onClick={payoutActions.download} disabled={payoutActions.downloading}>
-                      {payoutActions.downloading ? <Loader2 aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                      Download CSV
-                    </Button>
-                  </>
-                )}
-
-                {showCreateButton && (
-                  <>
-                    {onExport && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="gap-2">
-                            <Download className="h-4 w-4" />
-                            Export
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={() => onExport('csv')}>
-                            <span>CSV</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onExport('excel')}>
-                            <span>Excel</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onExport('pdf')}>
-                            <span>PDF</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button className="gap-2">
-                          <PlusIcon className="h-4 w-4" />
-                          Create Invoice
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={onCreateInvoice}>
-                          <PlusIcon className="h-4 w-4 mr-2" />
-                          <span>Single Invoice</span>
-                        </DropdownMenuItem>
-                        {onCreateBatch && (
-                          <DropdownMenuItem onClick={onCreateBatch}>
-                            <UsersIcon className="h-4 w-4 mr-2" />
-                            <span>Batch Invoices</span>
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
-              </div>
-
-              <div className="flex sm:hidden items-center gap-2">
-                {showCreateButton && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" className="h-9 gap-1.5 px-3">
-                        <PlusIcon className="h-4 w-4" />
-                        New
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Create</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={onCreateInvoice}>
-                        <PlusIcon className="h-4 w-4 mr-2" />
-                        <span>Single Invoice</span>
-                      </DropdownMenuItem>
-                      {onCreateBatch && (
-                        <DropdownMenuItem onClick={onCreateBatch}>
-                          <UsersIcon className="h-4 w-4 mr-2" />
-                          <span>Batch Invoices</span>
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-
-                {(showPayoutActions || onExport) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9"
-                        title="Accounting actions"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                    {showPayoutActions && payoutActions && (
-                      <>
-                        <DropdownMenuLabel>Photographer Reports</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={payoutActions.refresh} disabled={payoutActions.loading}>
-                          {payoutActions.loading ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                          Refresh
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={payoutActions.download} disabled={payoutActions.downloading}>
-                          {payoutActions.downloading ? (
-                            <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" />
-                          ) : (
-                            <Download className="h-4 w-4 mr-2" />
-                          )}
-                          Download CSV
-                        </DropdownMenuItem>
-                        {showCreateButton && <DropdownMenuSeparator />}
-                      </>
-                    )}
-
-                    {showCreateButton && onExport && (
-                      <>
-                        <DropdownMenuLabel>Export</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => onExport('csv')}>
-                          <span>CSV</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onExport('excel')}>
-                          <span>Excel</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onExport('pdf')}>
-                          <span>PDF</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </div>
-          ) : undefined
-        }
-      />
-
-      {showTabs && onTabChange && (
-        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="inline-flex min-w-max items-center rounded-lg border bg-muted/30 p-1">
-            <button
-              type="button"
-              onClick={() => onTabChange('home')}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
-                activeTab === 'home'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('photographers')}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
-                activeTab === 'photographers'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Photographers
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('editors')}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
-                activeTab === 'editors'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Editors
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('sales-reps')}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
-                activeTab === 'sales-reps'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Sales Reps
-            </button>
-            <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
-            <button
-              type="button"
-              onClick={() => onTabChange('equipments')}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
-                activeTab === 'equipments'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Equipments
-            </button>
-          </div>
-
-          {showDaysFilter && (
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="hidden sm:inline text-sm text-slate-400">Showing last {daysWindow} days</span>
-              <SegmentedDays value={daysWindow!} onChange={onDaysWindowChange!} />
-            </div>
-          )}
-        </div>
-      )}
+  const showPayout = activeTab === 'photographers' && payoutActions;
+  const tabs: { id: AccountingTab; label: string }[] = [
+    { id: 'home', label: 'Home' }, { id: 'photographers', label: 'Photographers' },
+    { id: 'editors', label: 'Editors' }, { id: 'sales-reps', label: 'Sales reps' },
+    { id: 'equipments', label: 'Equipment' },
+  ];
+  return <header className="space-y-5">
+    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <div className="min-w-0"><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>
+      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
+        {reportingControl}
+        {!reportingControl && activeTab === 'home' && daysWindow != null && onDaysWindowChange && <div className="space-y-1"><p className="text-xs text-muted-foreground">Reporting period</p><SegmentedDays value={daysWindow} onChange={onDaysWindowChange} /></div>}
+        {showPayout && <><Button variant="outline" size="sm" onClick={showPayout.refresh} disabled={showPayout.loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button><Button variant="outline" size="sm" onClick={showPayout.download} disabled={showPayout.downloading}><Download className="mr-2 h-4 w-4" />Download CSV</Button></>}
+        {onExport && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{(['csv', 'excel', 'pdf'] as const).map(value => <DropdownMenuItem key={value} onClick={() => onExport(value)}>{value.toUpperCase()}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>}
+        {showCreateButton && <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" />Create invoice</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={onCreateInvoice}>Single invoice</DropdownMenuItem>{onCreateBatch && <DropdownMenuItem onClick={onCreateBatch}>Batch invoices</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>}
+      </div>
     </div>
-  );
+    {showTabs && onTabChange && <nav aria-label="Accounting sections" className="flex gap-1 overflow-x-auto border-b pb-2 [scrollbar-width:thin]">{tabs.map(tab => <button key={tab.id} type="button" aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => onTabChange(tab.id)} className={`shrink-0 rounded-md px-3 py-2 text-sm transition-colors ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{tab.label}</button>)}</nav>}
+  </header>;
 }
-
 export type { AccountingTab };

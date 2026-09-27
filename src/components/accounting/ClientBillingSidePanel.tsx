@@ -1,165 +1,55 @@
-import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo } from 'react';
-import { AlertTriangle, CreditCard } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { CreditCard, ChevronRight } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ClientBillingItem, ClientBillingSummary } from '@/types/clientBilling';
-import {
-  formatPaymentMethod,
-  getPaymentBreakdown,
-  getPaymentMethodLabel,
-} from '@/utils/paymentUtils';
+import { formatPaymentMethod, getPaymentBreakdown, getPaymentMethodLabel } from '@/utils/paymentUtils';
+import { clientBillingCurrency, clientBillingDate, clientBillingPaidValue } from './clientBillingPresentation';
 
 interface ClientBillingSidePanelProps {
   items: ClientBillingItem[];
   summary: ClientBillingSummary;
+  onView?: (item: ClientBillingItem) => void;
 }
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
-
-export function ClientBillingSidePanel({
-  items,
-  summary,
-}: ClientBillingSidePanelProps) {
+export function ClientBillingSidePanel({ items, onView }: ClientBillingSidePanelProps) {
   const paymentMethods = useMemo(() => {
-    const methodCounts = items
-      .filter((item) => item.bucket === 'paid' && item.paymentMethod)
-      .reduce((acc, item) => {
-        const breakdown = getPaymentBreakdown(
-          item.paymentMethod,
-          item.paymentDetails,
-          item.amountPaid > 0 ? item.amountPaid : item.amount,
-        );
-        if (breakdown.length === 0) {
-          const label = getPaymentMethodLabel(item.paymentMethod);
-          const method = label === 'N/A' ? 'Unknown' : label;
-          acc[method] = (acc[method] || 0) + 1;
-          return acc;
-        }
-
-        breakdown.forEach((entry) => {
-          const label = getPaymentMethodLabel(entry.method);
-          const method = label === 'N/A' ? 'Unknown' : label;
-          acc[method] = (acc[method] || 0) + 1;
-        });
-
-        return acc;
-      }, {} as Record<string, number>);
-
-    return Object.entries(methodCounts)
-      .map(([method, count]) => ({ method, count }))
-      .sort((left, right) => right.count - left.count)
-      .slice(0, 4);
+    const counts = items.filter((item) => item.bucket === 'paid' && item.paymentMethod).reduce((acc, item) => {
+      const breakdown = getPaymentBreakdown(item.paymentMethod, item.paymentDetails, clientBillingPaidValue(item));
+      const methods = breakdown.length ? breakdown.map((entry) => entry.method) : [item.paymentMethod];
+      methods.forEach((method) => {
+        const label = getPaymentMethodLabel(method);
+        const name = label === 'N/A' ? 'Unknown' : label;
+        acc[name] = (acc[name] || 0) + 1;
+      });
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(counts).sort((left, right) => right[1] - left[1]).slice(0, 4);
   }, [items]);
-
-  const recentPayments = useMemo(
-    () =>
-      items
-        .filter((item) => item.bucket === 'paid')
-        .sort((left, right) => {
-          const leftDate = new Date(left.paidAt || left.issueDate || left.dueDate || 0).getTime();
-          const rightDate = new Date(right.paidAt || right.issueDate || right.dueDate || 0).getTime();
-          return rightDate - leftDate;
-        })
-        .slice(0, 5),
-    [items],
-  );
-
+  const recentPayments = useMemo(() => items.filter((item) => item.bucket === 'paid')
+    .sort((left, right) => (clientBillingDate(right)?.getTime() || 0) - (clientBillingDate(left)?.getTime() || 0)).slice(0, 5), [items]);
   return (
-    <div className="flex h-full flex-col gap-6">
-      <Card className="overflow-hidden border">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" />
-            Billing Snapshot
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Due now</p>
-              <p className="mt-1 text-lg font-semibold">{currencyFormatter.format(summary.dueNow.amount)}</p>
-            </div>
-            <div className="rounded-md border border-blue-500/20 bg-blue-500/10 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Upcoming</p>
-              <p className="mt-1 text-lg font-semibold">{currencyFormatter.format(summary.upcoming.amount)}</p>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="mb-3 text-sm font-medium">Payment Methods</h4>
-            <div className="space-y-3">
-              {paymentMethods.length > 0 ? (
-                paymentMethods.map(({ method, count }) => (
-                  <div key={method} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <p className="text-sm">{method}</p>
-                    </div>
-                    <p className="text-sm font-medium">
-                      {count} payment{count === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <EmptyState icon="payments" title={<>No payment methods recorded yet</>} size="compact" />
-              )}
-            </div>
-          </div>
-
-          {summary.paymentRequiredToReleaseCount > 0 && (
-            <div className="rounded-md border border-rose-500/20 bg-rose-500/10 p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 text-rose-500" />
-                <div>
-                  <p className="text-sm font-medium">Release-blocked payments</p>
-                  <p className="text-xs text-muted-foreground">
-                    {summary.paymentRequiredToReleaseCount} item
-                    {summary.paymentRequiredToReleaseCount === 1 ? '' : 's'} must be paid to release delivery.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="flex-1 overflow-hidden border">
-        <CardHeader>
-          <CardTitle>Recent Payments</CardTitle>
-        </CardHeader>
-        <CardContent className="flex h-full flex-col">
-          {recentPayments.length > 0 ? (
-            <div className="flex-1 space-y-2 overflow-y-auto pr-2">
-              {recentPayments.map((item) => {
-                const paidDate = item.paidAt || item.issueDate || item.dueDate || 'N/A';
-                const amount = item.amountPaid > 0 ? item.amountPaid : item.amount;
-                const methodLabel = formatPaymentMethod(item.paymentMethod, item.paymentDetails);
-
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-md bg-muted/50 p-2"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{item.property || item.client}</p>
-                      <p className="text-xs text-muted-foreground">{paidDate}</p>
-                      {methodLabel !== 'N/A' && (
-                        <p className="text-xs text-muted-foreground">Paid via {methodLabel}</p>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium">{currencyFormatter.format(amount)}</p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState icon="payments" title={<>No recent payments</>} size="compact" />
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="min-w-0 overflow-hidden">
+      <div className="border-b px-4 py-3"><h2 className="text-sm font-semibold">Payment activity</h2><p className="mt-0.5 text-xs text-muted-foreground">Your latest completed payments</p></div>
+      <Tabs defaultValue="recent" className="min-w-0">
+        <TabsList className="mx-3 mt-3 h-auto max-w-[calc(100%-1.5rem)] flex-wrap">
+          <TabsTrigger className="text-xs" value="recent">Recent payments</TabsTrigger>
+          <TabsTrigger className="text-xs" value="methods">Payment methods</TabsTrigger>
+        </TabsList>
+        <TabsContent value="recent" className="m-0 max-h-[265px] overflow-y-auto overscroll-auto p-3">
+          {recentPayments.length ? recentPayments.map((item) => {
+            const date = clientBillingDate(item);
+            const method = formatPaymentMethod(item.paymentMethod, item.paymentDetails);
+            const content = <><div className="min-w-0 flex-1"><p className="break-words text-sm font-medium">{item.property || item.client || item.number || 'Payment'}</p><p className="mt-1 text-xs text-muted-foreground">{date ? format(date, 'MMM d, yyyy') : 'Date unavailable'}{method !== 'N/A' ? ` · ${method}` : ''}</p></div><span className="shrink-0 text-sm font-semibold tabular-nums">{clientBillingCurrency.format(clientBillingPaidValue(item))}</span>{onView && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}</>;
+            const className = 'flex w-full items-center gap-2 border-b p-2 text-left last:border-0';
+            return onView ? <button key={item.id} onClick={() => onView(item)} className={`${className} rounded-md hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`} aria-label={`View payment ${item.number || item.id}`}>{content}</button> : <div key={item.id} className={className}>{content}</div>;
+          }) : <p className="py-12 text-center text-sm text-muted-foreground">No recent payments</p>}
+        </TabsContent>
+        <TabsContent value="methods" className="m-0 max-h-[265px] overflow-y-auto overscroll-auto p-4">
+          {paymentMethods.length ? <>{paymentMethods.map(([method, count]) => <div key={method} className="flex items-center justify-between gap-2 border-b py-3 text-sm last:border-0"><span className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-muted-foreground" />{method}</span><span className="text-xs text-muted-foreground">{count} payment{count === 1 ? '' : 's'}</span></div>)}<p className="mt-3 text-xs text-muted-foreground">Recorded methods. Split payments can include more than one method.</p></> : <p className="py-12 text-center text-sm text-muted-foreground">No payment methods recorded yet</p>}
+        </TabsContent>
+      </Tabs>
+    </Card>
   );
 }

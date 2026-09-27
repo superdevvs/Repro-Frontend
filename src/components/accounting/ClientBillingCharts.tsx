@@ -1,132 +1,44 @@
 import React, { useMemo, useState } from 'react';
-import { BarChart3, LineChart as LineChartIcon, PieChart } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AreaChart as AreaIcon, BarChart3, LineChart as LineIcon } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { AreaChart, BarChart, LineChart } from '@/components/charts';
-import { cn } from '@/lib/utils';
 import type { ClientBillingItem } from '@/types/clientBilling';
+import { clientBillingCurrency, getClientBillingChartData } from './clientBillingPresentation';
 
 interface ClientBillingChartsProps {
   items: ClientBillingItem[];
-  timeFilter: 'day' | 'week' | 'month' | 'quarter' | 'year';
-  onTimeFilterChange: (filter: 'day' | 'week' | 'month' | 'quarter' | 'year') => void;
+  timeFilter?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  onTimeFilterChange?: (filter: 'day' | 'week' | 'month' | 'quarter' | 'year') => void;
 }
 
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const getItemDate = (item: ClientBillingItem) => item.paidAt || item.issueDate || item.dueDate;
-
-export function ClientBillingCharts({
-  items,
-  timeFilter: _timeFilter,
-  onTimeFilterChange: _onTimeFilterChange,
-}: ClientBillingChartsProps) {
+export function ClientBillingCharts({ items }: ClientBillingChartsProps) {
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
-
-  const chartData = useMemo(() => {
-    return months.map((month, index) => {
-      const monthItems = items.filter((item) => {
-        const date = getItemDate(item);
-        if (!date) return false;
-        return new Date(date).getMonth() === index;
-      });
-
-      const amountBilled = monthItems.reduce((sum, item) => sum + item.amount, 0);
-      const amountPaid = monthItems
-        .filter((item) => item.bucket === 'paid')
-        .reduce((sum, item) => sum + (item.amountPaid > 0 ? item.amountPaid : item.amount), 0);
-
-      return {
-        month,
-        amountBilled,
-        amountPaid,
-      };
-    });
-  }, [items]);
-
-  const series = [
-    { dataKey: 'amountBilled', name: 'Amount Billed', color: '#f59e0b' },
-    { dataKey: 'amountPaid', name: 'Amount Paid', color: '#10b981' },
-  ];
-
-  const renderChart = () => {
-    if (chartType === 'area') {
-      return (
-        <AreaChart
-          data={chartData}
-          index="month"
-          categories={series.map((item) => item.dataKey)}
-          colors={series.map((item) => item.color)}
-          valueFormatter={(value) => `$${value.toLocaleString()}`}
-        />
-      );
-    }
-
-    if (chartType === 'bar') {
-      return (
-        <BarChart
-          data={chartData}
-          index="month"
-          categories={series.map((item) => item.dataKey)}
-          colors={series.map((item) => item.color)}
-          valueFormatter={(value) => `$${value.toLocaleString()}`}
-        />
-      );
-    }
-
-    return (
-      <LineChart
-        data={chartData}
-        index="month"
-        categories={series.map((item) => item.dataKey)}
-        colors={series.map((item) => item.color)}
-        valueFormatter={(value) => `$${value.toLocaleString()}`}
-      />
-    );
-  };
-
+  const currentYear = new Date().getFullYear();
+  const data = useMemo(() => getClientBillingChartData(items, currentYear), [items, currentYear]);
+  const Chart = chartType === 'area' ? AreaChart : chartType === 'bar' ? BarChart : LineChart;
   return (
-    <Card className="border">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              Spending Overview
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Track billed amounts and completed payments from the shared client billing feed.
-            </CardDescription>
-          </div>
-          <ToggleGroup
-            type="single"
-            value={chartType}
-            onValueChange={(value) => value && setChartType(value as 'area' | 'bar' | 'line')}
-            className="rounded-md border"
-          >
-            <ToggleGroupItem value="area" aria-label="Area chart" className="px-3 py-1">
-              <BarChart3 className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="bar" aria-label="Bar chart" className="px-3 py-1">
-              <PieChart className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="line" aria-label="Line chart" className="px-3 py-1">
-              <LineChartIcon className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+    <Card className="min-w-0 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">Spending overview</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{currentYear} calendar year · monthly billing and completed payments</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[400px] w-full">{renderChart()}</div>
-        <div className="mt-4 flex flex-wrap justify-center gap-4">
-          {series.map((item) => (
-            <div key={item.dataKey} className="flex items-center gap-2">
-              <div className={cn('h-3 w-3 rounded-full')} style={{ backgroundColor: item.color }} />
-              <span className="text-sm text-muted-foreground">{item.name}</span>
-            </div>
-          ))}
+        <ToggleGroup type="single" value={chartType} onValueChange={(value) => value && setChartType(value as typeof chartType)} className="rounded-md border">
+          <ToggleGroupItem value="area" aria-label="Area chart" className="h-8 w-8 p-0"><AreaIcon className="h-4 w-4" /></ToggleGroupItem>
+          <ToggleGroupItem value="bar" aria-label="Bar chart" className="h-8 w-8 p-0"><BarChart3 className="h-4 w-4" /></ToggleGroupItem>
+          <ToggleGroupItem value="line" aria-label="Line chart" className="h-8 w-8 p-0"><LineIcon className="h-4 w-4" /></ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div className="p-3 sm:p-4">
+        <div className="h-[235px] min-w-0 w-full" role="img" aria-label={`Monthly amounts billed and paid in ${currentYear}`}>
+          <Chart data={data} index="month" categories={['Amount billed', 'Amount paid']} colors={['#3b82f6', '#10b981']} valueFormatter={(value) => clientBillingCurrency.format(value)} showLegend={false} yAxisWidth={60} />
         </div>
-      </CardContent>
+        <div className="mt-2 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-blue-500" />Amount billed</span>
+          <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-500" />Amount paid</span>
+        </div>
+      </div>
     </Card>
   );
 }

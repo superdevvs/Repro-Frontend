@@ -5,15 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
 import { OverviewCards } from '@/components/accounting/OverviewCards';
-import { RoleBasedOverviewCards } from '@/components/accounting/RoleBasedOverviewCards';
+import { AccountingDateRangeControl } from '@/components/accounting/AccountingDateRangeControl';
+import { accountingRangeForPeriod, accountingRangeDays, type AccountingPeriod } from '@/components/accounting/accountingDateRange';
+import { PhotographerEarningsOverview } from '@/components/accounting/PhotographerEarningsOverview';
 import { InvoiceList } from '@/components/accounting/InvoiceList';
 import { ClientBillingOverviewCards } from '@/components/accounting/ClientBillingOverviewCards';
 import { ClientBillingSidePanel } from '@/components/accounting/ClientBillingSidePanel';
 import { ClientBillingList } from '@/components/accounting/ClientBillingList';
 import { PhotographerShootsTable } from '@/components/accounting/PhotographerShootsTable';
-import { EditorJob } from '@/components/accounting/EditorJobsTable';
 import { PaymentsSummary } from '@/components/accounting/PaymentsSummary';
-import { RoleBasedSidePanel } from '@/components/accounting/RoleBasedSidePanel';
 import { ShootData } from '@/types/shoots';
 import type { InvoicePaymentCompletePayload } from '@/components/invoices/PaymentDialog';
 import type { InvoiceData } from '@/types/invoice';
@@ -24,7 +24,6 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { downloadInvoiceCsv, fetchInvoices, markInvoiceAsPaid, sendInvoicePaymentReminder } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useClientBilling } from '@/hooks/useClientBilling';
-import { useEditorRates } from '@/hooks/useEditorRates';
 import {
   emptyClientBillingSummary,
   toClientBillingInvoiceViewData,
@@ -35,33 +34,16 @@ import { useShoots } from '@/context/shootsContextState';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
-import { useServices } from '@/hooks/useServices';
 import { useSalesRepSummary } from '@/hooks/useSalesRepSummary';
 import { cn } from '@/lib/utils';
 import {
-  extractPhotoCountFromServiceName,
-  findMatchingEditorRate,
-  getEditorServiceId,
-  getEditorServiceName,
-  getEditorServiceQuantity,
-  getExplicitEditorPhotoCount,
-  isPhotoServiceName,
-  normalizeEditorServiceName,
-} from '@/utils/editorRates';
-import {
-  buildSalesRepSummaryWindow,
   isInvoiceInDaysWindow,
-  toAccountingNumber as toNumber,
   toInvoiceViewDialogInvoice,
-  type ShootWithLegacyEditorFields,
   type ViewableInvoice,
 } from './accountingPageUtils';
 
 const LazyRevenueCharts = lazy(() =>
   import('@/components/accounting/RevenueCharts').then((module) => ({ default: module.RevenueCharts })),
-);
-const LazyRoleBasedCharts = lazy(() =>
-  import('@/components/accounting/RoleBasedCharts').then((module) => ({ default: module.RoleBasedCharts })),
 );
 const LazyClientBillingCharts = lazy(() =>
   import('@/components/accounting/ClientBillingCharts').then((module) => ({ default: module.ClientBillingCharts })),
@@ -138,7 +120,8 @@ const AccountingPage = () => {
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
   const [daysWindow, setDaysWindow] = useState<number>(30);
   const { shoots: contextShoots, isInitialLoading: shootsLoading } = useShoots();
-  const { data: services = [] } = useServices();
+  const [reportingPeriod, setReportingPeriod] = useState<AccountingPeriod>('30');
+  const [reportingRange, setReportingRange] = useState(() => accountingRangeForPeriod('30'));
 
   // Get accounting mode based on role
   const accountingMode = useMemo(() => getAccountingMode(role), [role]);
@@ -253,13 +236,9 @@ const AccountingPage = () => {
 
   const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
   const clientBillingItems = clientBillingData?.items ?? [];
-  const salesRepSummaryWindow = useMemo(
-    () => buildSalesRepSummaryWindow(daysWindow),
-    [daysWindow],
-  );
   const salesRepSummary = useSalesRepSummary({
-    startDate: salesRepSummaryWindow.startDate,
-    endDate: salesRepSummaryWindow.endDate,
+    startDate: reportingRange.startDate,
+    endDate: reportingRange.endDate,
     enabled: accountingMode === 'rep',
   });
 
@@ -295,101 +274,6 @@ const AccountingPage = () => {
     }
     return [] as ShootData[];
   }, [accountingMode, contextShoots]);
-
-  const activeServices = useMemo(
-    () => services.filter((service) => service.active !== false),
-    [services],
-  );
-
-  const { rates: editorRates } = useEditorRates(user?.id, {
-    enabled: accountingMode === 'editor' && Boolean(user?.id),
-    services: activeServices,
-  });
-
-  const editingJobs = useMemo(() => {
-    if (accountingMode !== 'editor') {
-      return [] as EditorJob[];
-    }
-
-    const editorId = user?.id ? String(user.id) : null;
-    const jobs: EditorJob[] = [];
-
-    shoots.forEach((shoot) => {
-      const legacyShoot = shoot as ShootWithLegacyEditorFields;
-      const shootEditorId =
-        (shoot.editor?.id ? String(shoot.editor.id) : null) ||
-        (legacyShoot.editor_id ? String(legacyShoot.editor_id) : null) ||
-        (legacyShoot.editorId ? String(legacyShoot.editorId) : null);
-
-      if (editorId && shootEditorId && editorId !== shootEditorId) {
-        return;
-      }
-
-      const shootServices = Array.isArray(shoot.services) ? shoot.services : [];
-
-      const statusValue = (() => {
-        const workflowStatus = shoot.workflowStatus?.toLowerCase();
-        const shootStatus = shoot.status?.toLowerCase();
-        if (shoot.completedDate || workflowStatus === 'delivered' || shootStatus === 'delivered') {
-          return 'delivered' as const;
-        }
-        if (workflowStatus === 'editing' || shootStatus === 'editing') {
-          return 'in_progress' as const;
-        }
-        return 'pending' as const;
-      })();
-
-      const assignedDate = shoot.scheduledDate || shoot.completedDate || new Date().toISOString();
-      const completedDate = shoot.completedDate || undefined;
-
-      shootServices.forEach((service, index) => {
-        const matchedRate = findMatchingEditorRate(service, editorRates);
-        if (!matchedRate || matchedRate.rate <= 0) {
-          return;
-        }
-
-        const rawServiceName = getEditorServiceName(service) || matchedRate.serviceName;
-        const quantity = getEditorServiceQuantity(service);
-        const explicitPhotoCount = getExplicitEditorPhotoCount(service);
-        const derivedPhotoCount =
-          explicitPhotoCount ||
-          extractPhotoCountFromServiceName(rawServiceName) ||
-          toNumber(shoot.editedPhotoCount) ||
-          toNumber(shoot.expectedFinalCount);
-        const count = isPhotoServiceName(rawServiceName)
-          ? derivedPhotoCount || quantity
-          : quantity;
-
-        if (!count) {
-          return;
-        }
-
-        const typeKey =
-          getEditorServiceId(service) ||
-          matchedRate.serviceId ||
-          normalizeEditorServiceName(matchedRate.serviceName || rawServiceName);
-        const pay = Number((count * matchedRate.rate).toFixed(2));
-
-        jobs.push({
-          id: `${shoot.id}-${typeKey}-${index}`,
-          shootId: String(shoot.id),
-          client: shoot.client,
-          type: typeKey,
-          typeLabel: matchedRate.serviceName || rawServiceName,
-          status: statusValue,
-          pay,
-          payAmount: pay,
-          assignedDate,
-          completedDate,
-          payoutStatus: statusValue === 'delivered' ? 'pending' : 'unpaid',
-          editorId: shootEditorId ?? undefined,
-          editor_id: shootEditorId ?? undefined,
-        } as EditorJob & { editor_id?: string });
-      });
-    });
-
-    return jobs;
-  }, [accountingMode, editorRates, shoots, user?.id]);
 
   // Use permission system to check if user has admin capabilities
   const canCreateInvoice = can('invoices', 'create');
@@ -589,7 +473,7 @@ const AccountingPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-0 pt-1.5 pb-3 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="accounting-page min-w-0 space-y-5 px-3 pb-5 pt-2 sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0">
           {(() => {
             const adminTabTitles: Record<AccountingTab, { title: string; description: string }> = {
               home: {
@@ -627,7 +511,7 @@ const AccountingPage = () => {
               accountingMode === 'photographer' ? 'View your earnings and payout status' :
               accountingMode === 'editor' ? 'Track your editing jobs and pay' :
               accountingMode === 'client' ? 'View your invoices and payment history' :
-              accountingMode === 'rep' ? 'Track client growth, paid revenue, and commission performance across your accounts' :
+              accountingMode === 'rep' ? 'Revenue, clients, and commissions in one place.' :
               'Manage your finances, invoices, and payments'
             }
             badge={config.sidebarLabel}
@@ -637,6 +521,7 @@ const AccountingPage = () => {
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
             onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
+            reportingControl={!isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
             payoutActions={null}
           />
             );
@@ -656,35 +541,26 @@ const AccountingPage = () => {
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
                 accountingMode === 'rep' ? (
-                  <div className="space-y-6">
+                  <div className="min-w-0 space-y-5">
+                    <nav aria-label="Sales page sections" className="flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>
                     <Suspense fallback={null}>
                       <LazySalesRepSummarySection
                         data={salesRepSummary.data}
                         loading={salesRepSummary.loading}
                         error={salesRepSummary.error}
-                        daysWindow={daysWindow}
+                        daysWindow={accountingRangeDays(reportingRange)}
                         onRetry={salesRepSummary.refresh}
                       />
                     </Suspense>
 
-                    <section className="space-y-3">
-                      <div className="space-y-1">
-                        <h2 className="text-lg font-semibold tracking-tight">Weekly commission review</h2>
-                        <p className="text-sm text-muted-foreground">
-                          Review each weekly commission packet before it moves further through the payout workflow.
-                        </p>
-                      </div>
+                    <section id="weekly-review" className="min-w-0 scroll-mt-6 space-y-3">
+                      <h2 className="text-base font-semibold tracking-tight">Commission reviews</h2>
                       <WeeklyInvoiceReview />
                     </section>
 
                     {config.showInvoiceTable && (
-                      <section className="space-y-3">
-                        <div className="space-y-1">
-                          <h2 className="text-lg font-semibold tracking-tight">Client invoice activity</h2>
-                          <p className="text-sm text-muted-foreground">
-                            Stay on top of balances, reminders, and recent payments across the accounts you manage.
-                          </p>
-                        </div>
+                      <section id="invoice-activity" className="min-w-0 scroll-mt-6 space-y-3">
+                        <h2 className="text-base font-semibold tracking-tight">Client invoices</h2>
                         <InvoiceList
                           data={{ invoices: filteredInvoices }}
                           onView={handleViewInvoice}
@@ -703,126 +579,29 @@ const AccountingPage = () => {
                   </div>
                 ) : (
                   <>
-                    {config.showOverviewCards && (
-                      accountingMode === 'admin' ? (
-                        <OverviewCards
-                          invoices={adminWindowInvoices}
-                          timeFilter={timeFilter}
-                          daysWindow={daysWindow}
-                        />
-                      ) : accountingMode === 'client' ? (
-                        <ClientBillingOverviewCards
-                          summary={clientBillingSummary}
-                          items={clientBillingItems}
-                          daysWindow={daysWindow}
-                        />
-                      ) : (
-                        <RoleBasedOverviewCards
-                          invoices={filteredInvoices}
-                          mode={accountingMode}
-                          timeFilter={timeFilter}
-                          shoots={shoots}
-                          editingJobs={editingJobs}
-                        />
-                      )
-                    )}
-
-                    {/* For client: show invoice list BEFORE spending overview */}
-                    {accountingMode === 'client' && config.showInvoiceTable && (
-                      <ClientBillingList
-                        items={clientBillingItems}
-                        loading={clientBillingLoading}
-                        onView={handleViewClientBillingItem}
-                        onPay={handlePayClientBillingItem}
-                        onDownload={handleDownloadClientBillingItem}
-                        onDownloadMultiple={handleDownloadClientBillingItems}
-                      />
-                    )}
-
-                    {config.showRevenueChart && (
-                      <div className="grid grid-cols-1 gap-3 items-stretch lg:grid-cols-3">
-                        <div className="lg:col-span-2">
-                          {accountingMode === 'admin' ? (
-                            <Suspense fallback={null}>
-                              <LazyRevenueCharts
-                                invoices={adminWindowInvoices}
-                                timeFilter={timeFilter}
-                                onTimeFilterChange={setTimeFilter}
-                                role={role}
-                              />
-                            </Suspense>
-                          ) : accountingMode === 'client' ? (
-                            <Suspense fallback={null}>
-                              <LazyClientBillingCharts
-                                items={clientBillingItems}
-                                timeFilter={timeFilter}
-                                onTimeFilterChange={setTimeFilter}
-                              />
-                            </Suspense>
-                          ) : (
-                            <Suspense fallback={null}>
-                              <LazyRoleBasedCharts
-                                invoices={filteredInvoices}
-                                mode={accountingMode}
-                                timeFilter={timeFilter}
-                                onTimeFilterChange={setTimeFilter}
-                                shoots={shoots}
-                                editingJobs={editingJobs}
-                              />
-                            </Suspense>
-                          )}
-                        </div>
-                        {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer') && (
-                          <div
-                            className={cn(
-                              "flex min-h-0 flex-col gap-3 lg:col-span-1",
-                              accountingMode === 'admin' && "lg:h-[max(54.875rem,calc(100vh-11.125rem))] lg:max-h-[max(54.875rem,calc(100vh-11.125rem))]"
-                            )}
-                          >
-                            {accountingMode === 'admin' ? (
-                              <PaymentsSummary invoices={adminWindowInvoices} className="min-h-0" />
-                            ) : accountingMode === 'client' ? (
-                              <ClientBillingSidePanel
-                                items={clientBillingItems}
-                                summary={clientBillingSummary}
-                              />
-                            ) : accountingMode === 'editor' ? (
-                              <>
-                                <Suspense fallback={null}>
-                                  <LazyEditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
-                                </Suspense>
-                                <RoleBasedSidePanel
-                                  invoices={filteredInvoices}
-                                  mode={accountingMode}
-                                  shoots={shoots}
-                                  editingJobs={editingJobs}
-                                  timeFilter={timeFilter}
-                                />
-                              </>
-                            ) : (
-                              <RoleBasedSidePanel
-                                invoices={filteredInvoices}
-                                mode={accountingMode}
-                                shoots={shoots}
-                                editingJobs={editingJobs}
-                                timeFilter={timeFilter}
-                              />
-                            )}
-                          </div>
-                        )}
+                    {accountingMode === 'photographer' && <PhotographerEarningsOverview shoots={shoots} dateRange={reportingRange} />}
+                    {accountingMode === 'editor' && <>
+                      <Suspense fallback={null}><LazyEditorEarningsWorkspace mode="self" startDate={reportingRange.startDate} endDate={reportingRange.endDate} /></Suspense>
+                      <Suspense fallback={null}><LazyEditorRateSettings className="min-h-0 max-h-[min(72vh,38rem)]" /></Suspense>
+                    </>}
+                    {config.showOverviewCards && accountingMode === 'admin' && <OverviewCards invoices={adminWindowInvoices} timeFilter={timeFilter} daysWindow={daysWindow} />}
+                    {accountingMode === 'client' && <>
+                      {config.showOverviewCards && <ClientBillingOverviewCards summary={clientBillingSummary} items={clientBillingItems} daysWindow={daysWindow} paidDateRange={reportingRange} />}
+                      {config.showInvoiceTable && <ClientBillingList items={clientBillingItems} loading={clientBillingLoading} onView={handleViewClientBillingItem} onPay={handlePayClientBillingItem} onDownload={handleDownloadClientBillingItem} onDownloadMultiple={handleDownloadClientBillingItems} />}
+                    </>}
+                    {config.showRevenueChart && (accountingMode === 'admin' || accountingMode === 'client') && (
+                      <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+                        <div className="min-w-0 lg:col-span-2"><Suspense fallback={null}>
+                          {accountingMode === 'admin' ? <LazyRevenueCharts invoices={adminWindowInvoices} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} role={role} /> : <LazyClientBillingCharts items={clientBillingItems} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />}
+                        </Suspense></div>
+                        {(config.showPaymentsSummary || config.showLatestTransactions) && <div className={cn('flex min-h-0 min-w-0 flex-col gap-3 lg:col-span-1', accountingMode === 'admin' && 'lg:h-[max(54.875rem,calc(100vh-11.125rem))] lg:max-h-[max(54.875rem,calc(100vh-11.125rem))]')}>
+                          {accountingMode === 'admin' ? <PaymentsSummary invoices={adminWindowInvoices} className="min-h-0" /> : <ClientBillingSidePanel items={clientBillingItems} summary={clientBillingSummary} onView={handleViewClientBillingItem} />}
+                        </div>}
                       </div>
                     )}
 
                     {/* Weekly Invoice Review for Photographers */}
-                    {accountingMode === 'photographer' && (
-                      <WeeklyInvoiceReview />
-                    )}
-
-                    {accountingMode === 'editor' && (
-                      <Suspense fallback={null}>
-                        <LazyEditorEarningsWorkspace mode="self" />
-                      </Suspense>
-                    )}
+                    {accountingMode === 'photographer' && <section className="min-w-0 space-y-3"><h2 className="text-base font-semibold">Weekly invoice reviews</h2><WeeklyInvoiceReview /></section>}
 
                     {/* For non-client: show invoice table in original position (after charts) */}
                     {accountingMode !== 'client' && config.showInvoiceTable && (

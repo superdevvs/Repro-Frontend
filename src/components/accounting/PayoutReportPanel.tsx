@@ -1,16 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Download, DollarSign, Users, Camera, Briefcase, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, Send } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import {
@@ -19,19 +10,13 @@ import {
   downloadPayoutReport,
   sendPayoutReport,
 } from '@/services/invoiceService';
-import { cn } from '@/lib/utils';
 import { normalizeReportingWeekRange } from '@/utils/reportingWeek';
-import { shouldShowPayoutGroup } from '@/components/accounting/payoutReportDisplay';
-
-const formatCurrency = (amount: number | string) => {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num || 0);
-};
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return 'N/A';
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
+import { getPayoutReportRows } from './payoutReportDisplay';
+import { PayoutReportResults } from './PayoutReportResults';
+import { formatBillingPeriod } from './invoiceReviewWorkspaceUtils';
+import { exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import './admin-review-workspace.css';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -60,29 +45,34 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
   const [sending, setSending] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const requestId = useRef(0);
 
   const loadReport = useCallback(async (start?: string, end?: string) => {
+    const currentRequest = ++requestId.current;
     try {
       setLoading(true);
       const params: { start?: string; end?: string; role?: 'all' | 'photographer' | 'salesRep' | 'editor' } = { role };
       if (start) params.start = start;
       if (end) params.end = end;
       const data = await fetchPayoutReport(params);
+      if (currentRequest !== requestId.current) return;
       setReport(data);
     } catch (error: unknown) {
-      console.error('Failed to load payout report:', error);
+      if (currentRequest !== requestId.current) return;
+      setReport(null);
       toast({
         title: 'Failed to load payout report',
         description: getErrorMessage(error, 'Unable to load the payout report.'),
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [role, toast]);
 
   useEffect(() => {
     loadReport();
+    return () => { requestId.current += 1; };
   }, [loadReport]);
 
   const normalizeSelectedRange = useCallback(() => {
@@ -95,7 +85,7 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
   const handleDownload = useCallback(async () => {
     try {
       setDownloading(true);
-      const normalized = normalizeSelectedRange();
+      const normalized = { startDate: report?.period.start || '', endDate: report?.period.end || '' };
       const params: { start?: string; end?: string; role?: 'all' | 'photographer' | 'salesRep' | 'editor' } = { role };
       if (normalized.startDate) params.start = normalized.startDate;
       if (normalized.endDate) params.end = normalized.endDate;
@@ -110,12 +100,12 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
     } finally {
       setDownloading(false);
     }
-  }, [normalizeSelectedRange, role, toast]);
+  }, [report?.period.start, report?.period.end, role, toast]);
 
   const handleSend = useCallback(async () => {
     try {
       setSending(true);
-      const normalized = normalizeSelectedRange();
+      const normalized = { startDate: report?.period.start || '', endDate: report?.period.end || '' };
       await sendPayoutReport({
         role,
         start: normalized.startDate || undefined,
@@ -131,7 +121,7 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
     } finally {
       setSending(false);
     }
-  }, [normalizeSelectedRange, role, toast]);
+  }, [report?.period.start, report?.period.end, role, toast]);
 
   const handleFilter = useCallback(() => {
     const normalized = normalizeSelectedRange();
@@ -157,406 +147,45 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({
     loadReport();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Loading payout report...</span>
-      </div>
-    );
-  }
+  const rows = getPayoutReportRows(report, role);
+  const handleLocalExport = async (format: 'excel' | 'pdf') => {
+    setDownloading(true);
+    try {
+      const columns = [
+        { key: 'name', label: 'Payee' }, { key: 'email', label: 'Email' }, { key: 'group', label: 'Role' },
+        { key: 'shoot_count', label: 'Shoots' }, { key: 'service_count', label: 'Services' },
+        { key: 'gross_total', label: 'Gross total' }, { key: 'commission_rate', label: 'Commission rate (%)' },
+        { key: 'payout', label: 'Payout (USD)' },
+      ] as const;
+      const filename = `payout-report-${report?.period.start || 'current'}-${report?.period.end || 'week'}`;
+      const heading = `${title} · ${formatBillingPeriod(report?.period.start, report?.period.end)}`;
+      const exportRows = rows.map((row) => ({ ...row }));
+      if (format === 'excel') await exportRowsAsExcel(filename, 'Payout report', columns, exportRows);
+      else await exportRowsAsPdf(filename, heading, columns, exportRows);
+    } catch (error) {
+      toast({ title: 'Export failed', description: getErrorMessage(error, 'Unable to export the payout report.'), variant: 'destructive' });
+    } finally { setDownloading(false); }
+  };
 
-  return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Header with Date Filters - Combined */}
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-1">
-          <h2 className="flex items-center gap-2 text-sm font-semibold sm:text-lg">
-            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
-            {title}
-          </h2>
-          {report?.period && (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-muted-foreground">
-                {formatDate(report.period.start)} – {formatDate(report.period.end)}
-              </span>
-              {description ? <span className="text-xs text-muted-foreground">{description}</span> : null}
-            </div>
-          )}
-        </div>
-        <div className="flex w-full flex-col gap-2 xl:w-auto">
-          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_auto_auto] xl:min-w-[32rem]">
-            <DateRangePicker
-              value={{ startDate, endDate }}
-              onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
-                setStartDate(nextStartDate);
-                setEndDate(nextEndDate);
-              }}
-            />
-
-            <Button variant="outline" className="h-10 gap-2" onClick={handleFilter}>
-              <CalendarIcon className="h-4 w-4" />
-              Filter
-            </Button>
-            {(startDate || endDate) && (
-              <Button variant="ghost" className="h-10 px-3 justify-center" onClick={clearFilters}>
-                Clear
-              </Button>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground xl:text-right">
-            Reports always cover complete weeks, Sunday through Saturday.
-          </p>
-          {!hideHeaderButtons && (
-            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-              <Button variant="outline" size="sm" onClick={handleFilter} disabled={loading}>
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Refresh
-              </Button>
-              <Button size="sm" onClick={handleDownload} disabled={downloading}>
-                {downloading ? <Loader2 aria-hidden="true" className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
-                Download CSV
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleSend} disabled={sending}>
-                {sending ? <Loader2 aria-hidden="true" className="w-3 h-3 mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                Send Report
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {report && (
-        <div className={cn(
-          'grid gap-2 sm:gap-3',
-          shouldShowPayoutGroup(role, 'photographer')
-            && shouldShowPayoutGroup(role, 'editor')
-            && shouldShowPayoutGroup(role, 'salesRep')
-            ? 'grid-cols-2 xl:grid-cols-6'
-            : 'grid-cols-2',
-        )}>
-          {shouldShowPayoutGroup(role, 'photographer') ? (
-            <>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Photographers
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.photographer_count}</p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Payouts
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.photographer_total)}</p>
-                </CardContent>
-              </Card>
-            </>
-          ) : null}
-          {shouldShowPayoutGroup(role, 'editor') ? (
-            <>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Editors
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.editor_count}</p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Editor pay
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.editor_total)}</p>
-                </CardContent>
-              </Card>
-            </>
-          ) : null}
-          {shouldShowPayoutGroup(role, 'salesRep') ? (
-            <>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <Briefcase className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Sales reps
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{report.totals.sales_rep_count}</p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-none">
-                <CardContent className="px-3 py-3 sm:pt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">
-                    <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    Commissions
-                  </div>
-                  <p className="mt-1 text-xl font-bold sm:text-2xl">{formatCurrency(report.totals.sales_rep_commission_total)}</p>
-                </CardContent>
-              </Card>
-            </>
-          ) : null}
-        </div>
-      )}
-
-      {report && report.editors.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Editors to Pay
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3 md:hidden">
-              {report.editors.map((editor) => (
-                <div key={editor.id} className="rounded-xl border border-border/70 bg-card/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{editor.name}</p>
-                      <p className="text-sm text-muted-foreground break-all">{editor.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Amount</p>
-                      <p className="font-bold">{formatCurrency(editor.gross_total)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Shoots</p>
-                      <p className="mt-1 font-semibold">{editor.shoot_count}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Services</p>
-                      <p className="mt-1 font-semibold">{editor.service_count || 0}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Shoots</TableHead>
-                    <TableHead className="text-center">Services</TableHead>
-                    <TableHead className="text-right">Amount to Pay</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.editors.map((editor) => (
-                    <TableRow key={editor.id}>
-                      <TableCell className="font-medium">{editor.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{editor.email}</TableCell>
-                      <TableCell className="text-center">{editor.shoot_count}</TableCell>
-                      <TableCell className="text-center">{editor.service_count || 0}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(editor.gross_total)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Photographers Table */}
-      {report && report.photographers.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Camera className="w-4 h-4" />
-              Photographers to Pay
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3 md:hidden">
-              {report.photographers.map((p) => (
-                <div key={p.id} className="rounded-xl border border-border/70 bg-card/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-sm text-muted-foreground break-all">{p.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Amount</p>
-                      <p className="font-bold">{formatCurrency(p.gross_total)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Shoots</p>
-                      <p className="mt-1 font-semibold">{p.shoot_count}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Avg. Per Shoot</p>
-                      <p className="mt-1 font-semibold">{formatCurrency(p.average_value)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-xl border border-border/70 bg-muted/40 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">Total</p>
-                    <p className="text-sm text-muted-foreground">
-                      {report.photographers.reduce((s, p) => s + p.shoot_count, 0)} shoots
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold">{formatCurrency(report.totals.photographer_total)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Shoots</TableHead>
-                    <TableHead className="text-right">Avg. Per Shoot</TableHead>
-                    <TableHead className="text-right">Amount to Pay</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.photographers.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
-                      <TableCell className="text-center">{p.shoot_count}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(p.average_value)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(p.gross_total)}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={2}>Total</TableCell>
-                    <TableCell className="text-center">{report.photographers.reduce((s, p) => s + p.shoot_count, 0)}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-right">{formatCurrency(report.totals.photographer_total)}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Sales Reps Table */}
-      {report && report.sales_reps.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Briefcase className="w-4 h-4" />
-              Sales Representatives – Commission Payouts
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3 md:hidden">
-              {report.sales_reps.map((r) => (
-                <div key={r.id} className="rounded-xl border border-border/70 bg-card/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{r.name}</p>
-                      <p className="text-sm text-muted-foreground break-all">{r.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Commission</p>
-                      <p className="font-bold">{formatCurrency(r.commission_total || 0)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Shoots</p>
-                      <p className="mt-1 font-semibold">{r.shoot_count}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Gross Total</p>
-                      <p className="mt-1 font-semibold">{formatCurrency(r.gross_total)}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Commission Rate</p>
-                      <p className="mt-1 font-semibold">
-                        {r.commission_rate ? `${r.commission_rate}%` : 'N/A'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Payout</p>
-                      <p className="mt-1 font-semibold">{formatCurrency(r.commission_total || 0)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-xl border border-border/70 bg-muted/40 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">Total</p>
-                    <p className="text-sm text-muted-foreground">
-                      {report.sales_reps.reduce((s, r) => s + r.shoot_count, 0)} shoots
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold">{formatCurrency(report.totals.sales_rep_commission_total)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Shoots</TableHead>
-                    <TableHead className="text-right">Gross Total</TableHead>
-                    <TableHead className="text-center">Commission Rate</TableHead>
-                    <TableHead className="text-right">Commission Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.sales_reps.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{r.email}</TableCell>
-                      <TableCell className="text-center">{r.shoot_count}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(r.gross_total)}</TableCell>
-                      <TableCell className="text-center">
-                        {r.commission_rate ? `${r.commission_rate}%` : <span className="text-muted-foreground">N/A</span>}
-                      </TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(r.commission_total || 0)}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={3}>Total</TableCell>
-                    <TableCell className="text-right">{formatCurrency(report.sales_reps.reduce((s, r) => s + r.gross_total, 0))}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-right">{formatCurrency(report.totals.sales_rep_commission_total)}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {report && report.photographers.length === 0 && report.editors.length === 0 && report.sales_reps.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="mb-4 h-10 w-10 text-muted-foreground" />
-            <h3 className="text-base font-semibold sm:text-lg">No Payouts for This Period</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              No completed shoots found for the selected period.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+  return <div className="ar-workspace space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="text-base font-semibold">{title}</h2><p className="mt-1 text-xs text-muted-foreground">{report ? formatBillingPeriod(report.period.start, report.period.end) : description}</p></div>
+      {!hideHeaderButtons && <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" disabled={loading} onClick={handleFilter}><RefreshCw className="mr-2 size-3.5" />Refresh</Button>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={loading || downloading || !report}><Download className="mr-2 size-3.5" />{downloading ? 'Exporting…' : 'Export'}</Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => void handleDownload()}>CSV</DropdownMenuItem><DropdownMenuItem onClick={() => void handleLocalExport('excel')}>Excel</DropdownMenuItem><DropdownMenuItem onClick={() => void handleLocalExport('pdf')}>PDF</DropdownMenuItem>
+        </DropdownMenuContent></DropdownMenu>
+        <Button size="sm" disabled={loading || sending || !report} onClick={() => void handleSend()}><Send className="mr-2 size-3.5" />{sending ? 'Sending…' : 'Send report'}</Button>
+      </div>}
     </div>
-  );
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="min-w-0 flex-1 sm:max-w-sm"><DateRangePicker value={{ startDate, endDate }} onChange={({ startDate: start, endDate: end }) => { setStartDate(start); setEndDate(end); }} /></div>
+      <Button variant="outline" size="sm" disabled={loading} onClick={handleFilter}>Apply weeks</Button>
+      {(startDate || endDate) && <Button variant="ghost" size="sm" onClick={clearFilters} disabled={loading}>Clear</Button>}
+    </div>
+    <p className="text-xs text-muted-foreground">Sunday–Saturday billing weeks. Exports and email include every payee in the displayed report; table search only narrows the view.</p>
+    {loading ? <div className="flex min-h-60 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4" />Loading payout report…</div>
+      : report ? <PayoutReportResults key={`${role}-${report.period.start}-${report.period.end}`} rows={rows} />
+      : <p className="ar-empty">The report could not be loaded. Refresh to try again.</p>}
+  </div>;
 };
