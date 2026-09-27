@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ShootTourPropertySection } from './ShootTourPropertySection';
 import { ShootTourSettingsSection } from './ShootTourSettingsSection';
@@ -9,14 +9,16 @@ afterEach(cleanup);
 
 describe('compact Tours sections', () => {
   it('shows property details once in a dense expandable layout', () => {
-    render(
+    const setPropertyStatus = vi.fn();
+    const saveShootField = vi.fn();
+    const propertyEditor = (
       <ShootTourPropertySection
         showPropertyInfo
         open
         onOpenChange={vi.fn()}
         listingType="for_sale"
         propertyStatus="available"
-        setPropertyStatus={vi.fn()}
+        setPropertyStatus={setPropertyStatus}
         canEditPropertyInfo
         isSavingPropertyStatus={false}
         setIsSavingPropertyStatus={vi.fn()}
@@ -38,13 +40,14 @@ describe('compact Tours sections', () => {
         propertyLotSize="0.25 acre"
         setPropertyLotSize={vi.fn()}
         sourcePropertyDescription=""
-        saveShootField={vi.fn()}
+        saveShootField={saveShootField}
         savePropertyDetails={vi.fn(async () => undefined)}
         savePropertyField={vi.fn(async () => true)}
         handleGenerateDescription={vi.fn(async () => undefined)}
         handleSaveDescription={vi.fn(async () => undefined)}
-      />,
+      />
     );
+    const { rerender } = render(propertyEditor);
 
     const section = screen.getByTestId('property-information-section');
     const header = screen.getByRole('button', { name: /Property Information/i });
@@ -57,6 +60,14 @@ describe('compact Tours sections', () => {
     expect(screen.getByLabelText('MLS number')).toHaveClass('h-8');
     expect(screen.getByRole('textbox', { name: 'Description' })).toHaveClass('min-h-[88px]');
     expect(screen.getByRole('button', { name: 'Save details' })).toHaveClass('h-8');
+    const statuses = within(screen.getByRole('group', { name: 'Listing status' }));
+    expect(statuses.getByRole('button', { name: 'Current', pressed: true })).toBeEnabled();
+    fireEvent.click(statuses.getByRole('button', { name: 'Pending', pressed: false }));
+    expect(setPropertyStatus).toHaveBeenCalledWith('pending');
+    expect(saveShootField).toHaveBeenCalledWith('property_status', 'pending', expect.any(Function));
+    rerender(React.cloneElement(propertyEditor, { propertyStatus: 'pending' }));
+    expect(statuses.getByRole('button', { name: 'Pending', pressed: true })).toBeEnabled();
+    expect(statuses.getByRole('button', { name: 'Current', pressed: false })).toBeEnabled();
   });
 
   it('keeps advanced embed controls collapsed inside compact tour settings', () => {

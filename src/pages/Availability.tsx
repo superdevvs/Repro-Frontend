@@ -546,7 +546,7 @@ export default function Availability() {
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={goToToday}>Today</Button>
                 {canEditAvailability && (
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={openBlockDialog}>
+                  <Button variant="destructive" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={openBlockDialog} aria-label="Block Calendar">
                     <Ban className="h-4 w-4" />
                   </Button>
                 )}
@@ -565,7 +565,7 @@ export default function Availability() {
                   <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={goToToday}>Today</Button>
                   {renderViewModeButtons("header")}
                   {canEditAvailability && (
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={openBlockDialog}>
+                    <Button variant="destructive" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={openBlockDialog}>
                       <Ban className="h-4 w-4 mr-2" />
                       Block Calendar
                     </Button>

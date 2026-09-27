@@ -145,7 +145,7 @@ export function ShootTourPropertySection({
                   <span className="text-[10px] text-blue-500">Saving...</span>
                 )}
               </div>
-              <div className="grid flex-1 grid-cols-2 gap-1 rounded-md bg-muted/60 p-1 sm:grid-cols-4">
+              <div className="grid flex-1 grid-cols-2 gap-1 rounded-md bg-muted/60 p-1 sm:grid-cols-4" role="group" aria-label="Listing status">
                 {propertyStatusOptions.map((option) => {
                   const isSelected = propertyStatus === option.value;
                   return (
@@ -160,6 +160,7 @@ export function ShootTourPropertySection({
                       }}
                       disabled={!canEditPropertyInfo || isSavingPropertyStatus}
                       className={`h-7 px-2 text-[11px] ${isSelected ? 'bg-background shadow-sm hover:bg-background' : ''}`}
+                      aria-pressed={isSelected}
                     >
                       {option.label}
                     </Button>

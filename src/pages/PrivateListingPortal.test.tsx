@@ -328,6 +328,21 @@ afterEach(() => {
 })
 
 describe('PrivateListingPortal — Map Tab integration', () => {
+  it('lets users find and clear the listing search by its accessible name', async () => {
+    const user = userEvent.setup()
+    renderPortal()
+    await waitForLoaded()
+    await user.click(screen.getByRole('radio', { name: 'Grid view' }))
+
+    const search = screen.getByRole('textbox', { name: 'Search listings' })
+    await user.type(search, 'no-matching-property')
+    expect(await screen.findByText('No matching listings')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Clear listing search' }))
+    expect(search).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Clear listing search' })).not.toBeInTheDocument()
+    expect(screen.queryByText('No matching listings')).not.toBeInTheDocument()
+  })
+
   it('keeps client scope, full-width search, and view controls in one browse row', async () => {
     const user = userEvent.setup()
     authState.role = 'client'
