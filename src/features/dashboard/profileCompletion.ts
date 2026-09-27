@@ -46,7 +46,7 @@ const photographerItems = (user: ProfileCompletionUser, taxDocument: TaxDocument
     item('photo', 'Profile photo', account, text(user, 'avatar')),
     item('phone', 'Phone number', account, text(user, 'phone', 'phonenumber')),
     item('address', 'Home base', work, addressComplete(user)),
-    item('license', 'License number', work, text(user, 'licenseNumber', 'license_number')),
+    item('id-document', 'ID or passport', work, metadataText(user, 'idDocumentFile')),
     item('insurance-number', 'Insurance number', work, metadataText(user, 'insuranceNumber')),
     item('insurance-document', 'Insurance document', work, metadataText(user, 'insuranceFile')),
     item('pilot-license', 'Pilot license', work, metadataText(user, 'pilotLicenseFile')),

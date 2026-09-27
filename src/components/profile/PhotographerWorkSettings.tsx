@@ -17,6 +17,11 @@ import { approvedAddressFromUser } from '@/pages/applyApprovedPhotographerAddres
 import { photographerWorkSettingsSchema, type PhotographerWorkSettingsValues } from '@/pages/photographerAccountSchemas';
 import { cn } from '@/lib/utils';
 
+const formatTravelDistance = (value: number, unit: 'miles' | 'km') => {
+  if (unit === 'km') return `${value} km`;
+  return `${value} ${value === 1 ? 'mile' : 'miles'}`;
+};
+
 const TIMEZONES = [
   ['America/New_York', 'Eastern Time (ET)'], ['America/Chicago', 'Central Time (CT)'],
   ['America/Denver', 'Mountain Time (MT)'], ['America/Los_Angeles', 'Pacific Time (PT)'],
@@ -185,9 +190,9 @@ export function PhotographerWorkSettings() {
                                     />
                                   </FormControl>
                                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>1 {unit}</span>
-                                    <span className="text-sm font-semibold text-foreground">{Number(field.value) || 25} {unit}</span>
-                                    <span>100 {unit}</span>
+                                    <span>{formatTravelDistance(1, unit)}</span>
+                                    <span className="text-sm font-semibold text-foreground">{formatTravelDistance(Number(field.value) || 25, unit)}</span>
+                                    <span>{formatTravelDistance(100, unit)}</span>
                                   </div>
                                   <FormMessage />
                                 </FormItem>

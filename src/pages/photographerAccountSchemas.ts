@@ -48,9 +48,10 @@ const optionalDocumentUrl = z.string().trim().max(2048).refine(
   { message: 'Upload a document before saving.' },
 );
 
-/** Credentials collected when an admin creates a photographer account. */
+/** Identity and credential documents a photographer maintains on their account. */
 export const photographerCredentialSchema = z.object({
-  licenseNumber: z.string().trim().max(100),
+  idDocumentFile: optionalDocumentUrl,
+  idDocumentFileName: z.string().trim().max(255),
   insuranceNumber: z.string().trim().max(255),
   insuranceFile: optionalDocumentUrl,
   insuranceFileName: z.string().trim().max(255),

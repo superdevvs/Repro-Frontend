@@ -21,7 +21,8 @@ const readText = (value: unknown) => (typeof value === 'string' ? value : '');
 const credentialValues = (user: ReturnType<typeof useAuth>['user']): PhotographerCredentialValues => {
   const metadata = user?.metadata && typeof user.metadata === 'object' ? user.metadata : {};
   return {
-    licenseNumber: readText(user?.licenseNumber ?? user?.license_number),
+    idDocumentFile: readText(metadata.idDocumentFile),
+    idDocumentFileName: readText(metadata.idDocumentFileName),
     insuranceNumber: readText(metadata.insuranceNumber),
     insuranceFile: readText(metadata.insuranceFile),
     insuranceFileName: readText(metadata.insuranceFileName),
@@ -91,6 +92,7 @@ export function PhotographerCredentialSettings() {
   const { toast } = useToast();
   const [pilotOpen, setPilotOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
+  const [idOpen, setIdOpen] = useState(false);
   const form = useForm<PhotographerCredentialValues>({
     resolver: zodResolver(photographerCredentialSchema),
     defaultValues: credentialValues(user),
@@ -107,7 +109,8 @@ export function PhotographerCredentialSettings() {
   const onSubmit = async (data: PhotographerCredentialValues) => {
     try {
       const result = await saveProfile({
-        license_number: blankToNull(data.licenseNumber),
+        idDocumentFile: blankToNull(data.idDocumentFile),
+        idDocumentFileName: blankToNull(data.idDocumentFileName),
         insuranceNumber: blankToNull(data.insuranceNumber),
         insuranceFile: blankToNull(data.insuranceFile),
         insuranceFileName: blankToNull(data.insuranceFileName),
@@ -117,13 +120,13 @@ export function PhotographerCredentialSettings() {
       form.reset(data);
       if (!result.reauthRequired) {
         toast({
-          title: 'Licenses updated',
-          description: 'Your license number, insurance, and pilot license have been saved.',
+          title: 'Documents updated',
+          description: 'Your ID or passport, insurance, and pilot license have been saved.',
         });
       }
     } catch (error) {
       toast({
-        title: 'Unable to save licenses',
+        title: 'Unable to save documents',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -136,24 +139,23 @@ export function PhotographerCredentialSettings() {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-base">Insurance & pilot license</CardTitle>
+              <CardTitle className="text-base">Identity, insurance & pilot license</CardTitle>
               <CardDescription>
-                Update the license number, insurance, and pilot license saved when your account was created.
+                Upload a government ID or passport, then keep insurance and pilot license documents current.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="licenseNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>License number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="LI0123456" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <DocumentField
+                label="ID / Passport"
+                nameValue={form.watch('idDocumentFileName')}
+                fileValue={form.watch('idDocumentFile')}
+                nameError={form.formState.errors.idDocumentFile?.message || form.formState.errors.idDocumentFileName?.message}
+                onNameChange={(value) => form.setValue('idDocumentFileName', value, { shouldDirty: true, shouldValidate: true })}
+                onUpload={() => setIdOpen(true)}
+                onClear={() => {
+                  form.setValue('idDocumentFile', '', { shouldDirty: true, shouldValidate: true });
+                  form.setValue('idDocumentFileName', '', { shouldDirty: true, shouldValidate: true });
+                }}
               />
               <FormField
                 control={form.control}
@@ -195,12 +197,27 @@ export function PhotographerCredentialSettings() {
             </CardContent>
             <CardFooter className="flex justify-end border-t pt-4">
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : 'Save Licenses'}
+                {form.formState.isSubmitting ? 'Saving...' : 'Save documents'}
               </Button>
             </CardFooter>
           </Card>
         </form>
       </Form>
+      <FileUploadModal
+        open={idOpen}
+        onOpenChange={setIdOpen}
+        onUploadComplete={(url, fileName) => {
+          form.setValue('idDocumentFile', url, { shouldDirty: true, shouldValidate: true });
+          form.setValue('idDocumentFileName', fileName || 'ID or Passport', { shouldDirty: true, shouldValidate: true });
+        }}
+        title="Upload ID or Passport"
+        folder="identity"
+        accept="image/*,.pdf"
+        initialValue={form.watch('idDocumentFile')}
+        initialFileName={form.watch('idDocumentFileName')}
+        showFileNameInput
+        fileNameLabel="Document Name"
+      />
       <FileUploadModal
         open={insuranceOpen}
         onOpenChange={setInsuranceOpen}

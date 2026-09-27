@@ -38,6 +38,9 @@ describe('photographer work settings', () => {
       travel_range: 25, travel_range_unit: 'miles', default_bracket_mode: 3,
       preferences: { weeklyInvoice: false },
     }));
+    expect(screen.getByText('1 mile')).toBeInTheDocument();
+    expect(screen.getByText('100 miles')).toBeInTheDocument();
+    expect(screen.queryByText('1 miles')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Full Name' })).not.toBeInTheDocument();
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Work settings updated' }));
   });

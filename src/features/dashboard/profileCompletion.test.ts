@@ -9,8 +9,8 @@ const photographer = (overrides: Partial<ProfileCompletionUser> = {}): ProfileCo
   city: 'Richmond',
   state: 'VA',
   zipcode: '23220',
-  licenseNumber: 'FAA-107',
   metadata: {
+    idDocumentFile: 'https://files.example/passport.pdf',
     insuranceNumber: 'POLICY-1',
     insuranceFile: 'https://files.example/insurance.pdf',
     pilotLicenseFile: 'https://files.example/pilot.pdf',
@@ -19,18 +19,20 @@ const photographer = (overrides: Partial<ProfileCompletionUser> = {}): ProfileCo
 });
 
 describe('profile completion', () => {
-  it('keeps a photographer incomplete when only the new license fields are missing', () => {
+  it('keeps a photographer incomplete when identity and insurance documents are missing', () => {
     const items = profileCompletionItems(photographer({
-      licenseNumber: '',
-      license_number: '',
+      licenseNumber: 'FAA-107',
       metadata: {},
     }), 'present');
     const missing = items.filter((item) => !item.complete).map((item) => item.id);
-    expect(missing).toEqual(['license', 'insurance-number', 'insurance-document', 'pilot-license']);
-    expect(items.find((item) => item.id === 'license')?.href).toBe('/photographer-account?tab=work');
+    expect(missing).toEqual(['id-document', 'insurance-number', 'insurance-document', 'pilot-license']);
+    expect(items.find((item) => item.id === 'id-document')).toMatchObject({
+      label: 'ID or passport',
+      href: '/photographer-account?tab=work',
+    });
     expect(items.find((item) => item.id === 'phone')?.href).toBe('/photographer-account?tab=personal');
     expect(profileCompletionSummary(items).done).toBe(false);
-    expect(profileCompletionSummary(items)).toMatchObject({ complete: 4, total: 8, next: { id: 'license' } });
+    expect(profileCompletionSummary(items)).toMatchObject({ complete: 4, total: 8, next: { id: 'id-document' } });
   });
 
   it('hides the card for a photographer whose profile is complete', () => {
@@ -68,6 +70,6 @@ describe('profile completion', () => {
       complete: true,
       href: '/settings?tab=account',
     });
-    expect(profileCompletionItems({ role: 'admin' }).some((item) => item.id === 'license')).toBe(false);
+    expect(profileCompletionItems({ role: 'admin' }).some((item) => item.id === 'id-document')).toBe(false);
   });
 });
