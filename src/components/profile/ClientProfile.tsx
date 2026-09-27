@@ -75,6 +75,10 @@ export function ClientProfile() {
   }, [user?.email_health]);
 
   useEffect(() => {
+    setFormData((prev) => (prev.phone || !user?.phone ? prev : { ...prev, phone: user.phone }));
+  }, [user?.phone]);
+
+  useEffect(() => {
     const abortController = new AbortController();
 
     const loadPhotographers = async () => {

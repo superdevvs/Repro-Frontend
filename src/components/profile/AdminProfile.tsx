@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,7 @@ export function AdminProfile() {
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
+    phone: user?.phone || "",
     avatar: user?.avatar || "",
     department: String(savedPreferences.department || "Operations"),
     notifications: {
@@ -74,6 +75,10 @@ export function AdminProfile() {
     uiDensity: String(savedPreferences.uiDensity || "default"),
     currentPassword: "",
   });
+
+  useEffect(() => {
+    setFormData((prev) => (prev.phone || !user?.phone ? prev : { ...prev, phone: user.phone }));
+  }, [user?.phone]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -121,6 +126,7 @@ export function AdminProfile() {
       const result = await saveProfile({
           name: formData.name,
           email: formData.email,
+          phone_number: formData.phone,
           current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
           avatar: formData.avatar || null,
           preferences: {
@@ -195,6 +201,16 @@ export function AdminProfile() {
                           placeholder="you@example.com"
                         />
                         <p className="text-xs text-muted-foreground">Changing your email requires your current password.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          placeholder="(123) 456-7890"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="department">Department</Label>

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,10 @@ export function EditorProfile() {
     emailNotifications: typeof savedPreferences.notificationEmail === 'boolean' ? savedPreferences.notificationEmail : true,
     currentPassword: "",
   });
+
+  useEffect(() => {
+    setFormData((prev) => (prev.phone || !user?.phone ? prev : { ...prev, phone: user.phone }));
+  }, [user?.phone]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

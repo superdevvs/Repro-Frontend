@@ -162,6 +162,11 @@ const PhotographerAccount = () => {
     },
   });
 
+  useEffect(() => {
+    if (personalInfoForm.getValues('phone') || !user?.phone) return;
+    personalInfoForm.setValue('phone', user.phone);
+  }, [personalInfoForm, user?.phone]);
+
   const onPersonalInfoSubmit = async (data: PersonalInfoFormValues) => {
     try {
       const result = await saveProfile({
