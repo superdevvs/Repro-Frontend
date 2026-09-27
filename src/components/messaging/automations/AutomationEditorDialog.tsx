@@ -89,7 +89,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
 
   const { data: templates = [] } = useQuery({
     queryKey: ['automation-simple-templates'],
-    queryFn: () => getTemplates({ is_active: true }),
+    queryFn: async () => (await Promise.all(['EMAIL', 'SMS'].map((channel) => getTemplates({ channel, is_active: true })))).flat(),
   });
 
   const { data: settingsData } = useQuery({

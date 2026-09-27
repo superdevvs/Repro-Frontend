@@ -86,6 +86,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     override_enabled: false,
   });
   const [activeTab, setActiveTab] = useState<'html' | 'text' | 'preview'>('html');
+  const isSms = formData.channel === 'SMS';
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [mobileSection, setMobileSection] = useState<'editor' | 'settings' | 'shortcodes'>('editor');
@@ -118,8 +119,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         body_html: template.editable_content_blocks?.length ? template.body_html ?? '' : template.editable_body_html ?? template.body_html ?? '',
         body_text: template.editable_content_blocks?.length ? template.body_text ?? '' : template.editable_body_text ?? template.body_text ?? '',
         channel: template.channel || 'EMAIL',
-        email_type: overrideDefaults.emailType,
-        override_enabled: overrideDefaults.overrideEnabled,
+        email_type: template.channel === 'SMS' ? '' : overrideDefaults.emailType,
+        override_enabled: template.channel === 'SMS' ? false : overrideDefaults.overrideEnabled,
         content_blocks_json: template.content_blocks_json ?? undefined,
       });
     } else {
@@ -138,7 +139,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       });
     }
 
-    setActiveTab('html');
+    setActiveTab(template?.channel === 'SMS' ? 'text' : 'html');
     setAdvancedWrapper(false);
     setMobileSection('editor');
     setTestEmail(getStoredTemplateTestEmail());
@@ -193,11 +194,11 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       toast.error('Please enter a template name');
       return;
     }
-    if (!formData.subject.trim()) {
+    if (!isSms && !formData.subject.trim()) {
       toast.error('Please enter a subject line');
       return;
     }
-    if (!contentBlocks.length && !formData.body_html.trim() && !formData.body_text.trim()) {
+    if (isSms ? !formData.body_text.trim() : (!contentBlocks.length && !formData.body_html.trim() && !formData.body_text.trim())) {
       toast.error('Please enter template content');
       return;
     }
@@ -244,7 +245,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
   const insertShortcode = (shortcode: string) => {
     const blockFormat = shortcode.match(/^\{\{\s*[\w.]+_(html|text)\s*\}\}$/)?.[1];
-    const field = blockFormat === 'text' || (!blockFormat && activeTab === 'text') ? 'body_text' : 'body_html';
+    const field = isSms || blockFormat === 'text' || (!blockFormat && activeTab === 'text') ? 'body_text' : 'body_html';
     const textareaRef = field === 'body_html' ? htmlTextareaRef : textTextareaRef;
     const start = textareaRef.current?.selectionStart ?? formData[field].length;
     const end = textareaRef.current?.selectionEnd ?? start;
@@ -332,7 +333,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         </div>
       </div>
 
-      <div>
+      {!isSms && <div>
         <Label htmlFor="subject">Email Subject *</Label>
         <Input
           id="subject"
@@ -340,7 +341,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
           placeholder="Use shortcodes like {{shoot_location}}"
         />
-      </div>
+      </div>}
 
       {formData.channel === 'EMAIL' && !isDirectSystemTemplate && (
         <div className="space-y-2 rounded-md border border-border p-3">
@@ -385,7 +386,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
       {template?.is_system && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
-          <strong>System Template:</strong> Name, Category, and Scope are locked, but you can still edit the subject, body, and description.
+          <strong>System Template:</strong> Name, Category, and Scope are locked, but you can still edit the {isSms ? 'message and description' : 'subject, body, and description'}.
           {isDirectSystemTemplate && ' Your saved content is used automatically when this email is sent.'}
         </div>
       )}
@@ -438,17 +439,17 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'html' | 'text' | 'preview')} className="flex-1 min-h-0 flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 sm:px-6 py-2 sm:py-3 bg-muted/30">
         <TabsList>
-          <TabsTrigger value="html" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          {!isSms && <TabsTrigger value="html" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
             <Code className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             HTML
-          </TabsTrigger>
+          </TabsTrigger>}
           <TabsTrigger value="text" className="text-xs sm:text-sm">
             Text
           </TabsTrigger>
-          <TabsTrigger value="preview" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          {!isSms && <TabsTrigger value="preview" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
             <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Preview
-          </TabsTrigger>
+          </TabsTrigger>}
         </TabsList>
         {contentBlocks.length > 0 && activeTab !== 'preview' && (
           <Button variant="ghost" size="sm" aria-pressed={advancedWrapper} onClick={() => setAdvancedWrapper(!advancedWrapper)}>
@@ -496,7 +497,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           value={formData.body_text}
           onChange={(e) => setFormData({ ...formData, body_text: e.target.value })}
           placeholder="Plain text version..."
-          aria-label="Email plain text content"
+          aria-label={isSms ? 'SMS message content' : 'Email plain text content'}
           className="min-h-[300px] sm:min-h-[500px] resize-none"
         />
         </>}

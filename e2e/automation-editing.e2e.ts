@@ -35,6 +35,12 @@ async function fixtures(page: Page, baseURL?: string, complex = false, payout = 
     rule.workflow_definition_json!.nodes[1].config.recipientRoles = ['accounting'];
   }
   const writes: Partial<AutomationRule>[] = [];
+  const templateWrites: Record<string, unknown>[] = [];
+  const templates = [
+    { id: 4, name: 'Reminder email', channel: 'EMAIL', category: 'REMINDER', scope: 'GLOBAL', is_active: true, subject: 'Upcoming shoot', body_text: 'Details', body_html: '<p>Details</p>' },
+    { id: 5, name: 'Reminder SMS', channel: 'SMS', category: 'REMINDER', scope: 'GLOBAL', is_active: true, body_text: 'Upcoming shoot details' },
+    { id: 6, name: 'Revised reminder SMS', channel: 'SMS', category: 'REMINDER', scope: 'GLOBAL', is_active: true, body_text: 'Revised upcoming shoot details' },
+  ];
   const messages: string[] = [];
   await page.route('**/api/voice/browser/config', route => route.fulfill({ json: { enabled: false, ready: false, blockers: [], presence_verification: 'provider' } }));
   await page.route('**/api/system-telemetry/events', route => route.fulfill({ json: { accepted: true } }));
@@ -42,11 +48,13 @@ async function fixtures(page: Page, baseURL?: string, complex = false, payout = 
   await page.route('**/api/messaging/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (path.endsWith('/templates')) return route.fulfill({ json: [
-      { id: 4, name: 'Reminder email', channel: 'EMAIL', category: 'REMINDER', scope: 'GLOBAL', is_active: true, subject: 'Upcoming shoot', body_text: 'Details', body_html: '<p>Details</p>' },
-      { id: 5, name: 'Reminder SMS', channel: 'SMS', category: 'REMINDER', scope: 'GLOBAL', is_active: true, body_text: 'Upcoming shoot details' },
-      { id: 6, name: 'Revised reminder SMS', channel: 'SMS', category: 'REMINDER', scope: 'GLOBAL', is_active: true, body_text: 'Revised upcoming shoot details' },
-    ] });
+    if (path.endsWith('/templates')) return route.fulfill({ json: templates.filter((template) => template.channel === (new URL(request.url()).searchParams.get('channel') ?? 'EMAIL')) });
+    if (path.endsWith('/templates/6') && request.method() === 'PUT') {
+      const payload = request.postDataJSON();
+      templateWrites.push(payload);
+      templates[2] = { ...templates[2], ...payload };
+      return route.fulfill({ json: templates[2] });
+    }
     if (path.endsWith('/settings/email')) return route.fulfill({ json: { channels: [{ id: 11, display_name: 'Operations email', type: 'EMAIL', is_active: true }] } });
     if (path.endsWith('/settings/sms')) return route.fulfill({ json: { numbers: [{ id: 3, phone_number: '+15555550123' }, { id: 8, phone_number: '+15555550128' }] } });
     if (path.endsWith('/automations/validate')) return route.fulfill({ json: validation });
@@ -62,7 +70,7 @@ async function fixtures(page: Page, baseURL?: string, complex = false, payout = 
     if (request.method() !== 'GET') messages.push(path);
     return route.fulfill({ status: request.method() === 'GET' ? 200 : 501, json: { data: [] } });
   });
-  return { writes, messages, rule: () => rule };
+  return { writes, templateWrites, messages, rule: () => rule };
 }
 
 for (const mobile of [false, true]) {
@@ -193,6 +201,18 @@ test('dual email and SMS workflow saves and reopens with independent templates a
   await page.getByRole('option', { name: '+15555550128' }).click();
   await page.getByRole('combobox').filter({ hasText: /^Reminder SMS$/ }).click();
   await page.getByRole('option', { name: 'Revised reminder SMS', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit message template', exact: true }).click();
+  const templateDialog = page.getByRole('dialog', { name: 'Edit Template' });
+  await expect(templateDialog.getByLabel('SMS message content')).toHaveValue('Revised upcoming shoot details');
+  await expect(templateDialog.getByLabel('Email Subject *')).toHaveCount(0);
+  await expect(templateDialog.getByRole('button', { name: 'Send test email' })).toHaveCount(0);
+  await templateDialog.getByLabel('SMS message content').fill('Updated shoot details: {{shoot_address}}');
+  await templateDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(() => state.templateWrites.length).toBe(1);
+  expect(state.templateWrites[0]).toMatchObject({ channel: 'SMS', subject: '', body_text: 'Updated shoot details: {{shoot_address}}', override_enabled: false });
+  await page.getByRole('button', { name: 'Edit message template', exact: true }).click();
+  await expect(templateDialog.getByLabel('SMS message content')).toHaveValue('Updated shoot details: {{shoot_address}}');
+  await templateDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(() => state.writes.length).toBe(1);
 

@@ -2,14 +2,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { updateAutomation } from '@/services/messaging';
+import { getTemplates, updateAutomation } from '@/services/messaging';
 import type { AutomationRule } from '@/types/messaging';
 import { createDefaultDraft } from './automationEditorModel';
 import { buildSimpleWorkflowFromDraft } from './workflow-utils';
 import { AutomationEditorDialog } from './AutomationEditorDialog';
 
 vi.mock('@/services/messaging', () => ({
-  getTemplates: vi.fn().mockResolvedValue([{ id: 4, name: 'Welcome email', channel: 'EMAIL', is_active: true }]),
+  getTemplates: vi.fn().mockImplementation(async (params?: { channel?: string }) => [
+    { id: 4, name: 'Welcome email', channel: 'EMAIL', is_active: true },
+    { id: 5, name: 'Welcome SMS', channel: 'SMS', is_active: true },
+  ].filter((template) => template.channel === (params?.channel ?? 'EMAIL'))),
   getEmailSettings: vi.fn().mockResolvedValue({ channels: [{ id: 1, display_name: 'Studio' }] }),
   getSmsSettings: vi.fn().mockResolvedValue({ numbers: [{ id: 3, phone_number: '+15555550123' }] }),
   createAutomation: vi.fn(),
@@ -27,6 +30,17 @@ function renderDialog(automation: AutomationRule | null = null) {
 
 describe('automation sentence form', () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+  it('loads the saved SMS template when the API defaults unfiltered requests to email only', async () => {
+    const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'SMS reminder', action_type: 'sms', template_id: '5' });
+    const rule = { id: 18, name: 'SMS reminder', trigger_type: 'SHOOT_BOOKED', scope: 'SYSTEM', is_active: true, template_id: 5, workflow_definition_json: workflow } as AutomationRule;
+    renderDialog(rule);
+
+    expect(await screen.findByRole('button', { name: 'Edit message template' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Message' })).toHaveTextContent('Welcome SMS');
+    expect(getTemplates).toHaveBeenCalledWith({ channel: 'EMAIL', is_active: true });
+    expect(getTemplates).toHaveBeenCalledWith({ channel: 'SMS', is_active: true });
+  });
 
   it('saves edited timing and recipients for a built-in photographer reminder', async () => {
     const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Photographer reminder', trigger_type: 'PHOTOGRAPHER_SHOOT_REMINDER', template_id: '4', recipient_roles: ['photographer'], schedule_json: { offset: '-2h' } });

@@ -53,6 +53,35 @@ describe('TemplateEditorDialog delivered preview and persistence', () => {
   });
   afterEach(cleanup);
 
+  it('edits and reopens an SMS template without requiring a subject or exposing email actions', async () => {
+    const sms = { ...template, id: 57, channel: 'SMS', slug: 'automation-shoot-scheduled-sms', subject: null, body_html: null,
+      editable_body_html: null, body_text: 'Booking confirmed: {{shoot_address}}', email_type: null, override_enabled: false } as MessageTemplate;
+    const saved = { ...sms, body_text: 'Booking updated: {{shoot_address}}' };
+    mocks.update.mockResolvedValue(saved);
+    const view = setup(sms);
+    expect(screen.getByRole('tab', { name: 'Text' })).toHaveAttribute('data-state', 'active');
+    expect(screen.getByLabelText('SMS message content')).toHaveValue(sms.body_text);
+    expect(screen.queryByLabelText('Email Subject *')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'HTML' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send test email' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('SMS message content'), { target: { value: saved.body_text } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(view.onSuccess).toHaveBeenCalledWith(saved));
+    expect(mocks.update).toHaveBeenCalledWith(57, expect.objectContaining({ channel: 'SMS', subject: '', body_text: saved.body_text, override_enabled: false }));
+    view.reopen(saved);
+    expect(screen.getByLabelText('SMS message content')).toHaveValue(saved.body_text);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.preview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty SMS body even when legacy HTML is present', () => {
+    setup({ ...template, channel: 'SMS', body_text: '', editable_body_text: '', subject: '', email_type: null } as MessageTemplate);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(mocks.error).toHaveBeenCalledWith('Please enter template content');
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it('preserves server styles in a sandbox and previews unsaved body and subject with the same renderer', async () => {
     setup();
     expect(screen.getByLabelText('Email HTML content')).toHaveValue(template.editable_body_html);

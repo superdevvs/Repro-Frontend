@@ -89,7 +89,7 @@ export default function AutomationWorkflowEditor() {
 
   const templatesQuery = useQuery({
     queryKey: ['automation-templates'],
-    queryFn: () => getTemplates({ is_active: true }),
+    queryFn: async () => (await Promise.all(['EMAIL', 'SMS'].map((channel) => getTemplates({ channel, is_active: true })))).flat(),
   });
 
   const emailSettingsQuery = useQuery({
