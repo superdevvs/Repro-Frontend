@@ -45,11 +45,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const fillSms =
     (location.pathname === '/messaging/sms' || location.pathname === '/messaging/email/compose')
     && isCompactDashboardShell;
+  const isWorkflowEditor = /^\/messaging\/email\/automations\/.+/.test(location.pathname);
+  const canContainWorkflow = useMediaQuery('(min-width: 1024px) and (min-height: 700px)');
+  const lockWorkflowEditor = isWorkflowEditor && canContainWorkflow;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
-  const lockMainScroll = lockCompactDashboard || isStudioWorkspace || fillSms;
+  const lockMainScroll = lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor;
   const contentPadding = useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
@@ -67,7 +70,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
     hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
-    location.pathname === '/messaging/email/compose';
+    location.pathname === '/messaging/email/compose' ||
+    isWorkflowEditor;
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';

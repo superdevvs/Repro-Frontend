@@ -73,6 +73,75 @@ async function fixtures(page: Page, baseURL?: string, complex = false, payout = 
   return { writes, templateWrites, messages, rule: () => rule };
 }
 
+for (const viewport of [{ width: 1560, height: 1000 }, { width: 1366, height: 768 }, { width: 1366, height: 600 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  test(`workflow layout keeps controls reachable at ${viewport.width}x${viewport.height}`, async ({ page, baseURL }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const state = await fixtures(page, baseURL, true);
+    state.rule().recent_runs = Array.from({ length: 5 }, (_, index) => ({
+      id: 900 + index, automation_rule_id: 17, status: 'failed', started_at: '2026-09-15T13:00:04Z',
+      error_message: 'A previous attempt failed. Review the affected action and its configured recipients before the next scheduled run.',
+    }));
+    await page.goto('/messaging/email/automations/17');
+    await expect(page.locator('[data-page-loading]')).toHaveAttribute('data-page-loading', 'ready');
+    await expect(page.locator('.react-flow__node[data-id="trigger"]')).toBeVisible();
+    await page.locator('.react-flow__controls').scrollIntoViewIfNeeded();
+    await expect(page.locator('.react-flow__controls')).toBeInViewport({ ratio: 1 });
+    const controls = (await page.locator('.react-flow__controls').boundingBox())!;
+    const canvas = (await page.locator('.automation-canvas').boundingBox())!;
+    const panels = page.getByRole('navigation', { name: 'Panels' });
+    const visibleBottom = viewport.width < 1024 ? (await panels.boundingBox())!.y : viewport.height;
+    expect(controls.y + controls.height).toBeLessThanOrEqual(visibleBottom);
+    expect(controls.y).toBeGreaterThanOrEqual(canvas.y);
+    expect(controls.y + controls.height).toBeLessThanOrEqual(canvas.y + canvas.height);
+    await page.locator('.react-flow__controls-fitview').click();
+    expect((await page.locator('.automation-canvas').boundingBox())!.height).toBeGreaterThan(100);
+    if (viewport.width >= 1024) {
+      if (viewport.height < 700) await page.getByRole('button', { name: 'Save', exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeInViewport();
+      if (viewport.height < 700) await page.getByRole('button', { name: 'Validate', exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('button', { name: 'Validate', exact: true })).toBeInViewport();
+      if (viewport.height < 700) await page.getByRole('heading', { name: 'Workflow details' }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('heading', { name: 'Workflow details' })).toBeInViewport();
+      await expect(page.getByRole('heading', { name: 'Node Inspector' })).toBeInViewport();
+      const inspector = page.getByRole('heading', { name: 'Node Inspector' }).locator('..').locator('..').locator('..');
+      expect((await inspector.boundingBox())!.height).toBeGreaterThan(100);
+      await page.locator('.react-flow__node[data-id="email"]').click();
+      await page.getByText('Allowed Variables', { exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByText('Allowed Variables', { exact: true })).toBeInViewport();
+      await page.getByText('Run #904', { exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByText('Run #904', { exact: true })).toBeInViewport();
+      const history = page.getByRole('region', { name: 'Recent automation runs' });
+      await history.focus();
+      await history.press('Home');
+      await history.press('End');
+      await expect.poll(() => history.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      const diagnostics = page.getByRole('region', { name: 'Workflow diagnostics' });
+      await diagnostics.scrollIntoViewIfNeeded();
+      await diagnostics.focus();
+      await diagnostics.press('End');
+      await expect.poll(() => diagnostics.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      if (viewport.height < 700) await page.getByRole('button', { name: 'Save', exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeInViewport();
+    } else {
+      for (const [button, heading] of [['Details', 'Workflow details'], ['This step', 'Node Inspector'], ['Run', 'Validation']]) {
+        await panels.getByRole('button', { name: button, exact: true }).click();
+        await expect(page.getByText(heading, { exact: true }).first()).toBeInViewport();
+        await expect(panels.getByRole('button', { name: button, exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await panels.getByRole('button', { name: button, exact: true }).click();
+        await expect(panels.getByRole('button', { name: button, exact: true })).toHaveAttribute('aria-pressed', 'false');
+      }
+      await panels.getByRole('button', { name: 'This step', exact: true }).click();
+      await page.getByText('Run #904', { exact: true }).scrollIntoViewIfNeeded();
+      await expect(page.getByText('Run #904', { exact: true })).toBeInViewport();
+      await panels.getByRole('button', { name: 'This step', exact: true }).click();
+    }
+    await page.screenshot({ path: testInfo.outputPath(`workflow-layout-${viewport.width}x${viewport.height}.png`), animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    expect(state.writes).toEqual([]);
+    expect(state.messages).toEqual([]);
+  });
+}
+
 for (const mobile of [false, true]) {
   test(`reminder failure history distinguishes repaired and current runs on ${mobile ? 'phone' : 'desktop'}`, async ({ page, baseURL }, testInfo) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1560, height: 1000 });

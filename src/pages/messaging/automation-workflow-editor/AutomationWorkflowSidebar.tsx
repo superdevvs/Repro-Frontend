@@ -24,7 +24,7 @@ export function AutomationWorkflowSidebar({
   onMetaChange,
 }: AutomationWorkflowSidebarProps) {
   return (
-    <Card className="flex h-full flex-col p-4">
+    <Card className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-semibold">Workflow details</h2>
         <Switch

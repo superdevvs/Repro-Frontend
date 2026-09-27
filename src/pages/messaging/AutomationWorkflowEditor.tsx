@@ -1,4 +1,5 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { addEdge, type Connection, type EdgeChange, type NodeChange, type NodeTypes, type ReactFlowInstance, type Viewport, useEdgesState, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -55,7 +56,7 @@ const canvasNodeTypes: NodeTypes = {
 const mobileSheetClass = (isMobile: boolean, open: boolean) => {
   if (!isMobile) return 'min-h-0';
   return open
-    ? 'fixed inset-x-3 bottom-[4.75rem] z-30 max-h-[min(72vh,36rem)] overflow-auto rounded-2xl border bg-background p-1 shadow-xl'
+    ? 'fixed inset-x-3 bottom-[calc(var(--mobile-bottom-nav-height,0px)+4rem)] z-30 max-h-[min(65vh,36rem)] overflow-auto rounded-2xl border bg-background p-1 shadow-xl'
     : 'hidden';
 };
 
@@ -68,6 +69,8 @@ export default function AutomationWorkflowEditor() {
   const duplicateAutomation = state.duplicateAutomation;
 
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth < 1024);
+  const isContainedViewport = useMediaQuery('(min-width: 1024px) and (min-height: 700px)');
+  const containmentClass = isContainedViewport ? 'min-h-0 flex-1 overflow-hidden' : 'shrink-0';
   const [mobilePanel, setMobilePanel] = useState<'details' | 'step' | 'run' | null>(null);
   const [meta, setMeta] = useState(() => createMetaFromAutomation(duplicateAutomation));
   const [workflowMeta, setWorkflowMeta] = useState<Record<string, unknown>>({});
@@ -481,8 +484,9 @@ export default function AutomationWorkflowEditor() {
 
   return (
     <DashboardLayout>
+      <div className={`flex min-w-0 flex-col ${containmentClass}`}>
       <EmailNavigation />
-      <div className="flex min-h-[calc(100dvh-8.5rem)] flex-col gap-3 px-0 pt-3 pb-24 sm:px-6 sm:pt-4 lg:pb-4">
+      <div className={`flex flex-col gap-3 px-0 pt-3 pb-24 sm:px-6 sm:pt-4 lg:pb-3 ${containmentClass}`}>
         <AutomationWorkflowEditorHeader
           automationId={automationId}
           meta={meta}
@@ -499,8 +503,8 @@ export default function AutomationWorkflowEditor() {
           onToggle={handleToggle}
         />
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:grid-rows-[minmax(420px,1fr)_auto]">
-          <div className={mobileSheetClass(isReadOnlyMobile, mobilePanel === 'details')}>
+        <div className={`grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_320px] ${isContainedViewport ? 'min-h-0 flex-1 overflow-hidden lg:grid-rows-[minmax(0,1fr)_auto]' : 'lg:grid-rows-[420px_auto]'}`}>
+          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'details')} lg:h-full lg:overflow-hidden`}>
             <AutomationWorkflowSidebar
               meta={meta}
               triggerType={triggerType}
@@ -513,7 +517,7 @@ export default function AutomationWorkflowEditor() {
             />
           </div>
 
-          <div className="min-h-[420px] lg:col-start-2 lg:row-start-1">
+          <div className={`${isContainedViewport ? 'min-h-0' : 'min-h-[320px]'} lg:col-start-2 lg:row-start-1 lg:h-full`}>
             <AutomationWorkflowCanvasPanel
               nodes={nodes}
               edges={edges}
@@ -536,7 +540,7 @@ export default function AutomationWorkflowEditor() {
             />
           </div>
 
-          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'step')} lg:col-start-3 lg:row-start-1 lg:max-h-full lg:overflow-auto`}>
+          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'step')} lg:col-start-3 lg:row-start-1 lg:h-full lg:min-h-0 lg:overflow-hidden`}>
             <AutomationWorkflowInspectorPanel
               selectedRawNode={selectedRawNode}
               currentAutomation={currentAutomation}
@@ -553,7 +557,7 @@ export default function AutomationWorkflowEditor() {
             />
           </div>
 
-          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'run')} lg:col-span-3`}>
+          <div className={`${mobileSheetClass(isReadOnlyMobile, mobilePanel === 'run')} lg:col-span-3 lg:min-h-0 lg:overflow-hidden`}>
             <AutomationWorkflowDock
               summary={summary}
               validationState={validationState ?? null}
@@ -578,7 +582,7 @@ export default function AutomationWorkflowEditor() {
           <button type="button" className="fixed inset-0 z-20 bg-black/40" aria-label="Close panel" onClick={() => setMobilePanel(null)} />
         )}
         {isReadOnlyMobile && (
-          <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 gap-2 border-t bg-background p-2" aria-label="Panels">
+          <nav className="fixed inset-x-0 bottom-[var(--mobile-bottom-nav-height,0px)] z-40 grid grid-cols-3 gap-2 border-t bg-background p-2" aria-label="Panels">
             {(['details', 'step', 'run'] as const).map((panel) => (
               <Button
                 key={panel}
@@ -592,6 +596,7 @@ export default function AutomationWorkflowEditor() {
             ))}
           </nav>
         )}
+      </div>
       </div>
     </DashboardLayout>
   );

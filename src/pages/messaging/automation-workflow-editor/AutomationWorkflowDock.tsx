@@ -47,7 +47,7 @@ export function AutomationWorkflowDock({
       : 'Needs a fix';
 
   return (
-    <section className="rounded-2xl border bg-card p-3">
+    <section className="rounded-2xl border bg-card p-3 lg:max-h-[25vh] lg:overflow-y-auto">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="shrink-0">
           <div className="text-sm font-semibold">Validation</div>
@@ -99,7 +99,7 @@ export function AutomationWorkflowDock({
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 max-h-36 overflow-y-auto" tabIndex={0} role="region" aria-label="Workflow diagnostics">
         <AutomationWorkflowDiagnosticsPanel validationState={validationState} simulationResult={simulationResult} />
       </div>
     </section>

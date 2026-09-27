@@ -85,7 +85,7 @@ export function AutomationWorkflowInspectorPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_minmax(0,0.6fr)] lg:gap-3 lg:space-y-0">
       {editingTemplate && <TemplateEditorDialog template={editingTemplate} open onClose={() => setEditingTemplate(null)}
         onSuccess={() => {
           setEditingTemplate(null);
@@ -93,7 +93,7 @@ export function AutomationWorkflowInspectorPanel({
           void queryClient.invalidateQueries({ queryKey: ['automation-simple-templates'] });
           void queryClient.invalidateQueries({ queryKey: ['templates'] });
         }} />}
-      <Card className="p-4">
+      <Card className="p-4 lg:min-h-0 lg:overflow-y-auto" tabIndex={0} role="region" aria-label="Node inspector">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold">Node Inspector</h2>
@@ -882,7 +882,7 @@ export function AutomationWorkflowInspectorPanel({
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-4 lg:min-h-0 lg:overflow-y-auto" tabIndex={0} role="region" aria-label="Recent automation runs">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold">Recent Runs</h2>
@@ -890,7 +890,7 @@ export function AutomationWorkflowInspectorPanel({
           </div>
           <Clock3 className="h-4 w-4 text-muted-foreground" />
         </div>
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-3">
           {(recentRuns ?? []).length === 0 ? (
             <EmptyState icon="activity" title={<>No execution history yet.</>} size="compact" />
           ) : (

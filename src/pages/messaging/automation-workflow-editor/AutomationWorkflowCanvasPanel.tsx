@@ -35,7 +35,7 @@ export function AutomationWorkflowCanvasPanel({
   onMoveEnd,
 }: AutomationWorkflowCanvasPanelProps) {
   return (
-    <Card className="flex h-full min-h-[480px] flex-col overflow-hidden p-0">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden p-0">
       <div className="flex items-center justify-between border-b px-4 py-2">
         <p className="text-sm text-muted-foreground">
           {isReadOnlyMobile ? 'Viewing the path. Edit it on a larger screen.' : 'Select a step to change it.'}
@@ -45,7 +45,7 @@ export function AutomationWorkflowCanvasPanel({
           {validationValid && <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">Ready</Badge>}
         </div>
       </div>
-      <div className="automation-canvas min-h-[420px] flex-1 bg-background">
+      <div className="automation-canvas min-h-[280px] flex-1 bg-background lg:min-h-0">
         <ReactFlow<AutomationFlowNode, Edge>
           nodes={nodes}
           edges={edges}
@@ -62,7 +62,7 @@ export function AutomationWorkflowCanvasPanel({
           onMoveEnd={(_, viewport) => onMoveEnd(viewport)}
           deleteKeyCode={isReadOnlyMobile || isStructureLocked ? [] : ['Backspace', 'Delete']}
         >
-          <MiniMap zoomable pannable />
+          <MiniMap zoomable pannable style={{ width: 120, height: 80 }} />
           <Controls />
           <Background gap={16} size={1} />
         </ReactFlow>
