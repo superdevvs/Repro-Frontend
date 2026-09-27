@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { AutomationRule } from '@/types/messaging';
 import { createDefaultDraft } from './automationEditorModel';
 import { buildSimpleWorkflowFromDraft, extractSimpleAutomationDraft } from './workflow-utils';
-import { createMetaFromAutomation, deriveWorkflowPayload } from '@/pages/messaging/automation-workflow-editor/helpers';
+import { asJsonObject, createMetaFromAutomation, deriveWorkflowPayload, getScheduleConfig } from '@/pages/messaging/automation-workflow-editor/helpers';
+import { SCHEDULE_TRIGGER_TYPES } from './automationWorkflowTypes';
 import { recipientSummary, whenSummary } from '@/pages/messaging/automationMoments';
 import { scheduleFromWorkflow } from './automationSchedule';
 
@@ -102,5 +103,21 @@ describe('editable automation round trips', () => {
     expect(draft).not.toBeNull();
     expect(buildSimpleWorkflowFromDraft(draft).nodes.find((node) => node.type === 'condition.if')?.config.rules).toEqual(condition.config.rules);
     expect(deriveWorkflowPayload(createMetaFromAutomation(rule), workflow, rule).workflow_definition_json.nodes.find((node) => node.type === 'condition.if')?.config.rules).toEqual(condition.config.rules);
+  });
+
+  it('round trips weekly payout recipients and accounting address through both editors', () => {
+    expect(SCHEDULE_TRIGGER_TYPES).toEqual(expect.arrayContaining(['INVOICE_SUMMARY', 'WEEKLY_REP_INVOICE', 'WEEKLY_PAYOUT_REPORT', 'WEEKLY_PAYOUT_DIGEST']));
+    const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), trigger_mode: 'schedule', trigger_type: 'WEEKLY_PAYOUT_DIGEST', recipient_roles: ['accounting', 'editor'], schedule_day_of_week: '0', schedule_time: '05:00', schedule_json: { accounting_email: 'accounts@example.com' } });
+    const rule = fixture({ trigger_type: 'WEEKLY_PAYOUT_DIGEST', workflow_definition_json: workflow });
+    const draft = extractSimpleAutomationDraft(rule)!;
+    expect(draft.recipient_roles).toEqual(['accounting', 'editor']);
+    expect(draft.schedule_json?.accounting_email).toBe('accounts@example.com');
+    const reopened = buildSimpleWorkflowFromDraft(draft);
+    const configured = getScheduleConfig(asJsonObject(reopened.nodes[0].config.schedule));
+    reopened.nodes[0].config.schedule = { ...configured, time: '06:30' };
+    const payload = deriveWorkflowPayload(createMetaFromAutomation(rule), reopened, rule);
+    expect(payload.scope).toBe('SYSTEM');
+    expect(payload.schedule_json).toMatchObject({ day_of_week: 0, time: '06:30', accounting_email: 'accounts@example.com' });
+    expect(payload.recipients_json).toEqual(['accounting', 'editor']);
   });
 });

@@ -4,7 +4,7 @@ import type { AutomationRecipientRole, AutomationTriggerType, MessagingJsonObjec
 
 export type { AutomationRecipientRole };
 export type AutomationRecipientMode = 'automation_default' | 'roles' | 'context';
-export type AutomationContextKey = 'account' | 'client' | 'photographer' | 'rep';
+export type AutomationContextKey = 'account' | 'client' | 'photographer' | 'rep' | 'editor' | 'accounting';
 export type AutomationConditionOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'exists' | 'in';
 export type AutomationConditionMatch = 'all' | 'any';
 export type AutomationWaitUnit = 'minutes' | 'hours' | 'days';
@@ -23,6 +23,7 @@ export interface AutomationScheduleConfig {
   offset?: string;
   cron?: string;
   command?: string;
+  accounting_email?: string;
 }
 
 export type AutomationFlowNodeData = Record<string, unknown> & {
@@ -38,6 +39,6 @@ export type AutomationFlowNodeData = Record<string, unknown> & {
 export type AutomationFlowNode = FlowNode<AutomationFlowNodeData, 'automationNode'>;
 export type AutomationFlowEdge = FlowEdge;
 
-export const AUTOMATION_RECIPIENT_ROLES: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep'];
-export const AUTOMATION_CONTEXT_KEYS: AutomationContextKey[] = ['account', 'client', 'photographer', 'rep'];
-export const SCHEDULE_TRIGGER_TYPES: AutomationTriggerType[] = ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'];
+export const AUTOMATION_RECIPIENT_ROLES: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep', 'editor', 'accounting'];
+export const AUTOMATION_CONTEXT_KEYS: AutomationContextKey[] = ['account', 'client', 'photographer', 'rep', 'editor', 'accounting'];
+export const SCHEDULE_TRIGGER_TYPES: AutomationTriggerType[] = ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT', 'INVOICE_SUMMARY', 'WEEKLY_REP_INVOICE', 'WEEKLY_PAYOUT_REPORT', 'WEEKLY_PAYOUT_DIGEST'];

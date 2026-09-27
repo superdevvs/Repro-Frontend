@@ -42,6 +42,8 @@ export type AutomationTriggerType =
   | 'INVOICE_PAID'
   | 'WEEKLY_PHOTOGRAPHER_INVOICE'
   | 'WEEKLY_REP_INVOICE'
+  | 'WEEKLY_PAYOUT_REPORT'
+  | 'WEEKLY_PAYOUT_DIGEST'
   | 'WEEKLY_SALES_REPORT'
   | 'WEEKLY_AUTOMATED_INVOICING'
   | 'PHOTO_UPLOADED'
@@ -51,7 +53,7 @@ export type AutomationTriggerType =
   | 'EDITING_COMPLETE'
   | 'PROPERTY_CONTACT_REMINDER';
 
-export type AutomationRecipientRole = 'account' | 'client' | 'photographer' | 'previous_photographer' | 'new_photographer' | 'admin' | 'rep';
+export type AutomationRecipientRole = 'account' | 'client' | 'photographer' | 'previous_photographer' | 'new_photographer' | 'admin' | 'rep' | 'editor' | 'accounting';
 
 export interface AutomationScheduleJson {
   type?: string;
@@ -64,6 +66,7 @@ export interface AutomationScheduleJson {
   repeat_every_days?: number;
   reminder_days?: number[];
   monthly_day_of_week?: number;
+  accounting_email?: string;
   command?: string;
 }
 

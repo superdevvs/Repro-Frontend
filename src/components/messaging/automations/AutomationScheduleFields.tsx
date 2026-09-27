@@ -28,6 +28,14 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
       </div>
     );
   }
+  if (trigger === 'WEEKLY_PAYOUT_DIGEST') return (
+    <div className="space-y-2 rounded-xl border p-4">
+      <Label htmlFor="payout-accounting-email">Accounting email</Label>
+      <Input id="payout-accounting-email" type="email" value={value.accounting_email ?? ''} placeholder="Use the configured accounting address" disabled={disabled}
+        onChange={(event) => onChange({ accounting_email: event.target.value })} />
+      <p className="text-xs text-muted-foreground">The Accounting recipient uses this address. Leave blank to use the business accounting address.</p>
+    </div>
+  );
   if (!hasDailySchedule(trigger)) return null;
   const invoice = trigger.startsWith('INVOICE_');
   return (

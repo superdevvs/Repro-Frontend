@@ -53,6 +53,8 @@ export const recipientRoleOptions: Array<{ value: AutomationRecipientRole; label
   { value: 'new_photographer', label: 'New photographer' },
   { value: 'admin', label: 'Admin team' },
   { value: 'rep', label: 'Sales rep' },
+  { value: 'editor', label: 'Editor' },
+  { value: 'accounting', label: 'Accounting' },
 ];
 
 export const contextRecipientOptions: Array<{ value: AutomationContextKey; label: string }> = [
@@ -60,6 +62,8 @@ export const contextRecipientOptions: Array<{ value: AutomationContextKey; label
   { value: 'client', label: 'Client from trigger context' },
   { value: 'photographer', label: 'Photographer from trigger context' },
   { value: 'rep', label: 'Rep from trigger context' },
+  { value: 'editor', label: 'Editor from trigger context' },
+  { value: 'accounting', label: 'Accounting contact from schedule' },
 ];
 
 const variableHints: Record<string, string[]> = {
@@ -155,7 +159,7 @@ export const asRoleArray = (value: MessagingJsonValue | undefined | null): Autom
   }
 
   return value.filter((item): item is AutomationRecipientRole =>
-    item === 'account' || item === 'client' || item === 'photographer' || item === 'previous_photographer' || item === 'new_photographer' || item === 'admin' || item === 'rep',
+    item === 'account' || item === 'client' || item === 'photographer' || item === 'previous_photographer' || item === 'new_photographer' || item === 'admin' || item === 'rep' || item === 'editor' || item === 'accounting',
   );
 };
 
@@ -180,6 +184,7 @@ export const getScheduleConfig = (
   const config = asJsonObject(source as MessagingJsonValue) ?? (source as MessagingJsonObject | undefined) ?? {};
 
   return {
+    ...config,
     type: asString(config.type, 'weekly'),
     day_of_week: asNumber(config.day_of_week, 1),
     time: asString(config.time, '01:00'),
@@ -250,7 +255,7 @@ export const getRecipientRoles = (node?: WorkflowNode | null, automation?: Autom
 
 export const getContextKey = (node?: WorkflowNode | null): AutomationContextKey => {
   const key = asString(node?.config?.contextKey, 'client');
-  return key === 'account' || key === 'photographer' || key === 'rep' ? key : 'client';
+  return key === 'account' || key === 'photographer' || key === 'rep' || key === 'editor' || key === 'accounting' ? key : 'client';
 };
 
 export const getWaitAmount = (node: WorkflowNode | null | undefined, fallback: number): number => asNumber(node?.config?.amount, fallback);
@@ -287,7 +292,7 @@ export const deriveWorkflowPayload = (
     editor_mode: meta.editor_mode,
     engine_version: 2,
     is_active: meta.is_active,
-    scope: meta.scope,
+    scope: triggerNode?.type === 'trigger.schedule' ? 'SYSTEM' : meta.scope,
     template_id: primaryActionNode?.config?.templateId ? Number(primaryActionNode.config.templateId) : null,
     channel_id: primaryActionNode?.config?.channelId ? Number(primaryActionNode.config.channelId) : null,
     recipients_json: recipientRoles,

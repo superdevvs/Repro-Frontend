@@ -157,7 +157,7 @@ export function AutomationWorkflowInspectorPanel({
               </div>
             )}
 
-            {selectedRawNode.type === 'trigger.event' && (
+            {(selectedRawNode.type === 'trigger.event' || selectedRawNode.type === 'trigger.schedule') && (
               <AutomationScheduleFields trigger={asString(selectedRawNode.config.triggerType)}
                 value={{ ...storedReminderSchedule(currentAutomation), ...asJsonObject(selectedRawNode.config.schedule) }}
                 disabled={isReadOnlyMobile}

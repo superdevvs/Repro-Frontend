@@ -31,6 +31,8 @@ const recipientRoleOptions: Array<{ value: AutomationRecipientRole; label: strin
   { value: 'new_photographer', label: 'New photographer' },
   { value: 'admin', label: 'Admin team' },
   { value: 'rep', label: 'Sales rep' },
+  { value: 'editor', label: 'Editor' },
+  { value: 'accounting', label: 'Accounting' },
 ];
 
 const weekdayOptions = [
@@ -48,10 +50,12 @@ const contextRecipientOptions = [
   { value: 'client', label: 'Client from trigger' },
   { value: 'photographer', label: 'Photographer from trigger' },
   { value: 'rep', label: 'Rep from trigger' },
+  { value: 'editor', label: 'Editor from trigger' },
+  { value: 'accounting', label: 'Accounting contact from schedule' },
 ] as const;
 
 
-const automationRecipientRoles: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep'];
+const automationRecipientRoles: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep', 'editor', 'accounting'];
 
 const isAutomationRecipientRole = (value: string): value is AutomationRecipientRole => {
   return automationRecipientRoles.includes(value as AutomationRecipientRole);

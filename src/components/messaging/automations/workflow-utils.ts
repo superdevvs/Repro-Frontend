@@ -42,7 +42,7 @@ const configNum = (config: MessagingJsonObject | undefined, key: string, fallbac
 const configRoleArray = (config: MessagingJsonObject | undefined, key: string): AutomationRecipientRole[] => {
   const values = configArr(config, key);
   return values?.filter((value): value is AutomationRecipientRole =>
-    value === 'account' || value === 'client' || value === 'photographer' || value === 'previous_photographer' || value === 'new_photographer' || value === 'admin' || value === 'rep',
+    value === 'account' || value === 'client' || value === 'photographer' || value === 'previous_photographer' || value === 'new_photographer' || value === 'admin' || value === 'rep' || value === 'editor' || value === 'accounting',
   ) ?? [];
 };
 
@@ -73,6 +73,8 @@ export const triggerLabels: Record<string, string> = {
   INVOICE_PAID: 'Invoice Paid',
   WEEKLY_PHOTOGRAPHER_INVOICE: 'Weekly Photographer Invoice',
   WEEKLY_REP_INVOICE: 'Weekly Rep Invoice',
+  WEEKLY_PAYOUT_REPORT: 'Weekly Payout Report',
+  WEEKLY_PAYOUT_DIGEST: 'Weekly Accounting Payout Digest',
   WEEKLY_SALES_REPORT: 'Weekly Sales Report',
   WEEKLY_AUTOMATED_INVOICING: 'Weekly Automated Invoicing',
   PHOTO_UPLOADED: 'Photo Uploaded',
@@ -98,7 +100,7 @@ export const triggerGroups = [
   },
   {
     label: 'System',
-    triggers: ['WEEKLY_SALES_REPORT', 'WEEKLY_AUTOMATED_INVOICING'],
+    triggers: ['WEEKLY_SALES_REPORT', 'WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_PAYOUT_REPORT', 'WEEKLY_PAYOUT_DIGEST'],
   },
   {
     label: 'Media & Operations',
@@ -123,7 +125,7 @@ export interface SimpleAutomationDraft {
   is_active: boolean;
   recipient_mode: SimpleRecipientMode;
   recipient_roles: AutomationRecipientRole[];
-  context_key: 'account' | 'client' | 'photographer' | 'rep';
+  context_key: 'account' | 'client' | 'photographer' | 'rep' | 'editor' | 'accounting';
   template_id: string;
   channel_id: string;
   subject: string;
@@ -262,6 +264,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
         ? {
             triggerType: draft.trigger_type,
             schedule: {
+              ...draft.schedule_json,
               type: 'weekly',
               day_of_week: Number(draft.schedule_day_of_week || 1),
               time: draft.schedule_time || '01:00',
@@ -468,7 +471,7 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
       return typeof condition.value === 'object' && !(condition.operator === 'in' && Array.isArray(condition.value));
     })) ||
     waitNodes.some((node) => node.type === 'wait.duration' || configStr(node.config, 'referenceField', 'shoot_datetime') !== 'shoot_datetime') ||
-    actionNodes.some((node) => Boolean(node.config.bodyHtml) || (Boolean(node.config.templateId) && Boolean(node.config.subject || node.config.bodyText || node.config.body)) || (node.config.recipientMode === 'context' && !['account', 'client', 'photographer', 'rep'].includes(String(node.config.contextKey)))) ||
+    actionNodes.some((node) => Boolean(node.config.bodyHtml) || (Boolean(node.config.templateId) && Boolean(node.config.subject || node.config.bodyText || node.config.body)) || (node.config.recipientMode === 'context' && !['account', 'client', 'photographer', 'rep', 'editor', 'accounting'].includes(String(node.config.contextKey)))) ||
     waitNodes.length > 1 ||
     actionNodes.length > 1 ||
     endNodes.length !== 1 ||
@@ -526,7 +529,7 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     is_active: automation.is_active ?? true,
     recipient_mode: recipientMode,
     recipient_roles: recipientRoles,
-    context_key: (actionNode?.config?.contextKey || 'client') as 'account' | 'client' | 'photographer' | 'rep',
+    context_key: (actionNode?.config?.contextKey || 'client') as SimpleAutomationDraft['context_key'],
     template_id: actionNode ? (actionNode.config.templateId ? String(actionNode.config.templateId) : '') : automation.template_id ? String(automation.template_id) : '',
     channel_id: actionNode ? (actionNode.config.channelId ? String(actionNode.config.channelId) : '') : automation.channel_id ? String(automation.channel_id) : '',
     sms_number_id: actionNode?.config.smsNumberId ? Number(actionNode.config.smsNumberId) : null,

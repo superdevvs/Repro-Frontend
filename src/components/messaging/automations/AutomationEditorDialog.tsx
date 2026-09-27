@@ -37,6 +37,7 @@ import {
 import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
 import { AutomationSmsSenderField } from './AutomationSmsSenderField';
 import { AutomationScheduleFields } from './AutomationScheduleFields';
+import { SCHEDULE_TRIGGER_TYPES } from './automationWorkflowTypes';
 import { isTimedShootReminder, scheduleFromWorkflow, syncReminderDayConditions, syncLegacyReminderCondition } from './automationSchedule';
 import type { AutomationEditorDialogProps, AutomationRecipientRole } from './automationEditorModel';
 import {
@@ -282,7 +283,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
       editor_mode: 'simple',
       engine_version: 2,
       is_active: draft.is_active,
-      scope: isEditMode && automation?.scope === 'SYSTEM' ? 'SYSTEM' : draft.scope,
+      scope: isScheduleWorkflow || (isEditMode && automation?.scope === 'SYSTEM') ? 'SYSTEM' : draft.scope,
       template_id:
         draft.action_type === 'internal_notification' || draft.action_type === 'system_command' || !draft.template_id
           ? null
@@ -331,7 +332,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
               <Label htmlFor="automation-when">When</Label>
               <Select
                 value={draft.trigger_type}
-                onValueChange={(value) => setDraft((current) => ({ ...current, trigger_type: value as AutomationRule['trigger_type'] }))}
+                onValueChange={(value) => setDraft((current) => ({ ...current, trigger_type: value as AutomationRule['trigger_type'], trigger_mode: SCHEDULE_TRIGGER_TYPES.some((trigger) => trigger === value) ? 'schedule' : 'event' }))}
                 disabled={lockStructure}
               >
                 <SelectTrigger id="automation-when">
@@ -450,10 +451,8 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
             </div>
           )}
 
-          {!isScheduleWorkflow && (
-            <AutomationScheduleFields trigger={draft.trigger_type} value={draft.schedule_json}
-              onChange={(schedule) => setDraft((current) => ({ ...current, schedule_json: { ...current.schedule_json, ...schedule } }))} />
-          )}
+          <AutomationScheduleFields trigger={draft.trigger_type} value={draft.schedule_json}
+            onChange={(schedule) => setDraft((current) => ({ ...current, schedule_json: { ...current.schedule_json, ...schedule } }))} />
 
           {isSystemCommandWorkflow && (
             <div className="rounded-2xl border bg-muted/30 px-4 py-3 text-sm">

@@ -7,6 +7,7 @@ import { AlertTriangle, CopyPlus, MoreVertical, Pencil, Play, Plus, Trash2, Work
 import { toast } from '@/lib/sonner-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AutomationEditorDialog } from '@/components/messaging/automations/AutomationEditorDialog';
+import { SCHEDULE_TRIGGER_TYPES } from '@/components/messaging/automations/automationWorkflowTypes';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -158,7 +159,7 @@ function JobRow({
               <CopyPlus className="mr-2 h-4 w-4" />
               Duplicate
             </DropdownMenuItem>
-            {automation.scope === 'SYSTEM' && ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'].includes(automation.trigger_type) && (
+            {automation.scope === 'SYSTEM' && SCHEDULE_TRIGGER_TYPES.includes(automation.trigger_type) && (
               <DropdownMenuItem onClick={() => onRun(automation)} disabled={runningId === automation.id}>
                 <Play className="mr-2 h-4 w-4" />
                 Run now

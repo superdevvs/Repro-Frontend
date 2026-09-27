@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/sonner-toast';
 import { AutomationWorkflowNode } from '@/components/messaging/automations/AutomationWorkflowNode';
-import { type AutomationFlowNode } from '@/components/messaging/automations/automationWorkflowTypes';
+import { SCHEDULE_TRIGGER_TYPES, type AutomationFlowNode } from '@/components/messaging/automations/automationWorkflowTypes';
 import {
   createEmptyWorkflow,
   createNodeDefinition,
@@ -560,7 +560,7 @@ export default function AutomationWorkflowEditor() {
               simulationResult={simulationResult}
               isReadOnlyMobile={isReadOnlyMobile}
               isStructureLocked={isStructureLocked}
-              canRun={Boolean(automationId) && meta.scope === 'SYSTEM' && ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'].includes(triggerType)}
+              canRun={Boolean(automationId) && meta.scope === 'SYSTEM' && SCHEDULE_TRIGGER_TYPES.some((trigger) => trigger === triggerType)}
               hasSavedAutomation={Boolean(automationId)}
               nodePalette={nodeTypesPalette}
               validatePending={validateMutation.isPending}

@@ -52,6 +52,8 @@ export const automationMoments: Array<{
       'INVOICE_PAID',
       'WEEKLY_PHOTOGRAPHER_INVOICE',
       'WEEKLY_REP_INVOICE',
+      'WEEKLY_PAYOUT_REPORT',
+      'WEEKLY_PAYOUT_DIGEST',
       'WEEKLY_SALES_REPORT',
       'WEEKLY_AUTOMATED_INVOICING',
     ],

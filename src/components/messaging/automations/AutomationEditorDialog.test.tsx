@@ -100,4 +100,16 @@ describe('automation sentence form', () => {
       { field: 'shoot.status', operator: 'in', value: ['scheduled', 'completed'] },
     ]);
   });
+
+  it('edits the weekly payout digest address and time without losing its accounting recipient', async () => {
+    const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Accounting digest', trigger_mode: 'schedule', trigger_type: 'WEEKLY_PAYOUT_DIGEST', template_id: '4', recipient_roles: ['accounting'], schedule_day_of_week: '0', schedule_time: '05:00', schedule_json: { accounting_email: 'accounts@example.com' } });
+    const rule = { id: 25, name: 'Accounting digest', trigger_type: 'WEEKLY_PAYOUT_DIGEST', scope: 'SYSTEM', is_active: true, workflow_definition_json: workflow } as AutomationRule;
+    vi.mocked(updateAutomation).mockResolvedValue(rule);
+    renderDialog(rule);
+    fireEvent.change(await screen.findByLabelText('Accounting email'), { target: { value: 'finance@example.com' } });
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '06:45' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and open workflow' }));
+    await waitFor(() => expect(updateAutomation).toHaveBeenCalledOnce());
+    expect(vi.mocked(updateAutomation).mock.calls[0][1]).toMatchObject({ scope: 'SYSTEM', recipients_json: ['accounting'], schedule_json: { accounting_email: 'finance@example.com', day_of_week: 0, time: '06:45' } });
+  });
 });
