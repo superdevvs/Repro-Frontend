@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import type { AutomationRule } from '@/types/messaging';
 import Automations from './Automations';
+import { buildSimpleWorkflowFromDraft } from '@/components/messaging/automations/workflow-utils';
+import { createDefaultDraft } from '@/components/messaging/automations/automationEditorModel';
 
 const mocks = vi.hoisted(() => ({
   getAutomations: vi.fn(),
@@ -99,7 +101,7 @@ describe('automations by the job', () => {
     await user.click(screen.getByRole('button', { name: 'Booking moment' }));
     await user.click(screen.getByRole('button', { name: 'More actions for Booking confirmation' }));
     const systemMenu = screen.getByRole('menu');
-    expect(within(systemMenu).getByText('Run now')).toBeInTheDocument();
+    expect(within(systemMenu).queryByText('Run now')).not.toBeInTheDocument();
     expect(within(systemMenu).queryByText('Delete')).not.toBeInTheDocument();
     await user.click(within(systemMenu).getByText('Open workflow'));
     expect(mocks.navigate).toHaveBeenCalledWith('/messaging/email/automations/1');
@@ -114,5 +116,19 @@ describe('automations by the job', () => {
     expect(screen.getByText('Editor create')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Advanced editor' }));
     expect(mocks.navigate).toHaveBeenCalledWith('/messaging/email/automations/new');
+  });
+
+  it('opens the full workflow when Change cannot preserve all conditions in the simple form', async () => {
+    const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), use_condition: true, condition_field: 'notify_client', condition_value: 'true' });
+    workflow.nodes.find((node) => node.type === 'condition.if')!.config.rules = [
+      { field: 'notify_client', operator: 'eq', value: true },
+      { field: 'shoot.status', operator: 'eq', value: 'scheduled' },
+    ];
+    mocks.getAutomations.mockResolvedValue([{ ...booking, workflow_definition_json: workflow }]);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    expect(mocks.navigate).toHaveBeenCalledWith('/messaging/email/automations/1');
+    expect(screen.queryByText('Editor edit')).not.toBeInTheDocument();
   });
 });

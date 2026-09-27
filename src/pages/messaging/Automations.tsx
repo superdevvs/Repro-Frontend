@@ -26,7 +26,9 @@ import { automationMoments, momentForTrigger, recipientSummary, whenSummary, typ
 const latestRun = (automation: AutomationRule) => automation.recent_runs?.[0] ?? null;
 
 const getPrimaryActionSummary = (automation: AutomationRule) => {
-  const actionNode = automation.workflow_definition_json?.nodes?.find((node) => node.type.startsWith('action.'));
+  const actionNodes = automation.workflow_definition_json?.nodes?.filter((node) => node.type.startsWith('action.')) ?? [];
+  if (actionNodes.length > 1) return `${actionNodes.length} message steps`;
+  const actionNode = actionNodes[0];
   if (!actionNode) {
     if (automation.workflow_definition_json?.meta?.system_command) {
       return 'System command workflow';
@@ -34,6 +36,8 @@ const getPrimaryActionSummary = (automation: AutomationRule) => {
 
     return 'No action configured';
   }
+
+  if (Number(actionNode.config?.templateId) === automation.template?.id) return automation.template.name;
 
   switch (actionNode.type) {
     case 'action.sms':
@@ -92,8 +96,8 @@ function JobRow({
 }) {
   const run = latestRun(automation);
   const validationMessage = getValidationMessage(automation);
-  const issue = !automation.validation_state?.valid ? validationMessage : run?.error_message;
-  const sends = automation.template?.name || getPrimaryActionSummary(automation);
+  const issue = automation.validation_state?.valid === false ? validationMessage : run?.error_message;
+  const sends = automation.workflow_definition_json?.nodes?.length ? getPrimaryActionSummary(automation) : automation.template?.name || getPrimaryActionSummary(automation);
 
   return (
     <article className={`grid gap-3 border-b px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(8rem,0.7fr)_minmax(8rem,0.7fr)_minmax(8rem,0.8fr)_auto] lg:items-center ${automation.is_active ? '' : 'opacity-70'}`}>
@@ -108,7 +112,7 @@ function JobRow({
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {automation.scope === 'SYSTEM' ? 'Built in' : 'Custom'}
-          {automation.is_system_locked ? ' · Locked path' : ''}
+          {' · Editable'}
           {run?.status ? ` · Last run ${run.status}` : ''}
         </p>
         {issue && (
@@ -154,7 +158,7 @@ function JobRow({
               <CopyPlus className="mr-2 h-4 w-4" />
               Duplicate
             </DropdownMenuItem>
-            {automation.scope === 'SYSTEM' && (
+            {automation.scope === 'SYSTEM' && ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'].includes(automation.trigger_type) && (
               <DropdownMenuItem onClick={() => onRun(automation)} disabled={runningId === automation.id}>
                 <Play className="mr-2 h-4 w-4" />
                 Run now
@@ -233,7 +237,7 @@ export default function Automations() {
         ...group,
         total: inMoment.length,
         on: inMoment.filter((automation) => automation.is_active).length,
-        needsFix: inMoment.some((automation) => !automation.validation_state?.valid || Boolean(latestRun(automation)?.error_message)),
+        needsFix: inMoment.some((automation) => automation.validation_state?.valid === false || Boolean(latestRun(automation)?.error_message)),
         matched,
       };
     });
@@ -286,6 +290,10 @@ export default function Automations() {
   };
 
   const handleEdit = (automation: AutomationRule) => {
+    if (!extractSimpleAutomationDraft(automation)) {
+      navigate(`/messaging/email/automations/${automation.id}`);
+      return;
+    }
     openCreateDialog('edit', automation);
   };
 
@@ -296,7 +304,7 @@ export default function Automations() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Automations</h1>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">Pick the part of the job, then change who gets the message.</p>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">Change recipients, messages, timing, and conditions for each automation.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => navigate('/messaging/email/automations/new')}>

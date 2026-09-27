@@ -82,7 +82,7 @@ export default function AutomationWorkflowEditor() {
   const initializedFrom = useRef<string | null>(null);
 
   const automationQuery = useQuery({
-    queryKey: ['automation', automationId],
+    queryKey: ['automation', Number(automationId)],
     queryFn: () => getAutomation(Number(automationId)),
     enabled: Boolean(automationId),
   });
@@ -108,6 +108,9 @@ export default function AutomationWorkflowEditor() {
       return createAutomation(payload);
     },
     onSuccess: async (savedAutomation) => {
+      initializedFrom.current = null;
+      queryClient.setQueryData(['automation', savedAutomation.id], savedAutomation);
+      setIsDirty(false);
       toast.success(automationId ? 'Workflow updated successfully' : 'Workflow created successfully');
       await queryClient.invalidateQueries({ queryKey: ['automations'] });
       await queryClient.invalidateQueries({ queryKey: ['automation', savedAutomation.id] });
@@ -160,7 +163,7 @@ export default function AutomationWorkflowEditor() {
       toast.success('Automation run started');
       await queryClient.invalidateQueries({ queryKey: ['automations'] });
       if (automationId) {
-        await queryClient.invalidateQueries({ queryKey: ['automation', automationId] });
+        await queryClient.invalidateQueries({ queryKey: ['automation', Number(automationId)] });
       }
     },
     onError: (error) => {
@@ -300,14 +303,14 @@ export default function AutomationWorkflowEditor() {
     if (selectedChange?.id) {
       setSelectedNodeId(selectedChange.id);
     }
-    if (changes.some((change) => change.type !== 'select')) {
+    if (changes.some((change) => change.type !== 'select' && change.type !== 'dimensions')) {
       setIsDirty(true);
     }
   };
 
   const handleEdgesChange = (changes: EdgeChange[]) => {
     onEdgesChange(changes);
-    if (changes.length > 0) {
+    if (changes.some((change) => change.type !== 'select')) {
       setIsDirty(true);
     }
   };
@@ -557,7 +560,7 @@ export default function AutomationWorkflowEditor() {
               simulationResult={simulationResult}
               isReadOnlyMobile={isReadOnlyMobile}
               isStructureLocked={isStructureLocked}
-              canRun={Boolean(automationId) && meta.scope === 'SYSTEM'}
+              canRun={Boolean(automationId) && meta.scope === 'SYSTEM' && ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'].includes(triggerType)}
               hasSavedAutomation={Boolean(automationId)}
               nodePalette={nodeTypesPalette}
               validatePending={validateMutation.isPending}

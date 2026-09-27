@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/sonner-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,13 +28,16 @@ import {
   buildSimpleConditionJson,
   buildSimpleWorkflowFromDraft,
   extractSimpleAutomationDraft,
-  formatLegacyOffset,
   shootBasedTriggers,
   triggerGroups,
   triggerLabels,
   type SimpleAutomationDraft,
 } from '@/components/messaging/automations/workflow-utils';
 
+import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { AutomationSmsSenderField } from './AutomationSmsSenderField';
+import { AutomationScheduleFields } from './AutomationScheduleFields';
+import { isTimedShootReminder, scheduleFromWorkflow, syncReminderDayConditions, syncLegacyReminderCondition } from './automationSchedule';
 import type { AutomationEditorDialogProps, AutomationRecipientRole } from './automationEditorModel';
 import {
   actionOptions,
@@ -66,11 +69,13 @@ const presenceValues = ['self', 'other', 'lockbox'];
 
 export function AutomationEditorDialog({ automation, mode, open, onClose, onSuccess }: AutomationEditorDialogProps) {
   const [draft, setDraft] = useState<SimpleAutomationDraft>(createDefaultDraft());
+  const [editingTemplate, setEditingTemplate] = useState(false);
+  const queryClient = useQueryClient();
   const isEditMode = mode === 'edit';
   const canExtractSimpleDraft = useMemo(() => Boolean(extractSimpleAutomationDraft(automation)), [automation]);
   const isScheduleWorkflow = draft.trigger_mode === 'schedule';
   const isSystemCommandWorkflow = draft.action_type === 'system_command';
-  const lockStructure = Boolean(automation?.is_system_locked);
+  const lockStructure = false;
   const willSimplifyAdvancedWorkflow = isEditMode && Boolean(automation) && !canExtractSimpleDraft;
 
   useEffect(() => {
@@ -198,6 +203,11 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
   };
 
   const handleSave = () => {
+    if (willSimplifyAdvancedWorkflow) {
+      toast.error('Open the workflow editor to preserve all steps and conditions.');
+      return;
+    }
+
     if (!draft.name.trim()) {
       toast.error('Add an automation name');
       return;
@@ -249,8 +259,10 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
       return;
     }
 
-    const workflow = buildSimpleWorkflowFromDraft(draft);
-    const scheduleOffset = draft.timing_mode === 'offset' ? formatLegacyOffset(draft) : null;
+    let workflow = buildSimpleWorkflowFromDraft(draft);
+    if (isEditMode) {
+      workflow = { ...workflow, meta: { ...automation?.workflow_definition_json?.meta, ...workflow.meta } };
+    }
     const selectedRoles: AutomationRecipientRole[] =
       draft.recipient_mode === 'roles'
         ? draft.recipient_roles.filter(isAutomationRecipientRole)
@@ -258,17 +270,10 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
           ? [draft.context_key]
           : draft.recipient_roles.filter(isAutomationRecipientRole);
 
-    const scheduleJson =
-      draft.trigger_mode === 'schedule'
-        ? {
-            type: 'weekly',
-            day_of_week: Number(draft.schedule_day_of_week || 1),
-            time: draft.schedule_time || '01:00',
-            ...(draft.system_command ? { command: draft.system_command } : {}),
-          }
-        : scheduleOffset
-          ? { offset: scheduleOffset }
-          : null;
+    const scheduleJson = scheduleFromWorkflow(workflow, draft.schedule_json);
+    workflow = syncReminderDayConditions(workflow, draft.trigger_type, scheduleJson);
+    const triggerNode = workflow.nodes[0];
+    triggerNode.config = { ...triggerNode.config, schedule: scheduleJson ? { ...scheduleJson } : null };
 
     const payload: Partial<AutomationRule> = {
       name: draft.name.trim(),
@@ -277,7 +282,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
       editor_mode: 'simple',
       engine_version: 2,
       is_active: draft.is_active,
-      scope: draft.trigger_mode === 'schedule' && automation?.scope === 'SYSTEM' ? 'SYSTEM' : draft.scope,
+      scope: isEditMode && automation?.scope === 'SYSTEM' ? 'SYSTEM' : draft.scope,
       template_id:
         draft.action_type === 'internal_notification' || draft.action_type === 'system_command' || !draft.template_id
           ? null
@@ -287,33 +292,23 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
           ? null
           : Number(draft.channel_id),
       recipients_json: selectedRoles,
-      condition_json: buildSimpleConditionJson(draft) ?? null,
+      condition_json: syncLegacyReminderCondition(buildSimpleConditionJson(draft), draft.trigger_type, scheduleJson),
       schedule_json: scheduleJson,
       workflow_definition_json: workflow,
       entry_trigger_json: {
         trigger_type: draft.trigger_type,
         node_id: 'trigger_start',
         node_type: draft.trigger_mode === 'schedule' ? 'trigger.schedule' : 'trigger.event',
-        config:
-          draft.trigger_mode === 'schedule'
-            ? {
-                triggerType: draft.trigger_type,
-                schedule: {
-                  type: 'weekly',
-                  day_of_week: Number(draft.schedule_day_of_week || 1),
-                  time: draft.schedule_time || '01:00',
-                },
-                ...(draft.system_command ? { command: draft.system_command } : {}),
-              }
-            : { triggerType: draft.trigger_type },
+        config: triggerNode.config,
       },
-      is_system_locked: automation?.is_system_locked ?? false,
+      is_system_locked: false,
     };
 
     saveMutation.mutate(payload);
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent className="flex max-h-[min(92vh,860px)] w-[min(96vw,760px)] max-w-3xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-5">
@@ -327,7 +322,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
           {willSimplifyAdvancedWorkflow && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              This automation was built in the workflow editor. Saving here replaces that path with this one-message version.
+              This automation has multiple steps or conditions. Open the workflow editor to keep and edit the complete workflow.
             </div>
           )}
 
@@ -455,6 +450,11 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
             </div>
           )}
 
+          {!isScheduleWorkflow && (
+            <AutomationScheduleFields trigger={draft.trigger_type} value={draft.schedule_json}
+              onChange={(schedule) => setDraft((current) => ({ ...current, schedule_json: { ...current.schedule_json, ...schedule } }))} />
+          )}
+
           {isSystemCommandWorkflow && (
             <div className="rounded-2xl border bg-muted/30 px-4 py-3 text-sm">
               <div className="font-medium">System command</div>
@@ -528,6 +528,10 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
             </div>
           )}
 
+          {draft.action_type === 'sms' && (
+            <AutomationSmsSenderField value={draft.sms_number_id} onChange={(value) => setDraft((current) => ({ ...current, sms_number_id: value }))} />
+          )}
+
           {draft.action_type !== 'internal_notification' && draft.action_type !== 'system_command' && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="min-w-0">
@@ -553,7 +557,13 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedTemplate && <p className="mt-2 text-xs text-muted-foreground">Using {selectedTemplate.name}</p>}
+                {selectedTemplate && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Using {selectedTemplate.name}</p>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setEditingTemplate(true)}>Edit message template</Button>
+                    <p className="text-xs text-muted-foreground">Template edits apply wherever this template is used.</p>
+                  </div>
+                )}
               </div>
               {draft.action_type === 'email' && (
                 <div className="min-w-0">
@@ -702,7 +712,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
             </div>
           </div>
 
-          {!isScheduleWorkflow && (
+          {!isScheduleWorkflow && !isTimedShootReminder(draft.trigger_type) && (
             <div className="space-y-3">
               <Label>Wait</Label>
               <div className="flex flex-wrap gap-2">
@@ -800,7 +810,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                         condition_field: value === 'custom'
                           ? (conditionFieldPresets.some(([preset]) => preset === current.condition_field) ? '' : current.condition_field)
                           : value,
-                        condition_value: choices && current.condition_operator !== 'exists' && !choices.includes(current.condition_value)
+                        condition_value: choices && !['exists', 'in'].includes(current.condition_operator) && !choices.includes(current.condition_value)
                           ? choices[0]
                           : current.condition_value,
                       };
@@ -847,7 +857,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                   />
                 )}
                 {draft.condition_operator !== 'exists' && (
-                  conditionChoices ? (
+                  conditionChoices && draft.condition_operator !== 'in' ? (
                     <Select
                       value={conditionChoices.includes(draft.condition_value) ? draft.condition_value : conditionChoices[0]}
                       onValueChange={(value) => setDraft((current) => ({ ...current, condition_value: value }))}
@@ -907,7 +917,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saveMutation.isPending}>
+            <Button onClick={handleSave} disabled={saveMutation.isPending || willSimplifyAdvancedWorkflow}>
               {saveMutation.isPending
                 ? 'Saving...'
                 : isEditMode
@@ -920,5 +930,16 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
         </div>
       </DialogContent>
     </Dialog>
+    {editingTemplate && selectedTemplate && (
+      <TemplateEditorDialog template={selectedTemplate} open onClose={() => setEditingTemplate(false)}
+        onSuccess={() => {
+          setEditingTemplate(false);
+          void queryClient.invalidateQueries({ queryKey: ['automation-simple-templates'] });
+          void queryClient.invalidateQueries({ queryKey: ['templates'] });
+          void queryClient.invalidateQueries({ queryKey: ['automation-templates'] });
+          void queryClient.invalidateQueries({ queryKey: ['automations'] });
+        }} />
+    )}
+    </>
   );
 }

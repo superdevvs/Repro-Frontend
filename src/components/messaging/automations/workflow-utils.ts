@@ -1,6 +1,7 @@
 import type {
   AutomationRecipientRole,
   AutomationRule,
+  AutomationScheduleJson,
   AutomationTriggerType,
   MessagingJsonObject,
   WorkflowDefinition,
@@ -8,6 +9,7 @@ import type {
   WorkflowNode,
   WorkflowNodeType,
 } from '@/types/messaging';
+import { isTimedShootReminder, storedReminderSchedule } from './automationSchedule';
 import { Mail, MessageSquare, Bell, Diamond, Clock3, Split, Flag, Timer, type LucideIcon } from 'lucide-react';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { AutomationFlowNodeData } from '@/components/messaging/automations/automationWorkflowTypes';
@@ -40,7 +42,7 @@ const configNum = (config: MessagingJsonObject | undefined, key: string, fallbac
 const configRoleArray = (config: MessagingJsonObject | undefined, key: string): AutomationRecipientRole[] => {
   const values = configArr(config, key);
   return values?.filter((value): value is AutomationRecipientRole =>
-    value === 'client' || value === 'photographer' || value === 'admin' || value === 'rep',
+    value === 'account' || value === 'client' || value === 'photographer' || value === 'previous_photographer' || value === 'new_photographer' || value === 'admin' || value === 'rep',
   ) ?? [];
 };
 
@@ -52,16 +54,19 @@ export const triggerLabels: Record<string, string> = {
   SHOOT_REQUESTED: 'Shoot Requested',
   SHOOT_REQUEST_APPROVED: 'Shoot Request Approved',
   SHOOT_REQUEST_MODIFIED: 'Shoot Request Modified',
+  SHOOT_REQUEST_DECLINED: 'Shoot Request Declined',
   SHOOT_BOOKED: 'Shoot Booked',
   SHOOT_SCHEDULED: 'Shoot Scheduled',
   SHOOT_UPDATED: 'Shoot Updated',
   SHOOT_REMINDER: 'Shoot Reminder',
+  PHOTOGRAPHER_SHOOT_REMINDER: 'Photographer Shoot Reminder',
   SHOOT_COMPLETED: 'Shoot Completed',
   SHOOT_CANCELED: 'Shoot Canceled',
   SHOOT_REMOVED: 'Shoot Removed',
   PAYMENT_COMPLETED: 'Payment Completed',
   PAYMENT_FAILED: 'Payment Failed',
   PAYMENT_REFUNDED: 'Payment Refunded',
+  SHOOT_PAYMENT_REMINDER: 'Shoot Payment Reminder',
   INVOICE_DUE: 'Invoice Due',
   INVOICE_OVERDUE: 'Invoice Overdue',
   INVOICE_SUMMARY: 'Invoice Summary',
@@ -85,11 +90,11 @@ export const triggerGroups = [
   },
   {
     label: 'Shoot Lifecycle',
-    triggers: ['SHOOT_REQUESTED', 'SHOOT_REQUEST_APPROVED', 'SHOOT_REQUEST_MODIFIED', 'SHOOT_BOOKED', 'SHOOT_SCHEDULED', 'SHOOT_UPDATED', 'SHOOT_REMINDER', 'SHOOT_COMPLETED', 'SHOOT_CANCELED', 'SHOOT_REMOVED'],
+    triggers: ['SHOOT_REQUESTED', 'SHOOT_REQUEST_APPROVED', 'SHOOT_REQUEST_MODIFIED', 'SHOOT_REQUEST_DECLINED', 'SHOOT_BOOKED', 'SHOOT_SCHEDULED', 'SHOOT_UPDATED', 'SHOOT_REMINDER', 'PHOTOGRAPHER_SHOOT_REMINDER', 'SHOOT_COMPLETED', 'SHOOT_CANCELED', 'SHOOT_REMOVED'],
   },
   {
     label: 'Payments & Invoices',
-    triggers: ['PAYMENT_COMPLETED', 'PAYMENT_FAILED', 'PAYMENT_REFUNDED', 'INVOICE_DUE', 'INVOICE_OVERDUE', 'INVOICE_SUMMARY', 'INVOICE_PAID', 'WEEKLY_PHOTOGRAPHER_INVOICE', 'WEEKLY_REP_INVOICE'],
+    triggers: ['PAYMENT_COMPLETED', 'PAYMENT_FAILED', 'PAYMENT_REFUNDED', 'SHOOT_PAYMENT_REMINDER', 'INVOICE_DUE', 'INVOICE_OVERDUE', 'INVOICE_SUMMARY', 'INVOICE_PAID', 'WEEKLY_PHOTOGRAPHER_INVOICE', 'WEEKLY_REP_INVOICE'],
   },
   {
     label: 'System',
@@ -118,7 +123,7 @@ export interface SimpleAutomationDraft {
   is_active: boolean;
   recipient_mode: SimpleRecipientMode;
   recipient_roles: AutomationRecipientRole[];
-  context_key: 'client' | 'photographer' | 'rep';
+  context_key: 'account' | 'client' | 'photographer' | 'rep';
   template_id: string;
   channel_id: string;
   subject: string;
@@ -138,6 +143,8 @@ export interface SimpleAutomationDraft {
   schedule_day_of_week: string;
   schedule_time: string;
   system_command: string;
+  schedule_json?: AutomationScheduleJson;
+  sms_number_id?: number | null;
 }
 
 export const shootBasedTriggers = new Set<AutomationTriggerType>([
@@ -148,6 +155,7 @@ export const shootBasedTriggers = new Set<AutomationTriggerType>([
   'SHOOT_SCHEDULED',
   'SHOOT_UPDATED',
   'SHOOT_REMINDER',
+  'PHOTOGRAPHER_SHOOT_REMINDER',
   'SHOOT_COMPLETED',
   'PHOTOGRAPHER_ASSIGNED',
   'PHOTOGRAPHER_CHANGED',
@@ -192,10 +200,22 @@ const getOutgoingEdges = (workflow: WorkflowDefinition, sourceId: string) =>
 const getNodeById = (workflow: WorkflowDefinition, nodeId?: string | null) =>
   workflow.nodes.find((node) => node.id === nodeId);
 
+const simpleConditionValue = (draft: SimpleAutomationDraft) => {
+  const value = draft.condition_value.trim();
+  if (draft.condition_operator === 'in') {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* Plain comma-separated choices are also supported. */ }
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return value === 'true' ? true : value === 'false' ? false : value;
+};
+
 const createConditionRule = (draft: SimpleAutomationDraft) => ({
   field: draft.condition_field.trim(),
   operator: draft.condition_operator,
-  value: draft.condition_value.trim(),
+  value: simpleConditionValue(draft),
 });
 
 export const formatLegacyOffset = (draft: Pick<SimpleAutomationDraft, 'offset_direction' | 'offset_value' | 'offset_unit'>) => {
@@ -248,7 +268,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
             },
             command: draft.system_command || undefined,
           }
-        : { triggerType: draft.trigger_type },
+        : { triggerType: draft.trigger_type, schedule: { ...draft.schedule_json, ...(isTimedShootReminder(draft.trigger_type) ? { offset: draft.schedule_json?.offset ?? formatLegacyOffset(draft) ?? '-24h' } : {}) } },
   };
   nodes.push(triggerNode);
 
@@ -278,7 +298,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
     nextX += 260;
   }
 
-  if (draft.timing_mode === 'offset') {
+  if (draft.timing_mode === 'offset' && !isTimedShootReminder(draft.trigger_type)) {
     const amount = Number.parseInt(draft.offset_value, 10);
     const waitNode: WorkflowNode = {
       id: 'wait_offset',
@@ -321,6 +341,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
         }
       : draft.action_type === 'sms'
         ? {
+            smsNumberId: draft.sms_number_id ?? null,
             templateId: draft.template_id ? Number(draft.template_id) : undefined,
             recipientMode: draft.recipient_mode,
             recipientRoles: draft.recipient_roles,
@@ -425,6 +446,7 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
           schedule_day_of_week: String(automation.schedule_json?.day_of_week ?? 1),
           schedule_time: automation.schedule_json?.time ?? '01:00',
           system_command: automation.schedule_json?.command ?? '',
+          schedule_json: storedReminderSchedule(automation),
         }
       : null;
   }
@@ -440,6 +462,13 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
   if (
     triggerNodes.length !== 1 ||
     conditionNodes.length > 1 ||
+    conditionNodes.some((node) => (configArr(node.config, 'rules')?.length ?? 0) > 1 || (configArr(node.config, 'rules') ?? []).some((rule) => {
+      if (!rule || typeof rule !== 'object') return true;
+      const condition = rule as { value?: unknown; operator?: string };
+      return typeof condition.value === 'object' && !(condition.operator === 'in' && Array.isArray(condition.value));
+    })) ||
+    waitNodes.some((node) => node.type === 'wait.duration' || configStr(node.config, 'referenceField', 'shoot_datetime') !== 'shoot_datetime') ||
+    actionNodes.some((node) => Boolean(node.config.bodyHtml) || (Boolean(node.config.templateId) && Boolean(node.config.subject || node.config.bodyText || node.config.body)) || (node.config.recipientMode === 'context' && !['account', 'client', 'photographer', 'rep'].includes(String(node.config.contextKey)))) ||
     waitNodes.length > 1 ||
     actionNodes.length > 1 ||
     endNodes.length !== 1 ||
@@ -455,11 +484,11 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
 
   const actionNode = actionNodes[0];
   const actionType =
-    !actionNode
+    !actionNode && (configStr(triggerNode.config, 'command') || configStr(workflow.meta, 'system_command') || automation.schedule_json?.command)
       ? 'system_command'
-      : actionNode.type === 'action.sms'
+      : actionNode?.type === 'action.sms'
       ? 'sms'
-      : actionNode.type === 'action.internal_notification'
+      : actionNode?.type === 'action.internal_notification'
         ? 'internal_notification'
         : 'email';
 
@@ -473,6 +502,11 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
       return null;
     }
   }
+
+  const expectedPath = [triggerNode, conditionNode, waitNode, actionNode, endNodes[0]].filter((node): node is WorkflowNode => Boolean(node));
+  const expectedEdges = expectedPath.slice(0, -1).map((node, index) => ({ source: node.id, target: expectedPath[index + 1].id, branch: node === conditionNode ? 'true' : '' }));
+  if (conditionNode) expectedEdges.push({ source: conditionNode.id, target: endNodes[0].id, branch: 'false' });
+  if (workflow.edges.length !== expectedEdges.length || expectedEdges.some((expected) => !workflow.edges.some((edge) => edge.source === expected.source && edge.target === expected.target && (edge.branchKey || '') === expected.branch))) return null;
 
   const recipientMode = (actionNode?.config?.recipientMode as SimpleRecipientMode | undefined) ?? 'automation_default';
   const recipientRoles = configRoleArray(actionNode?.config, 'recipientRoles').length
@@ -492,9 +526,10 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     is_active: automation.is_active ?? true,
     recipient_mode: recipientMode,
     recipient_roles: recipientRoles,
-    context_key: (actionNode?.config?.contextKey || 'client') as 'client' | 'photographer' | 'rep',
-    template_id: actionNode?.config?.templateId ? String(actionNode.config.templateId) : automation.template_id ? String(automation.template_id) : '',
-    channel_id: actionNode?.config?.channelId ? String(actionNode.config.channelId) : automation.channel_id ? String(automation.channel_id) : '',
+    context_key: (actionNode?.config?.contextKey || 'client') as 'account' | 'client' | 'photographer' | 'rep',
+    template_id: actionNode ? (actionNode.config.templateId ? String(actionNode.config.templateId) : '') : automation.template_id ? String(automation.template_id) : '',
+    channel_id: actionNode ? (actionNode.config.channelId ? String(actionNode.config.channelId) : '') : automation.channel_id ? String(automation.channel_id) : '',
+    sms_number_id: actionNode?.config.smsNumberId ? Number(actionNode.config.smsNumberId) : null,
     subject: configStr(actionNode?.config, 'subject'),
     body_text: configStr(actionNode?.config, 'bodyText') || configStr(actionNode?.config, 'body'),
     title: configStr(actionNode?.config, 'title'),
@@ -508,10 +543,11 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     condition_match: (conditionNode?.config?.match as 'all' | 'any') ?? 'all',
     condition_field: conditionRule?.field ?? '',
     condition_operator: conditionRule?.operator ?? 'eq',
-    condition_value: conditionRule?.value != null ? String(conditionRule.value) : '',
+    condition_value: Array.isArray(conditionRule?.value) ? JSON.stringify(conditionRule.value) : conditionRule?.value != null ? String(conditionRule.value) : '',
     schedule_day_of_week: String(configObj(triggerNode.config, 'schedule')?.day_of_week ?? automation.schedule_json?.day_of_week ?? 1),
     schedule_time: configStr(configObj(triggerNode.config, 'schedule'), 'time') || automation.schedule_json?.time || '01:00',
     system_command: configStr(triggerNode.config, 'command') || configStr(workflow.meta, 'system_command') || automation.schedule_json?.command || '',
+    schedule_json: { ...storedReminderSchedule(automation), ...configObj(triggerNode.config, 'schedule') },
   };
 
   if (waitNode) {

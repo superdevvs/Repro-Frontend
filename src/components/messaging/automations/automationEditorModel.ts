@@ -1,6 +1,6 @@
 import { Bell, Clock3, Mail, MessageSquare } from 'lucide-react';
 
-import type { AutomationRule } from '@/types/messaging';
+import type { AutomationRule, AutomationRecipientRole } from '@/types/messaging';
 import {
   extractSimpleAutomationDraft,
   triggerLabels,
@@ -24,8 +24,11 @@ const actionOptions: Array<{ value: SimpleAutomationActionType; label: string; d
 ];
 
 const recipientRoleOptions: Array<{ value: AutomationRecipientRole; label: string }> = [
+  { value: 'account', label: 'New account' },
   { value: 'client', label: 'Client' },
   { value: 'photographer', label: 'Photographer' },
+  { value: 'previous_photographer', label: 'Previous photographer' },
+  { value: 'new_photographer', label: 'New photographer' },
   { value: 'admin', label: 'Admin team' },
   { value: 'rep', label: 'Sales rep' },
 ];
@@ -41,14 +44,14 @@ const weekdayOptions = [
 ];
 
 const contextRecipientOptions = [
+  { value: 'account', label: 'New account from trigger' },
   { value: 'client', label: 'Client from trigger' },
   { value: 'photographer', label: 'Photographer from trigger' },
   { value: 'rep', label: 'Rep from trigger' },
 ] as const;
 
-type AutomationRecipientRole = 'client' | 'photographer' | 'admin' | 'rep';
 
-const automationRecipientRoles: AutomationRecipientRole[] = ['client', 'photographer', 'admin', 'rep'];
+const automationRecipientRoles: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep'];
 
 const isAutomationRecipientRole = (value: string): value is AutomationRecipientRole => {
   return automationRecipientRoles.includes(value as AutomationRecipientRole);

@@ -1,3 +1,5 @@
+import { scheduleFromWorkflow, syncReminderDayConditions, syncLegacyReminderCondition } from '@/components/messaging/automations/automationSchedule';
+import { whenSummary } from '@/pages/messaging/automationMoments';
 import type { AxiosError } from 'axios';
 import type {
   AutomationRecipientRole,
@@ -44,13 +46,17 @@ export const ruleOperatorOptions: Array<{ value: AutomationConditionOperator; la
 ];
 
 export const recipientRoleOptions: Array<{ value: AutomationRecipientRole; label: string }> = [
+  { value: 'account', label: 'New account' },
   { value: 'client', label: 'Client' },
   { value: 'photographer', label: 'Photographer' },
+  { value: 'previous_photographer', label: 'Previous photographer' },
+  { value: 'new_photographer', label: 'New photographer' },
   { value: 'admin', label: 'Admin team' },
   { value: 'rep', label: 'Sales rep' },
 ];
 
 export const contextRecipientOptions: Array<{ value: AutomationContextKey; label: string }> = [
+  { value: 'account', label: 'New account from trigger context' },
   { value: 'client', label: 'Client from trigger context' },
   { value: 'photographer', label: 'Photographer from trigger context' },
   { value: 'rep', label: 'Rep from trigger context' },
@@ -149,7 +155,7 @@ export const asRoleArray = (value: MessagingJsonValue | undefined | null): Autom
   }
 
   return value.filter((item): item is AutomationRecipientRole =>
-    item === 'client' || item === 'photographer' || item === 'admin' || item === 'rep',
+    item === 'account' || item === 'client' || item === 'photographer' || item === 'previous_photographer' || item === 'new_photographer' || item === 'admin' || item === 'rep',
   );
 };
 
@@ -183,21 +189,8 @@ export const getScheduleConfig = (
   };
 };
 
-export const summarizeSchedule = (workflow: WorkflowDefinition, automation?: AutomationRule | null) => {
-  const triggerNode = getTriggerNode(workflow);
-
-  if (triggerNode?.type === 'trigger.schedule') {
-    const schedule = getScheduleConfig(asJsonObject(triggerNode.config?.schedule));
-    const dayOfWeek = weekdayOptions.find((option) => option.value === String(schedule.day_of_week))?.label ?? 'Monday';
-    return `${schedule.type || 'weekly'} on ${dayOfWeek} at ${schedule.time || '01:00'}`;
-  }
-
-  if (automation?.schedule_json?.offset) {
-    return `Offset ${automation.schedule_json.offset}`;
-  }
-
-  return 'Event-driven';
-};
+export const summarizeSchedule = (workflow: WorkflowDefinition, automation?: AutomationRule | null) =>
+  whenSummary({ ...automation, trigger_type: getTriggerTypeForWorkflow(workflow, automation), workflow_definition_json: workflow } as AutomationRule);
 
 export const createMetaFromAutomation = (automation?: AutomationRule | null): AutomationEditorMeta => ({
   name: automation?.name ?? '',
@@ -205,7 +198,7 @@ export const createMetaFromAutomation = (automation?: AutomationRule | null): Au
   scope: automation?.scope ?? 'GLOBAL',
   is_active: automation?.is_active ?? true,
   editor_mode: (automation?.editor_mode as 'visual' | 'simple') ?? 'visual',
-  is_system_locked: Boolean(automation?.is_system_locked),
+  is_system_locked: false,
 });
 
 export const getWorkflowVariables = (triggerType?: string) => variableHints[triggerType || ''] ?? variableHints.default;
@@ -225,14 +218,13 @@ export const getConditionRules = (node?: WorkflowNode | null): AutomationConditi
     return {
       field: asString(ruleObject.field),
       operator: (asString(ruleObject.operator, 'eq') as AutomationConditionOperator) ?? 'eq',
-      value:
-        typeof ruleObject.value === 'number' || typeof ruleObject.value === 'string'
-          ? ruleObject.value
-          : ruleObject.value == null
-            ? null
-            : asString(ruleObject.value),
+      value: ruleObject.value ?? null,
     };
   });
+};
+
+export const parseConditionValue = (value: string): MessagingJsonValue => {
+  try { return JSON.parse(value) as MessagingJsonValue; } catch { return value; }
 };
 
 export const getConditionMatch = (node?: WorkflowNode | null): AutomationConditionMatch => {
@@ -258,7 +250,7 @@ export const getRecipientRoles = (node?: WorkflowNode | null, automation?: Autom
 
 export const getContextKey = (node?: WorkflowNode | null): AutomationContextKey => {
   const key = asString(node?.config?.contextKey, 'client');
-  return key === 'photographer' || key === 'rep' ? key : 'client';
+  return key === 'account' || key === 'photographer' || key === 'rep' ? key : 'client';
 };
 
 export const getWaitAmount = (node: WorkflowNode | null | undefined, fallback: number): number => asNumber(node?.config?.amount, fallback);
@@ -279,17 +271,14 @@ export const deriveWorkflowPayload = (
 ) => {
   const triggerNode = getTriggerNode(workflow);
   const primaryActionNode = getPrimaryActionNode(workflow);
-  const firstConditionNode = workflow.nodes.find((node) => node.type === 'condition.if');
   const derivedTriggerType = getTriggerTypeForWorkflow(workflow, automation);
   const recipientRoles = getRecipientRoles(primaryActionNode, automation);
 
-  const scheduleJson =
-    triggerNode?.type === 'trigger.schedule'
-      ? {
-          ...getScheduleConfig(asJsonObject(triggerNode.config?.schedule)),
-          ...(asString(workflow.meta?.system_command) ? { command: asString(workflow.meta?.system_command) } : {}),
-        }
-      : automation?.schedule_json ?? null;
+  const scheduleJson = scheduleFromWorkflow(workflow, automation?.schedule_json);
+  const syncedWorkflow = syncReminderDayConditions(workflow, derivedTriggerType, scheduleJson);
+  const syncedCondition = syncedWorkflow.nodes.find((node) => node.type === 'condition.if');
+  const triggerConfig: MessagingJsonObject = { ...triggerNode?.config, schedule: scheduleJson ? { ...scheduleJson } : null };
+
 
   return {
     name: meta.name,
@@ -299,19 +288,19 @@ export const deriveWorkflowPayload = (
     engine_version: 2,
     is_active: meta.is_active,
     scope: meta.scope,
-    template_id: primaryActionNode?.config?.templateId ? Number(primaryActionNode.config.templateId) : automation?.template_id ?? null,
-    channel_id: primaryActionNode?.config?.channelId ? Number(primaryActionNode.config.channelId) : automation?.channel_id ?? null,
+    template_id: primaryActionNode?.config?.templateId ? Number(primaryActionNode.config.templateId) : null,
+    channel_id: primaryActionNode?.config?.channelId ? Number(primaryActionNode.config.channelId) : null,
     recipients_json: recipientRoles,
-    condition_json: firstConditionNode?.config ?? automation?.condition_json ?? null,
+    condition_json: syncLegacyReminderCondition(syncedCondition?.config ?? null, derivedTriggerType, scheduleJson),
     schedule_json: scheduleJson,
-    workflow_definition_json: workflow,
+    workflow_definition_json: { ...syncedWorkflow, nodes: syncedWorkflow.nodes.map((node) => node.id === triggerNode?.id ? { ...node, config: triggerConfig } : node) },
     entry_trigger_json: {
       trigger_type: derivedTriggerType,
       node_id: triggerNode?.id ?? null,
       node_type: triggerNode?.type ?? null,
-      config: triggerNode?.config ?? {},
+      config: triggerConfig,
     },
-    is_system_locked: meta.is_system_locked,
+    is_system_locked: false,
   };
 };
 

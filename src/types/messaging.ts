@@ -23,16 +23,19 @@ export type AutomationTriggerType =
   | 'SHOOT_REQUESTED'
   | 'SHOOT_REQUEST_APPROVED'
   | 'SHOOT_REQUEST_MODIFIED'
+  | 'SHOOT_REQUEST_DECLINED'
   | 'SHOOT_BOOKED'
   | 'SHOOT_SCHEDULED'
   | 'SHOOT_UPDATED'
   | 'SHOOT_REMINDER'
+  | 'PHOTOGRAPHER_SHOOT_REMINDER'
   | 'SHOOT_COMPLETED'
   | 'SHOOT_CANCELED'
   | 'SHOOT_REMOVED'
   | 'PAYMENT_COMPLETED'
   | 'PAYMENT_FAILED'
   | 'PAYMENT_REFUNDED'
+  | 'SHOOT_PAYMENT_REMINDER'
   | 'INVOICE_DUE'
   | 'INVOICE_OVERDUE'
   | 'INVOICE_SUMMARY'
@@ -48,7 +51,7 @@ export type AutomationTriggerType =
   | 'EDITING_COMPLETE'
   | 'PROPERTY_CONTACT_REMINDER';
 
-export type AutomationRecipientRole = 'client' | 'photographer' | 'admin' | 'rep';
+export type AutomationRecipientRole = 'account' | 'client' | 'photographer' | 'previous_photographer' | 'new_photographer' | 'admin' | 'rep';
 
 export interface AutomationScheduleJson {
   type?: string;
@@ -56,6 +59,11 @@ export interface AutomationScheduleJson {
   time?: string;
   offset?: string;
   cron?: string;
+  days_before?: number;
+  overdue_days?: number[];
+  repeat_every_days?: number;
+  reminder_days?: number[];
+  monthly_day_of_week?: number;
   command?: string;
 }
 

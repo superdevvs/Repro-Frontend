@@ -88,7 +88,7 @@ export function AutomationWorkflowSidebar({
           ) : (
             availableVariables.map((variable) => (
               <Badge key={variable} variant="secondary">
-                {`{{${variable}}}`}
+                {variable}
               </Badge>
             ))
           )}

@@ -1,3 +1,4 @@
+import { scheduleFromWorkflow, storedReminderSchedule } from '@/components/messaging/automations/automationSchedule';
 import type { AutomationRule, AutomationTriggerType } from '@/types/messaging';
 
 export type AutomationMomentId = 'Account' | 'Booking' | 'On site' | 'Delivery' | 'Money';
@@ -19,6 +20,7 @@ export const automationMoments: Array<{
       'SHOOT_REQUESTED',
       'SHOOT_REQUEST_APPROVED',
       'SHOOT_REQUEST_MODIFIED',
+      'SHOOT_REQUEST_DECLINED',
       'SHOOT_BOOKED',
       'SHOOT_SCHEDULED',
       'SHOOT_UPDATED',
@@ -29,7 +31,7 @@ export const automationMoments: Array<{
   {
     id: 'On site',
     intro: 'Reminders for the people at the property.',
-    triggers: ['SHOOT_REMINDER', 'PHOTOGRAPHER_ASSIGNED', 'PHOTOGRAPHER_CHANGED', 'PROPERTY_CONTACT_REMINDER'],
+    triggers: ['SHOOT_REMINDER', 'PHOTOGRAPHER_SHOOT_REMINDER', 'PHOTOGRAPHER_ASSIGNED', 'PHOTOGRAPHER_CHANGED', 'PROPERTY_CONTACT_REMINDER'],
   },
   {
     id: 'Delivery',
@@ -43,6 +45,7 @@ export const automationMoments: Array<{
       'PAYMENT_COMPLETED',
       'PAYMENT_FAILED',
       'PAYMENT_REFUNDED',
+      'SHOOT_PAYMENT_REMINDER',
       'INVOICE_DUE',
       'INVOICE_OVERDUE',
       'INVOICE_SUMMARY',
@@ -60,14 +63,18 @@ export const momentForTrigger = (trigger: string): AutomationMomentId =>
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const recipientLabel = (role: string) => role === 'account' ? 'New account' : role.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
 export const recipientSummary = (automation: AutomationRule) => {
   const raw = automation.recipients_json;
-  const roles = Array.isArray(raw) ? raw : raw?.roles ?? [];
-  if (roles.length === 0) {
-    return 'Default';
-  }
-
-  return roles.map((role) => role.charAt(0).toUpperCase() + role.slice(1)).join(', ');
+  const defaults = Array.isArray(raw) ? raw : raw?.roles ?? [];
+  const actions = automation.workflow_definition_json?.nodes.filter((node) => node.type.startsWith('action.'));
+  const roles = actions?.length ? actions.flatMap((node) => {
+    if (node.config.recipientMode === 'context') return typeof node.config.contextKey === 'string' ? [node.config.contextKey] : [];
+    if (node.config.recipientMode === 'roles') return Array.isArray(node.config.recipientRoles) ? node.config.recipientRoles.filter((role): role is string => typeof role === 'string') : [];
+    return defaults;
+  }) : defaults;
+  return roles.length ? [...new Set(roles)].map(recipientLabel).join(', ') : 'Default';
 };
 
 const formatOffset = (offset: string) => {
@@ -83,7 +90,9 @@ const formatOffset = (offset: string) => {
 };
 
 export const whenSummary = (automation: AutomationRule) => {
-  const schedule = automation.schedule_json;
+  const schedule = automation.workflow_definition_json?.nodes.length
+    ? scheduleFromWorkflow(automation.workflow_definition_json, storedReminderSchedule(automation))
+    : storedReminderSchedule(automation);
   if (schedule?.offset) {
     return formatOffset(schedule.offset);
   }
@@ -93,5 +102,16 @@ export const whenSummary = (automation: AutomationRule) => {
     return `${day}s at ${schedule.time ?? '01:00'}`;
   }
 
+  if (automation.trigger_type === 'SHOOT_PAYMENT_REMINDER') {
+    return `Days ${(schedule?.reminder_days ?? [1, 3, 7, 14, 21, 28]).join(', ')} after photos ready; then last ${weekdays[schedule?.monthly_day_of_week ?? 0]} monthly at ${schedule?.time ?? '09:00'}`;
+  }
+  if (automation.trigger_type === 'INVOICE_OVERDUE') {
+    return `Days ${(schedule?.overdue_days ?? [1, 3, 7, 14, 30]).join(', ')}, then every ${schedule?.repeat_every_days ?? 30} days at ${schedule?.time ?? '09:30'}`;
+  }
+  if (automation.trigger_type === 'INVOICE_DUE' || automation.trigger_type === 'PROPERTY_CONTACT_REMINDER') {
+    const invoice = automation.trigger_type === 'INVOICE_DUE';
+    const day = schedule?.days_before ?? 0;
+    return `${day === 0 ? (invoice ? 'On due date' : 'On shoot day') : `${day} day${day === 1 ? '' : 's'} before ${invoice ? 'due date' : 'shoot'}`} at ${schedule?.time ?? (invoice ? '09:30' : '09:00')}`;
+  }
   return 'Right away';
 };

@@ -1,10 +1,10 @@
 import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
-import type { AutomationRecipientRole, AutomationTriggerType, MessagingJsonObject, WorkflowNode } from '@/types/messaging';
+import type { AutomationRecipientRole, AutomationTriggerType, MessagingJsonObject, MessagingJsonValue, WorkflowNode } from '@/types/messaging';
 
 export type { AutomationRecipientRole };
 export type AutomationRecipientMode = 'automation_default' | 'roles' | 'context';
-export type AutomationContextKey = 'client' | 'photographer' | 'rep';
+export type AutomationContextKey = 'account' | 'client' | 'photographer' | 'rep';
 export type AutomationConditionOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'exists' | 'in';
 export type AutomationConditionMatch = 'all' | 'any';
 export type AutomationWaitUnit = 'minutes' | 'hours' | 'days';
@@ -13,7 +13,7 @@ export type AutomationPriority = 'normal' | 'high' | 'urgent';
 export type AutomationConditionRule = MessagingJsonObject & {
   field: string;
   operator: AutomationConditionOperator;
-  value: string | number | null;
+  value: MessagingJsonValue;
 }
 
 export interface AutomationScheduleConfig {
@@ -38,6 +38,6 @@ export type AutomationFlowNodeData = Record<string, unknown> & {
 export type AutomationFlowNode = FlowNode<AutomationFlowNodeData, 'automationNode'>;
 export type AutomationFlowEdge = FlowEdge;
 
-export const AUTOMATION_RECIPIENT_ROLES: AutomationRecipientRole[] = ['client', 'photographer', 'admin', 'rep'];
-export const AUTOMATION_CONTEXT_KEYS: AutomationContextKey[] = ['client', 'photographer', 'rep'];
+export const AUTOMATION_RECIPIENT_ROLES: AutomationRecipientRole[] = ['account', 'client', 'photographer', 'previous_photographer', 'new_photographer', 'admin', 'rep'];
+export const AUTOMATION_CONTEXT_KEYS: AutomationContextKey[] = ['account', 'client', 'photographer', 'rep'];
 export const SCHEDULE_TRIGGER_TYPES: AutomationTriggerType[] = ['WEEKLY_AUTOMATED_INVOICING', 'WEEKLY_SALES_REPORT'];

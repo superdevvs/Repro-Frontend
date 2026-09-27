@@ -1,3 +1,9 @@
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { AutomationSmsSenderField } from '@/components/messaging/automations/AutomationSmsSenderField';
+import { AutomationScheduleFields } from '@/components/messaging/automations/AutomationScheduleFields';
+import { storedReminderSchedule } from '@/components/messaging/automations/automationSchedule';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Clock3 } from 'lucide-react';
 import { SCHEDULE_TRIGGER_TYPES, type AutomationRecipientRole } from '@/components/messaging/automations/automationWorkflowTypes';
@@ -18,6 +24,7 @@ import {
   formatDateTime,
   getConditionMatch,
   getConditionRules,
+  parseConditionValue,
   getContextKey,
   getInternalPriority,
   getRecipientMode,
@@ -51,7 +58,6 @@ export function AutomationWorkflowInspectorPanel({
   availableVariables,
   isReadOnlyMobile,
   isStructureLocked,
-  isSystemLocked,
   emailTemplates,
   smsTemplates,
   emailChannels,
@@ -59,6 +65,8 @@ export function AutomationWorkflowInspectorPanel({
   onDeleteSelectedNode,
   updateNode,
 }: AutomationWorkflowInspectorPanelProps) {
+  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const queryClient = useQueryClient();
   const conditionRules = getConditionRules(selectedRawNode);
   const recipientMode = getRecipientMode(selectedRawNode);
   const recipientRoles = getRecipientRoles(selectedRawNode, currentAutomation);
@@ -78,6 +86,13 @@ export function AutomationWorkflowInspectorPanel({
 
   return (
     <div className="space-y-4">
+      {editingTemplate && <TemplateEditorDialog template={editingTemplate} open onClose={() => setEditingTemplate(null)}
+        onSuccess={() => {
+          setEditingTemplate(null);
+          void queryClient.invalidateQueries({ queryKey: ['automation-templates'] });
+          void queryClient.invalidateQueries({ queryKey: ['automation-simple-templates'] });
+          void queryClient.invalidateQueries({ queryKey: ['templates'] });
+        }} />}
       <Card className="p-4">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -100,6 +115,12 @@ export function AutomationWorkflowInspectorPanel({
               <div className="mt-1 font-medium">{selectedRawNode.id}</div>
               <div className="text-sm text-muted-foreground">{getNodePresentation(selectedRawNode, currentAutomation ?? undefined).label}</div>
             </div>
+
+            {selectedRawNode.type.startsWith('action.') && Number(selectedRawNode.config.templateId) > 0 && (
+              <Button type="button" variant="outline" size="sm" onClick={() => {
+                setEditingTemplate([...emailTemplates, ...smsTemplates].find((template) => template.id === Number(selectedRawNode.config.templateId)) ?? null);
+              }}>Edit message template</Button>
+            )}
 
             {selectedRawNode.type === 'trigger.event' && (
               <div>
@@ -136,6 +157,13 @@ export function AutomationWorkflowInspectorPanel({
               </div>
             )}
 
+            {selectedRawNode.type === 'trigger.event' && (
+              <AutomationScheduleFields trigger={asString(selectedRawNode.config.triggerType)}
+                value={{ ...storedReminderSchedule(currentAutomation), ...asJsonObject(selectedRawNode.config.schedule) }}
+                disabled={isReadOnlyMobile}
+                onChange={(schedule) => updateNode(selectedRawNode.id, (node) => ({ ...node, config: { ...node.config, schedule: { ...asJsonObject(node.config.schedule), ...schedule } } }))} />
+            )}
+
             {selectedRawNode.type === 'trigger.schedule' && (
               <div className="space-y-4">
                 <div>
@@ -151,7 +179,7 @@ export function AutomationWorkflowInspectorPanel({
                         },
                       }))
                     }
-                    disabled={isReadOnlyMobile || isSystemLocked}
+                    disabled={isReadOnlyMobile}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -183,7 +211,7 @@ export function AutomationWorkflowInspectorPanel({
                           },
                         }))
                       }
-                      disabled={isReadOnlyMobile || isSystemLocked}
+                      disabled={isReadOnlyMobile}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -215,7 +243,7 @@ export function AutomationWorkflowInspectorPanel({
                           },
                         }))
                       }
-                      disabled={isReadOnlyMobile || isSystemLocked}
+                      disabled={isReadOnlyMobile}
                     />
                   </div>
                 </div>
@@ -303,10 +331,10 @@ export function AutomationWorkflowInspectorPanel({
                         <div>
                           <Label>Expected Value</Label>
                           <Input
-                            value={rule.value ?? ''}
+                            value={rule.value == null ? '' : typeof rule.value === 'object' ? JSON.stringify(rule.value) : String(rule.value)}
                             onChange={(event) => {
                               const nextRules = [...conditionRules];
-                              nextRules[index] = { ...nextRules[index], value: event.target.value };
+                              nextRules[index] = { ...nextRules[index], value: parseConditionValue(event.target.value) };
                               updateNode(selectedRawNode.id, (node) => ({
                                 ...node,
                                 config: {
@@ -699,6 +727,8 @@ export function AutomationWorkflowInspectorPanel({
 
                 {selectedRawNode.type === 'action.sms' && (
                   <>
+                    <AutomationSmsSenderField value={selectedRawNode.config.smsNumberId ? Number(selectedRawNode.config.smsNumberId) : null} disabled={isReadOnlyMobile}
+                      onChange={(value) => updateNode(selectedRawNode.id, (node) => ({ ...node, config: { ...node.config, smsNumberId: value } }))} />
                     <div>
                       <Label>SMS Template</Label>
                       <Select
