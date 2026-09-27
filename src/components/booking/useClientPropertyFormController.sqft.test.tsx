@@ -39,7 +39,10 @@ describe('booking square footage consistency', () => {
   it('uses a manual correction for the selected pricing tier and every saved sqft alias', async () => {
     const input = props();
     const { result } = renderHook(() => useClientPropertyFormController(input));
-    act(() => result.current.form.setValue('sqft', 1370, { shouldDirty: true }));
+    act(() => {
+      result.current.setPresenceOption('self');
+      result.current.form.setValue('sqft', 1370, { shouldDirty: true });
+    });
 
     await waitFor(() => expect(result.current.effectiveSqft).toBe(1370));
     expect(input.onSelectedServicesChange).toHaveBeenLastCalledWith([expect.objectContaining({ price: 310 })]);
@@ -72,6 +75,7 @@ describe('booking square footage consistency', () => {
     input.slide = 'property';
     const { result } = renderHook(() => useClientPropertyFormController(input));
 
+    act(() => result.current.setPresenceOption('self'));
     act(() => result.current.handleSubmit(result.current.form.getValues()));
 
     expect(input.onComplete).toHaveBeenCalled();
