@@ -391,6 +391,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
     ? (detailInvoice.items || []).filter((i) => i.type === 'expense')
     : [];
   const detailShootPay = detailInvoice ? getWeeklyInvoiceChargeTotal(detailInvoice) : 0;
+  const detailChargeCount = invoiceRole === 'photographer' && detailInvoice
+    ? getWeeklyInvoiceAggregateStats([detailInvoice]).totalShoots
+    : detailCharges.length;
   const detailExpensesTotal = detailExpenses.reduce(
     (sum, item) => sum + parseFloat(String(item.total_amount || 0)),
     0,
@@ -466,7 +469,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice detail">
             <div className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
-              {[[reviewCopy.totalLabel, formatCurrency(detailTotal)], [reviewCopy.chargeLabel, formatCurrency(detailShootPay)], [reviewCopy.expenseLabel, formatCurrency(detailExpensesTotal)], [reviewCopy.chargeCountLabel, detailCharges.length.toString()]].map(([label, value]) => <div key={label}><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold tabular-nums">{value}</p></div>)}
+              {[[reviewCopy.totalLabel, formatCurrency(detailTotal)], [reviewCopy.chargeLabel, formatCurrency(detailShootPay)], [reviewCopy.expenseLabel, formatCurrency(detailExpensesTotal)], [reviewCopy.chargeCountLabel, detailChargeCount.toString()]].map(([label, value]) => <div key={label}><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold tabular-nums">{value}</p></div>)}
             </div>
             <h4 className="text-xs font-semibold">Payout breakdown</h4>
             <div className="my-3 h-1.5 overflow-hidden rounded-full bg-emerald-500/20"><div className="h-full bg-primary" style={{ width: `${shootPayPct}%` }} /></div>

@@ -167,7 +167,11 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
   }, [isAdmin, loadDetail, loadSummary]);
 
   useEffect(() => {
-    if (!isAdmin || selectedEditorId == null) {
+    if (!isAdmin) return;
+    if (selectedEditorId == null) {
+      ++detailRequestRef.current;
+      setDetail(null);
+      setDetailLoading(false);
       return;
     }
 
@@ -327,7 +331,8 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
     }
   };
 
-  const detailPanel = <EditorAdminEarningsDetail detail={detail} loading={detailLoading || detail?.editor.id !== selectedEditorId} sending={sendLoading} resolveEffective={resolveEffective} onExport={handleExport} onSend={handleSendReport} onMarkPaid={() => setMarkPaidDialogOpen(true)} />;
+  const selectedDetail = detail?.editor.id === selectedEditorId ? detail : null;
+  const detailPanel = <EditorAdminEarningsDetail detail={selectedDetail} loading={selectedEditorId != null && detailLoading} sending={sendLoading} resolveEffective={resolveEffective} onExport={handleExport} onSend={handleSendReport} onMarkPaid={() => setMarkPaidDialogOpen(true)} />;
 
   const shootGroups = useMemo<EditorShootGroup[]>(() => {
     const map = new Map<number, EditorShootGroup>();
