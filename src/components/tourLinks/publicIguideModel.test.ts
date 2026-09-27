@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizePublicTourUrl,
+  preparePublicIguideEmbedUrl,
   resolvePublicEmbedSources,
   resolvePublicIguideSources,
   resolvePublicTourVariantFromPath,
@@ -57,6 +58,27 @@ describe('resolvePublicIguideSources', () => {
 
     expect(sources.inlineUrl).toBe('https://iguide.example.test/manual-tour');
     expect(sources.openUrl).toBe(sources.inlineUrl);
+  });
+});
+
+describe('preparePublicIguideEmbedUrl', () => {
+  it.each([
+    'https://youriguide.com/embed/sample/?autostart=1&noinitanimation=1',
+    'https://unbranded.youriguide.com/embed/sample/',
+    'https://iguidephotos.com/embed/sample/',
+    'https://unbranded.iguideradix.com/view-path/',
+  ])('starts %s on the property tour with the floor plan minimized', (input) => {
+    const url = new URL(preparePublicIguideEmbedUrl(input));
+    expect(url.searchParams.get('page')).toBe('tour');
+    expect(url.searchParams.get('minfp')).toBe('1');
+    expect(url.searchParams.get('autostart')).toBe('1');
+    expect(url.searchParams.has('noinitanimation')).toBe(false);
+    expect(url.searchParams.has('autoplay')).toBe(false);
+  });
+
+  it('leaves non-iGUIDE viewers unchanged', () => {
+    const input = 'https://matterport.example.test/show?autoplay=1';
+    expect(preparePublicIguideEmbedUrl(input)).toBe(input);
   });
 });
 

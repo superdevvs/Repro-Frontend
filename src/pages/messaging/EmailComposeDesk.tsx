@@ -49,7 +49,7 @@ export function EmailComposeDesk({ scheduleDialog, ...props }: EmailComposeViewP
               <div className="border-b border-border/70">
                 <div className="flex items-center gap-3 px-4 py-2">
                   <span className="w-14 text-sm text-muted-foreground">To</span>
-                  {renderRecipientField('to', 'To', '', true)}
+                  {renderRecipientField('to', 'To', '')}
                   <button type="button" className="h-11 shrink-0 text-sm text-muted-foreground" onClick={() => setShowCcBcc((open) => !open)}>
                     {showCcBcc ? 'Hide Cc / Bcc' : 'Add Cc / Bcc'}
                   </button>

@@ -22,6 +22,8 @@ import { useSmsRealtime } from '@/hooks/use-sms-realtime';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { toast } from '@/lib/sonner-toast';
+import { getComposeErrorMessage } from '@/pages/messaging/emailComposeModel';
+import type { SmsComposePayload } from '@/components/messaging/sms/SmsComposeDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'react-router-dom';
 
@@ -180,19 +182,31 @@ export default function SmsCenter() {
   });
 
   const composeMutation = useMutation({
-    mutationFn: (payload: { to: string; bodyText: string }) =>
+    mutationFn: (payload: SmsComposePayload) =>
       sendSms({
         to: payload.to,
+        recipients: payload.recipients,
+        group_ids: payload.group_ids,
         body_text: payload.bodyText,
       }),
-    onSuccess: ({ thread }) => {
+    onSuccess: (result) => {
       setComposeOpen(false);
-      openThread(thread.id);
+      const sent = result.sent ?? 1;
+      if (sent > 1) {
+        toast.success(`Sent to ${sent} people`);
+      } else {
+        toast.success('Message sent');
+      }
+      if (result.failed) {
+        toast.warning(`${result.failed} ${result.failed === 1 ? 'person was' : 'people were'} not sent`);
+      }
       queryClient.invalidateQueries({ queryKey: threadsKey });
-      queryClient.invalidateQueries({ queryKey: ['sms-thread', thread.id] });
-      toast.success('Message sent');
+      if (result.thread?.id) {
+        openThread(result.thread.id);
+        queryClient.invalidateQueries({ queryKey: ['sms-thread', result.thread.id] });
+      }
     },
-    onError: () => toast.error('Unable to send message'),
+    onError: (error) => toast.error(getComposeErrorMessage(error, 'Unable to send message')),
   });
 
   const resumeAiMutation = useMutation({

@@ -71,7 +71,7 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
             <div className="border-b border-border/70">
               <div className="grid grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-x-2 px-4 py-2">
                 <span className="text-sm text-muted-foreground">To</span>
-                {renderRecipientField('to', 'To', '', true)}
+                {renderRecipientField('to', 'To', '')}
                 <span />
                 <button type="button" className="h-11 justify-self-end text-sm font-medium text-primary" onClick={() => setShowCcBcc((open) => !open)}>
                   {showCcBcc ? 'Hide Cc / Bcc' : 'Add Cc / Bcc'}

@@ -77,12 +77,28 @@ describe('Public3dTourViewer', () => {
     expect(screen.queryByRole('link', { name: /open in new tab/i })).not.toBeInTheDocument();
   });
 
-  it('keeps the shared media surface mobile-safe', () => {
+  it('opens an iGUIDE embed on the property tour instead of the floor plan', () => {
+    render(
+      <Public3dTourViewer
+        autoplay
+        iguideInlineUrl="https://youriguide.com/embed/sample/?autostart=1&noinitanimation=1&autoplay=1"
+      />,
+    );
+
+    const src = new URL(screen.getByTitle('iGUIDE 3D tour').getAttribute('src') ?? '');
+    expect(src.searchParams.get('page')).toBe('tour');
+    expect(src.searchParams.get('minfp')).toBe('1');
+    expect(src.searchParams.has('noinitanimation')).toBe(false);
+    expect(src.searchParams.has('autoplay')).toBe(false);
+  });
+
+  it('keeps the shared media surface a responsive 16:9 embed', () => {
     const { container } = render(
       <Public3dTourViewer matterportUrl="https://matterport.example.test/show" />,
     );
 
     const surface = container.querySelector('section > div.relative');
-    expect(surface).toHaveClass('min-h-[300px]', 'sm:aspect-video', 'sm:min-h-[360px]');
+    expect(surface).toHaveClass('aspect-video', 'w-full');
+    expect(surface).not.toHaveClass('aspect-[4/3]', 'min-h-[300px]');
   });
 });

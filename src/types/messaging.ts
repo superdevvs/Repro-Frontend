@@ -472,7 +472,7 @@ export interface AutomationRule {
 }
 
 export interface ComposeEmailPayload {
-  to?: string;
+  to?: string | string[];
   subject?: string;
   body_html?: string;
   body_text?: string;

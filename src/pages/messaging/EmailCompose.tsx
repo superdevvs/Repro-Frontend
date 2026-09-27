@@ -453,9 +453,24 @@ export default function EmailCompose() {
 
   const sendMutation = useMutation({
     mutationFn: composeEmail,
-    onSuccess: () => {
+    onSuccess: (result) => {
       window.localStorage.removeItem(draftKey);
-      toast.success(canSendExternal ? 'Email sent successfully.' : 'Message sent successfully.');
+      const sent = result && typeof result === 'object' && 'sent' in result && typeof result.sent === 'number'
+        ? result.sent
+        : 1;
+      const failed = result && typeof result === 'object' && 'failed' in result && typeof result.failed === 'number'
+        ? result.failed
+        : 0;
+      toast.success(
+        !canSendExternal
+          ? 'Message sent successfully.'
+          : sent > 1
+            ? `Email sent to ${sent} people.`
+            : 'Email sent successfully.',
+      );
+      if (failed > 0) {
+        toast.warning(`${failed} ${failed === 1 ? 'recipient was' : 'recipients were'} not sent.`);
+      }
       navigate('/messaging/email/inbox');
     },
     onError: (error) => {
@@ -465,9 +480,12 @@ export default function EmailCompose() {
 
   const scheduleMutation = useMutation({
     mutationFn: scheduleEmail,
-    onSuccess: () => {
+    onSuccess: (result) => {
       window.localStorage.removeItem(draftKey);
-      toast.success('Email scheduled successfully.');
+      const scheduled = result && typeof result === 'object' && 'scheduled' in result && typeof result.scheduled === 'number'
+        ? result.scheduled
+        : 1;
+      toast.success(scheduled > 1 ? `Email scheduled for ${scheduled} people.` : 'Email scheduled successfully.');
       navigate('/messaging/email/inbox');
     },
     onError: (error) => {
@@ -497,10 +515,6 @@ export default function EmailCompose() {
         cc: prev.cc.filter((item) => item !== normalized),
         bcc: prev.bcc.filter((item) => item !== normalized),
       };
-
-      if (field === 'to') {
-        return { ...cleared, to: [normalized] };
-      }
 
       return {
         ...cleared,
@@ -532,21 +546,11 @@ export default function EmailCompose() {
       return;
     }
 
-    if (field === 'to' && valid.length > 1) {
-      setRecipientErrors((prev) => ({
-        ...prev,
-        [field]: 'The To field uses one primary recipient. Move extras to Cc or Bcc.',
-      }));
-    } else if (invalid.length > 0) {
+    if (invalid.length > 0) {
       setRecipientErrors((prev) => ({
         ...prev,
         [field]: `Ignored invalid address${invalid.length > 1 ? 'es' : ''}: ${invalid.join(', ')}`,
       }));
-    }
-
-    if (field === 'to') {
-      addRecipient(field, valid[0]);
-      return;
     }
 
     valid.forEach((candidate) => addRecipient(field, candidate));
@@ -599,7 +603,7 @@ export default function EmailCompose() {
 
     if (canSendExternal && recipients.to.length === 0) {
       setRecipientErrors((prev) => ({ ...prev, to: 'Select or enter a recipient email.' }));
-      toast.error('A primary recipient is required.');
+      toast.error('Add at least one recipient.');
       return false;
     }
 
@@ -628,7 +632,7 @@ export default function EmailCompose() {
 
   const buildPayload = (): ComposeEmailPayload => ({
     channel_id: canSendExternal && form.channel_id ? Number(form.channel_id) : undefined,
-    to: canSendExternal ? recipients.to[0] : undefined,
+    to: canSendExternal ? (recipients.to.length <= 1 ? recipients.to[0] : recipients.to) : undefined,
     cc: canSendExternal && recipients.cc.length > 0 ? recipients.cc : undefined,
     bcc: canSendExternal && recipients.bcc.length > 0 ? recipients.bcc : undefined,
     reply_to: canSendExternal && form.reply_to ? form.reply_to : undefined,
@@ -715,8 +719,12 @@ export default function EmailCompose() {
         groups={groups}
         selectedEmails={selectedEmails}
         onPick={(email) => {
+          const normalized = normalizeEmail(email);
+          if (recipients[field].includes(normalized)) {
+            removeRecipient(field, normalized);
+            return;
+          }
           addRecipient(field, email);
-          if (field === 'to') closeDirectory();
         }}
       />
     );
@@ -768,13 +776,16 @@ export default function EmailCompose() {
                   }
                 }}
                 aria-label={label}
-                placeholder={compact ? 'Email' : singleRecipient ? 'recipient@example.com' : 'Add addresses and press Enter'}
+                placeholder={compact ? 'Add people' : 'Add addresses and press Enter'}
                 className={compact
                   ? 'h-9 min-w-0 flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0'
                   : 'h-9 min-w-[220px] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0'}
               />
             )}
           </div>
+          {field === 'to' && selected.length > 1 && (
+            <p className="mt-1 text-xs text-muted-foreground">Each person gets their own copy.</p>
+          )}
           {recipientErrors[field] && (
             <div className="mt-2 flex items-center gap-2 text-xs text-amber-600">
               <AlertCircle className="h-3.5 w-3.5" />

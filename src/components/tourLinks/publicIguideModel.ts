@@ -20,6 +20,27 @@ const firstString = (...values: unknown[]) => {
   return '';
 };
 
+const IGUIDE_EMBED_HOST = /^(?:unbranded\.)?(?:youriguide|iguidephotos|iguideradix)\.com$/i;
+
+/**
+ * Wide embeds otherwise open the floor plan full-size. Start on the property
+ * tour and keep the floor plan minimized. noinitanimation skips that startup.
+ */
+export const preparePublicIguideEmbedUrl = (value: string): string => {
+  try {
+    const url = new URL(value);
+    if (!IGUIDE_EMBED_HOST.test(url.hostname)) return value;
+    url.searchParams.delete('noinitanimation');
+    url.searchParams.delete('autoplay');
+    url.searchParams.set('autostart', '1');
+    url.searchParams.set('page', 'tour');
+    url.searchParams.set('minfp', '1');
+    return url.toString();
+  } catch {
+    return value;
+  }
+};
+
 export const normalizePublicTourUrl = (value: unknown): string => {
   if (typeof value !== 'string' || !value.trim()) return '';
   try {

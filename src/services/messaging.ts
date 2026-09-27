@@ -297,13 +297,23 @@ export const getEmailThreads = async (params?: {
   return response.data;
 };
 
-export const composeEmail = async (data: ComposeEmailPayload): Promise<Message> => {
+const appendComposeField = (formData: FormData, field: string, value?: string | string[]) => {
+  if (!value) return;
+  const list = Array.isArray(value) ? value : [value];
+  if (list.length === 1) {
+    formData.append(field, list[0]);
+    return;
+  }
+  list.forEach((item) => formData.append(`${field}[]`, item));
+};
+
+export const composeEmail = async (data: ComposeEmailPayload): Promise<Message & { sent?: number; failed?: number; scheduled?: number }> => {
   // Use FormData if attachments are present
   if (data.attachments && data.attachments.length > 0) {
     const formData = new FormData();
     
     // Add all non-file fields
-    if (data.to) formData.append('to', data.to);
+    appendComposeField(formData, 'to', data.to);
     if (data.subject) formData.append('subject', data.subject);
     if (data.body_html) formData.append('body_html', data.body_html);
     if (data.body_text) formData.append('body_text', data.body_text);
@@ -332,13 +342,13 @@ export const composeEmail = async (data: ComposeEmailPayload): Promise<Message> 
   return response.data;
 };
 
-export const scheduleEmail = async (data: ScheduleEmailPayload): Promise<Message> => {
+export const scheduleEmail = async (data: ScheduleEmailPayload): Promise<Message & { sent?: number; failed?: number; scheduled?: number }> => {
   // Use FormData if attachments are present
   if (data.attachments && data.attachments.length > 0) {
     const formData = new FormData();
     
     // Add all non-file fields
-    if (data.to) formData.append('to', data.to);
+    appendComposeField(formData, 'to', data.to);
     if (data.subject) formData.append('subject', data.subject);
     if (data.body_html) formData.append('body_html', data.body_html);
     if (data.body_text) formData.append('body_text', data.body_text);
@@ -400,10 +410,71 @@ export const getSmsThread = async (id: string | number): Promise<SmsThreadDetail
   return response.data;
 };
 
-export const sendSms = async (data: { to: string; body_text: string; sms_number_id?: number }): Promise<{
-  message: SmsMessageDetail;
-  thread: SmsThreadSummary;
-}> => {
+export interface SmsDirectoryRecipient {
+  id: string;
+  name: string;
+  phone: string;
+  kind: 'user' | 'client' | 'contact';
+  subtitle?: string;
+  user_id?: number | null;
+}
+
+export interface SmsGroupMemberRecord {
+  id?: number;
+  user_id?: number | null;
+  name?: string | null;
+  phone: string;
+}
+
+export interface SmsGroupRecord {
+  id: number;
+  name: string;
+  member_count: number;
+  members: SmsGroupMemberRecord[];
+}
+
+export interface SmsSendResult {
+  message?: SmsMessageDetail;
+  thread?: SmsThreadSummary;
+  sent?: number;
+  failed?: number;
+  results?: Array<{ to: string; status: 'sent' | 'failed'; error?: string }>;
+}
+
+export const getSmsRecipients = async (params?: { search?: string; limit?: number }): Promise<SmsDirectoryRecipient[]> => {
+  const response = await apiClient.get('/messaging/sms/recipients', { params });
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+export const getSmsGroups = async (): Promise<SmsGroupRecord[]> => {
+  const response = await apiClient.get('/messaging/sms/groups');
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+export const saveSmsGroup = async (data: {
+  id?: number;
+  name: string;
+  members: Array<{ user_id?: number | null; name?: string | null; phone: string }>;
+}): Promise<SmsGroupRecord> => {
+  const payload = { name: data.name, members: data.members };
+  const response = data.id
+    ? await apiClient.put(`/messaging/sms/groups/${data.id}`, payload)
+    : await apiClient.post('/messaging/sms/groups', payload);
+  return response.data;
+};
+
+export const deleteSmsGroup = async (id: number): Promise<void> => {
+  await apiClient.delete(`/messaging/sms/groups/${id}`);
+};
+
+export const sendSms = async (data: {
+  to?: string | string[];
+  recipients?: Array<{ phone: string; name?: string; user_id?: number | null }>;
+  group_ids?: number[];
+  body_text: string;
+  sms_number_id?: number;
+  contact_name?: string;
+}): Promise<SmsSendResult> => {
   const response = await apiClient.post('/messaging/sms/send', data);
   return response.data;
 };

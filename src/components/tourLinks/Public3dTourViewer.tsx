@@ -3,7 +3,7 @@ import { ExternalLink, RefreshCw } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { normalizePublicTourUrl } from './publicIguideModel';
+import { normalizePublicTourUrl, preparePublicIguideEmbedUrl } from './publicIguideModel';
 
 type TourProvider = 'iguide' | 'matterport';
 
@@ -53,7 +53,7 @@ export function Public3dTourViewer({
     const iguideOpen = normalizePublicTourUrl(iguideOpenUrl) || iguideInline;
     const matterport = normalizePublicTourUrl(matterportUrl);
     return {
-      iguide: iguideInline ? { inline: iguideInline, open: iguideOpen } : null,
+      iguide: iguideInline ? { inline: preparePublicIguideEmbedUrl(iguideInline), open: iguideOpen } : null,
       matterport: matterport ? { inline: matterport, open: matterport } : null,
     };
   }, [iguideInlineUrl, iguideOpenUrl, matterportUrl]);
@@ -137,12 +137,12 @@ export function Public3dTourViewer({
         </div>
       </div>
 
-      <div className="relative aspect-[4/3] min-h-[300px] overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg sm:aspect-video sm:min-h-[360px]">
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg">
         {activeSource?.inline ? (
           <>
             <iframe
               key={`${activeProvider}-${frameRevision}-${activeSource.inline}`}
-              src={addAutoplay(activeSource.inline, autoplay)}
+              src={activeProvider === 'iguide' ? activeSource.inline : addAutoplay(activeSource.inline, autoplay)}
               className={cn('h-full w-full border-0 transition-opacity duration-200', frameState === 'ready' ? 'opacity-100' : 'opacity-0')}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; vr; xr-spatial-tracking"
               allowFullScreen
