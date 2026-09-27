@@ -194,14 +194,14 @@ export const SmsComposeDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="flex max-h-[min(820px,calc(100dvh-2rem))] !w-[min(1100px,calc(100vw-2rem))] !max-w-[min(1100px,calc(100vw-2rem))] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>New SMS</DialogTitle>
             <DialogDescription>Send one text to several people, or to a saved group.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-2 md:overflow-hidden">
+            <div className="flex min-h-0 flex-col gap-4">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="sms-compose-to">To</Label>
                 <Button
@@ -215,7 +215,7 @@ export const SmsComposeDialog = ({
                   People
                 </Button>
               </div>
-              <div className="rounded-xl border border-border/70 bg-background p-3">
+              <div className="max-h-28 overflow-y-auto rounded-xl border border-border/70 bg-background p-3">
                 <div className="flex flex-wrap gap-2">
                   {recipients.map((recipient) => (
                     <Badge key={recipient.key} variant="secondary" className="gap-1 rounded-full px-3 py-1 text-xs">
@@ -250,9 +250,9 @@ export const SmsComposeDialog = ({
                 )}
               </div>
               {directoryOpen && (
-                <Command className="rounded-xl border border-border/70">
+                <Command className="min-h-0 rounded-xl border border-border/70 md:flex-1">
                   <CommandInput placeholder="Search users and contacts..." value={directorySearch} onValueChange={setDirectorySearch} />
-                  <CommandList className="max-h-40">
+                  <CommandList className="max-h-64 md:max-h-none">
                     <CommandEmpty>No matching people with a phone number.</CommandEmpty>
                     {directoryGroups.map((group, index) => (
                       <div key={group.heading}>
@@ -300,6 +300,7 @@ export const SmsComposeDialog = ({
               )}
             </div>
 
+            <div className="flex min-h-0 flex-col gap-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <Label>Groups</Label>
@@ -338,7 +339,7 @@ export const SmsComposeDialog = ({
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="sms-compose-body">Message</Label>
                 <span className="text-xs text-muted-foreground">
@@ -349,9 +350,9 @@ export const SmsComposeDialog = ({
                 id="sms-compose-body"
                 value={bodyText}
                 onChange={(event) => setBodyText(event.target.value)}
-                rows={5}
+                rows={8}
                 placeholder="Write a message..."
-                className="resize-none"
+                className="min-h-40 flex-1 resize-none"
               />
             </div>
 
@@ -375,6 +376,7 @@ export const SmsComposeDialog = ({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           </div>
 
           <DialogFooter>
