@@ -85,6 +85,7 @@ describe('manual booking street address', () => {
   it('recovers from the required-address error and submits the typed street with other manual fields intact', async () => {
     const input = props();
     render(<ClientPropertyForm {...input} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Self / client' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getAllByText('Address is required').length).toBeGreaterThan(0));
@@ -119,6 +120,7 @@ describe('manual booking street address', () => {
       fireEvent.change(screen.getByLabelText('Street Address'), { target: { value: '10 Monroe St' } });
     }
     fireEvent.change(screen.getByLabelText('Street Address'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Self / client' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(screen.getAllByText('Address is required').length).toBeGreaterThan(0));
@@ -150,6 +152,7 @@ describe('manual booking street address', () => {
 
     const lookupCount = fetchMock.mock.calls.length;
     fireEvent.change(screen.getByLabelText('Street Address'), { target: { value: '22 Example Rd' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Self / client' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(input.onComplete).toHaveBeenCalledWith(expect.objectContaining({
