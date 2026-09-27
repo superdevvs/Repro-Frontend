@@ -23,8 +23,8 @@ import type { AutomationRule } from '@/types/messaging';
 import { extractSimpleAutomationDraft, triggerLabels } from '@/components/messaging/automations/workflow-utils';
 import { asString, getMutationErrorMessage } from './automation-workflow-editor/helpers';
 import { automationMoments, momentForTrigger, recipientSummary, whenSummary, type AutomationMomentId } from './automationMoments';
-
-const latestRun = (automation: AutomationRule) => automation.recent_runs?.[0] ?? null;
+import { getAutomationHealth } from './automationHealth';
+import { AutomationRunHistory } from './AutomationRunHistory';
 
 const getPrimaryActionSummary = (automation: AutomationRule) => {
   const actionNodes = automation.workflow_definition_json?.nodes?.filter((node) => node.type.startsWith('action.')) ?? [];
@@ -48,16 +48,6 @@ const getPrimaryActionSummary = (automation: AutomationRule) => {
     default:
       return Number(actionNode.config?.templateId) ? 'Email template' : 'Inline email';
   }
-};
-
-const getValidationMessage = (automation: AutomationRule) => {
-  const firstError = automation.validation_state?.errors?.[0];
-  if (firstError) {
-    return firstError;
-  }
-
-  const firstNodeError = Object.values(automation.validation_state?.node_errors ?? {}).flat()[0];
-  return firstNodeError || null;
 };
 
 function automationHaystack(automation: AutomationRule) {
@@ -95,9 +85,8 @@ function JobRow({
   onRun: (automation: AutomationRule) => void;
   runningId?: number | null;
 }) {
-  const run = latestRun(automation);
-  const validationMessage = getValidationMessage(automation);
-  const issue = automation.validation_state?.valid === false ? validationMessage : run?.error_message;
+  const health = getAutomationHealth(automation);
+  const issue = health.configurationIssue;
   const sends = automation.workflow_definition_json?.nodes?.length ? getPrimaryActionSummary(automation) : automation.template?.name || getPrimaryActionSummary(automation);
 
   return (
@@ -114,14 +103,14 @@ function JobRow({
         <p className="mt-1 text-xs text-muted-foreground">
           {automation.scope === 'SYSTEM' ? 'Built in' : 'Custom'}
           {' · Editable'}
-          {run?.status ? ` · Last run ${run.status}` : ''}
         </p>
         {issue && (
-          <p className="mt-2 flex items-start gap-2 text-sm text-amber-800">
+          <p className="mt-2 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{issue}</span>
           </p>
         )}
+        <AutomationRunHistory runs={health.runs} updatedSinceFailedRun={health.updatedSinceFailedRun} runChronologyKnown={health.runChronologyKnown} />
       </div>
       <div>
         <div className="text-xs text-muted-foreground lg:hidden">Who</div>
@@ -238,7 +227,8 @@ export default function Automations() {
         ...group,
         total: inMoment.length,
         on: inMoment.filter((automation) => automation.is_active).length,
-        needsFix: inMoment.some((automation) => automation.validation_state?.valid === false || Boolean(latestRun(automation)?.error_message)),
+        needsFix: inMoment.some((automation) => Boolean(getAutomationHealth(automation).configurationIssue)),
+        needsAttention: inMoment.some((automation) => getAutomationHealth(automation).needsAttention),
         matched,
       };
     });
@@ -351,13 +341,13 @@ export default function Automations() {
                 key={group.id}
                 type="button"
                 aria-current={moment === group.id ? 'true' : undefined}
-                aria-label={`${group.id} moment`}
+                aria-label={`${group.id} moment${group.needsAttention ? group.needsFix ? ' — needs a fix' : ' — run needs attention' : ''}`}
                 className={`flex min-w-[9rem] items-center justify-between rounded-2xl border px-3 py-3 text-left lg:min-w-0 ${moment === group.id ? 'border-primary bg-primary/5' : 'bg-card'}`}
                 onClick={() => setMoment(group.id)}
               >
                 <span className="font-medium">
                   {group.id}
-                  {group.needsFix ? <span className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500" aria-label="Needs a fix" /> : null}
+                  {group.needsAttention ? <span className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500" aria-label={group.needsFix ? 'Needs a fix' : 'Run needs attention'} /> : null}
                 </span>
                 <span className="text-xs text-muted-foreground">{needle ? `${group.matched.length} found` : `${group.on} on`}</span>
               </button>

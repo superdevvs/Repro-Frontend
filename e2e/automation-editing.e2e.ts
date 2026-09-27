@@ -74,6 +74,47 @@ async function fixtures(page: Page, baseURL?: string, complex = false, payout = 
 }
 
 for (const mobile of [false, true]) {
+  test(`reminder failure history distinguishes repaired and current runs on ${mobile ? 'phone' : 'desktop'}`, async ({ page, baseURL }, testInfo) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1560, height: 1000 });
+    const state = await fixtures(page, baseURL);
+    Object.assign(state.rule(), {
+      id: 21, name: 'Shoot Reminder - 2 Hours Before', trigger_type: 'SHOOT_REMINDER', scope: 'SYSTEM',
+      updated_at: '2026-09-27T04:59:11Z',
+      recent_runs: [{ id: 857, automation_rule_id: 21, status: 'failed', created_at: '2026-09-15T13:00:04Z',
+        started_at: '2026-09-15T13:00:04Z', completed_at: '2026-09-15T13:00:04Z', updated_at: '2026-09-15T13:00:04Z',
+        error_message: 'Automation could not complete. Review its configuration and try again.' }],
+    });
+    await page.goto('/messaging/email/automations');
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.getByRole('button', { name: 'On site moment' }).click();
+    await expect(page.getByText('Updated since this failed run; awaiting next run.')).toBeVisible();
+    await expect(page.getByText(/Previous run failed/)).toBeVisible();
+    await expect(page.locator('time').first()).toHaveAttribute('datetime', '2026-09-15T13:00:04.000Z');
+    await expect(page.getByRole('button', { name: 'Change', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Needs a fix', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Run needs attention', { exact: true })).toHaveCount(0);
+    await page.getByText('View run history', { exact: true }).click();
+    await expect(page.getByText(state.rule().recent_runs![0].error_message!, { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('historical-reminder-failure.png'), fullPage: true, animations: 'disabled' });
+
+    // A previously started run resumes and fails after the edit: still actionable.
+    state.rule().recent_runs!.push({ ...state.rule().recent_runs![0], id: 858, completed_at: '2026-09-27T05:00:00Z', updated_at: '2026-09-27T05:00:00Z', error_message: null });
+    await page.reload();
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.getByRole('button', { name: 'On site moment' }).click();
+    await expect(page.getByText(/Last run failed/)).toBeVisible();
+    await expect(page.getByText(/awaiting next run/)).toHaveCount(0);
+    await expect(page.getByLabel('Run needs attention', { exact: true })).toHaveCount(1);
+    await page.getByText('View run history', { exact: true }).click();
+    await expect(page.getByText('This run failed without an error message.')).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('current-reminder-failure.png'), fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => innerWidth));
+    expect(state.writes).toEqual([]);
+    expect(state.messages).toEqual([]);
+  });
+
   test(`weekly accounting address saves and reopens on ${mobile ? 'phone' : 'desktop'}`, async ({ page, baseURL }, testInfo) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1560, height: 1000 });
     const state = await fixtures(page, baseURL, false, true);
