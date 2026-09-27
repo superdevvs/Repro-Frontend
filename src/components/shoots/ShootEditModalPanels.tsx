@@ -211,6 +211,43 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
       </div>
 
       <div className="space-y-2 rounded-lg border border-border p-3">
+        <Label className="text-xs font-semibold">Property access</Label>
+        <div className="flex flex-wrap gap-3 text-xs">
+          {([
+            ['self', 'Self / client'],
+            ['other', 'Another contact'],
+            ['lockbox', 'Lockbox'],
+          ] as const).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="edit-property-presence"
+                checked={String(propertyDetails?.presenceOption ?? '') === value}
+                onChange={() => setPropertyDetails((prev) => ({ ...(prev ?? {}), presenceOption: value }))}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={String(propertyDetails?.lockboxCode ?? '')}
+            onChange={(event) => setPropertyDetails((prev) => ({ ...(prev ?? {}), lockboxCode: event.target.value }))}
+            placeholder="Lockbox code"
+            aria-label="Lockbox code"
+            className="h-7 text-xs"
+          />
+          <Input
+            value={String(propertyDetails?.lockboxLocation ?? '')}
+            onChange={(event) => setPropertyDetails((prev) => ({ ...(prev ?? {}), lockboxLocation: event.target.value }))}
+            placeholder="Lockbox location"
+            aria-label="Lockbox location"
+            className="h-7 text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border p-3">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-amber-500" />
           <Label className="text-xs font-semibold">Shoot Notes</Label>

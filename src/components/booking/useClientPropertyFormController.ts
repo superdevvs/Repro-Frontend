@@ -303,14 +303,14 @@ export const useClientPropertyFormController = ({
   const [accountInitialData, setAccountInitialData] = useState<User | undefined>(undefined);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [stateDrawerOpen, setStateDrawerOpen] = useState(false);
-  const [presenceOption, setPresenceOption] = useState<PresenceOption>(() => {
+  const [presenceOption, setPresenceOption] = useState<PresenceOption | ''>(() => {
     const initialPresence =
       initialData.presenceOption ||
       initialData.propertyDetails?.presenceOption ||
       initialData.property_details?.presenceOption;
     return initialPresence === 'other' || initialPresence === 'lockbox' || initialPresence === 'self'
       ? initialPresence
-      : 'self';
+      : '';
   });
   const [propertyDetailsData, setPropertyDetailsData] = useState<PropertyDetailsDraft | null>(
     () => initialData.propertyDetails || initialData.property_details || null,
@@ -503,7 +503,7 @@ export const useClientPropertyFormController = ({
       overrides?: {
         completeAddress?: string;
         propertyDetailsData?: PropertyDetailsDraft | null;
-        presenceOption?: PresenceOption;
+        presenceOption?: PresenceOption | '';
       },
     ) => {
       const currentValues = {
@@ -535,7 +535,7 @@ export const useClientPropertyFormController = ({
       const currentSqft = toOptionalNumber(currentValues.sqft);
       const mergedPropertyDetails = {
         ...(currentPropertyDetails || {}),
-        presenceOption: currentPresenceOption,
+        presenceOption: currentPresenceOption || undefined,
         aptSuite: currentValues.aptSuite?.trim() || undefined,
         completeAddress: normalizedComplete || undefined,
         lockboxCode: currentValues.lockboxCode?.trim() || undefined,
@@ -676,6 +676,17 @@ export const useClientPropertyFormController = ({
 
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
+
+    if (!presenceOption) {
+      const noticeText = 'Choose who will be at the property.';
+      setSubmitAttemptNotice(noticeText);
+      toast({
+        title: 'Missing required fields',
+        description: noticeText,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const requiresService = slide !== 'property' && (isClientAccount || !canCreateNoProductShoot);
     if (requiresService && selectedServices.length === 0) {

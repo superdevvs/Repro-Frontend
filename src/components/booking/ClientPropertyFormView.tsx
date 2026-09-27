@@ -774,7 +774,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
               <div className="space-y-3">
                 <div>
-                  <h3 className="text-base font-semibold">Who will be at the property?</h3>
+                  <h3 className="text-base font-semibold">Who will be at the property? <span className="text-destructive">*</span></h3>
                 </div>
                 <RadioGroup
                   className="flex flex-wrap gap-4"
