@@ -17,13 +17,19 @@ export type ApplyAlternateDateScope = 'main' | 'all_services';
  * @param shootId Shoot identifier.
  * @param scope   `main` (default) sets the main schedule only; `all_services` also
  *                sets every selected service's `scheduled_at`.
+ *                For unit bookings, either scope moves the full visit plan while preserving its spacing.
+ * @param expectedUnitsRevision Required current revision when the shoot has units.
  * @returns The raw, updated shoot resource (unwrapped from the `{ data }` envelope).
  */
 export const applyAlternateDate = async (
   shootId: string,
   scope: ApplyAlternateDateScope = 'main',
+  expectedUnitsRevision?: number,
 ): Promise<unknown> => {
-  const res = await apiClient.post(`/shoots/${shootId}/apply-alternate-date`, { scope });
+  const res = await apiClient.post(`/shoots/${shootId}/apply-alternate-date`, {
+    scope,
+    ...(expectedUnitsRevision !== undefined ? { expected_units_revision: expectedUnitsRevision } : {}),
+  });
   return res.data?.data ?? res.data;
 };
 

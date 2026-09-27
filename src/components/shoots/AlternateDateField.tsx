@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
 import type { ShootData } from '@/types/shoots';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 const TIME_NOT_SPECIFIED = 'time not specified';
 
@@ -75,6 +76,7 @@ export function AlternateDateField({
 
   const alternate = useMemo(() => readAlternate(shoot), [shoot]);
   const serviceCount = useMemo(() => countServices(shoot), [shoot]);
+  const hasUnits = getShootUnits(shoot).length > 0;
 
   // Req 1.4 / 7.2 — render nothing when there is no stored alternate date.
   if (!alternate.date) {
@@ -94,7 +96,9 @@ export function AlternateDateField({
     try {
       // Delegate to the central context method so it POSTs, normalizes, and
       // refreshes all shoot state consistently. It returns the normalized shoot.
-      const updated = await applyAlternateDate(shoot.id, scope);
+      const updated = hasUnits
+        ? await applyAlternateDate(shoot.id, scope, shoot.units_revision)
+        : await applyAlternateDate(shoot.id, scope);
       onApplied?.(updated);
     } catch (error) {
       toast({
@@ -125,11 +129,11 @@ export function AlternateDateField({
         onClick={() => handleApply('main')}
       >
         {applyingScope === 'main' && <Loader2 aria-hidden="true" className="h-3.5 w-3.5" />}
-        Use as main date
+        {hasUnits ? 'Move all unit visits' : 'Use as main date'}
       </Button>
 
       {/* Req 7.3 / 7.4 — secondary control, only for multi-service shoots. */}
-      {serviceCount > 1 && (
+      {!hasUnits && serviceCount > 1 && (
         <Button
           type="button"
           size="sm"
@@ -143,6 +147,7 @@ export function AlternateDateField({
           Apply to all services
         </Button>
       )}
+      {hasUnits && <span className="text-muted-foreground">Keeps the spacing between visits and existing assignments.</span>}
     </div>
   ) : null;
 

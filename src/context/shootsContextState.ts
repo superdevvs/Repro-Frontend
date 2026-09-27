@@ -18,6 +18,7 @@ export interface ShootsContextType {
   applyAlternateDate: (
     shootId: string,
     scope?: ApplyAlternateDateScope,
+    expectedUnitsRevision?: number,
   ) => Promise<ShootData>;
   deleteShoot: (shootId: string) => void;
   getClientShootsByStatus: (status: string) => ShootData[];

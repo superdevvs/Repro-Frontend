@@ -745,9 +745,9 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
   const applyAlternateDate = useCallback(
-    async (shootId: string, scope: ApplyAlternateDateScope = 'main'): Promise<ShootData> => {
+    async (shootId: string, scope: ApplyAlternateDateScope = 'main', expectedUnitsRevision?: number): Promise<ShootData> => {
       // POST to the apply endpoint and unwrap the raw shoot resource.
-      const resource = await applyAlternateDateRequest(shootId, scope);
+      const resource = await applyAlternateDateRequest(shootId, scope, expectedUnitsRevision);
       // Normalize the returned resource with the same transformer the fetch path uses.
       const normalized = transformShootFromApi(resource as ApiShoot);
       // Merge into local state without a second round-trip (skipApi avoids re-POSTing).

@@ -258,6 +258,22 @@ describe('AlternateDateField — Property 13: apply control visibility', () => {
 
 // Task 8.16 — apply behavior (Req 7.1, 7.2, 7.3, 7.4, 7.5).
 describe('AlternateDateField — apply behavior (Task 8.16)', () => {
+  it('moves the whole unit visit plan with its revision and offers no flattening action', async () => {
+    const shoot = makeShoot({
+      alternate_scheduled_date: '2026-10-29',
+      units_revision: 7,
+      units: [{ id: 101, client_key: 'unit-101', label: '101', kind: 'unit', sqft: 900, beds: null, baths: null }],
+      services: ['Photos', 'Drone'],
+    });
+    applyAlternateDate.mockResolvedValueOnce(shoot);
+    render(<AlternateDateField shoot={shoot} formatDate={formatDate} formatTime={formatTime} />);
+
+    expect(screen.queryByRole('button', { name: 'Apply to all services' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use as main date' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move all unit visits' }));
+    await waitFor(() => expect(applyAlternateDate).toHaveBeenCalledWith('42', 'main', 7));
+  });
+
   it('the "Apply to all services" action posts scope=all_services and refreshes via the context method (Req 7.3 / 7.5)', async () => {
     const updated = makeShoot({ id: '42', alternate_scheduled_date: '2025-03-12' } as Partial<ShootData>);
     applyAlternateDate.mockResolvedValueOnce(updated);
