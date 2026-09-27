@@ -311,7 +311,7 @@ export const SmsComposeDialog = ({
               {(groupsQuery.data ?? []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No groups yet. Save people you text together.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
                   {(groupsQuery.data ?? []).map((group) => {
                     const selected = groupIds.includes(group.id);
                     return (

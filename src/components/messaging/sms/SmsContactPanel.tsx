@@ -10,6 +10,12 @@ import type { SmsContact } from '@/types/messaging';
 
 interface SmsContactPanelProps {
   contact?: SmsContact;
+  group?: {
+    id: number;
+    name: string;
+    memberCount: number;
+    members?: Array<{ id: number; name?: string | null; phone: string }>;
+  } | null;
   onUpdateContact: (payload: {
     name?: string;
     email?: string;
@@ -21,7 +27,7 @@ interface SmsContactPanelProps {
   onClose?: () => void;
 }
 
-export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onClose }: SmsContactPanelProps) => {
+export const SmsContactPanel = ({ contact, group, onUpdateContact, onUpdateComment, onClose }: SmsContactPanelProps) => {
   const [localContact, setLocalContact] = useState<SmsContact | undefined>(contact);
   const [commentDraft, setCommentDraft] = useState(contact?.comment ?? '');
   const [commentSaving, setCommentSaving] = useState(false);
@@ -32,7 +38,7 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
   }, [contact]);
 
   useEffect(() => {
-    if (!contact) return;
+    if (!contact || group) return;
 
     const handler = setTimeout(async () => {
       if (commentDraft === contact.comment) return;
@@ -42,7 +48,40 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
     }, 600);
 
     return () => clearTimeout(handler);
-  }, [commentDraft, contact, onUpdateComment]);
+  }, [commentDraft, contact, group, onUpdateComment]);
+
+  if (group) {
+    const members = group.members ?? [];
+    return (
+      <Card className="flex h-full min-h-0 flex-col border-l border-border/70">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+          <CardTitle>Group</CardTitle>
+          {onClose && (
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden pb-8">
+          <div>
+            <p className="text-base font-semibold">{group.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {group.memberCount} {group.memberCount === 1 ? 'person' : 'people'}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {members.map((member) => (
+              <div key={member.id} className="rounded-xl border border-border/70 px-3 py-2">
+                <p className="truncate text-sm font-medium">{member.name || member.phone}</p>
+                <p className="truncate text-xs text-muted-foreground">{member.phone}</p>
+              </div>
+            ))}
+            {members.length === 0 && <p className="text-xs text-muted-foreground">No people in this group.</p>}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const numbers = localContact?.numbers ?? [];
 

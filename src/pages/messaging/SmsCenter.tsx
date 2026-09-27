@@ -171,7 +171,13 @@ export default function SmsCenter() {
   }, [activeThreadId, markThreadRead]);
 
   const sendMutation = useMutation({
-    mutationFn: (body: string) => sendSmsMessageToThread(activeThreadId!, { body }),
+    mutationFn: (body: string) => {
+      const groupId = threadDetail?.thread.group?.id;
+      if (groupId) {
+        return sendSms({ group_ids: [groupId], body_text: body });
+      }
+      return sendSmsMessageToThread(activeThreadId!, { body });
+    },
     onSuccess: () => {
       setComposerText('');
       queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
@@ -396,6 +402,7 @@ export default function SmsCenter() {
           <div className="hidden w-[320px] border-l border-border/70 xl:block">
             <SmsContactPanel
               contact={threadDetail?.contact}
+              group={threadDetail?.thread.group}
               onUpdateContact={handleContactUpdate}
               onUpdateComment={handleCommentUpdate}
               onClose={() => setContactPanelOpen(false)}
@@ -409,6 +416,7 @@ export default function SmsCenter() {
           <DrawerContent className="h-[80vh]">
             <SmsContactPanel
               contact={threadDetail?.contact}
+              group={threadDetail?.thread.group}
               onUpdateContact={handleContactUpdate}
               onUpdateComment={handleCommentUpdate}
               onClose={() => setContactDrawerOpen(false)}

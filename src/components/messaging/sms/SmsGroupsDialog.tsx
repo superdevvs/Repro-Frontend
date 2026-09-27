@@ -224,7 +224,7 @@ export const SmsGroupsDialog = ({
                 New group
               </Button>
             </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto">
+            <div className="max-h-80 space-y-2 overflow-y-auto">
               {(groupsQuery.data ?? []).map((group) => (
                 <button
                   key={group.id}

@@ -364,6 +364,12 @@ export interface SmsThreadSummary {
   aiRateLimitedAt?: string | null;
   contactAiEnabled?: boolean | null;
   contactOptedOut?: boolean | null;
+  group?: {
+    id: number;
+    name: string;
+    memberCount: number;
+    members?: Array<{ id: number; name?: string | null; phone: string }>;
+  } | null;
 }
 
 export interface SmsMessageDetail {

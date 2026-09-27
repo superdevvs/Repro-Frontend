@@ -63,7 +63,10 @@ export const SmsConversation = ({
     );
   }
 
-  const name = contact?.name || contact?.primaryNumber || 'Unknown contact';
+  const name = thread.group?.name || contact?.name || contact?.primaryNumber || 'Unknown contact';
+  const subtitle = thread.group
+    ? `${thread.group.memberCount} ${thread.group.memberCount === 1 ? 'person' : 'people'}`
+    : contact?.email || contact?.primaryNumber;
 
   const grouped = messages.reduce<Array<{ date: string; items: SmsMessageDetail[] }>>((acc, message) => {
     const date = message.sentAt ? format(new Date(message.sentAt), 'PPP') : 'Unknown';
@@ -75,8 +78,6 @@ export const SmsConversation = ({
     }
     return acc;
   }, []);
-
-  const subtitle = contact?.email || contact?.primaryNumber;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-background">
@@ -96,7 +97,7 @@ export const SmsConversation = ({
             <p className="truncate text-sm font-semibold leading-tight">{name}</p>
             {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
           </button>
-          {contact?.primaryNumber && (
+          {!thread.group && contact?.primaryNumber && (
             <Button variant="ghost" size="icon" asChild className="h-11 w-11 shrink-0">
               <a href={`tel:${contact.primaryNumber}`} aria-label={`Call ${name}`}>
                 <Phone className="h-5 w-5" />
@@ -118,7 +119,7 @@ export const SmsConversation = ({
         <div className="flex items-center justify-between gap-3 border-b border-border/70 p-4">
           <div className="min-w-0">
             <p className="truncate text-base font-semibold">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">{contact?.email || contact?.primaryNumber}</p>
+            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {contact?.tags?.map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-[10px] capitalize">
@@ -128,7 +129,7 @@ export const SmsConversation = ({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {onToggleContactAi && (
+            {onToggleContactAi && !thread.group && (
               <label className="flex items-center gap-2 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
@@ -139,7 +140,7 @@ export const SmsConversation = ({
                 AI replies enabled
               </label>
             )}
-            {contact?.primaryNumber && (
+            {!thread.group && contact?.primaryNumber && (
               <Button variant="outline" size="sm" asChild>
                 <a href={`tel:${contact.primaryNumber}`}>
                   <Phone className="mr-2 h-4 w-4" />

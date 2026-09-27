@@ -12,9 +12,9 @@ interface SmsThreadListItemProps {
 }
 
 export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListItemProps) => {
-  const initials = thread.contact?.initials ?? thread.contact?.name?.slice(0, 2) ?? '??';
-  const phone = thread.contact?.primaryNumber;
-  const name = thread.contact?.name || phone || 'Unknown contact';
+  const initials = thread.contact?.initials ?? thread.group?.name?.slice(0, 2) ?? thread.contact?.name?.slice(0, 2) ?? '??';
+  const phone = thread.group ? undefined : thread.contact?.primaryNumber;
+  const name = thread.group?.name || thread.contact?.name || phone || 'Unknown contact';
   const aiPaused = thread.aiPausedUntil ? new Date(thread.aiPausedUntil) > new Date() : false;
 
   const formattedTime = thread.lastMessageAt
@@ -46,11 +46,15 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
           <p className="truncate text-sm text-muted-foreground lg:text-xs">{thread.lastMessageSnippet || 'No messages yet'}</p>
           <div className="mt-1 flex items-center gap-2">
             {thread.unread && <span className="h-2 w-2 rounded-full bg-primary" />}
-            {thread.contact?.type && (
+            {thread.group ? (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                Group · {thread.group.memberCount}
+              </Badge>
+            ) : thread.contact?.type ? (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                 {thread.contact.type}
               </Badge>
-            )}
+            ) : null}
             {thread.aiSessionId && !aiPaused && !thread.contactOptedOut && (
               <Badge variant="secondary" className="gap-1 text-[10px] uppercase tracking-wide">
                 <Sparkles className="h-3 w-3" />
