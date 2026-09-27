@@ -194,188 +194,193 @@ export const SmsComposeDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="flex max-h-[min(820px,calc(100dvh-2rem))] !w-[min(1100px,calc(100vw-2rem))] !max-w-[min(1100px,calc(100vw-2rem))] flex-col overflow-hidden">
+        <DialogContent className="flex max-h-[min(760px,calc(100dvh-2rem))] !w-[min(920px,calc(100vw-2rem))] !max-w-[min(920px,calc(100vw-2rem))] flex-col gap-5 overflow-hidden">
           <DialogHeader>
             <DialogTitle>New SMS</DialogTitle>
             <DialogDescription>Send one text to several people, or to a saved group.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-2 md:overflow-hidden">
-            <div className="flex min-h-0 flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="sms-compose-to">To</Label>
-                <Button
-                  type="button"
-                  variant={directoryOpen ? 'default' : 'outline'}
-                  size="sm"
-                  disabled={sending}
-                  onClick={() => setDirectoryOpen((open) => !open)}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  People
-                </Button>
-              </div>
-              <div className="max-h-28 overflow-y-auto rounded-xl border border-border/70 bg-background p-3">
-                <div className="flex flex-wrap gap-2">
-                  {recipients.map((recipient) => (
-                    <Badge key={recipient.key} variant="secondary" className="gap-1 rounded-full px-3 py-1 text-xs">
-                      {recipient.label}
-                      <button type="button" aria-label={`Remove ${recipient.label}`} onClick={() => setRecipients((current) => current.filter((item) => item.key !== recipient.key))}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  <Input
-                    id="sms-compose-to"
-                    value={phoneInput}
-                    onChange={(event) => {
-                      setPhoneInput(event.target.value);
-                      setPhoneError('');
-                    }}
-                    onBlur={addPhoneInput}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
-                        event.preventDefault();
-                        addPhoneInput();
-                      }
-                    }}
-                    placeholder={recipients.length ? 'Add another number' : 'Name, number, or several people'}
-                    autoComplete="tel"
-                    className="h-9 min-w-[180px] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
-                  />
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="sms-compose-to">To</Label>
+                  <div className="flex items-center gap-1">
+                    {recipients.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => {
+                          setGroupSeed(recipients.map((recipient) => ({
+                            key: recipient.key,
+                            name: recipient.label,
+                            phone: recipient.phone,
+                            userId: recipient.userId,
+                          })));
+                          setGroupsOpen(true);
+                        }}
+                      >
+                        Save as group
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant={directoryOpen ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="h-8"
+                      disabled={sending}
+                      onClick={() => setDirectoryOpen((open) => !open)}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      People
+                    </Button>
+                  </div>
                 </div>
-                {phoneError && <p className="mt-2 text-xs text-amber-600">{phoneError}</p>}
-                {recipients.length > 1 && (
-                  <p className="mt-2 text-xs text-muted-foreground">Each person gets their own text.</p>
+                <div className="max-h-24 overflow-y-auto rounded-xl border border-border/70 bg-background px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {recipients.map((recipient) => (
+                      <Badge key={recipient.key} variant="secondary" className="gap-1 rounded-full px-2.5 py-1 text-xs">
+                        {recipient.label}
+                        <button type="button" aria-label={`Remove ${recipient.label}`} onClick={() => setRecipients((current) => current.filter((item) => item.key !== recipient.key))}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Input
+                      id="sms-compose-to"
+                      value={phoneInput}
+                      onChange={(event) => {
+                        setPhoneInput(event.target.value);
+                        setPhoneError('');
+                      }}
+                      onBlur={addPhoneInput}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
+                          event.preventDefault();
+                          addPhoneInput();
+                        }
+                      }}
+                      placeholder={recipients.length ? 'Add another' : 'Name or number'}
+                      autoComplete="tel"
+                      className="h-8 min-w-[8rem] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    />
+                  </div>
+                </div>
+                {phoneError && <p className="text-xs text-amber-600">{phoneError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex h-8 items-center justify-between gap-3">
+                  <Label>Groups</Label>
+                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setGroupSeed([]); setGroupsOpen(true); }}>
+                    Manage
+                  </Button>
+                </div>
+                {(groupsQuery.data ?? []).length === 0 ? (
+                  <div className="flex h-10 items-center rounded-xl border border-dashed border-border/70 px-3 text-sm text-muted-foreground">
+                    No groups yet
+                  </div>
+                ) : (
+                  <div className="flex max-h-24 flex-wrap content-start gap-2 overflow-y-auto">
+                    {(groupsQuery.data ?? []).map((group) => {
+                      const selected = groupIds.includes(group.id);
+                      return (
+                        <Button
+                          key={group.id}
+                          type="button"
+                          size="sm"
+                          variant={selected ? 'default' : 'outline'}
+                          className="h-8"
+                          onClick={() => toggleGroup(group.id)}
+                          disabled={sending}
+                        >
+                          {group.name}
+                          <span className={selected ? 'ml-2 text-xs text-primary-foreground/80' : 'ml-2 text-xs text-muted-foreground'}>
+                            {group.member_count}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedGroupCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedGroupCount} {selectedGroupCount === 1 ? 'person' : 'people'} in the selected groups
+                  </p>
                 )}
               </div>
-              {directoryOpen && (
-                <Command className="min-h-0 rounded-xl border border-border/70 md:flex-1">
-                  <CommandInput placeholder="Search users and contacts..." value={directorySearch} onValueChange={setDirectorySearch} />
-                  <CommandList className="max-h-64 md:max-h-none">
-                    <CommandEmpty>No matching people with a phone number.</CommandEmpty>
-                    {directoryGroups.map((group, index) => (
-                      <div key={group.heading}>
-                        {index > 0 && <CommandSeparator />}
-                        <CommandGroup heading={group.heading}>
-                          {group.people.map((person) => (
-                            <CommandItem
-                              key={person.id}
-                              value={`${person.name} ${person.phone} ${person.subtitle ?? ''}`}
-                              onSelect={() => addPerson(person)}
-                            >
-                              <div className="flex min-w-0 flex-col">
-                                <span className="truncate font-medium">{person.name}</span>
-                                <span className="truncate text-xs text-muted-foreground">{person.subtitle || person.phone}</span>
-                              </div>
-                              {recipients.some((item) => item.key === phoneKey(person.phone)) && (
-                                <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </div>
-                    ))}
-                  </CommandList>
-                </Command>
-              )}
-              {recipients.length > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => {
-                    setGroupSeed(recipients.map((recipient) => ({
-                      key: recipient.key,
-                      name: recipient.label,
-                      phone: recipient.phone,
-                      userId: recipient.userId,
-                    })));
-                    setGroupsOpen(true);
-                  }}
-                >
-                  Save as group
-                </Button>
-              )}
             </div>
 
-            <div className="flex min-h-0 flex-col gap-4">
+            {directoryOpen && (
+              <Command className="rounded-xl border border-border/70">
+                <CommandInput placeholder="Search users and contacts..." value={directorySearch} onValueChange={setDirectorySearch} />
+                <CommandList className="max-h-52">
+                  <CommandEmpty>No matching people with a phone number.</CommandEmpty>
+                  {directoryGroups.map((group, index) => (
+                    <div key={group.heading}>
+                      {index > 0 && <CommandSeparator />}
+                      <CommandGroup heading={group.heading}>
+                        {group.people.map((person) => (
+                          <CommandItem
+                            key={person.id}
+                            value={`${person.name} ${person.phone} ${person.subtitle ?? ''}`}
+                            onSelect={() => addPerson(person)}
+                          >
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate font-medium">{person.name}</span>
+                              <span className="truncate text-xs text-muted-foreground">{person.subtitle || person.phone}</span>
+                            </div>
+                            {recipients.some((item) => item.key === phoneKey(person.phone)) && (
+                              <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-primary" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </div>
+                  ))}
+                </CommandList>
+              </Command>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <Label>Groups</Label>
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setGroupSeed([]); setGroupsOpen(true); }}>
-                  Manage
-                </Button>
-              </div>
-              {(groupsQuery.data ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No groups yet. Save people you text together.</p>
-              ) : (
-                <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
-                  {(groupsQuery.data ?? []).map((group) => {
-                    const selected = groupIds.includes(group.id);
-                    return (
-                      <Button
-                        key={group.id}
-                        type="button"
-                        size="sm"
-                        variant={selected ? 'default' : 'outline'}
-                        onClick={() => toggleGroup(group.id)}
-                        disabled={sending}
-                      >
-                        {group.name}
-                        <span className={selected ? 'ml-2 text-xs text-primary-foreground/80' : 'ml-2 text-xs text-muted-foreground'}>
-                          {group.member_count}
-                        </span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-              {selectedGroupCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Selected groups include {selectedGroupCount} {selectedGroupCount === 1 ? 'person' : 'people'}.
-                </p>
-              )}
-            </div>
-
-            <div className="flex min-h-0 flex-1 flex-col gap-2">
-              <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="sms-compose-body">Message</Label>
-                <span className="text-xs text-muted-foreground">
-                  {characterCount} chars • {segments} segments
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {characterCount} chars · {segments} {segments === 1 ? 'segment' : 'segments'}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" type="button" className="h-8" disabled={!templates.length || sending}>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Template
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {templates.map((template) => (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onClick={() => {
+                            if (template.body_text) setBodyText(template.body_text);
+                          }}
+                        >
+                          {template.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
               <Textarea
                 id="sms-compose-body"
                 value={bodyText}
                 onChange={(event) => setBodyText(event.target.value)}
-                rows={8}
+                rows={5}
                 placeholder="Write a message..."
-                className="min-h-40 flex-1 resize-none"
+                className="min-h-32 resize-none"
               />
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" type="button" disabled={!templates.length || sending}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Template
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {templates.map((template) => (
-                  <DropdownMenuItem
-                    key={template.id}
-                    onClick={() => {
-                      if (template.body_text) setBodyText(template.body_text);
-                    }}
-                  >
-                    {template.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
             </div>
           </div>
 
