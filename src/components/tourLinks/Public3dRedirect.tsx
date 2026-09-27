@@ -1,3 +1,4 @@
+import { withTourUnit } from '@/features/shoot-units/unitTourData';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
@@ -31,6 +32,7 @@ const firstUrl = (...values: unknown[]): string => {
 export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const shootId = params.get('shootId');
+  const unitId = params.get('unitId');
   const requestedProvider = params.get('provider');
   const provider: Provider | null =
     requestedProvider === 'matterport' || requestedProvider === 'iguide' || requestedProvider === 'zillow'
@@ -42,7 +44,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
 
   const fallbackPath = variant === 'mls' ? '/tour/mls' : '/tour/branded';
   const fallbackUrl = shootId
-    ? `${fallbackPath}?shootId=${encodeURIComponent(shootId)}`
+    ? withTourUnit(`${fallbackPath}?shootId=${encodeURIComponent(shootId)}`, unitId)
     : fallbackPath;
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
       try {
         const endpoint = variant === 'mls' ? 'mls' : 'branded';
         const response = await fetch(
-          `${API_BASE_URL}/api/public/shoots/${encodeURIComponent(shootId)}/${endpoint}`,
+          withTourUnit(`${API_BASE_URL}/api/public/shoots/${encodeURIComponent(shootId)}/${endpoint}`, unitId),
           { signal: controller.signal },
         );
         if (response.status === 403 || response.status === 404 || response.status === 410) {
@@ -107,7 +109,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
 
     void openTour();
     return () => controller.abort();
-  }, [provider, shootId, variant]);
+  }, [provider, shootId, unitId, variant]);
 
   if (missing) {
     return <NotFound />;

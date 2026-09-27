@@ -47,6 +47,8 @@ interface CubicasaSyncView {
 }
 
 interface TourProvidersSectionProps {
+  unitId?: string | number;
+  iguideLineId?: string;
   cancelEdit3D: () => void;
   confirmDelete3D: (key: Managed3DLinkKey) => void | Promise<void>;
   copyLink: (key: string) => void;
@@ -290,6 +292,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     setIguideWorkOrderIdInput,
     shareLink,
     shootId,
+    unitId,
+    iguideLineId,
     show3dTours,
     showIguideSection,
     showMatterportSection,
@@ -451,7 +455,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     if (!isAdmin || !packageReady || isOpeningIguide) return;
     setIsOpeningIguide(true);
     try {
-      await openIguideOfflineViewer(shootId);
+      await openIguideOfflineViewer(unitId ? `${shootId}/units/${unitId}${iguideLineId ? `/lines/${iguideLineId}` : ''}` : shootId);
     } catch (error) {
       toast({
         title: 'Could not open iGUIDE',
@@ -545,7 +549,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 size="sm"
                 variant="outline"
                 className="h-8 shrink-0 px-3 text-xs"
-                disabled={packageWorking}
+                disabled={packageWorking || Boolean(unitId && !iguideLineId)}
                 onClick={() => setUploadDialogOpen(true)}
               >
                 {packageWorking ? <Loader2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> : <UploadCloud className="mr-1 h-3.5 w-3.5" />}
@@ -572,10 +576,10 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 )}
                 {isAdmin && (
                   <>
-                    <DropdownMenuItem disabled={isSyncingIguide} onSelect={() => void syncIguideNow?.()}>
+                    <DropdownMenuItem disabled={isSyncingIguide || !syncIguideNow} onSelect={() => void syncIguideNow?.()}>
                       {isSyncingIguide ? <Loader2 aria-hidden="true" className="mr-2 h-3.5 w-3.5" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}Sync from iGUIDE
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled={packageWorking} onSelect={() => setUploadDialogOpen(true)}>
+                    <DropdownMenuItem disabled={packageWorking || Boolean(unitId && !iguideLineId)} onSelect={() => setUploadDialogOpen(true)}>
                       <UploadCloud className="mr-2 h-3.5 w-3.5" />{offlinePackage.exists ? 'Replace offline ZIP' : 'Upload offline ZIP'}
                     </DropdownMenuItem>
                   </>
@@ -699,7 +703,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
             ) : isAdmin ? createCubicasaOrderButton : undefined}
             menu={isAdmin ? (
               <ProviderMenu label="CubiCasa">
-                <DropdownMenuItem disabled={isSyncingCubicasa} onSelect={() => void syncCubicasaNow?.()}>
+                <DropdownMenuItem disabled={isSyncingCubicasa || !syncCubicasaNow} onSelect={() => void syncCubicasaNow?.()}>
                   {isSyncingCubicasa ? <Loader2 aria-hidden="true" className="mr-2 h-3.5 w-3.5" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}Sync CubiCasa
                 </DropdownMenuItem>
               </ProviderMenu>
@@ -783,7 +787,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
       <IguideOfflinePackageDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
-        shootId={shootId}
+        shootId={unitId ? `${shootId}/units/${unitId}${iguideLineId ? `/lines/${iguideLineId}` : ''}` : shootId}
         currentPackage={offlinePackage}
         onUploaded={(nextPackage) => {
           setOfflinePackage(nextPackage);

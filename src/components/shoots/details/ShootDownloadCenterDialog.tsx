@@ -14,6 +14,10 @@ import { cn } from '@/lib/utils';
 import type { ShootData, ShootFileData, ShootTourLinkValue } from '@/types/shoots';
 import type { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
+import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
+import { projectUnitTour } from '@/features/shoot-units/unitTourData';
+import { filterUnitFiles } from '@/features/shoot-units/unitMutations';
 
 type DownloadTarget = {
   shootServiceId?: string | number | null;
@@ -184,7 +188,7 @@ const startExternalDownload = (url: string) => {
 };
 
 export function ShootDownloadCenterDialog({
-  shoot,
+  shoot: sourceShoot,
   open,
   isDownloading,
   downloadStatusMessage,
@@ -195,6 +199,11 @@ export function ShootDownloadCenterDialog({
   onDownloadArchive,
   onDownloadFile,
 }: ShootDownloadCenterDialogProps) {
+  const scope = useShootUnitScope(sourceShoot ?? undefined);
+  const shoot = useMemo(() => sourceShoot && scope.unit ? {
+    ...projectUnitTour(sourceShoot, scope.unit),
+    files: filterUnitFiles(sourceShoot.files ?? [], sourceShoot, scope.activeUnitId),
+  } : sourceShoot, [sourceShoot, scope.unit, scope.activeUnitId]);
   const [activeDownload, setActiveDownload] = useState<string | null>(null);
   const activeDownloadRef = useRef(false);
   const downloadBusy = isDownloading || activeDownload !== null;
@@ -211,7 +220,7 @@ export function ShootDownloadCenterDialog({
   };
   const downloadModel = useMemo(() => {
     const canSeeWholeShoot = !isClient || canDownloadWholeShoot;
-    const canSeeTours = !isClient || canAccessTours;
+    const canSeeTours = !isClient || (scope.isMultiUnit ? Number(scope.unit?.ready_service_count) > 0 : canAccessTours);
 
     if (!shoot) {
       return {
@@ -294,7 +303,7 @@ export function ShootDownloadCenterDialog({
       tourDownloads,
       totalItems,
     };
-  }, [canAccessTours, canDownloadWholeShoot, isClient, shoot]);
+  }, [canAccessTours, canDownloadWholeShoot, isClient, shoot, scope.isMultiUnit, scope.unit?.ready_service_count]);
 
   const isWide = downloadModel.totalItems > 4 || downloadModel.services.length > 2;
   const hasDownloads =
@@ -383,9 +392,10 @@ export function ShootDownloadCenterDialog({
             <DialogDescription>
               {isDownloading
                 ? 'Your download will start automatically when it is ready.'
-                : 'Choose a shoot package, service item, video, or floorplan.'}
+                : scope.isMultiUnit ? 'Download photos, videos, and floorplans for the selected unit.' : 'Choose a shoot package, service item, video, or floorplan.'}
             </DialogDescription>
           </DialogHeader>
+          {sourceShoot && scope.isMultiUnit && <div className="px-5 pt-3"><ShootUnitScopeBar shoot={sourceShoot} disabled={downloadBusy} /></div>}
 
           {downloadBusy && (
             <div role="status" className="px-5 pt-3 text-sm text-muted-foreground">
@@ -409,7 +419,7 @@ export function ShootDownloadCenterDialog({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 font-semibold">
                             <Archive className="h-4 w-4 text-primary" />
-                            All photos
+                            {scope.isMultiUnit ? 'All unit photos' : 'All photos'}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {downloadModel.wholeShootPhotoCount} image{downloadModel.wholeShootPhotoCount === 1 ? '' : 's'}

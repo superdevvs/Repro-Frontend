@@ -12,6 +12,7 @@ import type {
 } from './shootApiTypes';
 import { normalizeShootCompReshootFields } from '@/features/complimentary-reshoots/normalizeShootCompReshoot';
 import { normalizeShootNotes } from './shootNotesNormalization';
+import { normalizeShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { calendarDay } from '@/lib/date';
 
@@ -342,6 +343,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             ? String(s.shootServiceId ?? s.shoot_service_id ?? s.pivot?.id)
             : null,
           name: String(s.name || ''),
+          duration_minutes: toOptionalNumber(s.pivot?.duration_minutes ?? s.duration_minutes),
+          photographer_required: toOptionalBoolean(s.photographer_required),
+          requires_editing: toOptionalBoolean(s.requires_editing, s.requiresEditing),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
           // Only a positive count is a count; 0 and null both mean unspecified. This
@@ -523,6 +527,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
         return {
           shoot_service_id: pivotId as string | number | null,
+          shoot_unit_id: (item.shoot_unit_id ?? item.shootUnitId ?? null) as string | number | null,
+          unit_label: item.unit_label == null ? null : String(item.unit_label),
           shootServiceId: pivotId as string | number | null,
           service_id: serviceId as string | number | null,
           serviceId: serviceId as string | number | null,
@@ -536,7 +542,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       ? shoot.serviceItems
       : Array.isArray(shoot.service_items)
         ? shoot.service_items
-        : [];
+        : Array.isArray(shoot.service_lines) ? shoot.service_lines : [];
 
     if (rawItems.length === 0) {
       return serviceObjects;
@@ -618,6 +624,15 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
         return {
           id: stableId != null ? String(stableId) : '',
+          shoot_unit_id: item.shoot_unit_id ?? item.shootUnitId ?? null,
+          shootUnitId: item.shoot_unit_id ?? item.shootUnitId ?? null,
+          unit_client_key: item.unit_client_key,
+          client_key: item.client_key,
+          unit_label: item.unit_label,
+          unit: item.unit,
+          duration_minutes: toOptionalNumber(item.duration_minutes ?? service.duration_minutes),
+          photographer_required: toOptionalBoolean(item.photographer_required, service.photographer_required),
+          requires_editing: toOptionalBoolean(item.requires_editing, item.requiresEditing, service.requires_editing, service.requiresEditing),
           invoice_id: invoiceId == null ? null : String(invoiceId),
           invoiceId: invoiceId == null ? null : String(invoiceId),
           invoice_item_id: invoiceItemId == null ? null : String(invoiceItemId),
@@ -786,6 +801,10 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     serviceObjects,
     serviceItems,
     service_items: serviceItems,
+    service_lines: serviceItems?.filter(item => !isInvoiceAdjustmentServiceItem(item)),
+    units: normalizeShootUnits(shoot),
+    shoot_units: normalizeShootUnits(shoot),
+    units_revision: shoot.units_revision,
     servicePresentation,
     service_presentation: servicePresentation,
     editorAssignments,

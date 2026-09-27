@@ -22,7 +22,7 @@ import { useUpload } from '@/context/UploadContext';
 
 import { autoenhanceService, type EditingType } from '@/services/autoenhanceService';
 
-import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
+import { type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { MediaGrid } from './MediaGrid';
@@ -57,6 +57,7 @@ import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
+import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -129,7 +130,7 @@ type ClientProgressStageKey = (typeof CLIENT_PROGRESS_STEPS)[number]['key'];
 // MediaFile interface is imported from useShootFiles hook
 
 export function useShootDetailsMediaTab({
-  shoot,
+  shoot: fullShoot,
   isAdmin,
   isPhotographer,
   isEditor,
@@ -143,6 +144,7 @@ export function useShootDetailsMediaTab({
   displayTab: controlledDisplayTab,
   onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
+  const { shoot, activeUnitId } = useUnitMediaScope(fullShoot);
   const aiEditEventName = 'shoot-ai-edit-open';
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -494,11 +496,11 @@ export function useShootDetailsMediaTab({
 
   // Load files using React Query hooks for deduplication and caching
   const rawFilesEnabled = Boolean(shoot.id) && !isClient;
-  const { data: rawFilesData = [], isLoading: rawLoading } = useShootFiles(shoot.id, 'raw', {
+  const { data: rawFilesData = [], isLoading: rawLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'raw', {
     enabled: rawFilesEnabled,
     cacheKey: shootFilesCacheKey,
   });
-  const { data: editedFilesData = [], isLoading: editedLoading } = useShootFiles(shoot.id, 'edited', {
+  const { data: editedFilesData = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
     enabled: Boolean(shoot.id),
     cacheKey: shootFilesCacheKey,
   });

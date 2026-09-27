@@ -20,6 +20,7 @@ import { CalendarIcon, CheckCircle, ChevronDown, ChevronUp, ClockIcon, MapPinIco
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { transformShootFromApi } from '@/context/shootNormalization';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { computePhotographerPayForShoot, formatPay } from '@/utils/photographerPay';
@@ -479,6 +480,7 @@ export function ShootDetailsModal({
   // Bright MLS sync must not be exposed in unsupported markets (e.g. NJ / Garden
   // State). Resolved here rather than in the rail so the gate has one owner.
   const showPublishToBrightMls =
+    !getShootUnits(shoot).length &&
     isDelivered &&
     !isEditor &&
     !isPhotographer &&

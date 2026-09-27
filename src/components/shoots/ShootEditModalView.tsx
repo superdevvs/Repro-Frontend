@@ -1,3 +1,4 @@
+import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -86,6 +87,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         </DialogHeader>
 
+        {model.unitSource && <div className="shrink-0 px-4 pb-3 sm:px-6"><ShootUnitScopeBar shoot={model.unitSource} disabled={model.unitScopeDirty || isLoading || isSubmitting} />{model.unitScopeDirty && model.unitSource.units?.length ? <p className="mt-1 text-xs text-muted-foreground">Save the current unit before switching. Other units retain their services and schedule.</p> : null}</div>}
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 px-4 pb-4 sm:px-6 md:grid-cols-3">
             <Skeleton className="h-48 rounded-xl" />

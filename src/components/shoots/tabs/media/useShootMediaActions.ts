@@ -14,6 +14,7 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import type { ShootData } from '@/types/shoots';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useAuth } from '@/components/auth/AuthProvider';
 import {
@@ -531,8 +532,9 @@ export function useShootMediaActions({
   };
 
   const handleEditorDownloadRaw = async (downloadAll = true) => {
-    const fileIds = downloadAll ? [] : Array.from(selectedFiles);
-    if (!downloadAll && fileIds.length === 0) {
+    const scoped = getShootUnits(shoot).length > 0;
+    const fileIds = downloadAll ? (scoped ? rawFiles.map(file => file.id) : []) : Array.from(selectedFiles);
+    if ((!downloadAll || scoped) && fileIds.length === 0) {
       toast({
         title: 'No files selected',
         description: 'Please select files to download or use "Download All"',
@@ -546,7 +548,7 @@ export function useShootMediaActions({
     try {
       const result = await downloadShootRawFiles({
         shootId: shoot.id,
-        fileIds: downloadAll ? undefined : fileIds,
+        fileIds: downloadAll && !scoped ? undefined : fileIds,
         address: getShootDownloadAddress(shoot),
       });
 
@@ -585,12 +587,13 @@ export function useShootMediaActions({
         ? editedFiles
         : rawFiles;
     const currentTabFileIds = new Set(currentTabFiles.map((file) => file.id));
+    const scoped = getShootUnits(shoot).length > 0;
     const fileIds = shareAll
-      ? []
+      ? (scoped ? Array.from(currentTabFileIds) : [])
       : Array.from(selectedFiles).filter((fileId) => currentTabFileIds.has(fileId));
     const mediaStage = isEditorRole ? 'raw' : displayTab === 'edited' ? 'edited' : 'raw';
 
-    if (!shareAll && fileIds.length === 0) {
+    if ((!shareAll || scoped) && fileIds.length === 0) {
       toast({
         title: 'No files selected',
         description: 'Please select files to share or use "Share All"',
@@ -605,7 +608,7 @@ export function useShootMediaActions({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          file_ids: shareAll ? [] : fileIds,
+          file_ids: fileIds,
           media_stage: mediaStage,
         }),
       });

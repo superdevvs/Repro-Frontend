@@ -95,6 +95,22 @@ describe('Studio shoot picker', () => {
     expect(await screen.findByRole('button', { name: /Select IMG1-HDR.jpg/ })).toBeEnabled();
   });
 
+  it('keeps a 100-unit library bounded and selects only the current unit media', async () => {
+    sources.getShootMedia.mockResolvedValue(Array.from({ length: 100 }, (_, index) => photo(index + 1, { shootUnitId: index + 1, unitLabel: `Unit ${String(index + 1).padStart(3, '0')}`, shootServiceId: index + 100, stackingEnabled: false })));
+    const initial = props();
+    render(<MediaPicker {...initial} initialShoot={{ ...shoot, id: 10042 }} />);
+    await screen.findByRole('button', { name: /Select IMG1.CR3/ });
+    expect(screen.queryByRole('button', { name: /Select IMG100.CR3/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Change unit' }));
+    expect(screen.getAllByRole('button').filter(button => button.hasAttribute('aria-pressed'))).toHaveLength(8);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search units' }), { target: { value: 'Unit 100' } });
+    fireEvent.click(screen.getByRole('button', { name: /Unit 100/ }));
+    await screen.findByRole('button', { name: /Select IMG100.CR3/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+    fireEvent.click(screen.getByRole('button', { name: /Use 1 photo/ }));
+    expect(initial.onSelect.mock.calls[0][0].map((media: { fileId: number }) => media.fileId)).toEqual([100]);
+  });
+
   it('opens a shoot entry in the stack picker without bulk-selecting its original exposures', async () => {
     sources.getShootMedia.mockResolvedValue([photo(1), photo(2), photo(3)]);
     sources.mergeHdr.mockResolvedValue(merged);

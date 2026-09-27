@@ -1,9 +1,14 @@
+import { useBookingUnits } from '@/features/shoot-units/useMultiUnitBooking';
+import { MultiUnitServicesStep, BookingUnitsScheduleNotice } from '@/features/shoot-units/BookingUnitControls';
 import React from 'react';
 
 import { ClientPropertyForm, type InternalShootType } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
 import type { PricingBreakdown } from '@/utils/pricing';
+import type { Client } from '@/types/clients';
+import type { ClientPropertyFormProps } from './useClientPropertyFormController';
+import type { BookShootController } from '@/pages/useBookShootController';
 import { CompReshootServiceMapping } from '@/features/complimentary-reshoots/CompReshootServiceMapping';
 import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
 import { CompReshootReasonStep } from '@/features/complimentary-reshoots/CompReshootReasonStep';
@@ -17,10 +22,10 @@ interface BookingContentAreaProps {
   step: number;
   formErrors: Record<string, string>;
   setFormErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  clientPropertyFormData: any;
+  clientPropertyFormData: BookShootController['clientPropertyFormData'];
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
   onClientChange?: (clientId: string) => void;
-  onPropertyDraftChange?: (data: any) => void;
+  onPropertyDraftChange?: BookShootController['handlePropertyDraftChange'];
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
@@ -60,8 +65,8 @@ interface BookingContentAreaProps {
   adjustedTotalInput?: string;
   setAdjustedTotalInput?: (value: string) => void;
   getPhotographerRate: () => number;
-  clients: any[];
-  photographers: any[];
+  clients: Client[];
+  photographers: Array<{ id: string; name: string; avatar?: string }>;
   handleSubmit: () => void;
   goBack: () => void;
   sameDayAddressWarningMessage?: string;
@@ -129,6 +134,7 @@ export function BookingContentArea({
   compReshoot,
   propertySqft = null,
 }: BookingContentAreaProps) {
+  const units = useBookingUnits();
   const wizard = getBookingWizardConfig(Boolean(compReshoot?.enabled));
   
   return (
@@ -150,19 +156,19 @@ export function BookingContentArea({
         />
       )}
 
-      {!compReshoot?.enabled && clientPropertyFormData && (step === 1 || step === wizard.servicesStep) && (
+      {!compReshoot?.enabled && clientPropertyFormData && (step === 1 || (step === wizard.servicesStep && !units?.enabled)) && (
         <ClientPropertyForm
           key={clientPropertyFormData.formKey ?? 'default'}
           slide={step === 1 ? 'property' : 'services'}
           onBack={step === wizard.servicesStep ? goBack : undefined}
-          initialData={clientPropertyFormData.initialData}
-          onComplete={clientPropertyFormData.onComplete}
+          initialData={clientPropertyFormData.initialData as ClientPropertyFormProps['initialData']}
+          onComplete={clientPropertyFormData.onComplete as ClientPropertyFormProps['onComplete']}
           packages={packages}
           isClientAccount={clientPropertyFormData.isClientAccount}
           clients={clients}
           onAddressFieldsChange={onAddressFieldsChange}
           onClientChange={onClientChange}
-          onPropertyDraftChange={onPropertyDraftChange}
+          onPropertyDraftChange={onPropertyDraftChange as ClientPropertyFormProps['onPropertyDraftChange']}
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
           shootType={shootType}
@@ -182,6 +188,8 @@ export function BookingContentArea({
         />
       )}
       
+      {units?.enabled && step === wizard.servicesStep && <MultiUnitServicesStep onBack={goBack} onContinue={handleSubmit} notes={notes} setNotes={setNotes} packagesLoading={packagesLoading} />}
+      {units?.enabled && step === wizard.schedulingStep && <BookingUnitsScheduleNotice />}
       {step === wizard.schedulingStep && (
         <SchedulingForm
           enforceNewBookingEligibility={enforceNewBookingEligibility}

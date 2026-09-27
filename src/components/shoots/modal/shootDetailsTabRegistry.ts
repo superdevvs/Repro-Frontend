@@ -1,5 +1,6 @@
 import { ShootData } from '@/types/shoots';
 import { ShootDetailsTabDefinition } from './shootDetailsTypes';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 const SHOOT_DETAILS_TAB_REGISTRY: ShootDetailsTabDefinition[] = [
   {
@@ -22,7 +23,10 @@ const SHOOT_DETAILS_TAB_REGISTRY: ShootDetailsTabDefinition[] = [
     label: 'Tours',
     isVisible: ({ isAdmin, isRep, isClient, isRequestedStatus }) =>
       !isRequestedStatus && (isAdmin || isRep || isClient),
-    isDisabled: ({ isClient, isClientReleaseLocked }) => isClient && isClientReleaseLocked,
+    isDisabled: ({ isClient, isClientReleaseLocked, shoot }) => {
+      const units = getShootUnits(shoot);
+      return isClient && (units.length ? !units.some(unit => Number(unit.ready_service_count) > 0) : isClientReleaseLocked);
+    },
   },
   {
     id: 'settings',

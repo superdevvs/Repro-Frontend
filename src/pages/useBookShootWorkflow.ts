@@ -29,6 +29,7 @@ import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { emptyMultiUnitDraft, hydrateUnitDraft, type MultiUnitDraft } from '@/features/shoot-units/model';
 
 type BookShootWorkflowOptions = {
   user: ReturnType<typeof useAuth>['user'];
@@ -41,6 +42,7 @@ type BookShootWorkflowOptions = {
 };
 
 type EditingScheduleSource = {
+  units_revision?: number;
   timezone?: string | null;
   scheduled_at?: string;
   scheduledAt?: string;
@@ -83,6 +85,7 @@ export const useBookShootWorkflow = ({
   const [servicePhotographers, setServicePhotographers] = useState<Record<string, string>>({});
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
   const [selectedServices, setSelectedServices] = useState<ServicePackage[]>([]);
+  const [multiUnitDraft, setMultiUnitDraft] = useState<MultiUnitDraft>(emptyMultiUnitDraft);
   const [shootType, setShootType] = useState<InternalShootType>('standard');
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetailsData | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
@@ -173,6 +176,7 @@ export const useBookShootWorkflow = ({
     setServicePhotographers(initial.servicePhotographers);
     setServiceSchedules(initial.serviceSchedules);
     setSelectedServices(initial.selectedServices);
+    setMultiUnitDraft(emptyMultiUnitDraft());
     setShootType('standard');
     setNotes(initial.notes);
     setCompanyNotes(initial.companyNotes);
@@ -231,6 +235,7 @@ export const useBookShootWorkflow = ({
         if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
           setSelectedServices(parsed.selectedServices);
         }
+        if (parsed.multiUnitDraft?.enabled && Array.isArray(parsed.multiUnitDraft.units) && Array.isArray(parsed.multiUnitDraft.lines)) setMultiUnitDraft(parsed.multiUnitDraft);
         if (typeof parsed.notes === 'string') setNotes(parsed.notes);
         if (typeof parsed.companyNotes === 'string') setCompanyNotes(parsed.companyNotes);
         if (typeof parsed.photographerNotes === 'string') setPhotographerNotes(parsed.photographerNotes);
@@ -264,6 +269,7 @@ export const useBookShootWorkflow = ({
     if (isInitialMountRef.current) return;
     try {
       const formData = {
+        multiUnitDraft,
         client,
         address,
         city,
@@ -287,6 +293,7 @@ export const useBookShootWorkflow = ({
         propertySqft,
       };
       const isDraftEmpty =
+        !multiUnitDraft.enabled &&
         (!client || isClientAccount) &&
         !address &&
         !city &&
@@ -319,6 +326,7 @@ export const useBookShootWorkflow = ({
       console.error('Error saving form data to cache:', error);
     }
   }, [
+    multiUnitDraft,
     CACHE_KEY,
     shouldCacheForm,
     user,
@@ -492,6 +500,13 @@ export const useBookShootWorkflow = ({
             name: String(pkg.name ?? ''),
             description: String(pkg.description ?? ''),
             price: Number(pkg.price ?? 0),
+            delivery_time: pkg.delivery_time == null ? null : Number(pkg.delivery_time),
+            shoot_duration_minutes: pkg.shoot_duration_minutes == null ? null : Number(pkg.shoot_duration_minutes),
+            duration_minutes: pkg.duration_minutes == null ? null : Number(pkg.duration_minutes),
+            booking_duration_default_minutes: pkg.booking_duration_default_minutes == null ? null : Number(pkg.booking_duration_default_minutes),
+            booking_duration_min_minutes: pkg.booking_duration_min_minutes == null ? null : Number(pkg.booking_duration_min_minutes),
+            booking_duration_max_minutes: pkg.booking_duration_max_minutes == null ? null : Number(pkg.booking_duration_max_minutes),
+            booking_duration_defaults: pkg.booking_duration_defaults as ServicePackage['booking_duration_defaults'],
             pricing_type: pkg.pricing_type === 'variable' ? 'variable' : 'fixed',
             allow_multiple: Boolean(pkg.allow_multiple),
             photographer_required: serviceRequiresPhotographer({
@@ -640,6 +655,7 @@ export const useBookShootWorkflow = ({
         const shootData = response.data?.data || response.data;
         setEditingScheduleSource(shootData || null);
         if (shootData) {
+          setMultiUnitDraft(hydrateUnitDraft(shootData));
           setCanRemoveAllServicesForEdit(Boolean(
             shootData.canRemoveAllServices ?? shootData.can_remove_all_services,
           ));
@@ -726,6 +742,7 @@ export const useBookShootWorkflow = ({
     }
   }, [editShootId, packagesLoading, packages, toast]);
   return {
+    multiUnitDraft, setMultiUnitDraft,
     isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, setPackages, packagesLoading,
     setPackagesLoading, clients, setClients, client, setClient, address, setAddress,
     city, setCity, state, setState, zip, setZip, date, setDate, time, setTime,

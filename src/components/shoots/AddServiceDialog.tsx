@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
+import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
+import { getUnitVisitDefaults, projectShootForUnit } from '@/features/shoot-units/shootUnitData';
+import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
+import { buildUnitScopedUpdate } from '@/features/shoot-units/unitMutations';
+import { calculateServicePrice, type SqftRange } from '@/utils/servicePricing';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +42,9 @@ interface Service {
   name: string;
   price: number;
   category_id?: number;
+  pricing_type?: 'fixed' | 'variable';
+  sqft_ranges?: SqftRange[];
+  photographer_required?: boolean;
 }
 
 interface AddServiceDialogProps {
@@ -44,6 +53,8 @@ interface AddServiceDialogProps {
 }
 
 export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps) {
+  const unitScope = useShootUnitScope(shoot);
+  const scopedShoot = unitScope.isMultiUnit ? projectShootForUnit(shoot, unitScope.activeUnitId) : shoot;
   const [open, setOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,10 +64,11 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   const [scheduleDate, setScheduleDate] = useState<string>('');
   const [scheduleTime, setScheduleTime] = useState<string>('10:00');
   const { toast } = useToast();
+  const unitVisit = unitScope.isMultiUnit ? getUnitVisitDefaults(shoot, unitScope.activeUnitId) : null;
 
   const shootScheduledAt =
-    (shoot as any).scheduled_at ||
-    (shoot as any).scheduledAt ||
+    (shoot as ShootData & { scheduled_at?: string }).scheduled_at ||
+    (shoot as ShootData & { scheduledAt?: string }).scheduledAt ||
     shoot.scheduledDate ||
     null;
   const timeOptions = useMemo(() => {
@@ -72,21 +84,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
     return options;
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      fetchServices();
-      const date = formatDateForWallClockInput(shootScheduledAt);
-      const time = formatTimeForWallClockInput(shootScheduledAt);
-      if (date) {
-        setScheduleDate(date);
-      }
-      if (time) {
-        setScheduleTime(time);
-      }
-    }
-  }, [open, shootScheduledAt]);
-
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/services`, {
@@ -106,8 +104,24 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
+  useEffect(() => {
+    if (open) {
+      fetchServices();
+      const date = unitVisit?.date || formatDateForWallClockInput(shootScheduledAt);
+      const time = unitVisit?.time || formatTimeForWallClockInput(shootScheduledAt);
+      if (date) {
+        setScheduleDate(date);
+      }
+      if (time) {
+        setScheduleTime(time);
+      }
+    }
+  }, [open, shootScheduledAt, unitVisit?.date, unitVisit?.time, fetchServices]);
+
+
+  const adaptUnitPayload = (input: Record<string, unknown>) => unitScope.isMultiUnit && unitScope.activeUnitId ? buildUnitScopedUpdate(shoot, unitScope.activeUnitId, input) : input;
   const handleAddService = async () => {
     if (!selectedServiceId) {
       toast({
@@ -125,14 +139,15 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       
       // Get current shoot services
       const currentServices = existingServiceEntries
-        .map((s: any) => {
+        .map((s: unknown) => {
+          const record = s && typeof s === 'object' ? s as Record<string, unknown> : {};
           const serviceId = resolveExistingServiceId(s);
           if (!serviceId) return null;
 
           return {
             id: Number(serviceId),
-            photographer_pay: typeof s === 'object' ? s.photographer_pay ?? s.photographerPay ?? null : null,
-            scheduled_at: typeof s === 'object' ? s.scheduled_at || s.scheduledAt || null : null,
+            photographer_pay: record.photographer_pay == null && record.photographerPay == null ? null : Number(record.photographer_pay ?? record.photographerPay),
+            scheduled_at: record.scheduled_at || record.scheduledAt ? String(record.scheduled_at || record.scheduledAt) : null,
           };
         })
         .filter((service): service is {
@@ -148,11 +163,13 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         price?: number;
         photographer_pay: number | null;
         scheduled_at: string | null;
+        photographer_id?: number;
       } = {
         id: Number(selectedServiceId),
         quantity: 1,
         photographer_pay: photographerPay ? parseFloat(photographerPay) : null,
         scheduled_at: buildScheduledAtIso(scheduleDate, scheduleTime),
+        ...(unitVisit?.photographerId && services.find(service => String(service.id) === selectedServiceId)?.photographer_required !== false ? { photographer_id: Number(unitVisit.photographerId) } : {}),
       };
       if (customPrice.trim() !== '') {
         newService.price = parseFloat(customPrice);
@@ -164,16 +181,17 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       const result = await submitShootServiceMutation({
         url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
         token,
-        payload: {
+        payload: adaptUnitPayload({
           services: updatedServices,
           service_items: updatedServices.map((service) => ({
             service_id: service.id,
             ...('price' in service && service.price !== undefined ? { price: service.price } : {}),
             ...('quantity' in service && service.quantity !== undefined ? { quantity: service.quantity } : {}),
             photographer_pay: service.photographer_pay ?? null,
+            ...('photographer_id' in service ? { photographer_id: service.photographer_id } : {}),
             scheduled_at: service.scheduled_at || null,
           })),
-        },
+        }),
       });
 
       if (result.kind === 'confirmation_required') {
@@ -205,7 +223,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   };
 
   // Filter out services already attached to shoot
-  const getExistingServiceEntries = () => getCatalogServiceEntries(shoot);
+  const getExistingServiceEntries = () => getCatalogServiceEntries(scopedShoot);
 
   const resolveExistingServiceId = (entry: unknown): string | null => {
     if (entry && typeof entry === 'object') {
@@ -226,6 +244,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   const availableServices = services.filter(s => !currentServiceIds.includes(String(s.id)));
 
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
+    if (unitScope.isMultiUnit) return buildShootScheduleTimestamp(dateValue, timeValue || '10:00', shoot.timezone);
     return buildWallClockIso(dateValue, timeValue || '10:00');
   };
 
@@ -250,6 +269,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
             </DialogDescription>
           </DialogHeader>
 
+          <ShootUnitScopeBar shoot={shoot} disabled={loading || Boolean(selectedServiceId)} />
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="service">Service</Label>
@@ -262,7 +282,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
                     <SelectItem value="no-services" disabled>No services available</SelectItem>
                   ) : (
                     availableServices.map((service) => {
-                      const price = typeof service.price === 'number' ? service.price : (typeof service.price === 'string' ? parseFloat(service.price) : 0);
+                      const price = calculateServicePrice({ ...service }, unitScope.unit?.sqft ?? (Number(shoot.propertyDetails?.sqft) || null));
                       const priceDisplay = isNaN(price) ? '0.00' : price.toFixed(2);
                       return (
                         <SelectItem key={service.id} value={String(service.id)}>

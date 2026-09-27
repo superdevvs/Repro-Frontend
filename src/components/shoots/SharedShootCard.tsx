@@ -1,3 +1,4 @@
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import React from 'react';
 import { Card } from '@/components/ui/card';
@@ -316,7 +317,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
 
         {/* Services - Prominent Display */}
         {(() => {
-          const services = Array.isArray(shoot.services) ? shoot.services : [];
+          const services = getShootDetailsServiceNames(shoot);
           
           // Always show services section
           return (

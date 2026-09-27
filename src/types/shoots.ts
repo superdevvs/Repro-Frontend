@@ -192,7 +192,24 @@ export interface ShootUserSummary {
  * is never role-filtered and therefore must never carry pricing, assignments or
  * workflow state.
  */
+export interface ShootUnit {
+  id?: string | number;
+  client_key?: string;
+  label: string;
+  kind: 'unit' | 'common_area';
+  sqft: number | null;
+  beds: number | null;
+  baths: number | null;
+  access_notes?: string | null;
+  sort_order?: number;
+  tour_links?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export interface ShootServicePresentation {
+  shoot_unit_id?: string | number | null;
+  unit_label?: string | null;
+  unit?: ShootUnit | null;
   shoot_service_id?: string | number | null;
   shootServiceId?: string | number | null;
   service_id?: string | number | null;
@@ -202,6 +219,14 @@ export interface ShootServicePresentation {
 }
 
 export interface ShootServiceObject {
+  duration_minutes?: number | null;
+  photographer_required?: boolean;
+  shoot_unit_id?: string | number | null;
+  shootUnitId?: string | number | null;
+  unit_client_key?: string | null;
+  client_key?: string | null;
+  unit_label?: string | null;
+  unit?: ShootUnit | null;
   id: string;
   invoice_id?: string | number | null;
   invoiceId?: string | number | null;
@@ -407,6 +432,10 @@ export interface PendingPaymentIntent {
 }
 
 export interface ShootData {
+  units_revision?: number;
+  units?: ShootUnit[];
+  shoot_units?: ShootUnit[];
+  service_lines?: ShootServiceObject[];
   id: string;
   /** Draft-only explicit Admin/Super Admin final-order override. */
   adminAdjustedTotalQuote?: number | null;

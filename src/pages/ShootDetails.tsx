@@ -25,6 +25,7 @@ import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetails
 import { getShootDetailsPaymentBadge, getShootDetailsServiceNames, getShootDetailsWorkflowBadge } from '@/components/shoots/details/shootDetailsPresentation';
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
+import { ShootUnitScopeProvider, ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
@@ -631,6 +632,7 @@ const ShootDetails: React.FC = () => {
 
   return (
     <DashboardLayout className="!p-0">
+      <ShootUnitScopeProvider shoot={shoot}>
       <div className="flex flex-col min-h-screen bg-background">
         <ShootDetailsPageHeader
           shoot={shoot}
@@ -682,6 +684,7 @@ const ShootDetails: React.FC = () => {
           isGeneratingShareLink={isGeneratingShareLink}
         />
 
+          <div className="px-3 pt-3 sm:px-6"><ShootUnitScopeBar shoot={shoot} /></div>
           {/* Premium Summary Card */}
           <div className="px-3 sm:px-6 py-3 sm:py-4">
             <Card className="border-2 shadow-lg bg-gradient-to-br from-background via-background to-muted/20 hover:shadow-xl transition-shadow">
@@ -934,6 +937,7 @@ const ShootDetails: React.FC = () => {
           shouldHideClientDetails={isEditor}
         />
       )}
+      </ShootUnitScopeProvider>
     </DashboardLayout>
   );
 };

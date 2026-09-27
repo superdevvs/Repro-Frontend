@@ -14,6 +14,15 @@ const url = '/api/shoots';
 beforeEach(() => vi.clearAllMocks());
 
 describe('final new-booking photographer eligibility', () => {
+  it('checks repeated catalog services at each unit line schedule without requiring flat service arrays', async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { data: [{ id: 9 }] } });
+    const { services: _services, ...shared } = payload;
+    const multi = { ...shared, service_lines: [{ service_id: '1', photographer_id: '9', scheduled_at: '2026-10-05T10:00:00' }, { service_id: '1', photographer_id: '9', scheduled_at: '2026-10-05T12:00:00' }] };
+    await submitNewShootWithEligibility(url, multi, config);
+    expect(axios.post).toHaveBeenCalledTimes(3);
+    expect(axios.post).toHaveBeenNthCalledWith(2, API_ROUTES.photographerAvailability.forBooking, expect.objectContaining({ service_ids: [1], time: '12:00' }), expect.anything());
+    expect(axios.post).toHaveBeenLastCalledWith(url, multi, config);
+  });
   it('does not create a booking when a previously selected photographer is now excluded', async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: { data: [] } });
     await expect(submitNewShootWithEligibility(url, payload, config)).rejects.toThrow(/no longer eligible/);

@@ -1,3 +1,4 @@
+import { useBookingUnits } from '@/features/shoot-units/useMultiUnitBooking';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -292,6 +293,7 @@ export const useClientPropertyFormController = ({
   slide = 'all',
   onBack,
 }: ClientPropertyFormProps) => {
+  const units = useBookingUnits();
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);
@@ -345,7 +347,8 @@ export const useClientPropertyFormController = ({
     });
   };
 
-  const formSchema = isClientAccount ? clientAccountPropertyFormSchema : adminPropertyFormSchema;
+  const baseSchema = isClientAccount ? clientAccountPropertyFormSchema : adminPropertyFormSchema;
+  const formSchema = units?.enabled ? baseSchema.extend({ sqft: z.number().optional() }) : baseSchema;
   const initialPropertyDetails = initialData.propertyDetails ?? initialData.property_details;
   const initialSqft = Number(initialData.sqft ?? initialPropertyDetails?.sqft
     ?? initialPropertyDetails?.squareFeet ?? initialPropertyDetails?.square_feet
@@ -430,7 +433,7 @@ export const useClientPropertyFormController = ({
   }, [isClientAccount, packages, selectedClientServiceGroupIds]);
 
   React.useEffect(() => {
-    if (isClientAccount || selectedClientServiceGroupIds.length === 0 || selectedServices.length === 0) {
+    if (units?.enabled || isClientAccount || selectedClientServiceGroupIds.length === 0 || selectedServices.length === 0) {
       return;
     }
 
@@ -446,7 +449,7 @@ export const useClientPropertyFormController = ({
         description: 'Unavailable services were removed for the selected client.',
       });
     }
-  }, [isClientAccount, onSelectedServicesChange, selectedClientServiceGroupIds, selectedServices, toast]);
+  }, [isClientAccount, onSelectedServicesChange, selectedClientServiceGroupIds, selectedServices, toast, units?.enabled]);
 
   // Keep parent state (for summary) in sync with address fields as they change
   React.useEffect(() => {
@@ -617,7 +620,7 @@ export const useClientPropertyFormController = ({
 
   // Recalculate selected services prices when sqft changes
   React.useEffect(() => {
-    if (selectedServices.length === 0) return;
+    if (units?.enabled || selectedServices.length === 0) return;
 
     const updatedServices = selectedServices.map(service => {
       const sqftRanges = getServiceSqftRanges(service);
@@ -636,7 +639,7 @@ export const useClientPropertyFormController = ({
     if (pricesChanged) {
       onSelectedServicesChange(updatedServices);
     }
-  }, [effectiveSqft, onSelectedServicesChange, selectedServices]);
+  }, [effectiveSqft, onSelectedServicesChange, selectedServices, units?.enabled]);
 
   const isSearching = searchQuery.trim().length > 0;
   
@@ -677,7 +680,7 @@ export const useClientPropertyFormController = ({
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
 
-    if (!presenceOption) {
+    if (!presenceOption && !units?.enabled) {
       const noticeText = 'Choose who will be at the property.';
       setSubmitAttemptNotice(noticeText);
       toast({
@@ -701,6 +704,7 @@ export const useClientPropertyFormController = ({
       return;
     }
 
+    if (units?.enabled && Object.keys(units.propertyErrors).length) { units.setManagerOpen(true); return; }
     const baseData = buildPropertyDraftData(data);
 
     if (isClientAccount) {

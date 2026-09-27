@@ -1,3 +1,4 @@
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -312,7 +313,7 @@ export const HoldOnShootCard = ({
 
           {/* Services - Prominent - Always show */}
           {(() => {
-            const services = Array.isArray(shoot.services) ? shoot.services : [];
+            const services = getShootDetailsServiceNames(shoot);
             return (
               <div className="space-y-2 pt-2 border-t border-border/50">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">

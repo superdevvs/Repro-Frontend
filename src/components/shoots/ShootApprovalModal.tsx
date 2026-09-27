@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { MultiUnitApprovalDialog } from '@/features/shoot-units/MultiUnitApprovalDialog';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import {
   Dialog,
   DialogContent,
@@ -1084,6 +1086,7 @@ export function ShootApprovalModal({
   const PickerTitle: React.ElementType = isPickerMobile ? DrawerTitle : DialogTitle;
   const PickerDescription: React.ElementType = isPickerMobile ? DrawerDescription : DialogDescription;
 
+  if (shootDetails && getShootUnits(shootDetails).length > 0) return <MultiUnitApprovalDialog key={String(shootDetails.id)} open={isOpen} onClose={onClose} source={shootDetails} photographers={photographerOptions} onApproved={onApproved} />;
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[900px] md:max-w-[1150px] xl:max-w-[1320px]">

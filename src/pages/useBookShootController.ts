@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
+import { bookingSummaryInfo } from './bookingSummaryInfo';
 import { useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import type { Client } from '@/types/clients';
@@ -72,7 +74,7 @@ export const useBookShootController = () => {
     clients, setClients, client, setClient, address, setAddress, city, setCity, state,
     setState, zip, setZip, date, setDate, time, setTime, photographer, setPhotographer,
     servicePhotographers, setServicePhotographers, serviceSchedules, setServiceSchedules,
-    selectedServices, setSelectedServices, shootType, setShootType, propertyDetails,
+    selectedServices: legacySelectedServices, setSelectedServices, multiUnitDraft, setMultiUnitDraft, shootType, setShootType, propertyDetails,
     setPropertyDetails, propertySqft, setPropertySqft, handleSelectedServicesChange,
     handleShootTypeChange, notes, setNotes, companyNotes, setCompanyNotes, photographerNotes,
     setPhotographerNotes, editorNotes, setEditorNotes, bypassPayment, setBypassPayment,
@@ -88,6 +90,8 @@ export const useBookShootController = () => {
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
     editShootId, canAdjustBookingAmount,
   });
+  const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
+  const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
   const remountPropertyForm = React.useCallback(() => {
     setClientPropertyFormKey((current) => current + 1);
   }, [setClientPropertyFormKey]);
@@ -211,6 +215,11 @@ export const useBookShootController = () => {
   const finalBookingStep = bookingWizard.finalStep;
   const schedulingStep = bookingWizard.schedulingStep;
   const validateCurrentStep = () => {
+    if (unitBooking.enabled) {
+      const issues = step === 1 ? Object.values(unitBooking.propertyErrors).flat() : step === bookingWizard.servicesStep ? Object.values(unitBooking.errors).flat() : unitBooking.schedule.errors;
+      if (issues.length) { toast({ title: 'Review units', description: issues[0], variant: 'destructive' }); return false; }
+      if (step === schedulingStep) return true;
+    }
     if (isCompReshootMode && step === 1) {
       if (!compReshoot.reasonIsComplete) {
         toast({
@@ -298,9 +307,10 @@ export const useBookShootController = () => {
     if (isSubmitting) return;
     setFormErrors({});
     if (step === finalBookingStep) {
+      if (unitBooking.enabled && !unitBooking.valid) { toast({ title: 'Review all units', description: Object.values(unitBooking.errors).flat()[0] || unitBooking.schedule.errors[0], variant: 'destructive' }); return; }
       setIsSubmitting(true);
       const preflightIssue = getBookingSubmissionPreflightIssue({
-        isClientAccount, client, address, city, state, zip, date, time, selectedServices,
+        isClientAccount, client, address, city, state, zip, date, time, selectedServices: unitBooking.enabled ? selectedServices.map(service => ({ ...service, photographer_required: false })) : selectedServices,
         photographer, servicePhotographers, isCompReshootMode, canCreateNoProductShoot,
       });
       if (preflightIssue) {
@@ -483,10 +493,8 @@ export const useBookShootController = () => {
         scheduled_date: orderDate, // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
         photographer_id: selectedServicesRequirePhotographer(selectedServices) ? photographer || null : null,
-        service_photographers: buildServicePhotographerAssignments(selectedServices, servicePhotographers),
-        service_id: primaryServiceId,
-        services: servicesPayload,
-        service_items: serviceItemsPayload,
+        ...(!unitBooking.enabled ? { service_photographers: buildServicePhotographerAssignments(selectedServices, servicePhotographers), service_id: primaryServiceId } : {}),
+        ...(unitBooking.enabled ? { ...unitBooking.payload(scheduleSource?.timezone), ...(isEditMode ? { expected_units_revision: editingScheduleSource?.units_revision } : {}) } : { services: servicesPayload, service_items: serviceItemsPayload }),
         service_category: selectedServices[0]?.category?.name || undefined,
         shoot_type: effectiveShootType,
         ...(isCompReshootMode ? {
@@ -896,46 +904,7 @@ export const useBookShootController = () => {
     updateClientCompanyNotes, user, zip, isCompReshootMode,
     compReshoot.reasonIsComplete, compReshoot.mappingIsComplete, toast,
   ]);
-  const getSummaryInfo = () => {
-    const serviceNames = selectedServices.map(service => service.name).join(', ');
-    let repName: string | undefined = undefined;
-    if (selectedClientData) {
-      const selectedClientRecord = asRecord(selectedClientData);
-      if (typeof selectedClientRecord.rep === 'string') {
-        repName = selectedClientRecord.rep;
-      }
-      else if (selectedClientRecord.repObject) {
-        const repObj = selectedClientRecord.repObject;
-        const repRecord = asRecord(repObj);
-        if (typeof repRecord.name === 'string') {
-          repName = repRecord.name;
-        } else if (typeof repObj === 'string') {
-          repName = repObj;
-        }
-      }
-      if (!repName) {
-        const fallbackRep = selectedClientRecord.rep_name
-          || selectedClientRecord.sales_rep
-          || selectedClientRecord.salesRep;
-        repName = typeof fallbackRep === 'string' ? fallbackRep : undefined;
-      }
-    }
-    const fullAddress = buildNormalizedAddress({ address, city, state, zip });
-    return {
-      client: selectedClientData?.name || (isClientAccount ? user?.name || '' : ''),
-      clientRep: repName,
-      services: selectedServices,
-      packageLabel: serviceNames,
-      packagePrice: displayPricingBreakdown.serviceSubtotal,
-      pricing: displayPricingBreakdown,
-      address: fullAddress || address || '',
-      bedrooms: 0,
-      bathrooms: 0,
-      sqft: 0,
-      date: date ? formatDate(date) : '',
-      time: time || '',
-  };
-};
+  const getSummaryInfo = () => bookingSummaryInfo({ selectedServices, selectedClientData, fallbackClient: isClientAccount ? user?.name || '' : '', pricing: displayPricingBreakdown, address, city, state, zip, date: date ? formatDate(date) : '', time });
   const { temperature, condition } = useWeatherData({ date, time, city, state, zip, address });
   const parsedTemperature =
     temperature !== undefined && temperature !== null && !Number.isNaN(Number(temperature))
@@ -946,7 +915,7 @@ export const useBookShootController = () => {
     return bookingWizard.steps[step - 1] || { title: '', description: '' };
   };
   const currentStepContent = getCurrentStepContent();
-  const canSubmitBooking = isFormComplete && (!isCompReshootMode || compReshoot.isValid);
+  const canSubmitBooking = isFormComplete && (!unitBooking.enabled || unitBooking.valid) && (!isCompReshootMode || compReshoot.isValid);
   const openCompReshootSource = React.useCallback(() => {
     if (compReshoot.sourceShootId) navigate(`/shoots/${compReshoot.sourceShootId}`);
   }, [compReshoot.sourceShootId, navigate]);
@@ -967,7 +936,7 @@ export const useBookShootController = () => {
   }, [compReshoot.sourceShootId, navigate, setAdjustedTotalInput, setBypassPayment, setShootType, setStep]);
 
   return {
-    isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
+    unitBooking, isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
     setClient, address, setAddress, city, setCity, state, setState, zip, setZip, date,
     setDate, time, setTime, photographer, setPhotographer, servicePhotographers,
     setServicePhotographers, serviceSchedules, setServiceSchedules, selectedServices,

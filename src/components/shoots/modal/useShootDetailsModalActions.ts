@@ -14,6 +14,8 @@ import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls';
 import { mmmService } from '@/services/mmmService';
+import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
+import { filterUnitFiles } from '@/features/shoot-units/unitMutations';
 
 interface ToastApi {
   toast: (options: {
@@ -64,6 +66,7 @@ export function useShootDetailsModalActions({
   refreshShoot,
   toast,
 }: UseShootDetailsModalActionsOptions) {
+  const { activeUnitId, isMultiUnit } = useShootUnitScope(shoot ?? undefined);
   const [isPublishingToBrightMls, setIsPublishingToBrightMls] = useState(false);
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
@@ -76,6 +79,13 @@ export function useShootDetailsModalActions({
   const [mmmDialogRedirectUrl, setMmmDialogRedirectUrl] = useState<string | null>(null);
   const [mmmDialogError, setMmmDialogError] = useState<string | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const unitFileIds = () => {
+    if (!shoot || !isMultiUnit) return selectedFileIds;
+    const allowed = filterUnitFiles(shoot.files ?? [], shoot, activeUnitId).map(file => String(file.id));
+    const ids = selectedFileIds.length ? selectedFileIds.filter(id => allowed.includes(id)) : allowed;
+    if (!ids.length) throw new Error('This unit has no files available. Select a unit with files.');
+    return ids;
+  };
 
   const handleSendToBrightMls = async () => {
     if (!shoot) return;
@@ -148,7 +158,7 @@ export function useShootDetailsModalActions({
       setIsDownloading(true);
       const result = await downloadShootRawFiles({
         shootId: shoot.id,
-        fileIds: selectedFileIds,
+        fileIds: unitFileIds(),
         address: getShootDownloadAddress(shoot),
       });
 
@@ -183,7 +193,7 @@ export function useShootDetailsModalActions({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          file_ids: selectedFileIds,
+          file_ids: unitFileIds(),
           media_stage: 'raw',
         }),
       });
@@ -248,6 +258,7 @@ export function useShootDetailsModalActions({
         type: downloadType,
         size,
         shootServiceId: options.shootServiceId,
+        ...(isMultiUnit ? { shootUnitId: activeUnitId } : {}),
         address: getShootDownloadAddress(shoot),
         onPreparing: ({ message }) => {
           setDownloadStatusMessage(message);

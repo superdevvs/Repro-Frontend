@@ -181,6 +181,16 @@ export default {
       }
     }
 
+    if (!STATIC_TYPES.has(type) && incomingUrl.searchParams.has('unitId')) {
+      const unitId = incomingUrl.searchParams.get('unitId');
+      if (unitId && /^[1-9][0-9]*$/.test(unitId)) {
+        metadataUrl.searchParams.set('unitId', unitId);
+        shareUrl.searchParams.set('unitId', unitId);
+      } else {
+        inputsValid = false;
+      }
+    }
+
     if (inputsValid && THREE_D_TYPES.has(type)) {
       const provider = incomingUrl.searchParams.get('provider');
       if (provider) {

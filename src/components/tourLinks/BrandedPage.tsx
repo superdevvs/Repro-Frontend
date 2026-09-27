@@ -1,3 +1,4 @@
+import { withTourUnit } from '@/features/shoot-units/unitTourData';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -132,7 +133,7 @@ export function BrandedPage() {
 
         const cacheBuster = new Date().getTime();
         const separator = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${endpoint}${separator}t=${cacheBuster}`);
+        const res = await fetch(withTourUnit(`${endpoint}${separator}t=${cacheBuster}`, params.get('unitId')));
         const data = await res.json();
 
         if (data?.locked) {

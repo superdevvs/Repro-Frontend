@@ -1,4 +1,4 @@
-import type { ShootData, ShootServiceObject } from '@/types/shoots';
+import type { ShootData, ShootServiceObject, ShootUnit } from '@/types/shoots';
 
 export type ApiNotePayload = {
   shootNotes?: string;
@@ -33,6 +33,14 @@ type ApiServiceRange = {
 };
 
 export type ApiServiceRecord = {
+  duration_minutes?: number | null;
+  photographer_required?: boolean;
+  shoot_unit_id?: string | number | null;
+  shootUnitId?: string | number | null;
+  unit_client_key?: string | null;
+  client_key?: string | null;
+  unit_label?: string | null;
+  unit?: ShootUnit | null;
   id?: string | number;
   service_id?: string | number | null;
   serviceId?: string | number | null;
@@ -104,6 +112,10 @@ export type ApiServiceRecord = {
 };
 
 export type ApiShoot = {
+  units?: ShootUnit[];
+  shoot_units?: ShootUnit[];
+  units_revision?: number;
+  service_lines?: ApiServiceRecord[];
   id?: string | number;
   scheduled_date?: string;
   time?: string;

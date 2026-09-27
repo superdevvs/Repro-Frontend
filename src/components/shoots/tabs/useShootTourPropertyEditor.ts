@@ -28,6 +28,7 @@ const getShootTourPropertyErrorMessage = (error: unknown, fallback: string) => {
 
 type UseShootTourPropertyEditorArgs = {
   shoot: ShootData
+  unitId?: string | number
   isAdmin: boolean
   isClient?: boolean
   onShootUpdate: () => void
@@ -38,6 +39,7 @@ type UseShootTourPropertyEditorArgs = {
 
 export function useShootTourPropertyEditor({
   shoot,
+  unitId,
   isAdmin,
   isClient = false,
   onShootUpdate,
@@ -120,7 +122,7 @@ export function useShootTourPropertyEditor({
     if (!canEditPropertyInfo) return false
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -137,7 +139,7 @@ export function useShootTourPropertyEditor({
         const errorData = await res.json().catch(() => ({ message: 'Failed to save' }))
         throw new Error(errorData.message || 'Failed to save')
       }
-      onShootUpdate()
+      await onShootUpdate()
       return true
     } catch (err: unknown) {
       toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save property info.'), variant: 'destructive' })
@@ -172,7 +174,7 @@ export function useShootTourPropertyEditor({
     try {
       setIsSavingPropertyDetails(true)
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +198,7 @@ export function useShootTourPropertyEditor({
       setPropertySqft(parsedSqft === null ? '' : String(parsedSqft))
 
       toast({ title: 'Saved', description: 'Property details updated successfully.' })
-      onShootUpdate()
+      await onShootUpdate()
     } catch (err: unknown) {
       toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save property info.'), variant: 'destructive' })
     } finally {
@@ -209,7 +211,7 @@ export function useShootTourPropertyEditor({
     setLoading(true)
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +225,7 @@ export function useShootTourPropertyEditor({
         throw new Error(errorData.message || 'Failed to save')
       }
       toast({ title: 'Saved', description: `${field.replace('_', ' ')} updated.` })
-      onShootUpdate()
+      await onShootUpdate()
     } catch (err: unknown) {
       toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save.'), variant: 'destructive' })
     } finally {
@@ -236,7 +238,7 @@ export function useShootTourPropertyEditor({
     setIsGeneratingDescription(true)
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-description`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-description${unitId ? `?unitId=${unitId}` : ''}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

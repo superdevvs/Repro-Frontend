@@ -1,3 +1,4 @@
+import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import type { ShootData } from '@/types/shoots';
@@ -63,6 +64,7 @@ export function useShootOverviewEditor({
   onRegisterEditActions,
   toast,
 }: UseShootOverviewEditorArgs) {
+  const buildAssignmentPayload = useUnitAssignmentPayload(shoot);
   const refreshShootMutations = useShootMutationRefresh();
 
   const [editedShoot, setEditedShoot] = useState<Partial<ShootData>>({});
@@ -980,7 +982,7 @@ export function useShootOverviewEditor({
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ photographer_id: selectedPhotographerId }),
+        body: JSON.stringify(buildAssignmentPayload('photographer_id', selectedPhotographerId)),
       });
       if (!response.ok) throw new Error('Failed to assign photographer');
 
@@ -999,6 +1001,7 @@ export function useShootOverviewEditor({
       });
     }
   }, [
+    buildAssignmentPayload,
     closePhotographerPicker,
     editModePhotographerRows.length,
     isEditMode,

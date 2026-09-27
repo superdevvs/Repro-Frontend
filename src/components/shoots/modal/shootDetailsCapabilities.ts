@@ -1,4 +1,5 @@
 import { ShootData } from '@/types/shoots';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import {
   ShootDetailsCapabilities,
   ShootDetailsRoleFlags,
@@ -100,7 +101,7 @@ export const getShootDetailsCapabilities = ({
   const canStartMmmPunchout =
     currentUserRole === 'superadmin' || isAdmin || isRep || isClient;
   const showMmmPunchoutButtons =
-    isDelivered && (canStartMmmPunchout || Boolean(mmmRedirectUrl));
+    !getShootUnits(shoot).length && isDelivered && (canStartMmmPunchout || Boolean(mmmRedirectUrl));
   const canNotifyClient = Boolean(shoot?.client?.email);
   const canNotifyPhotographer = Boolean(
     shoot?.photographer?.email &&

@@ -13,6 +13,7 @@ import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import { buildResumeScheduleTimestamp } from '@/utils/shootResumeSchedule';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 type PendingAction = 'hold' | 'cancel' | null;
 
@@ -337,6 +338,7 @@ export function useShootDetailsModalWorkflow({
 
       const payload: Record<string, unknown> = {
         scheduled_at: buildResumeScheduleTimestamp(shoot),
+        ...(getShootUnits(shoot).length ? { expected_units_revision: shoot.units_revision } : {}),
       };
 
       if (shoot.photographer?.id) {

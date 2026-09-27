@@ -226,6 +226,8 @@ export interface StudioShootRef {
 }
 
 export interface SourceMedia {
+  shootUnitId?: number | null;
+  unitLabel?: string | null;
   shootServiceId?: number | null;
   bracketGroup?: number | null;
   sequence?: number | null;

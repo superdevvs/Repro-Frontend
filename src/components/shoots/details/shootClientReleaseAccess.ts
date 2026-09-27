@@ -1,6 +1,7 @@
 import type { ShootData } from '@/types/shoots';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial' | null;
 
@@ -28,6 +29,7 @@ export const getShootClientReleaseAccess = (
   const isBypassPaywall = resolveBypassPaywall(shoot);
   const isPaidInFull = paymentStatus === 'paid' || isBypassPaywall;
   const isClientReleaseLocked = Boolean(isClient && shoot && !isPaidInFull);
+  const units = getShootUnits(shoot);
   const hasUnlockedServiceDownloads = Boolean(
     isClient &&
       shoot &&
@@ -47,7 +49,7 @@ export const getShootClientReleaseAccess = (
     hasUnlockedServiceDownloads,
     canClientDownload: !isClientReleaseLocked || hasUnlockedServiceDownloads,
     canClientDownloadWholeShoot: !isClientReleaseLocked,
-    canClientAccessTours: !isClientReleaseLocked,
+    canClientAccessTours: !isClient || (units.length ? units.some(unit => Number(unit.ready_service_count) > 0) : !isClientReleaseLocked),
     shouldUseWatermarkedMessaging: isClientReleaseLocked,
   };
 };

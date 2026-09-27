@@ -22,6 +22,13 @@ export type ServicePackage = {
   photographer_pay?: number | null;
   exclude_from_sales_commission?: boolean;
   quantity?: number;
+  delivery_time?: number | null;
+  shoot_duration_minutes?: number | null;
+  duration_minutes?: number | null;
+  booking_duration_default_minutes?: number | null;
+  booking_duration_min_minutes?: number | null;
+  booking_duration_max_minutes?: number | null;
+  booking_duration_defaults?: { default_minutes: number; min_minutes: number; max_minutes: number };
   category?: {
     id: string;
     name: string;

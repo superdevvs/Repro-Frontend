@@ -1,4 +1,5 @@
 import { ShootData } from '@/types/shoots';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import {
   normalizeShootPaymentSummary,
   type CanonicalPaymentStatus,
@@ -122,7 +123,11 @@ export const getShootDetailsCreatedByLabel = (shoot: ShootData | null) => {
 
 export const getShootDetailsServiceNames = (shoot: ShootData | null): string[] => {
   if (!shoot) return [];
-  return (Array.isArray(shoot.services) ? shoot.services : [])
+  const names = (Array.isArray(shoot.services) ? shoot.services : [])
     .map((service) => String(service ?? '').trim())
     .filter(Boolean);
+  if (!getShootUnits(shoot).length) return names;
+  const counts = new Map<string, number>();
+  names.forEach(name => counts.set(name, (counts.get(name) ?? 0) + 1));
+  return [...counts].map(([name, count]) => count > 1 ? `${name} × ${count}` : name);
 };

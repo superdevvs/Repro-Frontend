@@ -1,3 +1,4 @@
+import { withTourUnit } from '@/features/shoot-units/unitTourData';
 import { API_BASE_URL } from '@/config/env';
 import type { TourFloorplan } from './FloorplanSection';
 import {
@@ -135,10 +136,10 @@ export function buildPublicTourEndpoint(search: string | URLSearchParams, varian
     const query = new URLSearchParams({ address, city, state });
     const zip = text(params.get('zip'));
     if (zip) query.set('zip', zip);
-    return `${base}/${endpoint}?${query.toString()}`;
+    return withTourUnit(`${base}/${endpoint}?${query.toString()}`, params.get('unitId'));
   }
   const shootId = text(params.get('shootId'));
-  return shootId ? `${base}/${encodeURIComponent(shootId)}/${endpoint}` : null;
+  return shootId ? withTourUnit(`${base}/${encodeURIComponent(shootId)}/${endpoint}`, params.get('unitId')) : null;
 }
 
 /** A presentation model shared by layouts; branding never escapes into MLS variants. */

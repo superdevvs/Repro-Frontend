@@ -262,6 +262,7 @@ export const downloadShootMediaArchive = async ({
   type,
   size,
   shootServiceId,
+  shootUnitId,
   address,
   onPreparing,
   onDownloading,
@@ -273,6 +274,7 @@ export const downloadShootMediaArchive = async ({
   type: ShootMediaDownloadType;
   size?: ShootMediaDownloadSize;
   shootServiceId?: string | number | null;
+  shootUnitId?: string | number | null;
   address?: string | null;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
   onDownloading?: () => void;
@@ -281,6 +283,7 @@ export const downloadShootMediaArchive = async ({
   mediaTypes?: string[];
 }) => {
   const params = new URLSearchParams({ type });
+  if (shootUnitId !== undefined && shootUnitId !== null) params.set('shoot_unit_id', String(shootUnitId));
   if (size) {
     params.set('size', size);
   }

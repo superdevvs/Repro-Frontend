@@ -1,3 +1,4 @@
+import { buildTourUrl } from '@/features/shoot-units/unitTourData';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +25,10 @@ import {
 } from '@/components/shoots/tabs/shootDetailsTourTabUtils';
 import { resolvePublicTourPalette } from '@/components/tourLinks/landor/landorPalettes';
 import { resolvePublicTourStyle } from '@/components/tourLinks/publicTourStyle';
-interface ShootDetailsTourTabProps {
+export interface ShootDetailsTourTabProps {
+  unitId?: string | number;
+  iguideLineId?: string;
+  cubicasaLineId?: string;
   shoot: ShootData;
   isAdmin: boolean;
   isRep?: boolean;
@@ -74,7 +78,10 @@ type ShootTourCompat = ShootData & {
   cubicasa_last_status_at?: string | null;
 };
 
-export function ShootDetailsTourTab({
+export function ShootDetailsTourContent({
+  unitId,
+  iguideLineId,
+  cubicasaLineId,
   shoot,
   isAdmin,
   isRep = false,
@@ -84,6 +91,8 @@ export function ShootDetailsTourTab({
   onShowAnalytics,
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
+  const updateUrl = `${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`;
+  const providerUrl = (provider: string, operation: string) => unitId ? `${API_BASE_URL}/api/shoots/${shoot.id}/units/${unitId}/${provider}/${operation}?shoot_service_id=${provider === 'iguide' ? iguideLineId || '' : cubicasaLineId || ''}` : `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/${provider}/${operation}`;
   const shootTourData = shoot as ShootTourCompat;
   const [tourLinks, setTourLinks] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -190,6 +199,7 @@ export function ShootDetailsTourTab({
     handleSaveDescription,
   } = useShootTourPropertyEditor({
     shoot,
+    unitId,
     isAdmin,
     isClient,
     onShootUpdate,
@@ -396,45 +406,7 @@ export function ShootDetailsTourTab({
   const showMatterportSection = !isClientView || visibleMatterportKeys.length > 0;
   const showIguideSection = !isClientView || visibleIguideKeys.length > 0;
   const showZillowSection = !isClientView || hasZillow3dLink;
-  const getTourUrl = (type: string): string => {
-    try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const shootId = shoot?.id || '';
-      if (!shootId) {
-        return '';
-      }
-      const query = `shootId=${encodeURIComponent(shootId)}`;
-      switch (type) {
-        case 'branded':
-          return `${baseUrl}/tour/branded?${query}`;
-        case 'mls':
-          return `${baseUrl}/tour/mls?${query}`;
-        case 'genericMls':
-          return `${baseUrl}/tour/g-mls?${query}`;
-        case 'video_branded':
-          return `${baseUrl}/tour/video/branded?${query}`;
-        case 'video_mls':
-          return `${baseUrl}/tour/video/mls?${query}`;
-        case 'video_generic':
-          return `${baseUrl}/tour/video/generic?${query}`;
-        case 'matterport_branded':
-          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=matterport` : '';
-        case 'matterport_mls':
-          return tourLinks[type] ? `${baseUrl}/tour/3d/mls?${query}&provider=matterport` : '';
-        case 'iguide_branded':
-          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=iguide` : '';
-        case 'iguide_mls':
-          return tourLinks[type] ? `${baseUrl}/tour/3d/mls?${query}&provider=iguide` : '';
-        case 'zillow_3d':
-          return tourLinks[type] ? `${baseUrl}/tour/3d/branded?${query}&provider=zillow` : '';
-        default:
-          return tourLinks[type] || '';
-      }
-    } catch (error) {
-      console.error('Error getting tour URL:', error);
-      return '';
-    }
-  };
+  const getTourUrl = (type: string): string => buildTourUrl(typeof window !== 'undefined' ? window.location.origin : '', shoot?.id || '', type, tourLinks, unitId);
   const getSavedTourLinksFromResponse = (payload: unknown): Record<string, string> => {
     const payloadRecord = asRecord(payload);
     const savedShoot = asRecord(payloadRecord.data ?? payload);
@@ -454,7 +426,7 @@ export function ShootDetailsTourTab({
         autoplay: nextSettings.autoplay,
         show_garage: nextSettings.show_garage,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -486,7 +458,7 @@ export function ShootDetailsTourTab({
     setIsSavingTourSettings(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -561,7 +533,7 @@ export function ShootDetailsTourTab({
         embeds: nextEmbeds,
         featured_embed_id: nextFeaturedId || null,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -788,7 +760,7 @@ export function ShootDetailsTourTab({
         ...sourceTourLinks,
         [editing3DKey]: value || null,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -850,7 +822,7 @@ export function ShootDetailsTourTab({
         ...tourLinks,
         [linkKey]: value || null,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -910,7 +882,7 @@ export function ShootDetailsTourTab({
         ...tourLinks,
         [key]: null,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -963,7 +935,7 @@ export function ShootDetailsTourTab({
         ...currentTourLinks,
         tour_style: style,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1010,7 +982,7 @@ export function ShootDetailsTourTab({
         ...currentTourLinks,
         tour_palette: palette,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1066,7 +1038,7 @@ export function ShootDetailsTourTab({
         ...sourceTourLinks,
         [key]: null,
       };
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1150,7 +1122,7 @@ export function ShootDetailsTourTab({
     setIsSavingIguideIdentifiers(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1158,6 +1130,7 @@ export function ShootDetailsTourTab({
           Accept: 'application/json',
         },
         body: JSON.stringify({
+          ...(unitId ? { shoot_service_id: iguideLineId } : {}),
           iguide_property_id: iguidePropertyIdInput.trim() || null,
           iguide_work_order_id: iguideWorkOrderIdInput.trim() || null,
         }),
@@ -1187,7 +1160,7 @@ export function ShootDetailsTourTab({
     setIsSyncingIguide(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/iguide/sync`, {
+      const res = await fetch(providerUrl('iguide', 'sync'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1234,7 +1207,7 @@ export function ShootDetailsTourTab({
     setIsSavingCubicasaIdentifiers(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/cubicasa/identifiers`, {
+      const res = await fetch(providerUrl('cubicasa', 'identifiers'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1271,7 +1244,7 @@ export function ShootDetailsTourTab({
     setIsSyncingCubicasa(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/cubicasa/sync`, {
+      const res = await fetch(providerUrl('cubicasa', 'sync'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1312,6 +1285,8 @@ export function ShootDetailsTourTab({
 
   return (
     <ShootDetailsTourTabView
+      unitId={unitId}
+      iguideLineId={iguideLineId}
       shootId={shoot.id}
       onShootUpdate={onShootUpdate}
       isClientView={isClientView}
@@ -1434,27 +1409,29 @@ export function ShootDetailsTourTab({
       setIguidePropertyIdInput={setIguidePropertyIdInput}
       iguideWorkOrderIdInput={iguideWorkOrderIdInput}
       setIguideWorkOrderIdInput={setIguideWorkOrderIdInput}
-      saveIguideIdentifiers={saveIguideIdentifiers}
+      saveIguideIdentifiers={unitId && !iguideLineId ? undefined : saveIguideIdentifiers}
       isSavingIguideIdentifiers={isSavingIguideIdentifiers}
-      syncIguideNow={syncIguideNow}
+      syncIguideNow={unitId && !iguideLineId ? undefined : syncIguideNow}
       isSyncingIguide={isSyncingIguide}
       cubicasaSync={cubicasaSync}
       cubicasaOrderIdInput={cubicasaOrderIdInput}
       setCubicasaOrderIdInput={setCubicasaOrderIdInput}
       cubicasaExternalIdInput={cubicasaExternalIdInput}
       setCubicasaExternalIdInput={setCubicasaExternalIdInput}
-      saveCubicasaIdentifiers={saveCubicasaIdentifiers}
+      saveCubicasaIdentifiers={unitId && !cubicasaLineId ? undefined : saveCubicasaIdentifiers}
       isSavingCubicasaIdentifiers={isSavingCubicasaIdentifiers}
-      syncCubicasaNow={syncCubicasaNow}
+      syncCubicasaNow={unitId && !cubicasaLineId ? undefined : syncCubicasaNow}
       isSyncingCubicasa={isSyncingCubicasa}
       createCubicasaOrderButton={
         isAdmin ? (
           <CreateCubicasaOrderButton
+            unitId={unitId}
+            shootServiceId={cubicasaLineId}
             shootId={shoot.id}
             currentStatus={cubicasaSync.status}
             alreadyLinked={Boolean(cubicasaSync.orderId || cubicasaSync.externalId)}
             onCreated={onShootUpdate}
-            disabled={isSyncingCubicasa || isSavingCubicasaIdentifiers}
+            disabled={isSyncingCubicasa || isSavingCubicasaIdentifiers || Boolean(unitId && !cubicasaLineId)}
             showStatus={false}
             compact
           />
@@ -1481,3 +1458,5 @@ export function ShootDetailsTourTab({
     />
   );
 }
+
+export { ShootDetailsTourTab } from './ShootUnitTourTab';

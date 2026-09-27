@@ -1,3 +1,4 @@
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -414,7 +415,7 @@ export const CompletedAlbumCard = ({
           </div>
           {shoot.services && shoot.services.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              {shoot.services.map((service, idx) => (
+              {getShootDetailsServiceNames(shoot).map((service, idx) => (
                 <Badge
                   key={idx}
                   variant="secondary"

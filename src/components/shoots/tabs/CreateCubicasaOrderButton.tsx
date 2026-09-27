@@ -25,6 +25,8 @@ type CubicasaOrderMutationResponse = {
 };
 
 export interface CreateCubicasaOrderButtonProps {
+  unitId?: string | number;
+  shootServiceId?: string;
   /** Shoot identifier the order will be created against. */
   shootId: number | string;
   /** Current cubicasa_status (or null when no order linked). Displayed before activation per AC 19.8. */
@@ -62,6 +64,8 @@ export interface CreateCubicasaOrderButtonProps {
  */
 export function CreateCubicasaOrderButton({
   shootId,
+  unitId,
+  shootServiceId,
   currentStatus,
   alreadyLinked = false,
   onCreated,
@@ -101,7 +105,7 @@ export function CreateCubicasaOrderButton({
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(
-        `${API_BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/order`,
+        unitId ? `${API_BASE_URL}/api/shoots/${shootId}/units/${unitId}/cubicasa/order?shoot_service_id=${shootServiceId || ''}` : `${API_BASE_URL}/api/integrations/shoots/${shootId}/cubicasa/order`,
         {
           method: 'POST',
           headers: {

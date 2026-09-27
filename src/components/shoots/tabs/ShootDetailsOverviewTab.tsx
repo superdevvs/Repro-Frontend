@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { withShootUnitOverview } from '@/features/shoot-units/withShootUnitOverview';
 import { ShootNotesTab } from '@/components/dashboard/ShootNotesTab';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -362,7 +363,7 @@ const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption
   }
 };
 
-interface ShootDetailsOverviewTabProps {
+export interface ShootDetailsOverviewTabProps {
   shoot: ShootData;
   isAdmin: boolean;
   isRep: boolean;
@@ -386,7 +387,8 @@ interface ShootDetailsOverviewTabProps {
   initialFocus?: 'schedule_assignments';
 }
 
-export function ShootDetailsOverviewTab({
+export const ShootDetailsOverviewTab = withShootUnitOverview(ShootDetailsOverviewTabContent);
+function ShootDetailsOverviewTabContent({
   shoot,
   isAdmin,
   isRep,

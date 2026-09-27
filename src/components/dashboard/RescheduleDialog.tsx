@@ -19,6 +19,8 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { MapPin, Camera, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { canReviewRescheduleRequests } from '@/utils/rescheduleRequests';
+import { getShootUnits } from '@/features/shoot-units/shootUnitData';
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 
 interface RescheduleDialogProps {
   shoot: ShootData;
@@ -28,6 +30,7 @@ interface RescheduleDialogProps {
 }
 
 export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: RescheduleDialogProps) {
+  const units = getShootUnits(shoot);
   const schedule = getShootSchedule(shoot);
   const [date, setDate] = useState<Date | undefined>(
     schedule.date ? parseLocalYmd(schedule.date) : undefined
@@ -73,6 +76,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
           requested_date: format(date, 'yyyy-MM-dd'),
           requested_time: time,
           reason: reason || undefined,
+          ...(units.length ? { expected_units_revision: shoot.units_revision } : {}),
         },
         {
           headers: {
@@ -104,11 +108,13 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
       onClose();
     } catch (error) {
       console.error('Error rescheduling shoot:', error);
+      const response = axios.isAxiosError(error) ? error.response?.data : undefined;
+      const validationMessage = response?.errors ? Object.values(response.errors).flat().join(' ') : response?.message;
       toast({
         title: appliesImmediately ? 'Failed to reschedule' : 'Failed to submit request',
-        description: appliesImmediately
+        description: validationMessage || (appliesImmediately
           ? 'There was an error rescheduling the shoot. Please try again.'
-          : 'There was an error submitting your reschedule request. Please try again.',
+          : 'There was an error submitting your reschedule request. Please try again.'),
         variant: "destructive",
       });
     } finally {
@@ -118,7 +124,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {appliesImmediately ? 'Reschedule Shoot' : 'Request to Reschedule'}
@@ -129,6 +135,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
               : 'Select the date and time you would like. The shoot keeps its current slot until our team approves the request.'}
           </DialogDescription>
         </DialogHeader>
+        {units.length > 0 && <p className="rounded-lg border bg-muted/40 p-3 text-sm">Whole property · {units.length} units / areas. Moves all unit visits by the same amount, keeping their spacing, assignments, and booked prices. To change one unit, use Edit.</p>}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
           {/* Left Pane - Shoot Details */}
@@ -181,9 +188,9 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
                 <div className="pt-2">
                   <div className="text-xs text-muted-foreground mb-1.5">Services</div>
                   <div className="flex flex-wrap gap-1">
-                    {shoot.services.map((service, idx) => (
+                    {getShootDetailsServiceNames(shoot).map((service, idx) => (
                       <Badge key={idx} variant="secondary" className="text-xs">
-                        {typeof service === 'string' ? service : (service as any).name || service}
+                        {service}
                       </Badge>
                     ))}
                   </div>
@@ -199,6 +206,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
               <Calendar
                 mode="single"
                 selected={date}
+                defaultMonth={date}
                 onSelect={setDate}
                 className="border rounded-md p-3"
                 disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}

@@ -1,3 +1,5 @@
+import { useBookingUnits } from '@/features/shoot-units/useMultiUnitBooking';
+import { BookingUnitsPropertyControl } from '@/features/shoot-units/BookingUnitControls';
 import React from 'react';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +45,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     isCompReshootMode, sourceContextLocked, serviceMappingSlot,
     slide, onBack,
   } = controller;
+  const units = useBookingUnits();
   const showPropertySlide = slide !== 'services';
   return (
     <Form {...form}>
@@ -544,6 +547,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     </FormItem>
                   )}
                 />
+                {!units?.enabled && <>
                 <FormField
                   control={form.control}
                   name="bedRooms"
@@ -609,7 +613,9 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                     </FormItem>
                   )}
                 />
+                </>}
               </div>
+              <BookingUnitsPropertyControl />
               <div className="space-y-4 pt-1">
                 <Separator className="bg-border/70" />
                 <FormField

@@ -4,7 +4,8 @@ import API_ROUTES from '@/lib/api';
 type NewBookingPayload = {
   address: string; city: string; state: string; zip: string;
   scheduled_date: string; time: string;
-  services: Array<{ id?: unknown; photographer_id?: unknown; scheduled_at?: unknown }>;
+  services?: Array<{ id?: unknown; photographer_id?: unknown; scheduled_at?: unknown }>;
+  service_lines?: Array<{ service_id?: unknown; photographer_id?: unknown; scheduled_at?: unknown }>;
 };
 
 /** Recheck service/radius eligibility immediately before a new booking is sent. */
@@ -12,7 +13,7 @@ export async function submitNewShootWithEligibility(
   url: string, payload: NewBookingPayload, config: AxiosRequestConfig,
 ) {
   const groups = new Map<string, { photographerId: number; serviceIds: number[]; date: string; time: string }>();
-  for (const service of payload.services) {
+  for (const service of payload.service_lines?.map(line => ({ ...line, id: line.service_id })) ?? payload.services ?? []) {
     if (!service.photographer_id) continue; // Products without on-site work need no assignment.
     const photographerId = Number(service.photographer_id);
     const serviceId = Number(service.id);

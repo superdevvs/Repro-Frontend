@@ -14,6 +14,8 @@ import { TourLinkRow, type TourLinkAction } from './tours/TourLinkRow';
 export function ShootDetailsTourTabView(props: any) {
   const {
     shootId,
+    unitId,
+    iguideLineId,
     onShootUpdate,
     onShowAnalytics,
     getTourUrl,
@@ -110,6 +112,8 @@ export function ShootDetailsTourTabView(props: any) {
   const providerSection = (
     <TourProvidersSection
       shootId={shootId}
+      unitId={unitId}
+      iguideLineId={iguideLineId}
       onShootUpdate={onShootUpdate}
       isAdmin={isAdmin}
       isClientView={isClientView}

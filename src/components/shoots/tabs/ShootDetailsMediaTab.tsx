@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShootData } from '@/types/shoots';
 import { useShootDetailsMediaTab } from './media/useShootDetailsMediaTab';
+import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -19,5 +20,10 @@ interface ShootDetailsMediaTabProps {
 }
 
 export function ShootDetailsMediaTab(props: ShootDetailsMediaTabProps) {
+  const { activeUnitId } = useShootUnitScope(props.shoot);
+  return <ScopedMediaTab key={`${props.shoot.id}:${activeUnitId ?? 'property'}`} {...props} />;
+}
+
+function ScopedMediaTab(props: ShootDetailsMediaTabProps) {
   return useShootDetailsMediaTab(props);
 }

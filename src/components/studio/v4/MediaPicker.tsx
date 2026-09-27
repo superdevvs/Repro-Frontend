@@ -12,6 +12,8 @@ import { studioError, workspaceSources as studioService } from '@/services/studi
 import { usePickerSources, type SourceTab } from './usePickerSources';
 import { PickerPhotoCard } from './PickerPhotoCard';
 import type { V4Media, V4Preset } from './types';
+import { useStudioUnitScope } from '@/features/shoot-units/useStudioUnitScope';
+import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 
 interface Props { open: boolean; onClose: () => void; selected: V4Media[]; preset: V4Preset; initialShoot?: StudioShootRef | null; onSelect: (media: V4Media[], label: string) => void }
 export function MediaPicker({ open, onClose, selected, preset, initialShoot, onSelect }: Props) {
@@ -27,7 +29,8 @@ export function MediaPicker({ open, onClose, selected, preset, initialShoot, onS
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const { tiles, rawCount, editedCount, retryMerge } = usePickerSources(photos, open && !!active && !loading, tab);
+  const { scopeShoot, scopedPhotos } = useStudioUnitScope(active?.id, photos);
+  const { tiles, rawCount, editedCount, retryMerge } = usePickerSources(scopedPhotos, open && !!active && !loading, tab);
   const available = tiles.flatMap(tile => tile.media ? [tile.media] : []);
   useEffect(() => { if (open) { setSelection(selected); setError(null); } }, [open, selected]);
   useEffect(() => { if (initialShoot) { setActive(initialShoot); setTab('raw'); setLabels(prev => ({ ...prev, [initialShoot.id]: initialShoot.address || initialShoot.label })); } }, [initialShoot]);
@@ -87,6 +90,7 @@ export function MediaPicker({ open, onClose, selected, preset, initialShoot, onS
       </>}
       <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2" aria-label={uploading ? `Uploading ${Math.round(progress)}%` : 'Upload media'} title="Upload media" disabled={uploading} onClick={() => fileInput.current?.click()}>{uploading ? <Loader2 size={16} /> : <UploadCloud size={16} />}<span className="hidden text-xs lg:inline">{uploading ? `${Math.round(progress)}%` : 'Upload'}</span></Button>
     </header>
+    {active && <ShootUnitScopeBar shoot={scopeShoot} disabled={uploading} />}
     <section className="flex min-h-0 min-w-0 flex-1 flex-col" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void upload(e.dataTransfer.files); }}>
         {error && <p role="alert" className="shrink-0 whitespace-pre-line bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">

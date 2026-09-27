@@ -1,3 +1,4 @@
+import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { useState } from 'react';
@@ -57,6 +58,7 @@ export function ShootDetailsQuickActions({
   onViewInvoice,
   onDownloadAll,
 }: ShootDetailsQuickActionsProps) {
+  const buildAssignmentPayload = useUnitAssignmentPayload(shoot);
   const { toast } = useToast();
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [assignEditorOpen, setAssignEditorOpen] = useState(false);
@@ -97,7 +99,7 @@ export function ShootDetailsQuickActions({
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ photographer_id: selectedPhotographerId }),
+        body: JSON.stringify(buildAssignmentPayload('photographer_id', selectedPhotographerId)),
       });
       
       if (!res.ok) throw new Error('Failed to assign photographer');
@@ -129,7 +131,7 @@ export function ShootDetailsQuickActions({
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ editor_id: selectedEditorId }),
+        body: JSON.stringify(buildAssignmentPayload('editor_id', selectedEditorId)),
       });
       
       if (!res.ok) throw new Error('Failed to assign editor');

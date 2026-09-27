@@ -1,3 +1,5 @@
+import { useBookingUnits } from '@/features/shoot-units/useMultiUnitBooking';
+import { BookingUnitsSummary } from '@/features/shoot-units/BookingUnitControls';
 import React from 'react';
 import { DollarSign, MapPin, User, Check, Send } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -61,12 +63,13 @@ export function BookingSummary({
   isMobile = false,
   isComplimentaryReshoot = false,
 }: BookingSummaryProps) {
+  const units = useBookingUnits();
   const { user } = useAuth();
   const hasSelectedServices = selectedServices.length > 0;
   const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
   const amountPlaceholder = (originalTotalQuote ?? summaryInfo.pricing?.totalQuote ?? summaryInfo.packagePrice).toFixed(2);
   const serviceScheduleLabelFor = (serviceId: string) =>
-    getServiceScheduleLabel(serviceId, serviceSchedules, summaryInfo.date, summaryInfo.time);
+    units?.enabled ? 'Unit visit times in breakdown' : getServiceScheduleLabel(serviceId, serviceSchedules, summaryInfo.date, summaryInfo.time);
   
   // Clients submit requests, admin/rep book directly
   const isClientRole = user?.role === 'client';
@@ -125,6 +128,7 @@ export function BookingSummary({
           )}
         </div>
 
+        <BookingUnitsSummary />
         {hasSelectedServices && (
           <div className="pt-4 border-t border-gray-200 dark:border-slate-700 space-y-3">
             <div className="flex items-center justify-between">

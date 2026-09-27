@@ -1,3 +1,5 @@
+import { MultiUnitBookingContext } from '@/features/shoot-units/useMultiUnitBooking';
+import { BookingUnitManager } from '@/features/shoot-units/BookingUnitControls';
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BookingStepIndicator } from '@/components/booking/BookingStepIndicator';
@@ -52,7 +54,8 @@ export function BookShootView({ controller }: { controller: BookShootController 
     };
   }, [step]);
   return (
-    <>
+    <MultiUnitBookingContext.Provider value={controller.unitBooking}>
+      <BookingUnitManager photographers={photographers} />
       <div className="space-y-6 px-0 py-4 sm:px-4 sm:py-6 lg:p-6">
           <AnimatePresence mode="wait">
             {isComplete ? (
@@ -259,6 +262,6 @@ export function BookShootView({ controller }: { controller: BookShootController 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </MultiUnitBookingContext.Provider>
   );
 }

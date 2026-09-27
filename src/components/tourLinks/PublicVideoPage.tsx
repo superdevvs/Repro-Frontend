@@ -1,3 +1,4 @@
+import { withTourUnit } from '@/features/shoot-units/unitTourData';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
@@ -23,7 +24,7 @@ type ShootData = {
 type PublicPayload = {
   photos?: string[];
   shoot?: ShootData;
-  tour_links?: Record<string, any>;
+  tour_links?: Record<string, unknown>;
   video_thumbnail_url?: string | null;
   video_poster_url?: string | null;
 };
@@ -196,7 +197,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
 
         const separator = endpoint.includes('?') ? '&' : '?';
         const token = getStoredAuthToken();
-        const res = await fetch(`${endpoint}${separator}t=${Date.now()}`, {
+        const res = await fetch(withTourUnit(`${endpoint}${separator}t=${Date.now()}`, params.get('unitId')), {
           headers: {
             Accept: 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

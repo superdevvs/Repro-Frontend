@@ -1,3 +1,5 @@
+import { useBookingUnits } from '@/features/shoot-units/useMultiUnitBooking';
+import { BookingUnitsSummary } from '@/features/shoot-units/BookingUnitControls';
 import { EmptyState } from '@/components/ui/empty-state';
 import React from 'react';
 import { Label } from '@/components/ui/label';
@@ -51,7 +53,7 @@ interface ReviewFormProps {
   photographerRate: number;
   // tax: number;
   // total: number;
-  photographers: Array<{ id: string; name: string; avatar: string; rate: number; availability: boolean }>;
+  photographers: Array<{ id: string; name: string; avatar?: string; rate?: number; availability?: boolean }>;
   onConfirm: () => void; // Renamed from handleSubmit
   onBack: () => void;
   onSubmit?: () => void;
@@ -135,6 +137,7 @@ export function ReviewForm({
   compReshoot,
 }: ReviewFormProps) {
   const { user, isImpersonating } = useAuth();
+  const units = useBookingUnits();
   const isMobile = useIsMobile();
   const isClientRole = user?.role === 'client';
 
@@ -157,6 +160,7 @@ export function ReviewForm({
     return `${displayHours}:${minutes} ${meridiem}`;
   };
   const getServiceScheduleLabel = (serviceId: string) => {
+    if (units?.enabled) return 'Unit visit times in breakdown';
     const serviceSchedule = serviceSchedules[serviceId];
     const serviceDate = serviceSchedule?.date || defaultDate;
     const serviceTime = normalizeTimeLabel(serviceSchedule?.time) || time;
@@ -266,6 +270,7 @@ export function ReviewForm({
       {!isMobile && (
       <div className="p-4 bg-white dark:bg-slate-900 rounded-lg space-y-4 border border-gray-100 dark:border-slate-800">
         <h3 className="font-medium text-slate-900 dark:text-slate-100">Booking Summary</h3>
+        <BookingUnitsSummary />
 
         <div className="space-y-2">
           {!isClientRole && (
