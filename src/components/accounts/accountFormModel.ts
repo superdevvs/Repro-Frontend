@@ -19,6 +19,13 @@ export const TIMEZONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
   { value: 'Pacific/Honolulu', label: 'Hawaii (Pacific/Honolulu)' },
   { value: 'UTC', label: 'UTC' },
 ];
+export function salesCategoryChoices(catalogNames: string[], selected: string[] = []): string[] {
+  const names = [...catalogNames, ...selected]
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  return [...new Set(names)];
+}
+
 export const repCategoryOptions = [
   "Residential Sales",
   "Commercial Sales",

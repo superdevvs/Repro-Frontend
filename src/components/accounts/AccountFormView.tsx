@@ -26,7 +26,9 @@ import {
   formatEquipmentMoney,
   payoutFrequencyOptions,
   repCategoryOptions,
+  salesCategoryChoices,
 } from './accountFormModel';
+import { useServiceCategories } from '@/hooks/useServiceCategories';
 import type { AccountFormController } from './useAccountFormController';
 import { canViewPhotographerRegion, canViewPhotographerStreet } from '@/utils/photographerAddressVisibility';
 import { AccountEquipmentFields } from './AccountEquipmentFields';
@@ -35,6 +37,15 @@ import { AccountRoleSettings } from './AccountRoleSettings';
 import { AdminDefaultBracketModeField } from './AdminDefaultBracketModeField';
 import { AccountPhotographerCapabilityFields } from './AccountPhotographerCapabilityFields';
 export function AccountFormView({ controller }: { controller: AccountFormController }) {
+  const { data: schedulingCategories, isLoading: schedulingCategoriesLoading } = useServiceCategories();
+  const schedulingCategoryNames = React.useMemo(() => {
+    if (!Array.isArray(schedulingCategories)) return [];
+    return schedulingCategories.flatMap((category) => {
+      if (!category || typeof category !== 'object' || typeof (category as { name?: unknown }).name !== 'string') return [];
+      const name = (category as { name: string }).name.trim();
+      return name ? [name] : [];
+    });
+  }, [schedulingCategories]);
   const {
     open, onOpenChange, initialData, avatarUrl, setAvatarUrl, adminsAndReps,
     pilotLicenseModalOpen, setPilotLicenseModalOpen, insuranceModalOpen,
@@ -685,6 +696,10 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                   name="repSalesCategories"
                   render={({ field }) => {
                     const valueArray: string[] = Array.isArray(field.value) ? field.value : [];
+                    const categorySource = !schedulingCategoriesLoading && schedulingCategoryNames.length === 0
+                      ? [...repCategoryOptions]
+                      : schedulingCategoryNames;
+                    const choices = salesCategoryChoices(categorySource, valueArray);
                     const toggle = (opt: string) => {
                       if (valueArray.includes(opt)) field.onChange(valueArray.filter((v) => v !== opt));
                       else field.onChange([...valueArray, opt]);
@@ -692,8 +707,11 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                     return (
                       <FormItem>
                         <FormLabel>Eligible Sales Categories</FormLabel>
+                        {schedulingCategoriesLoading && (
+                          <p className="text-xs text-muted-foreground">Loading scheduling categories...</p>
+                        )}
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {repCategoryOptions.map((opt) => {
+                          {choices.map((opt) => {
                             const active = valueArray.includes(opt);
                             return (
                               <button
