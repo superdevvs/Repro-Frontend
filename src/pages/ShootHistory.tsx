@@ -16,6 +16,10 @@ import { ShootHistoryLoadingPanel } from '@/components/shoots/history/ShootHisto
 import { HistoryAggregateCard, HistoryRow } from '@/components/shoots/history/ShootHistoryHistoryRows'
 import { CompletedAlbumCard, CompletedShootListRow, HoldOnShootCard, ScheduledShootListRow } from '@/components/shoots/history/ShootHistoryOperationalRows'
 import { ShootHistoryView } from '@/components/shoots/history/ShootHistoryView'
+import { filterOperationalHistoryShoots } from '@/components/shoots/history/filterOperationalHistoryShoots'
+import { ShootHistoryCalendarPanel } from '@/components/shoots/history/ShootHistoryCalendarPanel'
+import { useShootHistoryCalendarState } from '@/hooks/useShootHistoryCalendarState'
+import { useShootHistoryCalendarFocus } from '@/hooks/useShootHistoryCalendarFocus'
 import { ShootHistoryGrid } from '@/components/shoots/history/ShootHistoryGrid'
 import { ShootMapView } from '@/components/shoots/history/ShootHistoryMapView'
 import { useShootHistoryFilters } from '@/hooks/useShootHistoryFilters'
@@ -26,7 +30,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
 import { Calendar as CalendarIcon, CheckCircle2, Trash2 } from 'lucide-react'
-import { DEFAULT_OPERATIONAL_FILTERS, HISTORY_ALLOWED_ROLES, MapMarker, filterEditorActiveOperationalShoots, filterEditorDeliveredOperationalShoots, formatCurrency, getShootStatusBadgeClass, isFeaturedTabShoot, resolveShootThumbnail } from '@/components/shoots/history/shootHistoryUtils'
+import { DEFAULT_OPERATIONAL_FILTERS, HISTORY_ALLOWED_ROLES, MapMarker, formatCurrency, getShootStatusBadgeClass, resolveShootThumbnail } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootData, ShootHistoryRecord } from '@/types/shoots'
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
 import {
@@ -35,22 +39,6 @@ import {
   type StripeConfirmationResult,
 } from '@/utils/stripeConfirmation'
 import { buildShootPath } from '@/utils/shootPath'
-
-const READY_STATUS_KEYS = [
-  'ready',
-  'ready_for_client',
-  'editing_complete',
-  'editing_uploaded',
-]
-
-const DELIVERED_STATUS_KEYS = [
-  'delivered',
-  'admin_verified',
-  'workflow_completed',
-  'client_delivered',
-  'finalised',
-  'finalized',
-]
 
 const normalizeShootServices = (services: unknown): string[] => {
   if (!Array.isArray(services)) {
@@ -143,6 +131,8 @@ const ShootHistory: React.FC = () => {
     canViewHistory,
   })
 
+  const calendar = useShootHistoryCalendarState({ activeTab, viewMode, historyFilters, historySubTab })
+
   const togglePinTab = (tab: (typeof tabList)[number]) => {
     setPinnedTabs((prev) => {
       const next = new Set(prev)
@@ -181,7 +171,7 @@ const ShootHistory: React.FC = () => {
   }
 
   const resetHistoryFilters = () => {
-    setHistoryFilters(defaultHistoryFilters)
+    setHistoryFilters((previous) => ({ ...defaultHistoryFilters, viewAs: previous.viewAs }))
   }
 
   const {
@@ -190,6 +180,8 @@ const ShootHistory: React.FC = () => {
     setDeleteShootId,
     isDeleting,
     operationalData,
+    calendarShoots,
+    calendarError,
     historyRecords,
     historyAggregates,
     historyMeta,
@@ -228,7 +220,6 @@ const ShootHistory: React.FC = () => {
     handleDeleteHistoryRecord,
     handleViewInvoice,
     handlePrimaryAction,
-    fetchOperationalData,
     refreshActiveTabData,
     handleSendToEditing,
     confirmDeleteShoot,
@@ -261,6 +252,7 @@ const ShootHistory: React.FC = () => {
     operationalFilters,
     historyFilters,
     viewMode,
+    calendarRange: calendar.range,
     canViewAllShoots,
     canViewHistory,
     canViewInvoice,
@@ -274,7 +266,8 @@ const ShootHistory: React.FC = () => {
     formatTime,
   })
 
-  usePageLoading(loading);
+  const calendarFocus = useShootHistoryCalendarFocus(isDetailOpen)
+  usePageLoading(loading && !calendar.active);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
@@ -341,111 +334,9 @@ const ShootHistory: React.FC = () => {
   const masonryColumnCount = useShootHistoryGridColumns(gridContainerRef, gridColumns)
   const compactGrid = gridColumns === 3 && masonryColumnCount === 3
 
-  // Filter operational data based on sub-tabs
-  const filteredOperationalData = useMemo(() => {
-    // Scheduled tab filtering
-    if (activeTab === 'scheduled') {
-      if (scheduledSubTab === 'all') return operationalData
-      if (scheduledSubTab === 'requested') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'requested'
-        })
-      }
-      if (scheduledSubTab === 'scheduled') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'scheduled' || status === 'booked'
-        })
-      }
-      return operationalData
-    }
-
-    if (activeTab === 'featured') {
-      return operationalData.filter(isFeaturedTabShoot)
-    }
-    
-    // In-Progress tab filtering
-    if (activeTab === 'completed') {
-      if (inProgressSubTab === 'all') return operationalData
-      if (inProgressSubTab === 'uploaded') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status.includes('uploaded') || status === 'photos_uploaded' || status === 'raw_uploaded'
-        })
-      }
-      if (inProgressSubTab === 'editing') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          if (status === 'review' || status === 'pending_review' || status === 'ready_for_review' || status === 'qc' || status === 'editing_complete') {
-            return false
-          }
-          return status.includes('editing') || status === 'start_editing'
-        })
-      }
-      if (inProgressSubTab === 'in_review') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return (
-            status === 'review' ||
-            status === 'pending_review' ||
-            status === 'ready_for_review' ||
-            status === 'qc' ||
-            status === 'editing_complete'
-          )
-        })
-      }
-      return operationalData
-    }
-    
-    // Delivered tab filtering
-    if (activeTab === 'delivered') {
-      if (deliveredSubTab === 'all') return operationalData
-      if (deliveredSubTab === 'delivered') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return DELIVERED_STATUS_KEYS.includes(status)
-        })
-      }
-      if (deliveredSubTab === 'ready') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return READY_STATUS_KEYS.includes(status)
-        })
-      }
-      return operationalData
-    }
-    
-    // Editor "Editing" tab — backend sends tab=completed, filter to editing-status only
-    if (activeTab === 'editing') {
-      return filterEditorActiveOperationalShoots(operationalData)
-    }
-
-    // Editor "Edited" tab — backend sends tab=delivered, filter to delivered-status only
-    if (activeTab === 'edited') {
-      return filterEditorDeliveredOperationalShoots(operationalData)
-    }
-
-    // Hold tab filtering
-    if (activeTab === 'hold') {
-      if (holdSubTab === 'all') return operationalData
-      if (holdSubTab === 'on_hold') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'on_hold' || status === 'hold_on'
-        })
-      }
-      if (holdSubTab === 'cancelled') {
-        return operationalData.filter(s => {
-          const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'cancelled' || status === 'canceled'
-        })
-      }
-      return operationalData
-    }
-    
-    return operationalData
-  }, [activeTab, scheduledSubTab, inProgressSubTab, deliveredSubTab, holdSubTab, operationalData])
+  const filteredOperationalData = useMemo(() => filterOperationalHistoryShoots(operationalData, {
+    activeTab, scheduledSubTab, inProgressSubTab, deliveredSubTab, holdSubTab,
+  }), [activeTab, scheduledSubTab, inProgressSubTab, deliveredSubTab, holdSubTab, operationalData])
 
   const operationalMarkers: MapMarker[] = useMemo(() => {
     // Always generate markers for map view, use filtered data for all tabs
@@ -629,7 +520,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails, setApprovalModalShoot, setDeclineModalShoot, setEditModalShoot])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -740,7 +631,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -818,7 +709,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, operationalMeta, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
 
   const featuredContent = useMemo(() => {
     if (loading && activeTab === 'featured') {
@@ -895,7 +786,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -1029,7 +920,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
+  }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
 
   const {
     operationalServicesSelected,
@@ -1071,7 +962,7 @@ const ShootHistory: React.FC = () => {
           setOperationalFiltersOpen={setOperationalFiltersOpen}
           historyFiltersOpen={historyFiltersOpen}
           setHistoryFiltersOpen={setHistoryFiltersOpen}
-          fetchOperationalData={fetchOperationalData}
+          fetchOperationalData={refreshActiveTabData}
           scheduledSubTab={scheduledSubTab}
           setScheduledSubTab={setScheduledSubTab}
           inProgressSubTab={inProgressSubTab}
@@ -1104,6 +995,23 @@ const ShootHistory: React.FC = () => {
           historyMeta={historyMeta}
           handleHistoryPageChange={handleHistoryPageChange}
           historyContent={historyContent}
+          calendarContent={calendar.active && (
+            <ShootHistoryCalendarPanel
+              shoots={activeTab === 'history' ? calendarShoots : filteredOperationalData}
+              view={calendar.view} date={calendar.date}
+              onViewChange={calendar.onViewChange} onDateChange={calendar.onDateChange}
+              onShootSelect={activeTab === 'history' ? (shoot) => { void loadShootById(shoot.id, { openDetail: true }) } : handleShootSelect}
+              loading={loading} error={calendarError} onRetry={refreshActiveTabData}
+              hideClientDetails={shouldHideClientDetails}
+              canViewPrices={activeTab === 'history' ? isSuperAdmin : canViewInvoice}
+              search={activeTab === 'history' ? historyFilters.search : operationalFilters.search}
+              photographerId={activeTab === 'history' ? historyFilters.photographerId : operationalFilters.photographerId}
+              options={activeTab === 'history' ? historyOptions : operationalOptions}
+              onFilterChange={activeTab === 'history' ? onHistoryFilterChange : onOperationalFilterChange}
+              showUndatedNotice={activeTab === 'scheduled' && scheduledSubTab !== 'scheduled'}
+              onShootClickCapture={calendarFocus.capture}
+            />
+          )}
         />
       </DashboardLayout>
       <ShootHistoryModalHost
@@ -1111,6 +1019,7 @@ const ShootHistory: React.FC = () => {
         isDetailOpen={isDetailOpen}
         openDownloadDialog={openDownloadDialog}
         onDetailClose={() => handleDetailDialogToggle(false)}
+        onDetailCloseAutoFocus={calendarFocus.restore}
         onShootUpdate={refreshActiveTabData}
         shouldHideClientDetails={shouldHideClientDetails}
         isSuperAdmin={isSuperAdmin}

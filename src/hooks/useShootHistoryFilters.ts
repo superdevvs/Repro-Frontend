@@ -10,6 +10,7 @@ import {
   DEFAULT_OPERATIONAL_FILTERS,
   HistoryFiltersState,
   OperationalFiltersState,
+  ShootHistoryDisplayMode,
 } from '@/components/shoots/history/shootHistoryUtils'
 
 type UseShootHistoryFiltersArgs = {
@@ -61,11 +62,16 @@ export const useShootHistoryFilters = ({
   const [holdSubTab, setHoldSubTab] = useState<'all' | 'on_hold' | 'cancelled'>('all')
   const [historySubTab, setHistorySubTab] = useState<'all' | 'mls-queue'>('all')
   const [scheduledSubTab, setScheduledSubTab] = useState<'all' | 'requested' | 'scheduled'>('all')
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>(() => {
+  const requestedView = searchParams.get('view')
+  const initialView = ['grid', 'list', 'map', 'calendar'].includes(requestedView ?? '')
+    ? requestedView as ShootHistoryDisplayMode
+    : null
+  const [viewMode, setViewMode] = useState<ShootHistoryDisplayMode>(() => {
+    if (initialView) return initialView
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('shootHistory_viewMode')
-      if (saved && ['grid', 'list', 'map'].includes(saved)) {
-        return saved as 'grid' | 'list' | 'map'
+      if (saved && ['grid', 'list', 'map', 'calendar'].includes(saved)) {
+        return saved as ShootHistoryDisplayMode
       }
     }
     return 'list'
@@ -94,7 +100,10 @@ export const useShootHistoryFilters = ({
     () => ({ ...DEFAULT_HISTORY_FILTERS, dateRange: defaultHistoryDateRange }),
     [defaultHistoryDateRange],
   )
-  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersState>(defaultHistoryFilters)
+  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersState>(() => ({
+    ...defaultHistoryFilters,
+    viewAs: initialView ?? (viewMode === 'calendar' ? 'calendar' : defaultHistoryFilters.viewAs),
+  }))
 
   const hasAppliedPinnedTab = useRef(false)
 

@@ -16,6 +16,7 @@ export interface ShootDetailsModalProps {
   shootId: string | number;
   isOpen: boolean;
   onClose: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   currentRole?: string;
   onShootUpdate?: () => void;
   initialWeather?: WeatherInfo | null;

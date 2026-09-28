@@ -3,7 +3,7 @@ import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
-import { apiClient } from '@/services/api'
+import { apiClient, getApiHeaders } from '@/services/api'
 import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import API_ROUTES from '@/lib/api'
 import {
@@ -36,9 +36,10 @@ import { buildShootPath } from '@/utils/shootPath'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
-import { getApiHeaders } from '@/services/api'
 import { useShootHistoryMapGeocoding } from '@/hooks/useShootHistoryMapGeocoding'
 import type { ShootHistorySort } from '@/components/shoots/history/shootHistorySorting'
+import { useShootHistoryCalendarData } from './useShootHistoryCalendarData'
+import { calendarRangeParams, type ShootCalendarRange } from './shootHistoryCalendarData'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 type InvoicePayload = Record<string, unknown>
@@ -85,7 +86,8 @@ export interface UseShootHistoryDataArgs {
   scheduledSubTab?: 'all' | 'requested' | 'scheduled'
   operationalFilters: OperationalFiltersState
   historyFilters: HistoryFiltersState
-  viewMode: 'grid' | 'list' | 'map'
+  viewMode: 'grid' | 'list' | 'map' | 'calendar'
+  calendarRange?: ShootCalendarRange
   canViewAllShoots: boolean
   canViewHistory: boolean
   canViewInvoice: boolean
@@ -216,6 +218,7 @@ export function useShootHistoryData({
   operationalFilters,
   historyFilters,
   viewMode,
+  calendarRange,
   canViewAllShoots,
   canViewHistory,
   canViewInvoice,
@@ -228,6 +231,16 @@ export function useShootHistoryData({
   formatDatePref,
   formatTime,
 }: UseShootHistoryDataArgs) {
+  const calendarEnabled = Boolean(calendarRange) && (activeTab === 'history'
+    ? historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot'
+    : viewMode === 'calendar')
+  const calendar = useShootHistoryCalendarData({
+    enabled: calendarEnabled, activeTab, range: calendarRange, scheduledSubTab,
+    operationalFilters, historyFilters, role, user, canViewAllShoots, canViewHistory,
+    shouldHideClientDetails, isEditor, filterByRole: filterShootByRole,
+  })
+  const calendarRef = useRef({ enabled: calendarEnabled, refresh: calendar.refresh })
+  calendarRef.current = { enabled: calendarEnabled, refresh: calendar.refresh }
   const [deleteShootId, setDeleteShootId] = useState<string | number | null>(null)
   const [deleteShootTarget, setDeleteShootTarget] = useState<ShootData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -250,7 +263,7 @@ export function useShootHistoryData({
     activeTab,
     historyFilters,
     historyRecords,
-    viewMode,
+    viewMode: viewMode === 'calendar' ? 'list' : viewMode,
     operationalData,
   })
   const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null)
@@ -484,6 +497,7 @@ export function useShootHistoryData({
   }, [handleShootSelect, handleUploadMedia, navigate])
 
   const fetchOperationalData = useCallback(async () => {
+    if (calendarRef.current.enabled) return calendarRef.current.refresh()
     operationalFetchAbortRef.current?.abort()
     const controller = new AbortController()
     operationalFetchAbortRef.current = controller
@@ -540,6 +554,7 @@ export function useShootHistoryData({
       }
 
       const response = await apiClient.get('/shoots', { params, signal: controller.signal })
+      if (controller.signal.aborted) return
       const payload = (response.data ?? {}) as { data?: unknown; meta?: { filters?: FilterCollections } }
       const shoots = Array.isArray(payload.data) ? (payload.data as Record<string, unknown>[]) : []
       const mappedShoots = shoots.map(mapShootApiToShootData)
@@ -563,6 +578,7 @@ export function useShootHistoryData({
       const filtersMeta: FilterCollections = payload.meta?.filters ?? deriveFilterOptionsFromShoots(mappedShoots)
       setOperationalOptions(currentHideClient ? { ...filtersMeta, clients: [] } : filtersMeta)
     } catch (error) {
+      if (controller.signal.aborted) return
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
         return
       }
@@ -605,8 +621,6 @@ export function useShootHistoryData({
 
       if (operationalFetchAbortRef.current === controller) {
         operationalFetchAbortRef.current = null
-        setLoading(false)
-      } else if (!operationalFetchAbortRef.current) {
         setLoading(false)
       }
     }
@@ -652,6 +666,7 @@ export function useShootHistoryData({
   }, [isBulkActionsOpen, fetchBulkShoots])
 
   const fetchHistoryData = useCallback(async () => {
+    if (calendarRef.current.enabled) return calendarRef.current.refresh()
     if (!canViewHistoryRef.current) {
       setLoading(false)
       return
@@ -692,6 +707,7 @@ export function useShootHistoryData({
       if (currentFilters.completedEnd) params.completed_end = currentFilters.completedEnd
 
       const response = await apiClient.get('/shoots/history', { params, signal: controller.signal })
+      if (controller.signal.aborted) return
       const payload = (response.data ?? {}) as {
         data?: unknown
         meta?: { filters?: FilterCollections; current_page?: number; per_page?: number; total?: number }
@@ -722,6 +738,7 @@ export function useShootHistoryData({
         setHistoryOptions(currentHideClient ? { ...metaFilters, clients: [] } : metaFilters)
       }
     } catch (error) {
+      if (controller.signal.aborted) return
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
         return
       }
@@ -766,8 +783,6 @@ export function useShootHistoryData({
       if (historyFetchAbortRef.current === controller) {
         historyFetchAbortRef.current = null
         setLoading(false)
-      } else if (!historyFetchAbortRef.current) {
-        setLoading(false)
       }
     }
   }, [toast])
@@ -780,7 +795,10 @@ export function useShootHistoryData({
     }
   }, [activeTab, fetchHistoryData, fetchOperationalData])
 
+  useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
+
   useEffect(() => {
+    if (calendarEnabled) return
     const timeoutId = setTimeout(() => {
       if (loading) {
         console.warn('[ShootHistory] Loading timeout - clearing loading state after 30s')
@@ -789,7 +807,7 @@ export function useShootHistoryData({
     }, 30000)
 
     return () => clearTimeout(timeoutId)
-  }, [loading])
+  }, [loading, calendarEnabled])
 
   const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}:${shootSort}`
   const lastActiveTabRef = useRef(operationalScope)
@@ -809,16 +827,24 @@ export function useShootHistoryData({
   }, [activeTab, operationalScope])
 
   useEffect(() => {
-    if (activeTab === 'history' && canViewHistory) {
+    if (!calendarEnabled && activeTab === 'history' && canViewHistory) {
       fetchHistoryData()
     }
-  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData])
+    return () => {
+      historyFetchAbortRef.current?.abort()
+      historyFetchAbortRef.current = null
+    }
+  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled])
 
   useEffect(() => {
-    if (activeTab !== 'history') {
+    if (!calendarEnabled && activeTab !== 'history') {
       fetchOperationalData()
     }
-  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData])
+    return () => {
+      operationalFetchAbortRef.current?.abort()
+      operationalFetchAbortRef.current = null
+    }
+  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
@@ -959,8 +985,14 @@ export function useShootHistoryData({
     if (historyFilters.scheduledEnd && historyFilters.dateRange !== 'custom') params.scheduled_end = historyFilters.scheduledEnd
     if (historyFilters.completedStart) params.completed_start = historyFilters.completedStart
     if (historyFilters.completedEnd) params.completed_end = historyFilters.completedEnd
+    if (calendarEnabled && activeTab === 'history' && calendarRange) {
+      delete params.date_range
+      delete params.custom_start
+      delete params.custom_end
+      Object.assign(params, calendarRangeParams(calendarRange), { group_by: 'shoot', sort: 'date_asc' })
+    }
     return params
-  }, [historyFilters, historyPage, shootSort, shouldHideClientDetails])
+  }, [historyFilters, historyPage, shootSort, shouldHideClientDetails, calendarEnabled, activeTab, calendarRange])
 
   const handleExportHistory = useCallback(async () => {
     try {
@@ -978,7 +1010,8 @@ export function useShootHistoryData({
 
   const handleCopyHistory = useCallback(async () => {
     try {
-      if (!historyRecords.length) {
+      const records = calendarEnabled && activeTab === 'history' ? calendar.records : historyRecords
+      if (!records.length) {
         toast({ title: 'Nothing to copy', description: 'Run a history search first.' })
         return
       }
@@ -990,7 +1023,7 @@ export function useShootHistoryData({
         : includeClientDetails
           ? ['Scheduled Date', 'Completed Date', 'Client', 'Address']
           : ['Scheduled Date', 'Completed Date', 'Address']
-      const rows = historyRecords.map((record) => {
+      const rows = records.map((record) => {
         const baseRow = [formatDatePref(record.scheduledDate), formatDatePref(record.completedDate || record.scheduledDate)]
         if (includeClientDetails) baseRow.push(record.client?.name ?? '—')
         baseRow.push(record.address?.full ?? '—')
@@ -1003,7 +1036,7 @@ export function useShootHistoryData({
     } catch {
       toast({ title: 'Copy failed', description: 'Clipboard permissions denied.', variant: 'destructive' })
     }
-  }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
+  }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref, calendarEnabled, activeTab, calendar.records])
 
   const canDownloadHistoryShoot = useCallback((shoot: ShootData) => {
     const downloadMode = getHistoryDownloadMode(shoot, activeTab)
@@ -1120,21 +1153,23 @@ export function useShootHistoryData({
     deleteShootTarget,
     setDeleteShootId,
     isDeleting,
-    operationalData,
+    operationalData: calendarEnabled && activeTab !== 'history' ? calendar.shoots : operationalData,
     setOperationalData,
-    historyRecords,
+    historyRecords: calendarEnabled && activeTab === 'history' ? calendar.records : historyRecords,
     setHistoryRecords,
     historyAggregates,
     setHistoryAggregates,
-    historyMeta,
+    historyMeta: calendarEnabled && activeTab === 'history' ? { current_page: 1, per_page: Math.max(calendar.records.length, 1), total: calendar.records.length } : historyMeta,
     setHistoryMeta,
     historyPage,
     setHistoryPage,
     operationalPage,
     setOperationalPage,
-    operationalMeta,
+    operationalMeta: calendarEnabled && activeTab !== 'history' ? { current_page: 1, per_page: Math.max(calendar.shoots.length, 1), total: calendar.shoots.length } : operationalMeta,
     setOperationalMeta,
-    loading,
+    loading: calendarEnabled ? calendar.loading : loading,
+    calendarShoots: calendarEnabled ? calendar.shoots : [],
+    calendarError: calendarEnabled ? calendar.error : null,
     setLoading,
     detailLoading,
     setDetailLoading,
@@ -1142,9 +1177,9 @@ export function useShootHistoryData({
     setOperationalFiltersOpen,
     historyFiltersOpen,
     setHistoryFiltersOpen,
-    operationalOptions,
+    operationalOptions: calendarEnabled && activeTab !== 'history' ? calendar.filters : operationalOptions,
     setOperationalOptions,
-    historyOptions,
+    historyOptions: calendarEnabled && activeTab === 'history' ? calendar.filters : historyOptions,
     setHistoryOptions,
     geoCache,
     setGeoCache,

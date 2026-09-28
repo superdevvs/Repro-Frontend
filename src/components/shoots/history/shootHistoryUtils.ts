@@ -15,6 +15,7 @@ export type ShootThumbnailPreference = 'thumb' | 'default'
 
 export type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold' | 'editing' | 'edited' | 'featured'
 export type AvailableTab = ActiveOperationalTab | 'history'
+export type ShootHistoryDisplayMode = 'grid' | 'list' | 'map' | 'calendar'
 
 export type OperationalFiltersState = {
   search: string
@@ -38,7 +39,7 @@ export type HistoryFiltersState = {
   completedStart: string
   completedEnd: string
   groupBy: 'shoot' | 'services'
-  viewAs: 'grid' | 'list' | 'map'
+  viewAs: ShootHistoryDisplayMode
 }
 
 export type HistoryMeta = {

@@ -37,6 +37,7 @@ import {
   HistoryFiltersState,
   HistoryMeta,
   OperationalFiltersState,
+  ShootHistoryDisplayMode,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { getStateFullName } from '@/utils/stateUtils'
 import {
@@ -101,10 +102,10 @@ export type ShootHistoryViewProps = {
   pinnedTabs: Set<AvailableTab>
   togglePinTab: (tab: AvailableTab) => void
   setIsBulkActionsOpen: React.Dispatch<React.SetStateAction<boolean>>
-  viewMode: 'grid' | 'list' | 'map'
+  viewMode: ShootHistoryDisplayMode
   shootSort: ShootHistorySort
   setShootSort: (sort: ShootHistorySort) => void
-  setViewMode: React.Dispatch<React.SetStateAction<'grid' | 'list' | 'map'>>
+  setViewMode: React.Dispatch<React.SetStateAction<ShootHistoryDisplayMode>>
   gridColumns: 3 | 4
   setGridColumns: React.Dispatch<React.SetStateAction<3 | 4>>
   historyFilters: HistoryFiltersState
@@ -146,6 +147,7 @@ export type ShootHistoryViewProps = {
   historyMeta: HistoryMeta | null
   handleHistoryPageChange: (direction: 'prev' | 'next') => void
   historyContent: React.ReactNode
+  calendarContent?: React.ReactNode
 }
 
 function SubTabButton({
@@ -443,14 +445,17 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
-  const selectView = (view: 'grid' | 'list' | 'map') => {
-    if (activeTab === 'history') {
+  const selectView = (view: ShootHistoryDisplayMode) => {
+    if (view === 'calendar' || activeView === 'calendar') {
+      setViewMode(view)
+      setHistoryFilters(prev => ({ ...prev, viewAs: view }))
+    } else if (activeTab === 'history') {
       setHistoryFilters(prev => ({ ...prev, viewAs: view }))
     } else {
       setViewMode(view)
     }
   }
-  const displayControls = activeTab === 'history' && historyFilters.groupBy === 'services' ? null : (
+  const displayControls = activeTab === 'history' && (historyFilters.groupBy === 'services' || historySubTab !== 'all') ? null : (
     <ShootHistoryDisplayControls
       view={activeView} onViewChange={selectView} sort={shootSort} onSortChange={setShootSort}
       gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
@@ -509,7 +514,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                   Bulk Actions
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => (activeTab === 'history' ? setHistoryFilters((prev) => ({ ...prev, viewAs: 'map' })) : setViewMode('map'))}>
+              <DropdownMenuItem onClick={() => selectView('map')}>
                 <MapIcon className="mr-2 h-4 w-4" />
                 Map view
               </DropdownMenuItem>
@@ -659,6 +664,9 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                     <Input placeholder="Filter by address" value={operationalFilters.address} onChange={(event) => onOperationalFilterChange('address', event.target.value)} />
                   </div>
                   <MultiSelectFilter label="Services" options={operationalOptions.services} values={operationalFilters.services} onChange={(values) => onOperationalFilterChange('services', values)} />
+                  {viewMode === 'calendar' ? (
+                    <p className="self-center text-sm text-muted-foreground">Calendar dates are controlled by the Month, Week and Day navigation.</p>
+                  ) : (
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-muted-foreground">Date range</span>
                     <Select value={operationalFilters.dateRange} onValueChange={(value) => onOperationalFilterChange('dateRange', value as OperationalFiltersState['dateRange'])}>
@@ -672,7 +680,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  {operationalFilters.dateRange === 'custom' && (
+                  )}
+                  {viewMode !== 'calendar' && operationalFilters.dateRange === 'custom' && (
                     <div className="space-y-2">
                       <span className="text-sm font-medium text-muted-foreground">Custom range</span>
                       <DateRangePicker
@@ -710,8 +719,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           { value: 'featured', content: featuredContent },
         ].map(({ value, content }) => (
           <TabsContent key={value} value={value} className="flex w-full flex-1 flex-col gap-6">
-            {content}
-            {operationalMeta && operationalMeta.total > 0 && (
+            {viewMode === 'calendar' ? props.calendarContent : content}
+            {viewMode !== 'calendar' && operationalMeta && operationalMeta.total > 0 && (
               <PaginationRow page={operationalPage} total={operationalMeta.total} perPage={operationalMeta.per_page} onChange={handleOperationalPageChange} />
             )}
           </TabsContent>
@@ -762,6 +771,9 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                           </Select>
                         </div>
                         <MultiSelectFilter label="Services" options={historyOptions.services} values={historyFilters.services} onChange={(values) => onHistoryFilterChange('services', values)} />
+                        {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? (
+                          <p className="self-center text-sm text-muted-foreground">Calendar dates are controlled by the Month, Week and Day navigation.</p>
+                        ) : (<>
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Date range preset</span>
                           <Select value={historyFilters.dateRange} onValueChange={(value) => onHistoryFilterChange('dateRange', value as HistoryFiltersState['dateRange'])}>
@@ -793,6 +805,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                             disabled={historyFilters.dateRange !== 'custom'}
                           />
                         </div>
+                        </>)}
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Completed range</span>
                           <DateRangePicker
@@ -830,8 +843,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               </Collapsible>
 
               <TabsContent value="all" className="flex w-full flex-1 flex-col gap-6">
-                {historyContent}
-                {historyMeta && historyFilters.groupBy === 'shoot' && (
+                {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? props.calendarContent : historyContent}
+                {historyFilters.viewAs !== 'calendar' && historyMeta && historyFilters.groupBy === 'shoot' && (
                   <PaginationRow page={historyMeta.current_page} total={historyMeta.total} perPage={historyMeta.per_page} onChange={handleHistoryPageChange} />
                 )}
               </TabsContent>

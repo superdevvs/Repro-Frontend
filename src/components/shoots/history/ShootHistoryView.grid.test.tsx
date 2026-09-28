@@ -23,6 +23,7 @@ import {
   DEFAULT_HISTORY_FILTERS,
   DEFAULT_OPERATIONAL_FILTERS,
   type HistoryFiltersState,
+  type AvailableTab,
 } from './shootHistoryUtils'
 
 afterEach(() => {
@@ -253,9 +254,10 @@ function ViewHarness({
   paginationTotal?: number
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
+  const [activeTab, setActiveTab] = useState<AvailableTab>(tab)
   const [shootSort, setShootSort] = useState<ShootHistorySort>('date_desc')
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>(
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'calendar'>(
     tab === 'history' ? 'map' : initialView,
   )
   const [historyFilters, setHistoryFilters] = useState<HistoryFiltersState>({
@@ -271,8 +273,8 @@ function ViewHarness({
     isSuperAdmin: false,
     isAdmin,
     isEditingManager: false,
-    activeTab: tab,
-    setActiveTab: noop,
+    activeTab,
+    setActiveTab,
     tabsConfig: [
       { value: 'delivered', label: 'Delivery', icon: Calendar },
       { value: 'history', label: 'History', icon: Clock },
@@ -321,6 +323,7 @@ function ViewHarness({
     historyMeta: null,
     handleHistoryPageChange: noop,
     historyContent: null,
+    calendarContent: <div>Calendar schedule</div>,
   }
 
   return (
@@ -334,6 +337,24 @@ function ViewHarness({
 }
 
 describe.each(['delivered', 'history'] as const)('Shoot History controls in %s', (tab) => {
+  it('keeps Calendar selected across status tabs and hides page controls until leaving Calendar', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<ViewHarness tab={tab} showPagination paginationTotal={35} />)
+    const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
+    await user.click(toolbar.getByRole('button', { name: 'Calendar view' }))
+    expect(screen.getByText('Calendar schedule')).toBeInTheDocument()
+    expect(toolbar.queryByRole('button', { name: 'Sort shoots' })).not.toBeInTheDocument()
+    expect(container.querySelector('[data-shoot-history-pagination]')).toBeNull()
+    expect(screen.getByTestId('operational-view')).toHaveTextContent('calendar')
+    expect(screen.getByTestId('history-view')).toHaveTextContent('calendar')
+    await user.click(screen.getByRole('tab', { name: tab === 'history' ? 'Delivery' : 'History' }))
+    expect(screen.getByText('Calendar schedule')).toBeInTheDocument()
+    expect(toolbar.getByRole('button', { name: 'Calendar view' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
+    expect(screen.queryByText('Calendar schedule')).not.toBeInTheDocument()
+    expect(toolbar.getByRole('button', { name: 'Sort shoots' })).toBeInTheDocument()
+  })
+
   it('uses one button to alternate list and grid without changing the other tab view', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} initialView="list" />)

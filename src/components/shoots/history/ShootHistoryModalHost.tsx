@@ -68,6 +68,7 @@ interface ShootHistoryModalHostProps {
   isDetailOpen: boolean;
   openDownloadDialog: boolean;
   onDetailClose: () => void;
+  onDetailCloseAutoFocus?: (event: Event) => void;
   onShootUpdate: () => void;
   shouldHideClientDetails: boolean;
   isSuperAdmin: boolean;
@@ -104,6 +105,7 @@ export function ShootHistoryModalHost({
   isDetailOpen,
   openDownloadDialog,
   onDetailClose,
+  onDetailCloseAutoFocus,
   onShootUpdate,
   shouldHideClientDetails,
   isSuperAdmin,
@@ -166,6 +168,7 @@ export function ShootHistoryModalHost({
           shootId={selectedShoot.id}
           isOpen={isDetailOpen}
           onClose={onDetailClose}
+          onCloseAutoFocus={onDetailCloseAutoFocus}
           onShootUpdate={onShootUpdate}
           openDownloadDialog={openDownloadDialog}
           shouldHideClientDetails={shouldHideClientDetails}

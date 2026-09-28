@@ -1,14 +1,15 @@
-import { ArrowUpDown, Grid3X3, List } from 'lucide-react'
+import { ArrowUpDown, CalendarDays, Grid3X3, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
   DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SHOOT_HISTORY_SORT_OPTIONS, type ShootHistorySort } from './shootHistorySorting'
+import type { ShootHistoryDisplayMode } from './shootHistoryUtils'
 
 type Props = {
-  view: 'grid' | 'list' | 'map'
-  onViewChange: (view: 'grid' | 'list' | 'map') => void
+  view: ShootHistoryDisplayMode
+  onViewChange: (view: ShootHistoryDisplayMode) => void
   sort: ShootHistorySort
   onSortChange: (sort: ShootHistorySort) => void
   gridColumns: 3 | 4
@@ -20,7 +21,7 @@ export function ShootHistoryDisplayControls({ view, onViewChange, sort, onSortCh
   const viewLabel = `Switch to ${nextView} view`
   return (
     <>
-      <DropdownMenu>
+      {view !== 'calendar' && <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label="Sort shoots" title="Sort shoots">
             <ArrowUpDown className="h-4 w-4" />
@@ -44,9 +45,16 @@ export function ShootHistoryDisplayControls({ view, onViewChange, sort, onSortCh
             </>
           )}
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu>}
       <Button
-        variant={view === 'map' ? 'ghost' : 'secondary'} size="icon"
+        variant={view === 'calendar' ? 'secondary' : 'ghost'} size="icon"
+        aria-label="Calendar view" title="Calendar view" aria-pressed={view === 'calendar'}
+        onClick={() => onViewChange('calendar')}
+      >
+        <CalendarDays className="h-4 w-4" />
+      </Button>
+      <Button
+        variant={view === 'map' || view === 'calendar' ? 'ghost' : 'secondary'} size="icon"
         aria-label={viewLabel} title={viewLabel} data-shoot-view-toggle={view}
         onClick={() => onViewChange(nextView)}
       >

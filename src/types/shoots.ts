@@ -793,6 +793,9 @@ export interface ShootHistoryFinancials {
 export interface ShootHistoryRecord {
   id: number;
   scheduledDate?: string | null;
+  time?: string | null;
+  timezone?: string | null;
+  scheduledAt?: string | null;
   completedDate?: string | null;
   status?: string | null;
   mls_id?: string | number | null;
