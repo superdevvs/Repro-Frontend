@@ -142,6 +142,7 @@ export interface ManualNotificationPreviewPayload {
   shoot_id: number;
   type: ManualNotificationType;
   recipient_type: ManualNotificationRecipient;
+  channel?: ManualNotificationChannel;
 }
 
 export interface ManualNotificationSendPayload extends ManualNotificationPreviewPayload {

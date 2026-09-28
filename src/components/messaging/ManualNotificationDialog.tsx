@@ -163,15 +163,15 @@ export function ManualNotificationDialog({
     }
   }, [open]);
 
-  // Preview is keyed off (shoot, type, recipient) only — channel doesn't affect the rendered
-  // body, matching the backend's manual-preview contract.
+  // Each channel uses its own template, so changing channels must refresh the preview.
   const previewQuery = useQuery<ManualNotificationPreviewResult>({
-    queryKey: ['manual-notification', 'preview', shootId, type, recipientType],
+    queryKey: ['manual-notification', 'preview', shootId, type, recipientType, channel],
     queryFn: () =>
       previewManualNotification({
         shoot_id: shootId,
         type,
         recipient_type: recipientType,
+        channel,
       }),
     enabled: open && Number.isFinite(shootId) && shootId > 0,
     refetchOnWindowFocus: false,
