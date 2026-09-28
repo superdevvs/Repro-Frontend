@@ -210,8 +210,9 @@ export const countActiveFilters = (filters: FiltersState) => {
   return count;
 };
 
-export const isShootInPast = (shoot: DashboardShootSummary, now = new Date()) => {
-  const offset = getDashboardBookedDayOffset(shoot, now);
+export const isShootInPast = (shoot: DashboardShootSummary) => {
+  // No second parameter: Array.filter would pass the index into it.
+  const offset = getDashboardBookedDayOffset(shoot);
   return offset != null && offset < 0;
 };
 
