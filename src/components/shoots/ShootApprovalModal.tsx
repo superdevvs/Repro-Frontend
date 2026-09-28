@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getApprovalServices, getApprovalPricing, type ApprovalService } from './shootApprovalServices';
 import { ShootApprovalServicesSection } from './ShootApprovalServicesSection';
@@ -306,6 +306,8 @@ export function ShootApprovalModal({
   const [alternateDate, setAlternateDate] = useState<string>('');
   const [alternateTime, setAlternateTime] = useState<string>('');
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
+  const inheritedServiceScheduleIds = useRef(new Set<string>());
+  const orderScheduleRef = useRef({ date: '', time: '10:00' });
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
@@ -385,6 +387,8 @@ export function ShootApprovalModal({
     setAlternateDate('');
     setAlternateTime('');
     setServiceSchedules({});
+    inheritedServiceScheduleIds.current = new Set();
+    orderScheduleRef.current = { date: '', time: '10:00' };
     setServiceQuantities({});
     setPhotographerId('');
     setPerCategoryPhotographers({});
@@ -466,6 +470,11 @@ export function ShootApprovalModal({
             setScheduledTime(normalizedTime);
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
+          const orderSchedule = {
+            date: resolvedDate ? format(resolvedDate, 'yyyy-MM-dd') : '',
+            time: normalizedTime || '10:00',
+          };
+          orderScheduleRef.current = orderSchedule;
 
           // Initialize the alternate (backup) schedule from the serialized resource.
           // Tolerate both snake_case (resource default) and camelCase aliases.
@@ -503,8 +512,10 @@ export function ShootApprovalModal({
               itemSchedule?.scheduled_at ??
               itemSchedule?.scheduledAt;
             const { date, time } = getShootSchedule({ scheduled_at: rawScheduledAt, timezone: shoot.timezone });
-            if (date || time) {
-              nextServiceSchedules[serviceId] = { date, time };
+            const schedule = { date: date || orderSchedule.date, time: time || orderSchedule.time };
+            nextServiceSchedules[serviceId] = schedule;
+            if (schedule.date === orderSchedule.date && schedule.time === orderSchedule.time) {
+              inheritedServiceScheduleIds.current.add(serviceId);
             }
           });
           setServiceSchedules(nextServiceSchedules);
@@ -925,6 +936,23 @@ export function ShootApprovalModal({
     () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
     [scheduledDate]
   );
+  const updateOrderSchedule = (next: { date: string; time: string }) => {
+    orderScheduleRef.current = next;
+    // Keep separately scheduled visits independent even when a main edit makes
+    // their date and time temporarily coincide with the order appointment.
+    const inheritedIds = new Set(inheritedServiceScheduleIds.current);
+    setServiceSchedules(current => Object.fromEntries(Object.entries(current).map(([id, schedule]) => [
+      id, inheritedIds.has(id) ? next : schedule,
+    ])));
+  };
+  const changeScheduledDate = (value: Date | undefined) => {
+    updateOrderSchedule({ ...orderScheduleRef.current, date: value ? format(value, 'yyyy-MM-dd') : '' });
+    setScheduledDate(value);
+  };
+  const changeScheduledTime = (value: string) => {
+    updateOrderSchedule({ ...orderScheduleRef.current, time: value });
+    setScheduledTime(value);
+  };
   const serviceScheduleRows = useMemo(() => {
     const rows = Array.isArray(services)
       ? services.filter((service): service is ShootServiceDetails =>
@@ -946,6 +974,7 @@ export function ShootApprovalModal({
     });
   }, [buildScheduledAtIso, services, serviceSchedules, scheduledDateInputValue, scheduledTime]);
   const updateServiceSchedule = (serviceId: string, field: 'date' | 'time', value: string) => {
+    inheritedServiceScheduleIds.current.delete(serviceId);
     setServiceSchedules((current) => ({
       ...current,
       [serviceId]: {
@@ -955,6 +984,7 @@ export function ShootApprovalModal({
     }));
   };
   const applyServiceScheduleToAll = (sourceServiceId: string) => {
+    serviceScheduleRows.forEach(service => inheritedServiceScheduleIds.current.delete(getServiceIdentifier(service)));
     setServiceSchedules((current) => {
       const source = current[sourceServiceId] || {};
       const next = { ...current };
@@ -1200,7 +1230,7 @@ export function ShootApprovalModal({
                       minDate={minSelectableDate}
                       onChange={(value) => {
                         const nextDate = new Date(`${value}T12:00:00`);
-                        setScheduledDate(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
+                        changeScheduledDate(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
                       }}
                     />
                   </div>
@@ -1210,7 +1240,7 @@ export function ShootApprovalModal({
                     <ServiceTimePicker
                       value={scheduledTime}
                       options={timeOptions}
-                      onChange={setScheduledTime}
+                      onChange={changeScheduledTime}
                     />
                   </div>
                 </div>

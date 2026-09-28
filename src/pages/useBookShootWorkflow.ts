@@ -10,7 +10,7 @@ import type { InternalShootType } from '@/components/booking/ClientPropertyForm'
 import type { ShootData } from '@/types/shoots';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
-import { bookingTimeToMinutes, normalizeSlotClock, slotCoversBookingTime } from './bookShootAvailabilityMatch';
+import { bookingTimeToMinutes, normalizeSlotClock } from './bookShootAvailabilityMatch';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -26,6 +26,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
+import { isBookingTimeAvailable } from './bookShootAvailability';
 import { hydrateBookedServiceSelection, restoreCachedServiceQuantities } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
@@ -605,12 +606,12 @@ export const useBookShootWorkflow = ({
           const weekly = rows.filter((r) => !r?.date && String(r?.day_of_week ?? '').toLowerCase() === dayName);
           const relevant = specific.length > 0 ? specific : weekly;
           relevant.forEach((r) => {
-            if ((r?.status ?? 'available') !== 'unavailable') {
+            if ((r?.status ?? 'available') === 'available') {
               const norm = normalizeSlotClock(r?.start_time);
               if (norm) allTimesSet.add(norm);
             }
           });
-          return relevant.some((r) => slotCoversBookingTime(r, bookingStartMinutes));
+          return isBookingTimeAvailable(start_time, relevant);
         }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);
         console.debug('[Availability] Available photographer IDs (bulk):', ids);

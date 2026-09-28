@@ -21,12 +21,10 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getShootInvoiceAdjustmentTotal } from '@/utils/shootServiceItems';
-import {
-  addInvoiceAdjustmentToCatalogTotal,
-  getShootEditCatalogServiceEntries,
-  getShootEditCatalogServiceId,
-} from './shootEditInvoiceAdjustments';
+import { addInvoiceAdjustmentToCatalogTotal, getShootEditCatalogServiceEntries, getShootEditCatalogServiceId } from './shootEditInvoiceAdjustments';
 import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
+import { applyServiceScheduleToAllIds } from '@/utils/applyServiceScheduleToAll';
+import { syncInheritedServiceScheduleIds, useInheritedServiceSchedule } from './useInheritedServiceSchedule';
 import {
   ShootServiceMutationError,
   submitShootServiceMutation,
@@ -79,6 +77,7 @@ export function useShootEditModalController({
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
+  const inheritedServiceScheduleIds = useRef(new Set<string>());
   const [photographerId, setPhotographerId] = useState<string>('');
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
@@ -112,6 +111,7 @@ export function useShootEditModalController({
       setSelectedServiceIds(new Set());
       setServiceQuantities({});
       setServiceSchedules({});
+      inheritedServiceScheduleIds.current = new Set();
       setPerCategoryPhotographers({});
       setPhotographerId('');
       setExpandedServiceScheduleId(null);
@@ -240,6 +240,9 @@ export function useShootEditModalController({
                 };
             });
             setServiceSchedules(nextServiceSchedules);
+            inheritedServiceScheduleIds.current = new Set(Object.entries(nextServiceSchedules)
+              .filter(([, schedule]) => schedule.date === fallbackSchedule.date && schedule.time === fallbackSchedule.time)
+              .map(([id]) => id));
             const catPhotogMap: Record<string, string> = {};
             const assignmentGroups = getShootPhotographerAssignmentGroups({
               serviceObjects: Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : undefined,
@@ -834,6 +837,10 @@ export function useShootEditModalController({
     }),
     [scheduledDateInputValue, scheduledTime],
   );
+  const { changeScheduledDate, changeScheduledTime } = useInheritedServiceSchedule({
+    defaultSchedule: defaultServiceSchedule, inheritedIds: inheritedServiceScheduleIds,
+    setServiceSchedules, setScheduledDate, setScheduledTime,
+  });
   const selectedServiceRows = useMemo(
     () =>
       Array.from(selectedServiceIds)
@@ -846,10 +853,12 @@ export function useShootEditModalController({
   );
   useEffect(() => {
     if (selectedServiceIds.size === 0) {
-      setServiceSchedules({});
+      inheritedServiceScheduleIds.current.clear();
+      if (Object.keys(serviceSchedules).length > 0) setServiceSchedules({});
       setExpandedServiceScheduleId(null);
       return;
     }
+    syncInheritedServiceScheduleIds(inheritedServiceScheduleIds.current, selectedServiceIds, serviceSchedules);
     setServiceSchedules((current) => {
       let changed = false;
       const next: Record<string, ServiceScheduleFields> = {};
@@ -862,7 +871,7 @@ export function useShootEditModalController({
       });
       return changed ? next : current;
     });
-  }, [defaultServiceSchedule, selectedServiceIds]);
+  }, [defaultServiceSchedule, selectedServiceIds, serviceSchedules]);
   useEffect(() => {
     if (expandedServiceScheduleId && !selectedServiceIds.has(expandedServiceScheduleId)) {
       setExpandedServiceScheduleId(null);
@@ -873,6 +882,7 @@ export function useShootEditModalController({
     field: keyof ServiceScheduleFields,
     value: string,
   ) => {
+    inheritedServiceScheduleIds.current.delete(serviceId);
     setServiceSchedules((current) => ({
       ...current,
       [serviceId]: {
@@ -882,14 +892,8 @@ export function useShootEditModalController({
     }));
   };
   const applyServiceScheduleToAll = (sourceServiceId: string) => {
-    setServiceSchedules((current) => {
-      const source = current[sourceServiceId] || defaultServiceSchedule;
-      const next = { ...current };
-      selectedServiceIds.forEach((id) => {
-        next[id] = { date: source.date, time: source.time };
-      });
-      return next;
-    });
+    selectedServiceIds.forEach(id => inheritedServiceScheduleIds.current.delete(id));
+    setServiceSchedules(current => applyServiceScheduleToAllIds(current, [...selectedServiceIds], current[sourceServiceId] || defaultServiceSchedule));
   };
   const getServiceScheduleDateLabel = (dateValue?: string) => {
     if (!dateValue) return '';
@@ -989,5 +993,5 @@ export function useShootEditModalController({
     return buildWallClockIso(dateValue, timeValue);
   };
   const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceQuantities, serviceSchedules, photographerId, perCategoryPhotographers, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
-  return { unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
+  return { unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }
