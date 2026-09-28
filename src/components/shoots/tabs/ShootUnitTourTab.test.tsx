@@ -6,6 +6,7 @@ import { useShootTourPropertyEditor } from './useShootTourPropertyEditor';
 
 const selection = vi.hoisted(() => ({ unit: null as ShootUnit | null }));
 vi.mock('@/features/shoot-units/useShootUnitScope', () => ({ useShootUnitScope: () => ({ unit: selection.unit, isMultiUnit: true }) }));
+vi.mock('@/features/shoot-units/ShootUnitScope', () => ({ ShootUnitScopeBar: () => <div data-testid="unit-selector" /> }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('./ShootDetailsTourTab', () => ({
   ShootDetailsTourContent: (props: { shoot: ShootData; unitId: number; onShootUpdate: () => void }) => {

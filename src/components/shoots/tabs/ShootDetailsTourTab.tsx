@@ -34,6 +34,7 @@ export interface ShootDetailsTourTabProps {
   isRep?: boolean;
   isClient?: boolean;
   isClientReleaseLocked?: boolean;
+  isUnitSwitchDisabled?: boolean;
   onShootUpdate: () => void;
   onShowAnalytics?: () => void;
 }

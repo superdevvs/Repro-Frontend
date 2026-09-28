@@ -6,7 +6,7 @@ import type { ShootData } from '@/types/shoots';
 import { OverviewPropertyLocationSection } from './OverviewPropertyLocationSection';
 
 describe('OverviewPropertyLocationSection layout', () => {
-  it('places Location above the responsive Property Details and Property Access row', () => {
+  it('places Location below the responsive Property Details and Property Access row', () => {
     render(
       <OverviewPropertyLocationSection
         isEditMode={false}
@@ -38,7 +38,7 @@ describe('OverviewPropertyLocationSection layout', () => {
     const supportingRow = detailsColumn?.parentElement;
     const accessColumn = propertyAccess.parentElement;
 
-    expect(locationLabel.compareDocumentPosition(propertyDetailsLabel))
+    expect(propertyDetailsLabel.compareDocumentPosition(locationLabel))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(supportingRow).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-5', 'items-stretch');
     expect(detailsColumn).toHaveClass('md:col-span-3', 'min-w-0');
@@ -50,7 +50,7 @@ describe('OverviewPropertyLocationSection layout', () => {
     expect(locationCard).toContainElement(screen.getByText('9137 Lakeland Valley Court'));
     expect(screen.getByText('9137 Lakeland Valley Court').compareDocumentPosition(selector))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(selector.compareDocumentPosition(propertyDetailsLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(propertyAccess.compareDocumentPosition(locationLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(supportingRow).not.toContainElement(selector);
   });
 });

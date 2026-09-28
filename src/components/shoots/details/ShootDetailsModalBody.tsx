@@ -272,7 +272,7 @@ export function ShootDetailsModalBody({
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
-      {activeTab !== 'overview' && <ShootUnitScopeBar shoot={shoot} disabled={isEditMode || hasInflightUploads} />}
+      {activeTab !== 'overview' && activeTab !== 'tours' && <ShootUnitScopeBar shoot={shoot} disabled={isEditMode || hasInflightUploads} />}
       <div className={`flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
@@ -345,6 +345,7 @@ export function ShootDetailsModalBody({
                 <TabsContent value="tours" className="mt-0">
                   <React.Suspense fallback={null}>
                     <LazyShootDetailsTourTab
+                      isUnitSwitchDisabled={isEditMode || hasInflightUploads}
                       shoot={shoot}
                       isAdmin={isAdmin}
                       isRep={isRep}

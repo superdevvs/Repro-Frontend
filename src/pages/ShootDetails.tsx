@@ -684,7 +684,7 @@ const ShootDetails: React.FC = () => {
           isGeneratingShareLink={isGeneratingShareLink}
         />
 
-          <div className="px-3 pt-3 sm:px-6"><ShootUnitScopeBar shoot={shoot} /></div>
+          {activeTab !== 'tour' && <div className="px-3 pt-3 sm:px-6"><ShootUnitScopeBar shoot={shoot} /></div>}
           {/* Premium Summary Card */}
           <div className="px-3 sm:px-6 py-3 sm:py-4">
             <Card className="border-2 shadow-lg bg-gradient-to-br from-background via-background to-muted/20 hover:shadow-xl transition-shadow">

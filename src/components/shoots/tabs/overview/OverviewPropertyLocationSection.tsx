@@ -214,7 +214,6 @@ export function OverviewPropertyLocationSection({
 
   return (
     <>
-      {locationCard}
       {rightSlot ? (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-stretch">
           <div className="md:col-span-3 min-w-0">{propertyDetailsCard}</div>
@@ -223,6 +222,7 @@ export function OverviewPropertyLocationSection({
       ) : (
         propertyDetailsCard
       )}
+      {locationCard}
     </>
   );
 }

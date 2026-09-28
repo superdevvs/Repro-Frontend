@@ -16,7 +16,7 @@ type ShootUnitScopeBarProps = {
   shoot: ShootData;
   onShootUpdate?: () => unknown;
   disabled?: boolean;
-  variant?: 'standalone' | 'embedded';
+  variant?: 'standalone' | 'embedded' | 'inline';
   onManageUnits?: () => void;
   manageUnitsLabel?: string;
   containerRef?: RefObject<HTMLDivElement>;
@@ -46,7 +46,7 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
     setActiveUnitId(id); setOpen(false); restoreFocus(control);
   };
   return <>
-    <div ref={containerRef} className={`flex min-w-0 flex-wrap items-center gap-2 ${variant === 'embedded' ? 'mt-2.5 border-t pt-2.5' : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20'}`} aria-label="Selected unit" onClick={event => event.stopPropagation()}>
+    <div ref={containerRef} className={`flex min-w-0 flex-wrap items-center gap-2 ${variant === 'embedded' ? 'mt-2.5 border-t pt-2.5' : variant === 'inline' ? '' : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20'}`} aria-label="Selected unit" onClick={event => event.stopPropagation()}>
       <Building2 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
       <div className="min-w-0 flex-1"><div className="text-[10px] text-muted-foreground">{unit.kind === 'common_area' ? 'Common areas' : 'Unit'} · {index + 1} of {units.length}</div><p className="truncate text-xs font-semibold" title={unit.label}>{unit.label}{unit.sqft ? ` · ${unit.sqft.toLocaleString()} sqft` : ''}</p></div>
       <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" data-unit-control="change" disabled={disabled} onClick={() => { handingOffFocus.current = false; setQuery(''); setPage(0); setOpen(true); }}>Change unit</Button>
