@@ -450,7 +450,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       setViewMode(view)
     }
   }
-  const displayControls = (
+  const displayControls = activeTab === 'history' && historyFilters.groupBy === 'services' ? null : (
     <ShootHistoryDisplayControls
       view={activeView} onViewChange={selectView} sort={shootSort} onSortChange={setShootSort}
       gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
