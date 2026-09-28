@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { protectUploadFromNavigation, releaseUploadNavigationProtection } from '@/lib/uploadNavigationProtection';
 
 export interface UploadTransferDetail {
   fileName: string;
@@ -105,6 +106,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const uploadId = crypto.randomUUID();
     const abortController = new AbortController();
     abortControllers.current.set(uploadId, abortController);
+    protectUploadFromNavigation(uploadId, () => {
+      cancelledUploads.current.add(uploadId);
+      abortController.abort();
+      completionCallbacks.current.delete(uploadId);
+      setUploads(prev => prev.map(upload => upload.id === uploadId ? { ...upload, status: 'cancelled' } : upload));
+    });
 
     if (params.onComplete) {
       completionCallbacks.current.set(uploadId, params.onComplete);
@@ -240,6 +247,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }).finally(() => {
         abortControllers.current.delete(uploadId);
+        releaseUploadNavigationProtection(uploadId);
       });
 
     return uploadId;
@@ -250,6 +258,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const uploadId = crypto.randomUUID();
     const abortController = new AbortController();
     abortControllers.current.set(uploadId, abortController);
+    protectUploadFromNavigation(uploadId, () => {
+      cancelledUploads.current.add(uploadId);
+      abortController.abort();
+      completionCallbacks.current.delete(uploadId);
+      setUploads(prev => prev.map(upload => upload.id === uploadId ? { ...upload, status: 'cancelled' } : upload));
+    });
 
     const newUpload: ShootUpload = {
       id: uploadId,
@@ -297,6 +311,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         params.onError?.((error as UploadRequestError)?.message || 'Upload failed');
       }).finally(() => {
         abortControllers.current.delete(uploadId);
+        releaseUploadNavigationProtection(uploadId);
       });
 
     return uploadId;

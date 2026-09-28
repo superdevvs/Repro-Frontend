@@ -2,6 +2,7 @@ import React from 'react';
 import { ShootData } from '@/types/shoots';
 import { useShootDetailsMediaTab } from './media/useShootDetailsMediaTab';
 import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -20,6 +21,12 @@ interface ShootDetailsMediaTabProps {
 }
 
 export function ShootDetailsMediaTab(props: ShootDetailsMediaTabProps) {
+  // Contain media rendering inside the modal/page. UploadProvider and its
+  // running requests stay mounted above this view, as does dashboard navigation.
+  return <ErrorBoundary key={props.shoot.id} scope="shoot_media"><UnitScopedMediaTab {...props} /></ErrorBoundary>;
+}
+
+function UnitScopedMediaTab(props: ShootDetailsMediaTabProps) {
   const { activeUnitId } = useShootUnitScope(props.shoot);
   return <ScopedMediaTab key={`${props.shoot.id}:${activeUnitId ?? 'property'}`} {...props} />;
 }

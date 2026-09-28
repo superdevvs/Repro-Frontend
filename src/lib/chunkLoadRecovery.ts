@@ -1,3 +1,5 @@
+import { hasUploadsProtectedFromNavigation } from './uploadNavigationProtection';
+
 const CHUNK_RELOAD_STORAGE_KEY = 'repro:chunk-reload-attempted';
 const CHUNK_RELOAD_QUERY_PARAM = '__chunk_reload';
 
@@ -10,6 +12,7 @@ const CHUNK_ERROR_PATTERNS = [
 ];
 
 let recoveryHandlersInstalled = false;
+let recoveryAttempted = false;
 
 const safeSessionStorage = {
   getItem(key: string) {
@@ -24,13 +27,6 @@ const safeSessionStorage = {
       window.sessionStorage.setItem(key, value);
     } catch {
       // Ignore blocked storage and continue with a best-effort reload.
-    }
-  },
-  removeItem(key: string) {
-    try {
-      window.sessionStorage.removeItem(key);
-    } catch {
-      // Ignore blocked storage cleanup failures.
     }
   },
 };
@@ -72,6 +68,13 @@ export const attemptChunkLoadRecovery = (error: unknown) => {
     return false;
   }
 
+  // A refresh cannot recover an upload: it discards the selected File objects
+  // and aborts requests. Leave recovery to the visible error boundary while
+  // the upload continues; never schedule a delayed automatic navigation.
+  if (hasUploadsProtectedFromNavigation() || recoveryAttempted) {
+    return false;
+  }
+
   const currentUrl = new URL(window.location.href);
   if (currentUrl.searchParams.has(CHUNK_RELOAD_QUERY_PARAM)) {
     return false;
@@ -82,6 +85,7 @@ export const attemptChunkLoadRecovery = (error: unknown) => {
     return false;
   }
 
+  recoveryAttempted = true;
   safeSessionStorage.setItem(
     CHUNK_RELOAD_STORAGE_KEY,
     `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -89,23 +93,6 @@ export const attemptChunkLoadRecovery = (error: unknown) => {
 
   window.location.replace(buildChunkRecoveryUrl(window.location.href));
   return true;
-};
-
-export const clearChunkLoadRecoveryState = () => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  safeSessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY);
-
-  const url = new URL(window.location.href);
-  if (!url.searchParams.has(CHUNK_RELOAD_QUERY_PARAM)) {
-    return;
-  }
-
-  url.searchParams.delete(CHUNK_RELOAD_QUERY_PARAM);
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  window.history.replaceState(window.history.state, document.title, nextUrl);
 };
 
 export const installChunkLoadRecovery = () => {

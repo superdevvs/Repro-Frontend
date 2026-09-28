@@ -1,13 +1,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { attemptChunkLoadRecovery, isRecoverableChunkError } from '@/lib/chunkLoadRecovery';
+import { trackTelemetryError } from '@/features/system-overview/telemetryClient';
+import { ErrorFallback } from './ErrorBoundaryFallback';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  scope?: 'shoot_media';
 }
 
 interface State {
@@ -29,7 +29,15 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ error, errorInfo });
 
-    attemptChunkLoadRecovery(error);
+    // Diagnostic failures must never turn a contained view error into a blank
+    // application. Send only reviewed codes, never messages, stacks or props.
+    try {
+      const code = isRecoverableChunkError(error)
+        ? 'react_chunk_load_error'
+        : this.props.scope === 'shoot_media' ? 'shoot_media_render_error' : 'react_render_error';
+      trackTelemetryError('A view could not render.', 'ReactRenderError', { code });
+    } catch { /* Recovery UI remains usable if telemetry is unavailable. */ }
+    try { attemptChunkLoadRecovery(error); } catch { /* Show manual recovery. */ }
     
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
@@ -37,10 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
     
     // Call custom error handler
-    this.props.onError?.(error, errorInfo);
-    
-    // In production, you might want to send this to an error reporting service
-    // Example: Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
+    try { this.props.onError?.(error, errorInfo); } catch { /* Preserve the fallback. */ }
   }
 
   handleReset = () => {
@@ -54,47 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      return (
-        <div className="min-h-[400px] flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
-              </div>
-              <CardTitle className="text-xl">Something went wrong</CardTitle>
-              <CardDescription>
-                {isRecoverableChunkError(this.state.error)
-                  ? 'A new version of the app was detected. We are trying to refresh to the latest build.'
-                  : 'An unexpected error occurred. Please try refreshing the page.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="bg-muted p-3 rounded text-sm">
-                  <summary className="cursor-pointer font-medium">Error details</summary>
-                  <pre className="mt-2 whitespace-pre-wrap text-xs">
-                    {this.state.error.toString()}
-                    {this.state.errorInfo?.componentStack}
-                  </pre>
-                </details>
-              )}
-              <div className="flex gap-2">
-                <Button onClick={this.handleReset} className="flex-1">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => window.location.reload()}
-                  className="flex-1"
-                >
-                  Reload Page
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
+      return <ErrorFallback error={this.state.error} errorInfo={this.state.errorInfo} onReset={this.handleReset} />;
     }
 
     return this.props.children;

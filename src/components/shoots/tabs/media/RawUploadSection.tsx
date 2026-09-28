@@ -898,7 +898,11 @@ export function RawUploadSection({
               service, fold it away, and move to the next without uploading in
               between. */}
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-md border p-2">
-            {groups.map((group) => {
+            {isUploading ? (
+              <p className="px-2 py-3 text-sm text-muted-foreground">
+                {stagedFileCount} selected files are being uploaded. File assignments can be edited after the upload finishes or is cancelled.
+              </p>
+            ) : groups.map((group) => {
               const groupTarget = serviceTargets.find((target) => target.id === group.serviceId) ?? null;
               const groupBracketMode = resolveBracketModeForService(group.serviceId);
 

@@ -16,6 +16,29 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const accepted = (name: string, id: number) => ({ ok: true as const, status: 200, responseText: JSON.stringify({ success_count: 1, uploaded_files: [{ id, filename: name, upload_type: 'raw' }] }) });
 
 describe('raw batch interruption recovery', () => {
+  it('keeps the running selection compact and restores file controls after an interruption', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const shoot = { id: '98', services: [], location: { address: 'Upload QA' } } as ShootData;
+    render(<QueryClientProvider client={client}><RawUploadSection shoot={shoot} onUploadComplete={vi.fn()} /></QueryClientProvider>);
+    fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files: [new File(['raw'], 'pending.CR3')] } });
+    expect(screen.getByRole('button', { name: 'Remove this service group' })).toBeVisible();
+    let interrupt: (result: { ok: false; message: string }) => void;
+    vi.mocked(uploadMediaRequest).mockImplementationOnce(() => new Promise((resolve) => { interrupt = resolve; }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & upload' }));
+    let completed: Promise<unknown>;
+    await act(async () => {
+      completed = mocks.trackUpload.mock.calls[0][0].uploadFn(vi.fn(), new AbortController().signal).catch(() => undefined);
+    });
+    expect(screen.getByText(/selected files are being uploaded/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Remove this service group' })).not.toBeInTheDocument();
+    await act(async () => {
+      interrupt!({ ok: false, message: 'Upload interrupted.' });
+      await completed;
+    });
+    expect(screen.getByRole('button', { name: 'Remove this service group' })).toBeVisible();
+    expect(screen.getByText('Selected Files (1)')).toBeVisible();
+  });
+
   it('stops the remaining files, retains only unfinished selection, and retries original positions/keys', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     // An offline cache refresh must not hold the failure UI open forever.

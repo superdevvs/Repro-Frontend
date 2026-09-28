@@ -224,14 +224,14 @@ export function getImageUrlCandidates(
       'original',
       'url',
       'path',
-      'large_url',
-      'large',
     ]);
   }
 
   // Cards and tiles: the 600px rendition, then the web file for media processed
   // before it existed (heavier than needed, but never soft), and only then the
   // 300px thumbnail. Originals stay excluded — a tile must never pull one.
+  // `large`/`large_url` can alias the same web preview in operational payloads.
+  // Excluding those aliases discards signed previews and selects unsigned paths.
   if (size === 'grid') {
     return resolvedUrlList(file, [
       'grid_url',
@@ -252,8 +252,6 @@ export function getImageUrlCandidates(
       'original',
       'url',
       'path',
-      'large_url',
-      'large',
     ]);
   }
 
@@ -274,8 +272,6 @@ export function getImageUrlCandidates(
     ], [
       'original_url',
       'original',
-      'large_url',
-      'large',
       'url',
       'path',
     ]);
@@ -300,8 +296,6 @@ export function getImageUrlCandidates(
       'original',
       'url',
       'path',
-      'large_url',
-      'large',
     ]);
   }
 

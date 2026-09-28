@@ -6,11 +6,15 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 import { getStoredAuthToken } from '@/utils/authToken';
+import { hasUploadsProtectedFromNavigation, stopUploadsForAuthChange, subscribeUploadNavigationProtection } from '@/lib/uploadNavigationProtection';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { trackTelemetryBlocker } from '@/features/system-overview/telemetryClient';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -228,6 +232,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [originalUser, setOriginalUser] = useState<UserData | null>(null);
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
+  const [uploadSessionChanged, setUploadSessionChanged] = useState(false);
+  const uploadsProtected = useSyncExternalStore(subscribeUploadNavigationProtection, hasUploadsProtectedFromNavigation, () => false);
   const userRef = useRef<UserData | null>(user);
   const originalUserRef = useRef<UserData | null>(originalUser);
   const isImpersonatingRef = useRef(isImpersonating);
@@ -646,16 +652,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (typeof window === 'undefined') return;
 
     const ensureFreshAuthState = () => {
+      // Hydration writes state after reading storage. A focus event in that gap
+      // must not compare the initial guest state with a valid persisted session.
+      if (isLoading || uploadSessionChanged) return;
       const inMemoryFingerprint = buildAuthFingerprint({
         user,
         role,
         isAuthenticated,
-        token: getStoredAuthToken(),
+        token: session?.accessToken ?? null,
         originalUserId: isImpersonating ? originalUser?.id ?? null : null,
       });
       const persistedFingerprint = getPersistedAuthFingerprint();
 
       if (inMemoryFingerprint !== persistedFingerprint) {
+        if (hasUploadsProtectedFromNavigation()) {
+          // Another tab can change the account while this tab owns File objects.
+          // Abort before another file can start; keep the tree mounted and ask
+          // for an explicit reload instead of silently destroying the queue.
+          stopUploadsForAuthChange();
+          setUploadSessionChanged(true);
+          trackTelemetryBlocker('upload_auth_changed', 'Uploads stopped after sign-in changed in another tab.', { source: 'auth_session_sync' });
+          return;
+        }
         window.location.reload();
       }
     };
@@ -669,17 +687,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (document.visibilityState !== 'visible') return;
       ensureFreshAuthState();
     };
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.storageArea && event.storageArea !== localStorage) return;
+      if (event.key === null || ['user', 'authToken', 'token', 'access_token', 'originalUser'].includes(event.key)) {
+        ensureFreshAuthState();
+      }
+    };
 
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', ensureFreshAuthState);
+    window.addEventListener('storage', handleStorageChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('focus', ensureFreshAuthState);
+      window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, isImpersonating, originalUser?.id, role, user]);
+  }, [isAuthenticated, isImpersonating, isLoading, originalUser?.id, role, session?.accessToken, uploadSessionChanged, user]);
 
   const contextValue = useMemo<AuthContextType>(() => ({
       user,
@@ -714,6 +740,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
+      <AlertDialog open={uploadSessionChanged}>
+        <AlertDialogContent onEscapeKeyDown={(event) => event.preventDefault()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Your sign-in changed</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your sign-in changed in another tab. Uploads have been stopped to keep files with the correct account.
+              Files already saved are kept. Reload to continue with your current sign-in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction disabled={uploadsProtected} onClick={() => window.location.reload()}>
+              {uploadsProtected ? 'Stopping uploads…' : 'Reload to continue'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AuthContext.Provider>
   );
 };
