@@ -77,4 +77,31 @@ describe('auth changes during uploads', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(screen.getByTestId('retained-queue')).toHaveTextContent('Selected files for 989');
   });
+
+  it('discards an old profile refresh after another tab changes the account during upload', async () => {
+    let resolveProfile!: (response: { ok: boolean; status: number; json: () => Promise<typeof user> }) => void;
+    let refreshSignal!: AbortSignal;
+    vi.stubGlobal('fetch', vi.fn((_url, init: RequestInit) => {
+      refreshSignal = init.signal as AbortSignal;
+      // Deliberately ignore abort: the epoch must reject a late old-account
+      // response even when cancellation cannot stop it from resolving.
+      return new Promise((resolve) => { resolveProfile = resolve; });
+    }));
+    await showQueue();
+    const abort = vi.fn();
+    act(() => protectUploadFromNavigation('auth-qa', abort));
+    const nextUser = { ...user, id: '990' };
+    localStorage.setItem('user', JSON.stringify(nextUser));
+    localStorage.setItem('authToken', 'next-account-token');
+    fireEvent(window, new StorageEvent('storage', { key: 'user', storageArea: localStorage }));
+    expect(refreshSignal.aborted).toBe(true);
+    expect(abort).toHaveBeenCalledOnce();
+    await act(async () => {
+      resolveProfile({ ok: true, status: 200, json: async () => user });
+    });
+    expect(JSON.parse(localStorage.getItem('user')!)).toEqual(nextUser);
+    expect(localStorage.getItem('authToken')).toBe('next-account-token');
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    expect(screen.getByTestId('retained-queue')).toHaveTextContent('Selected files for 989');
+  });
 });

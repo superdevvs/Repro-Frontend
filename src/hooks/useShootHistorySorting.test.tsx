@@ -63,7 +63,7 @@ describe('Shoot History sort selection', () => {
         role, isEditor: role === 'editor', canViewHistory: role !== 'photographer',
       }), { wrapper: router })
       const initialTab = result.current.activeTab
-      expect(result.current.shootSort).toBe(role === 'editor' ? 'date_desc' : 'next_up')
+      expect(result.current.shootSort).toBe(role === 'editor' ? 'date_desc' : 'today_upcoming')
 
       act(() => result.current.setShootSort('date_asc'))
       act(() => result.current.setViewMode('grid'))

@@ -54,11 +54,12 @@ export function ShootHistoryDisplayControls({ view, onViewChange, sort, onSortCh
         <CalendarDays className="h-4 w-4" />
       </Button>
       <Button
-        variant={view === 'map' || view === 'calendar' ? 'ghost' : 'secondary'} size="icon"
+        variant={view === 'map' || view === 'calendar' ? 'ghost' : 'secondary'} size="sm" className="gap-2"
         aria-label={viewLabel} title={viewLabel} data-shoot-view-toggle={view}
         onClick={() => onViewChange(nextView)}
       >
-        {view === 'list' ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
+        {nextView === 'list' ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
+        {nextView === 'list' ? 'List' : 'Grid'}
       </Button>
     </>
   )

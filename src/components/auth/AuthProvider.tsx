@@ -233,6 +233,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [originalUser, setOriginalUser] = useState<UserData | null>(null);
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
   const [uploadSessionChanged, setUploadSessionChanged] = useState(false);
+  const uploadSessionChangedRef = useRef(false);
   const uploadsProtected = useSyncExternalStore(subscribeUploadNavigationProtection, hasUploadsProtectedFromNavigation, () => false);
   const userRef = useRef<UserData | null>(user);
   const originalUserRef = useRef<UserData | null>(originalUser);
@@ -654,7 +655,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const ensureFreshAuthState = () => {
       // Hydration writes state after reading storage. A focus event in that gap
       // must not compare the initial guest state with a valid persisted session.
-      if (isLoading || uploadSessionChanged) return;
+      if (isLoading || uploadSessionChangedRef.current) return;
       const inMemoryFingerprint = buildAuthFingerprint({
         user,
         role,
@@ -666,6 +667,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (inMemoryFingerprint !== persistedFingerprint) {
         if (hasUploadsProtectedFromNavigation()) {
+          // Latch before abort callbacks can settle the upload and release its
+          // navigation guard. Focus/storage events can arrive before React has
+          // committed the dialog state, but must never fall through to reload.
+          uploadSessionChangedRef.current = true;
+          // Keeping this tree mounted also keeps its old profile refresh alive.
+          // Invalidate both async gaps, even if a fetch ignores cancellation, so
+          // it cannot overwrite the other tab's newly selected account.
+          impersonationEpochRef.current += 1;
+          refreshAbortRef.current?.abort();
+          refreshAbortRef.current = null;
           // Another tab can change the account while this tab owns File objects.
           // Abort before another file can start; keep the tree mounted and ask
           // for an explicit reload instead of silently destroying the queue.
