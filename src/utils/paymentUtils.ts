@@ -15,6 +15,7 @@ export interface PaymentBreakdownItem {
 }
 
 const METHOD_LABELS: Record<string, string> = {
+  historical_credit_card: 'Card (historical)',
   square: 'Card',
   stripe: 'Card',
   zelle: 'Zelle',

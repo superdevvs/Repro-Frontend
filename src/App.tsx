@@ -345,6 +345,13 @@ const AppRoutes = () => {
       <Route path="/login" element={<Navigate to="/" replace />} />
       {import.meta.env.DEV ? renderDevOnlyPublicRoutes() : null}
 
+      {/* Legacy paths preserve client bookmarks; source IDs resolve on the server. */}
+      <Route path="/tour/MLS/:legacyTourFile" caseSensitive element={
+        <PageTransition><MlsCompliant key={location.pathname} legacyPath /></PageTransition>
+      } />
+      <Route path="/tour/:legacyTourFile" caseSensitive element={
+        <PageTransition><BrandedPage key={location.pathname} legacyPath /></PageTransition>
+      } />
       {/* Public client-facing tour pages (accept ?shootId=) */}
       <Route path="/tour/branded" element={
         <PageTransition>

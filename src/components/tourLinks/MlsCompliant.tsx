@@ -1,3 +1,4 @@
+import { legacyTourQuery, parseLegacyTourPath } from './legacyTourPath';
 import { withTourUnit } from '@/features/shoot-units/unitTourData';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
@@ -58,7 +59,7 @@ interface PropertyDetails {
   garages?: Array<{ carCount?: number; areaSquareFeet?: number }>;
 }
 
-export function MlsCompliant() {
+export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = {}) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
@@ -86,14 +87,20 @@ export function MlsCompliant() {
     const fetchData = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const shootId = params.get('shootId');
+        const legacy = legacyPath ? parseLegacyTourPath(window.location.pathname) : null;
+        if (legacyPath && (!legacy || legacy.audience !== 'mls')) {
+          setLoadError('This property tour could not be found.');
+          setLoading(false);
+          return;
+        }
+        const shootId = legacy ? null : params.get('shootId');
         const address = params.get('address');
         const city = params.get('city');
         const state = params.get('state');
         const zip = params.get('zip');
 
         const hasAddressParams = Boolean(address && city && state);
-        if (!shootId && !hasAddressParams) {
+        if (!legacy && !shootId && !hasAddressParams) {
           setLoadError('This property tour could not be found.');
           setLoading(false);
           return;
@@ -107,7 +114,9 @@ export function MlsCompliant() {
           if (zip) query.set('zip', zip);
         }
 
-        const endpoint = query.toString()
+        const endpoint = legacy
+          ? `${API_BASE_URL}/api/public/shoots/mls?${legacyTourQuery(legacy)}`
+          : query.toString()
           ? `${API_BASE_URL}/api/public/shoots/mls?${query.toString()}`
           : `${API_BASE_URL}/api/public/shoots/${shootId}/mls`;
 
@@ -143,7 +152,7 @@ export function MlsCompliant() {
         setTourStyle(style);
 
         const rawEmbeds: unknown[] = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
-        const embedKey = shootId || [address, city, state, zip].filter(Boolean).join('-');
+        const embedKey = legacy ? `viewshoot-${legacy.companyId}-${legacy.sourceId}` : shootId || [address, city, state, zip].filter(Boolean).join('-');
         const safeEmbeds = rawEmbeds.map((value, index) => {
           const embed = value && typeof value === 'object' ? value as Record<string, unknown> : {};
           return {
@@ -164,7 +173,7 @@ export function MlsCompliant() {
       }
     };
     fetchData();
-  }, []);
+  }, [legacyPath]);
 
   // Hero slideshow always starts with hero image(s), then continues through all remaining photos in sorted order.
   const heroSlides = useMemo(() => {

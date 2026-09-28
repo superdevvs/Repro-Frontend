@@ -1,3 +1,4 @@
+import { PrivateImportReview } from '@/components/shoots/details/PrivateImportReview';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -623,6 +624,10 @@ const ShootDetails: React.FC = () => {
         </div>
       </DashboardLayout>
     );
+  }
+
+  if (shoot.status === 'import_draft') {
+    return <DashboardLayout><PrivateImportReview shoot={shoot} isOpen onClose={() => navigate('/shoot-history')} /></DashboardLayout>;
   }
 
   const shootLocalDate = getShootLocalDate(shoot);

@@ -72,6 +72,7 @@ import { buildShootPaymentDialogModel } from '@/utils/shootPaymentDialogModel';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useNavigate } from 'react-router-dom';
+import { HistoricalImportSummary } from '@/components/shoots/details/HistoricalImportSummary';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 
@@ -888,6 +889,7 @@ function ShootDetailsOverviewTabContent({
 
   return (
     <div className="space-y-2">
+      <HistoricalImportSummary shoot={shoot} />
       <CompReshootOverviewStrip
         shoot={shoot}
         role={role}

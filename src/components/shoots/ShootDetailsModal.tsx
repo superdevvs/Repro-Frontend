@@ -48,6 +48,7 @@ import {
   ShootDetailsModalActionRail,
   ShootDetailsModalHeader,
 } from './details/ShootDetailsModalActionRail';
+import { PrivateImportReview } from './details/PrivateImportReview';
 import { ShootDetailsModalBody } from './details/ShootDetailsModalBody';
 import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
 import { getShootClientReleaseAccess } from './details/shootClientReleaseAccess';
@@ -687,6 +688,10 @@ export function ShootDetailsModal({
         </DialogContent>
       </Dialog>
     );
+  }
+
+  if (shoot.status === 'import_draft') {
+    return <PrivateImportReview shoot={shoot} isOpen={isOpen} onClose={onClose} onCloseAutoFocus={onCloseAutoFocus} />;
   }
 
   return (
