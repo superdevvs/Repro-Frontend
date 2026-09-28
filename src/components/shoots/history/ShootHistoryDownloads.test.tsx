@@ -25,7 +25,7 @@ const shoot = {
 
 function HistoryDownload({ layout, role }: { layout: 'card' | 'row'; role: 'admin' | 'editor' | 'salesRep' }) {
   const data = useShootHistoryData({
-    toast: mocks.toast, navigate: vi.fn(), role, user: null, activeTab: 'completed',
+    toast: mocks.toast, navigate: vi.fn(), role, user: null, activeTab: 'completed', shootSort: 'date_desc',
     operationalFilters: DEFAULT_OPERATIONAL_FILTERS, historyFilters: DEFAULT_HISTORY_FILTERS,
     viewMode: layout === 'card' ? 'grid' : 'list', canViewAllShoots: true, canViewHistory: false,
     canViewInvoice: false, shouldHideClientDetails: false, isSuperAdmin: false, isAdmin: role === 'admin',

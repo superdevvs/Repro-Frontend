@@ -18,7 +18,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -27,6 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ShootHistoryDisplayControls } from './ShootHistoryDisplayControls'
+import type { ShootHistorySort } from './shootHistorySorting'
 import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { MultiSelectFilter } from '@/components/shoots/history/MultiSelectFilter'
 import { ShootHistoryMlsQueueView } from '@/components/shoots/history/ShootHistoryMlsQueueView'
@@ -45,10 +46,8 @@ import {
   DollarSign,
   Eye,
   Filter,
-  Grid3X3,
   Layers,
   Link2,
-  List,
   Map as MapIcon,
   MoreVertical,
   Pin,
@@ -103,6 +102,8 @@ export type ShootHistoryViewProps = {
   togglePinTab: (tab: AvailableTab) => void
   setIsBulkActionsOpen: React.Dispatch<React.SetStateAction<boolean>>
   viewMode: 'grid' | 'list' | 'map'
+  shootSort: ShootHistorySort
+  setShootSort: (sort: ShootHistorySort) => void
   setViewMode: React.Dispatch<React.SetStateAction<'grid' | 'list' | 'map'>>
   gridColumns: 3 | 4
   setGridColumns: React.Dispatch<React.SetStateAction<3 | 4>>
@@ -396,6 +397,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     setIsBulkActionsOpen,
     viewMode,
     setViewMode,
+    shootSort,
+    setShootSort,
     gridColumns,
     setGridColumns,
     historyFilters,
@@ -440,15 +443,19 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
-  const nextGridColumns = activeView === 'grid' && gridColumns === 4 ? 3 : 4
-  const selectGrid = (columns: 3 | 4) => {
-    setGridColumns(columns)
+  const selectView = (view: 'grid' | 'list' | 'map') => {
     if (activeTab === 'history') {
-      setHistoryFilters((prev) => ({ ...prev, viewAs: 'grid' }))
+      setHistoryFilters(prev => ({ ...prev, viewAs: view }))
     } else {
-      setViewMode('grid')
+      setViewMode(view)
     }
   }
+  const displayControls = (
+    <ShootHistoryDisplayControls
+      view={activeView} onViewChange={selectView} sort={shootSort} onSortChange={setShootSort}
+      gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
+    />
+  )
   const hasOperationalFiltersApplied =
     operationalServicesSelected ||
     Boolean(operationalFilters.search) ||
@@ -488,6 +495,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               Bulk Actions
             </Button>
           )}
+          <div data-mobile-display-controls className="flex items-center gap-1 sm:hidden">{displayControls}</div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="h-10 w-10 sm:hidden" title="View options" aria-label="View options">
@@ -501,14 +509,6 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                   Bulk Actions
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => selectGrid(nextGridColumns)}>
-                <Grid3X3 className="mr-2 h-4 w-4" />
-                Grid view
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => (activeTab === 'history' ? setHistoryFilters((prev) => ({ ...prev, viewAs: 'list' })) : setViewMode('list'))}>
-                <List className="mr-2 h-4 w-4" />
-                List view
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => (activeTab === 'history' ? setHistoryFilters((prev) => ({ ...prev, viewAs: 'map' })) : setViewMode('map'))}>
                 <MapIcon className="mr-2 h-4 w-4" />
                 Map view
@@ -548,40 +548,10 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
             </Button>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            <ToggleGroup
-              type="single"
-              value={activeView}
-              onValueChange={(value) => {
-                if (!value) return
-                if (activeTab === 'history') {
-                  setHistoryFilters((prev) => ({ ...prev, viewAs: value as 'grid' | 'list' | 'map' }))
-                  return
-                }
-                setViewMode(value as 'grid' | 'list' | 'map')
-              }}
-            >
-              <ToggleGroupItem
-                value="grid"
-                aria-label="Grid view"
-                aria-description={nextGridColumns === 3 ? 'Click for a compact three-column grid.' : 'Click for a standard four-column grid.'}
-                title={`Click for ${nextGridColumns} cards per row`}
-                onClick={() => selectGrid(nextGridColumns)}
-                onKeyDown={(event) => {
-                  if (event.shiftKey && (event.key === 'Enter' || event.key === ' ')) {
-                    event.preventDefault()
-                    selectGrid(3)
-                  }
-                }}
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="list" aria-label="List view">
-                <List className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="map" aria-label="Map view">
-                <MapIcon className="h-4 w-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
+            <div data-desktop-display-controls className="flex items-center gap-2">{displayControls}</div>
+            <Button variant={activeView === 'map' ? 'secondary' : 'ghost'} size="icon" aria-label="Map view" title="Map view" aria-pressed={activeView === 'map'} onClick={() => selectView('map')}>
+              <MapIcon className="h-4 w-4" />
+            </Button>
             {activeTab !== 'history' && (
               <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen}>
                 <CollapsibleTrigger asChild>

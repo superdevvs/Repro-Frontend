@@ -16,6 +16,7 @@ import { ShootHistoryLoadingPanel } from '@/components/shoots/history/ShootHisto
 import { HistoryAggregateCard, HistoryRow } from '@/components/shoots/history/ShootHistoryHistoryRows'
 import { CompletedAlbumCard, CompletedShootListRow, HoldOnShootCard, ScheduledShootListRow } from '@/components/shoots/history/ShootHistoryOperationalRows'
 import { ShootHistoryView } from '@/components/shoots/history/ShootHistoryView'
+import { ShootHistoryGrid } from '@/components/shoots/history/ShootHistoryGrid'
 import { ShootMapView } from '@/components/shoots/history/ShootHistoryMapView'
 import { useShootHistoryFilters } from '@/hooks/useShootHistoryFilters'
 import { useShootHistoryData } from '@/hooks/useShootHistoryData'
@@ -127,6 +128,8 @@ const ShootHistory: React.FC = () => {
     setScheduledSubTab,
     viewMode,
     setViewMode,
+    shootSort,
+    setShootSort,
     pinnedTabs,
     setPinnedTabs,
     operationalFilters,
@@ -254,6 +257,7 @@ const ShootHistory: React.FC = () => {
     user,
     activeTab,
     scheduledSubTab,
+    shootSort,
     operationalFilters,
     historyFilters,
     viewMode,
@@ -572,22 +576,9 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      // Sort by scheduled date descending so latest shoots come first
-      const sortedData = [...filteredOperationalData].sort((a, b) => {
-        const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
-        const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
-        return dateB - dateA
-      })
-      // Distribute items round-robin into columns for masonry with correct L-R order
-      const numCols = masonryColumnCount
-      const columns: ShootData[][] = Array.from({ length: numCols }, () => [])
-      sortedData.forEach((shoot, i) => columns[i % numCols].push(shoot))
-
       return (
-        <div className="masonry-grid">
-          {columns.map((colItems, colIdx) => (
-            <div key={colIdx} className="masonry-grid-col">
-              {colItems.map((shoot) => (
+        <ShootHistoryGrid columns={masonryColumnCount}>
+          {filteredOperationalData.map((shoot) => (
                 <SharedShootCard
                   compact={compactGrid}
                   key={shoot.id}
@@ -604,10 +595,8 @@ const ShootHistory: React.FC = () => {
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   hideHeroImage
                 />
-              ))}
-            </div>
           ))}
-        </div>
+        </ShootHistoryGrid>
       )
     }
 
@@ -694,15 +683,9 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = masonryColumnCount
-      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
-      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
-
       return (
-        <div className="masonry-grid">
-          {cols.map((colItems, colIdx) => (
-            <div key={colIdx} className="masonry-grid-col">
-              {colItems.map((shoot) => (
+        <ShootHistoryGrid columns={masonryColumnCount}>
+          {filteredOperationalData.map((shoot) => (
                 <CompletedAlbumCard
                   compact={compactGrid}
                   key={shoot.id}
@@ -723,10 +706,8 @@ const ShootHistory: React.FC = () => {
                   shouldHideClientDetails={shouldHideClientDetails}
                   viewerRole={role}
                 />
-              ))}
-            </div>
           ))}
-        </div>
+        </ShootHistoryGrid>
       )
     }
 
@@ -786,15 +767,9 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = masonryColumnCount
-      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
-      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
-
       return (
-        <div className="masonry-grid">
-          {cols.map((colItems, colIdx) => (
-            <div key={colIdx} className="masonry-grid-col">
-              {colItems.map((shoot) => (
+        <ShootHistoryGrid columns={masonryColumnCount}>
+          {filteredOperationalData.map((shoot) => (
                 <HoldOnShootCard
                   compact={compactGrid}
                   key={shoot.id} 
@@ -812,10 +787,8 @@ const ShootHistory: React.FC = () => {
                   shouldHideClientDetails={shouldHideClientDetails}
                   viewerRole={role}
                 />
-              ))}
-            </div>
           ))}
-        </div>
+        </ShootHistoryGrid>
       )
     }
 
@@ -863,15 +836,9 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const numCols = masonryColumnCount
-      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
-      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
-
       return (
-        <div className="masonry-grid">
-          {cols.map((colItems, colIdx) => (
-            <div key={colIdx} className="masonry-grid-col">
-              {colItems.map((shoot) => (
+        <ShootHistoryGrid columns={masonryColumnCount}>
+          {filteredOperationalData.map((shoot) => (
                 <CompletedAlbumCard
                   compact={compactGrid}
                   key={shoot.id}
@@ -893,10 +860,8 @@ const ShootHistory: React.FC = () => {
                   shouldHideClientDetails={shouldHideClientDetails}
                   viewerRole={role}
                 />
-              ))}
-            </div>
           ))}
-        </div>
+        </ShootHistoryGrid>
       )
     }
 
@@ -983,15 +948,9 @@ const ShootHistory: React.FC = () => {
     const paginatedRecords = historyRecords
 
     if (historyFilters.viewAs === 'grid') {
-      const numCols = masonryColumnCount
-      const histCols: ShootHistoryRecord[][] = Array.from({ length: numCols }, () => [])
-      paginatedRecords.forEach((record, i) => histCols[i % numCols].push(record))
-
       return (
-        <div className="masonry-grid">
-          {histCols.map((colItems, colIdx) => (
-            <div key={colIdx} className="masonry-grid-col">
-              {colItems.map((record) => (
+        <ShootHistoryGrid columns={masonryColumnCount}>
+          {paginatedRecords.map((record) => (
                 <Card key={record.id} className="overflow-hidden border hover:border-primary/40 transition-colors cursor-pointer" onClick={() => handleHistoryRecordSelect(record)}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
@@ -1043,10 +1002,8 @@ const ShootHistory: React.FC = () => {
                     )}
                   </CardContent>
                 </Card>
-              ))}
-            </div>
           ))}
-        </div>
+        </ShootHistoryGrid>
       )
     }
 
@@ -1104,6 +1061,8 @@ const ShootHistory: React.FC = () => {
           setIsBulkActionsOpen={setIsBulkActionsOpen}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          shootSort={shootSort}
+          setShootSort={setShootSort}
           gridColumns={gridColumns}
           setGridColumns={setGridColumns}
           historyFilters={historyFilters}

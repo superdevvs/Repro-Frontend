@@ -3,12 +3,14 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import React, { useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
+import { act, cleanup, render, renderHook, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom/vitest'
 import { Calendar, Clock } from 'lucide-react'
 
 import { ShootHistoryView, type ShootHistoryViewProps } from './ShootHistoryView'
+import { ShootHistoryGrid } from './ShootHistoryGrid'
+import type { ShootHistorySort } from './shootHistorySorting'
 import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { CompletedAlbumCard } from './CompletedAlbumCard'
 import { HoldOnShootCard } from './HoldOnShootCard'
@@ -251,6 +253,7 @@ function ViewHarness({
   paginationTotal?: number
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
+  const [shootSort, setShootSort] = useState<ShootHistorySort>('date_desc')
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>(
     tab === 'history' ? 'map' : initialView,
@@ -261,6 +264,8 @@ function ViewHarness({
   })
   const props: ShootHistoryViewProps = {
     gridContainerRef,
+    shootSort,
+    setShootSort,
     gridColumns,
     setGridColumns,
     isSuperAdmin: false,
@@ -321,89 +326,62 @@ function ViewHarness({
   return (
     <>
       <ShootHistoryView {...props} />
+      <output data-testid="shoot-sort">{shootSort}</output>
       <output data-testid="operational-view">{viewMode}</output>
       <output data-testid="history-view">{historyFilters.viewAs}</output>
     </>
   )
 }
 
-describe.each(['delivered', 'history'] as const)('Shoot History grid controls in %s', (tab) => {
-  it('toggles three and four columns on each single click and handles rapid clicks consistently', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<ViewHarness tab={tab} />)
-    const grid = screen.getByRole('radio', { name: 'Grid view' })
-    const root = container.querySelector('.shoot-history-tabs')
-
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-
-    await user.click(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '3')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-    await user.click(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-
-    // userEvent emits both clicks followed by dblclick, matching the browser.
-    await user.dblClick(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByTestId(tab === 'history' ? 'operational-view' : 'history-view'))
-      .toHaveTextContent('map')
-  })
-
-  it('opens compact grid from list and returns to standard grid on a later single click', async () => {
+describe.each(['delivered', 'history'] as const)('Shoot History controls in %s', (tab) => {
+  it('uses one button to alternate list and grid without changing the other tab view', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} initialView="list" />)
-    const grid = screen.getByRole('radio', { name: 'Grid view' })
-    const list = screen.getByRole('radio', { name: 'List view' })
-    const root = container.querySelector('.shoot-history-tabs')
-
-    expect(list).toHaveAttribute('aria-checked', 'true')
-    await user.click(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-    await user.click(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '3')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-
-    await user.click(list)
-    expect(list).toHaveAttribute('aria-checked', 'true')
-    await user.click(grid)
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view'))
-      .toHaveTextContent('grid')
-    expect(screen.getByTestId(tab === 'history' ? 'operational-view' : 'history-view'))
-      .toHaveTextContent('map')
+    const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
+    const active = screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view')
+    expect(container.querySelectorAll('[data-desktop-display-controls] [data-shoot-view-toggle]')).toHaveLength(1)
+    await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
+    expect(active).toHaveTextContent('grid')
+    await user.click(toolbar.getByRole('button', { name: 'Switch to list view' }))
+    expect(active).toHaveTextContent('list')
+    expect(screen.getByTestId(tab === 'history' ? 'operational-view' : 'history-view')).toHaveTextContent('map')
   })
 
-  it.each(['{Enter}', ' '])('toggles columns with a single %s key activation', async (key) => {
+  it.each(['{Enter}', ' '])('alternates views using %s', async (key) => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} />)
-    const grid = screen.getByRole('radio', { name: 'Grid view' })
-    act(() => grid.focus())
+    const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
+    act(() => toolbar.getByRole('button', { name: 'Switch to list view' }).focus())
     await user.keyboard(key)
+    expect(screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view')).toHaveTextContent('list')
+    await user.keyboard(key)
+    expect(screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view')).toHaveTextContent('grid')
+  })
+
+  it('retains compact columns across view toggles and exposes chronological sorting', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<ViewHarness tab={tab} />)
+    const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
+    await user.click(toolbar.getByRole('button', { name: 'Sort shoots' }))
+    await user.click(screen.getByRole('menuitemradio', { name: '3 columns' }))
     expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
-    await user.keyboard(key)
-    expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '4')
+    await user.click(toolbar.getByRole('button', { name: 'Switch to list view' }))
+    await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
+    expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
+    await user.click(toolbar.getByRole('button', { name: 'Sort shoots' }))
+    await user.click(screen.getByRole('menuitemradio', { name: 'Date: earliest first' }))
+    expect(screen.getByTestId('shoot-sort')).toHaveTextContent('date_asc')
   })
+})
 
-  it.each([
-    ['Shift+Enter', '{Shift>}{Enter}{/Shift}'],
-    ['Shift+Space', '{Shift>} {/Shift}'],
-  ])('opens compact grid with %s and restores standard grid with Enter', async (_name, keys) => {
-    const user = userEvent.setup()
-    const { container } = render(<ViewHarness tab={tab} initialView="list" />)
-    const grid = screen.getByRole('radio', { name: 'Grid view' })
-    const root = container.querySelector('.shoot-history-tabs')
-    act(() => grid.focus())
-
-    await user.keyboard(keys)
-    expect(root).toHaveAttribute('data-grid-columns', '3')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
-
-    await user.keyboard('{Enter}')
-    expect(root).toHaveAttribute('data-grid-columns', '4')
-    expect(grid).toHaveAttribute('aria-checked', 'true')
+describe('Shoot History ordered grid', () => {
+  it('preserves row and keyboard order even when cards have different heights', () => {
+    const { container } = render(<ShootHistoryGrid columns={3}>
+      {[1, 2, 3, 4, 5].map(id => <button key={id} style={{ height: id * 30 }}>{id}</button>)}
+    </ShootHistoryGrid>)
+    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['1', '2', '3', '4', '5'])
+    expect(container.querySelector('[data-shoot-history-grid]')).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' })
+    expect(container.querySelector('.masonry-grid-col')).toBeNull()
   })
 })
 

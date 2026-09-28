@@ -38,6 +38,7 @@ import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
 import { getApiHeaders } from '@/services/api'
 import { useShootHistoryMapGeocoding } from '@/hooks/useShootHistoryMapGeocoding'
+import type { ShootHistorySort } from '@/components/shoots/history/shootHistorySorting'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 type InvoicePayload = Record<string, unknown>
@@ -80,6 +81,7 @@ export interface UseShootHistoryDataArgs {
   role: string | null | undefined
   user: UserData | null | undefined
   activeTab: AvailableTab
+  shootSort: ShootHistorySort
   scheduledSubTab?: 'all' | 'requested' | 'scheduled'
   operationalFilters: OperationalFiltersState
   historyFilters: HistoryFiltersState
@@ -209,6 +211,7 @@ export function useShootHistoryData({
   role,
   user,
   activeTab,
+  shootSort,
   scheduledSubTab = 'all',
   operationalFilters,
   historyFilters,
@@ -271,6 +274,8 @@ export function useShootHistoryData({
 
   const activeTabRef = useRef(activeTab)
   activeTabRef.current = activeTab
+  const shootSortRef = useRef(shootSort)
+  shootSortRef.current = shootSort
   const scheduledSubTabRef = useRef(scheduledSubTab)
   scheduledSubTabRef.current = scheduledSubTab
   const operationalFiltersRef = useRef(operationalFilters)
@@ -511,6 +516,7 @@ export function useShootHistoryData({
 
       const params: Record<string, unknown> = {
         tab: backendTab,
+        sort: shootSortRef.current,
         page: currentPage,
         per_page: 12,
         include_files: 'true',
@@ -661,7 +667,12 @@ export function useShootHistoryData({
 
     setLoading(true)
     try {
-      const params: Record<string, unknown> = { group_by: currentFilters.groupBy, page: currentPage, per_page: 12 }
+      const params: Record<string, unknown> = {
+        group_by: currentFilters.groupBy,
+        page: currentPage,
+        per_page: 12,
+        sort: shootSortRef.current,
+      }
       if (currentFilters.search) params.search = currentFilters.search
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
@@ -780,7 +791,7 @@ export function useShootHistoryData({
     return () => clearTimeout(timeoutId)
   }, [loading])
 
-  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}`
+  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}:${shootSort}`
   const lastActiveTabRef = useRef(operationalScope)
   useEffect(() => {
     const tabChanged = lastActiveTabRef.current !== operationalScope
@@ -788,8 +799,10 @@ export function useShootHistoryData({
 
     if (tabChanged) {
       if (activeTab === 'history') {
+        historyPageRef.current = 1
         setHistoryPage(1)
       } else {
+        operationalPageRef.current = 1
         setOperationalPage(1)
       }
     }
@@ -799,13 +812,13 @@ export function useShootHistoryData({
     if (activeTab === 'history' && canViewHistory) {
       fetchHistoryData()
     }
-  }, [historyPage, activeTab, canViewHistory, historyFilters, fetchHistoryData])
+  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData])
 
   useEffect(() => {
     if (activeTab !== 'history') {
       fetchOperationalData()
     }
-  }, [operationalPage, activeTab, scheduledSubTab, operationalFilters, fetchOperationalData])
+  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
@@ -928,7 +941,7 @@ export function useShootHistoryData({
   }, [operationalMeta, operationalPage])
 
   const buildHistoryParams = useCallback(() => {
-    const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: 12 }
+    const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: 12, sort: shootSort }
     if (historyFilters.search) params.search = historyFilters.search
     if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
     if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
@@ -947,7 +960,7 @@ export function useShootHistoryData({
     if (historyFilters.completedStart) params.completed_start = historyFilters.completedStart
     if (historyFilters.completedEnd) params.completed_end = historyFilters.completedEnd
     return params
-  }, [historyFilters, historyPage, shouldHideClientDetails])
+  }, [historyFilters, historyPage, shootSort, shouldHideClientDetails])
 
   const handleExportHistory = useCallback(async () => {
     try {

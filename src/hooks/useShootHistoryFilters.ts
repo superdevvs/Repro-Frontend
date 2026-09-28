@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  getDefaultShootHistorySort,
+  type ShootHistorySort,
+} from '@/components/shoots/history/shootHistorySorting'
+import {
   AvailableTab,
   DEFAULT_HISTORY_FILTERS,
   DEFAULT_OPERATIONAL_FILTERS,
@@ -45,6 +49,11 @@ export const useShootHistoryFilters = ({
     const urlTab = searchParams.get('tab') as AvailableTab | null
     return urlTab && tabList.includes(urlTab) ? urlTab : tabList[0]
   })
+  const [sortByTab, setSortByTab] = useState<Partial<Record<AvailableTab, ShootHistorySort>>>({})
+  const shootSort = sortByTab[activeTab] ?? getDefaultShootHistorySort(activeTab)
+  const setShootSort = (sort: ShootHistorySort) => {
+    setSortByTab((previous) => ({ ...previous, [activeTab]: sort }))
+  }
 
   const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing' | 'in_review'>('all')
   const hideDeliveredSubTabs = ['client', 'editor', 'photographer'].includes(role || '')
@@ -221,6 +230,8 @@ export const useShootHistoryFilters = ({
     tabList,
     activeTab,
     setActiveTab,
+    shootSort,
+    setShootSort,
     inProgressSubTab,
     setInProgressSubTab,
     hideDeliveredSubTabs,

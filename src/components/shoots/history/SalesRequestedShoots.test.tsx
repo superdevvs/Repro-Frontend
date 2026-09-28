@@ -61,7 +61,7 @@ describe('sales requested shoot controls', () => {
 
   it('requests the selected status before pagination and resets the page when switching subtabs', async () => {
     const { result, rerender } = renderHook(({ subTab }: { subTab: 'all' | 'requested' }) => useShootHistoryData({
-      toast: mocks.toast, navigate: vi.fn(), role: 'salesRep', user: null, activeTab: 'scheduled', scheduledSubTab: subTab,
+      toast: mocks.toast, navigate: vi.fn(), role: 'salesRep', user: null, activeTab: 'scheduled', scheduledSubTab: subTab, shootSort: 'next_up',
       operationalFilters: DEFAULT_OPERATIONAL_FILTERS, historyFilters: DEFAULT_HISTORY_FILTERS, viewMode: 'list',
       canViewAllShoots: false, canViewHistory: false, canViewInvoice: false, shouldHideClientDetails: false,
       isSuperAdmin: false, isAdmin: false, isEditingManager: false, isPhotographer: false, isEditor: false,
@@ -75,4 +75,3 @@ describe('sales requested shoot controls', () => {
     expect(result.current.operationalData).toHaveLength(1);
   });
 });
-
