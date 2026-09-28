@@ -5,7 +5,6 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
-import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -203,14 +202,7 @@ export function ReviewForm({
   ) : null;
 
   return (
-    <motion.div
-      key="step3"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       <EmptyState icon="assignments" title={<>{/* <Label>Select Photographer</Label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
           {photographers.length > 0 ? (
@@ -483,6 +475,6 @@ export function ReviewForm({
         </Button>
       </div> 
       */}
-    </motion.div>
+    </div>
   );
 }

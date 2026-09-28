@@ -7,13 +7,14 @@ import { BookingComplete } from '@/components/booking/BookingComplete';
 import { BookingSummary } from '@/components/booking/BookingSummary';
 import { BookingContentArea } from '@/components/booking/BookingContentArea';
 import { BookingHeader } from '@/components/booking/BookingHeader';
+import { BookingStepTransition } from '@/components/booking/BookingStepTransition';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import type { BookShootController } from './useBookShootController';
 import { CompReshootBanner } from '@/features/complimentary-reshoots/CompReshootBanner';
 import { CompReasonChangeDialog } from '@/features/complimentary-reshoots/CompReasonChangeDialog';
-import { getBookingWizardConfig, scrollBookingPageToTop } from './bookShootModel';
+import { getBookingWizardConfig } from './bookShootModel';
 
 export function BookShootView({ controller }: { controller: BookShootController }) {
   const {
@@ -44,15 +45,6 @@ export function BookShootView({ controller }: { controller: BookShootController 
   } = controller;
   const wizard = getBookingWizardConfig(isCompReshootMode);
   const finalStep = wizard.finalStep;
-  React.useLayoutEffect(() => {
-    scrollBookingPageToTop();
-    const frame = window.requestAnimationFrame(() => scrollBookingPageToTop());
-    const retry = window.setTimeout(() => scrollBookingPageToTop(), 50);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(retry);
-    };
-  }, [step]);
   return (
     <MultiUnitBookingContext.Provider value={controller.unitBooking}>
       <BookingUnitManager photographers={photographers} />
@@ -120,6 +112,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
           </AnimatePresence>
           <AnimatePresence mode="wait">
             {!isComplete && (
+              <BookingStepTransition step={step} title={`Step ${step} of ${wizard.totalSteps}: ${currentStepContent.title}`}>
               <div
                 className={`grid grid-cols-1 ${{
                   true: 'lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)]',
@@ -208,6 +201,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   </div>
                 )}
               </div>
+              </BookingStepTransition>
             )}
           </AnimatePresence>
       </div>

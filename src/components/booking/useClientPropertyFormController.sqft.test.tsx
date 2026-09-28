@@ -75,7 +75,6 @@ describe('booking square footage consistency', () => {
     input.slide = 'property';
     const { result } = renderHook(() => useClientPropertyFormController(input));
 
-    act(() => result.current.setPresenceOption('self'));
     act(() => result.current.handleSubmit(result.current.form.getValues()));
 
     expect(input.onComplete).toHaveBeenCalled();

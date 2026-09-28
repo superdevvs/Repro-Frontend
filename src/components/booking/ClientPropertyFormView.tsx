@@ -41,7 +41,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     onSelectedServicesChange, canCreateNoProductShoot, packagesLoading, serviceDialogOpen, setServiceDialogOpen,
     effectiveSqft, handleRemoveService, presenceOption, setPresenceOption,
     onPropertyDraftChange, buildPropertyDraftData, submitAttemptNotice,
-    showClearSavedData, onClearSavedData, handleSubmit, handleInvalidSubmit,
+    showClearSavedData, onClearSavedData, submitForm,
     isCompReshootMode, sourceContextLocked, serviceMappingSlot,
     slide, onBack,
   } = controller;
@@ -49,7 +49,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
   const showPropertySlide = slide !== 'services';
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
+      <form onSubmit={submitForm} className="space-y-6">
         {showPropertySlide && !isClientAccount && (
           <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
             <h3 className="text-base font-semibold">Client Information</h3>

@@ -319,6 +319,7 @@ export const useClientPropertyFormController = ({
   );
   const [completeAddress, setCompleteAddress] = useState<string>(() => initialData.completeAddress || initialData.propertyAddress || '');
   const [submitAttemptNotice, setSubmitAttemptNotice] = useState<string | null>(null);
+  const submittingRef = React.useRef(false);
   const { toast } = useToast();
 
   const navigate = useNavigate();
@@ -408,6 +409,11 @@ export const useClientPropertyFormController = ({
 
   const showMissingFieldStroke = (name: keyof AdminFormValues) =>
     form.formState.submitCount > 0 && Boolean(form.formState.errors[name]);
+
+  React.useEffect(() => {
+    setSubmitAttemptNotice(null);
+    form.clearErrors('selectedPackage');
+  }, [slide, form]);
 
   const watchedClientId = form.watch('clientId');
   const allClients = React.useMemo(() => {
@@ -680,7 +686,7 @@ export const useClientPropertyFormController = ({
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
 
-    if (!presenceOption && !units?.enabled) {
+    if (slide !== 'property' && !presenceOption && !units?.enabled) {
       const noticeText = 'Choose who will be at the property.';
       setSubmitAttemptNotice(noticeText);
       toast({
@@ -727,6 +733,17 @@ export const useClientPropertyFormController = ({
     }
   };
 
+
+  const submitForm = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await form.handleSubmit(handleSubmit, handleInvalidSubmit)(event);
+    } finally {
+      submittingRef.current = false;
+    }
+  };
 
   const handleAccountFormSubmit = (data: AccountFormValues) => {
     // Create a client object from the returned account form data
@@ -840,7 +857,7 @@ export const useClientPropertyFormController = ({
     isCompReshootMode,
     sourceContextLocked,
     serviceMappingSlot,
-    handleSubmit,
+    handleSubmit, submitForm,
     handleInvalidSubmit,
     slide,
     onBack,

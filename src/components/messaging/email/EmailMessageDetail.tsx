@@ -12,6 +12,7 @@ import { composeEmail, retryEmail, cancelEmail } from '@/services/messaging';
 import type { Message } from '@/types/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
+import { repairStoredEmailAppearance } from './storedEmailAppearance';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +69,7 @@ function EmailHtmlFrame({ html }: { html: string }) {
   const resize = useCallback(() => {
     const doc = iframeRef.current?.contentWindow?.document;
     if (doc?.body) {
+      repairStoredEmailAppearance(doc);
       // scrollHeight gives the full rendered content height
       const next = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
       setHeight(next);
