@@ -32,7 +32,6 @@ export function CalendarTimeline({ dates, date, entriesByDate, onShootSelect, on
   const endHour = Math.min(24, Math.max(19, ...timed.map(entry => Math.ceil((entry.minutes + 60) / 60))));
   const hourHeight = dates.length === 1 ? 96 : 88;
   const height = (endHour - startHour) * hourHeight + 38;
-  const untimed = visible.filter(entry => entry.minutes === null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const selectedTimes = (entriesByDate.get(date) ?? []).flatMap(entry => entry.minutes === null ? [] : [entry.minutes]);
   const firstSelectedTime = selectedTimes.length ? Math.min(...selectedTimes) : 8 * 60;
@@ -43,9 +42,6 @@ export function CalendarTimeline({ dates, date, entriesByDate, onShootSelect, on
   }, [date, startHour, firstSelectedTime, hourHeight]);
   return <>
     {dates.length === 1 && <div className="shc-timeline-heading"><strong>{formatDate(date)}</strong><span>{visible.length} {visible.length === 1 ? 'shoot' : 'shoots'}</span></div>}
-    {untimed.length > 0 && <section className="shc-untimed" aria-label="Time not set"><h4>Time not set <span>{untimed.length}</span></h4><div>{untimed.map(entry => <div key={entry.shoot.id}>
-      {dates.length > 1 && <small>{formatDate(entry.date)}</small>}<CalendarShootButton compact entry={entry} onShootSelect={onShootSelect} />
-    </div>)}</div></section>}
     <div className="shc-timeline-scroll" ref={scrollRef} data-testid="calendar-timeline-scroll"><div className={`shc-timeline${dates.length === 1 ? ' is-day' : ''}`} style={{ height, gridTemplateColumns: `48px repeat(${dates.length}, minmax(0, 1fr))`, '--calendar-hour': `${hourHeight}px` } as React.CSSProperties}>
       <div className="shc-hour-rail" aria-hidden="true">{Array.from({ length: endHour - startHour }, (_, index) => <span key={index} style={{ top: index * hourHeight }}>{formatTime(calendarClock((startHour + index) * 60))}</span>)}</div>
       {dates.map(day => {

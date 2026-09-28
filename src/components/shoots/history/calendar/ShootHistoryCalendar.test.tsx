@@ -7,8 +7,8 @@ import { ShootHistoryCalendar, type ShootHistoryCalendarProps } from './ShootHis
 import type { CalendarViewMode } from './calendarModel';
 import { calendarShoot } from './calendarFixtures.test-helper';
 
-const mocks = vi.hoisted(() => ({ setTheme: vi.fn(), mobile: false }));
-vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'dark', setTheme: mocks.setTheme }) }));
+const mocks = vi.hoisted(() => ({ theme: 'dark', mobile: false }));
+vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: mocks.theme }) }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 
 function Calendar({ initialView = 'week', ...props }: Partial<ShootHistoryCalendarProps> & { initialView?: CalendarViewMode }) {
@@ -17,7 +17,7 @@ function Calendar({ initialView = 'week', ...props }: Partial<ShootHistoryCalend
   return <UserPreferencesProvider><ShootHistoryCalendar shoots={[calendarShoot()]} date={date} view={view} onDateChange={setDate} onViewChange={setView} onShootSelect={vi.fn()} hideClientDetails={false} canViewPrices {...props} /></UserPreferencesProvider>;
 }
 
-beforeEach(() => { vi.clearAllMocks(); mocks.mobile = false; localStorage.clear(); });
+beforeEach(() => { vi.clearAllMocks(); mocks.mobile = false; mocks.theme = 'dark'; localStorage.clear(); });
 afterEach(cleanup);
 
 describe('real Shoot History calendar', () => {
@@ -75,7 +75,7 @@ describe('real Shoot History calendar', () => {
     const { rerender } = render(<Calendar shoots={shoots} />);
     const rail = screen.getByTestId('calendar-timeline-scroll');
     expect(rail.scrollTop).toBe(9 * 88); // half-hour context before Monday 09:30, rail starts at midnight
-    const theme = screen.getByRole('button', { name: 'Light' });
+    const theme = screen.getByRole('button', { name: 'Today' });
     theme.focus();
     rail.scrollTop = 180;
     rerender(<Calendar shoots={[...shoots]} />);
@@ -100,9 +100,12 @@ describe('real Shoot History calendar', () => {
     const select = vi.fn();
     render(<Calendar shoots={shoots} onShootSelect={select} />);
     const noDate = screen.getByRole('region', { name: 'Date not set' });
-    const noTime = screen.getByRole('region', { name: 'Time not set' });
+    expect(document.querySelector('.shc-untimed')).toBeNull();
     fireEvent.click(within(noDate).getByRole('button'));
-    fireEvent.click(within(noTime).getByRole('button'));
+    fireEvent.click(screen.getByRole('button', { name: 'Time not set, 1 shoot' }));
+    const noTime = screen.getByRole('dialog', { name: 'Shoots with time not set' });
+    fireEvent.click(within(noTime).getByRole('button', { name: /Open 10 Oak Lane/ }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(select.mock.calls.map(call => call[0].id)).toEqual(['2', '1']);
   });
 
@@ -128,13 +131,27 @@ describe('real Shoot History calendar', () => {
     expect(screen.queryByRole('button', { name: /Open 10 Oak Lane/ })).not.toBeInTheDocument();
   });
 
-  it('shows explicit empty state, parent filters, and discoverable shared theme controls', () => {
-    render(<Calendar shoots={[]} filters={<label>Parent search<input aria-label="Search shoots" /></label>} />);
+  it('inherits the dashboard theme without duplicate theme controls', () => {
+    const { rerender } = render(<Calendar shoots={[]} filters={<label>Parent search<input aria-label="Search shoots" /></label>} />);
     expect(screen.getByRole('status')).toHaveTextContent('No shoots match');
     expect(screen.getByRole('textbox', { name: 'Search shoots' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Light' }));
-    expect(mocks.setTheme).toHaveBeenCalledWith('light');
-    fireEvent.click(screen.getByRole('button', { name: 'Dark' }));
-    expect(mocks.setTheme).toHaveBeenCalledWith('dark');
+    expect(screen.queryByRole('button', { name: 'Light' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dark' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('shoot-history-calendar')).toHaveAttribute('data-theme', 'dark');
+    mocks.theme = 'light';
+    rerender(<Calendar shoots={[]} />);
+    expect(screen.getByTestId('shoot-history-calendar')).toHaveAttribute('data-theme', 'light');
+  });
+
+  it('scopes untimed counts to the visible timeline and keeps Month entries in the grid', () => {
+    const shoots = [calendarShoot({ time: '' }), calendarShoot({ id: '2', scheduledDate: '2026-09-29', time: '' })];
+    const { rerender } = render(<Calendar shoots={shoots} />);
+    expect(screen.getByRole('button', { name: 'Time not set, 2 shoots' })).toBeInTheDocument();
+    mocks.mobile = true;
+    rerender(<Calendar shoots={shoots} />);
+    expect(screen.getByRole('button', { name: 'Time not set, 1 shoot' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    expect(screen.queryByRole('button', { name: /^Time not set,/ })).not.toBeInTheDocument();
+    expect(document.querySelector('.shc-month button[data-shoot-id="2"]')).not.toBeNull();
   });
 });
