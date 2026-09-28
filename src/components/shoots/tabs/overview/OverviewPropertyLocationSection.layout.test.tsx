@@ -27,6 +27,7 @@ describe('OverviewPropertyLocationSection layout', () => {
         weatherDescription={null}
         weatherIcon={null}
         rightSlot={<div data-testid="property-access">Property Access</div>}
+        unitSelector={<button data-testid="unit-selector">Change unit</button>}
       />,
     );
 
@@ -43,5 +44,13 @@ describe('OverviewPropertyLocationSection layout', () => {
     expect(detailsColumn).toHaveClass('md:col-span-3', 'min-w-0');
     expect(accessColumn).toHaveClass('md:col-span-2', 'min-w-0');
     expect(supportingRow).toContainElement(propertyAccess);
+    const selector = screen.getByTestId('unit-selector');
+    const locationCard = locationLabel.closest('.bg-card');
+    expect(locationCard).toContainElement(selector);
+    expect(locationCard).toContainElement(screen.getByText('9137 Lakeland Valley Court'));
+    expect(screen.getByText('9137 Lakeland Valley Court').compareDocumentPosition(selector))
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(selector.compareDocumentPosition(propertyDetailsLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(supportingRow).not.toContainElement(selector);
   });
 });

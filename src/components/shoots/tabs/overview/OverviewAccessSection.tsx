@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 type PresenceOption = 'self' | 'other' | 'lockbox';
 
 type OverviewAccessSectionProps = {
+  unitAccessNotes?: string;
   isEditMode: boolean;
   propertyDetails: Record<string, any>;
   presenceOption: PresenceOption;
@@ -21,6 +22,7 @@ type OverviewAccessSectionProps = {
 };
 
 export function OverviewAccessSection({
+  unitAccessNotes,
   isEditMode,
   propertyDetails,
   presenceOption,
@@ -168,6 +170,7 @@ export function OverviewAccessSection({
           </div>
         );
       })()}
+      {unitAccessNotes && <p className="mt-2 whitespace-pre-wrap break-words border-t pt-2 text-xs"><span className="font-medium">Unit access: </span>{unitAccessNotes}</p>}
     </div>
   );
 }

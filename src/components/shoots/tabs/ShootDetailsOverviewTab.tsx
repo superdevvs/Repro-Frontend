@@ -376,6 +376,9 @@ export interface ShootDetailsOverviewTabProps {
   onShootUpdate: () => void | Promise<ShootData | null>;
   weather?: WeatherInfo | null;
   isEditMode?: boolean;
+  isUnitSwitchDisabled?: boolean;
+  unitSelector?: React.ReactNode;
+  unitAccessNotes?: string;
   onSave?: (updates: Partial<ShootData>) => void;
   onCancel?: () => void;
   onRegisterEditActions?: (actions: { save: () => void; cancel: () => void }) => void;
@@ -405,6 +408,8 @@ function ShootDetailsOverviewTabContent({
   onCancel,
   onRegisterEditActions,
   initialFocus,
+  unitSelector,
+  unitAccessNotes,
 }: ShootDetailsOverviewTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -891,6 +896,7 @@ function ShootDetailsOverviewTabContent({
         onOpenShoot={(shootId) => navigate(`/shoots/${encodeURIComponent(shootId)}`)}
       />
       <OverviewPropertyLocationSection
+        unitSelector={unitSelector}
         isEditMode={isEditMode}
         propertyMetrics={propertyMetrics}
         propertyMetricsEdit={propertyMetricsEdit}
@@ -911,6 +917,7 @@ function ShootDetailsOverviewTabContent({
         rightSlot={
           !isEditor ? (
             <OverviewAccessSection
+              unitAccessNotes={unitAccessNotes}
               isEditMode={isEditMode}
               propertyDetails={propertyDetails}
               presenceOption={presenceOption}

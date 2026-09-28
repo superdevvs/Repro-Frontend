@@ -19,4 +19,32 @@ describe('shared unit selector', () => {
     expect(screen.getByText('Unit 100 · 900 sqft')).toBeInTheDocument();
     expect(onCardClick).not.toHaveBeenCalled();
   });
+
+  it.each(['embedded', 'standalone'] as const)('offers management inside the %s selector dialog without bubbling to the card', variant => {
+    const onManageUnits = vi.fn();
+    const onCardClick = vi.fn();
+    const shoot = { id: `scope-manage-${variant}`, units: [{ id: 1, label: '101', kind: 'unit' }] } as ShootData;
+    render(<div onClick={onCardClick}><ShootUnitScopeBar shoot={shoot} variant={variant} onManageUnits={onManageUnits} manageUnitsLabel="View units" /></div>);
+    expect(screen.queryByRole('button', { name: 'View units' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Change unit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View units' }));
+    expect(onManageUnits).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onCardClick).not.toHaveBeenCalled();
+  });
+
+  it('blocks selection and management if uploads start while the selector is already open', () => {
+    const onManageUnits = vi.fn();
+    const shoot = { id: 'scope-disabled-open', units: [{ id: 1, label: '101', kind: 'unit' }, { id: 2, label: '102', kind: 'unit' }] } as ShootData;
+    const { rerender } = render(<ShootUnitScopeBar shoot={shoot} onManageUnits={onManageUnits} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change unit' }));
+    rerender(<ShootUnitScopeBar shoot={shoot} onManageUnits={onManageUnits} disabled />);
+    const secondUnit = screen.getByRole('button', { name: /102/ });
+    expect(secondUnit).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Manage units' })).toBeDisabled();
+    fireEvent.click(secondUnit);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage units' }));
+    expect(screen.getByRole('button', { name: /101/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(onManageUnits).not.toHaveBeenCalled();
+  });
 });

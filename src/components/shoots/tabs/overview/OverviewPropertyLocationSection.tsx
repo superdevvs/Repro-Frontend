@@ -45,6 +45,7 @@ type OverviewPropertyLocationSectionProps = {
    * in a ~60/40 split. When omitted, Property Details spans full width.
    */
   rightSlot?: ReactNode;
+  unitSelector?: ReactNode;
 };
 
 const propertyMetricFields: Array<{
@@ -77,6 +78,7 @@ export function OverviewPropertyLocationSection({
   weatherDescription,
   weatherIcon,
   rightSlot,
+  unitSelector,
 }: OverviewPropertyLocationSectionProps) {
   const propertyMetricsGridClassName = propertyMetrics.length > 3
     ? 'grid grid-cols-2 gap-2 sm:grid-cols-4'
@@ -127,7 +129,7 @@ export function OverviewPropertyLocationSection({
   );
 
   const locationCard = (
-      <div className="p-2.5 border rounded-lg bg-card">
+      <div className="min-w-0 p-2.5 border rounded-lg bg-card" aria-label="Property location">
         <div className="flex items-center justify-between gap-3 mb-1.5">
           <div className="flex items-center gap-1.5">
             <MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -206,6 +208,7 @@ export function OverviewPropertyLocationSection({
                 </div>
               </div>
             )}
+        {unitSelector}
       </div>
   );
 
