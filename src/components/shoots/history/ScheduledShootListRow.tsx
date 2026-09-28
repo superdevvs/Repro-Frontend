@@ -1,4 +1,5 @@
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -440,7 +441,7 @@ export const ScheduledShootListRow = ({
           }
           
           // Normalize service names - handle both strings and objects
-          const normalizedServices = services.map((service) => {
+          const fallbackServices = services.map((service) => {
             if (typeof service === 'string') return service;
             if (service && typeof service === 'object') {
               // Handle service object with name property
@@ -448,6 +449,8 @@ export const ScheduledShootListRow = ({
             }
             return String(service);
           }).filter(Boolean);
+          const summaryNames = getShootDetailsServiceNames(shoot);
+          const normalizedServices = summaryNames.length ? summaryNames : fallbackServices;
           
           // Debug: Log if services are found but not displaying (only in dev)
           if (process.env.NODE_ENV === 'development' && services.length > 0 && normalizedServices.length === 0) {
@@ -597,7 +600,6 @@ export const ScheduledShootListRow = ({
     </Card>
   )
 }
-
 
 
 

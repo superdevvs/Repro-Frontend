@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
+import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
 import { SERVICE_ICON_MAP, SERVICE_LABELS, getServiceKey } from './shootsTabsCardUtils';
 
 /**
@@ -53,10 +54,13 @@ const SHOW_ALL: FitResult = { count: null, firstMaxWidth: null, chipForm: 'long'
  */
 export const ServicePills: React.FC<ServicePillsProps> = ({
   shootId,
-  items,
+  items: serviceItems,
   variant,
   preferMappedLabel = false,
 }) => {
+  const items = useMemo(() => groupServiceItems(serviceItems, (tag) =>
+    tag.label || SERVICE_LABELS[getServiceKey(tag.label, tag.type)] || '',
+  ), [serviceItems]);
   const isCompact = variant === 'compact';
   // `gap-1.5` (6px) on the compact card, `gap-2` (8px) on the desktop row.
   const gap = isCompact ? 6 : 8;
@@ -84,7 +88,9 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  const labelSignature = useMemo(() => items.map((tag) => tag.label).join('|'), [items]);
+  const labelSignature = useMemo(() => JSON.stringify(items.map(({ item, label, count }) =>
+    [label, count, item.type, item.icon, preferMappedLabel],
+  )), [items, preferMappedLabel]);
 
   useLayoutEffect(() => {
     if (!shouldTruncate) {
@@ -167,18 +173,17 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
   );
 
   const renderPill = (
-    tag: ServicePillItem,
+    group: (typeof items)[number],
     index: number,
     options?: { forMeasure?: boolean; maxWidth?: number | null },
   ) => {
+    const { item: tag, count } = group;
     const key = getServiceKey(tag.label, tag.type);
     const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
     const icon = IconComp
       ? <IconComp className={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
       : (SERVICE_ICON_MAP[key] || <Camera size={isCompact ? 10 : 12} />);
-    const label = preferMappedLabel
-      ? (SERVICE_LABELS[key] || tag.label)
-      : (tag.label || SERVICE_LABELS[key]);
+    const label = preferMappedLabel ? (SERVICE_LABELS[key] || group.label) : group.label;
     const clipped = typeof options?.maxWidth === 'number';
     return (
       <span
@@ -186,10 +191,11 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
         {...(options?.forMeasure ? { 'data-pill-measure': 'true' } : {})}
         className={pillClass}
         style={clipped ? { maxWidth: options?.maxWidth as number } : undefined}
-        title={clipped ? label : undefined}
+        title={clipped ? formatServiceCount(label, count) : undefined}
       >
         <span className="shrink-0">{icon}</span>
         <span className={clipped ? 'min-w-0 truncate' : undefined}>{label}</span>
+        {count > 1 && <span className="shrink-0">× {count}</span>}
       </span>
     );
   };
@@ -223,7 +229,10 @@ export const ServicePills: React.FC<ServicePillsProps> = ({
       {hiddenItems.length > 0 && (
         <span
           className={pillClass}
-          title={hiddenItems.map((tag) => tag.label).filter(Boolean).join(', ')}
+          title={hiddenItems.map(({ item, label, count }) => formatServiceCount(
+            preferMappedLabel ? (SERVICE_LABELS[getServiceKey(item.label, item.type)] || label) : label,
+            count,
+          )).join(', ')}
         >
           {fit.chipForm === 'long' ? `+${hiddenItems.length} more` : `+${hiddenItems.length}`}
         </span>

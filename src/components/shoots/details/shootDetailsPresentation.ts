@@ -1,5 +1,6 @@
 import { ShootData } from '@/types/shoots';
-import { getShootUnits } from '@/features/shoot-units/shootUnitData';
+import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
+import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import {
   normalizeShootPaymentSummary,
   type CanonicalPaymentStatus,
@@ -121,13 +122,41 @@ export const getShootDetailsCreatedByLabel = (shoot: ShootData | null) => {
   );
 };
 
+const serviceDisplayName = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object') return '';
+  const service = value as Record<string, unknown>;
+  const name = [service.name, service.label, service.service_name, service.serviceName]
+    .find(candidate => typeof candidate === 'string' && candidate.trim());
+  return typeof name === 'string' ? name.trim() : '';
+};
+
 export const getShootDetailsServiceNames = (shoot: ShootData | null): string[] => {
   if (!shoot) return [];
   const names = (Array.isArray(shoot.services) ? shoot.services : [])
-    .map((service) => String(service ?? '').trim())
+    .map(serviceDisplayName)
     .filter(Boolean);
-  if (!getShootUnits(shoot).length) return names;
-  const counts = new Map<string, number>();
-  names.forEach(name => counts.set(name, (counts.get(name) ?? 0) + 1));
-  return [...counts].map(([name, count]) => count > 1 ? `${name} × ${count}` : name);
+  // History summaries can deduplicate their names while retaining the booked
+  // rows. Count those identities once; quantity and photo count are unrelated.
+  const lines = [shoot.service_lines, shoot.serviceItems, shoot.service_items, shoot.serviceObjects]
+    .find(items => Array.isArray(items) && items.some(item => item && serviceDisplayName(item) && !isInvoiceAdjustmentServiceItem(item)
+      && (item.shoot_service_id || item.shootServiceId || item.shoot_unit_id))) ?? [];
+  const seen = new Set<string>();
+  const lineNames = lines.flatMap(line => {
+    if (!line || isInvoiceAdjustmentServiceItem(line)) return [];
+    const name = serviceDisplayName(line);
+    if (!name) return [];
+    const id = line.shoot_service_id ?? line.shootServiceId;
+    if (id != null && seen.has(String(id))) return [];
+    if (id != null) seen.add(String(id));
+    return [name];
+  });
+  if (lineNames.length) {
+    const groups = groupServiceItems(lineNames, name => name);
+    const bookedLabels = new Set(groups.map(group => group.label.toLowerCase()));
+    const extraNames = groupServiceItems(names, name => name)
+      .filter(group => !bookedLabels.has(group.label.toLowerCase()));
+    return [...groups, ...extraNames].map(group => formatServiceCount(group.label, group.count));
+  }
+  return groupServiceItems(names, name => name).map(group => formatServiceCount(group.label, group.count));
 };

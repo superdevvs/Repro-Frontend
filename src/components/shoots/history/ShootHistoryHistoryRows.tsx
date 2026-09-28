@@ -1,4 +1,5 @@
 import React, { memo, useState } from 'react'
+import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -45,7 +46,8 @@ export const HistoryRow = memo(({
   const [open, setOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [isSendingToEditing, setIsSendingToEditing] = useState(false)
-  const services = record.services ?? []
+  const services = groupServiceItems(record.services ?? [], name => name)
+    .map(group => formatServiceCount(group.label, group.count))
   const financials = record.financials ?? {
     baseQuote: 0,
     taxPercent: 0,

@@ -14,6 +14,7 @@ import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
+import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
 
 interface RequestedShootsSectionProps {
   shoots: DashboardShootSummary[];
@@ -256,8 +257,9 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                 return parts.map((part) => ({ label: part, type: service.type, icon: service.icon }));
               });
               const isHovered = hoveredShoot === shoot.id;
-              const visibleServices = isHovered ? serviceList : serviceList.slice(0, 3);
-              const hidden = isHovered ? 0 : serviceList.length - visibleServices.length;
+              const serviceGroups = groupServiceItems(serviceList, (tag) => tag.label || SERVICE_LABELS[getServiceKey(tag.label, tag.type)] || '');
+              const visibleServices = isHovered ? serviceGroups : serviceGroups.slice(0, 3);
+              const hidden = isHovered ? 0 : serviceGroups.length - visibleServices.length;
               const weather = weatherMap[shoot.id];
 
               return (
@@ -316,7 +318,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                         <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                       </div>
                       <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
-                        {visibleServices.map((tag, index) => {
+                        {visibleServices.map(({ item: tag, label, count }, index) => {
                           const key = getServiceKey(tag.label, tag.type);
                           const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
                           const icon = IconComp ? <IconComp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : (SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />);
@@ -326,7 +328,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                               className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground"
                             >
                               {icon}
-                              {SERVICE_LABELS[key] || tag.label}
+                              {formatServiceCount(SERVICE_LABELS[key] || label, count)}
                             </span>
                           );
                         })}

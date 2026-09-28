@@ -1,4 +1,5 @@
 import React, { memo, useState } from 'react'
+import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -222,8 +223,7 @@ export const CompletedShootListRow = ({
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
   const displayImage = showPlaceholder ? placeholderImage : heroImage
-  const services = Array.isArray(shoot.services) ? shoot.services : []
-  const serviceLabels = services.map(getServiceLabel).filter(Boolean)
+  const serviceLabels = getShootDetailsServiceNames(shoot)
 
   return (
     <Card
@@ -428,7 +428,7 @@ export const CompletedShootListRow = ({
 
             {/* Services */}
             {(() => {
-              const services = Array.isArray(shoot.services) ? shoot.services : [];
+              const services = serviceLabels;
               return (
                 <div className="flex flex-wrap items-start gap-2 pt-2 border-t border-border/50">
                   <div className="flex items-center gap-2 pt-0.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">

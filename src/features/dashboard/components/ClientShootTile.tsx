@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getShootClientReleaseAccess } from "@/components/shoots/details/shootClientReleaseAccess";
 import { ShootPaymentBadge } from "@/components/shoots/ShootPaymentBadge";
+import { getShootDetailsServiceNames } from "@/components/shoots/details/shootDetailsPresentation";
+import { formatServiceCount, groupServiceItems } from "@/utils/groupServiceItems";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
@@ -48,7 +50,9 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
       ? formatDate(scheduledLocalDate)
       : "Date TBD";
   const timeLabel = formatTime(getDashboardShootDisplayTime({ ...summary, timeLabel: summary.timeLabel || data.time }) || (variant === "completed" ? "Delivered" : "Time TBD"));
-  const services = data.services?.length ? data.services : summary.services.map((service) => service.label);
+  const serviceNames = getShootDetailsServiceNames(data);
+  const services = serviceNames.length ? serviceNames : groupServiceItems(summary.services, service => service.label)
+    .map(group => formatServiceCount(group.label, group.count));
   const instructions = getSpecialInstructions(data);
   const statusLabel = formatWorkflowStatus(summary.workflowStatus || summary.status);
   const weatherLabel = summary.temperature || "—";
