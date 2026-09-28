@@ -2,13 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
 import { transformDashboardOverview } from './dashboardTransformers';
 import {
+  classifyDashboardBookedDay,
   formatDashboardShootSchedule,
   getDashboardShootDisplayDate,
   getDashboardShootDisplayTime,
   getDashboardShootStartInstantMs,
 } from './dashboardShootSchedule';
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
 
 describe('dashboard booked schedule display', () => {
   it.each(['America/New_York', 'America/Los_Angeles', 'Asia/Kolkata', 'UTC'])(
@@ -85,6 +89,32 @@ describe('dashboard booked schedule display', () => {
 
     expect(getDashboardShootStartInstantMs(summary)).toBe(Date.parse('2026-09-09T14:00:00Z'));
     expect(formatDashboardShootSchedule(summary)).toBe('Sep 9 • 10:00 AM');
+  });
+
+  it('keeps a New York appointment visible after midnight for a viewer ahead of that zone', () => {
+    vi.stubEnv('TZ', 'Asia/Kolkata');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-29T01:30:00+05:30'));
+
+    const shoot = {
+      scheduledLocalDate: '2026-09-28',
+      scheduleTimezone: 'America/New_York',
+      startTime: '2026-09-28T14:00:00.000000Z',
+      dayLabel: 'Yesterday',
+    };
+
+    expect(classifyDashboardBookedDay(shoot)).toMatchObject({ offset: 0, isToday: true, isPast: false });
+  });
+
+  it('marks that appointment past once New York has reached the next day', () => {
+    vi.stubEnv('TZ', 'Asia/Kolkata');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-29T10:00:00+05:30'));
+
+    expect(classifyDashboardBookedDay({
+      scheduledLocalDate: '2026-09-28',
+      scheduleTimezone: 'America/New_York',
+    }).isPast).toBe(true);
   });
 
   it('retains the old startTime fallback when the server has no resolved instant', () => {

@@ -4,7 +4,7 @@ import type { DashboardShootSummary } from '@/types/dashboard';
 import { Camera, Film, Home, Map as MapIcon, Sparkles } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import type { WeatherInfo } from '@/services/weatherService';
-import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
+import { getDashboardBookedDayOffset, getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 export interface ShootsTabsCardProps {
@@ -210,11 +210,9 @@ export const countActiveFilters = (filters: FiltersState) => {
   return count;
 };
 
-export const isShootInPast = (shoot: DashboardShootSummary) => {
-  const shootDate = getDashboardShootDisplayDate(shoot);
-  if (!shootDate) return false;
-  const today = startOfDay(new Date());
-  return !isSameDay(shootDate, today) && !isAfter(shootDate, today);
+export const isShootInPast = (shoot: DashboardShootSummary, now = new Date()) => {
+  const offset = getDashboardBookedDayOffset(shoot, now);
+  return offset != null && offset < 0;
 };
 
 export type ShootDayGroupVisibility = {

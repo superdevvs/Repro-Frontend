@@ -1,4 +1,4 @@
-import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid, isAfter, isSameDay } from "date-fns";
+import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid } from "date-fns";
 
 import type {
   DashboardIssueItem,
@@ -15,7 +15,7 @@ import {
   formatTimeForWallClockInput,
 } from "@/utils/wallClockDateTime";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
-import { getDashboardShootDisplayDate } from "@/utils/dashboardShootSchedule";
+import { getDashboardBookedDayOffset } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
@@ -432,6 +432,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     dayLabel: getDayLabel(localDay ?? start),
     timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,
+    scheduleTimezone: shoot.scheduleTimezone || shoot.schedule_timezone || shoot.timezone || null,
     startTime: start ? start.toISOString() : null,
     scheduledInstant: shoot.scheduledInstant ?? shoot.scheduled_instant ?? null,
     addressLine: location.address || "No address on file",
@@ -632,10 +633,8 @@ export const filterReadyToDeliverShoots = (shoots: DashboardShootSummary[]) =>
     .sort(sortByStartDesc);
 
 const isDashboardShootTodayOrFuture = (shoot: DashboardShootSummary, now = new Date()) => {
-  const shootDate = getDashboardShootDisplayDate(shoot);
-  if (!shootDate) return false;
-  const today = startOfDay(now);
-  return isSameDay(shootDate, today) || isAfter(shootDate, today);
+  const offset = getDashboardBookedDayOffset(shoot, now);
+  return offset != null && offset >= 0;
 };
 
 export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) =>

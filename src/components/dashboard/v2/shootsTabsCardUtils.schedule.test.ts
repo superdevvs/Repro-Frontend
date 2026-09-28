@@ -19,6 +19,18 @@ describe('dashboard scheduled-day filtering', () => {
     expect(isShootInPast(shoot)).toBe(false);
   });
 
+  it('keeps today in the shoot timezone on the photographer dashboard after the viewer date rolls over', () => {
+    vi.stubEnv('TZ', 'Asia/Kolkata');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-29T01:30:00+05:30'));
+
+    expect(isShootInPast({
+      scheduledLocalDate: '2026-09-28',
+      scheduleTimezone: 'America/New_York',
+      startTime: '2026-09-28T14:00:00.000000Z',
+    } as DashboardShootSummary)).toBe(false);
+  });
+
   it('includes the entire last booked day of a custom range', () => {
     vi.stubEnv('TZ', 'America/Los_Angeles');
     const shoot = {

@@ -1,6 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { startOfDay, isSameDay, isAfter } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -13,7 +12,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
-import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
+import { getDashboardBookedDayOffset, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
 
 interface RequestedShootsSectionProps {
@@ -74,10 +73,8 @@ const groupShootsByDate = (shoots: DashboardShootSummary[]) => {
 };
 
 const isShootInPast = (shoot: DashboardShootSummary) => {
-  const shootDate = getDashboardShootDisplayDate(shoot);
-  if (!shootDate) return false;
-  const today = startOfDay(new Date());
-  return !isSameDay(shootDate, today) && !isAfter(shootDate, today);
+  const offset = getDashboardBookedDayOffset(shoot);
+  return offset != null && offset < 0;
 };
 
 export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({

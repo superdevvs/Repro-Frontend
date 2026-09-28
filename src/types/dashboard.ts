@@ -208,6 +208,8 @@ export interface DashboardShootSummary {
    * may contain a local wall clock; use `scheduledInstant` for timed windows.
    */
   scheduledLocalDate: string | null;
+  /** IANA zone for the booked day. Today/past on the dashboard follows this zone. */
+  scheduleTimezone?: string | null;
   startTime: string | null;
   scheduledInstant?: string | null;
   addressLine: string;

@@ -13,7 +13,7 @@ import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
-import { getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
+import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
 import {
@@ -206,10 +206,9 @@ export function useShootsTabsCardController({
   // Group shoots by day
   const groupShootsByDay = useCallback((shoots: DashboardShootSummary[]) => {
     const today = startOfDay(new Date());
-    const todayStart = today.getTime();
     const groupsMap = new Map<
       string,
-      { label: string; shoots: DashboardShootSummary[]; isPast: boolean; isToday: boolean; dayTime: number }
+      { label: string; shoots: DashboardShootSummary[]; isPast: boolean; isToday: boolean; dayTime: number; dayOffset: number | null }
     >();
     shoots.forEach((shoot) => {
       const normalizedLabel = (shoot.dayLabel || '').toLowerCase();
@@ -227,13 +226,8 @@ export function useShootsTabsCardController({
             ? addDays(today, 1)
             : null);
       const timestamp = derivedDate ? derivedDate.getTime() : Number.POSITIVE_INFINITY;
-      const dayStart = derivedDate ? startOfDay(derivedDate).getTime() : Number.POSITIVE_INFINITY;
-      const isToday =
-        (derivedDate ? isSameDay(derivedDate, today) : false) || normalizedLabel.includes('today');
-      const isPast =
-        derivedDate
-          ? !isToday && dayStart < todayStart
-          : normalizedLabel.includes('yesterday');
+      const bookedDay = classifyDashboardBookedDay(shoot);
+      const { isToday, isPast } = bookedDay;
       const existing = groupsMap.get(label);
       if (existing) {
         existing.shoots.push(shoot);
@@ -246,6 +240,8 @@ export function useShootsTabsCardController({
         if (!existing.isToday && isToday) {
           existing.isToday = true;
         }
+        if (isToday) existing.dayOffset = 0;
+        else if (existing.dayOffset == null) existing.dayOffset = bookedDay.offset;
         return;
       }
       groupsMap.set(label, {
@@ -254,6 +250,7 @@ export function useShootsTabsCardController({
         isPast,
         isToday,
         dayTime: timestamp,
+        dayOffset: isToday ? 0 : bookedDay.offset,
       });
     });
     const allGroups = Array.from(groupsMap.values());
@@ -278,12 +275,18 @@ export function useShootsTabsCardController({
       hasPastDays,
     };
   }, [activeTab, formatDate, isEditingManagerMode, showPastDays]);
-  const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number }) => {
+  const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number; dayOffset?: number | null }) => {
     const count = group.shoots.length;
     const suffix = count === 1 ? '1 shoot' : `${count} shoots`;
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
     if (group.isToday) return `Today \u2022 ${suffix}`;
+    if (group.dayOffset != null) {
+      const bookedDate = group.dayTime && Number.isFinite(group.dayTime) && group.dayTime !== Number.POSITIVE_INFINITY
+        ? new Date(group.dayTime)
+        : null;
+      return `${formatDashboardDayDistance(group.dayOffset, bookedDate)} \u2022 ${suffix}`;
+    }
     if (group.dayTime && Number.isFinite(group.dayTime)) {
       const groupDate = new Date(group.dayTime);
       if (isSameDay(groupDate, tomorrow)) return `Tomorrow \u2022 ${suffix}`;
