@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -122,5 +123,30 @@ describe('DashboardNoticeStack', () => {
 
     rerender(<DashboardNoticeStack label="Account notices">{null}</DashboardNoticeStack>);
     expect(container.firstElementChild).toHaveClass('hidden');
+  });
+
+  it('settles measurements when a hidden notice stack becomes visible and equalizes its layers', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function measuredHeight() {
+      if (this.closest('.hidden')) return 0;
+      const assignedHeight = Number.parseFloat(this.style.height) || 0;
+      const naturalHeight = Number(this.dataset.noticeHeight || (this.firstElementChild as HTMLElement | null)?.dataset.noticeHeight || 0);
+      const parentHeight = this.parentElement?.classList.contains('[&>*]:h-full') && !this.classList.contains('!h-auto')
+        ? Number.parseFloat(this.parentElement.style.height) || 0 : 0;
+      return assignedHeight || parentHeight || naturalHeight;
+    });
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function measuredScrollHeight() {
+      return this.offsetHeight;
+    });
+
+    render(<StrictMode><DashboardNoticeStack equalizeLayerHeights label="New account notices">
+      <section data-notice-height="76">Verify your email</section>
+      <section data-notice-height="54" className="!h-auto">Finish your profile</section>
+    </DashboardNoticeStack></StrictMode>);
+
+    expect(screen.getByRole('group', { name: 'New account notices' })).toBeVisible();
+    expect(layerFor('Verify your email')).toHaveStyle({ height: '76px' });
+    expect(layerFor('Finish your profile')).toHaveStyle({ height: '76px' });
+    fireEvent.click(screen.getByRole('button', { name: 'Show notice 2 of 2' }));
+    expect(layerFor('Finish your profile')).not.toHaveAttribute('aria-hidden');
   });
 });

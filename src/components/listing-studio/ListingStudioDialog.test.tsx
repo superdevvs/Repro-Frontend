@@ -8,12 +8,12 @@ import { listingStudioService, type ListingStudioRequest } from '@/services/list
 
 const auth = vi.hoisted(() => ({ role: 'client', user: { id: '12', name: 'Jordan Client', email: 'jordan@example.test', phone: '+12025550100', secondary_roles: [] as string[] } }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => auth }));
-vi.mock('@/services/listingStudioService', () => ({ listingStudioService: { catalog: vi.fn(), clients: vi.fn(), requests: vi.fn(), create: vi.fn(), review: vi.fn() }, listingStudioError: () => 'The request could not be saved.' }));
+vi.mock('@/services/listingStudioService', () => ({ listingStudioService: { catalog: vi.fn(), clients: vi.fn(), requests: vi.fn(), subscriptions: vi.fn(), create: vi.fn(), review: vi.fn() }, listingStudioError: () => 'The request could not be saved.' }));
 const catalog = { plans: [{ code: 'plan_100', name: 'Plan 100', reference_price_usd: 100 }, { code: 'custom', name: 'Custom plan', reference_price_usd: null }], services: [{ code: 'virtual_staging', name: 'Virtual staging' }] };
 const contact = { id: 12, name: 'Jordan Client', email: 'jordan@example.test', phone: '+12025550100' };
 const request: ListingStudioRequest = { id: 9, type: 'signup', status: 'pending', client_id: 12, client: contact, contact, plan_code: 'plan_100', services: ['virtual_staging'], details: 'Help with my listings', phone: null, preferred_time: null, review_note: null, reviewed_at: null, reviewed_by: null, created_at: '2026-09-27T12:00:00Z', submitted_by: { id: 12, name: 'Jordan Client' } };
 const requestPage = (items: ListingStudioRequest[]) => ({ data: items, meta: { current_page: 1, last_page: 1, total: items.length, per_page: 20 } });
-const mount = (initialTab?: 'requests') => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><ListingStudioDialog initialTab={initialTab} onClose={vi.fn()} /></QueryClientProvider>);
+const mount = (initialTab?: 'requests' | 'subscriptions') => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><ListingStudioDialog initialTab={initialTab} onClose={vi.fn()} /></QueryClientProvider>);
 beforeEach(() => {
   vi.clearAllMocks();
   auth.role = 'client';
@@ -21,13 +21,61 @@ beforeEach(() => {
   vi.mocked(listingStudioService.catalog).mockResolvedValue(catalog);
   vi.mocked(listingStudioService.clients).mockResolvedValue([contact]);
   vi.mocked(listingStudioService.requests).mockResolvedValue(requestPage([request]));
+  vi.mocked(listingStudioService.subscriptions).mockResolvedValue({ data: [], meta: { current_page: 1, last_page: 1, total: 0, per_page: 20 } });
   vi.mocked(listingStudioService.create).mockResolvedValue(request);
   vi.mocked(listingStudioService.review).mockResolvedValue({ ...request, status: 'approved' });
 });
 afterEach(cleanup);
 
 describe('Listing Studio requests', () => {
-  it('opens a notification directly in request history', async () => {
+  it.each(['salesRep', 'admin', 'superadmin'])('shows synced subscriptions to %s without review actions in that tab', async role => {
+    auth.role = role;
+    mount();
+    expect(listingStudioService.subscriptions).not.toHaveBeenCalled();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Subscriptions' }), { button: 0, ctrlKey: false });
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument();
+    expect(listingStudioService.subscriptions).toHaveBeenCalledWith(1, '', '');
+    expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit signup request' })).not.toBeInTheDocument();
+    if (role === 'salesRep') expect(screen.getByText(/clients assigned to you/)).toBeInTheDocument();
+  });
+
+  it('opens subscription notifications without loading the request catalog', async () => {
+    auth.role = 'admin';
+    mount('subscriptions');
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Subscriptions' })).toHaveAttribute('aria-selected', 'true');
+    expect(listingStudioService.catalog).not.toHaveBeenCalled();
+    expect(listingStudioService.requests).not.toHaveBeenCalled();
+  });
+
+  it('keeps subscriptions available if the request catalog fails', async () => {
+    auth.role = 'admin';
+    vi.mocked(listingStudioService.catalog).mockRejectedValueOnce(new Error('catalog unavailable'));
+    mount();
+    expect(await screen.findByText('Unable to load Listing Studio.')).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Subscriptions' }), { button: 0, ctrlKey: false });
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument();
+    expect(screen.queryByText('Unable to load Listing Studio.')).not.toBeInTheDocument();
+  });
+
+  it.each(['client', 'editor', 'photographer'])('denies the subscriptions deep-link and API fetch for %s', role => {
+    auth.role = role;
+    mount('subscriptions');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(listingStudioService.subscriptions).not.toHaveBeenCalled();
+    expect(listingStudioService.catalog).not.toHaveBeenCalled();
+  });
+
+  it('allows a secondary rep role to view assigned-client subscriptions', async () => {
+    auth.user.secondary_roles = ['sales_rep'];
+    mount('subscriptions');
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument();
+    expect(screen.getByText(/clients assigned to you/)).toBeInTheDocument();
+  });
+
+  it('opens a rep notification directly in request history', async () => {
+    auth.role = 'salesRep';
     mount('requests');
     expect(await screen.findByText('Awaiting review')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Request history' })).toHaveAttribute('aria-selected', 'true');
@@ -47,17 +95,20 @@ describe('Listing Studio requests', () => {
     expect(await screen.findByRole('button', { name: 'Approve request' })).toBeInTheDocument();
   });
 
-  it('submits a client signup for their own identity and shows the pending history', async () => {
+  it('submits an assisted signup for the selected client and shows pending history', async () => {
+    auth.role = 'salesRep';
     mount();
+    await screen.findByRole('option', { name: /Jordan Client/ });
+    fireEvent.change(screen.getByLabelText('Client'), { target: { value: '12' } });
     fireEvent.click(await screen.findByRole('radio', { name: /\$100/ }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Virtual staging' }));
-    expect(screen.queryByLabelText('Who is this for?')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Who is this for?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Submit signup request' }));
     await waitFor(() => expect(listingStudioService.create).toHaveBeenCalledOnce());
-    expect(vi.mocked(listingStudioService.create).mock.calls[0][0]).toEqual({ type: 'signup', plan_code: 'plan_100', services: ['virtual_staging'], idempotency_key: expect.any(String) });
+    expect(vi.mocked(listingStudioService.create).mock.calls[0][0]).toEqual({ type: 'signup', client_id: 12, plan_code: 'plan_100', services: ['virtual_staging'], idempotency_key: expect.any(String) });
     expect(await screen.findByText('Request submitted.')).toBeInTheDocument();
     expect(await screen.findByText('Awaiting review')).toBeInTheDocument();
-    expect(listingStudioService.clients).not.toHaveBeenCalled();
+    expect(listingStudioService.clients).toHaveBeenCalled();
   });
 
   it('allows a sales rep to submit custom client contact details for review', async () => {
@@ -83,10 +134,13 @@ describe('Listing Studio requests', () => {
     await waitFor(() => expect(listingStudioService.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'call', client_id: 12, phone: '+12025550100', preferred_time: 'Weekdays 2 pm Eastern' })));
   });
 
-  it('keeps a failed request and reuses its key when the client retries', async () => {
+  it('keeps a failed request and reuses its key when the rep retries', async () => {
+    auth.role = 'salesRep';
     vi.mocked(listingStudioService.create).mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(request);
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Request a change' }));
+    await screen.findByRole('option', { name: /Jordan Client/ });
+    fireEvent.change(screen.getByLabelText('Client'), { target: { value: '12' } });
     fireEvent.change(screen.getByLabelText('What would you like to change?'), { target: { value: 'Add rush delivery to my plan.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit change request' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be saved');
@@ -95,7 +149,7 @@ describe('Listing Studio requests', () => {
     await waitFor(() => expect(listingStudioService.create).toHaveBeenCalledTimes(2));
     const calls = vi.mocked(listingStudioService.create).mock.calls;
     expect(calls[0][0].idempotency_key).toBe(calls[1][0].idempotency_key);
-    expect(calls[1][0]).toEqual({ type: 'change', details: 'Add rush delivery to my plan.', idempotency_key: expect.any(String) });
+    expect(calls[1][0]).toEqual({ type: 'change', client_id: 12, details: 'Add rush delivery to my plan.', idempotency_key: expect.any(String) });
   });
 
   it.each(['admin', 'superadmin'])('lets %s approve with a response and refreshes the request', async role => {
@@ -118,8 +172,8 @@ describe('Listing Studio requests', () => {
     expect(screen.queryByRole('button', { name: 'Approve request' })).not.toBeInTheDocument();
   });
 
-  it.each(['client', 'salesRep'])('does not expose review actions to %s', async role => {
-    auth.role = role;
+  it('does not expose review actions to reps', async () => {
+    auth.role = 'salesRep';
     mount();
     fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Request history' }), { button: 0, ctrlKey: false });
     await screen.findByText('Awaiting review');
@@ -127,10 +181,19 @@ describe('Listing Studio requests', () => {
     expect(screen.queryByRole('button', { name: 'Decline request' })).not.toBeInTheDocument();
   });
 
-  it.each(['editor', 'photographer', 'editing_manager'])('does not open or fetch studio for %s', role => {
+  it.each(['client', 'editor', 'photographer', 'editing_manager'])('does not open or fetch studio for %s', role => {
     auth.role = role;
     mount();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(listingStudioService.catalog).not.toHaveBeenCalled();
+  });
+
+  it.each([{ secondaryRoles: [] }, { secondaryRoles: ['client'] }])('does not open client request history from an old notification, secondary roles: $secondaryRoles', ({ secondaryRoles }) => {
+    auth.user.secondary_roles = secondaryRoles;
+    mount('requests');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(listingStudioService.catalog).not.toHaveBeenCalled();
+    expect(listingStudioService.requests).not.toHaveBeenCalled();
+    expect(listingStudioService.clients).not.toHaveBeenCalled();
   });
 });

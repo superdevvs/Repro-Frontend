@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
+import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 
 const auth = vi.hoisted(() => ({
   user: { id: '1', name: 'Pat Photographer', role: 'photographer' as string, secondary_roles: [] as string[] },
@@ -78,6 +79,7 @@ describe('photographer and editor account menu', () => {
     expect(screen.queryByRole('button', { name: 'Listing Studio' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Messaging' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Messaging' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Listing Studio' })).not.toBeInTheDocument();
   });
 
   it.each(['photographer', 'editor'])('offers Listing Studio for %s with an eligible secondary role', (role) => {
@@ -85,5 +87,16 @@ describe('photographer and editor account menu', () => {
     auth.user = { id: '1', name: 'Staff member', role, secondary_roles: ['sales_rep'] };
     render(<MemoryRouter><Navbar /></MemoryRouter>);
     expect(screen.getByRole('button', { name: 'Listing Studio' })).toBeInTheDocument();
+  });
+
+  it.each(['photographer', 'editor'])('links to the website for %s with only a secondary client role', role => {
+    auth.role = role;
+    auth.user = { id: '1', name: 'Client member', role, secondary_roles: ['client'] };
+    render(<MemoryRouter><Navbar /></MemoryRouter>);
+    const link = screen.getByRole('link', { name: 'Listing Studio' });
+    expect(link).toHaveAttribute('href', LISTING_STUDIO_WEBSITE_URL);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.queryByRole('button', { name: 'Listing Studio' })).not.toBeInTheDocument();
   });
 });

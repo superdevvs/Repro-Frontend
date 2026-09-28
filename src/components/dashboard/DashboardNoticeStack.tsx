@@ -90,22 +90,22 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
   const [paused, setPaused] = useState(false);
 
   const syncMetrics = useCallback(() => {
-    setMetrics((previous) => {
-      const next = layerRefs.current.map<LayerMetrics>((node) => {
-        if (!node) return EMPTY_METRICS;
-        const content = node.firstElementChild as HTMLElement | null;
-        return {
-          hasContent: node.childElementCount > 0 || Boolean(node.textContent?.trim()),
-          height: Math.max(
-            node.offsetHeight,
-            node.scrollHeight,
-            content?.offsetHeight ?? 0,
-            content?.scrollHeight ?? 0,
-          ),
-        };
-      });
-      return sameMetrics(previous, next) ? previous : next;
+    // React can replay state updaters after the DOM changes. Capture this
+    // commit's measurements first so replay cannot read a different layout.
+    const next = layerRefs.current.map<LayerMetrics>((node) => {
+      if (!node) return EMPTY_METRICS;
+      const content = node.firstElementChild as HTMLElement | null;
+      return {
+        hasContent: node.childElementCount > 0 || Boolean(node.textContent?.trim()),
+        height: Math.max(
+          node.offsetHeight,
+          node.scrollHeight,
+          content?.offsetHeight ?? 0,
+          content?.scrollHeight ?? 0,
+        ),
+      };
     });
+    setMetrics((previous) => sameMetrics(previous, next) ? previous : next);
   }, []);
 
   // Re-measure on every commit of this component. Cheap, and bails out of the

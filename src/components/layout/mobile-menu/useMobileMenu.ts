@@ -7,7 +7,7 @@ import { OLD_DASHBOARD_URL, canViewOldDashboard } from '@/config/oldDashboard';
 import { usePermission } from '@/hooks/usePermission';
 import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
-import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
 
 export interface MobileMenuItem {
   to: string;
@@ -114,7 +114,8 @@ export const useMobileMenu = () => {
       visible: permission.can('portal', 'view'),
     },
     {
-      to: listingStudioHref(location),
+      to: listingStudioHref(location, role, user?.secondary_roles),
+      external: !canUseListingStudioDashboard(role, user?.secondary_roles),
       icon: "Sparkles",
       label: "Listing Studio",
       isActive: false,

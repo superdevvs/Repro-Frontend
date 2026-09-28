@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
-import { canUseListingStudio, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { canUseListingStudioDashboard, listingStudioRole, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
@@ -42,7 +43,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
-  const listingStudioOpen = canUseListingStudio(role, user?.secondary_roles) && new URLSearchParams(location.search).get(LISTING_STUDIO_QUERY) === '1';
+  const listingStudioRequested = new URLSearchParams(location.search).get(LISTING_STUDIO_QUERY) === '1';
+  const listingStudioTab = new URLSearchParams(location.search).get('listingStudioTab');
+  const isListingStudioClient = listingStudioRole(role, user?.secondary_roles) === 'client';
+  const listingStudioOpen = canUseListingStudioDashboard(role, user?.secondary_roles) && listingStudioRequested;
+  React.useEffect(() => {
+    // Existing bookmarks and notification links should follow the client's website flow too.
+    if (!isInsideDashboardLayout && isListingStudioClient && listingStudioRequested) {
+      window.location.replace(LISTING_STUDIO_WEBSITE_URL);
+    }
+  }, [isInsideDashboardLayout, isListingStudioClient, listingStudioRequested]);
   const closeListingStudio = () => {
     const params = new URLSearchParams(location.search);
     params.delete(LISTING_STUDIO_QUERY);
@@ -175,7 +185,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       </div>
       {listingStudioOpen && (
         <React.Suspense fallback={null}>
-          <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={new URLSearchParams(location.search).get('listingStudioTab') === 'requests' ? 'requests' : undefined} onClose={closeListingStudio} />
+          <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={listingStudioTab === 'requests' || listingStudioTab === 'subscriptions' ? listingStudioTab : undefined} onClose={closeListingStudio} />
         </React.Suspense>
       )}
     </DashboardLayoutContext.Provider>

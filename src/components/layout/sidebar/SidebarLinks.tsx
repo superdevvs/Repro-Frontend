@@ -28,7 +28,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
-import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
 
@@ -345,7 +345,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
 
       {canUseListingStudio(role, user?.secondary_roles) && (
         <NavLink
-          to={listingStudioHref(location)}
+          to={listingStudioHref(location, role, user?.secondary_roles)}
+          external={!canUseListingStudioDashboard(role, user?.secondary_roles)}
           icon={<Sparkles className="h-5 w-5" />}
           label="Listing Studio"
           isCollapsed={isCollapsed}

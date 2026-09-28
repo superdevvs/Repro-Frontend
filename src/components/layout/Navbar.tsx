@@ -27,7 +27,7 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
-import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
 const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
@@ -393,7 +393,7 @@ export function Navbar() {
       ? [{ to: MESSAGING_SUPPORT_URL, icon: MessageSquare, label: 'Messaging' }]
       : []),
     ...(isSimplifiedLayout && canUseListingStudio(role, user?.secondary_roles)
-      ? [{ to: listingStudioHref(location), icon: Sparkles, label: 'Listing Studio' }]
+      ? [{ to: listingStudioHref(location, role, user?.secondary_roles), icon: Sparkles, label: 'Listing Studio', external: !canUseListingStudioDashboard(role, user?.secondary_roles) }]
       : []),
   ];
 
@@ -437,10 +437,18 @@ export function Navbar() {
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
-                  onClick={() => navigate(item.to)}
+                  asChild={'external' in item && item.external}
+                  onClick={'external' in item && item.external ? undefined : () => navigate(item.to)}
                 >
-                  <item.icon className="h-4 w-4 xl:mr-2" />
-                  <span className="hidden xl:inline">{item.label}</span>
+                  {'external' in item && item.external ? (
+                    <a href={item.to} target="_blank" rel="noopener noreferrer">
+                      <item.icon className="h-4 w-4 xl:mr-2" />
+                      <span className="hidden xl:inline">{item.label}</span>
+                    </a>
+                  ) : <>
+                    <item.icon className="h-4 w-4 xl:mr-2" />
+                    <span className="hidden xl:inline">{item.label}</span>
+                  </>}
                 </Button>
               ))}
             </nav>
