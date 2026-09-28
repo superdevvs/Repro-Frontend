@@ -39,12 +39,10 @@ type OverviewPropertyLocationSectionProps = {
   formattedTemperature: string | null;
   weatherDescription: string | null;
   weatherIcon: ReactNode;
-  /**
-   * Optional content rendered to the right of the Property Details card on the
-   * same row (desktop). Used to place Property Access beside Property Details
-   * in a ~60/40 split. When omitted, Property Details spans full width.
-   */
+  /** Access summary beside the metrics; editable access form in edit mode. */
   rightSlot?: ReactNode;
+  /** Optional full-width instructions below the summary row. */
+  bottomSlot?: ReactNode;
   unitSelector?: ReactNode;
 };
 
@@ -78,6 +76,7 @@ export function OverviewPropertyLocationSection({
   weatherDescription,
   weatherIcon,
   rightSlot,
+  bottomSlot,
   unitSelector,
 }: OverviewPropertyLocationSectionProps) {
   const propertyMetricsGridClassName = propertyMetrics.length > 3
@@ -85,8 +84,8 @@ export function OverviewPropertyLocationSection({
     : 'grid grid-cols-3 gap-2';
 
   const propertyDetailsCard = (
-    <div className="p-2.5 border rounded-lg bg-card h-full">
-      <div className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">
+    <div aria-label="Property details" className={`min-w-0 p-2.5 h-full ${isEditMode || !rightSlot ? 'border rounded-lg bg-card' : ''}`}>
+      <div className={!isEditMode && rightSlot ? 'sr-only' : 'text-[11px] font-semibold text-muted-foreground uppercase mb-1.5'}>
         Property details
       </div>
         {isEditMode ? (
@@ -113,13 +112,13 @@ export function OverviewPropertyLocationSection({
         ) : (
           <div className={propertyMetricsGridClassName}>
             {propertyMetrics.map(({ label, icon: Icon, value }) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">
+              <div key={label} className="flex min-w-0 items-center gap-2">
+                <div className="hidden h-7 w-7 shrink-0 rounded-full bg-muted items-center justify-center sm:flex">
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-[11px] uppercase text-muted-foreground font-semibold">{label}</div>
-                  <div className="text-xs font-medium">{value}</div>
+                  <div className="break-words text-xs font-medium">{value}</div>
                 </div>
               </div>
             ))}
@@ -215,10 +214,20 @@ export function OverviewPropertyLocationSection({
   return (
     <>
       {rightSlot ? (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-stretch">
-          <div className="md:col-span-3 min-w-0">{propertyDetailsCard}</div>
-          <div className="md:col-span-2 min-w-0">{rightSlot}</div>
-        </div>
+        isEditMode ? (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-stretch">
+            <div className="md:col-span-3 min-w-0">{propertyDetailsCard}</div>
+            <div className="md:col-span-2 min-w-0">{rightSlot}</div>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border bg-card" aria-label="Property details and access">
+            <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
+              {propertyDetailsCard}
+              <div className="min-w-0 border-l">{rightSlot}</div>
+            </div>
+            {bottomSlot}
+          </div>
+        )
       ) : (
         propertyDetailsCard
       )}

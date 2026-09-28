@@ -240,7 +240,7 @@ export function useShootDetailsModalActions({
 
   const handleDownloadMedia = async (
     size: 'original' | 'small',
-    options: { shootServiceId?: string | number | null; label?: string } = {},
+    options: { shootServiceId?: string | number | null; label?: string; assetType?: 'photos' } = {},
   ) => {
     if (!shoot || downloadingRef.current) return;
     downloadingRef.current = true;
@@ -258,6 +258,7 @@ export function useShootDetailsModalActions({
         type: downloadType,
         size,
         shootServiceId: options.shootServiceId,
+        ...(options.assetType ? { assetType: options.assetType } : {}),
         ...(isMultiUnit ? { shootUnitId: activeUnitId } : {}),
         address: getShootDownloadAddress(shoot),
         onPreparing: ({ message }) => {
@@ -289,7 +290,7 @@ export function useShootDetailsModalActions({
     }
   };
 
-  const handleDownloadFile = async (fileId: string | number, label = 'file') => {
+  const handleDownloadFile = async (fileId: string | number, label = 'file', options: { format?: 'jpg'; page?: number } = {}) => {
     if (!shoot || downloadingRef.current) return;
     downloadingRef.current = true;
 
@@ -299,6 +300,7 @@ export function useShootDetailsModalActions({
       await downloadShootMediaFile({
         shootId: shoot.id,
         fileId,
+        ...options,
       });
       toast({
         title: 'Download started',

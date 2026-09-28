@@ -51,7 +51,7 @@ import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsModalHelpers';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
-import { OverviewAccessSection } from './overview/OverviewAccessSection';
+import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
@@ -912,6 +912,7 @@ function ShootDetailsOverviewTabContent({
         formattedTemperature={formattedTemperature}
         weatherDescription={weatherDescription}
         weatherIcon={renderWeatherIcon(weatherIcon)}
+        bottomSlot={!isEditor && !isEditMode ? <OverviewAccessDescription propertyDetails={propertyDetails} unitAccessNotes={unitAccessNotes} /> : undefined}
         rightSlot={
           !isEditor ? (
             <OverviewAccessSection

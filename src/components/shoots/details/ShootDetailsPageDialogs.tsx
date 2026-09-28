@@ -57,8 +57,8 @@ interface ShootDetailsPageDialogsProps {
   onSubmitHold: () => void;
   onRejectHold: () => void;
   onApproveHold: () => void;
-  onDownloadMedia: (size: ShootMediaDownloadSize, target?: { shootServiceId?: string | number | null; label?: string }) => void;
-  onDownloadFile?: (fileId: string | number, label?: string) => void;
+  onDownloadMedia: (size: ShootMediaDownloadSize, target?: { shootServiceId?: string | number | null; label?: string; assetType?: 'photos' }) => void;
+  onDownloadFile?: (fileId: string | number, label?: string, options?: { format?: 'jpg'; page?: number }) => void;
 }
 
 export function ShootDetailsPageDialogs({

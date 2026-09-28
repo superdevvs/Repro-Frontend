@@ -108,8 +108,8 @@ interface ShootDetailsModalDialogsProps {
   handleCancellationFeeConfirm: () => void;
   handleMarkOnHold: () => void;
   handleCancelShoot: () => void;
-  handleDownloadMedia: (size: 'original' | 'small', target?: { shootServiceId?: string | number | null; label?: string }) => void;
-  handleDownloadFile?: (fileId: string | number, label?: string) => void;
+  handleDownloadMedia: (size: 'original' | 'small', target?: { shootServiceId?: string | number | null; label?: string; assetType?: 'photos' }) => void;
+  handleDownloadFile?: (fileId: string | number, label?: string, options?: { format?: 'jpg'; page?: number }) => void;
   handleStartMmmPunchout: () => void | Promise<void>;
   onShootUpdate?: () => void;
   onClose: () => void;

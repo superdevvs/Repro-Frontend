@@ -6,7 +6,7 @@ import type { ShootData } from '@/types/shoots';
 import { OverviewPropertyLocationSection } from './OverviewPropertyLocationSection';
 
 describe('OverviewPropertyLocationSection layout', () => {
-  it('places Location below the responsive Property Details and Property Access row', () => {
+  it('groups details, access and instructions above the separate location and unit selector', () => {
     render(
       <OverviewPropertyLocationSection
         isEditMode={false}
@@ -27,6 +27,7 @@ describe('OverviewPropertyLocationSection layout', () => {
         weatherDescription={null}
         weatherIcon={null}
         rightSlot={<div data-testid="property-access">Property Access</div>}
+        bottomSlot={<div data-testid="access-instructions">Use the side entrance</div>}
         unitSelector={<button data-testid="unit-selector">Change unit</button>}
       />,
     );
@@ -34,16 +35,20 @@ describe('OverviewPropertyLocationSection layout', () => {
     const locationLabel = screen.getByText('Location');
     const propertyDetailsLabel = screen.getByText('Property details');
     const propertyAccess = screen.getByTestId('property-access');
-    const detailsColumn = propertyDetailsLabel.parentElement?.parentElement;
+    const detailsColumn = screen.getByLabelText('Property details');
     const supportingRow = detailsColumn?.parentElement;
     const accessColumn = propertyAccess.parentElement;
+    const combinedCard = screen.getByLabelText('Property details and access');
+    const instructions = screen.getByTestId('access-instructions');
 
     expect(propertyDetailsLabel.compareDocumentPosition(locationLabel))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(supportingRow).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-5', 'items-stretch');
-    expect(detailsColumn).toHaveClass('md:col-span-3', 'min-w-0');
-    expect(accessColumn).toHaveClass('md:col-span-2', 'min-w-0');
+    expect(accessColumn?.parentElement).toBe(supportingRow);
     expect(supportingRow).toContainElement(propertyAccess);
+    expect(combinedCard).toContainElement(supportingRow);
+    expect(instructions.parentElement).toBe(combinedCard);
+    expect(supportingRow).not.toContainElement(instructions);
+    expect(instructions.compareDocumentPosition(locationLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     const selector = screen.getByTestId('unit-selector');
     const locationCard = locationLabel.closest('.bg-card');
     expect(locationCard).toContainElement(selector);

@@ -13,6 +13,8 @@ import {
 
 export type ShootMediaDownloadType = 'raw' | 'edited';
 export type ShootMediaDownloadSize = 'original' | 'small';
+
+export type ShootMediaFileDownloadOptions = { format?: 'jpg'; page?: number };
 export type ShootMediaArchivePreparingState = {
   message: string;
   pollAfterMs: number;
@@ -269,6 +271,7 @@ export const downloadShootMediaArchive = async ({
   signal,
   includeExtras,
   mediaTypes,
+  assetType,
 }: {
   shootId: string | number;
   type: ShootMediaDownloadType;
@@ -281,8 +284,10 @@ export const downloadShootMediaArchive = async ({
   signal?: AbortSignal;
   includeExtras?: boolean;
   mediaTypes?: string[];
+  assetType?: 'photos';
 }) => {
   const params = new URLSearchParams({ type });
+  if (assetType) params.set('asset_type', assetType);
   if (shootUnitId !== undefined && shootUnitId !== null) params.set('shoot_unit_id', String(shootUnitId));
   if (size) {
     params.set('size', size);
@@ -396,17 +401,25 @@ export const downloadShootMediaFile = async ({
   shootId,
   fileId,
   onDownloading,
+  format,
+  page,
 }: {
   shootId: string | number;
   fileId: string | number;
   onDownloading?: () => void;
+  format?: 'jpg';
+  page?: number;
 }): Promise<ShootSingleMediaDownloadResult> => {
   const headers = getApiHeaders();
   headers.Accept = 'application/json, application/octet-stream';
   delete headers['Content-Type'];
 
+  const params = new URLSearchParams();
+  if (format) params.set('format', format);
+  if (page !== undefined) params.set('page', String(page));
+  const query = params.size ? `?${params.toString()}` : '';
   const response = await fetchApiDownload(
-    `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/download`,
+    `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/download${query}`,
     headers,
   );
 

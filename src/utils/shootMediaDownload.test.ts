@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { downloadShootRawFiles, resolveShootMediaArchiveRequest } from './shootMediaDownload';
+import { downloadShootMediaArchive, downloadShootMediaFile, downloadShootRawFiles, resolveShootMediaArchiveRequest } from './shootMediaDownload';
 import { MAX_BUFFERED_ARCHIVE_BYTES } from './shootDownloadTransfer';
 
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
@@ -17,6 +17,26 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('shoot archive requests', () => {
+  it('retains photo-only, unit and booked-service filters on the archive request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('zip', { headers: { 'Content-Type': 'application/zip' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await downloadShootMediaArchive({ shootId: 63, type: 'edited', size: 'original', assetType: 'photos', shootUnitId: 21, shootServiceId: 92 });
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(Object.fromEntries(url.searchParams)).toEqual({ type: 'edited', asset_type: 'photos', shoot_unit_id: '21', size: 'original', shoot_service_id: '92' });
+  });
+
+  it('requests the selected PDF page as a JPG through the authenticated file route', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Uint8Array([255, 216, 255]), { headers: {
+      'Content-Type': 'image/jpeg', 'Content-Disposition': 'attachment; filename="floorplan-page-2.jpg"',
+    } }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await downloadShootMediaFile({ shootId: 63, fileId: 17, format: 'jpg', page: 2 }))
+      .toMatchObject({ filename: 'floorplan-page-2.jpg', mode: 'blob' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/api/shoots/63/media/17/download?format=jpg&page=2');
+    expect(savedName).toBe('floorplan-page-2.jpg');
+    expect(fetchMock.mock.calls[0][1].headers.get('Authorization')).toBe('Bearer fixture');
+  });
+
   it('polls preparing responses then waits for all ZIP bytes while preserving the signed URL', async () => {
     let finish!: () => void;
     const body = new ReadableStream<Uint8Array>({ start(controller) { finish = () => { controller.enqueue(new Uint8Array([80, 75, 3, 4])); controller.close(); }; } });

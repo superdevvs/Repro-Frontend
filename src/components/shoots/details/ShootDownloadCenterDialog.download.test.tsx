@@ -53,12 +53,12 @@ describe('Download Center loading buttons', () => {
     }
     render(<MultiDownload />);
     expect(screen.queryByRole('button', { name: 'Download apartment-b.pdf' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /Print Resolution/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /High res/ })[0]);
     await waitFor(() => expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({ shootUnitId: '71' })));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Next unit' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Next unit' }));
     expect(screen.getByRole('button', { name: 'Download apartment-b.pdf' })).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /MLS Optimized/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /MLS \/ small/ })[0]);
     await waitFor(() => expect(mocks.archive).toHaveBeenLastCalledWith(expect.objectContaining({ shootUnitId: '72' })));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Previous unit' })).toBeEnabled());
     fireEvent.click(screen.getByText('Get unit raw'));
@@ -87,8 +87,8 @@ describe('Download Center loading buttons', () => {
     let rejectArchive!: (reason: Error) => void;
     mocks.archive.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectArchive = reject; }));
     render(<DownloadCenter />);
-    const print = screen.getByRole('button', { name: /Print Resolution/ });
-    const mls = screen.getByRole('button', { name: /MLS Optimized/ });
+    const print = screen.getByRole('button', { name: /High res/ });
+    const mls = screen.getByRole('button', { name: /MLS \/ small/ });
     fireEvent.click(print);
     fireEvent.click(print);
     expect(mocks.archive).toHaveBeenCalledTimes(1);
