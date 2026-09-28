@@ -37,3 +37,13 @@ describe('photographer compensation from the shoot API', () => {
     expect(getPhotographerPayoutStatus(transformShootFromApi({ id: 90, status: 'scheduled' }))).toBe('upcoming');
   });
 });
+
+
+describe('photographer payout is independent of client payment', () => {
+  it.each(['payment_status', 'paymentStatus'])('ignores a client paid flag in %s', (field) => {
+    const completed = { id: 'legacy-paid', status: 'completed', [field]: 'paid' } as unknown as Parameters<typeof getPhotographerPayoutStatus>[0];
+    expect(getPhotographerPayoutStatus(completed)).toBe('pending');
+    expect(getPhotographerPayoutStatus({ ...completed, status: 'scheduled' })).toBe('upcoming');
+    expect(getPhotographerPayoutStatus({ ...completed, photographerPaidAt: '2026-09-22T12:00:00Z' })).toBe('paid');
+  });
+});

@@ -49,6 +49,27 @@ const invoice00030 = record({
 });
 
 describe('mapInvoiceResponse — status is never inferred from a zero balance', () => {
+  it('preserves invoice calendar dates while leaving payment instants unchanged', () => {
+    const mapped = mapInvoiceResponse(record({
+      issue_date: '2026-09-28T00:00:00.000000Z', due_date: '2026-10-28T00:00:00.000000Z',
+      paid_at: '2026-09-22T04:00:00.000000Z', status: 'paid', total_amount: 100, amount_paid: 100,
+    }));
+    expect(mapped.issueDate).toBe('2026-09-28T00:00:00');
+    expect(mapped.dueDate).toBe('2026-10-28T00:00:00');
+    expect(mapped.paidAt).toBe('2026-09-22T04:00:00.000000Z');
+  });
+
+  it('does not invent an overdue date for an imported invoice with no due date', () => {
+    const mapped = mapInvoiceResponse(record({
+      status: 'pending', total_amount: '185.00', amount_paid: '60.00', balance_due: '125.00',
+      due_date: null, billing_period_end: '2020-01-01', issue_date: '2020-01-01',
+    }));
+    expect(mapped.status).toBe('pending');
+    expect(mapped.dueDate).toBe('');
+    expect(mapped.amountPaid).toBe(60);
+    expect(mapped.balance).toBe(125);
+  });
+
   it('keeps invoice 00030 out of paid and leaves it chaseable', () => {
     const mapped = mapInvoiceResponse(invoice00030);
 

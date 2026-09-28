@@ -7,6 +7,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { InvoiceData } from "@/utils/invoiceUtils";
 import { cn } from "@/lib/utils";
+import { invoicePaidAmount, invoiceLastPaymentDate } from '@/utils/invoicePayments';
 
 const DAYS_WINDOW_OPTIONS = [30, 60, 90, 365] as const;
 
@@ -59,6 +60,8 @@ const parseInvoiceDate = (value: unknown): Date | null => {
 };
 
 const getInvoiceWindowDate = (invoice: InvoiceData): Date | null => {
+  const paymentDate = invoicePaidAmount(invoice) > 0 ? parseInvoiceDate(invoiceLastPaymentDate(invoice)) : null;
+  if (paymentDate) return paymentDate;
   const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
   const candidates =
     invoice.status === "paid"
@@ -109,14 +112,15 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
     [invoices, daysWindow]
   );
 
-  const revenueInvoices = windowedInvoices.filter((invoice) => invoice.status === "paid");
+  const revenueInvoices = windowedInvoices.filter((invoice) => invoicePaidAmount(invoice) > 0);
   const outstandingInvoices = windowedInvoices.filter(
-    (invoice) => invoice.status === "pending" || invoice.status === "overdue"
+    (invoice) => ['pending', 'sent', 'partial', 'unpaid', 'overdue'].includes(invoice.status)
+      && Number(invoice.balance ?? Math.max(invoice.amount - invoicePaidAmount(invoice), 0)) > 0.005
   );
-  const paidInvoices = windowedInvoices.filter((invoice) => invoice.status === "paid");
+  const paidInvoices = revenueInvoices;
 
   const totalRevenue = revenueInvoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amountPaid ?? invoice.amount ?? 0),
+    (sum, invoice) => sum + invoicePaidAmount(invoice),
     0
   );
   const pendingTotal = outstandingInvoices.reduce(
@@ -124,7 +128,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
     0
   );
   const paidTotal = paidInvoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amountPaid ?? invoice.amount ?? 0),
+    (sum, invoice) => sum + invoicePaidAmount(invoice),
     0
   );
 
@@ -134,7 +138,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
         <OverviewCard
           title="Total Revenue"
           value={`$${totalRevenue.toLocaleString()}`}
-          description={`${revenueInvoices.length} paid invoice${revenueInvoices.length !== 1 ? "s" : ""} in last ${daysWindow} days`}
+          description={`Payments on ${revenueInvoices.length} invoice${revenueInvoices.length !== 1 ? "s" : ""} in last ${daysWindow} days`}
           icon={<DollarSign className="h-4 w-4" />}
           color="blue"
           animated={true}

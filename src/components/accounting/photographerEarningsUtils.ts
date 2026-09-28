@@ -166,11 +166,8 @@ export const getPhotographerPayoutStatus = (shoot: ShootData) => {
     return 'paid' as const;
   }
 
-  const rawStatus =
-    legacyShoot.payout_status ||
-    legacyShoot.payoutStatus ||
-    legacyShoot.payment_status ||
-    legacyShoot.paymentStatus;
+  // Client payment status does not establish whether the photographer was paid.
+  const rawStatus = legacyShoot.payout_status || legacyShoot.payoutStatus;
   const normalizedStatus = normalizeText(rawStatus);
 
   if (normalizedStatus === 'paid') {

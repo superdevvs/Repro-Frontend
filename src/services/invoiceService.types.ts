@@ -10,7 +10,7 @@ export type InvoiceApiRecord = {
   issue_date?: string;
   billing_period_start?: string;
   created_at?: string;
-  due_date?: string;
+  due_date?: string | null;
   billing_period_end?: string;
   subtotal?: number | string;
   pricing_breakdown?: InvoicePricingBreakdown | null;

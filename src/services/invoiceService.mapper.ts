@@ -65,8 +65,14 @@ export const mapInvoiceMutationResponse = (
  */
 export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | number): InvoiceData => {
   const fallbackDate = new Date().toISOString().split('T')[0];
-  const issueDate = invoice.issue_date || invoice.billing_period_start || invoice.created_at || fallbackDate;
-  const dueDate = invoice.due_date || invoice.billing_period_end || issueDate;
+  // Laravel serializes date-only columns at UTC midnight. Keep their calendar day
+  // when the browser is west of UTC; payment timestamps remain absolute instants.
+  const calendarDate = (value?: string | null) => value && /^\d{4}-\d{2}-\d{2}(?:$|T00:00:00(?:\.0+)?Z$)/.test(value)
+    ? `${value.slice(0, 10)}T00:00:00`
+    : value;
+  const issueDate = calendarDate(invoice.issue_date) || calendarDate(invoice.billing_period_start) || invoice.created_at || fallbackDate;
+  // Explicit null means no due date was assigned; a billing period is not a deadline.
+  const dueDate = invoice.due_date === null ? '' : calendarDate(invoice.due_date) || calendarDate(invoice.billing_period_end) || issueDate;
   const subtotal = toNumber(invoice.subtotal ?? invoice.subtotal_amount, 0);
   const tax = toNumber(invoice.tax ?? invoice.tax_amount ?? invoice.sales_tax, 0);
   const baseAmount = toNumber(invoice.total_amount ?? invoice.total ?? invoice.amount ?? subtotal + tax);

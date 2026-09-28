@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { invoicePaidAmount, invoiceLastPaymentDate } from '@/utils/invoicePayments';
 import {
   formatPaymentBreakdown,
   formatPaymentMethod,
@@ -30,6 +31,7 @@ const getInvoicePaymentInfo = (invoice: InvoiceData) => {
     (legacyInvoice.payment_details as Record<string, unknown> | undefined) ||
     undefined;
   const paidAt =
+    invoiceLastPaymentDate(invoice) ||
     invoice.paidAt ||
     (typeof legacyInvoice.paid_at === 'string' ? legacyInvoice.paid_at : undefined) ||
     invoice.date ||
@@ -82,8 +84,7 @@ const getInvoiceMetaValue = (invoice: InvoiceData, keys: string[]) => {
   return null;
 };
 
-const getInvoicePaidAmount = (invoice: InvoiceData) =>
-  invoice.amountPaid && invoice.amountPaid > 0 ? invoice.amountPaid : invoice.amount;
+const getInvoicePaidAmount = invoicePaidAmount;
 
 const getTransactionDetailRows = (invoice: InvoiceData) => {
   const { method, details, paidAt } = getInvoicePaymentInfo(invoice);
@@ -112,14 +113,14 @@ const getTransactionDetailRows = (invoice: InvoiceData) => {
 export function PaymentsSummary({ invoices, className }: PaymentsSummaryProps) {
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const totalInvoiced = invoices.reduce((sum, i) => sum + i.amount, 0);
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
+  const totalPaid = invoices.reduce((sum, i) => sum + getInvoicePaidAmount(i), 0);
   const paymentPercentage = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0;
 
   // const totalPaidd = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
-  const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + i.amount, 0);
+  const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + Number(i.balance ?? Math.max(i.amount - getInvoicePaidAmount(i), 0)), 0);
 
   const paymentMethods = invoices
-    .filter(i => i.status === 'paid' && Boolean(getInvoicePaymentInfo(i).method))
+    .filter(i => getInvoicePaidAmount(i) > 0 && Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
       const { method, details } = getInvoicePaymentInfo(i);
       const breakdown = getPaymentBreakdown(method, details, getInvoicePaidAmount(i));
@@ -153,7 +154,7 @@ export function PaymentsSummary({ invoices, className }: PaymentsSummaryProps) {
   const latestTransactions = useMemo(
     () =>
       invoices
-        .filter(i => i.status === 'paid')
+        .filter(i => getInvoicePaidAmount(i) > 0)
         .sort((a, b) => {
           const aDate = getInvoicePaymentInfo(a).paidAt;
           const bDate = getInvoicePaymentInfo(b).paidAt;
@@ -182,7 +183,7 @@ export function PaymentsSummary({ invoices, className }: PaymentsSummaryProps) {
             <div>
               <p className="text-sm font-medium">Payment Rate</p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                {paymentPercentage}% of invoices paid
+                {paymentPercentage}% of invoiced amount paid
               </p>
             </div>
             <div

@@ -1,6 +1,7 @@
 import type { ShootData } from '@/types/shoots';
 import type { InvoiceData, InvoiceViewDialogInvoice } from '@/types/invoice';
 import type { ClientBillingInvoiceViewData } from '@/services/clientBillingService';
+import { invoicePaidAmount, invoiceLastPaymentDate } from '@/utils/invoicePayments';
 
 export type ViewableInvoice = InvoiceData | ClientBillingInvoiceViewData;
 
@@ -39,6 +40,8 @@ export const buildSalesRepSummaryWindow = (daysWindow: number) => {
 };
 
 const getInvoiceWindowDate = (invoice: InvoiceData) => {
+  const paymentDate = invoicePaidAmount(invoice) > 0 ? parseAccountingInvoiceDate(invoiceLastPaymentDate(invoice)) : null;
+  if (paymentDate) return paymentDate;
   const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
   const candidates = invoice.status === 'paid'
     ? [
