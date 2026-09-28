@@ -13,6 +13,8 @@ import { mergeAcceptedShootFiles, normalizeShootMediaFile } from '@/hooks/useSho
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, Camera, Check, Cloud, Folder, HardDrive, ImageIcon, Images, Link, RefreshCcw, RefreshCw, Upload, UploadCloud } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
+import type { UploadTransferDetail } from '@/context/UploadContext';
+import { formatUploadPercent } from './uploadMediaRequest';
 
 export interface UploadIssue {
   id: string;
@@ -28,6 +30,7 @@ interface UploadProgressCardProps {
   fileNames: string[];
   progress: number;
   note: string;
+  transferDetail?: UploadTransferDetail;
 }
 
 export function UploadProgressCard({
@@ -35,20 +38,26 @@ export function UploadProgressCard({
   fileNames,
   progress,
   note,
+  transferDetail,
 }: UploadProgressCardProps) {
   return (
     <div className="space-y-3 border rounded-lg p-4 bg-card">
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">
-          Uploading {fileCount} file{fileCount !== 1 ? 's' : ''}... {progress}%
+          Uploading {fileCount} file{fileCount !== 1 ? 's' : ''}... {formatUploadPercent(progress)}%
         </span>
       </div>
       <Progress value={progress} className="h-2" />
+      {transferDetail && <p className="text-xs text-muted-foreground" role="status">
+        File {transferDetail.fileNumber} of {fileCount}: {transferDetail.fileName} — {transferDetail.phase === 'processing'
+          ? 'Transfer complete; waiting for server confirmation'
+          : `${formatUploadPercent(transferDetail.fileProgress)}% transferred`}
+      </p>}
       <div className="max-h-32 overflow-y-auto space-y-1">
         {fileNames.map((name, index) => {
           const filesDone = Math.floor((progress / 100) * fileCount);
-          const isDone = index < filesDone;
+          const isDone = transferDetail ? transferDetail.completedFileIndexes.includes(index) : index < filesDone;
           return (
             <div key={index} className="flex items-center gap-2 text-xs py-1">
               <div className="flex-shrink-0">

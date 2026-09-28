@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useUpload, ShootUpload } from '@/context/UploadContext';
 import type { ShootData } from '@/types/shoots';
+import { formatUploadPercent } from '@/components/shoots/tabs/media/uploadMediaRequest';
 import { X, MapPin, CheckCircle, AlertCircle, UploadCloud, FileIcon, ArrowRight } from 'lucide-react';
 
 interface UploadStatusDialogProps {
@@ -41,7 +42,7 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
         return (
           <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 dark:border-blue-800 dark:text-blue-400 gap-1">
             <InlineSpinner className="h-3 w-3" aria-hidden="true" />
-            {upload.progress}%
+            {formatUploadPercent(upload.progress)}%
           </Badge>
         );
       case 'succeeded':
@@ -135,6 +136,13 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
                   {/* Progress bar for active uploads */}
                   {(upload.status === 'queued' || upload.status === 'uploading') && (
                     <Progress value={upload.progress} className="h-1.5" />
+                  )}
+                  {upload.status === 'uploading' && upload.transferDetail && (
+                    <p className="text-[11px] text-muted-foreground">
+                      File {upload.transferDetail.fileNumber} of {upload.fileCount}: {upload.transferDetail.phase === 'processing'
+                        ? 'Waiting for server confirmation'
+                        : `${formatUploadPercent(upload.transferDetail.fileProgress)}% transferred`}
+                    </p>
                   )}
 
                   {/* Error message */}

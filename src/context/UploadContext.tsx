@@ -3,6 +3,14 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
+export interface UploadTransferDetail {
+  fileName: string;
+  fileNumber: number;
+  fileProgress: number;
+  phase: 'transferring' | 'processing';
+  completedFileIndexes: number[];
+}
+
 export interface ShootUpload {
   id: string;
   shootId: string;
@@ -12,6 +20,7 @@ export interface ShootUpload {
   uploadType: 'raw' | 'edited';
   status: 'queued' | 'uploading' | 'succeeded' | 'failed' | 'cancelled';
   progress: number;
+  transferDetail?: UploadTransferDetail;
   error?: string;
   startedAt: Date;
 }
@@ -34,7 +43,7 @@ interface TrackUploadParams {
   fileCount: number;
   fileNames: string[];
   uploadType: 'raw' | 'edited';
-  uploadFn: (onProgress: (progress: number) => void) => Promise<void>;
+  uploadFn: (onProgress: (progress: number, transferDetail?: UploadTransferDetail) => void, signal: AbortSignal) => Promise<void>;
   onComplete?: () => void;
   onError?: (error: string) => void;
 }
@@ -239,6 +248,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Track a custom upload function (used by ShootDetailsMediaTab's per-file XHR uploads)
   const trackUpload = useCallback((params: TrackUploadParams): string => {
     const uploadId = crypto.randomUUID();
+    const abortController = new AbortController();
+    abortControllers.current.set(uploadId, abortController);
 
     const newUpload: ShootUpload = {
       id: uploadId,
@@ -255,9 +266,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploads(prev => [...prev, newUpload]);
 
     // The caller provides the upload logic; we just track progress
-    const onProgress = (progress: number) => {
+    const onProgress = (progress: number, transferDetail?: UploadTransferDetail) => {
       setUploads(prev =>
-        prev.map(u => u.id === uploadId ? { ...u, progress } : u)
+        prev.map(u => u.id === uploadId ? { ...u, progress, transferDetail } : u)
       );
     };
 
@@ -265,7 +276,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .then(async () => {
         if (cancelledUploads.current.has(uploadId)) return;
         setUploads(prev => prev.map(u => u.id === uploadId ? { ...u, status: 'uploading' } : u));
-        await params.uploadFn(onProgress);
+        await params.uploadFn(onProgress, abortController.signal);
       })
       .then(() => {
         if (cancelledUploads.current.has(uploadId)) return;
@@ -284,6 +295,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           )
         );
         params.onError?.((error as UploadRequestError)?.message || 'Upload failed');
+      }).finally(() => {
+        abortControllers.current.delete(uploadId);
       });
 
     return uploadId;

@@ -310,6 +310,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 fileCount={upload.fileCount}
                 fileNames={upload.fileNames}
                 progress={upload.progress}
+                transferDetail={upload.transferDetail}
                 note={`${
                   upload.uploadType === 'edited' ? 'Edited' : 'Raw'
                 } files are still uploading in the background. You can stay on this shoot and keep working.`}
