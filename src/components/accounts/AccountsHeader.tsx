@@ -11,6 +11,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Download, Upload, LayoutGrid, LayoutList, Printer, Copy, FileDown, MoreVertical, Check, ChevronRight, ChevronLeft } from "lucide-react";
 import { Role } from "@/components/auth/AuthProvider";
+import { AccountsSortMenu } from './AccountsSortMenu';
+import type { AccountSort } from './accountSorting';
 
 interface AccountsHeaderProps {
   onExport: (format?: 'csv' | 'print' | 'copy') => void;
@@ -24,6 +26,8 @@ interface AccountsHeaderProps {
   repFilter: string;
   onRepFilterChange: (value: string) => void;
   repOptions: { value: string; label: string }[];
+  sort: AccountSort;
+  onSortChange: (sort: AccountSort) => void;
   currentUserRole?: Role | string | null;
 }
 
@@ -39,6 +43,8 @@ export function AccountsHeader({
   repFilter,
   onRepFilterChange,
   repOptions,
+  sort,
+  onSortChange,
   currentUserRole,
 }: AccountsHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -53,6 +59,7 @@ export function AccountsHeader({
 
   return (
     <div className="flex items-center gap-2 whitespace-nowrap">
+      <AccountsSortMenu sort={sort} onSortChange={onSortChange} />
       <div className="hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap">
         {/* View Toggle */}
         <div className="flex items-center border rounded-lg p-0.5">

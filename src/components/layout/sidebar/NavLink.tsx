@@ -33,6 +33,8 @@ export function NavLink({
   return (
     <Link
       to={to}
+      aria-label={label}
+      title={isCollapsed ? label : undefined}
       data-sidebar-active={isActive ? 'true' : undefined}
       onPointerDown={(event) => onActivePreview?.(event.currentTarget)}
       className={cn(

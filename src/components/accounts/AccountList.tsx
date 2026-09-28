@@ -2,7 +2,7 @@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreVertical } from "lucide-react";
 import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { 
   DropdownMenu,
@@ -18,9 +18,12 @@ import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRi
 import { canResendUserVerification } from "@/utils/emailHealth";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import type { AccountSort, AccountSortKey } from './accountSorting';
 
 interface AccountListProps {
   users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
+  sort: AccountSort;
+  onColumnSort: (key: AccountSortKey) => void;
   onEdit: (user: User) => void;
   onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
@@ -44,6 +47,8 @@ interface AccountListProps {
 
 export function AccountList({
   users,
+  sort,
+  onColumnSort,
   onEdit,
   onAssignRep,
   onChangeRole,
@@ -100,16 +105,34 @@ export function AccountList({
     return formatDistanceToNow(date, { addSuffix: true });
   };
 
+  const sortableHeader = (key: AccountSortKey, label: string) => {
+    const active = sort?.key === key;
+    const SortIcon = active ? (sort.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <TableHead aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+        <button
+          type="button"
+          onClick={() => onColumnSort(key)}
+          className="flex w-full items-center gap-1.5 rounded-sm py-3 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={`Sort by ${label}`}
+        >
+          {label}
+          <SortIcon className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-primary' : 'opacity-50'}`} aria-hidden="true" />
+        </button>
+      </TableHead>
+    );
+  };
+
   return (
     <div className="border rounded-lg">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>User</TableHead>
+            {sortableHeader('name', 'User')}
             <TableHead>Role</TableHead>
-            <TableHead>Rep</TableHead>
+            {sortableHeader('accountRep', 'Rep')}
             <TableHead>Phone</TableHead>
-            <TableHead>Last Shoot</TableHead>
+            {sortableHeader('lastShootDate', 'Last Shoot')}
             <TableHead>Company</TableHead>
             <TableHead className="w-[80px]"></TableHead>
           </TableRow>

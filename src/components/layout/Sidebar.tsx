@@ -1,7 +1,9 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type MouseEvent, type PointerEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { motion } from 'framer-motion';
 import MobileMenu from './MobileMenu';
@@ -21,6 +23,10 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
+  const isTouchViewport = useMediaQuery('(hover: none) and (pointer: coarse)');
+  const location = useLocation();
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const [tabletExpanded, setTabletExpanded] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT,
   );
@@ -42,18 +48,65 @@ export function Sidebar({ className }: SidebarProps) {
     return () => mql.removeEventListener('change', handler);
   }, []);
 
-  // Force collapse below the breakpoint; otherwise honor the stored manual preference.
-  const isCollapsed = isNarrowDesktop ? true : (manualCollapsedPref ?? false);
+  // Tablet expansion is temporary and must not overwrite the desktop preference.
+  const isTabletNavigation = !isMobile && (isNarrowDesktop || isTouchViewport);
+  const isCollapsed = isTabletNavigation ? !tabletExpanded : (manualCollapsedPref ?? false);
+
+  useEffect(() => {
+    setTabletExpanded(false);
+  }, [location.key, isTabletNavigation]);
+
+  useEffect(() => {
+    if (!isTabletNavigation || !tabletExpanded) return;
+    const closeOutside = (event: globalThis.PointerEvent) => {
+      if (event.target instanceof Node && !sidebarRef.current?.contains(event.target)) {
+        setTabletExpanded(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setTabletExpanded(false);
+      sidebarRef.current?.querySelector<HTMLButtonElement>('[data-sidebar-toggle]')?.focus();
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isTabletNavigation, tabletExpanded]);
+
+  const getActivationControl = (event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
+    const control = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('a[href], button')
+      : null;
+    if (!control || control.matches('[disabled], [aria-disabled="true"], [data-sidebar-toggle], [data-sidebar-disclosure]')) return null;
+    return control;
+  };
+
+  const revealOnFirstActivation = (event: MouseEvent<HTMLDivElement>) => {
+    if (!isTabletNavigation || !isCollapsed || !getActivationControl(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setTabletExpanded(true);
+  };
+
+  const collapseAfterActivation = (event: MouseEvent<HTMLDivElement>) => {
+    if (isTabletNavigation && !isCollapsed && getActivationControl(event)) {
+      setTabletExpanded(false);
+    }
+  };
 
   // For mobile devices, use the MobileMenu component
   if (isMobile) {
     return <MobileMenu />;
   }
 
-  // Toggle sidebar collapse/expand manually (only meaningful at wide viewports).
+  // Tablet toggles are transient; desktop toggles keep the saved preference.
   const toggleCollapse = () => {
-    if (isNarrowDesktop) {
-      // Below the breakpoint we always stay collapsed; no-op.
+    if (isTabletNavigation) {
+      setTabletExpanded(expanded => !expanded);
       return;
     }
     const next = !isCollapsed;
@@ -64,7 +117,15 @@ export function Sidebar({ className }: SidebarProps) {
   // Desktop sidebar
   return (
     <motion.div
+      ref={sidebarRef}
       data-testid="application-sidebar"
+      data-state={isCollapsed ? 'collapsed' : 'expanded'}
+      onClickCapture={revealOnFirstActivation}
+      onClick={collapseAfterActivation}
+      onPointerDownCapture={event => {
+        // Revealing labels must not preview a destination that was not selected.
+        if (isTabletNavigation && isCollapsed && getActivationControl(event)) event.stopPropagation();
+      }}
       initial={false}
       animate={{
         width: isCollapsed ? 80 : 210,
@@ -76,7 +137,7 @@ export function Sidebar({ className }: SidebarProps) {
         className
       )}
     >
-      <div className="flex h-full flex-col">
+      <div id="application-sidebar-content" className="flex h-full flex-col">
         <SidebarHeader isCollapsed={isCollapsed} />
         
         <ScrollArea className="flex-1 overflow-auto">

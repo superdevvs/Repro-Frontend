@@ -63,6 +63,8 @@ export function ExpandableNavLink({
       {/* Main Item */}
       <Link
         to={defaultTo}
+        aria-label={label}
+        title={isCollapsed ? label : undefined}
         data-sidebar-active={isActive ? 'true' : undefined}
         onPointerDown={(event) => onActivePreview?.(event.currentTarget)}
         onClick={handleMainClick}
@@ -88,6 +90,9 @@ export function ExpandableNavLink({
             <span className="relative z-20 flex-1">{label}</span>
             <button
               type="button"
+              data-sidebar-disclosure
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
+              aria-expanded={isExpanded}
               onClick={handleChevronClick}
               className={cn(
                 'relative z-20 rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-primary',

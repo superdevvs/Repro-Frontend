@@ -46,6 +46,7 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
               isCollapsed && 'h-10 w-10 p-0 justify-center'
             )}
             onClick={() => requestDashboardOnboardingReplay(onboardingState.roleKey)}
+            aria-label={onboardingState.label}
             title={onboardingState.label}
           >
             <HelpCircle className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
@@ -69,6 +70,7 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
             isCollapsed && 'h-10 w-10 p-0 justify-center'
           )}
           onClick={logout}
+          aria-label="Logout"
         >
           <LogOutIcon className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
           {!isCollapsed && <span>Logout</span>}
@@ -87,6 +89,10 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
               isCollapsed && 'h-10 w-10 p-0 justify-center'
             )}
             onClick={onToggleCollapse}
+            data-sidebar-toggle
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!isCollapsed}
+            aria-controls="application-sidebar-content"
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isCollapsed ? (

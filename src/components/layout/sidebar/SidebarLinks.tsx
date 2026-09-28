@@ -189,6 +189,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       {canBookShoot && (
         <MotionLink
           to="/book-shoot"
+          aria-label="Book Shoot"
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
@@ -294,6 +295,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       {canViewRobbie && (
         <Link
           to="/chat-with-reproai"
+          aria-label="Chat with Robbie"
+          title={isCollapsed ? 'Chat with Robbie' : undefined}
           data-sidebar-active={isChatActive ? 'true' : undefined}
           onPointerDown={(event) => previewActiveIndicator(event.currentTarget)}
           className={cn(

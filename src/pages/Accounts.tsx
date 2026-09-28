@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountList } from "@/components/accounts/AccountList";
 import { AccountsHeader } from "@/components/accounts/AccountsHeader";
+import { getNextAccountSort, sortAccounts, type AccountSort, type AccountSortKey } from '@/components/accounts/accountSorting';
 import { AccountForm } from "@/components/accounts/AccountForm";
 import { UserProfileDialog } from '@/components/accounts/UserProfileDialog';
 import { ResetPasswordDialog } from '@/components/accounts/ResetPasswordDialog';
@@ -121,6 +122,7 @@ export default function Accounts() {
     typeof window !== 'undefined' && window.innerWidth < 768 ? 'grid' : 'list'
   );
   const [repFilter, setRepFilter] = useState<'all' | 'unassigned' | string>('all');
+  const [accountSort, setAccountSort] = useState<AccountSort>(null);
   const { toast } = useToast();
   const { user: currentUser, role: currentUserRole, impersonate, logout } = useAuth();
   const { can } = usePermission();
@@ -424,14 +426,18 @@ export default function Accounts() {
     });
   }, [filterRole, searchQuery, repFilter, users, getAccountRepInfo]);
 
-  // Pagination
+  // Sort the complete filtered collection before slicing it into pages.
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = React.useMemo(() => (
-    filteredUsers.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage
-    )
-  ), [currentPage, filteredUsers, itemsPerPage]);
+
+  const handleSortChange = useCallback((sort: AccountSort) => {
+    setAccountSort(sort);
+    setCurrentPage(1);
+  }, []);
+
+  const handleColumnSort = useCallback((key: AccountSortKey) => {
+    setAccountSort(current => getNextAccountSort(current, key));
+    setCurrentPage(1);
+  }, []);
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
@@ -585,13 +591,19 @@ export default function Accounts() {
     [getShootSummaryForUser],
   );
 
-  const accountListUsers = React.useMemo(() => (
-    paginatedUsers.map((user) => ({
+  const sortedUsers = React.useMemo(() => sortAccounts(
+    filteredUsers.map((user) => ({
       ...user,
       accountRep: getAccountRep(user) || 'Unassigned',
       lastShootDate: getLastShootDateForUser(user),
-    }))
-  ), [paginatedUsers, getAccountRep, getLastShootDateForUser]);
+    })),
+    accountSort,
+  ), [filteredUsers, getAccountRep, getLastShootDateForUser, accountSort]);
+
+  const accountListUsers = React.useMemo(() => sortedUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  ), [sortedUsers, currentPage, itemsPerPage]);
 
   const insightAccountsByRole = React.useMemo<Record<InsightRole, InteractionCloudAccount[]>>(() => {
     const buckets: Record<InsightRole, InteractionCloudAccount[]> = {
@@ -1343,6 +1355,8 @@ export default function Accounts() {
                     repFilter={repFilter}
                     onRepFilterChange={setRepFilter}
                     repOptions={repOptions}
+                    sort={accountSort}
+                    onSortChange={handleSortChange}
                     currentUserRole={currentUserRole}
                   />
                 </div>
@@ -1353,7 +1367,7 @@ export default function Accounts() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
-          <div className="mb-3 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3">
+          <div className="mb-3 flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-3">
             {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
             <div className="min-w-0 overflow-hidden">
             {canUseTopLevelTabs ? (
@@ -1393,6 +1407,8 @@ export default function Accounts() {
                   repFilter={repFilter}
                   onRepFilterChange={setRepFilter}
                   repOptions={repOptions}
+                  sort={accountSort}
+                  onSortChange={handleSortChange}
                   currentUserRole={currentUserRole}
                 />
               </div>
@@ -1445,6 +1461,8 @@ export default function Accounts() {
             ) : (
               <AccountList
                 users={accountListUsers}
+                sort={accountSort}
+                onColumnSort={handleColumnSort}
                 onEdit={handleEditUser}
                 onAssignRep={handleAssignRep}
                 onChangeRole={handleChangeRole}
