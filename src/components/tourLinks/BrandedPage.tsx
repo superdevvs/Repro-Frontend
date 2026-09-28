@@ -79,6 +79,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   const [photos, setPhotos] = useState<string[]>([]);
   const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
+  const [zillow3dUrl, setZillow3dUrl] = useState<string | null>(null);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [branding, setBranding] = useState<BrandingData | null>(null);
@@ -155,7 +156,9 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         setRawPayload(data);
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
-        setVideos(Array.isArray(data?.videos) ? data.videos : []);
+        setVideos(data?.historical_import && Array.isArray(data?.videos) ? data.videos : []);
+        const zillow = data?.tour_links?.zillow_3d;
+        setZillow3dUrl(typeof zillow === 'string' && zillow.startsWith('https://www.zillow.com/') ? zillow : null);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
         if (data?.branding) setBranding(data.branding);
@@ -281,7 +284,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
     return [featured, ...embeds.filter((e) => e.id !== featuredEmbedId)];
   }, [embeds, featuredEmbedId]);
 
-  const hasVideo = !!videoLink;
+  const hasVideo = !!videoLink || videos.length > 0;
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -693,9 +696,17 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                 )}
               </div>
             )}
+            {videos.filter(url => url !== videoLink).map((url, index) => <div key={url} className="overflow-hidden rounded-2xl border border-border/40">
+              <video src={url} controls {...restrictedVideoProps} preload="metadata" className="w-full" aria-label={`Property video ${index + 1}`} />
+            </div>)}
           </div>
         </section>
       )}
+
+      {zillow3dUrl && <section className="max-w-6xl mx-auto px-6 mt-10" aria-label="Zillow 3D tour">
+        <h2 className="text-2xl font-bold text-foreground mb-4">Zillow 3D Tour</h2>
+        <a href={zillow3dUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Zillow 3D tour</a>
+      </section>}
 
       {/* 3D Tour */}
       <Public3dTourViewer
