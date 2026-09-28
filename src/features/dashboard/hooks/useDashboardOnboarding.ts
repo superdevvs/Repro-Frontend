@@ -7,6 +7,7 @@ import {
   type RoleKey,
 } from "@/features/dashboard/config/dashboardOnboardingConfig";
 import {
+  consumePendingDashboardOnboardingReplay,
   DASHBOARD_ONBOARDING_REPLAY_EVENT,
   emitDashboardOnboardingState,
 } from "@/lib/dashboardOnboardingEvents";
@@ -330,10 +331,17 @@ export const useDashboardOnboarding = (
 
   const replay = useCallback(() => {
     setWelcomeOpen(false);
-    setTourOpen(true);
     replaySessionRef.current = true;
     beginSession();
     emitTelemetry("replayed");
+    // Sidebar and Settings replay must begin at the first step. A stored
+    // lastStep would otherwise reopen the tour on its final card.
+    setLocalState((current) => {
+      const next = { ...current, lastStep: 0 };
+      stateRef.current = next;
+      return next;
+    });
+    setTourOpen(true);
   }, [beginSession, emitTelemetry]);
 
   const recordStepView = useCallback(
@@ -373,6 +381,13 @@ export const useDashboardOnboarding = (
     });
   }, [roleKey, shouldShowReplay, welcomeOpen, tourOpen, copy.replayLabel]);
 
+  // Take tour can be clicked before this dashboard is mounted (other pages,
+  // or Settings navigating here). The click queues a replay the mount consumes.
+  useEffect(() => {
+    if (!consumePendingDashboardOnboardingReplay(roleKey)) return;
+    replay();
+  }, [roleKey, replay]);
+
   // Respond to replay requests from the sidebar / Settings entry, but only when
   // the event targets this role.
   useEffect(() => {
@@ -381,6 +396,7 @@ export const useDashboardOnboarding = (
     const handleReplayRequest = (event: Event) => {
       const detail = (event as CustomEvent<{ roleKey?: RoleKey }>).detail;
       if (detail?.roleKey !== roleKey) return;
+      consumePendingDashboardOnboardingReplay(roleKey);
       replay();
     };
 

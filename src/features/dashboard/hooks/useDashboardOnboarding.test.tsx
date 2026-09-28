@@ -27,7 +27,7 @@ vi.mock("@/utils/authToken", () => ({
 import { useDashboardOnboarding } from "@/features/dashboard/hooks/useDashboardOnboarding";
 import type { DashboardOnboardingState } from "@/features/dashboard/hooks/useDashboardOnboarding";
 import type { RoleKey } from "@/features/dashboard/config/dashboardOnboardingConfig";
-import { emitDashboardOnboardingState } from "@/lib/dashboardOnboardingEvents";
+import { emitDashboardOnboardingState, requestDashboardOnboardingReplay } from "@/lib/dashboardOnboardingEvents";
 import { getAuthToken } from "@/utils/authToken";
 
 type UserState = DashboardOnboardingState;
@@ -194,5 +194,48 @@ describe("useDashboardOnboarding - persistence merge", () => {
     expect(parsed.lastStep).toBe(1);
     expect(parsed.eligible).toBe(true);
     expect(parsed.replayCount).toBe(0);
+  });
+});
+
+describe("useDashboardOnboarding - client replay", () => {
+  const completed = "2024-01-01T00:00:00Z";
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it("starts the client tour at step 0 when Take tour is clicked before the dashboard mounts", () => {
+    const user = buildUser({ eligible: true, completedAt: completed, lastStep: 4, replayCount: 1 });
+
+    requestDashboardOnboardingReplay("client");
+
+    const { result } = renderHook(() => useDashboardOnboarding(user, "client"));
+
+    expect(result.current.tourOpen).toBe(true);
+    expect(result.current.onboardingState.lastStep).toBe(0);
+    expect(window.sessionStorage.getItem("dashboard-onboarding-pending-replay")).toBeNull();
+  });
+
+  it("does not start a client tour from a pending replay for another role", () => {
+    const user = buildUser({ eligible: true, completedAt: completed, lastStep: 2 });
+
+    requestDashboardOnboardingReplay("photographer");
+
+    const { result } = renderHook(() => useDashboardOnboarding(user, "client"));
+
+    expect(result.current.tourOpen).toBe(false);
+    expect(window.sessionStorage.getItem("dashboard-onboarding-pending-replay")).toBe("photographer");
+  });
+
+  it("restarts an in-progress client tour at the first step", () => {
+    const user = buildUser({ eligible: true, completedAt: completed, lastStep: 4 });
+    const { result } = renderHook(() => useDashboardOnboarding(user, "client"));
+
+    act(() => {
+      result.current.replay();
+    });
+
+    expect(result.current.tourOpen).toBe(true);
+    expect(result.current.onboardingState.lastStep).toBe(0);
   });
 });

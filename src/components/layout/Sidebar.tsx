@@ -81,7 +81,9 @@ export function Sidebar({ className }: SidebarProps) {
     const control = event.target instanceof Element
       ? event.target.closest<HTMLElement>('a[href], button')
       : null;
-    if (!control || control.matches('[disabled], [aria-disabled="true"], [data-sidebar-toggle], [data-sidebar-disclosure]')) return null;
+    // Take tour must run on the first tap. Collapsed tablet sidebars otherwise
+    // swallow that click and only expand the labels.
+    if (!control || control.matches('[disabled], [aria-disabled="true"], [data-sidebar-toggle], [data-sidebar-disclosure], [data-onboarding-replay]')) return null;
     return control;
   };
 

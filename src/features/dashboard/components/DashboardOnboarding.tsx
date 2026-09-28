@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, PlayCircle, Send, X } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
@@ -470,7 +471,8 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
         </DialogContent>
       </Dialog>
 
-      {tourOpen && (
+      {tourOpen && typeof document !== "undefined"
+        ? createPortal(
         <div className="fixed inset-0 z-[75] pointer-events-none">
           {/*
             The spotlight ring's outward shadow IS the dimmer: it darkens
@@ -603,8 +605,10 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
               Help
             </Button>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+        )
+      : null}
     </>
   );
 };

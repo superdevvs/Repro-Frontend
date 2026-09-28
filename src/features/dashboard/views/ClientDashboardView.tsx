@@ -272,26 +272,6 @@ export const ClientDashboardView = ({
         ) : null}
         <ProfileCompletionNotice />
       </DashboardNoticeStack>
-      <DashboardOnboarding
-        roleKey="client"
-        steps={dashboardOnboardingConfig.client.steps}
-        copy={dashboardOnboardingConfig.client.copy}
-        welcomeOpen={clientOnboarding.welcomeOpen}
-        tourOpen={clientOnboarding.tourOpen}
-        isMobile={isMobile}
-        currentMobileTab={mobileClientTab}
-        lastStep={clientOnboarding.onboardingState.lastStep}
-        onStart={clientOnboarding.startTour}
-        onDismiss={clientOnboarding.dismiss}
-        onComplete={(lastStep) => clientOnboarding.complete({ lastStep })}
-        onProgress={clientOnboarding.saveProgress}
-        onReplay={clientOnboarding.replay}
-        onSetMobileTab={(tab) => onSetMobileClientTab(tab as MobileClientDashboardTab)}
-        onStepView={clientOnboarding.recordStepView}
-        onStepBack={clientOnboarding.recordStepBack}
-        onHelpOpened={clientOnboarding.recordHelpOpened}
-        onHelpMessage={clientOnboarding.recordHelpMessage}
-      />
     </div>
   );
 
@@ -442,6 +422,26 @@ export const ClientDashboardView = ({
           {isMobile ? clientMobileContent : clientDesktopContent}
         </div>
       </DashboardLayout>
+      <DashboardOnboarding
+        roleKey="client"
+        steps={dashboardOnboardingConfig.client.steps}
+        copy={dashboardOnboardingConfig.client.copy}
+        welcomeOpen={clientOnboarding.welcomeOpen}
+        tourOpen={clientOnboarding.tourOpen}
+        isMobile={isMobile}
+        currentMobileTab={mobileClientTab}
+        lastStep={clientOnboarding.onboardingState.lastStep}
+        onStart={clientOnboarding.startTour}
+        onDismiss={clientOnboarding.dismiss}
+        onComplete={(lastStep) => clientOnboarding.complete({ lastStep })}
+        onProgress={clientOnboarding.saveProgress}
+        onReplay={clientOnboarding.replay}
+        onSetMobileTab={(tab) => onSetMobileClientTab(tab as MobileClientDashboardTab)}
+        onStepView={clientOnboarding.recordStepView}
+        onStepBack={clientOnboarding.recordStepBack}
+        onHelpOpened={clientOnboarding.recordHelpOpened}
+        onHelpMessage={clientOnboarding.recordHelpMessage}
+      />
       {shootDetailsModal}
       <ClientAccessInfoDialog
         open={accessInfoOpen}

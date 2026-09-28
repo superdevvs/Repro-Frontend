@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { NavLink } from './NavLink';
 import { HelpCircle, SettingsIcon, LogOutIcon, PanelLeftClose, PanelLeft } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   DASHBOARD_ONBOARDING_STATE_EVENT,
@@ -20,6 +20,7 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: SidebarFooterProps) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [onboardingState, setOnboardingState] =
     React.useState<DashboardOnboardingSidebarState | null>(() => getDashboardOnboardingState());
 
@@ -45,7 +46,14 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
               !isCollapsed && 'w-full justify-start',
               isCollapsed && 'h-10 w-10 p-0 justify-center'
             )}
-            onClick={() => requestDashboardOnboardingReplay(onboardingState.roleKey)}
+            type="button"
+            data-onboarding-replay=""
+            onClick={() => {
+              requestDashboardOnboardingReplay(onboardingState.roleKey);
+              if (pathname !== '/dashboard') {
+                navigate('/dashboard');
+              }
+            }}
             aria-label={onboardingState.label}
             title={onboardingState.label}
           >
