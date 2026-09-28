@@ -23,11 +23,13 @@ import {
   STATUS_COLORS,
   STATUS_FILTERS,
   countActiveFilters,
+  compareShootLocalTimes,
   defaultFilters,
   getServiceKey,
   getSummaryLocalDate,
   isShootInPast,
   matchesDateRange,
+  paginateShootDayGroups,
   visiblePastDayGroups,
   type FiltersState,
   type ShootsTabsCardProps,
@@ -255,6 +257,7 @@ export function useShootsTabsCardController({
       });
     });
     const allGroups = Array.from(groupsMap.values());
+    allGroups.forEach(group => group.shoots.sort(compareShootLocalTimes));
     const pastGroups = allGroups
       .filter((group) => group.isPast)
       .sort((a, b) => (b.dayTime || 0) - (a.dayTime || 0));
@@ -331,65 +334,33 @@ export function useShootsTabsCardController({
     () => groupShootsByDay(filteredEditingManagerShoots),
     [filteredEditingManagerShoots, groupShootsByDay],
   );
-  // Pagination for upcoming shoots
-  const { paginatedGroups, totalShootsCount, hasMore } = useMemo(() => {
-    const allShoots = upcomingGroups.flatMap(g => g.shoots);
-    const total = allShoots.length;
-    const hasMoreShoots = visibleCount < total;
-    let shootsRemaining = visibleCount;
-    const paginated: typeof upcomingGroups = [];
-    for (const group of upcomingGroups) {
-      if (shootsRemaining <= 0) break;
-      const shootsToShow = group.shoots.slice(0, shootsRemaining);
-      if (shootsToShow.length > 0) {
-        paginated.push({
-          ...group,
-          shoots: shootsToShow,
-        });
-        shootsRemaining -= shootsToShow.length;
-      }
-    }
-    return {
-      paginatedGroups: paginated,
-      totalShootsCount: total,
-      hasMore: hasMoreShoots,
-    };
-  }, [upcomingGroups, visibleCount]);
+  // Reveal complete days so a partial card slice never becomes the day's count.
+  const { paginatedGroups, totalShootsCount, hasMore } = useMemo(
+    () => paginateShootDayGroups(upcomingGroups, visibleCount),
+    [upcomingGroups, visibleCount],
+  );
   const {
     paginatedGroups: editingManagerPaginatedGroups,
     hasMore: editingManagerHasMore,
-  } = useMemo(() => {
-    const total = editingManagerGroups.flatMap((group) => group.shoots).length;
-    const hasMoreShoots = visibleCount < total;
-    let shootsRemaining = visibleCount;
-    const paginated: typeof editingManagerGroups = [];
-    for (const group of editingManagerGroups) {
-      if (shootsRemaining <= 0) break;
-      const shootsToShow = group.shoots.slice(0, shootsRemaining);
-      if (shootsToShow.length > 0) {
-        paginated.push({ ...group, shoots: shootsToShow });
-        shootsRemaining -= shootsToShow.length;
-      }
-    }
-    return {
-      paginatedGroups: paginated,
-      totalShootsCount: total,
-      hasMore: hasMoreShoots,
-    };
-  }, [editingManagerGroups, visibleCount]);
+  } = useMemo(
+    () => paginateShootDayGroups(editingManagerGroups, visibleCount),
+    [editingManagerGroups, visibleCount],
+  );
   useEffect(() => {
     setVisibleCount(SHOOTS_PER_PAGE);
   }, [filters, activeTab]);
+  const shownCount = (isEditingManagerMode ? editingManagerPaginatedGroups : paginatedGroups)
+    .reduce((count, group) => count + group.shoots.length, 0);
+  const loadMoreShoots = useCallback(() => {
+    setVisibleCount(prev => Math.max(prev, shownCount) + SHOOTS_PER_PAGE);
+  }, [shownCount]);
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
     const nearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
     if (nearBottom && (hasMore || editingManagerHasMore)) {
-      setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
+      loadMoreShoots();
     }
-  }, [hasMore, editingManagerHasMore]);
-  const loadMoreShoots = useCallback(() => {
-    setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
-  }, []);
+  }, [hasMore, editingManagerHasMore, loadMoreShoots]);
   // Auto-load more when the sentinel scrolls into the viewport. Handles the
   // case where the inner scroll container does not overflow (items fit within
   // its height) and onScroll never fires.
@@ -401,14 +372,14 @@ export function useShootsTabsCardController({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
+          loadMoreShoots();
         }
       },
       { root: scrollContainerRef.current ?? null, rootMargin: '200px 0px', threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, editingManagerHasMore, activeTab]);
+  }, [hasMore, editingManagerHasMore, activeTab, loadMoreShoots]);
   // Measure a representative shoot card so the container height shows ~7.5 cards
   useEffect(() => {
     const container = scrollContainerRef.current;

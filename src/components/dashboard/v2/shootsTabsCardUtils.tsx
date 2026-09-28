@@ -4,7 +4,7 @@ import type { DashboardShootSummary } from '@/types/dashboard';
 import { Camera, Film, Home, Map as MapIcon, Sparkles } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import type { WeatherInfo } from '@/services/weatherService';
-import { getDashboardShootDisplayDate } from '@/utils/dashboardShootSchedule';
+import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 export interface ShootsTabsCardProps {
@@ -138,6 +138,11 @@ export const parseShootDate = getDashboardShootDisplayDate;
 // Legacy timestamp fallbacks retain the booked day rather than the viewer's day.
 export const getSummaryLocalDate = getDashboardShootDisplayDate;
 
+/** Cards in the same booked day must follow their displayed local appointment time. */
+export const compareShootLocalTimes = (a: DashboardShootSummary, b: DashboardShootSummary) =>
+  (getDashboardShootDisplayTime(a) ?? '99:99').localeCompare(getDashboardShootDisplayTime(b) ?? '99:99')
+  || a.id - b.id;
+
 export const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) => {
   if (!filters.dateRange) return true;
   const shootDate = parseShootDate(shoot);
@@ -216,6 +221,23 @@ export type ShootDayGroupVisibility = {
   mode?: 'default' | 'editing_manager';
   tabId: string;
   showPastDays: boolean;
+};
+
+/** Keep day counts truthful and today's complete schedule visible on first load. */
+export const paginateShootDayGroups = <T extends { shoots: unknown[]; isToday?: boolean }>(
+  groups: T[],
+  visibleCount: number,
+) => {
+  const paginatedGroups: T[] = [];
+  let shown = 0;
+  for (const group of groups) {
+    if (group.shoots.length && (shown < visibleCount || group.isToday)) {
+      paginatedGroups.push(group);
+      shown += group.shoots.length;
+    }
+  }
+  const totalShootsCount = groups.reduce((total, group) => total + group.shoots.length, 0);
+  return { paginatedGroups, totalShootsCount, hasMore: shown < totalShootsCount };
 };
 
 /** Pipeline tabs are current work even when the booked day is already past. */
