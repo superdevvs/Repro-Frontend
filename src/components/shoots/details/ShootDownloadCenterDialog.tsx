@@ -172,7 +172,7 @@ export function ShootDownloadCenterDialog({
             </section>}
             {sections.filter(section => section.items.length > 0).map(section => <section key={section.title} aria-label={section.title} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
               <h3 className="mb-3 font-semibold">{section.title}</h3>
-              <div className="space-y-2">{section.items.map(renderDownload)}</div>
+              <div className="space-y-2 md:max-h-80 md:overflow-y-auto md:pr-1">{section.items.map(renderDownload)}</div>
             </section>)}
           </div>}
         </div>
