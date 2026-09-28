@@ -80,6 +80,16 @@ const rowFor = (serviceName: string): HTMLElement => {
 }
 
 describe('BookingSummary per-service time preservation (task 9.2)', () => {
+  it('shows booked counts and line totals, including already aggregated multi-unit prices', () => {
+    render(<BookingSummary summaryInfo={baseSummaryInfo} selectedServices={[
+      { ...TWO_D, quantity: 3 },
+      { ...HDR, quantity: 5, price: 625, total_price: 625 },
+    ]} serviceSchedules={serviceSchedules} />)
+    expect(within(rowFor('2D Floor Plan × 3')).getByText('$300.00')).toBeInTheDocument()
+    expect(within(rowFor('HDR × 5')).getByText('$625.00')).toBeInTheDocument()
+    expect(screen.queryByText('$3,125.00')).toBeNull()
+  })
+
   it('preserves each service\'s own canonical time (2D Floor Plan 9:30 AM, HDR 11:30 AM) without overwriting', () => {
     render(
       <BookingSummary

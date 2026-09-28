@@ -2,11 +2,12 @@ import React from 'react';
 import {
   Aperture,
   Camera,
-  Check,
   Cuboid as Cube,
   Layers,
+  Minus,
   Palette,
   PenTool,
+  Plus,
   Search,
   Sparkles,
   Video,
@@ -38,6 +39,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { formatPrice, getServicePricingForSqft } from '@/utils/servicePricing';
 import type { ServiceWithPricing, SqftRange } from '@/utils/servicePricing';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 export type ServiceSelectionOption = {
   id: string;
@@ -50,6 +52,9 @@ export type ServiceSelectionOption = {
   delivery_time?: unknown;
   photographer_required?: boolean | null;
   photographer_pay?: unknown;
+  allow_multiple?: boolean;
+  /** Number of booked items. Catalog package counts are not booking quantities. */
+  quantity?: number;
 };
 
 type CategoryDisplay = {
@@ -77,6 +82,8 @@ type ServiceSelectionDialogProps = {
 };
 
 const FALLBACK_CATEGORY_NAME = 'More services';
+
+const selectedQuantity = (service: ServiceSelectionOption) => normalizeBookingQuantity(service.quantity);
 
 const PRIMARY_CATEGORY_ORDER: Record<string, number> = {
   photos: 1,
@@ -231,17 +238,19 @@ export function ServiceSelectionDialog({
     () =>
       selectedServices.reduce((total, service) => {
         const numericPrice = Number(service.price ?? 0);
-        return total + (Number.isFinite(numericPrice) ? numericPrice : 0);
+        return total + (Number.isFinite(numericPrice) ? numericPrice * selectedQuantity(service) : 0);
       }, 0),
     [selectedServices],
   );
+
+  const selectedItemCount = selectedServices.reduce((count, service) => count + selectedQuantity(service), 0);
 
   const selectedCountByCategory = React.useMemo(() => {
     const counts = new Map<string, number>();
 
     selectedServices.forEach((service) => {
       const categoryId = getServiceCategoryId(service);
-      counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
+      counts.set(categoryId, (counts.get(categoryId) || 0) + selectedQuantity(service));
     });
 
     return counts;
@@ -250,19 +259,8 @@ export function ServiceSelectionDialog({
   const isServiceSelected = (serviceId: string) =>
     selectedServices.some((service) => String(service.id) === String(serviceId));
 
-  const toggleServiceSelection = (service: ServiceSelectionOption) => {
-    const serviceId = String(service.id);
-    const exists = isServiceSelected(serviceId);
-
-    if (exists) {
-      if (!allowEmptySelection && selectedServices.length === 1) {
-        return;
-      }
-      onSelectedServicesChange(selectedServices.filter((selected) => String(selected.id) !== serviceId));
-      return;
-    }
-
-    let adjustedService = { ...service, id: serviceId };
+  const addService = (service: ServiceSelectionOption) => {
+    let adjustedService = { ...service, id: String(service.id), quantity: 1 };
     const sqftRanges = getServiceSqftRanges(service);
     if (service.pricing_type === 'variable' && effectiveSqft && sqftRanges.length) {
       const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges } as ServiceWithPricing, effectiveSqft);
@@ -274,6 +272,27 @@ export function ServiceSelectionDialog({
     if (isMobile && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(8);
     }
+  };
+
+  const toggleServiceSelection = (service: ServiceSelectionOption) => {
+    const serviceId = String(service.id);
+    if (isServiceSelected(serviceId)) {
+      if (!allowEmptySelection && selectedServices.length === 1) return;
+      onSelectedServicesChange(selectedServices.filter((selected) => String(selected.id) !== serviceId));
+      return;
+    }
+    addService(service);
+  };
+
+  const changeQuantity = (service: ServiceSelectionOption, delta: -1 | 1) => {
+    if (!service.allow_multiple) return;
+    const selected = selectedServices.find((item) => String(item.id) === String(service.id));
+    if (!selected) {
+      if (delta > 0) addService(service);
+      return;
+    }
+    const quantity = Math.max(1, selectedQuantity(selected) + delta);
+    onSelectedServicesChange(selectedServices.map((item) => item === selected ? { ...item, quantity } : item));
   };
 
   const body = (mobileDrawer = false) => (
@@ -368,6 +387,8 @@ export function ServiceSelectionDialog({
             {panelServices.map((service) => {
               const serviceId = String(service.id);
               const isSelected = isServiceSelected(serviceId);
+              const selectedService = selectedServices.find((item) => String(item.id) === serviceId);
+              const quantity = selectedService ? selectedQuantity(selectedService) : 0;
               const sqftRanges = getServiceSqftRanges(service);
               const supportsVariablePricing = !!(
                 effectiveSqft &&
@@ -377,9 +398,7 @@ export function ServiceSelectionDialog({
               const pricingInfo = supportsVariablePricing
                 ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges } as ServiceWithPricing, effectiveSqft)
                 : null;
-              const displayPrice = pricingInfo
-                ? formatPrice(pricingInfo.price)
-                : formatPrice(Number(service.price ?? 0));
+              const displayPrice = formatPrice(Number(selectedService?.price ?? pricingInfo?.price ?? service.price ?? 0));
               const matchedRange = pricingInfo?.matchedRange;
               const sqftContext = matchedRange
                 ? `${matchedRange.sqft_from.toLocaleString()} - ${matchedRange.sqft_to.toLocaleString()} sqft tier`
@@ -415,35 +434,60 @@ export function ServiceSelectionDialog({
                       <span className="text-base font-semibold leading-none tabular-nums text-foreground sm:text-lg">
                         {renderServicePrice ? renderServicePrice(service, displayPrice) : displayPrice}
                       </span>
-                      <span
-                        className={cn(
-                          'inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors sm:hidden',
-                          isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-transparent',
-                        )}
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </span>
                       <Checkbox
-                        className="hidden sm:inline-flex"
+                        aria-label={`Select ${service.name}`}
+                        className="h-5 w-5 rounded-full sm:h-4 sm:w-4"
                         checked={isSelected}
                         onClick={(event) => event.stopPropagation()}
                         onCheckedChange={() => toggleServiceSelection(service)}
                       />
                     </div>
                   </div>
-                  {categoryName && (
-                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                    {categoryName && (
                       <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                         {categoryName}
                         {supportsVariablePricing && matchedRange && (
                           <span className="ml-1 text-[8px] tracking-normal text-primary">SQFT</span>
                         )}
                       </Badge>
-                      {isSelected && (
+                    )}
+                    {service.allow_multiple ? (
+                      <div
+                        role="group"
+                        aria-label={`Quantity for ${service.name}`}
+                        className="ml-auto inline-flex items-center rounded-lg border border-border/70 bg-background"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-r-none"
+                          aria-label={`Decrease ${service.name} quantity`}
+                          disabled={quantity <= 1}
+                          onClick={() => changeQuantity(service, -1)}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </Button>
+                        <output aria-label={`${service.name} quantity`} aria-live="polite" className="min-w-7 px-1 text-center text-sm font-semibold tabular-nums">
+                          {quantity}
+                        </output>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-l-none"
+                          aria-label={`Increase ${service.name} quantity`}
+                          onClick={() => changeQuantity(service, 1)}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : isSelected && (
                         <span className="text-[11px] font-medium text-primary sm:hidden">Selected</span>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -463,7 +507,7 @@ export function ServiceSelectionDialog({
     <>
       <div className={cn('min-w-0', !mobileDrawer && 'sm:hidden')}>
         <p className="text-sm font-semibold leading-tight">
-          {selectionSummary ?? `${selectedServices.length} Selected · ${formatPrice(selectedServicesTotal)}`}
+          {selectionSummary ?? `${selectedItemCount} Selected · ${formatPrice(selectedServicesTotal)}`}
         </p>
         {!allowEmptySelection && selectedServices.length <= 1 && (
           <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
@@ -472,7 +516,7 @@ export function ServiceSelectionDialog({
       {!mobileDrawer && (
         <div className="mr-auto hidden sm:block">
           <p className="text-sm text-muted-foreground">
-            {selectionSummary ?? `${selectedServices.length} selected · ${formatPrice(selectedServicesTotal)}`}
+            {selectionSummary ?? `${selectedItemCount} selected · ${formatPrice(selectedServicesTotal)}`}
           </p>
           {!allowEmptySelection && selectedServices.length <= 1 && (
             <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>

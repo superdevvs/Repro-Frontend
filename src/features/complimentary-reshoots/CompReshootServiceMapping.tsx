@@ -42,7 +42,7 @@ export function CompReshootServiceMapping({
             <div key={service.id} className="grid gap-3 p-3 md:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.25fr)_minmax(10rem,0.9fr)] md:items-end">
               <div className="min-w-0">
                 <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Reshoot service</span>
-                <span className="mt-1 block truncate text-sm font-medium text-foreground" title={service.name}>{service.name}</span>
+                <span className="mt-1 block truncate text-sm font-medium text-foreground" title={service.name}>{service.name}{(service.quantity ?? 1) > 1 ? ` × ${service.quantity}` : ''}</span>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor={`source-service-${service.id}`} className="text-xs text-muted-foreground">Affected source item</Label>

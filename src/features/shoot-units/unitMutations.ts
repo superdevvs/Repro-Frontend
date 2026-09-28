@@ -1,6 +1,7 @@
 import type { ShootData, ShootServiceObject, ShootUnit } from '@/types/shoots';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { getServiceUnitId, getShootUnits, getUnitKey } from './shootUnitData';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
 export function allUnitLines(shoot: ShootData): ShootServiceObject[] {
@@ -16,7 +17,7 @@ export function unitLinePayload(value: ShootServiceObject | Record<string, unkno
   return {
     ...(lineId(line) != null ? { shoot_service_id: lineId(line) } : {}),
     ...(line.client_key ? { client_key: line.client_key } : {}),
-    shoot_unit_id: getServiceUnitId(line), service_id: serviceId(line), quantity: 1,
+    shoot_unit_id: getServiceUnitId(line), service_id: serviceId(line), quantity: normalizeBookingQuantity(line.quantity),
     scheduled_at: line.scheduled_at ?? line.scheduledAt ?? null,
     photographer_id: line.photographer_id ?? line.photographerId ?? record(line.photographer).id ?? null,
   };

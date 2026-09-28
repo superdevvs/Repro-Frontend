@@ -1,4 +1,5 @@
 import { resolveSelectedServicePrice, type ServicePackage } from '@/pages/bookShootModel';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 export type CompReshootReasonCode =
   | 'missed_area'
@@ -104,6 +105,7 @@ export type CompReshootSourceService = {
   shootServiceId: string;
   serviceId: string;
   name: string;
+  quantity?: number;
   nominalPrice: number;
   standardPhotographerPay: number;
   photographerId?: string;
@@ -249,24 +251,23 @@ export const normalizeCompReshootTemplate = (payload: unknown): CompReshootTempl
     const row = asRecord(value);
     const service = asRecord(row.service);
     const photographer = asRecord(row.photographer ?? row.resolved_photographer);
+    const quantity = normalizeBookingQuantity(row.quantity ?? asRecord(row.pivot).quantity);
+    const nominalTotal = row.nominal_total ?? row.nominalTotal ?? row.subtotal;
+    const standardPayTotal = row.standard_photographer_pay ?? row.standardPhotographerPay;
     return {
       shootServiceId: firstString(row.shoot_service_id, row.shootServiceId, row.id),
       serviceId: firstString(row.service_id, row.serviceId, service.id, row.id),
       name: firstString(row.service_name, row.serviceName, row.name, service.name) || 'Service',
-      nominalPrice: firstNumber(
-        row.nominal_total,
-        row.nominalTotal,
+      quantity,
+      nominalPrice: nominalTotal != null ? firstNumber(nominalTotal) : quantity * firstNumber(
         row.nominal_unit_price,
         row.nominalUnitPrice,
         row.nominal_price,
         row.nominalPrice,
-        row.subtotal,
         row.price,
         service.price,
       ),
-      standardPhotographerPay: firstNumber(
-        row.standard_photographer_pay,
-        row.standardPhotographerPay,
+      standardPhotographerPay: standardPayTotal != null ? firstNumber(standardPayTotal) : quantity * firstNumber(
         row.photographer_pay,
         row.photographerPay,
         service.photographer_pay,
@@ -369,6 +370,7 @@ export const normalizeCompReshootTemplate = (payload: unknown): CompReshootTempl
 export const resolveStandardPhotographerPay = (
   service: ServicePackage,
   sqft: number | null | undefined,
+  fallbackUnitPay = 0,
 ) => {
   if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
     const range = service.sqft_ranges.find((item) => sqft >= item.sqft_from && sqft <= item.sqft_to);
@@ -376,7 +378,7 @@ export const resolveStandardPhotographerPay = (
       return Number(range.photographer_pay) || 0;
     }
   }
-  return Number(service.photographer_pay ?? 0) || 0;
+  return Number(service.photographer_pay ?? fallbackUnitPay) || 0;
 };
 
 export const calculateSelectedReturnRepStandard = (
@@ -386,7 +388,7 @@ export const calculateSelectedReturnRepStandard = (
 ) => {
   const basis = services.reduce((total, service) => {
     if (service.exclude_from_sales_commission) return total;
-    const quantity = Math.max(Number(service.quantity ?? 1) || 1, 1);
+    const quantity = normalizeBookingQuantity(service.quantity);
     return total + resolveSelectedServicePrice(service, sqft) * quantity;
   }, 0);
   return Math.round(basis * (Math.max(rate, 0) / 100) * 100) / 100;

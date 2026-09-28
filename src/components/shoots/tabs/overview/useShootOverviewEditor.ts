@@ -2,6 +2,7 @@ import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignme
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import type { ShootData } from '@/types/shoots';
+import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { API_BASE_URL } from '@/config/env';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
 import {
@@ -96,31 +97,12 @@ export function useShootOverviewEditor({
     () => getShootInvoiceAdjustmentTotal(shoot),
     [shoot],
   );
-  const bookedServiceQuantities = useMemo(() => {
-    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
-    const sources = [
-      ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
-      ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
-      ...((shoot.serviceObjects as unknown as LegacyServiceItemRecord[] | undefined) || []),
-    ].filter((item) => !isInvoiceAdjustmentServiceItem(item));
-    const quantities = new Map<string, number>();
-
-    sources.forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const serviceId = item.service_id ?? item.serviceId ?? item.id;
-      if (serviceId === null || serviceId === undefined) return;
-      const pivot = item.pivot && typeof item.pivot === 'object'
-        ? item.pivot as Record<string, unknown>
-        : {};
-      const quantity = Number(item.quantity ?? pivot.quantity ?? 1);
-      quantities.set(
-        String(serviceId),
-        Number.isInteger(quantity) && quantity > 0 ? quantity : 1,
-      );
-    });
-
-    return quantities;
-  }, [shoot]);
+  const bookedServiceQuantities = useMemo(() => getBookedServiceQuantities(shoot), [shoot]);
+  const [serviceQuantityChanges, setServiceQuantityChanges] = useState<Record<string, number>>({});
+  const serviceQuantities = useMemo(
+    () => ({ ...bookedServiceQuantities, ...serviceQuantityChanges }),
+    [bookedServiceQuantities, serviceQuantityChanges],
+  );
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [servicePanelCategory, setServicePanelCategory] = useState('all');
   const [serviceModalSearch, setServiceModalSearch] = useState('');
@@ -283,6 +265,7 @@ export function useShootOverviewEditor({
 
   useEffect(() => {
     serviceSelectionTouchedRef.current = false;
+    setServiceQuantityChanges({});
   }, [isEditMode, shoot.id]);
 
   const canInitializeServiceSelection = useCallback(
@@ -519,6 +502,7 @@ export function useShootOverviewEditor({
         serviceSchedules,
         servicePrices,
         servicePhotographerPays,
+        serviceQuantities: serviceQuantityChanges,
         perCategoryPhotographers,
         servicesList,
       });
@@ -556,6 +540,7 @@ export function useShootOverviewEditor({
     hasComplimentaryServices,
     selectedServiceIds,
     servicePhotographerPays,
+    serviceQuantityChanges,
     servicePrices,
     serviceSchedules,
     servicesList,
@@ -660,6 +645,7 @@ export function useShootOverviewEditor({
     markOrdinaryServiceMutationTouched();
     setSelectedServiceIds((current) => {
       if (current.includes(serviceId)) {
+        setServiceQuantityChanges((quantities) => ({ ...quantities, [serviceId]: 1 }));
         setServicePrices((prices) => {
           const nextPrices = { ...prices };
           delete nextPrices[serviceId];
@@ -676,12 +662,20 @@ export function useShootOverviewEditor({
     });
   }, [markOrdinaryServiceMutationTouched]);
 
+  const updateServiceQuantity = useCallback((serviceId: string, value: unknown) => {
+    const quantity = normalizeBookingQuantity(value);
+    if (quantity === normalizeBookingQuantity(serviceQuantities[serviceId])) return;
+    serviceSelectionTouchedRef.current = true;
+    markOrdinaryServiceMutationTouched();
+    setServiceQuantityChanges((current) => ({ ...current, [serviceId]: quantity }));
+  }, [markOrdinaryServiceMutationTouched, serviceQuantities]);
+
   useEffect(() => {
     const serviceSubtotal = selectedServiceIds.reduce((sum, serviceId) => {
       const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
       if (!service) return sum;
       const resolvedPrice = resolveServicePrice(service, effectiveSqft, servicePrices[serviceId]).price;
-      const quantity = bookedServiceQuantities.get(serviceId) ?? 1;
+      const quantity = normalizeBookingQuantity(serviceQuantities[serviceId]);
       return sum + (Number.isNaN(resolvedPrice) ? 0 : resolvedPrice * quantity);
     }, 0);
     const rawTaxRate = Number(editedShoot.payment?.taxRate ?? shoot.payment?.taxRate ?? 0);
@@ -713,7 +707,7 @@ export function useShootOverviewEditor({
     editedShoot.payment?.discountType,
     editedShoot.payment?.discountValue,
     editedShoot.payment?.taxRate,
-    bookedServiceQuantities,
+    serviceQuantities,
     effectiveSqft,
     invoiceAdjustmentTotal,
     resolveServicePrice,
@@ -1031,6 +1025,7 @@ export function useShootOverviewEditor({
       servicesList,
       selectedServiceIds,
       servicePrices,
+      serviceQuantities,
       servicePhotographerPays,
       serviceSchedules,
       serviceDialogOpen,
@@ -1102,6 +1097,7 @@ export function useShootOverviewEditor({
       handleAddressSelect,
       resolveServicePrice,
       toggleServiceSelection,
+      updateServiceQuantity,
       resolvePhotographerDetails,
       closePhotographerPicker,
       openEditPhotographerPicker,

@@ -32,6 +32,12 @@ const toOptionalNumber = (value: unknown): number | undefined => {
 const toOptionalBoolean = (...values: unknown[]): boolean | undefined =>
   values.find((value): value is boolean => typeof value === 'boolean');
 
+const toOptionalMultipleFlag = (...values: unknown[]): boolean | undefined => {
+  const value = values.find((candidate) => candidate !== null && candidate !== undefined);
+  if (value === undefined) return undefined;
+  return value === true || value === 1 || value === '1' || value === 'true';
+};
+
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
   if (!media) return undefined;
   return {
@@ -345,6 +351,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           name: String(s.name || ''),
           duration_minutes: toOptionalNumber(s.pivot?.duration_minutes ?? s.duration_minutes),
           photographer_required: toOptionalBoolean(s.photographer_required),
+          allow_multiple: toOptionalMultipleFlag(s.allow_multiple),
           requires_editing: toOptionalBoolean(s.requires_editing, s.requiresEditing),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
@@ -632,6 +639,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           unit: item.unit,
           duration_minutes: toOptionalNumber(item.duration_minutes ?? service.duration_minutes),
           photographer_required: toOptionalBoolean(item.photographer_required, service.photographer_required),
+          allow_multiple: toOptionalMultipleFlag(item.allow_multiple, service.allow_multiple),
           requires_editing: toOptionalBoolean(item.requires_editing, item.requiresEditing, service.requires_editing, service.requiresEditing),
           invoice_id: invoiceId == null ? null : String(invoiceId),
           invoiceId: invoiceId == null ? null : String(invoiceId),

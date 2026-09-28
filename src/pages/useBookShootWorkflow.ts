@@ -25,6 +25,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
+import { hydrateBookedServiceSelection, restoreCachedServiceQuantities } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
@@ -233,7 +234,7 @@ export const useBookShootWorkflow = ({
         if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
         if (parsed.serviceSchedules) setServiceSchedules(parsed.serviceSchedules);
         if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
-          setSelectedServices(parsed.selectedServices);
+          setSelectedServices(restoreCachedServiceQuantities(parsed.selectedServices, parsed.bookingQuantityVersion));
         }
         if (parsed.multiUnitDraft?.enabled && Array.isArray(parsed.multiUnitDraft.units) && Array.isArray(parsed.multiUnitDraft.lines)) setMultiUnitDraft(parsed.multiUnitDraft);
         if (typeof parsed.notes === 'string') setNotes(parsed.notes);
@@ -281,6 +282,7 @@ export const useBookShootWorkflow = ({
         servicePhotographers,
         serviceSchedules,
         selectedServices,
+        bookingQuantityVersion: 1,
         notes,
         companyNotes,
         photographerNotes,
@@ -675,13 +677,7 @@ export const useBookShootWorkflow = ({
           if (orderSchedule.date) setDate(parseLocalYmd(orderSchedule.date));
           if (orderSchedule.time) setTime(formatTimeForDisplay(orderSchedule.time));
           if (shootData.services && Array.isArray(shootData.services) && packages.length > 0) {
-            const matchedServices = shootData.services
-              .map((value: unknown) => {
-                const svc = asRecord(value);
-                const serviceId = svc.id !== undefined ? String(svc.id) : svc.service_id !== undefined ? String(svc.service_id) : undefined;
-                return packages.find(pkg => pkg.id === serviceId);
-              })
-              .filter(Boolean) as ServicePackage[];
+            const matchedServices = hydrateBookedServiceSelection(packages, shootData);
             // An empty service list is a valid Admin/Super Admin edit state and
             // must replace any cached/new-booking selection instead of leaving a
             // phantom service selected locally.

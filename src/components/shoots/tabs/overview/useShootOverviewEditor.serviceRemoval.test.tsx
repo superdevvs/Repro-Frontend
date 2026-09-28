@@ -57,6 +57,35 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('updates quantity, totals and save payload without changing the unit price', async () => {
+    const onSave = vi.fn();
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot, isAdmin: true, role: 'admin', isEditMode: true,
+      onSave, onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    expect(result.current.state.serviceQuantities['10']).toBe(2);
+    act(() => result.current.actions.updateServiceQuantity('10', 3));
+    await waitFor(() => expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(350));
+    act(() => result.current.actions.handleSave());
+    const payload = onSave.mock.calls.at(-1)?.[0];
+    expect(payload.service_items[0]).toEqual(expect.objectContaining({ service_id: 10, quantity: 3 }));
+    expect(payload.services[0]).toEqual(expect.objectContaining({ id: 10, quantity: 3 }));
+    expect(payload.service_items[0]).not.toHaveProperty('price');
+  });
+
+  it('starts a removed and reselected service at one without restoring its old count', async () => {
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot, isAdmin: true, role: 'admin', isEditMode: true,
+      onSave: vi.fn(), onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    act(() => result.current.actions.toggleServiceSelection('10'));
+    act(() => result.current.actions.toggleServiceSelection('10'));
+    await waitFor(() => expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(150));
+    expect(result.current.state.serviceQuantities['10']).toBe(1);
+  });
+
   it('keeps edits open and explains a nonexistent daylight-saving time without saving', async () => {
     const onSave = vi.fn();
     const toast = vi.fn();

@@ -28,6 +28,7 @@ import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDia
 import type { ClientPropertyFormController, PackageOption, PresenceOption } from './useClientPropertyFormController';
 import { ClientPropertyFormActions } from './ClientPropertyFormActions';
 import { MobileClientPicker } from './MobileClientPicker';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
     form, isClientAccount, allClients, selectedClient, isSearching, visibleClients,
@@ -47,6 +48,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
   } = controller;
   const units = useBookingUnits();
   const showPropertySlide = slide !== 'services';
+  const selectedItemCount = selectedServices.reduce((sum, service) => sum + normalizeBookingQuantity(service.quantity), 0);
   return (
     <Form {...form}>
       <form onSubmit={submitForm} className="space-y-6">
@@ -710,7 +712,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Selected services</p>
                 <p className="text-base font-semibold">
-                  {selectedServices.length ? `${selectedServices.length} item${selectedServices.length > 1 ? 's' : ''}` : 'None yet'}
+                  {selectedItemCount ? `${selectedItemCount} item${selectedItemCount > 1 ? 's' : ''}` : 'None yet'}
                 </p>
               </div>
               <Button
@@ -746,7 +748,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
               <div className="flex flex-wrap gap-2">
                 {selectedServices.map(service => (
                   <Badge key={service.id} variant="secondary" className="flex items-center gap-2 py-1 px-3 text-sm">
-                    {service.name}
+                    {service.name}{normalizeBookingQuantity(service.quantity) > 1 ? ` × ${normalizeBookingQuantity(service.quantity)}` : ''}
                     {isCompReshootMode && (
                       <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
                         Client $0

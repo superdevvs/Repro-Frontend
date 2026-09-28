@@ -221,6 +221,7 @@ export interface ShootServicePresentation {
 export interface ShootServiceObject {
   duration_minutes?: number | null;
   photographer_required?: boolean;
+  allow_multiple?: boolean;
   shoot_unit_id?: string | number | null;
   shootUnitId?: string | number | null;
   unit_client_key?: string | null;

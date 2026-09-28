@@ -43,6 +43,15 @@ describe('complimentary reshoot policy', () => {
 });
 
 describe('complimentary reshoot template normalization', () => {
+  it('retains source quantity and source totals separately from per-item rates', () => {
+    const template = normalizeCompReshootTemplate({ source_service_items: [
+      { id: 501, service_id: 10, quantity: 2, nominal_unit_price: 100, nominal_total: 200, standard_photographer_pay: 150 },
+      { id: 502, service_id: 11, quantity: 3, nominal_unit_price: 80, photographer_pay: 25 },
+    ] });
+    expect(template.sourceServices[0]).toMatchObject({ quantity: 2, nominalPrice: 200, standardPhotographerPay: 150 });
+    expect(template.sourceServices[1]).toMatchObject({ quantity: 3, nominalPrice: 240, standardPhotographerPay: 75 });
+  });
+
   it('preserves service-level source identity and source photographer', () => {
     const template = normalizeCompReshootTemplate({
       data: {

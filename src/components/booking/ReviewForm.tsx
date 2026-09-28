@@ -15,7 +15,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import type { PricingBreakdown } from '@/utils/pricing';
 import { CompReshootCompensationSection } from '@/features/complimentary-reshoots/CompReshootCompensationSection';
 import type { CompReshootBookingController } from '@/features/complimentary-reshoots/useCompReshootBooking';
-import type { ServicePackage } from '@/pages/bookShootModel';
+import { resolveSelectedServiceSubtotal, type ServicePackage } from '@/pages/bookShootModel';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 
 interface ReviewFormProps {
@@ -291,10 +292,10 @@ export function ReviewForm({
                 {selectedServices.map(service => (
                   <li key={service.id} className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <span className="block truncate">{service.name}</span>
+                      <span className="block truncate">{service.name}{normalizeBookingQuantity(service.quantity) > 1 ? ` × ${normalizeBookingQuantity(service.quantity)}` : ''}</span>
                       <span className="block text-xs text-slate-500 dark:text-slate-400">{getServiceScheduleLabel(service.id)}</span>
                     </span>
-                    <span className="font-medium">{isCompReshoot ? '$0.00' : `$${Number(service.price ?? 0).toFixed(2)}`}</span>
+                    <span className="font-medium">{isCompReshoot ? '$0.00' : `$${resolveSelectedServiceSubtotal(service, sqft).toFixed(2)}`}</span>
                   </li>
                 ))}
               </ul>

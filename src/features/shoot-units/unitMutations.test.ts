@@ -5,6 +5,15 @@ import type { ShootData, ShootServiceObject } from '@/types/shoots';
 const line = (unit: number, service = 7): ShootServiceObject => ({ id: String(service), service_id: String(service), shoot_service_id: String(unit * 10 + service), client_key: `line-${unit}-${service}`, shoot_unit_id: unit, name: 'Photos', quantity: 1, price: 100 + unit, scheduled_at: `2026-10-01T${unit === 1 ? '09' : '11'}:00:00Z`, photographer_id: '9' });
 const shoot = { id: 'unit-mutations', units_revision: 4, units: [1, 2].map(id => ({ id, client_key: `unit-${id}`, label: `Unit ${id}`, kind: 'unit', sqft: 1000 * id, beds: 2, baths: 1 })), service_lines: [line(1), line(2)], propertyDetails: { sqft: 10000, lockboxCode: 'shared-entry' } } as ShootData;
 describe('single unit changes preserve the complete booking', () => {
+  it('updates one unit quantity and retains sibling quantities and booked price snapshots', () => {
+    const existing = { ...shoot, service_lines: [{ ...line(1), quantity: 2 }, { ...line(2), quantity: 3 }] };
+    const result = buildUnitScopedUpdate(existing, '1', { service_items: [{ service_id: 7, quantity: 4 }] });
+    expect(result.service_lines).toEqual([
+      expect.objectContaining({ shoot_service_id: '27', quantity: 3 }),
+      expect.objectContaining({ shoot_service_id: '17', quantity: 4 }),
+    ]);
+    expect((result.service_lines as object[]).every(item => !('price' in item))).toBe(true);
+  });
   it('merges by unit and line identity when sibling units have the same catalogue service', () => {
     const result = buildUnitScopedUpdate(shoot, '1', { service_items: [{ service_id: 7, scheduled_at: '2026-10-04T09:00:00Z', price: 150 }], service_photographers: [{ service_id: 7, photographer_id: 22 }] });
     expect(result).not.toHaveProperty('service_items');

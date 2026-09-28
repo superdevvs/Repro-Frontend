@@ -43,6 +43,7 @@ import {
   getSchedulingStepErrors,
   parseCurrencyInput,
   resolveSelectedServicePrice,
+  resolveSelectedServiceSubtotal,
   roundCurrency,
   shouldWarnForLargeHomePhotoCount,
   toBackendTime,
@@ -163,7 +164,7 @@ export const useBookShootController = () => {
       return 0;
     }
     return Math.round(
-      selectedServices.reduce((sum, service) => sum + resolveSelectedServicePrice(service, selectedServiceSqft), 0) * 100
+      selectedServices.reduce((sum, service) => sum + resolveSelectedServiceSubtotal(service, selectedServiceSqft), 0) * 100
     ) / 100;
   }, [selectedServiceSqft, selectedServices]);
   const pricingBreakdown = React.useMemo(
@@ -422,16 +423,15 @@ export const useBookShootController = () => {
         const nominalPrice = resolveSelectedServicePrice(service, sqft);
         const servicePayload: Record<string, unknown> = {
           id: service.id,
+          quantity: service.quantity ?? 1,
           photographer_id: assignedPhotographerId,
           scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, scheduleSource),
           is_deliverable: true,
         };
-        // Existing-shoot prices and quantities are booked snapshots. Omitting
-        // them lets the server preserve retained lines and price only genuinely
-        // new services from the current catalogue/square-footage tier.
+        // Keep the stored unit price on existing lines; the picker controls the
+        // booked quantity independently, including during request modifications.
         if (!isEditMode) {
           servicePayload.price = isCompReshootMode ? 0 : nominalPrice;
-          servicePayload.quantity = 1;
         }
 
         if (isCompReshootMode && compMapping && serviceCompensation) {

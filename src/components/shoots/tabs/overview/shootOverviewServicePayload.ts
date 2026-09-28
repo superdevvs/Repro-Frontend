@@ -1,4 +1,5 @@
 import type { ShootData } from '@/types/shoots';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import {
@@ -24,6 +25,7 @@ type ApplyOverviewServicePayloadArgs = {
   serviceSchedules: Record<string, ServiceScheduleFields>;
   servicePrices: Record<string, string>;
   servicePhotographerPays: Record<string, string>;
+  serviceQuantities?: Record<string, number>;
   perCategoryPhotographers: Record<string, string>;
   servicesList: ServiceOption[];
 };
@@ -38,6 +40,7 @@ export function applyOverviewServicePayload({
   serviceSchedules,
   servicePrices,
   servicePhotographerPays,
+  serviceQuantities = {},
   perCategoryPhotographers,
   servicesList,
 }: ApplyOverviewServicePayloadArgs) {
@@ -81,6 +84,9 @@ export function applyOverviewServicePayload({
         shoot.timezone, findServiceScheduleTimestamp(shoot, serviceId)) : null,
     };
     const explicitPrice = servicePrices[serviceId];
+    if (serviceQuantities[serviceId] !== undefined) {
+      item.quantity = normalizeBookingQuantity(serviceQuantities[serviceId]);
+    }
     if (isAdmin && explicitPrice !== undefined && explicitPrice !== '') {
       const parsedPrice = Number(explicitPrice);
       if (Number.isFinite(parsedPrice) && parsedPrice >= 0) item.price = parsedPrice;

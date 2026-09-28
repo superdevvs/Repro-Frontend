@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon } from 'lucide-react';
+import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,6 +25,7 @@ import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
+import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
 const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
@@ -219,7 +220,8 @@ export function Navbar() {
   const { user, logout, role } = useAuth();
   const { can } = usePermission();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const initialWeatherState = useMemo(() => resolveInitialWeatherState(), []);
   const { theme, setTheme } = useTheme();
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
@@ -410,6 +412,9 @@ export function Navbar() {
       ? [{ to: '/availability', icon: CalendarIcon, label: 'Availability' }]
       : []),
     { to: '/settings', icon: Settings2Icon, label: 'Settings' },
+    ...(isSimplifiedLayout && canUseListingStudio(role, user?.secondary_roles)
+      ? [{ to: listingStudioHref(location), icon: Sparkles, label: 'Listing Studio' }]
+      : []),
   ];
 
   return (
@@ -445,6 +450,7 @@ export function Navbar() {
                   key={item.to}
                   variant="ghost"
                   size="sm"
+                  aria-label={item.label}
                   className={cn(
                     'h-9 shrink-0 px-2 text-sm font-medium xl:px-3',
                     pathname === item.to || pathname.startsWith(item.to + '/') || (role === 'photographer' && item.to === '/settings' && pathname === '/photographer-account')

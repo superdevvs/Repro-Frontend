@@ -131,7 +131,7 @@ export function CompReshootCompensationSection({
                 return (
                   <div key={service.id} className="grid gap-2 p-3 lg:grid-cols-[minmax(10rem,1fr)_minmax(13rem,1.2fr)_8rem] lg:items-center">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground" title={service.name}>{service.name}</p>
+                      <p className="truncate text-sm font-medium text-foreground" title={service.name}>{service.name}{(service.quantity ?? 1) > 1 ? ` × ${service.quantity}` : ''}</p>
                       <p className="truncate text-xs text-muted-foreground">{resolvePhotographerName(service.id)} · Standard {money.format(controller.getStandardPay(service))}</p>
                     </div>
                     <RadioGroup
@@ -162,6 +162,7 @@ export function CompReshootCompensationSection({
                           value={row.customAmount}
                           onChange={(event) => controller.setServiceCustomAmount(service.id, event.target.value)}
                           aria-label={`${service.name} custom photographer amount`}
+                          title="Total compensation for this service, including all selected items"
                         />
                       </div>
                     ) : (

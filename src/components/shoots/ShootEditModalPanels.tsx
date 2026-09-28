@@ -94,6 +94,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
     selectedServiceSelectionOptions,
     handleSelectedServicesChange,
   } = model;
+  const selectedItemCount = selectedServiceRows.reduce((sum, row) => sum + (row.service.quantity ?? 1), 0);
 
   const renderDetailsPanel = () => (
     <div className="space-y-3 md:pr-1">
@@ -608,7 +609,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                 Selected services
               </div>
               <div className="mt-1 text-sm font-semibold">
-                {selectedServiceRows.length} {selectedServiceRows.length === 1 ? 'item' : 'items'}
+                {selectedItemCount} {selectedItemCount === 1 ? 'item' : 'items'}
               </div>
             </div>
             <Button
@@ -625,17 +626,17 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
           <div className="mt-3 space-y-1.5">
             {selectedServiceRows.length > 0 ? (
               selectedServiceRows.map(({ id, service }) => {
-                const price = getServicePrice(service);
+                const price = getServicePrice(service) * (service.quantity ?? 1);
                 const isVariablePricing =
                   service.pricing_type === 'variable' && service.sqft_ranges?.length;
-                const showVariablePlaceholder = isVariablePricing && !propertySqft;
+                const showVariablePlaceholder = isVariablePricing && !propertySqft && service.booked_price === undefined;
 
                 return (
                   <div
                     key={id}
                     className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/60 px-2 py-1.5"
                   >
-                    <span className="min-w-0 truncate text-xs font-medium">{service.name}</span>
+                    <span className="min-w-0 truncate text-xs font-medium">{service.name}{(service.quantity ?? 1) > 1 ? ` × ${service.quantity}` : ''}</span>
                     <span
                       className={cn(
                         'shrink-0 text-xs font-medium',

@@ -192,15 +192,6 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       })) : [],
     };
   
-    console.log('Payload being sent:', payload);
-    console.log('Payload type check:', {
-      name: typeof payload.name,
-      description: typeof payload.description,
-      price: typeof payload.price,
-      delivery_time: typeof payload.delivery_time,
-    });
-    console.log('Token:', token);
-  
     try {
       const res = await axios.put(
         `${API_BASE_URL}/api/admin/services/${service.id}`,
@@ -522,6 +513,24 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                   </div>
                 </div>
               )}
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit_allow_multiple" className="cursor-pointer">Allow multiple</Label>
+                  <p id="edit_allow_multiple_description" className="text-xs text-muted-foreground">
+                    Let users choose a quantity when booking or updating a shoot. Each item is priced separately.
+                  </p>
+                </div>
+                <Switch
+                  id="edit_allow_multiple"
+                  name="allow_multiple"
+                  aria-describedby="edit_allow_multiple_description"
+                  checked={editedService.allow_multiple || false}
+                  onCheckedChange={(checked) =>
+                    setEditedService({ ...editedService, allow_multiple: checked })
+                  }
+                />
+              </div>
 
               <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
                 <div className="flex items-center justify-between">

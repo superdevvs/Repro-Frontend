@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Navbar } from './Navbar';
 
 const auth = vi.hoisted(() => ({
-  user: { id: '1', name: 'Pat Photographer', role: 'photographer' as string },
+  user: { id: '1', name: 'Pat Photographer', role: 'photographer' as string, secondary_roles: [] as string[] },
   role: 'photographer' as string,
   logout: vi.fn(),
 }));
@@ -41,6 +41,7 @@ vi.mock('@/state/weatherProviderStore', () => ({
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+  auth.user.secondary_roles = [];
 });
 
 afterEach(() => {
@@ -52,7 +53,7 @@ afterEach(() => {
 describe('photographer and editor account menu', () => {
   it.each(['photographer', 'editor'])('keeps only Settings for %s', async (role) => {
     auth.role = role;
-    auth.user = { id: '1', name: role === 'editor' ? 'Ed Editor' : 'Pat Photographer', role };
+    auth.user = { id: '1', name: role === 'editor' ? 'Ed Editor' : 'Pat Photographer', role, secondary_roles: [] };
     render(
       <MemoryRouter>
         <Navbar />
@@ -62,5 +63,13 @@ describe('photographer and editor account menu', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Listing Studio' })).not.toBeInTheDocument();
+  });
+
+  it.each(['photographer', 'editor'])('offers Listing Studio for %s with an eligible secondary role', (role) => {
+    auth.role = role;
+    auth.user = { id: '1', name: 'Staff member', role, secondary_roles: ['sales_rep'] };
+    render(<MemoryRouter><Navbar /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Listing Studio' })).toBeInTheDocument();
   });
 });

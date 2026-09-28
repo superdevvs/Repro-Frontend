@@ -16,6 +16,7 @@ export type Service = {
   category_id?: string;
   icon?: string;
   photographer_required?: boolean;
+  allow_multiple?: boolean;
   exclude_from_sales_commission?: boolean;
   service_categories?: {
     id: string;
@@ -79,6 +80,7 @@ export const useServices = ({ scope = 'auto' }: UseServicesOptions = {}) => {
         category_id: item.category_id ? String(item.category_id) : undefined,
         icon: item.icon,
         photographer_required: Boolean(item.photographer_required),
+        allow_multiple: Boolean(item.allow_multiple),
         exclude_from_sales_commission: Boolean(item.exclude_from_sales_commission),
         service_categories: item.category
           ? {

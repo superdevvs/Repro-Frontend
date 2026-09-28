@@ -39,7 +39,7 @@ import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
 import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
-import { getServicePricingForSqft } from '@/utils/servicePricing';
+import { getServicePricingForSqft, resolveBookedPhotographerUnitPay } from '@/utils/servicePricing';
 import type { ServiceWithPricing } from '@/utils/servicePricing';
 import {
   getShootPhotographerAssignmentGroups,
@@ -59,12 +59,12 @@ import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLoca
 import { OverviewServicesTableSection } from './overview/OverviewServicesTableSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
-  extractPhotoCountFromServiceName,
   findMatchingEditorRate,
-  getExplicitEditorPhotoCount,
+  getBookedEditorPhotoCount,
   isPhotoServiceName,
 } from '@/utils/editorRates';
 import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
@@ -432,6 +432,7 @@ function ShootDetailsOverviewTabContent({
       servicesList,
       selectedServiceIds,
       servicePrices,
+      serviceQuantities,
       serviceSchedules,
       serviceDialogOpen,
       servicePanelCategory,
@@ -493,6 +494,7 @@ function ShootDetailsOverviewTabContent({
       clearAddressDerivedState,
       handleAddressSelect,
       toggleServiceSelection,
+      updateServiceQuantity,
       updateServiceSchedule,
       resolvePhotographerDetails,
       closePhotographerPicker,
@@ -743,8 +745,7 @@ function ShootDetailsOverviewTabContent({
     const baseName = typeof value === 'string'
       ? value
       : optionalString(service.name) || optionalString(service.label) || 'Service';
-    const quantity = getServiceQuantity(value);
-    if (isClient) return baseName;
+    const quantity = normalizeBookingQuantity(service.quantity ?? asRecord(service.pivot).quantity);
     return quantity > 1 ? `${baseName} x${quantity}` : baseName;
   };
 
@@ -783,20 +784,15 @@ function ShootDetailsOverviewTabContent({
     }
 
     const quantity = Math.max(1, getServiceQuantity(service));
-    const explicitPhotoCount = getExplicitEditorPhotoCount(service);
+    const bookedPhotoCount = getBookedEditorPhotoCount(service);
     const photoCount =
-      explicitPhotoCount ||
-      extractPhotoCountFromServiceName(serviceName) ||
+      bookedPhotoCount ||
       toSafeNumber(shoot.editedPhotoCount) ||
       toSafeNumber(shoot.expectedFinalCount) ||
       quantity;
 
-    if (isPhotoServiceName(serviceName)) {
+    if (isPhotoServiceName(serviceName) || bookedPhotoCount > 0) {
       return photoCount * matchedRate.rate;
-    }
-
-    if (explicitPhotoCount > 0) {
-      return explicitPhotoCount * matchedRate.rate;
     }
 
     return quantity * matchedRate.rate;
@@ -812,11 +808,13 @@ function ShootDetailsOverviewTabContent({
     const amount = isEditor
       ? getEditorServicePayout(service)
       : isPhotographer
-        ? pricingInfo?.photographerPay ?? Number(service.photographer_pay ?? 0)
+        ? resolveBookedPhotographerUnitPay(service, pricingInfo?.photographerPay)
         : bookedOrAdjustedPrice !== undefined && bookedOrAdjustedPrice !== ''
           ? Number(bookedOrAdjustedPrice)
           : pricingInfo?.price ?? Number(service.price ?? 0);
-    return serviceCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0);
+    const quantity = isEditMode ? (serviceQuantities[String(service.id)] ?? 1) : normalizeBookingQuantity(service.quantity ?? asRecord(service.pivot).quantity);
+    const total = isEditor ? amount : amount * quantity;
+    return serviceCurrencyFormatter.format(Number.isFinite(total) ? total : 0);
   };
 
   const getServiceCategoryBadgeName = (service: ServiceOption) => {
@@ -940,6 +938,9 @@ function ShootDetailsOverviewTabContent({
         serviceItems={serviceItems}
         servicesList={servicesList}
         selectedServiceIds={selectedServiceIds}
+        serviceQuantities={serviceQuantities}
+        servicePrices={servicePrices}
+        updateServiceQuantity={updateServiceQuantity}
         serviceSchedules={serviceSchedules}
         effectiveSqft={effectiveSqft}
         editModePhotographerRows={editModePhotographerRows}

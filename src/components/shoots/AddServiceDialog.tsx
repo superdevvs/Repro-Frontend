@@ -4,6 +4,7 @@ import { getUnitVisitDefaults, projectShootForUnit } from '@/features/shoot-unit
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { buildUnitScopedUpdate } from '@/features/shoot-units/unitMutations';
 import { calculateServicePrice, type SqftRange } from '@/utils/servicePricing';
+import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
@@ -26,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { ShootData } from '@/types/shoots';
-import { Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import {
   buildWallClockIso,
   formatDateForWallClockInput,
@@ -45,6 +46,7 @@ interface Service {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
   photographer_required?: boolean;
+  allow_multiple?: boolean;
 }
 
 interface AddServiceDialogProps {
@@ -59,6 +61,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [quantity, setQuantity] = useState(1);
   const [customPrice, setCustomPrice] = useState<string>('');
   const [photographerPay, setPhotographerPay] = useState<string>('');
   const [scheduleDate, setScheduleDate] = useState<string>('');
@@ -136,6 +139,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const existingServiceEntries = getExistingServiceEntries();
+      const bookedQuantities = getBookedServiceQuantities(scopedShoot);
       
       // Get current shoot services
       const currentServices = existingServiceEntries
@@ -146,12 +150,14 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
           return {
             id: Number(serviceId),
+            quantity: normalizeBookingQuantity(bookedQuantities[serviceId]),
             photographer_pay: record.photographer_pay == null && record.photographerPay == null ? null : Number(record.photographer_pay ?? record.photographerPay),
             scheduled_at: record.scheduled_at || record.scheduledAt ? String(record.scheduled_at || record.scheduledAt) : null,
           };
         })
         .filter((service): service is {
           id: number;
+          quantity: number;
           photographer_pay: number | null;
           scheduled_at: string | null;
         } => Boolean(service));
@@ -166,7 +172,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         photographer_id?: number;
       } = {
         id: Number(selectedServiceId),
-        quantity: 1,
+        quantity: services.find(service => String(service.id) === selectedServiceId)?.allow_multiple ? normalizeBookingQuantity(quantity) : 1,
         photographer_pay: photographerPay ? parseFloat(photographerPay) : null,
         scheduled_at: buildScheduledAtIso(scheduleDate, scheduleTime),
         ...(unitVisit?.photographerId && services.find(service => String(service.id) === selectedServiceId)?.photographer_required !== false ? { photographer_id: Number(unitVisit.photographerId) } : {}),
@@ -205,6 +211,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       
       setOpen(false);
       setSelectedServiceId('');
+      setQuantity(1);
       setCustomPrice('');
       setPhotographerPay('');
       setScheduleDate('');
@@ -273,7 +280,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="service">Service</Label>
-              <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+              <Select value={selectedServiceId} onValueChange={(value) => { setSelectedServiceId(value); setQuantity(1); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a service" />
                 </SelectTrigger>
@@ -295,8 +302,19 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
               </Select>
             </div>
 
+            {services.find(service => String(service.id) === selectedServiceId)?.allow_multiple && (
+              <div className="flex items-center justify-between gap-3">
+                <Label>Quantity</Label>
+                <div className="flex items-center gap-3">
+                  <Button type="button" variant="outline" size="icon" aria-label="Decrease service quantity" disabled={quantity <= 1} onClick={() => setQuantity(current => Math.max(1, current - 1))}><Minus className="h-4 w-4" /></Button>
+                  <span aria-live="polite" className="min-w-6 text-center tabular-nums">{quantity}</span>
+                  <Button type="button" variant="outline" size="icon" aria-label="Increase service quantity" onClick={() => setQuantity(current => current + 1)}><Plus className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="price">Custom Price (Optional)</Label>
+              <Label htmlFor="price">Custom Price per item (Optional)</Label>
               <Input
                 id="price"
                 type="number"
@@ -307,7 +325,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="photographerPay">Photographer's Pay (Optional)</Label>
+              <Label htmlFor="photographerPay">Photographer's Pay per item (Optional)</Label>
               <Input
                 id="photographerPay"
                 type="number"

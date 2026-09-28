@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
+import { canUseListingStudio, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+
+const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
 
 // Stash the context on globalThis so Vite HMR doesn't create duplicate context
 // instances during development (which would defeat the nested-layout guard and
@@ -38,6 +41,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
+  const listingStudioOpen = canUseListingStudio(role, user?.secondary_roles) && new URLSearchParams(location.search).get(LISTING_STUDIO_QUERY) === '1';
+  const closeListingStudio = () => {
+    const params = new URLSearchParams(location.search);
+    params.delete(LISTING_STUDIO_QUERY);
+    params.delete('listingStudioTab');
+    navigate({ pathname: location.pathname, search: params.toString(), hash: location.hash }, { replace: true });
+  };
   const [bottomNavHeight, setBottomNavHeight] = React.useState(0);
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
@@ -147,6 +157,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
         </div>
       </div>
+      {listingStudioOpen && (
+        <React.Suspense fallback={null}>
+          <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={new URLSearchParams(location.search).get('listingStudioTab') === 'requests' ? 'requests' : undefined} onClose={closeListingStudio} />
+        </React.Suspense>
+      )}
     </DashboardLayoutContext.Provider>
   );
 };

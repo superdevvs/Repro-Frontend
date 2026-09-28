@@ -1,4 +1,5 @@
 import type { Service } from '@/hooks/useServices';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 type MetadataRecord = Record<string, unknown>;
 
@@ -39,7 +40,7 @@ export const isVirtualStagingServiceName = (name: string) =>
   /virtual\s*staging/i.test(name);
 
 export const extractPhotoCountFromServiceName = (name: string) => {
-  const match = name.match(/(\d+)\s*photo/i);
+  const match = name.match(/(\d+)\s*(?:[a-z]+\s+){0,3}(?:photo|image|hdr)/i);
   return match ? Number(match[1]) : 0;
 };
 
@@ -245,6 +246,15 @@ export const getExplicitEditorPhotoCount = (service: unknown) => {
   const record = service as MetadataRecord;
   const pivot = toRecord(record.pivot);
   return toNumber(record.photo_count ?? record.photoCount ?? pivot.photo_count);
+};
+
+/** API photo counts already include quantity; a package count parsed from its name does not. */
+export const getBookedEditorPhotoCount = (service: unknown) => {
+  const explicitCount = getExplicitEditorPhotoCount(service);
+  if (explicitCount > 0) return explicitCount;
+
+  return extractPhotoCountFromServiceName(getEditorServiceName(service))
+    * normalizeBookingQuantity(getEditorServiceQuantity(service));
 };
 
 export const findMatchingEditorRate = (

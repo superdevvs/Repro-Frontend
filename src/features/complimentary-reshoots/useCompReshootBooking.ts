@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeState } from '@/utils/stateUtils';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import type { PropertyDetailsData, ServicePackage } from '@/pages/bookShootModel';
 import { getComplimentaryReshootTemplate } from './api';
 import {
@@ -318,9 +319,12 @@ export const useCompReshootBooking = ({
     return sourceShootServiceId ? sourceByShootServiceId.get(sourceShootServiceId) : undefined;
   }, [serviceMappings, sourceByShootServiceId]);
 
-  const getStandardPay = React.useCallback((service: ServicePackage) => (
-    resolveStandardPhotographerPay(service, propertySqft)
-  ), [propertySqft]);
+  const getStandardPay = React.useCallback((service: ServicePackage) => {
+    const source = getMappedSourceService(service.id);
+    const fallbackUnitPay = source ? source.standardPhotographerPay / normalizeBookingQuantity(source.quantity) : 0;
+    const unitPay = resolveStandardPhotographerPay(service, propertySqft, fallbackUnitPay);
+    return Math.round(unitPay * normalizeBookingQuantity(service.quantity) * 100) / 100;
+  }, [getMappedSourceService, propertySqft]);
 
   const getServiceCompensation = React.useCallback((service: ServicePackage) => {
     const row = serviceCompensations[service.id] ?? { mode: 'standard' as const, customAmount: '' };

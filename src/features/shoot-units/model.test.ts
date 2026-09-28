@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ServicePackage } from '@/pages/bookShootModel';
+import { resolveSelectedServiceSubtotal, type ServicePackage } from '@/pages/bookShootModel';
 import { buildUnitPayload, copyMissingServices, emptyMultiUnitDraft, hydrateUnitDraft, makeUnitDraft, multiUnitErrors, resolveUnitSchedule, setUnitServices, summarizeUnitServices, unitServiceDuration, type MultiUnitDraft } from './model';
 const catalog: ServicePackage[] = [
   { id: '1', name: 'Photos', description: '', price: 200, photographer_required: true, pricing_type: 'variable', sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, price: 200, duration: 60, photographer_pay: 50 }, { sqft_from: 2001, sqft_to: 10000, price: 350, duration: 90, photographer_pay: 80 }] },
@@ -11,6 +11,28 @@ function draft(count = 2): MultiUnitDraft {
   return value;
 }
 describe('multi-unit booking identity, pricing and occupied time', () => {
+  it('changes quantities only in the active unit and prices each item without multiplying aggregate totals twice', () => {
+    const original = setUnitServices(draft(), 'u0', [{ id: '1', quantity: 3 }]);
+    const copied = copyMissingServices(original, 'u0', ['u1']);
+    expect(copied.lines.map(line => line.quantity)).toEqual([3, 3]);
+    const updated = setUnitServices(copied, 'u1', [{ id: '1', quantity: 2 }]);
+    expect(updated.lines.map(line => line.quantity)).toEqual([3, 2]);
+    const [summary] = summarizeUnitServices(updated, catalog);
+    expect(summary).toMatchObject({ quantity: 5, price: 1300, total_price: 1300 });
+    expect(resolveSelectedServiceSubtotal(summary, 1000)).toBe(1300);
+    expect(copyMissingServices(updated, 'u0', ['u1']).lines).toEqual(updated.lines);
+    const schedule = resolveUnitSchedule(updated, catalog, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(schedule.totalMinutes).toBe(150);
+    expect(buildUnitPayload(updated, schedule.lines).service_lines.map(line => line.quantity)).toEqual([3, 2]);
+  });
+  it('preserves independent saved quantities and unit prices when a booking is reopened', () => {
+    const value = hydrateUnitDraft({ units: [{ id: 8, label: '101', kind: 'unit', sqft: 1000 }, { id: 9, label: '102', kind: 'unit', sqft: 2500 }], service_items: [
+      { shoot_service_id: 50, service_id: 1, shoot_unit_id: 8, quantity: 2, price: 111 },
+      { shoot_service_id: 51, service_id: 1, shoot_unit_id: 9, quantity: 4, price: 222 },
+    ] });
+    expect(value.lines.map(line => line.quantity)).toEqual([2, 4]);
+    expect(summarizeUnitServices(value, catalog)[0]).toMatchObject({ quantity: 6, total_price: 1110 });
+  });
   it('bulk adds missing services idempotently and reprices each destination without replacing snapshots or overrides', () => {
     const value = setUnitServices(draft(3), 'u1', ['1']);
     value.lines[1] = { ...value.lines[1], price: 275, date: '2026-10-09', time: '14:00', photographer_id: '9', shoot_service_id: 'line-5' };

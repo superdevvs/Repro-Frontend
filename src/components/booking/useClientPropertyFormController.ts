@@ -29,6 +29,7 @@ export interface PackageOption extends ServiceSelectionOption {
   name: string;
   description: string;
   price: number;
+  booked_price?: number;
   category?: PackageCategory | null;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: ServiceWithPricing['sqft_ranges'];
@@ -630,7 +631,7 @@ export const useClientPropertyFormController = ({
 
     const updatedServices = selectedServices.map(service => {
       const sqftRanges = getServiceSqftRanges(service);
-      if (service.pricing_type === 'variable' && sqftRanges.length) {
+      if (service.booked_price === undefined && service.pricing_type === 'variable' && sqftRanges.length) {
         const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges } as ServiceWithPricing, effectiveSqft);
         return { ...service, price: pricingInfo.price };
       }

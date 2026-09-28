@@ -1,5 +1,6 @@
 import { photographerAssignmentIssue } from '@/utils/photographerAssignment';
 import type { PricingBreakdown } from '@/utils/pricing';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 export type SqftRange = {
   id?: number;
@@ -22,6 +23,10 @@ export type ServicePackage = {
   photographer_pay?: number | null;
   exclude_from_sales_commission?: boolean;
   quantity?: number;
+  /** Stored unit price when editing a booked line. */
+  booked_price?: number;
+  /** Aggregate of independently priced unit lines, used only in the summary. */
+  total_price?: number;
   delivery_time?: number | null;
   shoot_duration_minutes?: number | null;
   duration_minutes?: number | null;
@@ -198,6 +203,7 @@ export const getBookingSubmissionPreflightIssue = (input: {
 };
 
 export const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
+  if (service.booked_price !== undefined) return service.booked_price;
   let price = Number(service.price ?? 0);
 
   if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
@@ -211,6 +217,9 @@ export const resolveSelectedServicePrice = (service: ServicePackage, sqft?: numb
 
   return price;
 };
+
+export const resolveSelectedServiceSubtotal = (service: ServicePackage, sqft?: number | null) =>
+  service.total_price ?? resolveSelectedServicePrice(service, sqft) * normalizeBookingQuantity(service.quantity);
 
 export const isLowPhotoCountServiceForLargeHome = (service: ServicePackage) => {
   const label = `${service.name || ''} ${service.description || ''}`.toLowerCase();

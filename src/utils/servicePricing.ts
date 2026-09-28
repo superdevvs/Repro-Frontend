@@ -70,6 +70,11 @@ const toFiniteNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+/** A booked unit rate, including an intentional zero, takes priority over today's catalog. */
+export function resolveBookedPhotographerUnitPay(service: PaySource, catalogPay?: number | null): number {
+  return toFiniteNumber(service.photographer_pay) ?? toFiniteNumber(catalogPay) ?? 0;
+}
+
 const resolvePayFrom = (source: PaySource, price: number): number | null => {
   if ((source.photographer_pay_type ?? 'fixed') === 'percent') {
     const percent = toFiniteNumber(source.photographer_pay_percent);

@@ -5,12 +5,13 @@ import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getServiceUnitId, getUnitKey, normalizeShootUnits } from './shootUnitData';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 export type UnitDraft = ShootUnit & { client_key: string };
 export type UnitLineDraft = {
   client_key: string; shoot_service_id?: string | number; unit_client_key: string;
   service_id: string; price?: number; date?: string; time?: string; photographer_id?: string;
-  duration_minutes?: number;
+  duration_minutes?: number; quantity?: number;
 };
 export type UnitScheduleDefault = { date?: string; time?: string; photographer_id?: string };
 export type MultiUnitDraft = {
@@ -22,15 +23,22 @@ export const makeUnitDraft = (seed: Partial<UnitDraft> = {}): UnitDraft => ({ cl
 export const draftUnitKey = (unit: ShootUnit) => String(unit.client_key ?? unit.id ?? '');
 export const unitLineKey = (unitKey: string, serviceId: string) => `${unitKey}:${serviceId}`;
 export const linePrice = (line: UnitLineDraft, unit: ShootUnit, catalog: ServicePackage[]) => line.price ?? resolveSelectedServicePrice(catalog.find(service => service.id === line.service_id) ?? { id: line.service_id, name: '', description: '', price: 0 }, unit.sqft);
-export function setUnitServices(draft: MultiUnitDraft, unitKey: string, serviceIds: string[]): MultiUnitDraft {
-  const retained = draft.lines.filter(line => line.unit_client_key !== unitKey || serviceIds.includes(line.service_id));
+export const lineTotal = (line: UnitLineDraft, unit: ShootUnit, catalog: ServicePackage[]) => linePrice(line, unit, catalog) * normalizeBookingQuantity(line.quantity);
+export function setUnitServices(draft: MultiUnitDraft, unitKey: string, services: Array<string | Pick<ServicePackage, 'id' | 'quantity'>>): MultiUnitDraft {
+  const serviceIds = services.map(service => typeof service === 'string' ? service : service.id);
+  const quantities = new Map(services.filter((service): service is Pick<ServicePackage, 'id' | 'quantity'> => typeof service !== 'string').map(service => [service.id, normalizeBookingQuantity(service.quantity)]));
+  const retained = draft.lines.filter(line => line.unit_client_key !== unitKey || serviceIds.includes(line.service_id)).map(line =>
+    line.unit_client_key === unitKey && quantities.has(line.service_id) ? { ...line, quantity: quantities.get(line.service_id) } : line);
   const existing = new Set(retained.filter(line => line.unit_client_key === unitKey).map(line => line.service_id));
-  return { ...draft, lines: [...retained, ...[...new Set(serviceIds)].filter(id => !existing.has(id)).map(service_id => ({ client_key: unitLineKey(unitKey, service_id), unit_client_key: unitKey, service_id }))] };
+  return { ...draft, lines: [...retained, ...[...new Set(serviceIds)].filter(id => !existing.has(id)).map(service_id => ({ client_key: unitLineKey(unitKey, service_id), unit_client_key: unitKey, service_id, quantity: quantities.get(service_id) ?? 1 }))] };
 }
 export function copyMissingServices(draft: MultiUnitDraft, source: string, targets: string[]): MultiUnitDraft {
-  const ids = draft.lines.filter(line => line.unit_client_key === source).map(line => line.service_id);
+  const services = draft.lines.filter(line => line.unit_client_key === source).map(line => ({ id: line.service_id, quantity: normalizeBookingQuantity(line.quantity) }));
   const valid = new Set(draft.units.map(draftUnitKey));
-  return [...new Set(targets)].filter(key => key !== source && valid.has(key)).reduce((next, key) => setUnitServices(next, key, [...next.lines.filter(line => line.unit_client_key === key).map(line => line.service_id), ...ids]), draft);
+  return [...new Set(targets)].filter(key => key !== source && valid.has(key)).reduce((next, key) => {
+    const own = next.lines.filter(line => line.unit_client_key === key).map(line => line.service_id);
+    return setUnitServices(next, key, [...own, ...services.filter(service => !own.includes(service.id))]);
+  }, draft);
 }
 export function multiUnitErrors(draft: MultiUnitDraft, requireServices = true): Record<string, string[]> {
   if (!draft.enabled) return {};
@@ -52,9 +60,10 @@ export function multiUnitErrors(draft: MultiUnitDraft, requireServices = true): 
 export function summarizeUnitServices(draft: MultiUnitDraft, catalog: ServicePackage[]): ServicePackage[] {
   return catalog.flatMap(service => {
     const lines = draft.lines.filter(line => line.service_id === service.id);
-    return lines.length ? [{ ...service, pricing_type: 'fixed' as const, sqft_ranges: [], quantity: lines.length,
+    const total = lines.reduce((sum, line) => sum + lineTotal(line, draft.units.find(unit => unit.client_key === line.unit_client_key)!, catalog), 0);
+    return lines.length ? [{ ...service, pricing_type: 'fixed' as const, sqft_ranges: [], quantity: lines.reduce((sum, line) => sum + normalizeBookingQuantity(line.quantity), 0),
       description: `${lines.length} unit${lines.length === 1 ? '' : 's'} · separately priced service lines`,
-      price: lines.reduce((sum, line) => sum + linePrice(line, draft.units.find(unit => unit.client_key === line.unit_client_key)!, catalog), 0) }] : [];
+      price: total, total_price: total }] : [];
   });
 }
 export type ResolvedUnitLine = UnitLineDraft & { scheduled_date: string; start_time: string; photographer_id: string; duration: number; end_time: string };
@@ -105,7 +114,7 @@ export function buildUnitPayload(draft: MultiUnitDraft, resolved: ResolvedUnitLi
       return { ...(line.shoot_service_id ? { shoot_service_id: line.shoot_service_id } : {}), client_key: line.client_key,
         unit_client_key: line.unit_client_key, ...(unit.id ? { shoot_unit_id: unit.id } : {}), service_id: line.service_id,
         scheduled_at: buildShootScheduleTimestamp(line.scheduled_date, line.start_time, timezone), photographer_id: line.photographer_id || null,
-        quantity: 1 as const, is_deliverable: true as const };
+        quantity: normalizeBookingQuantity(line.quantity), is_deliverable: true as const };
     }),
   };
 }
@@ -122,6 +131,7 @@ export function hydrateUnitDraft(value: unknown): MultiUnitDraft {
     const schedule = getShootSchedule({ scheduled_at: line.scheduled_at ?? line.scheduledAt, timezone: data.timezone });
     return [{ client_key: String(line.client_key ?? unitLineKey(unit.client_key, id)), unit_client_key: unit.client_key, service_id: id,
       shoot_service_id: (line.shoot_service_id ?? line.shootServiceId) as string | number | undefined,
+      quantity: normalizeBookingQuantity(line.quantity),
       ...(line.price !== null && line.price !== undefined ? { price: Number(line.price) } : {}), date: schedule.date || undefined, time: schedule.time || undefined,
       photographer_id: String(line.photographer_id ?? line.resolved_photographer_id ?? ''),
       ...(Number(line.duration_minutes ?? line.duration) > 0 ? { duration_minutes: Number(line.duration_minutes ?? line.duration) } : {}) }];

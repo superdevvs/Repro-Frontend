@@ -6,6 +6,7 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { OLD_DASHBOARD_URL, canViewOldDashboard } from '@/config/oldDashboard';
 import { usePermission } from '@/hooks/usePermission';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
+import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
 
 export interface MobileMenuItem {
   to: string;
@@ -19,8 +20,9 @@ export interface MobileMenuItem {
 
 export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { pathname } = useLocation();
-  const { role, logout } = useAuth();
+  const location = useLocation();
+  const { pathname } = location;
+  const { role, user, logout } = useAuth();
   const permission = usePermission();
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
@@ -108,6 +110,13 @@ export const useMobileMenu = () => {
       label: "Exclusive Listings",
       isActive: pathname === '/portal' || pathname.startsWith('/exclusive-listings'),
       visible: permission.can('portal', 'view'),
+    },
+    {
+      to: listingStudioHref(location),
+      icon: "Sparkles",
+      label: "Listing Studio",
+      isActive: false,
+      visible: canUseListingStudio(role, user?.secondary_roles),
     },
     {
       to: "/accounting",

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getServiceScheduleLabel } from '@/utils/serviceScheduleLabel';
 import type { PricingBreakdown } from '@/utils/pricing';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 
 interface BookingSummaryProps {
   summaryInfo: {
@@ -28,7 +29,7 @@ interface BookingSummaryProps {
     date: string;
     time: string;
   };
-  selectedServices: Array<{ id: string; name: string; description: string; price: number }>;
+  selectedServices: Array<{ id: string; name: string; description: string; price: number; quantity?: number; total_price?: number }>;
   serviceSchedules?: Record<string, { date?: string; time?: string }>;
   onSubmit?: () => void;
   isLastStep?: boolean;
@@ -145,7 +146,7 @@ export function BookingSummary({
                   className="flex items-center justify-between rounded-md border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">{service.name}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{service.name}{normalizeBookingQuantity(service.quantity) > 1 ? ` × ${normalizeBookingQuantity(service.quantity)}` : ''}</p>
                     {serviceScheduleLabelFor(service.id) && (
                       <p className="text-xs text-blue-600 dark:text-blue-300 mt-0.5">{serviceScheduleLabelFor(service.id)}</p>
                     )}
@@ -154,7 +155,7 @@ export function BookingSummary({
                     )}
                   </div>
                   <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {isComplimentaryReshoot ? '$0.00' : `$${Number(service.price ?? 0).toFixed(2)}`}
+                    {isComplimentaryReshoot ? '$0.00' : `$${(service.total_price ?? Number(service.price ?? 0) * normalizeBookingQuantity(service.quantity)).toFixed(2)}`}
                   </span>
                 </div>
               ))}

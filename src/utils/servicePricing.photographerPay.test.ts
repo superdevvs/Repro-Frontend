@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculatePhotographerPay } from './servicePricing';
+import { calculatePhotographerPay, resolveBookedPhotographerUnitPay } from './servicePricing';
 
 describe('calculatePhotographerPay', () => {
   it('returns a flat catalog amount unchanged', () => {
@@ -42,5 +42,21 @@ describe('calculatePhotographerPay', () => {
         null,
       ),
     ).toBe(45);
+  });
+});
+
+describe('booked photographer pay', () => {
+  it('keeps a saved zero instead of substituting the current catalog rate', () => {
+    expect(resolveBookedPhotographerUnitPay({ photographer_pay: 0 }, 90)).toBe(0);
+    expect(resolveBookedPhotographerUnitPay({ photographer_pay: '0.00' }, 90)).toBe(0);
+  });
+
+  it('retains the saved unit rate for multiplication by the booked quantity', () => {
+    expect(resolveBookedPhotographerUnitPay({ photographer_pay: 40 }, 90) * 3).toBe(120);
+  });
+
+  it('uses catalog pay only when a booked rate is unavailable', () => {
+    expect(resolveBookedPhotographerUnitPay({ photographer_pay: null }, 90)).toBe(90);
+    expect(resolveBookedPhotographerUnitPay({}, null)).toBe(0);
   });
 });

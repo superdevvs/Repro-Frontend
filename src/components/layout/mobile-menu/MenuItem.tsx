@@ -16,6 +16,7 @@ import {
   BarChart3Icon,
   TicketIcon,
   ExternalLinkIcon,
+  Sparkles,
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
@@ -32,6 +33,8 @@ export const MenuItem = ({ to, icon, label, isActive, onClick, external = false 
   // Function to render the correct icon based on the string name
   const renderIcon = () => {
     switch (icon) {
+      case 'Sparkles':
+        return <Sparkles className="h-5 w-5" />;
       case 'Home':
         return <HomeIcon className="h-5 w-5" />;
       case 'Clipboard':

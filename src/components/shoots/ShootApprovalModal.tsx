@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
+import { getApprovalServices, getApprovalPricing, type ApprovalService } from './shootApprovalServices';
+import { ShootApprovalServicesSection } from './ShootApprovalServicesSection';
 import { MultiUnitApprovalDialog } from '@/features/shoot-units/MultiUnitApprovalDialog';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import {
@@ -305,6 +308,7 @@ export function ShootApprovalModal({
   const [alternateDate, setAlternateDate] = useState<string>('');
   const [alternateTime, setAlternateTime] = useState<string>('');
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
+  const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
   const [notes, setNotes] = useState('');
@@ -383,6 +387,7 @@ export function ShootApprovalModal({
     setAlternateDate('');
     setAlternateTime('');
     setServiceSchedules({});
+    setServiceQuantities({});
     setPhotographerId('');
     setPerCategoryPhotographers({});
     setPhotographerSearchQuery('');
@@ -412,7 +417,9 @@ export function ShootApprovalModal({
         if (response.ok) {
           const responseJson: unknown = await response.json();
           const responseRecord = asRecord(responseJson);
-          const shoot = asRecord(responseRecord.data ?? responseJson) as unknown as ShootDetails;
+          const rawShoot = asRecord(responseRecord.data ?? responseJson);
+          const shoot = { ...rawShoot, services: getApprovalServices(rawShoot) } as unknown as ShootDetails;
+          setServiceQuantities(getBookedServiceQuantities(rawShoot));
           console.log('🔍 ShootApprovalModal - API Response:', {
             shootId,
             scheduled_date: shoot.scheduled_date,
@@ -599,6 +606,7 @@ export function ShootApprovalModal({
             shootDetails.timezone, findServiceScheduleTimestamp(shootDetails, serviceId)) || scheduledAt;
           items.push({
             service_id: serviceId,
+            quantity: normalizeBookingQuantity(serviceQuantities[String(serviceId)]),
             scheduled_at: serviceScheduledAt,
             ...(selectedPhotographerId && selectedPhotographerId !== 'unassigned'
               ? { photographer_id: Number(selectedPhotographerId) }
@@ -892,50 +900,9 @@ export function ShootApprovalModal({
     shootDetails?.client?.email_verified ?? shootDetails?.client?.emailVerified,
   );
   const services = useMemo(() => shootDetails?.services ?? [], [shootDetails?.services]);
-  const servicePriceTotal =
-    Array.isArray(services) && services.length
-      ? services.reduce((sum, service) => {
-          const price = isShootServiceDetails(service) ? Number(service.price ?? 0) : 0;
-          return sum + (Number.isFinite(price) ? price : 0);
-        }, 0)
-      : 0;
-  const resolvedBaseQuote =
-    shootDetails?.payment?.baseQuote ??
-    shootDetails?.financials?.baseQuote ??
-    shootDetails?.baseQuote ??
-    shootDetails?.base_quote ??
-    servicePriceTotal;
-  const baseQuote = Number(resolvedBaseQuote ?? 0);
-
-  // Get stored tax amount
-  const storedTaxAmount = Number(
-    shootDetails?.payment?.taxAmount ??
-    shootDetails?.financials?.taxAmount ??
-    shootDetails?.taxAmount ??
-    shootDetails?.tax_amount ??
-    0
+  const { baseQuote, taxAmount, totalQuote } = getApprovalPricing(
+    shootDetails, services as Array<ApprovalService | string>, serviceQuantities,
   );
-
-  // If stored tax is 0 but we have a base quote and tax_percent, recalculate
-  const rawTaxPercent = Number(
-    shootDetails?.tax_percent ??
-    shootDetails?.taxPercent ??
-    shootDetails?.payment?.taxRate ??
-    0
-  );
-  const normalizedTaxRate = rawTaxPercent > 1 ? rawTaxPercent / 100 : rawTaxPercent;
-  const taxAmount = storedTaxAmount > 0
-    ? storedTaxAmount
-    : Number((baseQuote * normalizedTaxRate).toFixed(2));
-
-  const storedTotalQuote = Number(
-    shootDetails?.payment?.totalQuote ??
-    shootDetails?.financials?.totalQuote ??
-    shootDetails?.totalQuote ??
-    shootDetails?.total_quote ??
-    0
-  );
-  const totalQuote = storedTotalQuote > 0 ? storedTotalQuote : baseQuote + taxAmount;
   const shootNotes =
     shootDetails?.shootNotes ||
     shootDetails?.shoot_notes ||
@@ -1156,28 +1123,10 @@ export function ShootApprovalModal({
                     </div>
                   </div>
 
-                  {/* Services */}
-                  {services.length > 0 && (
-                    <>
-                      <Separator />
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Services</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {services.map((service, index) => (
-                            <Badge 
-                              key={isShootServiceDetails(service)
-                                ? service.id || service.name || service.label || index
-                                : `${service}-${index}`}
-                              variant="secondary" 
-                              className="bg-primary/10 text-primary border-primary/20 text-xs"
-                            >
-                              {getServiceName(service)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  {services.length > 0 && <><Separator /><ShootApprovalServicesSection
+                    services={services as Array<ApprovalService | string>} quantities={serviceQuantities} disabled={isSubmitting}
+                    onQuantityChange={(id, quantity) => setServiceQuantities(current => ({ ...current, [id]: quantity }))}
+                  /></>}
 
                   {/* Client Notes */}
                   {shootNotes && (

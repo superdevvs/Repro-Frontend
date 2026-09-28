@@ -247,6 +247,23 @@ export function ServiceCreateDialog({
               </div>
             )}
 
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="new_allow_multiple" className="cursor-pointer">Allow multiple</Label>
+                <p id="new_allow_multiple_description" className="text-xs text-muted-foreground">
+                  Let users choose a quantity when booking or updating a shoot. Each item is priced separately.
+                </p>
+              </div>
+              <Switch
+                id="new_allow_multiple"
+                aria-describedby="new_allow_multiple_description"
+                checked={newService.allow_multiple}
+                onCheckedChange={(checked) =>
+                  setNewService(prev => ({ ...prev, allow_multiple: checked }))
+                }
+              />
+            </div>
+
             <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="photographer_required" className="cursor-pointer">
@@ -511,4 +528,3 @@ export function ServiceCreateDialog({
     </Dialog>
   );
 }
-

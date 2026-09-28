@@ -9,6 +9,7 @@ import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { ServiceSelectionOption } from '@/components/booking/ServiceSelectionDialog';
+import { getBookedServiceQuantities, getBookedServiceUnitPrices, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getDayAvailability, type DayAvailability } from '@/utils/availabilityProvider';
 import { isTimeOutsideDayAvailability, extractStartTimeScheduleError } from '@/utils/editPickerBounds';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
@@ -75,6 +76,7 @@ export function useShootEditModalController({
   const [alternateDate, setAlternateDate] = useState<string>('');
   const [alternateTime, setAlternateTime] = useState<string>('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
   const [photographerId, setPhotographerId] = useState<string>('');
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
@@ -107,6 +109,7 @@ export function useShootEditModalController({
       if (!isOpen || !shootId) return;
       setIsLoading(true);
       setSelectedServiceIds(new Set());
+      setServiceQuantities({});
       setServiceSchedules({});
       setPerCategoryPhotographers({});
       setPhotographerId('');
@@ -132,6 +135,7 @@ export function useShootEditModalController({
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
           photographer_required: Boolean(s.photographer_required),
+          allow_multiple: s.allow_multiple === true || s.allow_multiple === 1 || s.allow_multiple === '1',
           category: s.category ? { id: s.category.id, name: s.category.name } : undefined,
           sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: ServiceApiRange) => ({
             ...r,
@@ -147,6 +151,7 @@ export function useShootEditModalController({
           const data = await shootResponse.json();
           const shoot = projectUnitFetched(data.data || data);
           setShootDetails(shoot);
+          setServiceQuantities(getBookedServiceQuantities(shoot));
           setAddress(shoot.address || shoot.location?.address || '');
           setCity(shoot.city || shoot.location?.city || '');
           setState(shoot.state || shoot.location?.state || '');
@@ -288,7 +293,10 @@ export function useShootEditModalController({
       setPropertyDetails(nextPropertyDetails);
     }
   };
+  const bookedServiceUnitPrices = useMemo(() => getBookedServiceUnitPrices(shootDetails), [shootDetails]);
   const getServicePrice = React.useCallback((service: Service): number => {
+    const bookedPrice = bookedServiceUnitPrices[String(service.id)];
+    if (bookedPrice !== undefined) return bookedPrice;
     if (service.pricing_type === 'variable' && propertySqft && service.sqft_ranges?.length) {
       const matchingRange = service.sqft_ranges.find(
         range => propertySqft >= range.sqft_from && propertySqft <= range.sqft_to
@@ -298,14 +306,14 @@ export function useShootEditModalController({
       }
     }
     return Number(service.price) || 0;
-  }, [propertySqft]);
+  }, [bookedServiceUnitPrices, propertySqft]);
   const hasVariablePricingWithoutSqft = React.useMemo(() => {
     if (!selectedServiceIds.size) return false;
     return Array.from(selectedServiceIds).some((id) => {
       const service = availableServices.find((s) => s.id?.toString() === id);
-      return Boolean(service?.pricing_type === 'variable' && service.sqft_ranges?.length && !propertySqft);
+      return Boolean(service?.pricing_type === 'variable' && service.sqft_ranges?.length && !propertySqft && bookedServiceUnitPrices[id] === undefined);
     });
-  }, [selectedServiceIds, availableServices, propertySqft]);
+  }, [selectedServiceIds, availableServices, propertySqft, bookedServiceUnitPrices]);
   const clientName = shootDetails?.client?.name || 'Unknown Client';
   const canRemoveAllServices = Boolean(
     shootDetails?.canRemoveAllServices ?? shootDetails?.can_remove_all_services,
@@ -627,6 +635,7 @@ export function useShootEditModalController({
       const serviceRequiresPhotographer = service?.photographer_required !== false;
       return {
         service_id: Number(id),
+        quantity: normalizeBookingQuantity(serviceQuantities[id]),
         scheduled_at: serviceScheduledAt,
         photographer_id: serviceRequiresPhotographer
           ? (
@@ -650,6 +659,7 @@ export function useShootEditModalController({
       shoot_notes: shootNotes.trim(),
       services: serviceItemsPayload.map((item) => ({
         id: item.service_id,
+        quantity: item.quantity,
         scheduled_at: item.scheduled_at,
       })),
       service_items: serviceItemsPayload,
@@ -831,10 +841,10 @@ export function useShootEditModalController({
       Array.from(selectedServiceIds)
         .map((id) => {
           const service = availableServices.find((candidate) => candidate.id?.toString() === id);
-          return service ? { id, service } : null;
+          return service ? { id, service: { ...service, booked_price: bookedServiceUnitPrices[id], quantity: normalizeBookingQuantity(serviceQuantities[id]) } } : null;
         })
-        .filter((row): row is { id: string; service: Service } => Boolean(row)),
-    [availableServices, selectedServiceIds],
+        .filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    [availableServices, selectedServiceIds, serviceQuantities, bookedServiceUnitPrices],
   );
   useEffect(() => {
     if (selectedServiceIds.size === 0) {
@@ -909,7 +919,7 @@ export function useShootEditModalController({
       ? 0
       : Array.from(selectedServiceIds).reduce((sum, id) => {
         const service = availableServices.find((candidate) => candidate.id?.toString() === id);
-        return sum + (service ? getServicePrice(service) : 0);
+        return sum + (service ? getServicePrice(service) * normalizeBookingQuantity(serviceQuantities[id]) : 0);
       }, 0);
     const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
     const pricing = calculatePricingBreakdown({
@@ -939,6 +949,7 @@ export function useShootEditModalController({
     hasVariablePricingWithoutSqft,
     invoiceAdjustmentTotal,
     selectedServiceIds,
+    serviceQuantities,
     taxPercent,
     getServicePrice,
   ]);
@@ -964,10 +975,11 @@ export function useShootEditModalController({
   );
   const handleSelectedServicesChange = (services: ServiceSelectionOption[]) => {
     setSelectedServiceIds(new Set(services.map((service) => String(service.id))));
+    setServiceQuantities(Object.fromEntries(services.map((service) => [String(service.id), normalizeBookingQuantity(service.quantity)])));
   };
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
     return buildWallClockIso(dateValue, timeValue);
   };
-  const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceSchedules, photographerId, perCategoryPhotographers, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
+  const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceQuantities, serviceSchedules, photographerId, perCategoryPhotographers, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
   return { unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }

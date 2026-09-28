@@ -50,7 +50,7 @@ export function CompReshootServicesStep({
           <div className="flex flex-wrap gap-2" aria-label="Selected return-visit services">
             {selectedServices.map((service) => (
               <Badge key={service.id} variant="secondary" className="max-w-full gap-2 py-1.5 pl-3 pr-2 text-sm">
-                <span className="truncate">{service.name}</span>
+                <span className="truncate">{service.name}{(service.quantity ?? 1) > 1 ? ` × ${service.quantity}` : ''}</span>
                 <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">Client $0</span>
                 <button
                   type="button"

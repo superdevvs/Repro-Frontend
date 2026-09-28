@@ -27,6 +27,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
+import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface SidebarLinksProps {
   isCollapsed: boolean;
@@ -66,7 +68,9 @@ const SidebarLinksSkeleton = ({ isCollapsed }: { isCollapsed: boolean }) => (
 const MotionLink = motion(Link);
 
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
+  const { user } = useAuth();
   const navListRef = React.useRef<HTMLDivElement | null>(null);
   const [activeIndicator, setActiveIndicator] = React.useState<{
     top: number;
@@ -328,6 +332,16 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           onActivePreview={previewActiveIndicator}
           activeIconClassName="[&_svg]:text-yellow-600 dark:[&_svg]:text-amber-300"
           animateIconOnActive
+        />
+      )}
+
+      {canUseListingStudio(role, user?.secondary_roles) && (
+        <NavLink
+          to={listingStudioHref(location)}
+          icon={<Sparkles className="h-5 w-5" />}
+          label="Listing Studio"
+          isCollapsed={isCollapsed}
+          isActive={false}
         />
       )}
 

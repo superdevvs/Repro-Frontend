@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
+import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { format, parse } from 'date-fns';
 import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,9 @@ export type OverviewServicesTableSectionProps = {
   // Edit-mode data
   servicesList: ServiceOption[];
   selectedServiceIds: string[];
+  serviceQuantities?: Record<string, number>;
+  servicePrices?: Record<string, string>;
+  updateServiceQuantity?: (serviceId: string, quantity: number) => void;
   serviceSchedules: Record<string, { date: string; time: string }>;
   effectiveSqft: number | null;
 
@@ -222,7 +227,13 @@ export function OverviewServicesTableSection(
     : selectedServiceIds;
   const selectedServicesForDialog = dialogServices.filter((service) =>
     dialogSelectedIds.includes(String(service.id)),
-  );
+  ).map((service) => {
+    const savedPrice = complimentary?.enabled ? undefined : props.servicePrices?.[String(service.id)];
+    const price = savedPrice !== undefined && savedPrice !== ''
+      ? Number(savedPrice)
+      : getServicePricingForSqft({ ...service, price: service.price ?? 0 }, effectiveSqft).price;
+    return { ...service, price, quantity: complimentary?.enabled ? 1 : normalizeBookingQuantity(props.serviceQuantities?.[String(service.id)]) };
+  });
   const canRemoveAllServices = Boolean(
     props.shoot.canRemoveAllServices ?? props.shoot.can_remove_all_services,
   );
@@ -263,6 +274,7 @@ export function OverviewServicesTableSection(
       if (!currentIds.has(serviceId)) {
         toggleServiceSelection(serviceId);
       }
+      props.updateServiceQuantity?.(serviceId, normalizeBookingQuantity(service.quantity));
     });
   };
 
@@ -552,7 +564,7 @@ function renderEditRows(
               className="block w-full whitespace-normal break-words text-left font-medium text-foreground hover:underline"
               onClick={() => openServiceDialog(serviceId, false)}
             >
-              {service.name}
+              {service.name}{normalizeBookingQuantity(props.serviceQuantities?.[serviceId]) > 1 ? ` × ${props.serviceQuantities?.[serviceId]}` : ''}
             </button>
           </td>
           <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
