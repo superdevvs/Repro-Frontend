@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { DashboardOverview } from '@/types/dashboard';
@@ -16,6 +16,7 @@ interface UseDashboardOverviewResult {
 export const useDashboardOverview = (): UseDashboardOverviewResult => {
   const { session, role } = useAuth();
   const queryClient = useQueryClient();
+  const canViewOverview = ['admin', 'superadmin', 'editing_manager'].includes(role);
   
   const {
     data,
@@ -25,19 +26,24 @@ export const useDashboardOverview = (): UseDashboardOverviewResult => {
   } = useQuery({
     queryKey: ['dashboardOverview'],
     queryFn: () => fetchDashboardOverview(getAuthToken(session?.accessToken)),
-    enabled: ['admin', 'superadmin', 'editing_manager'].includes(role),
+    enabled: canViewOverview,
     staleTime: 60 * 1000, // 60 seconds - dashboard data can be slightly stale
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
+    // Manual refetch bypasses enabled, including refreshes after media uploads.
+    if (!canViewOverview) return;
     // Invalidate cache to force fresh data fetch
     await queryClient.invalidateQueries({ queryKey: ['dashboardOverview'] });
     await refetch();
-  };
+  }, [canViewOverview, queryClient, refetch]);
 
-  useEffect(() => registerDashboardOverviewRefresh(refresh), [refresh]);
+  useEffect(() => {
+    if (!canViewOverview) return;
+    return registerDashboardOverviewRefresh(refresh);
+  }, [canViewOverview, refresh]);
 
   return {
     data: data ?? null,
