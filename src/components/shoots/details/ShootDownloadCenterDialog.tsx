@@ -36,7 +36,7 @@ interface ShootDownloadCenterDialogProps {
 
 const PHOTO_SIZE_OPTIONS: Array<{ size: ShootMediaDownloadSize; label: string; description: string }> = [
   { size: 'original', label: 'High res', description: 'Full resolution' },
-  { size: 'small', label: 'MLS / small', description: '1800 × 1200' },
+  { size: 'small', label: 'MLS / small', description: 'Smaller files' },
 ];
 
 export function ShootDownloadCenterDialog({
@@ -145,7 +145,7 @@ export function ShootDownloadCenterDialog({
   const hasDownloads = hasPhotos || sections.some(section => section.items.length > 0);
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-h-[86vh] overflow-hidden p-0 sm:max-w-2xl">
+    <DialogContent className="max-h-[86vh] overflow-hidden p-0 sm:w-[calc(100%-3rem)] sm:max-w-7xl">
       <div className="flex max-h-[86vh] flex-col">
         <DialogHeader className="border-b px-5 py-4">
           <DialogTitle>Download Center</DialogTitle>
@@ -158,8 +158,8 @@ export function ShootDownloadCenterDialog({
           {!hasDownloads ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
             <EmptyState icon="downloads" title={<>No downloads available yet</>} size="compact" />
             <div className="mt-1 text-sm text-muted-foreground">Delivered photos, videos, floorplans, and links will appear here.</div>
-          </div> : <div className="space-y-4">
-            {hasPhotos && <section aria-label="Photos" className="rounded-lg border border-border bg-muted/20 p-3">
+          </div> : <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {hasPhotos && <section aria-label="Photos" className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
               <h3 className="mb-3 flex items-center gap-2 font-semibold"><Archive className="h-4 w-4 text-primary" />Photos</h3>
               {downloadModel.wholeShootPhotoCount > 0 && <div>
                 <div className="mb-2 text-sm text-muted-foreground">{scope.isMultiUnit ? 'All unit photos' : 'All photos'} · {downloadModel.wholeShootPhotoCount} images</div>
@@ -170,7 +170,7 @@ export function ShootDownloadCenterDialog({
                 {renderArchiveButtons({ shootServiceId: service.shootServiceId, label: service.name })}
               </div>)}
             </section>}
-            {sections.filter(section => section.items.length > 0).map(section => <section key={section.title} aria-label={section.title} className="rounded-lg border border-border bg-muted/20 p-3">
+            {sections.filter(section => section.items.length > 0).map(section => <section key={section.title} aria-label={section.title} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
               <h3 className="mb-3 font-semibold">{section.title}</h3>
               <div className="space-y-2">{section.items.map(renderDownload)}</div>
             </section>)}
