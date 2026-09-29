@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import type { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Avatar } from './SharedComponents';
@@ -15,7 +15,12 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
+import {
+  measureShootListPeekHeightPx,
+  resolveDashboardListMaxHeight,
+  UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+  UPCOMING_SHOOT_LIST_PEEK_COUNT,
+} from '@/features/dashboard/utils/dashboardMobilePanel';
 import {
   DATE_RANGE_OPTIONS,
   SERVICE_ICON_MAP,
@@ -83,8 +88,9 @@ export function useShootsTabsCardController({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const filterPanelHostRef = useRef<HTMLDivElement>(null);
-  // Dynamic height so the list reveals ~10 cards at a time
+  // Dynamic height so the list reveals ~10 full ShootCards (tags/weather included)
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
+  const [listPeekHeightPx, setListPeekHeightPx] = useState<number>(0);
   useEffect(() => {
     if (!isEditingManagerMode) return;
     if (!customTabs.some((tab) => tab.id === activeTab)) {
@@ -383,34 +389,49 @@ export function useShootsTabsCardController({
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, editingManagerHasMore, activeTab, loadMoreShoots]);
-  // Measure a representative shoot card so the container height shows ~10 cards
-  useEffect(() => {
+  // Measure real ShootCard geometry (tallest among mounted cards, including
+  // wrapped service tags + weather) and the pixel span of ~10 cards so the
+  // peek cap matches what the user actually sees — not an undersized first paint.
+  useLayoutEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container) return;
-    const firstCard = container.querySelector<HTMLElement>('[data-shoot-card="true"]');
-    if (!firstCard) return;
+    if (!container || isCompactDashboardViewport) {
+      setListPeekHeightPx(0);
+      return;
+    }
     const update = () => {
-      const height = firstCard.offsetHeight;
-      if (height > 0) setShootCardHeight(height);
+      const metrics = measureShootListPeekHeightPx(container, UPCOMING_SHOOT_LIST_PEEK_COUNT);
+      if (!metrics) return;
+      setShootCardHeight(metrics.itemHeightPx);
+      setListPeekHeightPx(metrics.peekHeightPx);
     };
     update();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
     const observer = new ResizeObserver(update);
-    observer.observe(firstCard);
+    observer.observe(container);
+    container
+      .querySelectorAll<HTMLElement>('[data-shoot-card="true"]')
+      .forEach((card) => observer.observe(card));
     return () => observer.disconnect();
-  }, [paginatedGroups, editingManagerPaginatedGroups, activeTab]);
-  // ~10 cards tall, plus gaps (space-y-3 between cards in a group) and a small
-  // allowance for the first group label. Keeps page height bounded; rest scrolls
-  // inside the column with sticky day pills.
-  const listMaxHeight = useMemo(
-    () =>
-      resolveDashboardListMaxHeight({
-        compactViewport: isCompactDashboardViewport,
-        itemHeight: shootCardHeight,
-        visibleCount: 10,
+  }, [paginatedGroups, editingManagerPaginatedGroups, activeTab, weatherMap, isCompactDashboardViewport]);
+  // Prefer the geometric ~10-card span; fall back to tallest-card × peek count.
+  // Sticky day pills stay inside this scroller (overflow-y-auto).
+  const listMaxHeight = useMemo(() => {
+    if (isCompactDashboardViewport) return undefined;
+    if (listPeekHeightPx > 0) return `${listPeekHeightPx}px`;
+    return resolveDashboardListMaxHeight({
+      compactViewport: false,
+      itemHeight: shootCardHeight,
+      visibleCount: UPCOMING_SHOOT_LIST_PEEK_COUNT,
+      unmeasuredFallback: resolveDashboardListMaxHeight({
+        compactViewport: false,
+        itemHeight: UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+        visibleCount: UPCOMING_SHOOT_LIST_PEEK_COUNT,
       }),
-    [isCompactDashboardViewport, shootCardHeight],
-  );
+    });
+  }, [isCompactDashboardViewport, listPeekHeightPx, shootCardHeight]);
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();

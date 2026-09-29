@@ -8,7 +8,10 @@ import {
   DASHBOARD_MOBILE_LIST_SHELL_CLASS,
   DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_PANEL_CLASS,
+  measureShootListPeekHeightPx,
   resolveDashboardListMaxHeight,
+  UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+  UPCOMING_SHOOT_LIST_PEEK_COUNT,
 } from './dashboardMobilePanel';
 
 const src = (...parts: string[]) =>
@@ -143,7 +146,10 @@ describe('dashboard mobile tab CSS', () => {
     expect(src('../../../components/dashboard/v2/DefaultShootsTabsView.tsx')).toContain('listMaxHeight');
     expect(src('../../../components/dashboard/v2/EditingManagerShootsTabsView.tsx')).toContain('listMaxHeight');
     expect(src('../../../components/dashboard/v2/useShootsTabsCardController.tsx')).toMatch(
-      /visibleCount:\s*10/,
+      /UPCOMING_SHOOT_LIST_PEEK_COUNT|visibleCount:\s*10/,
+    );
+    expect(src('../../../components/dashboard/v2/useShootsTabsCardController.tsx')).toContain(
+      'measureShootListPeekHeightPx',
     );
     expect(src('../../../features/dashboard/components/ClientMyShoots.tsx')).toMatch(
       /hidden-scrollbar[^"'`]*flex-1[^"'`]*min-h-0[^"'`]*overflow-y-auto/,
@@ -200,5 +206,65 @@ describe('compact page gutters', () => {
       expect(text, file).not.toMatch(/className="flex-1 px-3 sm:px-6/);
       expect(text, file).not.toMatch(/className="space-y-4 px-3 pt-3/);
     }
+  });
+});
+
+
+describe('measureShootListPeekHeightPx', () => {
+  const mountCards = (heights: number[], gap = 12, leading = 28) => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, writable: true });
+    // Container at y=0, height large enough to not clip.
+    container.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 4000, height: 4000, left: 0, right: 400, width: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+
+    let y = leading;
+    heights.forEach((height) => {
+      const card = document.createElement('div');
+      card.setAttribute('data-shoot-card', 'true');
+      const top = y;
+      const bottom = y + height;
+      card.getBoundingClientRect = () =>
+        ({ top, bottom, height, left: 0, right: 400, width: 400, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+      container.appendChild(card);
+      y = bottom + gap;
+    });
+    return container;
+  };
+
+  it('uses the geometric span of the first N cards including leading day-pill chrome', () => {
+    // leading 28 + 10*(140+12) - 12 = 28 + 1520 - 12 = 1536 → bottom of 10th = 28+10*140+9*12 = 28+1400+108 = 1536
+    const container = mountCards(Array(14).fill(140));
+    const metrics = measureShootListPeekHeightPx(container, 10);
+    expect(metrics?.itemHeightPx).toBe(140);
+    expect(metrics?.peekHeightPx).toBe(28 + 10 * 140 + 9 * 12);
+  });
+
+  it('budgets the tallest card so wrapped tags/weather raise the peek', () => {
+    const heights = [120, 120, 180, 120, 120, 120];
+    const container = mountCards(heights);
+    const metrics = measureShootListPeekHeightPx(container, 10);
+    expect(metrics?.itemHeightPx).toBe(180);
+    // Fewer than 10 cards → extrapolate from tallest + leading chrome
+    expect(metrics?.peekHeightPx).toBe(28 + 180 * 10 + 12 * 9);
+  });
+
+  it('returns null when no shoot cards are mounted', () => {
+    const container = document.createElement('div');
+    container.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    Object.defineProperty(container, 'scrollTop', { value: 0 });
+    expect(measureShootListPeekHeightPx(container, UPCOMING_SHOOT_LIST_PEEK_COUNT)).toBeNull();
+  });
+
+  it('exposes the unmeasured full-card floor for fallback math only', () => {
+    expect(UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX).toBeGreaterThan(150);
+    expect(
+      resolveDashboardListMaxHeight({
+        compactViewport: false,
+        itemHeight: UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+        visibleCount: UPCOMING_SHOOT_LIST_PEEK_COUNT,
+      }),
+    ).toMatch(/px$/);
   });
 });

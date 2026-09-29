@@ -37,3 +37,73 @@ export function resolveDashboardListMaxHeight({
   const gaps = Math.max(0, Math.ceil(visibleCount) - 1);
   return `${Math.ceil(itemHeight * visibleCount + gapPx * gaps + extraPx)}px`;
 }
+
+/** Desktop Upcoming / EM shoots list: show about this many ShootCards before inner scroll. */
+export const UPCOMING_SHOOT_LIST_PEEK_COUNT = 10;
+
+/** Tailwind `space-y-3` between cards inside a day group. */
+export const UPCOMING_SHOOT_CARD_GAP_PX = 12;
+
+/**
+ * Unmeasured desktop fallback only: a full ShootCard with date badge, address,
+ * service tags and weather. Not applied as a floor on live measurements — an
+ * oversized floor makes peek maxHeight tall enough to fit ~14 shorter cards.
+ */
+export const UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX = 172;
+
+function cardOffsetWithinContainer(container: HTMLElement, el: HTMLElement) {
+  const cRect = container.getBoundingClientRect();
+  const eRect = el.getBoundingClientRect();
+  return {
+    top: eRect.top - cRect.top + container.scrollTop,
+    bottom: eRect.bottom - cRect.top + container.scrollTop,
+    height: eRect.height,
+  };
+}
+
+/**
+ * Pixel height that reveals `peekCount` ShootCards (tags/weather included),
+ * plus intervening day-pill chrome and `space-y-3` gaps.
+ *
+ * Prefer the geometric span of the first N mounted cards when available so
+ * sticky day pills between groups count. Otherwise extrapolate from the
+ * tallest measured card (floored to a full-card minimum).
+ */
+export function measureShootListPeekHeightPx(
+  container: HTMLElement,
+  peekCount: number = UPCOMING_SHOOT_LIST_PEEK_COUNT,
+): { peekHeightPx: number; itemHeightPx: number } | null {
+  if (peekCount <= 0) return null;
+
+  const cards = Array.from(
+    container.querySelectorAll<HTMLElement>('[data-shoot-card="true"]'),
+  )
+    .map((el) => ({ el, ...cardOffsetWithinContainer(container, el) }))
+    .filter((card) => card.height > 0);
+
+  if (cards.length === 0) return null;
+
+  const tallest = Math.max(...cards.map((card) => card.height));
+  // Use the tallest mounted card so wrapped tags / weather chips are included.
+  const itemHeightPx = tallest;
+
+  if (cards.length >= peekCount) {
+    // Content y=0 → bottom of Nth card includes leading sticky day pill(s).
+    return {
+      peekHeightPx: Math.ceil(cards[peekCount - 1].bottom),
+      itemHeightPx,
+    };
+  }
+
+  let gapPx = UPCOMING_SHOOT_CARD_GAP_PX;
+  if (cards.length >= 2) {
+    gapPx = Math.max(0, cards[1].top - cards[0].bottom);
+  }
+  const leadingChromePx = Math.max(0, cards[0].top);
+  return {
+    peekHeightPx: Math.ceil(
+      leadingChromePx + itemHeightPx * peekCount + gapPx * (peekCount - 1),
+    ),
+    itemHeightPx,
+  };
+}

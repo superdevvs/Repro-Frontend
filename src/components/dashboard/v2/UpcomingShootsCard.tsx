@@ -30,7 +30,12 @@ import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardSho
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { DASHBOARD_MOBILE_PANEL_CLASS, resolveDashboardListMaxHeight } from '@/features/dashboard/utils/dashboardMobilePanel';
+import {
+  DASHBOARD_MOBILE_PANEL_CLASS,
+  measureShootListPeekHeightPx,
+  resolveDashboardListMaxHeight,
+  UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+} from '@/features/dashboard/utils/dashboardMobilePanel';
 
 interface UpcomingShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -740,28 +745,34 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     return () => observer.disconnect();
   }, [hasMore, paginatedGroups.length]);
 
-  // Measure a representative shoot card so the container height shows ~5.5 cards
+  // Measure real ShootCard height (tags/weather included) for the ~5.5-card peek.
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container) return;
-    const firstCard = container.querySelector<HTMLElement>('[data-shoot-card="true"]');
-    if (!firstCard) return;
+    if (!container || isCompactDashboardViewport) return;
     const update = () => {
-      const height = firstCard.offsetHeight;
-      if (height > 0) setShootCardHeight(height);
+      const metrics = measureShootListPeekHeightPx(container, 6);
+      if (!metrics) return;
+      // 5.5 cards ≈ 6th card half-peek: use tallest full card height for the formula.
+      setShootCardHeight(metrics.itemHeightPx);
     };
     update();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
     const observer = new ResizeObserver(update);
-    observer.observe(firstCard);
+    observer.observe(container);
+    container
+      .querySelectorAll<HTMLElement>('[data-shoot-card="true"]')
+      .forEach((card) => observer.observe(card));
     return () => observer.disconnect();
-  }, [paginatedGroups]);
+  }, [paginatedGroups, weatherMap, isCompactDashboardViewport]);
 
   const listMaxHeight = useMemo(
     () =>
       resolveDashboardListMaxHeight({
         compactViewport: isCompactDashboardViewport,
-        itemHeight: shootCardHeight,
+        itemHeight: shootCardHeight > 0 ? shootCardHeight : UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
         visibleCount: 5.5,
         unmeasuredFallback: 'calc(100vh - 14rem)',
       }),
