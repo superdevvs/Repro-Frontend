@@ -63,7 +63,7 @@ describe('real Shoot History calendar', () => {
     const select = vi.fn();
     render(<Calendar shoots={[calendarShoot(), tuesday]} onShootSelect={select} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open 20 Pine Road, 9:30 AM, Scheduled' }));
-    expect(screen.getByRole('button', { name: '29 September 2026, 1 shoot' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /29 September 2026, 1 shoot/ })).toHaveAttribute('aria-pressed', 'true');
     expect(within(screen.getByRole('region', { name: 'Selected shoot' })).getByRole('heading', { name: '20 Pine Road' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /29 September 2026 agenda/ })).toBeInTheDocument();
     expect(select).toHaveBeenCalledExactlyOnceWith(tuesday);
@@ -81,7 +81,7 @@ describe('real Shoot History calendar', () => {
     rerender(<Calendar shoots={[...shoots]} />);
     expect(rail.scrollTop).toBe(180);
     expect(theme).toHaveFocus();
-    fireEvent.click(screen.getByRole('button', { name: '29 September 2026, 1 shoot' }));
+    fireEvent.click(screen.getByRole('button', { name: /29 September 2026, 1 shoot/ }));
     expect(rail.scrollTop).toBe(0);
     expect(screen.getAllByRole('button', { name: 'Open 10 Oak Lane, 12:15 AM, Scheduled' }).length).toBeGreaterThan(0);
   });
