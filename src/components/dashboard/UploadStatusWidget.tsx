@@ -3,6 +3,7 @@ import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useUpload } from '@/context/UploadContext';
 import { useOptionalShoots } from '@/context/shootsContextState';
 import { UploadStatusDialog } from './UploadStatusDialog';
+import { formatUploadPercent } from '@/components/shoots/tabs/media/uploadMediaRequest';
 
 export const UploadStatusWidget: React.FC = () => {
   const { uploads, activeUploadCount, completedUploadCount, failedUploadCount } = useUpload();
@@ -18,12 +19,11 @@ export const UploadStatusWidget: React.FC = () => {
 
   const hasActive = activeUploadCount > 0;
   const totalProgress = hasActive
-    ? Math.round(
-        uploads
-          .filter(u => u.status === 'uploading')
-          .reduce((sum, u) => sum + u.progress, 0) / activeUploadCount
-      )
+    ? uploads
+        .filter(u => u.status === 'uploading')
+        .reduce((sum, u) => sum + u.progress, 0) / activeUploadCount
     : 100;
+  const totalProgressLabel = hasActive ? formatUploadPercent(totalProgress) : '100';
   const finishedCount = pendingSubmissions.length || completedUploadCount + failedUploadCount;
   const summaryText = hasActive
     ? `${activeUploadCount} upload${activeUploadCount !== 1 ? 's' : ''} in progress`
