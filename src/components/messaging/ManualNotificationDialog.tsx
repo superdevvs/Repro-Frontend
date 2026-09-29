@@ -30,6 +30,8 @@ import {
   type ManualNotificationPreviewResult,
   type ManualNotificationRecipient,
   type ManualNotificationType,
+  type NotificationRecipientPerson,
+  getNotificationRecipients,
   previewManualNotification,
   sendManualNotification,
 } from '@/services/messaging';
@@ -129,8 +131,6 @@ export interface ManualNotificationDialogProps {
   onClose: () => void;
   /** Optional human-friendly identifier for the shoot, surfaced in the dialog header. */
   shootLabel?: string;
-  /** Service-level + shoot-level photographers to list when notifying photographers. */
-  assignedPhotographers?: ReadonlyArray<{ id: string; name: string; email?: string }>;
 }
 
 /**
@@ -151,7 +151,6 @@ export function ManualNotificationDialog({
   open,
   onClose,
   shootLabel,
-  assignedPhotographers = [],
 }: ManualNotificationDialogProps) {
   const [type, setType] = useState<ManualNotificationType>('shoot_scheduled');
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
@@ -179,6 +178,21 @@ export function ManualNotificationDialog({
     enabled: open && Number.isFinite(shootId) && shootId > 0,
     refetchOnWindowFocus: false,
   });
+
+  const recipientsQuery = useQuery({
+    queryKey: ['manual-notification', 'recipients', shootId, recipientType],
+    queryFn: () => getNotificationRecipients(shootId, recipientType),
+    enabled: open && Number.isFinite(shootId) && shootId > 0,
+    refetchOnWindowFocus: false,
+  });
+  const assignedPhotographers: NotificationRecipientPerson[] = useMemo(
+    () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
+    [recipientsQuery.data],
+  );
+  const listedRecipients: NotificationRecipientPerson[] = useMemo(
+    () => recipientsQuery.data?.recipients ?? [],
+    [recipientsQuery.data],
+  );
 
   const sendMutation = useMutation({
     mutationFn: () =>
@@ -284,16 +298,20 @@ export function ManualNotificationDialog({
                 onChange={(next) => setRecipientType(next)}
                 disabled={isSending}
               />
-              {recipientType === 'photographer' && assignedPhotographers.length > 0 && (
-                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              {listedRecipients.length > 0 && (
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground" data-testid="manual-notification-recipients">
                   <p className="mb-1 font-medium text-foreground">
-                    {assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers'}
+                    {recipientType === 'photographer'
+                      ? (assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers')
+                      : 'Recipient'}
+                    {recipientsQuery.isFetching ? '…' : ''}
                   </p>
                   <ul className="space-y-0.5">
-                    {assignedPhotographers.map((person) => (
-                      <li key={person.id}>
+                    {listedRecipients.map((person) => (
+                      <li key={`${person.recipient_type}-${person.id}`}>
                         {person.name}
                         {person.email ? ` · ${person.email}` : ''}
+                        {person.phone && !person.email ? ` · ${person.phone}` : ''}
                       </li>
                     ))}
                   </ul>

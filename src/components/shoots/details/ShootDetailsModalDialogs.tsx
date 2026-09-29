@@ -1,4 +1,6 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getNotificationRecipients } from '@/services/messaging';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -22,7 +24,6 @@ import { AlertTriangle, PauseCircle, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
-import { getShootAssignedPhotographers } from '@/utils/shootPhotographerAssignments';
 import { ShootDownloadCenterDialog } from './ShootDownloadCenterDialog';
 import type { ServiceDetachConfirmation } from '@/utils/shootServiceMutation';
 
@@ -201,6 +202,18 @@ export function ShootDetailsModalDialogs({
   onClose,
   formatTime,
 }: ShootDetailsModalDialogsProps) {
+  const shootIdNum = shoot?.id != null ? Number(shoot.id) : NaN;
+  const recipientsQuery = useQuery({
+    queryKey: ['shoot-notification-recipients', shootIdNum],
+    queryFn: () => getNotificationRecipients(shootIdNum),
+    enabled: isSaveConfirmOpen && Number.isFinite(shootIdNum) && shootIdNum > 0,
+    refetchOnWindowFocus: false,
+  });
+  const notifyPhotographers = useMemo(
+    () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
+    [recipientsQuery.data],
+  );
+
   type ShootServiceOption = string | { name?: string; label?: string };
   const shootServices = Array.isArray(shoot?.services)
     ? (shoot.services as ShootServiceOption[])
@@ -364,34 +377,29 @@ export function ShootDetailsModalDialogs({
                 disabled={!canNotifyClient}
               />
             </div>
-            {(() => {
-              const assignedPhotographers = shoot ? getShootAssignedPhotographers(shoot) : [];
-              const photographerLabel =
-                assignedPhotographers.length > 1 ? 'Photographers' : 'Photographer';
-              const photographerDetails = assignedPhotographers.length > 0
-                ? assignedPhotographers
-                    .map((person) => {
-                      const contact = person.email?.trim();
-                      return contact ? `${person.name} (${contact})` : person.name;
-                    })
-                    .join(', ')
-                : (shoot?.photographer?.email || 'No photographer email on file');
-              return (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{photographerLabel}</p>
-                    <p className="text-xs text-muted-foreground break-words">
-                      {photographerDetails}
-                    </p>
-                  </div>
-                  <Checkbox
-                    checked={notifyPhotographerOnSave}
-                    onCheckedChange={(value) => setNotifyPhotographerOnSave(Boolean(value))}
-                    disabled={!canNotifyPhotographer}
-                  />
-                </div>
-              );
-            })()}
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3" data-testid="confirm-update-photographers">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">
+                  {notifyPhotographers.length > 1 ? 'Photographers' : 'Photographer'}
+                  {recipientsQuery.isFetching ? '…' : ''}
+                </p>
+                <p className="text-xs text-muted-foreground break-words">
+                  {notifyPhotographers.length > 0
+                    ? notifyPhotographers
+                        .map((person) => {
+                          const contact = person.email?.trim();
+                          return contact ? `${person.name} (${contact})` : person.name;
+                        })
+                        .join(', ')
+                    : (shoot?.photographer?.email || 'No photographer email on file')}
+                </p>
+              </div>
+              <Checkbox
+                checked={notifyPhotographerOnSave}
+                onCheckedChange={(value) => setNotifyPhotographerOnSave(Boolean(value))}
+                disabled={!canNotifyPhotographer && notifyPhotographers.length === 0}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button

@@ -183,6 +183,47 @@ export const sendManualNotification = async (
   return response.data;
 };
 
+/** One notify target from GET /messaging/notifications/recipients. */
+export interface NotificationRecipientPerson {
+  id: number;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  role?: string | null;
+  recipient_type: ManualNotificationRecipient;
+}
+
+export interface NotificationRecipientsResult {
+  shoot_id: number;
+  recipients: NotificationRecipientPerson[];
+}
+
+/** Union of client + every service-assigned photographer for a shoot. */
+export const getNotificationRecipients = async (
+  shootId: number,
+  recipientType?: ManualNotificationRecipient,
+): Promise<NotificationRecipientsResult> => {
+  const response = await apiClient.get('/messaging/notifications/recipients', {
+    params: {
+      shoot_id: shootId,
+      ...(recipientType ? { recipient_type: recipientType } : {}),
+    },
+  });
+  const data = response.data ?? {};
+  const recipients = Array.isArray(data.recipients) ? data.recipients : [];
+  return {
+    shoot_id: Number(data.shoot_id) || shootId,
+    recipients: recipients.map((row: Record<string, unknown>) => ({
+      id: Number(row.id),
+      name: String(row.name ?? ''),
+      email: typeof row.email === 'string' ? row.email : null,
+      phone: typeof row.phone === 'string' ? row.phone : null,
+      role: typeof row.role === 'string' ? row.role : null,
+      recipient_type: (row.recipient_type === 'photographer' ? 'photographer' : 'client') as ManualNotificationRecipient,
+    })).filter((row: NotificationRecipientPerson) => Number.isFinite(row.id) && row.id > 0),
+  };
+};
+
 // Automations
 export const getAutomations = async (params?: {
   trigger_type?: string;
