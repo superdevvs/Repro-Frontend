@@ -630,7 +630,23 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     missingRaw: toBooleanValue(item.missing_raw),
     missingFinal: toBooleanValue(item.missing_final),
     mediaSummary: item.media_summary as ShootData['mediaSummary'],
-    heroImage: item.hero_image as string | undefined,
+    heroImage: toOptionalString(item.hero_image ?? item.heroImage),
+    previewImages: (() => {
+      const urls = [
+        ...toArrayValue<unknown>(item.previewImages),
+        ...toArrayValue<unknown>(item.preview_images),
+      ]
+        .filter((image): image is string => typeof image === 'string' && Boolean(image.trim()))
+      return urls.length ? Array.from(new Set(urls)) : undefined
+    })(),
+    preview_images: (() => {
+      const urls = [
+        ...toArrayValue<unknown>(item.preview_images),
+        ...toArrayValue<unknown>(item.previewImages),
+      ]
+        .filter((image): image is string => typeof image === 'string' && Boolean(image.trim()))
+      return urls.length ? Array.from(new Set(urls)) : undefined
+    })(),
     weather: item.weather as ShootData['weather'],
     ghostUsers: ghostUsers.length ? ghostUsers : undefined,
     ghostUserIds: ghostUserIds.length ? ghostUserIds : undefined,

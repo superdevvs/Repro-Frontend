@@ -41,3 +41,22 @@ describe('delivered imported hero images', () => {
     }
   })
 })
+
+describe('delivered list heroes without file rows', () => {
+  it.each(['list', 'grid'] as const)('renders BE list hero when files are omitted in %s view', (view) => {
+    const listShoot = {
+      ...shoot,
+      files: [],
+      heroImage: preview,
+      previewImages: [preview],
+    } as ShootData
+    render(<UserPreferencesProvider>
+      {view === 'list'
+        ? <CompletedShootListRow shoot={listShoot} onSelect={vi.fn()} isAdmin viewerRole="admin" />
+        : <CompletedAlbumCard shoot={listShoot} onSelect={vi.fn()} isAdmin viewerRole="admin" />}
+    </UserPreferencesProvider>)
+    for (const image of screen.getAllByRole('img', { name: 'Imported home' })) {
+      expect(image).toHaveAttribute('src', preview)
+    }
+  })
+})

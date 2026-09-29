@@ -341,19 +341,36 @@ const hasEditedPreviewStage = (file?: ShootFileData | null): boolean =>
 const hasRawPreviewStage = (file?: ShootFileData | null): boolean =>
   /(raw|uploaded|capture)/.test(getFileWorkflowStage(file))
 
+const resolveListCardPreviewUrls = (shoot: ShootData): string[] => {
+  const candidates = [
+    ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+    ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+  ]
+  const urls: string[] = []
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string' || isPlaceholderLikeValue(candidate)) continue
+    const resolved = resolvePreviewUrl(candidate)
+    if (resolved && !urls.includes(resolved)) urls.push(resolved)
+  }
+  return urls
+}
+
+/**
+ * Prefer file-derived grid/medium URLs when file rows are present. When
+ * include_files=false, the list API still ships hero_image + preview_images
+ * (grid-tuned via BE hydrateListCardMedia) — use those so Delivery/history
+ * cards are not stuck on placeholders.
+ */
 export const resolveShootThumbnail = (
   shoot: ShootData,
   preference: ShootThumbnailPreference = 'default',
 ): string | null => {
-  const heroPreview =
-    preference === 'thumb'
-      ? null
-      : !isPlaceholderLikeValue(shoot.heroImage)
-        ? resolvePreviewUrl(shoot.heroImage)
-        : null
+  const listPreviews = resolveListCardPreviewUrls(shoot)
+  const heroPreview = !isPlaceholderLikeValue(shoot.heroImage)
+    ? resolvePreviewUrl(shoot.heroImage)
+    : null
   const editedMediaPreview =
     resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail) ||
-    heroPreview ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
     resolvePreviewUrl(toOptionalString(toObjectValue<LegacyMediaShape>(shoot.media)?.photos?.[0]))
 
@@ -369,7 +386,12 @@ export const resolveShootThumbnail = (
     files.find((file) => hasRawPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
     files.find((file) => getFilePreviewUrl(file, preference))
 
-  return getFilePreviewUrl(preferredFile, preference) || heroPreview
+  const fromFiles = getFilePreviewUrl(preferredFile, preference)
+  if (fromFiles) {
+    return fromFiles
+  }
+
+  return listPreviews[0] || heroPreview
 }
 
 export const getShootPlaceholderSrc = (theme: 'light' | 'dark') =>
@@ -649,6 +671,20 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     editedPhotoCount: toNumberValue(item.edited_photo_count ?? item.editedPhotoCount, 0),
     media: item.media as ShootData['media'],
     heroImage: toStringValue(item.hero_image ?? item.heroImage),
+    previewImages: (() => {
+      const urls = [
+        ...(Array.isArray(item.previewImages) ? item.previewImages : []),
+        ...(Array.isArray(item.preview_images) ? item.preview_images : []),
+      ].filter((image): image is string => typeof image === 'string' && Boolean(image))
+      return urls.length ? Array.from(new Set(urls)) : undefined
+    })(),
+    preview_images: (() => {
+      const urls = [
+        ...(Array.isArray(item.preview_images) ? item.preview_images : []),
+        ...(Array.isArray(item.previewImages) ? item.previewImages : []),
+      ].filter((image): image is string => typeof image === 'string' && Boolean(image))
+      return urls.length ? Array.from(new Set(urls)) : undefined
+    })(),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),
     tourLinks: (item.tour_links ?? item.tourLinks) as ShootData['tourLinks'],
     files: toArrayValue(item.files),
