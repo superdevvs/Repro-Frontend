@@ -1,11 +1,18 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
+
+import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
+
+const DELIVERED_CARD_GAP_PX = 12;
+const DELIVERED_MIN_VISIBLE = 2;
+const DELIVERED_PREFERRED_VISIBLE = 3;
+
 
 interface CompletedShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -142,7 +149,50 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   onViewAll,
 }) => {
   const safeShoots = Array.isArray(shoots) ? shoots : [];
-  
+  const listRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(0);
+  const [cardHeight, setCardHeight] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(DELIVERED_PREFERRED_VISIBLE);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
+    const measure = () => {
+      setListHeight(list.clientHeight);
+      const firstCard = list.querySelector<HTMLElement>('[data-delivered-shoot-card="true"]');
+      if (firstCard && firstCard.offsetHeight > 0) {
+        setCardHeight(firstCard.offsetHeight);
+      }
+    };
+
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    const firstCard = list.querySelector<HTMLElement>('[data-delivered-shoot-card="true"]');
+    if (firstCard) observer.observe(firstCard);
+    return () => observer.disconnect();
+  }, [safeShoots.length, stretch]);
+
+  useEffect(() => {
+    setVisibleCount(
+      resolveAdaptiveDeliveredVisibleCount({
+        availableHeight: listHeight,
+        itemHeight: cardHeight,
+        totalItems: safeShoots.length,
+        gapPx: DELIVERED_CARD_GAP_PX,
+        minVisible: DELIVERED_MIN_VISIBLE,
+        preferredVisible: DELIVERED_PREFERRED_VISIBLE,
+      }),
+    );
+  }, [listHeight, cardHeight, safeShoots.length]);
+
+  const visibleShoots = useMemo(
+    () => safeShoots.slice(0, visibleCount),
+    [safeShoots, visibleCount],
+  );
+
   return (
     <Card className={cn(
       DASHBOARD_MOBILE_PANEL_CLASS,
@@ -158,13 +208,17 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       {safeShoots.length === 0 ? (
         <EmptyState icon="completed" title={emptyStateText} description="Completed work will appear here when it is ready." className="flex-1" />
       ) : (
-        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar pr-1">
-          {safeShoots.slice(0, 3).map((shoot, index) => {
+        <div
+          ref={listRef}
+          className="space-y-3 flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar pr-1"
+        >
+          {visibleShoots.map((shoot) => {
             const images = getShootImages(shoot);
             const scheduleLabel = formatDashboardShootSchedule(shoot);
             return (
               <div
                 key={shoot.id}
+                data-delivered-shoot-card="true"
                 className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card group relative cursor-pointer"
                 onClick={() => onSelect?.(shoot)}
               >

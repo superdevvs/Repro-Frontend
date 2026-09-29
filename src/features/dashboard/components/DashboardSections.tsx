@@ -215,15 +215,17 @@ export const useDashboardSections = ({
     );
 
   const renderCompletedShootsCard = ({ stretch = false }: { stretch?: boolean } = {}) => (
-    <Suspense fallback={<CompletedShootsCardSkeleton />}>
-      <LazyCompletedShootsCard
-        shoots={deliveredShoots}
-        stretch={stretch}
-        onSelect={handleSelectShoot}
-        onViewInvoice={handleViewInvoice}
-        onViewAll={() => navigate("/shoot-history?tab=delivered")}
-      />
-    </Suspense>
+    <div className={stretch ? "flex flex-1 min-h-0" : undefined}>
+      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+        <LazyCompletedShootsCard
+          shoots={deliveredShoots}
+          stretch={stretch}
+          onSelect={handleSelectShoot}
+          onViewInvoice={handleViewInvoice}
+          onViewAll={() => navigate("/shoot-history?tab=delivered")}
+        />
+      </Suspense>
+    </div>
   );
 
   const renderEditingManagerReadyToDeliverCard = () => (

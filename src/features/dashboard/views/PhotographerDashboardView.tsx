@@ -66,6 +66,7 @@ export const PhotographerDashboardView = ({
         emptyStateText="No completed shoots yet."
         onSelect={(shoot) => onSelectShoot(shoot)}
         onViewAll={() => navigate("/shoot-history?tab=delivered")}
+        stretch
       />
     </Suspense>
   );
@@ -115,7 +116,7 @@ export const PhotographerDashboardView = ({
         hideLeftColumn
         leftColumnCard={null}
         rightColumnCards={[
-          <div key="completed-shoots" data-onboarding-target="photographer-completed">
+          <div key="completed-shoots" data-onboarding-target="photographer-completed" className="flex flex-1 min-h-0">
             {completedCard}
           </div>,
         ]}

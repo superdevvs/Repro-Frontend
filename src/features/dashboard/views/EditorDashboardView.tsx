@@ -177,7 +177,7 @@ export const EditorDashboardView = ({
         upcomingOnboardingTarget="editor-queue"
         leftColumnCard={editorRawLinksCard}
         rightColumnCards={[
-          <div key="delivered-edits" data-onboarding-target="editor-delivered">
+          <div key="delivered-edits" data-onboarding-target="editor-delivered" className="flex flex-1 min-h-0">
             <Suspense fallback={<CompletedShootsCardSkeleton />}>
               <LazyCompletedShootsCard
                 shoots={effectiveEditorDelivered}
@@ -186,6 +186,7 @@ export const EditorDashboardView = ({
                 emptyStateText="No delivered edits yet."
                 onSelect={onSelectShoot}
                 onViewAll={() => navigate("/shoot-history?tab=delivered")}
+                stretch
               />
             </Suspense>
           </div>,
