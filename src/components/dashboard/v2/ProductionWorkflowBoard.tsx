@@ -6,6 +6,7 @@ import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
 import { filterPipelineColumnShoots, type PipelineFilter } from '@/features/dashboard/pipelineWorkflow';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface ProductionWorkflowBoardProps {
   workflow: DashboardWorkflow | null;
@@ -75,6 +76,7 @@ const PipelineColumn: React.FC<{
   filteredShoots: DashboardShootSummary[];
   onSelectShoot: (shoot: DashboardShootSummary) => void;
   onViewAllDelivered?: () => void;
+  compactViewport?: boolean;
 }> = ({
   columnKey,
   columnLabel,
@@ -82,13 +84,19 @@ const PipelineColumn: React.FC<{
   filteredShoots,
   onSelectShoot,
   onViewAllDelivered,
+  compactViewport = false,
 }) => {
   const isReadyColumn = columnKey === 'ready' || columnKey === 'delivered';
   const count = filteredShoots.length;
 
   return (
     <div
-      className="bg-card border border-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm flex h-full min-h-0 flex-col min-w-0 flex-1"
+      className={cn(
+        'bg-card border border-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm flex min-h-0 flex-col min-w-0 flex-1',
+        // Mobile stacked columns must size to their stage cards (not share 1fr
+        // of the tab height), otherwise headers look like stats tiles.
+        compactViewport ? 'h-auto' : 'h-full',
+      )}
       data-pipeline-column={columnKey}
     >
       <div className="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
@@ -201,6 +209,10 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
   loading,
   filter = 'this_week',
 }) => {
+  // Compact dashboard tabs (< lg) stack pipeline stages; equal 1fr rows crush
+  // each column to a count header. Use content-sized rows + outer scroll instead.
+  const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[240px] border border-dashed border-border rounded-3xl text-muted-foreground">
@@ -228,13 +240,21 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
   const visibleColumns = workflow.columns.filter((column) => column);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+    <div
+      className={cn(
+        'flex w-full min-h-0 flex-col',
+        isCompactDashboardViewport ? 'flex-none' : 'h-full flex-1',
+      )}
+      data-pipeline-board={isCompactDashboardViewport ? 'compact' : 'desktop'}
+    >
       <div
         className={cn(
-          'grid w-full flex-1 min-h-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4',
-          // Fill the pipeline tab / footer band so columns stretch instead of
-          // hugging a few cards and leaving a white void under Scheduled/Delivered.
-          'auto-rows-[minmax(0,1fr)]',
+          'grid w-full min-h-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4',
+          isCompactDashboardViewport
+            ? // Stacked/2-col compact: grow with stage cards so shoot rows stay visible.
+              'auto-rows-auto'
+            : // Desktop footer band: stretch columns to fill remaining height.
+              'flex-1 auto-rows-[minmax(0,1fr)]',
         )}
       >
         {visibleColumns.map((column) => {
@@ -253,6 +273,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
               filteredShoots={filteredShoots}
               onSelectShoot={onSelectShoot}
               onViewAllDelivered={onViewAllDelivered}
+              compactViewport={isCompactDashboardViewport}
             />
           );
         })}

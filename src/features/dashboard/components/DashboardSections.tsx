@@ -381,7 +381,7 @@ export const useDashboardSections = ({
           </div>
         }
       >
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col max-lg:flex-none max-lg:h-auto">
           <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
             <LazyProductionWorkflowBoard
               workflow={filteredWorkflow}

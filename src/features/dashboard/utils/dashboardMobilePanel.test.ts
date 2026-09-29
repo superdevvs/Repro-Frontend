@@ -94,6 +94,9 @@ describe('dashboard mobile tab CSS', () => {
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #requests-queue/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #ready-to-deliver/);
     expect(indexCss).toMatch(/dashboard-mobile-tabs \[role="tabpanel"\]\[data-state="active"\] #pipeline-section/);
+    expect(indexCss).toMatch(
+      /#pipeline-section \{[\s\S]*?overflow-y:\s*auto/,
+    );
   });
 
   it('insets the compact page with the measured bottom nav so last cards stay above it', () => {

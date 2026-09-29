@@ -6,6 +6,7 @@ import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 
@@ -140,7 +141,7 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
 export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   shoots = [],
   title = 'Delivered shoots',
-  subtitle = 'Latest deliveries',
+  subtitle = '',
   emptyStateText = 'No delivered shoots yet.',
   ctaLabel = 'View all delivered shoots',
   stretch = false,
@@ -154,8 +155,13 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   const [listHeight, setListHeight] = useState(0);
   const [cardHeight, setCardHeight] = useState(0);
   const [visibleCount, setVisibleCount] = useState(DELIVERED_PREFERRED_VISIBLE);
+  // Compact/mobile dashboard tabs: mount every delivery and scroll inside the
+  // panel. The adaptive slice (min 2 / preferred 3) was clipping the Completed
+  // tab to ~2 cards because the measured list height only fit that many.
+  const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
 
   useLayoutEffect(() => {
+    if (isCompactDashboardViewport) return;
     const list = listRef.current;
     const root = rootRef.current;
     if (!list) return;
@@ -181,9 +187,13 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
     const firstCard = list.querySelector<HTMLElement>('[data-delivered-shoot-card="true"]');
     if (firstCard) observer.observe(firstCard);
     return () => observer.disconnect();
-  }, [safeShoots.length, stretch]);
+  }, [safeShoots.length, stretch, isCompactDashboardViewport]);
 
   useEffect(() => {
+    if (isCompactDashboardViewport) {
+      setVisibleCount(safeShoots.length);
+      return;
+    }
     setVisibleCount(
       resolveAdaptiveDeliveredVisibleCount({
         availableHeight: listHeight,
@@ -194,11 +204,11 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         preferredVisible: DELIVERED_PREFERRED_VISIBLE,
       }),
     );
-  }, [listHeight, cardHeight, safeShoots.length]);
+  }, [listHeight, cardHeight, safeShoots.length, isCompactDashboardViewport]);
 
   const visibleShoots = useMemo(
-    () => safeShoots.slice(0, visibleCount),
-    [safeShoots, visibleCount],
+    () => (isCompactDashboardViewport ? safeShoots : safeShoots.slice(0, visibleCount)),
+    [safeShoots, visibleCount, isCompactDashboardViewport],
   );
 
   return (
@@ -208,12 +218,14 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       DASHBOARD_MOBILE_PANEL_CLASS,
       stretch ? "flex h-full flex-1 min-h-0 flex-col overflow-hidden" : "flex flex-col min-h-0 overflow-hidden",
     )}>
-      <div className="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
-        <div>
+      <div className={cn('flex items-center justify-between shrink-0', subtitle ? 'mb-3 sm:mb-4' : 'mb-2 sm:mb-3')}>
+        <div className="min-w-0">
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">{subtitle}</p>
+          {subtitle ? (
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{subtitle}</p>
+          ) : null}
         </div>
-        <span className="text-[10px] sm:text-xs text-muted-foreground">{safeShoots.length} ready</span>
+        <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{safeShoots.length} ready</span>
       </div>
       {safeShoots.length === 0 ? (
         <EmptyState icon="completed" title={emptyStateText} description="Completed work will appear here when it is ready." className="flex-1" />

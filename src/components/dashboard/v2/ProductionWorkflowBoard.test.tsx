@@ -153,6 +153,8 @@ describe("ProductionWorkflowBoard layout fill", () => {
 
     expect(container.querySelector('[data-pipeline-column="booked"]')).not.toBeNull();
     expect(container.querySelector('[data-pipeline-shoot-card="true"]')).not.toBeNull();
+    // jsdom has no matchMedia → compact=false → desktop fill layout.
+    expect(container.querySelector('[data-pipeline-board="desktop"]')).not.toBeNull();
   });
 });
 

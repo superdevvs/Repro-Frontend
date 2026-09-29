@@ -11,6 +11,10 @@ export function useMediaQuery(query: string) {
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
     const mediaQuery = window.matchMedia(query);
     setMatches(mediaQuery.matches);
 

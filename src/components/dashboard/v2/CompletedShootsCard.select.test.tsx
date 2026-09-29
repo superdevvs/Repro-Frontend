@@ -27,4 +27,10 @@ describe('CompletedShootsCard selection', () => {
     fireEvent.click(screen.getByText('3932 Bel Pre Road'));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 161 }));
   });
+
+  it('omits the old Latest deliveries subtitle by default to shrink the title band', () => {
+    render(<CompletedShootsCard shoots={[shoot()]} />);
+    expect(screen.getByText('Delivered shoots')).toBeTruthy();
+    expect(screen.queryByText('Latest deliveries')).toBeNull();
+  });
 });

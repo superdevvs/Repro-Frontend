@@ -571,7 +571,16 @@ body {
     min-height: 0;
     min-width: 0;
     height: 100%;
-    overflow: hidden;
+    /* Stacked stage columns grow with shoot cards; scroll the section instead
+       of crushing each column into a stats-like count header (1fr rows). */
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .dashboard-mobile-tabs [role="tabpanel"][data-state="active"] #pipeline-section [data-pipeline-board="compact"] {
+    flex: none;
+    height: auto;
+    min-height: 0;
   }
 
   /* Flex items default to min-height:auto, so the list wrapper grows with

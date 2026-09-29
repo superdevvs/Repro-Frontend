@@ -85,7 +85,7 @@ export const AdminDashboardView = ({
       id: "completed",
       label: "Completed",
       icon: CheckCircle2,
-      content: renderCompletedShootsCard(),
+      content: renderCompletedShootsCard({ stretch: true }),
     },
     {
       id: "assign",
