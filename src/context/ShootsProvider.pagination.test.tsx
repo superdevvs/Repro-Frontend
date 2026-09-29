@@ -52,6 +52,26 @@ describe('complete scheduled shoot hydration', () => {
     },
   );
 
+  it.each(['photographer', 'salesRep', 'editor', 'editing_manager'] as const)(
+    'keeps scheduled shoots for %s when the delivered tab fails',
+    async (role) => {
+      auth.user.role = role;
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'https://example.test');
+        if (url.searchParams.get('tab') === 'delivered') return response({}, 500);
+        if (url.searchParams.get('tab') === 'scheduled') {
+          return response({ data: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(record), meta: { last_page: 1, count: 9 } });
+        }
+        return response({ data: [], meta: { last_page: 1, count: 0 } });
+      }));
+      showProbe();
+      await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+      expect(screen.getByTestId('today').textContent).toBe('9');
+      vi.restoreAllMocks();
+    },
+  );
+
   it('does not publish a partial schedule when a later page fails', async () => {
     auth.user.role = 'admin';
     vi.spyOn(console, 'error').mockImplementation(() => undefined);

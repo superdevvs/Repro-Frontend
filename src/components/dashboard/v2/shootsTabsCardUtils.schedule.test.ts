@@ -19,6 +19,17 @@ describe('dashboard scheduled-day filtering', () => {
     expect(isShootInPast(shoot)).toBe(false);
   });
 
+  it('uses the New York market day when a shoot has no zone of its own', () => {
+    vi.stubEnv('TZ', 'Asia/Kolkata');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-29T01:30:00+05:30'));
+
+    expect(isShootInPast({
+      scheduledLocalDate: '2026-09-28',
+      startTime: '2026-09-28T14:00:00.000000Z',
+    } as DashboardShootSummary)).toBe(false);
+  });
+
   it('keeps today in the shoot timezone on the photographer dashboard after the viewer date rolls over', () => {
     vi.stubEnv('TZ', 'Asia/Kolkata');
     vi.useFakeTimers();

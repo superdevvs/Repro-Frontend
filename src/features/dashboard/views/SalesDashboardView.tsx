@@ -95,7 +95,6 @@ export const SalesDashboardView = ({
   repPendingReviews,
   repUpcoming,
   requestedShoots,
-  requestedShootsLoading,
   requestedShootsError,
   onReloadRequestedShoots,
   requestedShootModals,
@@ -192,23 +191,24 @@ export const SalesDashboardView = ({
     </div>
   );
 
-  const shootsCard = requestedShootsError ? (
-    <div role="alert" className="rounded-2xl border p-4 text-sm">
-      <p>Unable to load requested shoots.</p>
-      <button className="mt-2 underline" onClick={onReloadRequestedShoots}>Retry</button>
-    </div>
-  ) : requestedShootsLoading ? (
-    <div role="status" className="rounded-2xl border p-4 text-sm">Loading shoots…</div>
-  ) : (
-    <ShootsTabsCard
-      upcomingShoots={repUpcoming.filter((shoot) => (shoot.workflowStatus || shoot.status) !== 'requested')}
-      requestedShoots={requestedShoots}
-      onSelect={onSelectShoot}
-      onApprove={onApproveShoot}
-      onDecline={onDeclineShoot}
-      onModify={onModifyShoot}
-      role="salesRep"
-    />
+  const shootsCard = (
+    <>
+      {requestedShootsError ? (
+        <div role="alert" className="mb-3 rounded-2xl border p-4 text-sm">
+          <p>Unable to load requested shoots.</p>
+          <button className="mt-2 underline" onClick={onReloadRequestedShoots}>Retry</button>
+        </div>
+      ) : null}
+      <ShootsTabsCard
+        upcomingShoots={repUpcoming.filter((shoot) => (shoot.workflowStatus || shoot.status) !== 'requested')}
+        requestedShoots={requestedShoots}
+        onSelect={onSelectShoot}
+        onApprove={onApproveShoot}
+        onDecline={onDeclineShoot}
+        onModify={onModifyShoot}
+        role="salesRep"
+      />
+    </>
   );
 
   const salesMobileTabs = [

@@ -85,6 +85,18 @@ const deduplicateApiShoots = (records: ApiShoot[]): ApiShoot[] =>
     ).values(),
   );
 
+const normalizeShootRecords = (records: ApiShoot[]): ShootData[] => {
+  const normalized: ShootData[] = [];
+  for (const record of records) {
+    try {
+      normalized.push(transformShootFromApi(record));
+    } catch (error) {
+      console.error('Skipping shoot that failed to normalize', record?.id, error);
+    }
+  }
+  return applyFallbackMedia(normalized);
+};
+
 const isAbortError = (error: unknown) =>
   error instanceof DOMException && error.name === 'AbortError';
 
@@ -222,6 +234,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     fetchInFlightRef.current = true;
+    let publishedSchedule = false;
     try {
       // For admins/superadmins, fetch from both 'scheduled' and 'completed' tabs to get all non-delivered shoots
       // For photographers, fetch from both tabs to see all shoots until delivered
@@ -261,32 +274,50 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             persistShoots([]);
             return [];
           }
-
-          if (!scheduledResponse.ok || !completedResponse.ok || !deliveredResponse.ok) {
+          if (!scheduledResponse.ok) {
             throw new Error('Failed to load shoots from server');
           }
 
           const scheduledJson = await readScheduledPages(scheduledResponse);
-          const completedJson = await parseJsonResponse<ShootListPayload>(completedResponse);
-          const deliveredJson = await parseJsonResponse<ShootListPayload>(deliveredResponse);
-
           const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
-          const completedRecords = Array.isArray(completedJson.data) ? completedJson.data : [];
-          const deliveredRecords = Array.isArray(deliveredJson.data) ? deliveredJson.data : [];
+          // Upcoming lists only need the scheduled tab. Publish it before the
+          // much larger completed and delivered payloads, and keep it if those fail.
+          const scheduledShoots = normalizeShootRecords(scheduledRecords);
+          publishedSchedule = true;
+          setShoots(scheduledShoots);
+          persistShoots(scheduledShoots);
 
-          const combinedRecords = [...scheduledRecords, ...completedRecords, ...deliveredRecords];
-          const uniqueRecords = deduplicateApiShoots(combinedRecords);
+          const optionalRecords: ApiShoot[] = [];
+          let completedMeta: ShootListPayload['meta'];
+          let deliveredMeta: ShootListPayload['meta'];
+          completedMeta = undefined;
+          deliveredMeta = undefined;
+          if (completedResponse.ok) {
+            const completedJson = await parseJsonResponse<ShootListPayload>(completedResponse);
+            completedMeta = completedJson.meta;
+            if (Array.isArray(completedJson.data)) optionalRecords.push(...completedJson.data);
+          } else {
+            console.error('Completed shoot tab failed', completedResponse.status);
+          }
+          if (deliveredResponse.ok) {
+            const deliveredJson = await parseJsonResponse<ShootListPayload>(deliveredResponse);
+            deliveredMeta = deliveredJson.meta;
+            if (Array.isArray(deliveredJson.data)) optionalRecords.push(...deliveredJson.data);
+          } else {
+            console.error('Delivered shoot tab failed', deliveredResponse.status);
+          }
 
-          allShoots = applyFallbackMedia(uniqueRecords.map(transformShootFromApi));
+          const uniqueRecords = deduplicateApiShoots([...scheduledRecords, ...optionalRecords]);
+          allShoots = normalizeShootRecords(uniqueRecords);
 
-          if (scheduledJson.meta || completedJson.meta || deliveredJson.meta) {
-            const totalCount = (scheduledJson.meta?.count || 0) + (completedJson.meta?.count || 0) + (deliveredJson.meta?.count || 0);
+          if (scheduledJson.meta || completedMeta || deliveredMeta) {
+            const totalCount = (scheduledJson.meta?.count || 0) + (completedMeta?.count || 0) + (deliveredMeta?.count || 0);
             setPaginationMeta({
               currentPage: page,
               lastPage: Math.max(
                 scheduledJson.meta?.last_page || 1,
-                completedJson.meta?.last_page || 1,
-                deliveredJson.meta?.last_page || 1,
+                completedMeta?.last_page || 1,
+                deliveredMeta?.last_page || 1,
               ),
               total: totalCount,
               perPage: perPage,
@@ -313,28 +344,40 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return [];
           }
 
-          if (!scheduledResponse.ok || !completedResponse.ok) {
+          if (!scheduledResponse.ok) {
             throw new Error('Failed to load shoots from server');
           }
 
           const scheduledJson = await readScheduledPages(scheduledResponse);
-          const completedJson = await parseJsonResponse<ShootListPayload>(completedResponse);
-          
           const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
-          const completedRecords = Array.isArray(completedJson.data) ? completedJson.data : [];
-          
-          // Combine and deduplicate by ID
-          const combinedRecords = [...scheduledRecords, ...completedRecords];
-          const uniqueRecords = deduplicateApiShoots(combinedRecords);
-          
-          allShoots = applyFallbackMedia(uniqueRecords.map(transformShootFromApi));
+          const scheduledShoots = normalizeShootRecords(scheduledRecords);
+          publishedSchedule = true;
+          setShoots(scheduledShoots);
+          persistShoots(scheduledShoots);
+
+          let completedMeta: ShootListPayload['meta'];
+          completedMeta = undefined;
+          const completedPayload = completedResponse.ok
+            ? await parseJsonResponse<ShootListPayload>(completedResponse)
+            : null;
+          if (completedPayload) {
+            completedMeta = completedPayload.meta;
+          } else {
+            console.error('Completed shoot tab failed', completedResponse.status);
+          }
+
+          const uniqueRecords = deduplicateApiShoots([
+            ...scheduledRecords,
+            ...(Array.isArray(completedPayload?.data) ? completedPayload.data : []),
+          ]);
+          allShoots = normalizeShootRecords(uniqueRecords);
           
           // Update pagination meta from combined results
-          if (scheduledJson.meta || completedJson.meta) {
-            const totalCount = (scheduledJson.meta?.count || 0) + (completedJson.meta?.count || 0);
+          if (scheduledJson.meta || completedMeta) {
+            const totalCount = (scheduledJson.meta?.count || 0) + (completedMeta?.count || 0);
             setPaginationMeta({
               currentPage: page,
-              lastPage: Math.max(scheduledJson.meta?.last_page || 1, completedJson.meta?.last_page || 1),
+              lastPage: Math.max(scheduledJson.meta?.last_page || 1, completedMeta?.last_page || 1),
               total: totalCount,
               perPage: perPage,
             });
@@ -429,7 +472,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const combinedRecords = [...scheduledRecords, ...completedRecords, ...deliveredRecords];
         const uniqueRecords = deduplicateApiShoots(combinedRecords);
         
-        allShoots = applyFallbackMedia(uniqueRecords.map(transformShootFromApi));
+        allShoots = normalizeShootRecords(uniqueRecords);
         
         // Update pagination meta from combined results
         const totalCount = (scheduledJson.meta?.count || 0) + (completedJson.meta?.count || 0) + (deliveredJson.meta?.count || 0);
@@ -498,6 +541,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return allShoots;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
+        return [];
+      }
+      if (publishedSchedule) {
+        console.error('Scheduled shoots stayed on the dashboard after a later tab failed', error);
         return [];
       }
       console.error('Error fetching shoots:', error);

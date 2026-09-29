@@ -39,6 +39,9 @@ const ymdToDayNumber = (ymd: string): number | null => {
   return Math.floor(utc / 86_400_000);
 };
 
+/** Booked work is scheduled in the company market unless a shoot names its own zone. */
+const MARKET_TIME_ZONE = 'America/New_York';
+
 /** Calendar day of an instant in an IANA zone, or the viewer's day when the zone is missing. */
 export const calendarDayInTimeZone = (instant: Date, timeZone?: string | null): string => {
   const zone = timeZone?.trim();
@@ -74,7 +77,9 @@ export const getDashboardBookedDayOffset = (
 ): number | null => {
   const booked = getDashboardBookedYmd(shoot);
   const bookedNumber = booked ? ymdToDayNumber(booked) : null;
-  const todayNumber = ymdToDayNumber(calendarDayInTimeZone(now, shoot.scheduleTimezone));
+  const todayNumber = ymdToDayNumber(
+    calendarDayInTimeZone(now, shoot.scheduleTimezone?.trim() || MARKET_TIME_ZONE),
+  );
   if (bookedNumber == null || todayNumber == null) return null;
   return bookedNumber - todayNumber;
 };
