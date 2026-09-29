@@ -60,6 +60,7 @@ export function CalendarInspector({ entry, onShootSelect, hideClientDetails, can
   const services = calendarServices(shoot, canViewPrices);
   return <section className="shc-brief" aria-label="Selected shoot" style={calendarEventStyle(shoot)}>
     <h3>Shoot brief <ArrowUpRight aria-hidden="true" /></h3>
+    <button type="button" className="shc-open" data-shoot-id={shoot.id} onClick={() => onShootSelect(shoot)}>Open shoot overview <ArrowUpRight aria-hidden="true" /></button>
     <div className="shc-brief-body">
       <span className="shc-status"><i aria-hidden="true" />{status.label}</span>
       <h4>{calendarAddress(shoot)}</h4>
@@ -71,7 +72,6 @@ export function CalendarInspector({ entry, onShootSelect, hideClientDetails, can
       </dl>
       {services.length > 0 && <><h5>Booked services</h5><div className="shc-services">{services.map((service, index) => <span key={`${service}-${index}`}>{service}</span>)}</div></>}
       {canViewPrices && <div className="shc-price"><span>Total</span><strong>{formatCurrency(normalizeShootPaymentSummary(shoot).totalQuote)}</strong></div>}
-      <button type="button" className="shc-open" data-shoot-id={shoot.id} onClick={() => onShootSelect(shoot)}>Open shoot overview <ArrowUpRight aria-hidden="true" /></button>
     </div>
   </section>;
 }
