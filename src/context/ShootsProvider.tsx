@@ -85,17 +85,14 @@ const deduplicateApiShoots = (records: ApiShoot[]): ApiShoot[] =>
     ).values(),
   );
 
-const normalizeShootRecords = (records: ApiShoot[]): ShootData[] => {
-  const normalized: ShootData[] = [];
-  for (const record of records) {
-    try {
-      normalized.push(transformShootFromApi(record));
-    } catch (error) {
-      console.error('Skipping shoot that failed to normalize', record?.id, error);
-    }
+const normalizeShootRecords = (records: ApiShoot[]): ShootData[] => applyFallbackMedia(records.flatMap((record) => {
+  try {
+    return [transformShootFromApi(record)];
+  } catch (error) {
+    console.error('Skipping shoot that failed to normalize', record?.id, error);
+    return [];
   }
-  return applyFallbackMedia(normalized);
-};
+}));
 
 const isAbortError = (error: unknown) =>
   error instanceof DOMException && error.name === 'AbortError';
@@ -280,32 +277,24 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           const scheduledJson = await readScheduledPages(scheduledResponse);
           const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
-          // Upcoming lists only need the scheduled tab. Publish it before the
-          // much larger completed and delivered payloads, and keep it if those fail.
           const scheduledShoots = normalizeShootRecords(scheduledRecords);
           publishedSchedule = true;
           setShoots(scheduledShoots);
           persistShoots(scheduledShoots);
 
-          const optionalRecords: ApiShoot[] = [];
-          let completedMeta: ShootListPayload['meta'];
-          let deliveredMeta: ShootListPayload['meta'];
-          completedMeta = undefined;
-          deliveredMeta = undefined;
-          if (completedResponse.ok) {
-            const completedJson = await parseJsonResponse<ShootListPayload>(completedResponse);
-            completedMeta = completedJson.meta;
-            if (Array.isArray(completedJson.data)) optionalRecords.push(...completedJson.data);
-          } else {
-            console.error('Completed shoot tab failed', completedResponse.status);
-          }
-          if (deliveredResponse.ok) {
-            const deliveredJson = await parseJsonResponse<ShootListPayload>(deliveredResponse);
-            deliveredMeta = deliveredJson.meta;
-            if (Array.isArray(deliveredJson.data)) optionalRecords.push(...deliveredJson.data);
-          } else {
-            console.error('Delivered shoot tab failed', deliveredResponse.status);
-          }
+          const readOptional = async (response: Response) => {
+            if (!response.ok) {
+              console.error('Shoot tab failed', response.status);
+              return { data: [] as ApiShoot[], meta: undefined as ShootListPayload['meta'] };
+            }
+            const json = await parseJsonResponse<ShootListPayload>(response);
+            return { data: Array.isArray(json.data) ? json.data : [], meta: json.meta };
+          };
+          const completedTab = await readOptional(completedResponse);
+          const deliveredTab = await readOptional(deliveredResponse);
+          const optionalRecords = [...completedTab.data, ...deliveredTab.data];
+          const completedMeta = completedTab.meta;
+          const deliveredMeta = deliveredTab.meta;
 
           const uniqueRecords = deduplicateApiShoots([...scheduledRecords, ...optionalRecords]);
           allShoots = normalizeShootRecords(uniqueRecords);
@@ -355,16 +344,11 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setShoots(scheduledShoots);
           persistShoots(scheduledShoots);
 
-          let completedMeta: ShootListPayload['meta'];
-          completedMeta = undefined;
           const completedPayload = completedResponse.ok
             ? await parseJsonResponse<ShootListPayload>(completedResponse)
             : null;
-          if (completedPayload) {
-            completedMeta = completedPayload.meta;
-          } else {
-            console.error('Completed shoot tab failed', completedResponse.status);
-          }
+          if (!completedPayload) console.error('Completed shoot tab failed', completedResponse.status);
+          const completedMeta = completedPayload?.meta;
 
           const uniqueRecords = deduplicateApiShoots([
             ...scheduledRecords,
