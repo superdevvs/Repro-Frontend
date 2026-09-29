@@ -40,6 +40,8 @@ import {
   type ShootsTabsCardProps,
   type TabType,
 } from './shootsTabsCardUtils';
+const SHOOTS_COMPACT_PREF_KEY = 'dashboard-shoots-compact';
+
 export function useShootsTabsCardController({
   upcomingShoots,
   requestedShoots,
@@ -72,7 +74,25 @@ export function useShootsTabsCardController({
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isCompactMobile, setIsCompactMobile] = useState(false);
+  const [isCompactMobile, setIsCompactMobileState] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem(SHOOTS_COMPACT_PREF_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setIsCompactMobile = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setIsCompactMobileState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      try {
+        window.localStorage.setItem(SHOOTS_COMPACT_PREF_KEY, next ? '1' : '0');
+      } catch {
+        // Ignore quota / private-mode failures; keep in-memory preference.
+      }
+      return next;
+    });
+  }, []);
   const lastRequestedCountRef = useRef<number>(requestedShoots.length);
   useEffect(() => {
     if (showAssignmentFilters) return;

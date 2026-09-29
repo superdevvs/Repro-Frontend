@@ -52,36 +52,44 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     renderShootCard,
   } = model;
 
-  const renderStickyCompactToggle = () => (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => setIsCompactMobile((prev) => !prev)}
-      className={cn(
-        'pointer-events-auto hidden sm:inline-flex h-7 rounded-full px-2.5 text-[11px] font-semibold',
-        isCompactMobile
-          ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-      )}
-      aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-      title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
-    >
-      <List size={14} className="mr-1" />
-      {isCompactMobile ? 'Full view' : 'Compact'}
-    </Button>
-  );
+  const renderCompactToggle = (opts?: { iconOnly?: boolean; className?: string }) => {
+    const iconOnly = Boolean(opts?.iconOnly);
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsCompactMobile((prev) => !prev)}
+        className={cn(
+          'pointer-events-auto inline-flex h-7 items-center justify-center rounded-full text-[11px] font-semibold',
+          iconOnly ? 'w-7 shrink-0 px-0' : 'px-2.5',
+          isCompactMobile
+            ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          opts?.className,
+        )}
+        aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+        title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+      >
+        <List size={14} className={cn(!iconOnly && 'mr-1')} />
+        {!iconOnly && (isCompactMobile ? 'Full view' : 'Compact')}
+      </Button>
+    );
+  };
 
     return (
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col h-full flex-1 relative min-h-0")}>
-        <button
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="sm:hidden absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors text-muted-foreground"
-          aria-label="Toggle menu"
-        >
-          {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
-        </button>
+        <div className="sm:hidden absolute top-3 right-3 z-10 flex items-center gap-1">
+          {renderCompactToggle({ iconOnly: true })}
+          <button
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors text-muted-foreground"
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
+          </button>
+        </div>
 
-        <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-10 sm:pr-0">
+        <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-16 sm:pr-0">
           <div className="flex items-center gap-4">
             <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
             <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
@@ -139,6 +147,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
                 </span>
               )}
             </Button>
+            {renderCompactToggle()}
           </div>
         </div>
 
@@ -459,6 +468,9 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               // Cap the EM upcoming-style list (~10 cards); keep inner scroll + sticky day pills.
               style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
+              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
+                {renderCompactToggle({ className: 'hidden lg:inline-flex' })}
+              </div>
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
                   <div className="sticky top-0 z-10 bg-card py-0.5">
