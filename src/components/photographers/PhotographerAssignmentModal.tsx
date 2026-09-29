@@ -433,20 +433,20 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
-      <DialogContent className="w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col p-0 sm:max-w-[1100px] sm:max-h-[90vh] sm:h-auto sm:rounded-lg">
+      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-[1100px] sm:rounded-lg">
         <DialogHeader className="sr-only">
           <DialogTitle>Assign Photographer</DialogTitle>
           <DialogDescription>
             Assign a photographer to a shoot and view their availability schedule
           </DialogDescription>
         </DialogHeader>
-        {/* Top Bar — compact on mobile so timeline/list keep vertical room */}
-        <div className="flex flex-col gap-1.5 border-b px-3 pb-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:pb-4 sm:pt-6">
-          <h2 className="text-sm font-bold sm:text-2xl">Assign Photographer</h2>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-4">
+        {/* Top bar — single dense row on mobile so list/timeline keep vertical room */}
+        <div className="flex shrink-0 items-center gap-1.5 border-b px-2.5 py-1.5 pr-11 sm:gap-3 sm:px-6 sm:pb-4 sm:pt-6 sm:pr-6">
+          <h2 className="hidden text-2xl font-bold sm:block">Assign Photographer</h2>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:ml-auto sm:flex-none sm:gap-4">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 sm:h-9 flex items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
+                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm">
                   <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="font-medium">
                     {isToday(selectedDate) ? 'Today' : isTomorrow(selectedDate) ? 'Tomorrow' : format(selectedDate, 'EEE, MMM d')}
@@ -474,7 +474,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs sm:h-8"
+                className="h-7 px-1.5 text-xs sm:h-8 sm:px-2"
                 onClick={() => setSelectedDate(new Date())}
               >
                 Today
@@ -488,7 +488,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
               <Info className="h-3 w-3" />
               <span>Changes sync automatically</span>
             </div>
@@ -498,19 +498,19 @@ export const PhotographerAssignmentModal: React.FC = () => {
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
           {/* Left Column - Photographer Summary + Availability (35%) */}
           <div className="w-full sm:w-[35%] sm:border-r border-border flex flex-col bg-muted/20">
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="flex-1 space-y-3 overflow-y-auto p-2.5 sm:space-y-6 sm:p-6">
               {/* Identity Block */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 sm:gap-4">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-start gap-2.5 sm:gap-4">
                   <Avatar
                     src={photographer.avatar}
                     initials={getInitials(photographer.name)}
-                    className="w-12 h-12 sm:w-16 sm:h-16"
+                    className="h-10 w-10 sm:h-16 sm:w-16"
                     status={photographer.status}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{photographer.name}</h3>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex items-center gap-2 sm:mb-1">
+                      <h3 className="truncate text-sm font-semibold text-foreground sm:text-lg">{photographer.name}</h3>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -531,14 +531,14 @@ export const PhotographerAssignmentModal: React.FC = () => {
               </div>
 
               {/* Metrics Strip */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <div className="p-3 rounded-lg border bg-card">
-                  <p className="text-xs text-muted-foreground mb-1">Jobs on {selectedDateLabel}</p>
-                  <p className="text-xl font-semibold">{selectedDateAssignedShoots.length}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{photographer.loadToday} scheduled today</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
+                <div className="rounded-lg border bg-card p-2 sm:p-3">
+                  <p className="mb-0.5 text-[10px] text-muted-foreground sm:mb-1 sm:text-xs">Jobs on {selectedDateLabel}</p>
+                  <p className="text-lg font-semibold sm:text-xl">{selectedDateAssignedShoots.length}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground sm:mt-1">{photographer.loadToday} scheduled today</p>
                 </div>
-                <div className="p-3 rounded-lg border bg-card">
-                  <p className="text-xs text-muted-foreground mb-1">Available windows</p>
+                <div className="rounded-lg border bg-card p-2 sm:p-3">
+                  <p className="mb-0.5 text-[10px] text-muted-foreground sm:mb-1 sm:text-xs">Available windows</p>
                   {nextAvailability ? (
                     <>
                       <p className="text-lg font-semibold">{selectedDateAvailableSlots.length}</p>
@@ -555,12 +555,12 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
               {/* Availability Timeline - MOVED TO LEFT */}
               <div>
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+                <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold sm:mb-3 sm:gap-2 sm:text-sm">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {selectedDateLabel} timeline
                 </h4>
                 <PhotographerAvailabilityTimeline
-                  className="mb-3"
+                  className="mb-2 sm:mb-3"
                   availableSlots={getAvailabilitySlotsForDate(selectedDate, 'available')}
                   bookedSlots={getAvailabilitySlotsForDate(selectedDate, 'booked')}
                   unavailableSlots={getAvailabilitySlotsForDate(selectedDate, 'unavailable')}
@@ -676,7 +676,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               )}
 
               {/* Contact & Actions */}
-              <div className="pt-4 border-t border-border space-y-2">
+              <div className="space-y-1.5 border-t border-border pt-2 sm:space-y-2 sm:pt-4">
                 {(photographer.phone || photographer.email) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {photographer.phone && (
@@ -711,7 +711,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
           <div className="flex-1 flex flex-col min-h-0 border-t sm:border-t-0">
             {/* Offline Warning */}
             {photographer.status === 'offline' && (
-              <div className="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+              <div className="mx-2.5 mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/20 sm:mx-6 sm:mt-6 sm:p-3">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div className="flex-1">
@@ -725,13 +725,13 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 </div>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] sm:pb-6">
+            <div className="flex-1 overflow-y-auto p-2.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:p-6 sm:pb-6">
 
               {/* Assignable Shoots List */}
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
+                <div className="mb-2 flex flex-col gap-1.5 sm:mb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold sm:gap-2 sm:text-sm">
+                    <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     Assignable Shoots ({filteredShoots.length})
                   </h4>
                   <div className="flex items-center gap-2">
@@ -759,7 +759,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                     </div>
                   </div>
                 ) : filteredShoots.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {filteredShoots.map((shoot) => {
                       const shootDate = parseShootDate(shoot);
                       const isCompatible = shootDate ? isShootCompatibleWithDate(shoot, shootDate) : false;
@@ -768,7 +768,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                         <div
                           key={shoot.id}
                           className={cn(
-                            "p-4 rounded-xl border bg-card transition-all hover:border-primary/40",
+                            "rounded-xl border bg-card p-3 transition-all hover:border-primary/40 sm:p-4",
                             isCompatible && "border-emerald-200 dark:border-emerald-900/70",
                           )}
                         >
