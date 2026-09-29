@@ -1,5 +1,5 @@
 import type { ShootData } from '@/types/shoots';
-import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog;
+import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 import { getShootAssignedPhotographers } from '@/utils/shootPhotographerAssignments';
 import { ConfirmSubmitDialog } from './ConfirmSubmitDialog';
 import { ResumeFromHoldScheduleDialog } from './ResumeFromHoldScheduleDialog';
