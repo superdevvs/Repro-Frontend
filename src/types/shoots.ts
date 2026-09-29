@@ -654,6 +654,8 @@ export interface ShootData {
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;
   heroImage?: string;
+  previewImages?: string[];
+  preview_images?: string[];
   weather?: ShootWeatherSummary;
   primaryAction?: ShootAction;
   secondaryActions?: ShootAction[];

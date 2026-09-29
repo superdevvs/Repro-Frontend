@@ -888,6 +888,16 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     overpaymentAmount: paymentSummary.overpaymentAmount,
     overpayment_amount: paymentSummary.overpaymentAmount,
     heroImage: shoot.hero_image || shoot.heroImage || undefined,
+    previewImages: Array.isArray(shoot.previewImages)
+      ? shoot.previewImages.filter((image: unknown): image is string => typeof image === 'string' && Boolean(image))
+      : Array.isArray(shoot.preview_images)
+        ? shoot.preview_images.filter((image: unknown): image is string => typeof image === 'string' && Boolean(image))
+        : undefined,
+    preview_images: Array.isArray(shoot.preview_images)
+      ? shoot.preview_images.filter((image: unknown): image is string => typeof image === 'string' && Boolean(image))
+      : Array.isArray(shoot.previewImages)
+        ? shoot.previewImages.filter((image: unknown): image is string => typeof image === 'string' && Boolean(image))
+        : undefined,
     media: shoot.media || undefined,
     tourLinks: shoot.tour_links || undefined,
     iguideTourUrl: shoot.iguide_tour_url || undefined,

@@ -328,6 +328,8 @@ export type ApiShoot = {
   bracketMode?: number | null;
   hero_image?: string;
   heroImage?: string;
+  preview_images?: string[];
+  previewImages?: string[];
   iguide_tour_url?: string;
   iguide_floorplans?: ShootData['iguideFloorplans'];
   iguide_property_id?: string;

@@ -184,6 +184,7 @@ export const SalesDashboardView = ({
           title="Delivered shoots"
           subtitle="Most recent handoffs"
           emptyStateText="No delivered shoots yet."
+          onSelect={(shoot) => onSelectShoot(shoot)}
           onViewAll={() => navigate("/shoot-history?tab=delivered")}
           stretch
         />

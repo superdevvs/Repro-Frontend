@@ -465,10 +465,18 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     holdReason: shoot.holdReason ?? null,
     paymentStatus,
     heroImage: shoot.heroImage || null,
-    previewImages: shoot.files
-      ?.slice(0, 6)
-      .map(getPreviewImageUrl)
-      .filter((image): image is string => Boolean(image)) || [],
+    previewImages: (() => {
+      const fromApi = [
+        ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+        ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+      ].filter((image): image is string => typeof image === "string" && Boolean(image));
+      const fromFiles =
+        shoot.files
+          ?.slice(0, 6)
+          .map(getPreviewImageUrl)
+          .filter((image): image is string => Boolean(image)) || [];
+      return Array.from(new Set([...fromApi, ...fromFiles])).slice(0, 6);
+    })(),
   };
 
   // Cache the result for this shoot object reference
