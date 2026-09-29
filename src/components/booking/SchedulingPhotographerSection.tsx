@@ -257,6 +257,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                 {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
               </>
             );
+            // Hide in-pill text on very narrow segments; tooltip/popover still has full label.
+            const showPillLabel = clampedWidth >= 8;
             return (
               <AvailabilityTimelineSlot
                 key={key}
@@ -264,7 +266,13 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                 style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
                 label={`${label} ${to12Hour(slot.start_time)}-${to12Hour(slot.end_time)}`}
                 content={content}
-              />
+              >
+                {showPillLabel ? (
+                  <span className="pointer-events-none truncate px-1 text-[9px] font-semibold leading-none tracking-wide text-white">
+                    {label}
+                  </span>
+                ) : null}
+              </AvailabilityTimelineSlot>
             );
           };
           return (
@@ -335,27 +343,27 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       : clientDistanceLabel}
                   </p>
                   <TooltipProvider delayDuration={100}>
-                    <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
+                    <div className={cn("relative h-5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
                       {availabilitySlots.map((slot, index) => renderTimelineSlot(
                         slot,
                         `${photographerItem.id}-slot-${index}`,
-                        "absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400",
+                        "absolute top-0 bottom-0 rounded-full bg-emerald-500 dark:bg-emerald-500",
                         "Available"
                       ))}
                       {bookedSlots.map((slot, index) => renderTimelineSlot(
                         slot,
                         `${photographerItem.id}-booked-${index}`,
-                        "absolute top-0 bottom-0 rounded-full bg-blue-900 dark:bg-blue-700",
+                        "absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-500",
                         "Booked"
                       ))}
                       {unavailableSlots.map((slot, index) => renderTimelineSlot(
                         slot,
                         `${photographerItem.id}-unavailable-${index}`,
                         "absolute top-0 bottom-0 rounded-full bg-red-500 dark:bg-red-500",
-                        "Unavailable"
+                        "N/A"
                       ))}
                     </div>
-                    {availabilitySlots.length > 0 ? (
+                    {(availabilitySlots.length > 0 || bookedSlots.length > 0 || unavailableSlots.length > 0) ? (
                       <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
                         <span className="shrink-0">{formatTimeForDisplay(minutesToTime(availabilityScaleStartMinutes))}</span>
                         <div className="flex flex-1 items-center justify-between px-1">

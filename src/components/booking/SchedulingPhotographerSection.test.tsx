@@ -43,10 +43,15 @@ function Picker({ mobile = false, time = '10:00', overrides = {} }: PickerProps)
     buildConflictAwareServiceTimeOptions: () => [],
     isPhotographerTimeDisabled: () => false,
     availabilityStats: { total: 1, available: 1 },
-    availabilityCardWindow: { startMinutes: 480, endMinutes: 1140 },
+    availabilityCardWindow: { startMinutes: 480, endMinutes: 1200 },
     photographerAvailability: new Map(), filteredAndSortedPhotographers: [person],
     searchQuery: '', sortBy: 'distance', formatLocationLabel: () => '',
-    minutesToTime: (value: number) => `${Math.floor(value / 60)}:00`,
+    timeToMinutes: (value: string) => {
+      const [h, m] = String(value).split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    },
+    minutesToTime: (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
+    normalizeSlotTime: (value?: string | null) => value || '',
     ...overrides,
   } as unknown as SchedulingFormController;
   return <><output data-testid="selection-state">{photographer}:{String(open)}</output><SchedulingPhotographerSection controller={controller} /></>;
@@ -172,5 +177,33 @@ describe('booking photographer picker', () => {
 
     const photographerCard = screen.getByRole('region', { name: 'Photographer' });
     expect(within(photographerCard).getByText('Please select a photographer')).toBeInTheDocument();
+  });
+
+  it('renders status-colored labeled availability segments (green/blue/red)', async () => {
+    const user = userEvent.setup();
+    render(<Picker overrides={{
+      filteredAndSortedPhotographers: [{
+        id: '9',
+        name: 'Pat Photographer',
+        netAvailableSlots: [{ start_time: '09:00', end_time: '12:00' }],
+        bookedSlots: [{ start_time: '12:00', end_time: '14:00' }],
+        unavailableSlots: [{ start_time: '14:00', end_time: '16:00' }],
+      }],
+    }} />);
+
+    await user.click(screen.getByText('Select a photographer'));
+    const dialog = await screen.findByRole('dialog');
+    const available = within(dialog).getByLabelText('Available 9:00 AM-12:00 PM');
+    const booked = within(dialog).getByLabelText('Booked 12:00 PM-2:00 PM');
+    const unavailable = within(dialog).getByLabelText('N/A 2:00 PM-4:00 PM');
+    expect(available).toHaveClass('bg-emerald-500');
+    expect(booked).toHaveClass('bg-blue-500');
+    expect(unavailable).toHaveClass('bg-red-500');
+    expect(available).toHaveTextContent('Available');
+    expect(booked).toHaveTextContent('Booked');
+    expect(unavailable).toHaveTextContent('N/A');
+    // Scale always shows when any status segment exists (8AM–8PM window in fixture).
+    expect(within(dialog).getByText('8:00 AM')).toBeInTheDocument();
+    expect(within(dialog).getByText('8:00 PM')).toBeInTheDocument();
   });
 });

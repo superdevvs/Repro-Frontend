@@ -68,7 +68,7 @@ describe('AvailabilityTimelineSlot', () => {
 
     // Hover-capable path renders a non-button span trigger (tooltip, not popover).
     expect(screen.queryByRole('button', { name: 'Available 9:00 AM-10:00 AM' })).not.toBeInTheDocument();
-    const trigger = document.querySelector('span.inline-block');
+    const trigger = document.querySelector('span.h-2.w-8');
     expect(trigger).toBeTruthy();
     await user.hover(trigger as Element);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Available · 9:00 AM-10:00 AM');
