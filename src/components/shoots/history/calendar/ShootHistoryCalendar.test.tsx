@@ -10,6 +10,7 @@ import { calendarShoot } from './calendarFixtures.test-helper';
 const mocks = vi.hoisted(() => ({ theme: 'dark', mobile: false }));
 vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: mocks.theme }) }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: (query: string) => query.includes('min-width: 1280') && !mocks.mobile }));
 
 function Calendar({ initialView = 'week', ...props }: Partial<ShootHistoryCalendarProps> & { initialView?: CalendarViewMode }) {
   const [date, setDate] = useState('2026-09-28');
@@ -154,4 +155,18 @@ describe('real Shoot History calendar', () => {
     expect(screen.queryByRole('button', { name: /^Time not set,/ })).not.toBeInTheDocument();
     expect(document.querySelector('.shc-month button[data-shoot-id="2"]')).not.toBeNull();
   });
+  it('marks the calendar for viewport fill on desktop so week grid and day list can scroll', () => {
+    mocks.mobile = false;
+    render(<Calendar />);
+    expect(screen.getByTestId('shoot-history-calendar')).toHaveClass('is-viewport-fill');
+    expect(screen.getByTestId('shoot-history-calendar')).toHaveAttribute('data-fill-viewport', 'true');
+  });
+
+  it('keeps the legacy max-height timeline on phones without viewport fill', () => {
+    mocks.mobile = true;
+    render(<Calendar />);
+    expect(screen.getByTestId('shoot-history-calendar')).not.toHaveClass('is-viewport-fill');
+    expect(screen.getByTestId('calendar-timeline-scroll')).toBeInTheDocument();
+  });
+
 });

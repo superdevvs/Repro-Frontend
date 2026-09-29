@@ -135,10 +135,10 @@ const getDashboardLayoutClassName = (
     return '!p-0 !pb-0 !min-h-0';
   }
 
-  if (pathname === '/availability') {
-    // DashboardLayout locks main scroll + hides footer at xl+ (fillAvailabilityDesktop).
-    // Keep !min-h-0 always; !overflow-hidden remains a belt-and-suspenders class for
-    // xl while phones/tablets stay scrollable.
+  if (pathname === '/availability' || pathname === '/shoot-history') {
+    // DashboardLayout locks main scroll + hides footer at xl+ for Availability
+    // and Shoot History calendar fill. Keep !min-h-0 always; !overflow-hidden is
+    // belt-and-suspenders for xl while phones/tablets stay scrollable.
     return `!min-h-0${lockAvailabilityMain ? ' !overflow-hidden' : ''}`;
   }
 

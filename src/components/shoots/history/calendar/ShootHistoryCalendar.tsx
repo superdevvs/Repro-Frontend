@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import type { ShootData } from '@/types/shoots';
 import { CalendarAgenda, CalendarInspector } from './CalendarShootCards';
@@ -30,6 +31,8 @@ export function ShootHistoryCalendar({ shoots, view, date: requestedDate, onView
   const { theme } = useTheme();
   const { formatDate } = useUserPreferences();
   const mobile = useIsMobile();
+  const isDesktopViewport = useMediaQuery('(min-width: 1280px)');
+  const fillViewport = !mobile && isDesktopViewport;
   const [today, setToday] = useState(getCalendarToday);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [agendaTarget, setAgendaTarget] = useState<string | null>(null);
@@ -71,7 +74,7 @@ export function ShootHistoryCalendar({ shoots, view, date: requestedDate, onView
   };
   const selectedDayLabel = `${formatCalendarPart(date, { weekday: 'long' })}, ${formatDate(date)}`;
 
-  return <section className="shc" data-testid="shoot-history-calendar" data-theme={theme} aria-label="Shoot history calendar" aria-busy={loading}>
+  return <section className={`shc${fillViewport ? ' is-viewport-fill' : ''}`} data-testid="shoot-history-calendar" data-theme={theme} aria-label="Shoot history calendar" aria-busy={loading} data-fill-viewport={fillViewport ? 'true' : undefined}>
     <div className="shc-layout">
       <section className="shc-planner" aria-label="Shoot schedule">
         <header className="shc-toolbar">

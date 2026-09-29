@@ -1,5 +1,7 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel'
+import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import React from 'react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
@@ -445,6 +447,10 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
+  // xl+ Shoot History calendar owns overflow inside the shell (DashboardLayout
+  // fillDesktopCalendar). List/grid/map keep an inner page scroller instead.
+  const fillDesktopCalendar = useMediaQuery('(min-width: 1280px)')
+  const isCalendarFill = fillDesktopCalendar && Boolean(props.calendarContent)
   const selectView = (view: ShootHistoryDisplayMode) => {
     if (view === 'calendar' || activeView === 'calendar') {
       setViewMode(view)
@@ -479,14 +485,23 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     'flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
 
   return (
-    <div ref={gridContainerRef} data-grid-columns={gridColumns} className={`shoot-history-tabs max-w-full space-y-4 overflow-x-clip ${DASHBOARD_COMPACT_PAGE_X_CLASS} pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0`}>
-      <div className="flex items-start justify-between gap-3">
-        {/* Compact title on phones (no description); full heading on desktop. */}
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight md:text-3xl">Shoot History</h1>
-          <p className="hidden text-muted-foreground md:block">
-            View and manage scheduled, completed, delivered, and on-hold shoots.
-          </p>
+    <div ref={gridContainerRef} data-grid-columns={gridColumns} className={cn(
+      'shoot-history-tabs max-w-full space-y-4 overflow-x-clip',
+      DASHBOARD_COMPACT_PAGE_X_CLASS,
+      'pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0',
+      isCalendarFill && 'is-calendar-fill flex min-h-0 flex-1 flex-col overflow-hidden sm:space-y-3 sm:pb-3',
+      fillDesktopCalendar && !isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain',
+    )}>
+      <div className={cn('flex items-start justify-between gap-3', isCalendarFill && 'flex-shrink-0')}>
+        {/* Compact title on phones (no description); full heading on desktop.
+            Calendar fill drops the description to free vertical space. */}
+        <div className={cn('min-w-0', isCalendarFill ? 'space-y-0' : 'space-y-1')}>
+          <h1 className={cn('font-semibold tracking-tight', isCalendarFill ? 'text-lg md:text-xl' : 'text-lg md:text-3xl')}>Shoot History</h1>
+          {!isCalendarFill && (
+            <p className="hidden text-muted-foreground md:block">
+              View and manage scheduled, completed, delivered, and on-hold shoots.
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2">
           {(isSuperAdmin || isAdmin || isEditingManager) && (
@@ -537,8 +552,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0">
-        <div data-shoot-history-sticky-tabs className="sticky -top-2 z-20 space-y-2 bg-background pt-0.5 sm:top-0">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className={cn('space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0', isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-hidden space-y-2')}>
+        <div data-shoot-history-sticky-tabs className={cn('sticky -top-2 z-20 space-y-2 bg-background pt-0.5 sm:top-0', isCalendarFill && 'static flex-shrink-0')}>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-1" />
@@ -718,7 +733,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           { value: 'hold', content: holdOnContent },
           { value: 'featured', content: featuredContent },
         ].map(({ value, content }) => (
-          <TabsContent key={value} value={value} className="flex w-full flex-1 flex-col gap-6">
+          <TabsContent key={value} value={value} className={cn('flex w-full flex-1 flex-col gap-6', isCalendarFill && viewMode === 'calendar' && 'min-h-0 gap-0 overflow-hidden')}>
             {viewMode === 'calendar' ? props.calendarContent : content}
             {viewMode !== 'calendar' && operationalMeta && operationalMeta.total > 0 && (
               <PaginationRow page={operationalPage} total={operationalMeta.total} perPage={operationalMeta.per_page} onChange={handleOperationalPageChange} />
@@ -727,8 +742,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         ))}
 
         {canViewHistory && (
-          <TabsContent value="history" className="flex w-full flex-1 flex-col gap-6">
-            <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className="flex w-full min-h-0 flex-1 flex-col">
+          <TabsContent value="history" className={cn('flex w-full flex-1 flex-col gap-6', isCalendarFill && 'min-h-0 gap-0 overflow-hidden')}>
+            <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className={cn('flex w-full min-h-0 flex-1 flex-col', isCalendarFill && 'overflow-hidden')}>
               <Collapsible open={historyFiltersOpen} onOpenChange={setHistoryFiltersOpen}>
                 <CollapsibleContent>
                   <div className="rounded-2xl border bg-card p-4 mt-2">
@@ -842,7 +857,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                 </CollapsibleContent>
               </Collapsible>
 
-              <TabsContent value="all" className="flex w-full flex-1 flex-col gap-6">
+              <TabsContent value="all" className={cn('flex w-full flex-1 flex-col gap-6', isCalendarFill && historyFilters.viewAs === 'calendar' && 'min-h-0 gap-0 overflow-hidden')}>
                 {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? props.calendarContent : historyContent}
                 {historyFilters.viewAs !== 'calendar' && historyMeta && historyFilters.groupBy === 'shoot' && (
                   <PaginationRow page={historyMeta.current_page} total={historyMeta.total} perPage={historyMeta.per_page} onChange={handleHistoryPageChange} />

@@ -627,6 +627,23 @@ body {
   overflow: visible !important;
 }
 
+/* Desktop Shoot History calendar fill: bound the active panel so the week
+   grid + day list can flex-1/min-h-0 and overflow-y scroll inside the viewport
+   (same shell lesson as Availability ba720d31). List/grid/map omit is-calendar-fill. */
+.shoot-history-tabs.is-calendar-fill {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.shoot-history-tabs.is-calendar-fill [role="tabpanel"][data-state="active"] {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
 /* Phone landscape widths often clear Tailwind `md` (768px) while height stays
    phone-short. Keep intentional horizontal rails scrollable and never let a
    nested max-height:100% panel recreate the QA #18 touch-scroll trap outside

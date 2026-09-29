@@ -19,6 +19,7 @@ import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext'
 import type { ShootData } from '@/types/shoots'
 
 vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }))
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => false }))
 import {
   DEFAULT_HISTORY_FILTERS,
   DEFAULT_OPERATIONAL_FILTERS,

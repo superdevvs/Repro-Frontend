@@ -51,9 +51,9 @@ describe('dashboard page loading integration', () => {
     expect(container.querySelector('footer')).not.toBeNull();
   });
 
-  it('locks availability desktop main scroll, fills the flex chain, and hides footer', () => {
+  it.each(['/availability', '/shoot-history'])('locks %s desktop main scroll, fills the flex chain, and hides footer', (path) => {
     viewport.availabilityDesktop = true;
-    const { container } = render(<MemoryRouter initialEntries={['/availability']}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
+    const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
     const main = container.querySelector('main');
     expect(main).toHaveClass('overflow-hidden');
     expect(main).toHaveClass('flex');

@@ -31,7 +31,7 @@ export function ShootHistoryCalendarPanel({
   search, photographerId, options, onFilterChange, showUndatedNotice, onShootClickCapture, ...calendarProps
 }: Props) {
   return (
-    <div className="min-w-0 space-y-3" onClickCapture={onShootClickCapture}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden xl:h-full" onClickCapture={onShootClickCapture}>
       <ShootHistoryCalendar
         {...calendarProps}
         filters={
@@ -59,7 +59,7 @@ export function ShootHistoryCalendarPanel({
           </div>
         }
       />
-      {showUndatedNotice && <p className="px-1 text-xs text-muted-foreground">Requests without a scheduled date are available in List or Grid view.</p>}
+      {showUndatedNotice && <p className="flex-shrink-0 px-1 text-xs text-muted-foreground">Requests without a scheduled date are available in List or Grid view.</p>}
     </div>
   )
 }
