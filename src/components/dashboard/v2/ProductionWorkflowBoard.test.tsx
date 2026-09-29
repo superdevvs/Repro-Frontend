@@ -2,7 +2,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardShootSummary, DashboardWorkflow } from "@/types/dashboard";
-import { ProductionWorkflowBoard } from "./ProductionWorkflowBoard";
+import {
+  PIPELINE_LIST_MAX_HEIGHT_PX,
+  ProductionWorkflowBoard,
+} from "./ProductionWorkflowBoard";
 
 afterEach(() => {
   cleanup();
@@ -189,5 +192,6 @@ describe("ProductionWorkflowBoard stage scroll", () => {
     expect(list).not.toBeNull();
     expect(list?.className).toContain("overflow-y-auto");
     expect(list?.className).toContain("no-scrollbar");
+    expect(list).toHaveStyle({ maxHeight: `${PIPELINE_LIST_MAX_HEIGHT_PX}px` });
   });
 });

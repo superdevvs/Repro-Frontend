@@ -16,6 +16,17 @@ interface ProductionWorkflowBoardProps {
   filter?: PipelineFilter;
 }
 
+/** Stage cards kept in the column viewport before overflow scroll (all still mounted). */
+export const PIPELINE_VISIBLE_CARDS = 6;
+/** Compact pipeline card: sm:p-3 + address/date/client/photographer lines. */
+export const PIPELINE_CARD_HEIGHT_PX = 100;
+/** Matches Tailwind `sm:space-y-3` between stage cards. */
+export const PIPELINE_CARD_GAP_PX = 12;
+/** Pixel cap so ~6–7 cards fit; remaining jobs scroll inside with no-scrollbar. */
+export const PIPELINE_LIST_MAX_HEIGHT_PX =
+  PIPELINE_VISIBLE_CARDS * PIPELINE_CARD_HEIGHT_PX +
+  (PIPELINE_VISIBLE_CARDS - 1) * PIPELINE_CARD_GAP_PX;
+
 const minutesToLabel = (minutes: number) => {
   if (!Number.isFinite(minutes) || minutes <= 0) return '—';
   const hours = Math.floor(minutes / 60);
@@ -95,9 +106,10 @@ const PipelineColumn: React.FC<{
           <p className="text-xs sm:text-sm font-semibold text-foreground">{averageTurnaround(filteredShoots)}</p>
         </div>
       </div>
-      {/* Render all stage cards; overflow-y + no-scrollbar keeps the column scrollable without a visible bar. */}
+      {/* Render ALL stage cards; max-height ≈6 cards + overflow-y/no-scrollbar for inner scroll. */}
       <div
         className="space-y-2 sm:space-y-3 overflow-y-auto min-h-0 flex-1 no-scrollbar"
+        style={{ maxHeight: PIPELINE_LIST_MAX_HEIGHT_PX }}
         data-pipeline-column-list={columnKey}
       >
         {filteredShoots.map((shoot) => (
