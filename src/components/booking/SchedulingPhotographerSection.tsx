@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AvailabilityTimelineSlot } from '@/components/booking/AvailabilityTimelineSlot';
 import { Check, CheckCircle2, ChevronRight, MapPin, Package, Search, User } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
@@ -248,18 +249,22 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             const clampedLeft = Math.max(0, Math.min(100, leftPercent));
             const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
             if (clampedWidth <= 0) return null;
+            const content = (
+              <>
+                {label}
+                {canSeePhotographerAddress && slot.address ? ` · ${getLocationInitials(slot)}` : ''}
+                {' · '}
+                {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
+              </>
+            );
             return (
-              <Tooltip key={key}>
-                <TooltipTrigger asChild>
-                  <span
-                    className={className}
-                    style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[260px] whitespace-nowrap px-2 py-1 text-xs">
-                  {label}{canSeePhotographerAddress && slot.address ? ` · ${getLocationInitials(slot)}` : ''} · {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
-                </TooltipContent>
-              </Tooltip>
+              <AvailabilityTimelineSlot
+                key={key}
+                className={className}
+                style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
+                label={`${label} ${to12Hour(slot.start_time)}-${to12Hour(slot.end_time)}`}
+                content={content}
+              />
             );
           };
           return (
