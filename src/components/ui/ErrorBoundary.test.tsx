@@ -49,7 +49,7 @@ describe('contained render recovery', () => {
         },
       })}>Start upload</button><p data-testid="upload-status">{uploads[0]?.status}</p></>;
     }
-    const app = () => <UploadProvider><Controls /><ErrorBoundary><View /></ErrorBoundary></UploadProvider>;
+    const app = () => <UploadProvider><Controls /><ErrorBoundary scope="shoot_media"><View /></ErrorBoundary></UploadProvider>;
     const rendered = render(app());
     fireEvent.click(screen.getByRole('button', { name: 'Start upload' }));
     await waitFor(() => expect(screen.getByTestId('upload-status')).toHaveTextContent('uploading'));
@@ -69,7 +69,7 @@ describe('contained render recovery', () => {
   it('does not promise an automatic refresh and enables reload only after uploads finish', () => {
     protectUploadFromNavigation('fallback-test');
     function MissingModule(): never { throw new TypeError('Importing a module script failed.'); }
-    render(<ErrorBoundary><MissingModule /></ErrorBoundary>);
+    render(<ErrorBoundary scope="shoot_media"><MissingModule /></ErrorBoundary>);
     expect(screen.getByRole('alert')).toHaveTextContent('Part of the app could not be downloaded');
     expect(screen.getByRole('alert')).not.toHaveTextContent('new version');
     expect(screen.getByRole('button', { name: 'Reload Page' })).toBeDisabled();
@@ -82,8 +82,17 @@ describe('contained render recovery', () => {
   it('keeps the fallback usable if telemetry or a diagnostic callback throws', () => {
     telemetry.mockImplementation(() => { throw new Error('Telemetry offline'); });
     function BrokenView(): never { throw new Error('Render failed'); }
-    render(<ErrorBoundary onError={() => { throw new Error('Callback failed'); }}><BrokenView /></ErrorBoundary>);
+    render(<ErrorBoundary scope="shoot_media" onError={() => { throw new Error('Callback failed'); }}><BrokenView /></ErrorBoundary>);
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeEnabled();
     expect(screen.getByRole('alert')).toBeVisible();
+  });
+
+  it('reuses the app NotFound 404 pattern for unscoped route/view failures', () => {
+    function BrokenRoute(): never { throw new Error('Route render failed'); }
+    render(<ErrorBoundary><BrokenRoute /></ErrorBoundary>);
+    expect(screen.getByRole('heading', { name: 'This page is under a different plan' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Go to Homepage' })).toHaveAttribute('href', '/');
+    expect(screen.queryByText('This view could not load')).not.toBeInTheDocument();
+    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_render_error' });
   });
 });

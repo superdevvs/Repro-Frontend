@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { attemptChunkLoadRecovery, isRecoverableChunkError } from '@/lib/chunkLoadRecovery';
 import { trackTelemetryError } from '@/features/system-overview/telemetryClient';
 import { ErrorFallback } from './ErrorBoundaryFallback';
+import NotFound from '@/pages/NotFound';
 
 interface Props {
   children: ReactNode;
@@ -59,7 +60,14 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      return <ErrorFallback error={this.state.error} errorInfo={this.state.errorInfo} onReset={this.handleReset} />;
+      // Contained media failures keep the compact recovery card so neighboring
+      // shoot UI stays usable. Route-level / dashboard view crashes reuse the
+      // app NotFound 404 pattern instead of the generic "This view could not load" card.
+      if (this.props.scope === 'shoot_media') {
+        return <ErrorFallback error={this.state.error} errorInfo={this.state.errorInfo} onReset={this.handleReset} />;
+      }
+
+      return <NotFound />;
     }
 
     return this.props.children;

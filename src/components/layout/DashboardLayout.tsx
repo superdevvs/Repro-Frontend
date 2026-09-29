@@ -63,9 +63,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   // made main a flex column or hid the footer — flex-1/h-full children had no
   // bounded height. Shoot History list/grid/map still scroll inside the page
   // when the calendar is not active.
+  // Always call useMediaQuery (Rules of Hooks). Gating the hook behind pathname
+  // crashed DashboardLayout when navigating Dashboard → /availability ("This
+  // view could not load" via ErrorBoundary).
+  const isDesktopCalendarViewport = useMediaQuery('(min-width: 1280px)');
   const fillDesktopCalendar =
     (location.pathname === '/availability' || location.pathname === '/shoot-history')
-    && useMediaQuery('(min-width: 1280px)');
+    && isDesktopCalendarViewport;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;

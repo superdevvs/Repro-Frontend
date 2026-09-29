@@ -6,6 +6,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import type { ElementType } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/dashboard/v2/SharedComponents';
@@ -16,7 +25,7 @@ import { API_BASE_URL } from '@/config/env';
 import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, isPast, isSameDay } from 'date-fns';
-import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, MapPin } from 'lucide-react';
+import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft, MapPin, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn, getInitials } from '@/lib/utils';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
@@ -68,6 +77,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
   const [assigning, setAssigning] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<'all' | 'compatible'>('all');
+  const isMobile = useIsMobile();
 
   const parseShootDate = (shoot: DashboardShootSummary): Date | null => {
     const parsed = getDashboardShootDisplayDate(shoot);
@@ -406,6 +416,15 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
   if (!photographer) return null;
 
+  const AssignRoot: ElementType = isMobile ? Drawer : Dialog;
+  const AssignContent: ElementType = isMobile ? DrawerContent : DialogContent;
+  const AssignHeader: ElementType = isMobile ? DrawerHeader : DialogHeader;
+  const AssignTitle: ElementType = isMobile ? DrawerTitle : DialogTitle;
+  const AssignDescription: ElementType = isMobile ? DrawerDescription : DialogDescription;
+  const handleOpenChange = (open: boolean) => {
+    if (!open) closeModal();
+  };
+
   const statusColors = {
     free: 'bg-emerald-500',
     busy: 'bg-amber-500',
@@ -432,17 +451,48 @@ export const PhotographerAssignmentModal: React.FC = () => {
       : format(selectedDate, 'MMM d');
 
   return (
-    <Dialog open={isOpen} onOpenChange={closeModal}>
-      <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-[1100px] sm:rounded-lg">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Assign Photographer</DialogTitle>
-          <DialogDescription>
-            Assign a photographer to a shoot and view their availability schedule
-          </DialogDescription>
-        </DialogHeader>
-        {/* Top bar — single dense row on mobile so list/timeline keep vertical room */}
-        <div className="flex shrink-0 items-center gap-1.5 border-b px-2.5 py-1.5 pr-11 sm:gap-3 sm:px-6 sm:pb-4 sm:pt-6 sm:pr-6">
-          <h2 className="hidden text-2xl font-bold sm:block">Assign Photographer</h2>
+    <AssignRoot
+      {...(isMobile ? { shouldScaleBackground: false } : {})}
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+    >
+      <AssignContent
+        className={
+          isMobile
+            ? 'z-[190] flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-t-3xl border-border bg-background p-0'
+            : 'flex h-auto max-h-[90vh] w-[92vw] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-lg p-0'
+        }
+      >
+        {isMobile ? (
+          <AssignHeader className="relative shrink-0 space-y-0.5 border-b px-4 pb-2 pt-1 text-left">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-0.5 h-8 w-8 rounded-full"
+              onClick={() => handleOpenChange(false)}
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <AssignTitle className="pr-10 text-base font-semibold">
+              Assign {photographer.name.split(' ')[0]}
+            </AssignTitle>
+            <AssignDescription className="text-[11px] text-muted-foreground">
+              Pick a date, review availability, assign a shoot
+            </AssignDescription>
+          </AssignHeader>
+        ) : (
+          <AssignHeader className="sr-only">
+            <AssignTitle>Assign Photographer</AssignTitle>
+            <AssignDescription>
+              Assign a photographer to a shoot and view their availability schedule
+            </AssignDescription>
+          </AssignHeader>
+        )}
+        {/* Date controls — toolbar on desktop; compact strip under drawer title on mobile */}
+        <div className="flex shrink-0 items-center gap-1.5 border-b px-3 py-2 sm:gap-3 sm:px-6 sm:pb-4 sm:pt-6">
+          {!isMobile && <h2 className="text-2xl font-bold">Assign Photographer</h2>}
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:ml-auto sm:flex-none sm:gap-4">
             <Popover>
               <PopoverTrigger asChild>
@@ -495,10 +545,16 @@ export const PhotographerAssignmentModal: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
+        <div
+          className={
+            isMobile
+              ? 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain'
+              : 'flex min-h-0 flex-1 flex-row overflow-hidden'
+          }
+        >
           {/* Left Column - Photographer Summary + Availability (35%) */}
-          <div className="w-full sm:w-[35%] sm:border-r border-border flex flex-col bg-muted/20">
-            <div className="flex-1 space-y-3 overflow-y-auto p-2.5 sm:space-y-6 sm:p-6">
+          <div className={isMobile ? 'flex w-full flex-col bg-muted/20' : 'flex w-[35%] flex-col border-r border-border bg-muted/20'}>
+            <div className={isMobile ? 'space-y-3 p-3' : 'flex-1 space-y-6 overflow-y-auto p-6'}>
               {/* Identity Block */}
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-start gap-2.5 sm:gap-4">
@@ -708,7 +764,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
           </div>
 
           {/* Right Column - Assignable Shoots (65%) */}
-          <div className="flex-1 flex flex-col min-h-0 border-t sm:border-t-0">
+          <div className={isMobile ? 'flex flex-col border-t border-border' : 'flex min-h-0 flex-1 flex-col'}>
             {/* Offline Warning */}
             {photographer.status === 'offline' && (
               <div className="mx-2.5 mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/20 sm:mx-6 sm:mt-6 sm:p-3">
@@ -725,7 +781,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 </div>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto p-2.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:p-6 sm:pb-6">
+            <div className={isMobile ? 'p-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]' : 'flex-1 overflow-y-auto p-6'}>
 
               {/* Assignable Shoots List */}
               <div>
@@ -845,7 +901,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AssignContent>
+    </AssignRoot>
   );
 };

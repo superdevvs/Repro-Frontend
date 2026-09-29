@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
@@ -49,6 +49,39 @@ describe('dashboard page loading integration', () => {
     const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
     expect(container.querySelector('main')).toHaveClass('overflow-y-auto');
     expect(container.querySelector('footer')).not.toBeNull();
+  });
+
+  it('keeps DashboardLayout mounted across Dashboard → Availability without a hooks crash', () => {
+    // Regression: fillDesktopCalendar used to call useMediaQuery only on
+    // /availability|/shoot-history, so navigating from Dashboard added a hook
+    // and ErrorBoundary showed "This view could not load".
+    vi.useFakeTimers();
+    viewport.availabilityDesktop = true;
+    function Jump() {
+      const navigate = useNavigate();
+      return <button type="button" onClick={() => navigate('/availability')}>View full schedule</button>;
+    }
+    const { container } = render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <DashboardLayout>
+          <Routes>
+            <Route path="/dashboard" element={<Jump />} />
+            <Route path="/availability" element={<button type="button">Availability page</button>} />
+          </Routes>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.getByRole('button', { name: 'View full schedule' })).toBeInTheDocument();
+    expect(screen.queryByText('This view could not load')).not.toBeInTheDocument();
+    act(() => {
+      screen.getByRole('button', { name: 'View full schedule' }).click();
+    });
+    // PageLoadingBoundary remounts on pathname change; uncover before asserting role queries.
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.getByText('Availability page')).toBeInTheDocument();
+    expect(screen.queryByText('This view could not load')).not.toBeInTheDocument();
+    expect(container.querySelector('main')).toHaveClass('overflow-hidden');
   });
 
   it.each(['/availability', '/shoot-history'])('locks %s desktop main scroll, fills the flex chain, and hides footer', (path) => {
