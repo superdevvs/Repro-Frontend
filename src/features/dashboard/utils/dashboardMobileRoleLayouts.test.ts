@@ -61,7 +61,7 @@ describe('role dashboard compact mobile tabs', () => {
     expect(em).toMatch(/icon:\s*MessageCircle/);
     expect(em).toMatch(/icon:\s*CheckCircle2/);
     expect(em).toMatch(/icon:\s*KanbanSquare/);
-    expect(em).toContain('dashboard-mobile-tabs');
+    expect(em).toContain('DASHBOARD_MOBILE_SECTION_TABS_CLASS');
   });
 
   it('editing-manager page shell uses dashboard-mobile-page with admin-aligned min-h-0 flex chain', () => {
@@ -83,6 +83,29 @@ describe('role dashboard compact mobile tabs', () => {
     expect(pending).toMatch(/mb-2 hidden flex-shrink-0 items-center justify-between sm:flex/);
     expect(emShoots).toContain('overflow-x-auto');
     expect(emShoots).toContain('hidden sm:block text-lg font-bold');
+    // Shoots sub-tabs: compact chips, no wrap on mobile, horizontal scroll.
+    expect(emShoots).toContain('flex-nowrap');
+    expect(emShoots).toContain('text-[11px]');
+    expect(emShoots).toContain('rounded-full');
+    expect(emShoots).toContain('py-0.5');
+  });
+
+  it('halves the gap below mobile section tabs via shared layout classes', () => {
+    const panel = read('features/dashboard/utils/dashboardMobilePanel.ts');
+    const admin = read('features/dashboard/views/AdminDashboardView.tsx');
+    const em = read('features/dashboard/views/EditingManagerDashboardView.tsx');
+    const role = read('features/dashboard/components/RoleDashboardLayout.tsx');
+
+    expect(panel).toMatch(/DASHBOARD_MOBILE_SECTION_TABS_CLASS =\s*'[^']*space-y-1/);
+    expect(panel).toMatch(/DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS =\s*'[^']*pb-0\.5/);
+    expect(panel).toMatch(/DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS =\s*'[^']*pt-0\.5/);
+    expect(admin).toContain('DASHBOARD_MOBILE_SECTION_TABS_CLASS');
+    expect(em).toContain('DASHBOARD_MOBILE_SECTION_TABS_CLASS');
+    expect(role).toContain('DASHBOARD_MOBILE_SECTION_TABS_CLASS');
+    // Prior space-y-2 / pb-1 / pt-1 must not linger on Admin / EM / Role layout.
+    expect(admin).not.toMatch(/space-y-2 overflow-hidden dashboard-mobile-tabs/);
+    expect(em).not.toMatch(/space-y-2 overflow-hidden dashboard-mobile-tabs/);
+    expect(role).not.toMatch(/space-y-2 overflow-hidden dashboard-mobile-tabs/);
   });
 
   it('Admin and Editing Manager section tabs pass count into DashboardMobileTabTrigger', () => {

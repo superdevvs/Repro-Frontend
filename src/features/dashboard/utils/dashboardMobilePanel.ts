@@ -11,6 +11,16 @@ export const DASHBOARD_MOBILE_TAB_LIST_CLASS =
 export const DASHBOARD_MOBILE_TAB_TRIGGER_CLASS =
   'shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80';
 
+/** Sticky chrome around mobile section-tab pills (Admin / EM / RoleDashboard). */
+export const DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS =
+  'sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-0.5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80';
+/** Tabs root — half the prior space-y-2 between pill row and panel (8px → 4px). */
+export const DASHBOARD_MOBILE_SECTION_TABS_CLASS =
+  'flex min-h-0 flex-1 flex-col space-y-1 overflow-hidden dashboard-mobile-tabs';
+/** Panel wrapper under section tabs — half the prior pt-1 (4px → 2px). */
+export const DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS =
+  'flex min-h-0 flex-1 flex-col overflow-hidden pt-0.5';
+
 export function resolveDashboardListMaxHeight({
   compactViewport,
   itemHeight,

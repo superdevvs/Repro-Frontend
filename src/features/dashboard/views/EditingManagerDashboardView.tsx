@@ -12,6 +12,9 @@ import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
 import type { MobileEditingManagerTab } from "../types";
 import {
+  DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS,
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
 } from "../utils/dashboardMobilePanel";
@@ -159,9 +162,9 @@ export const EditingManagerDashboardView = ({
     <Tabs
       value={mobileEditingManagerTab}
       onValueChange={(val) => setMobileEditingManagerTab(val as MobileEditingManagerTab)}
-      className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
+      className={DASHBOARD_MOBILE_SECTION_TABS_CLASS}
     >
-      <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}>
         <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
           <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
             {editingManagerMobileTabs.map((tab) => (
@@ -178,7 +181,7 @@ export const EditingManagerDashboardView = ({
       </div>
       {editingManagerMobileTabs.map((tab) => (
         <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
+          <div className={DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS}>
             {tab.content}
           </div>
         </TabsContent>

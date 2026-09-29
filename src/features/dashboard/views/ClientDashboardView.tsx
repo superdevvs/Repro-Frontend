@@ -47,6 +47,9 @@ import { ProfileCompletionNotice } from "../components/ProfileCompletionNotice";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import {
   DASHBOARD_MOBILE_PAGE_CLASS,
+  DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS,
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
   DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
@@ -338,11 +341,11 @@ export const ClientDashboardView = ({
       <Tabs
         value={mobileClientTab}
         onValueChange={(val) => onSetMobileClientTab(val as MobileClientDashboardTab)}
-        className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
+        className={DASHBOARD_MOBILE_SECTION_TABS_CLASS}
       >
         <div
           data-onboarding-target="client-dashboard-mobile-tabs"
-          className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+          className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}
         >
           <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
             <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
@@ -360,7 +363,7 @@ export const ClientDashboardView = ({
         </div>
         {clientMobileTabs.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
+            <div className={DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS}>
               {tab.content}
             </div>
           </TabsContent>

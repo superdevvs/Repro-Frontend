@@ -14,6 +14,9 @@ import type { DashboardOverview } from "@/types/dashboard";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import {
   DASHBOARD_MOBILE_PAGE_CLASS,
+  DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_CLASS,
+  DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS,
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
 } from "../utils/dashboardMobilePanel";
@@ -214,7 +217,7 @@ export const AdminDashboardView = ({
       <Tabs
         value={mobileDashboardTab}
         onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
-        className="flex min-h-0 flex-1 flex-col space-y-2 overflow-hidden dashboard-mobile-tabs"
+        className={DASHBOARD_MOBILE_SECTION_TABS_CLASS}
       >
         {/* Sticks flush with the header without clipping. Sticky offsets are
             measured from <main>'s content box, which starts 6px (its pt-1.5)
@@ -223,7 +226,7 @@ export const AdminDashboardView = ({
             and pads the same amount back: the pill rests where it did, and once
             stuck it sits whole on its own backdrop with no strip of content
             scrolling past between header and pill. */}
-        <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}>
           <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
             <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
               {mobileTabs.map((tab) => (
@@ -240,7 +243,7 @@ export const AdminDashboardView = ({
         </div>
         {mobileTabs.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1">
+            <div className={DASHBOARD_MOBILE_SECTION_PANEL_INNER_CLASS}>
               {tab.content}
             </div>
           </TabsContent>

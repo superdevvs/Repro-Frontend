@@ -89,25 +89,36 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           </button>
         </div>
 
-        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 pr-16 sm:mb-2 sm:gap-3 sm:pr-0">
+        {/* Sub-tabs denser than section pills: tight chips, no wrap, scroll at ~390px. */}
+        <div className="mb-1 flex min-w-0 flex-nowrap items-center justify-between gap-1.5 pr-14 sm:mb-2 sm:flex-wrap sm:gap-3 sm:pr-0">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
-            {/* Four EM sub-tabs overflow at ~390px — scroll the row, never wrap tall. */}
             <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain hidden-scrollbar">
-              <div className="flex w-max items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
+              <div className="inline-flex w-max max-w-none items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 p-0.5 sm:gap-1 sm:rounded-none sm:border-0 sm:border-b sm:border-transparent sm:bg-transparent sm:p-0 sm:pl-0">
               {editingManagerTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
+                    'shrink-0 whitespace-nowrap transition-all',
+                    // Mobile: compact chips (match section-tab density, smaller).
+                    'rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-tight tracking-tight',
+                    // sm+: keep underline tab chrome.
+                    'sm:rounded-none sm:border-b-2 sm:px-3 sm:py-1.5 sm:text-sm sm:font-medium sm:leading-normal',
                     activeTab === tab.id
-                      ? 'text-foreground border-primary'
-                      : 'text-muted-foreground border-transparent hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground sm:bg-transparent sm:text-foreground sm:border-primary'
+                      : 'text-muted-foreground hover:text-foreground sm:border-transparent',
                   )}
                 >
                   {tab.label}
-                  <span className="ml-1 opacity-70">({tab.shoots.length})</span>
+                  <span
+                    className={cn(
+                      'ml-0.5 tabular-nums text-[10px] sm:ml-1 sm:text-inherit',
+                      activeTab === tab.id ? 'opacity-90 sm:opacity-70' : 'opacity-60 sm:opacity-70',
+                    )}
+                  >
+                    ({tab.shoots.length})
+                  </span>
                 </button>
               ))}
               </div>
