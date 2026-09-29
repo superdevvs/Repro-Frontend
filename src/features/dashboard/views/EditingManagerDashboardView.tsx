@@ -20,11 +20,15 @@ import { DashboardMobileTabTrigger } from "../components/DashboardMobileTabTrigg
 interface EditingManagerDashboardViewProps {
   isMobile: boolean;
   mobileEditingManagerTab: MobileEditingManagerTab;
+  pipelineCount: number;
+  readyCount: number;
   renderEditingManagerReadyToDeliverCard: () => React.ReactNode;
   renderEditingManagerShootsTabsCard: () => React.ReactNode;
   renderPendingReviewsCard: () => React.ReactNode;
   renderPipelineSection: () => React.ReactNode;
+  requestCount: number;
   setMobileEditingManagerTab: (tab: MobileEditingManagerTab) => void;
+  shootsCount: number;
 }
 
 // The editing manager layout only goes side-by-side at the xl breakpoint, so
@@ -34,11 +38,15 @@ const EDITING_MANAGER_DESKTOP_MIN_WIDTH = 1280;
 export const EditingManagerDashboardView = ({
   isMobile,
   mobileEditingManagerTab,
+  pipelineCount,
+  readyCount,
   renderEditingManagerReadyToDeliverCard,
   renderEditingManagerShootsTabsCard,
   renderPendingReviewsCard,
   renderPipelineSection,
+  requestCount,
   setMobileEditingManagerTab,
+  shootsCount,
 }: EditingManagerDashboardViewProps) => {
   const { user } = useAuth();
   const onboarding = useDashboardOnboarding(user, "editing_manager");
@@ -105,6 +113,7 @@ export const EditingManagerDashboardView = ({
       id: "shoots" as const,
       label: "Shoots",
       icon: Camera,
+      count: shootsCount,
       content: (
         <div data-onboarding-target="editingmanager-shoots" className="flex flex-1 flex-col min-h-0">
           {renderEditingManagerShootsTabsCard()}
@@ -115,6 +124,7 @@ export const EditingManagerDashboardView = ({
       id: "requests" as const,
       label: "Requests",
       icon: MessageCircle,
+      count: requestCount,
       content: (
         <div data-onboarding-target="editingmanager-requests" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderPendingReviewsCard()}
@@ -125,6 +135,7 @@ export const EditingManagerDashboardView = ({
       id: "ready" as const,
       label: "Ready",
       icon: CheckCircle2,
+      count: readyCount,
       content: (
         <div data-onboarding-target="editingmanager-ready" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderEditingManagerReadyToDeliverCard()}
@@ -135,6 +146,7 @@ export const EditingManagerDashboardView = ({
       id: "pipeline" as const,
       label: "Pipeline",
       icon: KanbanSquare,
+      count: pipelineCount,
       content: (
         <div data-onboarding-target="editingmanager-pipeline" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {renderPipelineSection()}
@@ -158,6 +170,7 @@ export const EditingManagerDashboardView = ({
                 value={tab.id}
                 label={tab.label}
                 icon={tab.icon}
+                count={tab.count}
               />
             ))}
           </TabsList>

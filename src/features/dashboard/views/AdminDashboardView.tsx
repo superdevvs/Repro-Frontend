@@ -24,12 +24,15 @@ import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboard
 
 interface AdminDashboardViewProps {
   adminMetricTiles: DashboardMetricTile[];
+  assignCount: number;
   cancellationRequestCount: number;
+  completedCount: number;
   data: DashboardOverview | null;
   error: string | null;
   greetingTitle: React.ReactNode;
   isMobile: boolean;
   mobileDashboardTab: MobileDashboardTab;
+  pipelineCount: number;
   requestIndicatorCount: number;
   refresh: () => void | Promise<void>;
   renderAssignPhotographersCard: () => React.ReactNode;
@@ -39,18 +42,22 @@ interface AdminDashboardViewProps {
   renderShootsTabsCard: () => React.ReactNode;
   setCancellationDialogOpen: (open: boolean) => void;
   setMobileDashboardTab: (tab: MobileDashboardTab) => void;
+  shootsCount: number;
 }
 
 const AUTO_HIDE_LEFT_MIN_WIDTH = 1025;
 
 export const AdminDashboardView = ({
   adminMetricTiles,
+  assignCount,
   cancellationRequestCount,
+  completedCount,
   data,
   error,
   greetingTitle,
   isMobile,
   mobileDashboardTab,
+  pipelineCount,
   requestIndicatorCount,
   refresh,
   renderAssignPhotographersCard,
@@ -60,6 +67,7 @@ export const AdminDashboardView = ({
   renderShootsTabsCard,
   setCancellationDialogOpen,
   setMobileDashboardTab,
+  shootsCount,
 }: AdminDashboardViewProps) => {
   const {
     isDesktopGrid,
@@ -79,30 +87,35 @@ export const AdminDashboardView = ({
       id: "shoots",
       label: "Shoots",
       icon: Camera,
+      count: shootsCount,
       content: renderShootsTabsCard(),
     },
     {
       id: "completed",
       label: "Completed",
       icon: CheckCircle2,
+      count: completedCount,
       content: renderCompletedShootsCard({ stretch: true }),
     },
     {
       id: "assign",
       label: "Assign",
       icon: Users,
+      count: assignCount,
       content: renderAssignPhotographersCard(),
     },
     {
       id: "requests",
       label: "Requests",
       icon: MessageCircle,
+      count: requestIndicatorCount,
       content: renderPendingReviewsCard(),
     },
     {
       id: "pipeline",
       label: "Pipeline",
       icon: KanbanSquare,
+      count: pipelineCount,
       content: renderPipelineSection(),
     },
   ] as const;
@@ -219,6 +232,7 @@ export const AdminDashboardView = ({
                   value={tab.id}
                   label={tab.label}
                   icon={tab.icon}
+                  count={tab.count}
                 />
               ))}
             </TabsList>

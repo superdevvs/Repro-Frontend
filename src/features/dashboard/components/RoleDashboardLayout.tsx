@@ -137,6 +137,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                           value={tab.id}
                           label={tab.label}
                           icon={tab.icon}
+                          count={tab.count}
                         />
                       ))}
                     </TabsList>

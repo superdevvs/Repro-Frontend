@@ -62,6 +62,8 @@ export interface RoleDashboardLayoutProps {
     label: string;
     /** When set, inactive mobile tabs show the icon only; the active tab shows icon + label. */
     icon?: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+    /** Optional count badge — visible on active (with label) and inactive icon-only tabs. */
+    count?: number;
     content: React.ReactNode;
   }>;
   /**

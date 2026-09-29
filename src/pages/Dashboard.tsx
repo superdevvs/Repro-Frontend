@@ -532,6 +532,31 @@ const Dashboard = () => {
     workflow: data?.workflow,
   });
 
+  const adminShootsCount = upcomingShootsWithoutRequested.length + requestedShoots.length;
+  const adminAssignCount = Array.isArray(assignPhotographers) ? assignPhotographers.length : 0;
+  const adminCompletedCount = deliveredShoots.length;
+  const pipelineShootCount = useMemo(() => {
+    if (!filteredWorkflow || !Array.isArray(filteredWorkflow.columns)) return 0;
+    return filteredWorkflow.columns.reduce(
+      (sum, column) => sum + (Array.isArray(column.shoots) ? column.shoots.length : 0),
+      0,
+    );
+  }, [filteredWorkflow]);
+  const editingManagerShootsCount =
+    editingManagerScheduledShoots.length +
+    editingManagerUpcomingShoots.length +
+    editingManagerUploadedShoots.length +
+    editingManagerReadyToDeliverShoots.length;
+  const editingManagerReadyCount = editingManagerReadyToDeliverShoots.length;
+  const editingManagerRequestCount =
+    editingRequests.filter((request) => request.status !== 'completed').length +
+    holdRequests.shoots.length +
+    (Array.isArray(data?.pendingReviews) ? data.pendingReviews.length : 0);
+  const adminRequestIndicatorCount =
+    clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
+    editingRequests.filter((request) => request.status !== 'completed').length +
+    cancellationShoots.length + holdRequests.shoots.length;
+
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
   const [editModalShoot, setEditModalShoot] = useState<DashboardShootSummary | null>(null);
@@ -851,11 +876,15 @@ const Dashboard = () => {
             <EditingManagerDashboardView
               isMobile={isCompactDashboardViewport}
               mobileEditingManagerTab={mobileEditingManagerTab}
+              pipelineCount={pipelineShootCount}
+              readyCount={editingManagerReadyCount}
               renderEditingManagerReadyToDeliverCard={renderEditingManagerReadyToDeliverCard}
               renderEditingManagerShootsTabsCard={renderEditingManagerShootsTabsCard}
               renderPendingReviewsCard={renderPendingReviewsCard}
               renderPipelineSection={renderPipelineSection}
+              requestCount={editingManagerRequestCount}
               setMobileEditingManagerTab={setMobileEditingManagerTab}
+              shootsCount={editingManagerShootsCount}
             />
           </Suspense>
         </div>
@@ -863,17 +892,16 @@ const Dashboard = () => {
         <Suspense fallback={<DashboardViewFallback />}>
           <AdminDashboardView
             adminMetricTiles={adminMetricTiles}
+            assignCount={adminAssignCount}
             cancellationRequestCount={cancellationRequestCount}
+            completedCount={adminCompletedCount}
             data={data}
             error={error}
             greetingTitle={greetingTitle}
             isMobile={isCompactDashboardViewport}
             mobileDashboardTab={mobileDashboardTab}
-            requestIndicatorCount={
-              clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
-              editingRequests.filter((request) => request.status !== 'completed').length +
-              cancellationShoots.length + holdRequests.shoots.length
-            }
+            pipelineCount={pipelineShootCount}
+            requestIndicatorCount={adminRequestIndicatorCount}
             refresh={refresh}
             renderAssignPhotographersCard={renderAssignPhotographersCard}
             renderCompletedShootsCard={renderCompletedShootsCard}
@@ -882,6 +910,7 @@ const Dashboard = () => {
             renderShootsTabsCard={renderShootsTabsCard}
             setCancellationDialogOpen={setCancellationDialogOpen}
             setMobileDashboardTab={setMobileDashboardTab}
+            shootsCount={adminShootsCount}
           />
         </Suspense>
       )}

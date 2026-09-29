@@ -84,4 +84,20 @@ describe('role dashboard compact mobile tabs', () => {
     expect(emShoots).toContain('overflow-x-auto');
     expect(emShoots).toContain('hidden sm:block text-lg font-bold');
   });
+
+  it('Admin and Editing Manager section tabs pass count into DashboardMobileTabTrigger', () => {
+    const admin = read('features/dashboard/views/AdminDashboardView.tsx');
+    const em = read('features/dashboard/views/EditingManagerDashboardView.tsx');
+    const trigger = read('features/dashboard/components/DashboardMobileTabTrigger.tsx');
+    const completed = read('components/dashboard/v2/CompletedShootsCard.tsx');
+
+    expect(trigger).toContain('count?: number');
+    expect(trigger).toMatch(/formatTabCount|99\+/);
+    expect(admin).toContain('count={tab.count}');
+    expect(admin).toContain('count: completedCount');
+    expect(em).toContain('count={tab.count}');
+    expect(em).toContain('count: readyCount');
+    // In-panel "N ready" must not compete with the tab badge on mobile.
+    expect(completed).toMatch(/hidden text-xs text-muted-foreground shrink-0 sm:inline/);
+  });
 });

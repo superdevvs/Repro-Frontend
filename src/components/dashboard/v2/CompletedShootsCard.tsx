@@ -225,7 +225,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
             <p className="hidden text-xs text-muted-foreground sm:block">{subtitle}</p>
           ) : null}
         </div>
-        <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{safeShoots.length} ready</span>
+        <span className="hidden text-xs text-muted-foreground shrink-0 sm:inline">{safeShoots.length} ready</span>
       </div>
       {safeShoots.length === 0 ? (
         <EmptyState icon="completed" title={emptyStateText} description="Completed work will appear here when it is ready." className="flex-1" />

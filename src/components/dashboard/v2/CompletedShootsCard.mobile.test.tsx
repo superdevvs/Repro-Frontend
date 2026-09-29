@@ -62,6 +62,8 @@ describe('CompletedShootsCard compact viewport', () => {
     const subtitle = screen.getByText('Shoots with ready status');
     expect(title).toHaveClass('hidden', 'sm:block');
     expect(subtitle).toHaveClass('hidden', 'sm:block');
-    expect(screen.getByText('1 ready')).toBeInTheDocument();
+    // Counts live on section tabs; in-panel "N ready" is desktop-only.
+    const readyCount = screen.getByText('1 ready');
+    expect(readyCount).toHaveClass('hidden', 'sm:inline');
   });
 });
