@@ -168,7 +168,7 @@ const getSelectedPreviewPan = (
 }
 
 const getFitPadding = (): MapPadding => window.innerWidth >= 1024
-  ? { top: 80, right: 372, bottom: 64, left: 64 }
+  ? { top: 80, right: 452, bottom: 64, left: 64 }
   : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }
 
 const scheduleUnmount = (root: Root) => {

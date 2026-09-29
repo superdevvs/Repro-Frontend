@@ -36,6 +36,8 @@ export const ExclusiveListingGridCard = ({
   onToggleSelect,
   onUnhide,
   className = '',
+  /** Narrower map Featured panel: smaller address, metrics that stay fully visible. */
+  density = 'default',
 }: {
   listing: ExclusiveListingCardData;
   onOpen: (listing: ExclusiveListingCardData) => void;
@@ -46,6 +48,7 @@ export const ExclusiveListingGridCard = ({
   onToggleSelect?: (listing: ExclusiveListingCardData) => void;
   onUnhide?: (listing: ExclusiveListingCardData) => void;
   className?: string;
+  density?: 'default' | 'map';
 }) => {
   const heroUrl = resolveListingPreviewUrl(listing.heroImage) || '/placeholder.svg';
   const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
@@ -91,6 +94,7 @@ export const ExclusiveListingGridCard = ({
     selected && !selectionMode
       ? 'border-blue-500 ring-1 ring-blue-500/20'
       : 'border-0';
+  const isMapDensity = density === 'map';
 
   return (
     <Card
@@ -103,7 +107,7 @@ export const ExclusiveListingGridCard = ({
         boxShadow: '0 26px 56px -36px rgba(6, 10, 14, 0.38)',
       }}
     >
-      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-white dark:bg-[#060a0e]">
+      <div className={`relative aspect-[10/11] overflow-hidden rounded-[30px] bg-white dark:bg-[#060a0e] ${isMapDensity ? 'min-h-[280px]' : 'min-h-[320px]'}`}>
         <img
           src={heroUrl}
           alt={listing.address}
@@ -114,7 +118,7 @@ export const ExclusiveListingGridCard = ({
         <div className={`absolute inset-0 ${styles.listingOverlay}`} />
         <div className={`absolute inset-x-0 bottom-0 h-[52%] ${styles.listingFloor}`} />
 
-        <div className="relative flex h-full flex-col p-4 sm:p-5">
+        <div className={`relative flex h-full flex-col ${isMapDensity ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5'}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {selectionMode && !isHidden && (
@@ -163,24 +167,36 @@ export const ExclusiveListingGridCard = ({
             )}
           </div>
 
-          <div className="mt-auto space-y-4">
+          <div className={`mt-auto ${isMapDensity ? 'space-y-3' : 'space-y-4'}`}>
             {listing.price && (
               <div className="space-y-1">
                 <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-slate-700/70 dark:text-white/60">
                   List Price
                 </p>
-                <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.05em] text-slate-900 dark:text-white">
+                <p className={`${isMapDensity ? 'text-[1.45rem]' : 'text-[1.95rem]'} font-semibold leading-none tracking-[-0.05em] text-slate-900 dark:text-white`}>
                   {formatListingPrice(listing.price)}
                 </p>
               </div>
             )}
 
             <div className="space-y-1.5 [text-shadow:none] dark:[text-shadow:0_2px_14px_rgba(0,0,0,0.38),0_1px_3px_rgba(0,0,0,0.7)]">
-              <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-slate-900 dark:text-white sm:text-[1.6rem]">
+              <h3
+                className={
+                  isMapDensity
+                    ? 'max-w-full text-base font-semibold leading-snug tracking-[-0.03em] text-slate-900 dark:text-white sm:text-lg'
+                    : 'max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-slate-900 dark:text-white sm:text-[1.6rem]'
+                }
+              >
                 {listing.address}
               </h3>
               {locationLine && (
-                <p className="max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white">
+                <p
+                  className={
+                    isMapDensity
+                      ? 'max-w-full text-xs leading-relaxed text-slate-700 dark:text-white sm:text-sm'
+                      : 'max-w-[24ch] text-sm leading-relaxed text-slate-700 dark:text-white'
+                  }
+                >
                   {locationLine}
                 </p>
               )}
@@ -188,7 +204,7 @@ export const ExclusiveListingGridCard = ({
 
             {metrics.length > 0 && (
               <div
-                className="grid gap-3 border-t border-slate-900/10 pt-4 dark:border-white/20"
+                className={`grid border-t border-slate-900/10 dark:border-white/20 ${isMapDensity ? 'gap-2 pt-3' : 'gap-3 pt-4'}`}
                 style={{
                   gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
                 }}
@@ -196,12 +212,20 @@ export const ExclusiveListingGridCard = ({
                 {metrics.map((metric, index) => (
                   <div
                     key={metric.label}
-                    className={`min-w-0 ${index > 0 ? 'border-l border-slate-900/10 pl-3 dark:border-white/20' : ''}`}
+                    className={`min-w-0 ${index > 0 ? `border-l border-slate-900/10 dark:border-white/20 ${isMapDensity ? 'pl-2' : 'pl-3'}` : ''}`}
                   >
-                    <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
+                    <p
+                      className={`${isMapDensity ? 'whitespace-nowrap text-sm' : 'truncate text-base'} font-semibold leading-none tracking-[-0.03em] text-slate-900 dark:text-white`}
+                    >
                       {metric.value}
                     </p>
-                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-slate-600/80 dark:text-white/80">
+                    <p
+                      className={`mt-1 uppercase text-slate-600/80 dark:text-white/80 ${
+                        isMapDensity
+                          ? 'whitespace-nowrap text-[10px] tracking-[0.08em]'
+                          : 'truncate text-[11px] tracking-[0.2em]'
+                      }`}
+                    >
                       {metric.label}
                     </p>
                   </div>

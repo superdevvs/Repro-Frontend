@@ -181,7 +181,7 @@ const LazyListingMapCanvas = lazy(() =>
       const zoom = markers.length > 1 ? 10 : 13
 
       const getFitPadding = useCallback(() => window.innerWidth >= 1024
-        ? { top: 80, right: 372, bottom: 64, left: 64 }
+        ? { top: 80, right: 452, bottom: 64, left: 64 }
         : { top: 72, right: 32, bottom: Math.round(window.innerHeight * 0.42) + 24, left: 32 }, [])
 
       // Recenter on the loaded mapped listings (R8.2).
@@ -528,7 +528,7 @@ export function ExclusiveListingsShowcase({
 
       {controlsOverlay ? (
         <div
-          className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:top-4 lg:right-[332px] 2xl:right-[372px]"
+          className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:top-4 lg:right-[412px] 2xl:right-[452px]"
           data-testid="map-controls-overlay"
           data-map-overlay="controls"
         >
@@ -545,7 +545,7 @@ export function ExclusiveListingsShowcase({
         {inspectorOpen ? 'Close listings' : `Browse listings (${listings.length})`}
       </Button>
       <aside id="exclusive-listing-browser"
-        className={`absolute inset-x-3 bottom-16 z-20 max-h-[38%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[300px] 2xl:w-[340px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white ${
+        className={`absolute inset-x-3 bottom-16 z-20 max-h-[38%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[380px] 2xl:w-[420px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white ${
           inspectorOpen || !hasListings || !hasMappedListings
             ? ''
             : 'hidden lg:block'
@@ -606,6 +606,7 @@ export function ExclusiveListingsShowcase({
                     <ExclusiveListingGridCard
                       listing={selectedListing}
                       selected
+                      density="map"
                       onOpen={onOpenListing}
                       className="shadow-none"
                     />

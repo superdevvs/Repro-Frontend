@@ -254,6 +254,7 @@ describe('ExclusiveListingsShowcase', () => {
     expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('hidden', 'lg:block')
     fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
     expect(screen.getByText('Featured Listing')).toBeInTheDocument()
+    expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('lg:w-[380px]', '2xl:w-[420px]')
     expect(screen.getByTestId('listing-inspector-overlay')).not.toHaveClass('hidden')
   })
 
