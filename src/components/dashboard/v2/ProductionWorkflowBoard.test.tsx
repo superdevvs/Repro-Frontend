@@ -87,3 +87,68 @@ describe("ProductionWorkflowBoard pipeline dates", () => {
     expect(screen.queryByText("315 Kahler Way")).not.toBeInTheDocument();
   });
 });
+
+describe("ProductionWorkflowBoard layout fill", () => {
+  it("exposes View all delivered for the ready column", () => {
+    const onViewAllDelivered = vi.fn();
+    render(
+      <ProductionWorkflowBoard
+        workflow={workflow([
+          {
+            key: "booked",
+            label: "Booked",
+            accent: "#3b82f6",
+            count: 1,
+            shoots: [shoot()],
+          },
+          {
+            key: "ready",
+            label: "Ready / Delivered",
+            accent: "#22c55e",
+            count: 1,
+            shoots: [
+              shoot({
+                id: 12,
+                scheduledLocalDate: "2026-09-22",
+                startTime: "2026-09-22T10:00:00.000000Z",
+                deliveryDeadline: "2026-09-22T15:00:00.000Z",
+                status: "delivered",
+                workflowStatus: "delivered",
+                addressLine: "100 Delivered Lane",
+              }),
+            ],
+          },
+        ])}
+        onSelectShoot={() => undefined}
+        onViewAllDelivered={onViewAllDelivered}
+        filter="month"
+      />,
+    );
+
+    expect(screen.getByText("Scheduled")).toBeVisible();
+    expect(screen.getByRole("button", { name: "View all delivered" })).toBeVisible();
+    screen.getByRole("button", { name: "View all delivered" }).click();
+    expect(onViewAllDelivered).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks pipeline columns for height-fill measurement", () => {
+    const { container } = render(
+      <ProductionWorkflowBoard
+        workflow={workflow([
+          {
+            key: "booked",
+            label: "Booked",
+            accent: "#3b82f6",
+            count: 1,
+            shoots: [shoot()],
+          },
+        ])}
+        onSelectShoot={() => undefined}
+        filter="this_week"
+      />,
+    );
+
+    expect(container.querySelector('[data-pipeline-column="booked"]')).not.toBeNull();
+    expect(container.querySelector('[data-pipeline-shoot-card="true"]')).not.toBeNull();
+  });
+});

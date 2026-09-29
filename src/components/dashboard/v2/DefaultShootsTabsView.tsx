@@ -54,7 +54,6 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
     hasMore,
     handleScroll,
     loadMoreShoots,
-    listMaxHeight,
     renderShootCard,
     upcomingCount,
     requestedCount,
@@ -540,9 +539,9 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               ref={scrollContainerRef}
               onScroll={handleScroll}
               className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
-              // Keep the row-based cap for sizing, but let compact rows fill a
-              // card stretched taller by the neighboring dashboard columns.
-              style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
+              // Fill the stretched dashboard column. A maxHeight peek cap left a
+              // white void under short Scheduled lists after side panels collapse.
+              style={{ minHeight: '100%' }}
             >
               <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderStickyCompactToggle()}
@@ -582,7 +581,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           ) : (
             <div 
               className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
-              style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
+              style={{ minHeight: '100%' }}
             >
               <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderStickyCompactToggle()}

@@ -347,8 +347,8 @@ export const useDashboardSections = ({
   ];
 
   const renderPipelineSection = () => (
-    <div id="pipeline-section" className="space-y-3 w-full max-w-full min-w-0">
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div id="pipeline-section" className="flex w-full max-w-full min-h-0 min-w-0 flex-1 flex-col gap-3">
+      <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
         </h2>
@@ -376,20 +376,23 @@ export const useDashboardSections = ({
       </div>
       <ErrorBoundary
         fallback={
-          <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-3xl text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center border border-dashed border-border rounded-3xl text-muted-foreground">
             <p className="text-sm">Unable to load workflow board</p>
           </div>
         }
       >
-        <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
-          <LazyProductionWorkflowBoard
-            workflow={filteredWorkflow}
-            loading={loading}
-            onSelectShoot={handleSelectShoot}
-            onAdvanceStage={handleAdvanceStage}
-            filter={pipelineFilter}
-          />
-        </Suspense>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
+            <LazyProductionWorkflowBoard
+              workflow={filteredWorkflow}
+              loading={loading}
+              onSelectShoot={handleSelectShoot}
+              onAdvanceStage={handleAdvanceStage}
+              onViewAllDelivered={() => navigate("/shoot-history?tab=delivered")}
+              filter={pipelineFilter}
+            />
+          </Suspense>
+        </div>
       </ErrorBoundary>
     </div>
   );

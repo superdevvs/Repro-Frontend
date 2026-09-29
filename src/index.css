@@ -571,8 +571,7 @@ body {
     min-height: 0;
     min-width: 0;
     height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   /* Flex items default to min-height:auto, so the list wrapper grows with

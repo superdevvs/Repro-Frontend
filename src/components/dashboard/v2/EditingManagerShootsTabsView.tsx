@@ -48,7 +48,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     editingManagerHasMore,
     handleScroll,
     loadMoreShoots,
-    listMaxHeight,
     renderShootCard,
   } = model;
 
@@ -456,7 +455,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               ref={scrollContainerRef}
               onScroll={handleScroll}
               className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
-              style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
+              style={{ minHeight: '100%' }}
             >
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
