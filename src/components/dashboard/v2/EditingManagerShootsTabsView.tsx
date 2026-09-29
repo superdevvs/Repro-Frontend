@@ -24,8 +24,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     setDraftFilters,
     isFilterOpen,
     setIsFilterOpen,
-    showPastDays,
-    setShowPastDays,
     isMenuOpen,
     setIsMenuOpen,
     isCompactMobile,
@@ -43,7 +41,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     getRelativeGroupLabel,
     editingManagerTabs,
     activeEditingManagerTab,
-    editingManagerHasPastDays,
     editingManagerPaginatedGroups,
     editingManagerHasMore,
     handleScroll,
@@ -125,22 +122,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            {activeTab === 'scheduled' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs rounded-full border-dashed"
-              onClick={() => setShowPastDays((prev) => !prev)}
-              disabled={!editingManagerHasPastDays}
-            >
-              <span className="max-[1550px]:hidden">
-                {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
-              </span>
-              <span className="hidden max-[1550px]:inline">
-                {editingManagerHasPastDays && showPastDays ? 'Hide' : 'Previous'}
-              </span>
-            </Button>
-            )}
             <Button
               variant="secondary"
               size="sm"
@@ -168,17 +149,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
         {isMenuOpen && (
           <div className="-mt-0.5 mb-2 flex items-center gap-2 sm:hidden">
-            {activeTab === 'scheduled' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs rounded-full border-dashed"
-              onClick={() => setShowPastDays((prev) => !prev)}
-              disabled={!editingManagerHasPastDays}
-            >
-              {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
-            </Button>
-            )}
             <Button
               variant="secondary"
               size="sm"

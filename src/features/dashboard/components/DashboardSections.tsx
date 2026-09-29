@@ -65,7 +65,6 @@ interface DashboardSectionsParams {
   clientRequestsLoading: boolean;
   deliveredShoots: DashboardShootSummary[];
   editingManagerReadyToDeliverShoots: DashboardShootSummary[];
-  editingManagerScheduledShoots: DashboardShootSummary[];
   editingManagerUpcomingShoots: DashboardShootSummary[];
   editingManagerUploadedShoots: DashboardShootSummary[];
   editingRequests: EditingRequest[];
@@ -111,7 +110,6 @@ export const useDashboardSections = ({
   clientRequestsLoading,
   deliveredShoots,
   editingManagerReadyToDeliverShoots,
-  editingManagerScheduledShoots,
   editingManagerUpcomingShoots,
   editingManagerUploadedShoots,
   editingRequests,
@@ -304,12 +302,6 @@ export const useDashboardSections = ({
         mode="editing_manager"
         title="Shoots"
         customTabs={[
-          {
-            id: "scheduled",
-            label: "Scheduled",
-            shoots: editingManagerScheduledShoots,
-            emptyStateText: "No scheduled shoots found.",
-          },
           {
             id: "upcoming",
             label: "Upcoming",

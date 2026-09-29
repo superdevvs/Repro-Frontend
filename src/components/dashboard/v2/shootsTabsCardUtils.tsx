@@ -239,12 +239,12 @@ export const paginateShootDayGroups = <T extends { shoots: unknown[]; isToday?: 
   return { paginatedGroups, totalShootsCount, hasMore: shown < totalShootsCount };
 };
 
-/** Pipeline tabs are current work even when the booked day is already past. */
+/** EM Shoots tabs (Upcoming / Uploaded / Ready) keep past-dated work visible. */
 export const visiblePastDayGroups = <T,>(
   pastGroups: T[],
-  { mode = 'default', tabId, showPastDays }: ShootDayGroupVisibility,
+  { mode = 'default', tabId: _tabId, showPastDays }: ShootDayGroupVisibility,
 ): T[] => {
-  if (mode === 'editing_manager' && tabId !== 'scheduled') {
+  if (mode === 'editing_manager') {
     return pastGroups;
   }
 

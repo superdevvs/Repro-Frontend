@@ -13,7 +13,6 @@ import { useDashboardOverview } from "@/hooks/useDashboardOverview";
 import {
   filterEditingManagerUpcomingShoots,
   filterReadyToDeliverShoots,
-  filterScheduledShoots,
   filterUploadedShoots,
   getGreetingPrefix,
   PENDING_REVIEW_KEYWORDS,
@@ -347,11 +346,6 @@ const Dashboard = () => {
     </>
   );
 
-  const editingManagerScheduledShoots = useMemo(
-    () => filterScheduledShoots(allSummaries),
-    [allSummaries],
-  );
-
   const editingManagerUpcomingShoots = useMemo(
     () => filterEditingManagerUpcomingShoots(allSummaries),
     [allSummaries],
@@ -543,7 +537,6 @@ const Dashboard = () => {
     );
   }, [filteredWorkflow]);
   const editingManagerShootsCount =
-    editingManagerScheduledShoots.length +
     editingManagerUpcomingShoots.length +
     editingManagerUploadedShoots.length +
     editingManagerReadyToDeliverShoots.length;
@@ -581,7 +574,6 @@ const Dashboard = () => {
     clientRequestsLoading,
     deliveredShoots,
     editingManagerReadyToDeliverShoots,
-    editingManagerScheduledShoots,
     editingManagerUpcomingShoots,
     editingManagerUploadedShoots,
     editingRequests,

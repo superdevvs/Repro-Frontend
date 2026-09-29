@@ -26,19 +26,6 @@ describe('editing manager past-day visibility', () => {
     })).toEqual(pastGroups);
   });
 
-  it('keeps scheduled past days hidden until Previous shoots is turned on', () => {
-    expect(visiblePastDayGroups(pastGroups, {
-      mode: 'editing_manager',
-      tabId: 'scheduled',
-      showPastDays: false,
-    })).toEqual([]);
-    expect(visiblePastDayGroups(pastGroups, {
-      mode: 'editing_manager',
-      tabId: 'scheduled',
-      showPastDays: true,
-    })).toEqual(pastGroups.slice(0, 3));
-  });
-
   it('does not change the default dashboard upcoming toggle', () => {
     expect(visiblePastDayGroups(pastGroups, {
       mode: 'default',
