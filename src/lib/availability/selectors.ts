@@ -158,6 +158,49 @@ export const checkTimeOverlap = (
   });
 };
 
+const DAY_SHORT_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const DAY_LONG_NAMES = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+/** Build a Mon–Sun weekly schedule editor model from recurring (dateless) available slots. */
+export const buildWeeklyScheduleFromSlots = (
+  slots: BackendSlot[],
+  fallback: WeeklyScheduleItem[]
+): WeeklyScheduleItem[] => {
+  return DAY_SHORT_LABELS.map((day, index) => {
+    const longName = DAY_LONG_NAMES[index];
+    const daySlots = slots.filter(
+      (s) =>
+        !slotCalendarDate(s) &&
+        s.day_of_week?.toLowerCase() === longName &&
+        (s.status ?? "available") === "available"
+    );
+    const primary = daySlots[0];
+    const base = fallback[index] ?? {
+      day,
+      active: false,
+      startTime: "09:00",
+      endTime: "17:00",
+    };
+    if (!primary) {
+      return { ...base, day, active: false };
+    }
+    return {
+      day,
+      active: true,
+      startTime: toHhMm(primary.start_time) || base.startTime,
+      endTime: toHhMm(primary.end_time) || base.endTime,
+    };
+  });
+};
+
 export const buildPhotographerAvailabilityLabel = (
   photographerId: string,
   date: Date | undefined,
@@ -180,11 +223,32 @@ export const buildPhotographerAvailabilityLabel = (
   const dow = date.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   const specific = slots.filter((s) => slotCalendarDate(s) === dayStr);
   const weekly = slots.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
-  const relevantSlots = specific.length > 0 ? specific : weekly;
 
-  const availableSlot = relevantSlots.find((s) => (s.status ?? "available") !== "unavailable");
+  // Same merge as the calendar: booked date slots always win visibility; when the
+  // only dated rows are bookings, still surface weekly availability underneath —
+  // but never label a booked/unavailable window as Available.
+  const bookedSlots = specific.filter((s) => s.status === "booked");
+  const nonBookedSpecific = specific.filter((s) => s.status !== "booked");
+  const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
+  const relevantSlots = [...bookedSlots, ...availabilitySlots];
+
+  const bookedSlot = relevantSlots.find((s) => s.status === "booked");
+  if (bookedSlot) {
+    const time = `${toHhMm(bookedSlot.start_time)} - ${toHhMm(bookedSlot.end_time)}`;
+    const shootId = bookedSlot.shoot_id ?? bookedSlot.shoot_details?.id;
+    return shootId != null ? `Booked (#${shootId} · ${time})` : `Booked (${time})`;
+  }
+
+  const availableSlot = relevantSlots.find(
+    (s) => (s.status ?? "available") === "available"
+  );
   if (availableSlot) {
     return `Available (${toHhMm(availableSlot.start_time)} - ${toHhMm(availableSlot.end_time)})`;
+  }
+
+  const unavailableSlot = relevantSlots.find((s) => s.status === "unavailable");
+  if (unavailableSlot) {
+    return `Unavailable (${toHhMm(unavailableSlot.start_time)} - ${toHhMm(unavailableSlot.end_time)})`;
   }
 
   const schedule = deps.photographerWeeklySchedules[photographerId];

@@ -20,7 +20,7 @@ import type { Availability, WeeklyScheduleItem } from "@/types/availability";
 import { normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "@/lib/availability/utils";
 import {
   buildMonthAvailabilities, buildPhotographerAvailabilityLabel, buildSelectedDateAvailabilities,
-  buildWeekAvailabilities, checkTimeOverlap as checkTimeOverlapFn,
+  buildWeekAvailabilities, buildWeeklyScheduleFromSlots, checkTimeOverlap as checkTimeOverlapFn,
 } from "@/lib/availability/selectors";
 
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
@@ -50,6 +50,17 @@ const DEFAULT_WEEKLY_SCHEDULE: WeeklyScheduleItem[] = [
   { day: 'Wed', active: false, startTime: '9:00', endTime: '17:00' },
   { day: 'Thu', active: false, startTime: '9:00', endTime: '17:00' },
   { day: 'Fri', active: false, startTime: '9:00', endTime: '17:00' },
+  { day: 'Sat', active: false, startTime: '10:00', endTime: '15:00' },
+  { day: 'Sun', active: false, startTime: '10:00', endTime: '15:00' },
+];
+
+/** Starter when opening Default schedule with no existing recurring windows. */
+const DEFAULT_SCHEDULE_STARTER: WeeklyScheduleItem[] = [
+  { day: 'Mon', active: true, startTime: '09:00', endTime: '17:00' },
+  { day: 'Tue', active: true, startTime: '09:00', endTime: '17:00' },
+  { day: 'Wed', active: true, startTime: '09:00', endTime: '17:00' },
+  { day: 'Thu', active: true, startTime: '09:00', endTime: '17:00' },
+  { day: 'Fri', active: true, startTime: '09:00', endTime: '17:00' },
   { day: 'Sat', active: false, startTime: '10:00', endTime: '15:00' },
   { day: 'Sun', active: false, startTime: '10:00', endTime: '15:00' },
 ];
@@ -356,43 +367,90 @@ export default function Availability() {
 
   const handleEditAvailability = () => setEditingWeeklySchedule(true);
 
+  /** Open the reusable weekly/recurring editor, hydrated from existing dateless available slots. */
+  const openDefaultSchedule = () => {
+    if (selectedPhotographer === "all") {
+      toast({
+        title: "Select a photographer",
+        description: "Choose a team member before editing their default schedule.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const hydrated = buildWeeklyScheduleFromSlots(backendSlots, DEFAULT_SCHEDULE_STARTER);
+    const hasRecurring = hydrated.some((day) => day.active);
+    setPhotographerWeeklySchedules((prev) => ({
+      ...prev,
+      [selectedPhotographer]: hasRecurring ? hydrated : DEFAULT_SCHEDULE_STARTER,
+    }));
+    setEditingWeeklySchedule(true);
+  };
+
   const saveWeeklySchedule = async () => {
     if (selectedPhotographer === "all") {
       toast({ title: "Select a photographer", description: "Please select a specific photographer before saving schedule.", variant: "destructive" });
       return;
     }
     const currentSchedule = getCurrentWeeklySchedule();
-    setPhotographerWeeklySchedules(prev => ({ ...prev, [selectedPhotographer]: currentSchedule }));
-    setEditingWeeklySchedule(false);
-    toast({
-      title: "Schedule saved",
-      description: `Weekly schedule for ${getPhotographerName(selectedPhotographer)} has been updated.`,
-    });
+    const dayMap: Record<string, string> = {
+      Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday',
+      Fri: 'friday', Sat: 'saturday', Sun: 'sunday',
+    };
+    const mapDay = (d: string) => dayMap[d] || d.toLowerCase();
+    const activeDays = currentSchedule.filter((day) => day.active);
+    for (const day of activeDays) {
+      const start = uiTimeToHhmm(day.startTime);
+      const end = uiTimeToHhmm(day.endTime);
+      if (!start || !end || start >= end) {
+        toast({
+          title: "Invalid time range",
+          description: `End time must be after start time for ${day.day}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const payload = {
+      photographer_id: Number(selectedPhotographer),
+      availabilities: activeDays.map((day) => ({
+        day_of_week: mapDay(day.day),
+        start_time: uiTimeToHhmm(day.startTime),
+        end_time: uiTimeToHhmm(day.endTime),
+        status: 'available' as const,
+      })),
+    };
+
     try {
-      const dayMap: Record<string, string> = {
-        Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday',
-        Fri: 'friday', Sat: 'saturday', Sun: 'sunday',
-      };
-      const mapDay = (d: string) => dayMap[d] || d.toLowerCase();
-      const payload = {
-        photographer_id: Number(selectedPhotographer),
-        availabilities: getCurrentWeeklySchedule()
-          .filter(day => day.active)
-          .map(day => ({
-            day_of_week: mapDay(day.day),
-            start_time: uiTimeToHhmm(day.startTime),
-            end_time: uiTimeToHhmm(day.endTime),
-            status: 'available',
-          }))
-      };
-      const res = await fetch(API_ROUTES.photographerAvailability.bulk, {
+      const res = await fetch(API_ROUTES.photographerAvailability.replaceWeekly, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await refreshPhotographerSlots();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to save default schedule.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setPhotographerWeeklySchedules((prev) => ({ ...prev, [selectedPhotographer]: currentSchedule }));
+      setEditingWeeklySchedule(false);
+      await refreshPhotographerSlots();
+      toast({
+        title: "Default schedule saved",
+        description: activeDays.length === 0
+          ? `Cleared recurring availability for ${getPhotographerName(selectedPhotographer)}.`
+          : `Recurring ${uiTimeToHhmm(activeDays[0].startTime)}–${uiTimeToHhmm(activeDays[0].endTime)} on ${activeDays.length} day(s) for ${getPhotographerName(selectedPhotographer)}.`,
+      });
     } catch (error) {
-      // silent
+      toast({
+        title: "Error",
+        description: "Failed to save default schedule.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -528,7 +586,7 @@ export default function Availability() {
     canEditAvailability, editingWeeklySchedule, setEditingWeeklySchedule,
     getCurrentWeeklySchedule, updateCurrentWeeklySchedule,
     weeklyScheduleNote, setWeeklyScheduleNote,
-    handleEditAvailability, saveWeeklySchedule, handleDeleteAvailability,
+    handleEditAvailability, openDefaultSchedule, saveWeeklySchedule, handleDeleteAvailability,
     handleMarkUnavailable,
     notifyDemoAvailabilityRestriction, backendSlots, allBackendSlots,
     selectedSlotId, setSelectedSlotId, expandedBookingDetails, setExpandedBookingDetails,

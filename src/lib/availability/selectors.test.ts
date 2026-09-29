@@ -4,6 +4,7 @@ import {
   buildPhotographerAvailabilityLabel,
   buildSelectedDateAvailabilities,
   buildWeekAvailabilities,
+  buildWeeklyScheduleFromSlots,
   checkTimeOverlap,
   type SlotSelectorDeps,
 } from "./selectors";
@@ -482,12 +483,14 @@ describe("buildPhotographerAvailabilityLabel", () => {
     ).toBe("Not available");
   });
 
-  it("returns 'Not available' when the only slot is unavailable and no weekly fallback exists", () => {
+  it("returns Unavailable with times when the only slot is unavailable", () => {
     const slots = [
       makeSlot({
         id: 1,
         photographer_id: 10,
         date: "2026-04-19",
+        start_time: "09:00",
+        end_time: "17:00",
         status: "unavailable",
       }),
     ];
@@ -496,6 +499,110 @@ describe("buildPhotographerAvailabilityLabel", () => {
         ...baseDeps,
         backendSlots: slots,
       })
-    ).toBe("Not available");
+    ).toBe("Unavailable (09:00 - 17:00)");
+  });
+
+  it("labels a booked slot as Booked, never Available (Ajay team-list bug)", () => {
+    const slots = [
+      makeSlot({
+        id: 1,
+        photographer_id: 10,
+        date: "2026-04-19",
+        start_time: "16:00",
+        end_time: "18:00",
+        status: "booked",
+        shoot_id: 380,
+      }),
+      makeSlot({
+        id: 2,
+        photographer_id: 10,
+        date: null,
+        day_of_week: "sunday",
+        start_time: "09:00",
+        end_time: "17:00",
+        status: "available",
+      }),
+    ];
+    expect(
+      buildPhotographerAvailabilityLabel("10", APR_19_2026_SUNDAY, {
+        ...baseDeps,
+        backendSlots: slots,
+      })
+    ).toBe("Booked (#380 · 16:00 - 18:00)");
+  });
+
+  it("prefers Booked over a same-day available override", () => {
+    const slots = [
+      makeSlot({
+        id: 1,
+        photographer_id: 10,
+        date: "2026-04-19",
+        start_time: "09:00",
+        end_time: "17:00",
+        status: "available",
+      }),
+      makeSlot({
+        id: 2,
+        photographer_id: 10,
+        date: "2026-04-19",
+        start_time: "16:00",
+        end_time: "18:00",
+        status: "booked",
+        shoot_id: 380,
+      }),
+    ];
+    expect(
+      buildPhotographerAvailabilityLabel("10", APR_19_2026_SUNDAY, {
+        ...baseDeps,
+        backendSlots: slots,
+      })
+    ).toBe("Booked (#380 · 16:00 - 18:00)");
+  });
+});
+
+describe("buildWeeklyScheduleFromSlots", () => {
+  const fallback: WeeklyScheduleItem[] = [
+    { day: "Mon", active: false, startTime: "09:00", endTime: "17:00" },
+    { day: "Tue", active: false, startTime: "09:00", endTime: "17:00" },
+    { day: "Wed", active: false, startTime: "09:00", endTime: "17:00" },
+    { day: "Thu", active: false, startTime: "09:00", endTime: "17:00" },
+    { day: "Fri", active: false, startTime: "09:00", endTime: "17:00" },
+    { day: "Sat", active: false, startTime: "10:00", endTime: "15:00" },
+    { day: "Sun", active: false, startTime: "10:00", endTime: "15:00" },
+  ];
+
+  it("marks recurring available days active with their times", () => {
+    const slots = [
+      makeSlot({
+        id: 1,
+        date: null,
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "17:00",
+        status: "available",
+      }),
+      makeSlot({
+        id: 2,
+        date: null,
+        day_of_week: "friday",
+        start_time: "10:00",
+        end_time: "14:00",
+        status: "available",
+      }),
+    ];
+    const schedule = buildWeeklyScheduleFromSlots(slots, fallback);
+    expect(schedule[0]).toMatchObject({ day: "Mon", active: true, startTime: "09:00", endTime: "17:00" });
+    expect(schedule[4]).toMatchObject({ day: "Fri", active: true, startTime: "10:00", endTime: "14:00" });
+    expect(schedule[1].active).toBe(false);
+  });
+
+  it("ignores dated and non-available recurring slots", () => {
+    const slots = [
+      makeSlot({ id: 1, date: "2026-04-19", day_of_week: "sunday", status: "available" }),
+      makeSlot({ id: 2, date: null, day_of_week: "sunday", status: "unavailable" }),
+      makeSlot({ id: 3, date: null, day_of_week: "sunday", status: "booked" }),
+    ];
+    const schedule = buildWeeklyScheduleFromSlots(slots, fallback);
+    expect(schedule[6].active).toBe(false);
   });
 });

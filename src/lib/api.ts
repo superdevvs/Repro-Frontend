@@ -25,6 +25,7 @@ export const API_ROUTES = {
     list: (photographerId: number | string) => `${BASE_URL}/api/photographer/availability/${photographerId}`,
     create: `${BASE_URL}/api/photographer/availability`,
     bulk: `${BASE_URL}/api/photographer/availability/bulk`,
+    replaceWeekly: `${BASE_URL}/api/photographer/availability/replace-weekly`,
     bulkIndex: `${BASE_URL}/api/photographer/availability/bulk-index`,
     bookedSlots: `${BASE_URL}/api/photographer/availability/booked-slots`,
     update: (id: number | string) => `${BASE_URL}/api/photographer/availability/${id}`,

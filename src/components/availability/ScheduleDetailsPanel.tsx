@@ -2,7 +2,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { availabilityWeekday, formatAvailabilityDate, normalizeAvailabilityDate } from "@/lib/availability/utils";
-import { Ban, CalendarIcon, ChevronRight, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
+import { Ban, CalendarDays, CalendarIcon, ChevronRight, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ interface ScheduleDetailsPanelProps {
   weeklyScheduleNote: string;
   setWeeklyScheduleNote: (value: string) => void;
   handleEditAvailability: () => void;
+  openDefaultSchedule: () => void;
   saveWeeklySchedule: () => Promise<void>;
   handleDeleteAvailability: (slotId: string, specificDate?: string) => Promise<void>;
   handleMarkUnavailable: (slotId: string, specificDate?: string) => Promise<void>;
@@ -75,6 +76,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
     weeklyScheduleNote,
     setWeeklyScheduleNote,
     handleEditAvailability,
+    openDefaultSchedule,
     saveWeeklySchedule,
     handleDeleteAvailability,
     handleMarkUnavailable,
@@ -136,10 +138,16 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                       <p className="text-xs text-muted-foreground">{getPhotographerName(selectedPhotographer)}'s Schedule</p>
                     </div>
                     {canEditAvailability && (
-                      <Button variant="outline" size="sm" onClick={() => setIsWeeklyScheduleDialogOpen(true)} className="h-8 rounded-md">
-                        <Plus className="h-3.5 w-3.5 mr-1.5" />
-                        Add Schedule
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="outline" size="sm" onClick={openDefaultSchedule} className="h-8 rounded-md">
+                          <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                          Default schedule
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setIsWeeklyScheduleDialogOpen(true)} className="h-8 rounded-md">
+                          <Plus className="h-3.5 w-3.5 mr-1.5" />
+                          Add
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -290,15 +298,27 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                   </p>
                 </div>
                 {canEditAvailability && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsWeeklyScheduleDialogOpen(true)}
-                    className="h-8 rounded-md"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1.5" />
-                    Add Schedule
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openDefaultSchedule}
+                      className="h-8 rounded-md"
+                      title="Set a daily recurring window (e.g. 9am–5pm)"
+                    >
+                      <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                      Default schedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsWeeklyScheduleDialogOpen(true)}
+                      className="h-8 rounded-md"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Add Schedule
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -622,9 +642,9 @@ function WeeklyScheduleEditor({
       {editingWeeklySchedule ? (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           <div className="mb-4 flex-shrink-0">
-            <h3 className="text-lg font-semibold mb-1">Edit Availability</h3>
+            <h3 className="text-lg font-semibold mb-1">Default schedule</h3>
             <p className="text-xs text-muted-foreground">
-              Managing {getPhotographerName(selectedPhotographer)}
+              Set a recurring daily window for {getPhotographerName(selectedPhotographer)} (e.g. 9:00–17:00). Active days reuse the same weekly availability rules.
             </p>
           </div>
 
@@ -758,13 +778,13 @@ function WeeklyScheduleEditor({
               className="w-full h-10 font-semibold rounded-md"
               onClick={saveWeeklySchedule}
             >
-              Save Changes
+              Save default schedule
             </Button>
             <button
-              className="w-full text-sm text-destructive hover:underline text-center py-1.5"
+              className="w-full text-sm text-muted-foreground hover:underline text-center py-1.5"
               onClick={() => setEditingWeeklySchedule(false)}
             >
-              Delete Slot
+              Cancel
             </button>
           </div>
         </div>
