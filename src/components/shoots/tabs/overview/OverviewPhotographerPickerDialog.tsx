@@ -82,43 +82,43 @@ export function OverviewPhotographerPickerDialog({
         className={cn(
           'overflow-hidden border-slate-800/80 bg-background p-0',
           isMobile
-            ? 'z-[190] flex max-h-[88dvh] flex-col rounded-t-3xl'
+            ? 'z-[190] flex max-h-[92dvh] flex-col rounded-t-3xl'
             : 'flex h-[min(88vh,44rem)] w-[92vw] max-h-[90vh] flex-col sm:max-w-4xl',
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:gap-4 sm:px-6">
-            <PickerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 px-2.5 pb-0 sm:gap-4 sm:px-6">
+            <PickerHeader className="relative items-start space-y-0.5 px-0 pb-0.5 pt-1.5 text-left sm:space-y-1 sm:pb-1 sm:pt-3">
               {isMobile ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-2 h-8 w-8 rounded-full"
+                  className="absolute right-0 top-0.5 h-7 w-7 rounded-full"
                   onClick={() => onOpenChange(false)}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               ) : null}
-              <PickerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
+              <PickerTitle className="pr-9 text-base text-slate-900 dark:text-slate-100 sm:pr-10 sm:text-xl">
                 {photographerPickerContext?.categoryName
                   ? `Select Photographer for ${photographerPickerContext.categoryName}`
                   : 'Select Photographer'}
               </PickerTitle>
-              <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+              <PickerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80 sm:text-[11px] sm:tracking-[0.28em]">
                 Curated network - {filteredAndSortedPhotographers.length} available
               </PickerDescription>
             </PickerHeader>
 
-            <div className="space-y-3">
-              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <div className="space-y-2 sm:space-y-3">
+              <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search by name or area..."
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    className="h-10 rounded-full bg-slate-50 pl-9 sm:h-11 dark:bg-slate-900/50"
+                    className="h-9 rounded-full bg-slate-50 pl-9 sm:h-11 dark:bg-slate-900/50"
                   />
                 </div>
 
@@ -286,14 +286,14 @@ export function OverviewPhotographerPickerDialog({
               )}
             </div>
 
-            <div className="shrink-0 border-t border-slate-200/70 bg-white/95 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 sm:pt-4 sm:pb-4 dark:border-slate-800/70 dark:bg-slate-950/95">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 border-t border-slate-200/70 bg-white/95 pt-1.5 backdrop-blur [padding-bottom:calc(0.15rem+env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 sm:pt-4 sm:pb-4 dark:border-slate-800/70 dark:bg-slate-950/95">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <Avatar
                     className={cn(
-                      'h-10 w-10 shrink-0',
+                      'h-8 w-8 shrink-0 sm:h-10 sm:w-10',
                       selectedPhotographerDetails
-                        ? 'ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                        ? 'ring-2 ring-blue-500/70 ring-offset-1 ring-offset-white sm:ring-offset-2 dark:ring-offset-slate-950'
                         : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
                     )}
                   >
@@ -304,13 +304,13 @@ export function OverviewPhotographerPickerDialog({
                       </>
                     ) : (
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </AvatarFallback>
                     )}
                   </Avatar>
 
                   <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-blue-500/80 sm:tracking-[0.28em]">
+                    <p className="hidden text-[10px] uppercase tracking-[0.18em] text-blue-500/80 sm:block sm:tracking-[0.28em]">
                       {photographerPickerContext?.categoryName
                         ? `Photographer for ${photographerPickerContext.categoryName}`
                         : 'Selected specialist'}
@@ -321,14 +321,14 @@ export function OverviewPhotographerPickerDialog({
                   </div>
                 </div>
 
-                <div className="grid min-w-0 grid-cols-2 gap-2 self-stretch sm:flex sm:self-auto">
-                  <Button variant="ghost" onClick={() => onOpenChange(false)} className="h-10 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
+                <div className="grid min-w-0 grid-cols-2 gap-1.5 self-stretch sm:flex sm:gap-2 sm:self-auto">
+                  <Button variant="ghost" onClick={() => onOpenChange(false)} className="h-9 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
                     Discard
                   </Button>
                   <Button
                     onClick={handleAssignPhotographer}
                     disabled={!selectedPhotographerId}
-                    className="h-10 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+                    className="h-9 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
                   >
                     <span className="truncate">{isEditMode ? 'Use selection' : 'Confirm Assignment'}</span>
                   </Button>

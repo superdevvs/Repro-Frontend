@@ -440,13 +440,13 @@ export const PhotographerAssignmentModal: React.FC = () => {
             Assign a photographer to a shoot and view their availability schedule
           </DialogDescription>
         </DialogHeader>
-        {/* Top Bar */}
-        <div className="px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="text-base sm:text-2xl font-bold">Assign Photographer</h2>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        {/* Top Bar — compact on mobile so timeline/list keep vertical room */}
+        <div className="flex flex-col gap-1.5 border-b px-3 pb-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:pb-4 sm:pt-6">
+          <h2 className="text-sm font-bold sm:text-2xl">Assign Photographer</h2>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-4">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 sm:h-9 flex items-center gap-2 text-xs sm:text-sm">
+                <Button variant="outline" size="sm" className="h-7 sm:h-9 flex items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
                   <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="font-medium">
                     {isToday(selectedDate) ? 'Today' : isTomorrow(selectedDate) ? 'Tomorrow' : format(selectedDate, 'EEE, MMM d')}
@@ -462,11 +462,11 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 />
               </PopoverContent>
             </Popover>
-            <div className="flex items-center gap-1 ml-auto sm:ml-0">
+            <div className="ml-auto flex items-center gap-0.5 sm:ml-0 sm:gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => setSelectedDate(prev => addDays(prev, -1))}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -474,7 +474,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs"
+                className="h-7 px-2 text-xs sm:h-8"
                 onClick={() => setSelectedDate(new Date())}
               >
                 Today
@@ -482,7 +482,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={() => setSelectedDate(prev => addDays(prev, 1))}
               >
                 <ChevronRight className="h-4 w-4" />

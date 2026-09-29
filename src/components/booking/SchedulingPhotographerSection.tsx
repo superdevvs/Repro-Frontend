@@ -52,7 +52,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             placeholder={canSeePhotographerAddress ? 'Search by name or area...' : 'Search by name...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn("pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50", mobileDrawer && "h-10")}
+            className={cn("pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50", mobileDrawer && "h-9")}
           />
         </div>
         <div
@@ -310,29 +310,28 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   const singlePhotographerPicker = isMobile ? (
     <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
-      <DrawerContent className="h-[78vh] max-h-[78vh]">
-        <DrawerHeader className="pb-2 text-left">
-          <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
-          <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+      <DrawerContent className="h-[88dvh] max-h-[88dvh]">
+        <DrawerHeader className="gap-0.5 px-3 pb-1.5 pt-1.5 text-left">
+          <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
+          <DrawerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
             {filteredAndSortedPhotographers.length} photographers shown
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+        <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
           {renderPhotographerFilters(true)}
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+          <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
             {renderPhotographerResults(true)}
           </div>
         </div>
-        <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+        <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
             <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               {selectedPhotographerDetails?.name || 'None selected'}
             </p>
           </div>
           <Button
             onClick={handleConfirmPhotographer}
-            className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+            className="h-10 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
             disabled={!canConfirmPhotographer}
           >
             Confirm Assignment
@@ -547,33 +546,34 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   setPhotographerDialogOpen(open);
                   if (!open) setActiveServiceForPicker(null);
                 }}>
-                  <DrawerContent className="h-[78vh] max-h-[78vh]">
-                    <DrawerHeader className="pb-2 text-left">
-                      <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">
+                  <DrawerContent className="h-[88dvh] max-h-[88dvh]">
+                    <DrawerHeader className="gap-0.5 px-3 pb-1.5 pt-1.5 text-left">
+                      <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">
                         Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                       </DrawerTitle>
-                      <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                      <DrawerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
                         {filteredAndSortedPhotographers.length} photographers shown
                       </DrawerDescription>
                     </DrawerHeader>
-                    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+                    <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
                       {renderPhotographerFilters(true)}
-                      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+                      <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
                         {renderPhotographerResults(true)}
                       </div>
                     </div>
-                    <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+                    <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
-                          {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected photographer'}
-                        </p>
                         <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {selectedPhotographerDetails?.name || 'None selected'}
+                          {selectedPhotographerDetails?.name
+                            ? (activeServiceNameForPicker
+                              ? `${selectedPhotographerDetails.name} · ${activeServiceNameForPicker}`
+                              : selectedPhotographerDetails.name)
+                            : 'None selected'}
                         </p>
                       </div>
                       <Button
                         onClick={handleConfirmServicePhotographer}
-                        className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+                        className="h-10 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
                         disabled={!canConfirmPhotographer}
                       >
                         Confirm Assignment
