@@ -7,8 +7,25 @@ import {
   formatListingPrice,
   resolveListingPreviewUrl,
 } from '@/utils/privateListings';
-import type { PrivateListing } from '@/types/privateListings';
 import styles from '@/pages/PrivateListingPortal.module.css';
+
+/** Shared listing shape for grid cards and the map Featured Listing panel. */
+export type ExclusiveListingCardData = {
+  id: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  heroImage?: string;
+  client: { name: string; email?: string };
+  isListingHidden: boolean;
+  listing_type?: 'for_sale' | 'for_rent';
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  price?: number;
+};
+
 export const ExclusiveListingGridCard = ({
   listing,
   onOpen,
@@ -18,15 +35,17 @@ export const ExclusiveListingGridCard = ({
   savingVisibility = false,
   onToggleSelect,
   onUnhide,
+  className = '',
 }: {
-  listing: PrivateListing;
-  onOpen: (listing: PrivateListing) => void;
+  listing: ExclusiveListingCardData;
+  onOpen: (listing: ExclusiveListingCardData) => void;
   selectionMode?: boolean;
   selected?: boolean;
   canManageVisibility?: boolean;
   savingVisibility?: boolean;
-  onToggleSelect?: (listing: PrivateListing) => void;
-  onUnhide?: (listing: PrivateListing) => void;
+  onToggleSelect?: (listing: ExclusiveListingCardData) => void;
+  onUnhide?: (listing: ExclusiveListingCardData) => void;
+  className?: string;
 }) => {
   const heroUrl = resolveListingPreviewUrl(listing.heroImage) || '/placeholder.svg';
   const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
@@ -68,10 +87,17 @@ export const ExclusiveListingGridCard = ({
     onOpen(listing);
   };
 
+  const selectedChrome =
+    selected && !selectionMode
+      ? 'border-blue-500 ring-1 ring-blue-500/20'
+      : 'border-0';
+
   return (
     <Card
       key={listing.id}
-      className={`group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1 ${isHidden ? 'opacity-70' : ''}`}
+      data-listing-id={listing.id}
+      data-selected={selected ? 'true' : 'false'}
+      className={`group cursor-pointer overflow-hidden rounded-[30px] bg-transparent text-white transition-all duration-300 hover:-translate-y-1 ${selectedChrome} ${isHidden ? 'opacity-70' : ''} ${className}`.trim()}
       onClick={handleClick}
       style={{
         boxShadow: '0 26px 56px -36px rgba(6, 10, 14, 0.38)',

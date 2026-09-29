@@ -16,7 +16,6 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { toast } from '@/lib/sonner-toast'
 import { useTheme } from '@/hooks/useTheme'
 import {
   buildMarkers,
@@ -24,7 +23,7 @@ import {
   listingLocationKey,
 } from '@/lib/listing-presentation/markers'
 import { CompactListingRow } from '@/components/listings/CompactListingRow'
-import { SelectedPropertyCard } from '@/components/listings/SelectedPropertyCard'
+import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListingGridCard'
 import { SidebarEmptyState } from '@/components/listings/SidebarEmptyState'
 import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 // Type-only import: erased at build time, so it does not pull the map runtime
@@ -462,31 +461,7 @@ export function ExclusiveListingsShowcase({
     })
   }, [])
 
-  const handleShareListing = useCallback(async (listing: ShowcaseListing) => {
-    const url = `${window.location.origin}/tour/branded?shootId=${encodeURIComponent(listing.id)}`
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: listing.address || 'Private listing',
-          text: listing.fullAddress || listing.address,
-          url,
-        })
-        return
-      }
-      await navigator.clipboard.writeText(url)
-      toast.success('Listing link copied')
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      toast.error('Unable to share listing')
-    }
-  }, [])
 
-  const handleFocusOnMap = useCallback(
-    (listing: ShowcaseListing) => {
-      handleSelectListing(listing.id)
-    },
-    [handleSelectListing],
-  )
 
   return (
     <section
@@ -628,15 +603,11 @@ export function ExclusiveListingsShowcase({
                         </span>
                       )}
                     </div>
-                    <SelectedPropertyCard
+                    <ExclusiveListingGridCard
                       listing={selectedListing}
-                      resolveImageUrl={resolveImageUrl}
-                      formatPrice={formatPrice}
-                      bookmarked={bookmarkedIds.has(selectedListing.id)}
-                      onOpenListing={onOpenListing}
-                      onShareListing={handleShareListing}
-                      onFocusOnMap={handleFocusOnMap}
-                      onToggleBookmark={handleToggleBookmark}
+                      selected
+                      onOpen={onOpenListing}
+                      className="shadow-none"
                     />
                   </section>
                 ) : null}
