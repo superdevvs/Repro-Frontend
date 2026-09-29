@@ -2,24 +2,27 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const Card = ({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <div
-    className={cn(
-      'rounded-3xl border border-border/60 bg-card text-card-foreground shadow-md shadow-black/5',
-      'dark:shadow-black/30 transition-colors',
-      'p-3 sm:p-5',
-      className,
-    )}
-  >
-    {children}
-  </div>
-);
+export const Card = React.forwardRef<
+  HTMLDivElement,
+  {
+    children: React.ReactNode;
+    className?: string;
+  }
+>(function Card({ children, className }, ref) {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        'rounded-3xl border border-border/60 bg-card text-card-foreground shadow-md shadow-black/5',
+        'dark:shadow-black/30 transition-colors',
+        'p-3 sm:p-5',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+});
 
 const STATUS_COLORS: Record<string, string> = {
   free: 'bg-emerald-500',

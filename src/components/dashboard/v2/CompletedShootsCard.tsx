@@ -149,6 +149,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   onViewAll,
 }) => {
   const safeShoots = Array.isArray(shoots) ? shoots : [];
+  const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(0);
   const [cardHeight, setCardHeight] = useState(0);
@@ -156,10 +157,13 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
 
   useLayoutEffect(() => {
     const list = listRef.current;
+    const root = rootRef.current;
     if (!list) return;
 
     const measure = () => {
-      setListHeight(list.clientHeight);
+      // Prefer the flex-1 list box; fall back to root so collapse/stretch
+      // transitions that grow the sidebar still retrigger visible-count math.
+      setListHeight(list.clientHeight || root?.clientHeight || 0);
       const firstCard = list.querySelector<HTMLElement>('[data-delivered-shoot-card="true"]');
       if (firstCard && firstCard.offsetHeight > 0) {
         setCardHeight(firstCard.offsetHeight);
@@ -167,9 +171,13 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
     };
 
     measure();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
     const observer = new ResizeObserver(measure);
     observer.observe(list);
+    if (root) observer.observe(root);
     const firstCard = list.querySelector<HTMLElement>('[data-delivered-shoot-card="true"]');
     if (firstCard) observer.observe(firstCard);
     return () => observer.disconnect();
@@ -194,7 +202,9 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   );
 
   return (
-    <Card className={cn(
+    <Card
+      ref={rootRef}
+      className={cn(
       DASHBOARD_MOBILE_PANEL_CLASS,
       stretch ? "flex h-full flex-1 min-h-0 flex-col overflow-hidden" : "flex flex-col min-h-0 overflow-hidden",
     )}>

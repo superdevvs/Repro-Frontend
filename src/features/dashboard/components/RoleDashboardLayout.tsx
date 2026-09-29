@@ -105,7 +105,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-col gap-4 sm:gap-6 max-lg:px-0 max-lg:pt-0", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "p-3 sm:px-6 sm:pb-6 sm:pt-0 flex flex-1 min-h-0 flex-col gap-4 sm:gap-6 max-lg:px-0 max-lg:pt-0 lg:min-h-full", hideLeftColumn && "lg:min-h-[calc(100vh-4rem)]")}>
           <div className="contents md:flex md:flex-row md:items-start md:justify-between md:gap-4">
             <div className="contents md:block md:min-w-0 md:flex-1">
               <PageHeader title={title} description={description} hideIntroOnMobile />
@@ -159,7 +159,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
           ) : useCollapsibleLayout ? (
             <div
               style={isDesktopGrid ? { gridTemplateColumns: desktopGridTemplateColumns, columnGap: 0 } : undefined}
-              className="relative grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-4 sm:gap-y-6 sm:gap-x-6 items-start transition-[grid-template-columns] duration-300 ease-out"
+              className="relative grid flex-1 min-h-0 grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-4 sm:gap-y-6 sm:gap-x-6 items-start md:items-stretch transition-[grid-template-columns] duration-300 ease-out"
             >
               {/* Left column: metrics + left card (e.g. assign photographers) */}
               <div
@@ -167,7 +167,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 aria-hidden={effectiveLeftColumnHidden}
                 data-onboarding-target={leftColumnOnboardingTarget}
                 className={cn(
-                  "md:col-span-3 min-[1025px]:col-start-1 min-[1025px]:col-end-2 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none min-w-0 overflow-hidden transition-opacity duration-200 ease-out",
+                  "md:col-span-3 min-[1025px]:col-start-1 min-[1025px]:col-end-2 flex h-full min-h-0 flex-col gap-4 sm:gap-6 md:sticky md:top-6 order-1 md:order-none min-w-0 overflow-hidden transition-opacity duration-200 ease-out",
                   effectiveLeftColumnHidden && "pointer-events-none opacity-0",
                 )}
               >
@@ -204,11 +204,10 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
                 data-onboarding-target={upcomingOnboardingTarget}
                 className={cn(
-                  "relative flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
-                  // The grid is `items-start`, so without this the column is only as
-                  // tall as its content: an empty or short shoots list leaves a hole
-                  // beside the taller side columns. Stretching the column lets the
-                  // card fill it and reach the same bottom edge as the side panels.
+                  "relative flex h-full min-h-0 flex-col gap-4 sm:gap-6 order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+                  // Desktop uses items-stretch + flex-1 on the grid so remaining
+                  // columns still fill the viewport after a side panel collapses.
+                  // Keep self-stretch for the md items-start fallback band.
                   "md:self-stretch",
                   effectiveLeftColumnHidden && effectiveRightColumnHidden
                     ? "md:col-span-12 min-[1025px]:col-span-1"
@@ -230,15 +229,17 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   onToggle={toggleRightColumn}
                   indicatorCount={pendingIndicatorCount}
                 />
-                <ErrorBoundary
-                  fallback={
-                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                      Unable to load upcoming shoots
-                    </div>
-                  }
-                >
-                  {upcomingContent}
-                </ErrorBoundary>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <ErrorBoundary
+                    fallback={
+                      <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                        Unable to load upcoming shoots
+                      </div>
+                    }
+                  >
+                    {upcomingContent}
+                  </ErrorBoundary>
+                </div>
               </div>
 
               {/* Left card on mobile, appears after upcoming shoots */}
@@ -261,7 +262,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 style={isDesktopGrid ? { gridColumn: "5 / 6" } : undefined}
                 aria-hidden={effectiveRightColumnHidden}
                 className={cn(
-                  "md:col-span-3 min-[1025px]:col-start-5 min-[1025px]:col-end-6 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none min-w-0 overflow-hidden transition-opacity duration-200 ease-out",
+                  "md:col-span-3 min-[1025px]:col-start-5 min-[1025px]:col-end-6 flex h-full min-h-0 flex-col gap-4 sm:gap-6 md:sticky md:top-6 order-4 md:order-none min-w-0 overflow-hidden transition-opacity duration-200 ease-out",
                   effectiveRightColumnHidden && "pointer-events-none opacity-0",
                 )}
               >

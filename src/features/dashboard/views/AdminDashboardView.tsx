@@ -113,7 +113,7 @@ export const AdminDashboardView = ({
       <motion.div
         style={isDesktopGrid ? { gridTemplateColumns: desktopGridTemplateColumns, columnGap: 0 } : undefined}
         className={cn(
-          "relative grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-4 sm:gap-y-6 sm:gap-x-6 items-start transition-[grid-template-columns] duration-300 ease-out"
+          "relative grid flex-1 min-h-0 grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-4 sm:gap-y-6 sm:gap-x-6 items-start md:items-stretch transition-[grid-template-columns] duration-300 ease-out"
         )}
       >
         <motion.div
@@ -124,7 +124,7 @@ export const AdminDashboardView = ({
           transition={{ duration: 0.18, ease: "easeOut" }}
           aria-hidden={effectiveLeftColumnHidden}
           className={cn(
-            "md:col-span-3 min-[1025px]:col-start-1 min-[1025px]:col-end-2 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none min-w-0 overflow-hidden",
+            "md:col-span-3 min-[1025px]:col-start-1 min-[1025px]:col-end-2 flex h-full min-h-0 flex-col gap-4 sm:gap-6 md:sticky md:top-6 order-1 md:order-none min-w-0 overflow-hidden",
             effectiveLeftColumnHidden && "pointer-events-none"
           )}
         >
@@ -139,12 +139,10 @@ export const AdminDashboardView = ({
         <motion.div
           style={isDesktopGrid ? { gridColumn: "3 / 4" } : undefined}
           className={cn(
-            "relative flex flex-col gap-4 sm:gap-6 order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
-            // The grid is `items-start`, so without this the column is only as tall
-            // as its content: an empty or short shoots list leaves a hole beside the
-            // taller side columns, which already carry `h-full`. Stretching the
-            // column lets the card's `flex-1` root reach the same bottom edge as the
-            // delivered and photographer panels. A long list still grows the row.
+            "relative flex h-full min-h-0 flex-col gap-4 sm:gap-6 order-2 md:order-none min-w-0 min-[1025px]:col-start-3 min-[1025px]:col-end-4",
+            // Desktop uses items-stretch + flex-1 on the grid so remaining columns
+            // still fill the viewport after a side panel collapses. Keep
+            // self-stretch for the md items-start fallback band.
             "md:self-stretch",
             effectiveLeftColumnHidden && effectiveRightColumnHidden
               ? "md:col-span-12 min-[1025px]:col-span-1"
@@ -167,7 +165,9 @@ export const AdminDashboardView = ({
             indicatorCount={hasRequestIndicator ? requestIndicatorCount : 0}
           />
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
-          {renderShootsTabsCard()}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {renderShootsTabsCard()}
+          </div>
         </motion.div>
 
         <div className="lg:hidden order-3">{renderAssignPhotographersCard()}</div>
@@ -180,7 +180,7 @@ export const AdminDashboardView = ({
           transition={{ duration: 0.18, ease: "easeOut" }}
           aria-hidden={effectiveRightColumnHidden}
           className={cn(
-            "md:col-span-3 min-[1025px]:col-start-5 min-[1025px]:col-end-6 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none min-w-0 overflow-hidden",
+            "md:col-span-3 min-[1025px]:col-start-5 min-[1025px]:col-end-6 flex h-full min-h-0 flex-col gap-4 sm:gap-6 md:sticky md:top-6 order-4 md:order-none min-w-0 overflow-hidden",
             effectiveRightColumnHidden && "pointer-events-none"
           )}
         >
