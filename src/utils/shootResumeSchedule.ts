@@ -95,7 +95,7 @@ export function shootNeedsResumeScheduleDialog(
   return serviceHints.some((hint) => hint.date !== headerDate);
 }
 
-/** Prefill for the resume schedule dialog: prefer earliest future service slot. */
+/** Prefill for the resume schedule dialog: prefer future capture slots (not fee-only times). */
 export function getResumeScheduleDialogDefaults(
   shoot: ShootData,
   now = new Date(),
@@ -120,10 +120,17 @@ export function getResumeScheduleDialogDefaults(
     if (!todayParts) return true;
     return hint.date >= todayParts;
   });
-  if (futureServices.length > 0) {
-    return { date: futureServices[0].date, time: futureServices[0].time || schedule.time || '10:00' };
+  if (futureServices.length === 0) {
+    return { date: schedule.date, time: schedule.time || '10:00' };
   }
-  return { date: schedule.date, time: schedule.time || '10:00' };
+
+  // Prefer a daytime capture slot (>= 08:00) when present; otherwise earliest future.
+  const daytime = futureServices.filter((hint) => (hint.time || '') >= '08:00');
+  const preferred = (daytime.length > 0 ? daytime : futureServices)[0];
+  return {
+    date: preferred.date,
+    time: preferred.time || schedule.time || '10:00',
+  };
 }
 
 export function resolveResumePhotographerId(shoot: ShootData): number | undefined {
