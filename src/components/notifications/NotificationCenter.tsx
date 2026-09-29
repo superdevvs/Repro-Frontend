@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
+import { formatBadgeCount } from '@/utils/formatBadgeCount';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { DashboardShootModalNavigationState } from '@/types/dashboard';
 
@@ -603,6 +604,8 @@ export function NotificationCenter() {
     );
   };
 
+  const unreadBadgeLabel = formatBadgeCount(unreadCount);
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -613,9 +616,9 @@ export function NotificationCenter() {
           onClick={() => setIsOpen(true)}
         >
           <BellIcon className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-              {unreadCount > 99 ? '99+' : unreadCount}
+          {unreadBadgeLabel && (
+            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {unreadBadgeLabel}
             </span>
           )}
         </Button>

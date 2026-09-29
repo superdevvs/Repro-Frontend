@@ -3,14 +3,12 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermissions } from '@/context/PermissionsContext';
 import { getMessagingBadgeCounts } from '@/services/messaging';
 import type { MessagingBadgeCounts } from '@/types/messaging';
+import { formatBadgeCount } from '@/utils/formatBadgeCount';
 
 const EMPTY: MessagingBadgeCounts = { email: 0, sms: 0, call: 0, total: 0 };
 
-/** Display ceiling matching the notification bell (99+). */
-export const formatNavBadgeCount = (count: number): string | null => {
-  if (!Number.isFinite(count) || count <= 0) return null;
-  return count > 99 ? '99+' : String(Math.floor(count));
-};
+/** @deprecated Prefer formatBadgeCount — kept as a stable alias for callers. */
+export const formatNavBadgeCount = formatBadgeCount;
 
 /**
  * Polls lightweight messaging channel unread/attention counts for sidebar badges.

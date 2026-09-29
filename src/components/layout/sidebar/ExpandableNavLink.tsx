@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatBadgeCount } from '@/utils/formatBadgeCount';
 
 interface SubItem {
   to: string;
@@ -18,11 +19,6 @@ interface ExpandableNavLinkProps {
   onActivePreview?: (element: HTMLElement) => void;
   /** Overall unread/attention count on the parent Messaging row. */
   badge?: number | null;
-}
-
-function formatBadge(count?: number | null): string | null {
-  if (count == null || !Number.isFinite(count) || count <= 0) return null;
-  return count > 99 ? '99+' : String(Math.floor(count));
 }
 
 export function ExpandableNavLink({ 
@@ -67,7 +63,7 @@ export function ExpandableNavLink({
     setIsExpanded((prev) => !prev);
   };
 
-  const parentBadge = formatBadge(badge);
+  const parentBadge = formatBadgeCount(badge);
 
   return (
     <div>
@@ -130,7 +126,7 @@ export function ExpandableNavLink({
         <div className="ml-6 mt-1 space-y-1 border-l-2 border-muted pl-3">
           {subItems.map((subItem) => {
             const isSubItemActive = pathname === subItem.to || pathname.startsWith(subItem.to + '/');
-            const subBadge = formatBadge(subItem.badge);
+            const subBadge = formatBadgeCount(subItem.badge);
             return (
               <Link
                 key={subItem.to}

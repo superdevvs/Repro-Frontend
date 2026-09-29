@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { formatBadgeCount } from '@/utils/formatBadgeCount';
 import { motion } from 'framer-motion';
 
 interface NavLinkProps {
@@ -14,13 +15,8 @@ interface NavLinkProps {
   iconClassName?: string;
   activeIconClassName?: string;
   animateIconOnActive?: boolean;
-  /** Unread/attention count — same style as the notification bell (99+ ceiling). */
+  /** Unread/attention count — same style as the notification bell (999+ ceiling). */
   badge?: number | null;
-}
-
-function formatBadge(count?: number | null): string | null {
-  if (count == null || !Number.isFinite(count) || count <= 0) return null;
-  return count > 99 ? '99+' : String(Math.floor(count));
 }
 
 export function NavLink({
@@ -37,7 +33,7 @@ export function NavLink({
 }: NavLinkProps) {
   const defaultActiveIconClassName = '[&_svg]:text-sidebar-accent-foreground dark:[&_svg]:text-sidebar-primary-foreground';
   const collapsedActiveIconClassName = '[&_svg]:text-sidebar-primary dark:[&_svg]:text-sidebar-primary-foreground';
-  const badgeLabel = formatBadge(badge);
+  const badgeLabel = formatBadgeCount(badge);
 
   return (
     <Link
