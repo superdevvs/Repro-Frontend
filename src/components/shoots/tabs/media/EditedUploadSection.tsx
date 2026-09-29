@@ -19,6 +19,7 @@ import {
   UploadResultsPanel,
   type UploadIssue,
 } from './MediaUploadPanels';
+import { uploadMediaRequest } from './uploadMediaRequest';
 import {
   SummaryBadge,
   SummaryCard,
@@ -237,17 +238,20 @@ export function EditedUploadSection({
       fileCount: filesForUpload.length,
       fileNames: filesForUpload.map((file) => file.name),
       uploadType: 'edited',
-      uploadFn: async (onProgress) => {
+      uploadFn: async (onProgress, signal) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{
+          const totalBytes = filesForUpload.reduce((sum, file) => sum + file.size, 0);
+          let processedBytes = 0;
+          let completed = 0;
+
+          const uploadOne = async (file: File, index: number): Promise<{
             success: boolean;
             issues: UploadIssue[];
             file: File;
             originalIndex: number;
             uploadLimits?: UploadLimitsPayload;
             acceptedFiles: ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
-          }> =>
-            new Promise((resolve) => {
+          }> => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
               const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length);
@@ -273,84 +277,109 @@ export function EditedUploadSection({
                 }
               }
 
-              const xhr = new XMLHttpRequest();
-              xhr.addEventListener('load', () => {
-                const uploadResult = parseCanonicalUploadResponse(xhr.responseText);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  const uploadLimits = uploadResult.uploadLimits ?? parseUploadLimitsResponse(xhr.responseText);
-                  setUploadLimitHint((currentHint) => buildUploadLimitDescription(uploadLimits) || currentHint);
-                  if (uploadResult.successCount > 0) {
-                    mergeAcceptedShootFiles(queryClient, shoot.id, 'edited', uploadResult.uploadedFiles);
-                    const parsed = uploadResult.errorCount > 0
-                      ? parseUploadIssues(file, index, xhr.responseText, 'Upload partially failed')
-                      : { issues: [] as UploadIssue[] };
-                    resolve({
-                      success: true,
-                      issues: parsed.issues,
-                      file,
-                      originalIndex: index,
-                      uploadLimits,
-                      acceptedFiles: uploadResult.uploadedFiles,
-                    });
-                    return;
-                  }
+              const request = await uploadMediaRequest({
+                url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
+                body: formData,
+                signal,
+                headers: {
+                  Accept: 'application/json',
+                  Authorization: authHeader,
+                  'X-Impersonate-User-Id': impersonateHeader,
+                },
+                onProgress: ({ phase, loaded, total }) => {
+                  const fraction = phase === 'processing'
+                    ? 1
+                    : total > 0
+                      ? Math.min(loaded / total, 1)
+                      : Math.min(loaded / Math.max(file.size, 1), 1);
+                  const value = Math.min(
+                    99.9,
+                    totalBytes > 0
+                      ? ((processedBytes + file.size * fraction) / totalBytes) * 100
+                      : (completed / Math.max(filesForUpload.length, 1)) * 100,
+                  );
+                  setUploadProgress(value);
+                  onProgress(value);
+                },
+              });
 
-                  const parsed = parseUploadIssues(file, index, xhr.responseText, uploadResult.message || 'Upload failed');
-                  resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] });
-                  return;
+              if (request.ok === false) {
+                return {
+                  success: false,
+                  issues: [
+                    {
+                      id: getQueueFileKey(file, index),
+                      fileName: file.name,
+                      errorType: 'network_failure',
+                      message: request.message,
+                      retryable: true,
+                      nextStep: 'Retry this file after checking the network connection.',
+                    },
+                  ],
+                  file,
+                  originalIndex: index,
+                  acceptedFiles: [],
+                };
+              }
+
+              const { responseText, status } = request;
+              const uploadResult = parseCanonicalUploadResponse(responseText);
+              if (status >= 200 && status < 300) {
+                const uploadLimits = uploadResult.uploadLimits ?? parseUploadLimitsResponse(responseText);
+                setUploadLimitHint((currentHint) => buildUploadLimitDescription(uploadLimits) || currentHint);
+                if (uploadResult.successCount > 0) {
+                  mergeAcceptedShootFiles(queryClient, shoot.id, 'edited', uploadResult.uploadedFiles);
+                  const parsed = uploadResult.errorCount > 0
+                    ? parseUploadIssues(file, index, responseText, 'Upload partially failed')
+                    : { issues: [] as UploadIssue[] };
+                  return {
+                    success: true,
+                    issues: parsed.issues,
+                    file,
+                    originalIndex: index,
+                    uploadLimits,
+                    acceptedFiles: uploadResult.uploadedFiles,
+                  };
                 }
 
+                const parsed = parseUploadIssues(file, index, responseText, uploadResult.message || 'Upload failed');
+                return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] };
+              }
 
-                const parsed = parseUploadIssues(file, index, xhr.responseText, 'Upload failed');
-                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] });
-              });
-              xhr.addEventListener('error', () => resolve({
-                success: false,
-                issues: [
-                  {
-                    id: getQueueFileKey(file, index),
-                    fileName: file.name,
-                    errorType: 'network_failure',
-                    message: 'The upload connection was interrupted before this file finished transferring.',
-                    retryable: true,
-                    nextStep: 'Retry this file after checking the network connection.',
-                  },
-                ],
-                file,
-                originalIndex: index,
-                acceptedFiles: [],
-              }));
-              xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-              if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
-              if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
-              xhr.send(formData);
-            });
+              const parsed = parseUploadIssues(file, index, responseText, 'Upload failed');
+              return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] };
+          };
 
-          const concurrentUploads = 1;
-          let completed = 0;
           const issues: UploadIssue[] = [];
           const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
           const acceptedFiles = [] as ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
-          for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
-            const batch = filesForUpload.slice(index, index + concurrentUploads);
-            const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
-            results.forEach((result) => {
-              completed += 1;
-              if (result.uploadLimits) {
-                latestUploadLimits = result.uploadLimits;
-              }
-              acceptedFiles.push(...result.acceptedFiles);
-              if (result.issues.length > 0) {
-                issues.push(...result.issues);
-              }
-              if (!result.success && result.issues.length > 0) {
-                failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
-              }
-            });
+          for (let index = 0; index < filesForUpload.length; index += 1) {
+            if (signal.aborted) {
+              throw new Error('Upload cancelled. The remaining files are still selected for retry.');
+            }
+            const file = filesForUpload[index];
+            const result = await uploadOne(file, index);
+            completed += 1;
+            processedBytes += file.size;
+            if (result.uploadLimits) {
+              latestUploadLimits = result.uploadLimits;
+            }
+            acceptedFiles.push(...result.acceptedFiles);
+            if (result.issues.length > 0) {
+              issues.push(...result.issues);
+            }
+            if (!result.success && result.issues.length > 0) {
+              failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
+            }
 
-            const progressValue = Math.round((completed / filesForUpload.length) * 100);
+            const progressValue = Math.min(
+              100,
+              totalBytes > 0
+                ? (processedBytes / totalBytes) * 100
+                : Math.round((completed / filesForUpload.length) * 100),
+            );
             setUploadProgress(progressValue);
             onProgress(progressValue);
           }
@@ -519,6 +548,7 @@ export function EditedUploadSection({
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
         inputId={inputId}
+        inputTestId="edited-upload-input"
         title="Upload Edited Media"
         description="Drag and drop edited deliverables here. Use the quick markers below to tag VS, GG, TW, DR, FP, or EX before sending."
         buttonLabel="Choose Edited Files"

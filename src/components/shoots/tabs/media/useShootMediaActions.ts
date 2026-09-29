@@ -25,6 +25,7 @@ import {
   resolveUploadLaneForFile,
   resolveUploadLanesForFiles,
 } from './mediaUploadUtils';
+import { uploadMediaRequest } from './uploadMediaRequest';
 import {
   downloadScanFailedShootFile,
   downloadShootMediaFile,
@@ -207,14 +208,14 @@ export function useShootMediaActions({
       fileCount: files.length,
       fileNames: files.map((file) => file.name),
       uploadType,
-      uploadFn: async (onProgress) => {
-        const concurrentUploads = 1;
+      uploadFn: async (onProgress, signal) => {
         let completed = 0;
+        let processedBytes = 0;
         const errors: string[] = [];
         const uploadBatchId = createUploadBatchId();
+        const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
 
-        const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
-          new Promise((resolve) => {
+        const uploadOne = async (file: File, index: number): Promise<{ success: boolean; error?: string }> => {
             const formData = new FormData();
             const isVideo = isVideoUpload(file);
             const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, files.length);
@@ -234,43 +235,68 @@ export function useShootMediaActions({
             if (isVideo) formData.append('service_category', 'video');
             if (!isVideo && isFloorplanUpload(file)) formData.append('media_type', 'floorplan');
 
-            const xhr = new XMLHttpRequest();
-            xhr.addEventListener('load', () => {
-              const result = parseCanonicalUploadResponse(xhr.responseText);
-              if (xhr.status >= 200 && xhr.status < 300) {
-                if (result.successCount > 0) {
-                  mergeAcceptedShootFiles(queryClient, shoot.id, uploadType, result.uploadedFiles);
-                  resolve({ success: true });
-                  return;
-                }
-
-                resolve({ success: false, error: `${file.name}: ${result.message || 'Upload failed'}` });
-                return;
-              }
-
-              let message = 'Upload failed';
-              try {
-                message = JSON.parse(xhr.responseText).message || message;
-              } catch {
-                // Fall back to the generic upload error when the response is not JSON.
-              }
-              resolve({ success: false, error: `${file.name}: ${message}` });
+            const request = await uploadMediaRequest({
+              url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
+              body: formData,
+              signal,
+              headers: {
+                Accept: 'application/json',
+                Authorization: authHeader,
+                'X-Impersonate-User-Id': impersonateHeader,
+              },
+              onProgress: ({ phase, loaded, total }) => {
+                const fraction = phase === 'processing'
+                  ? 1
+                  : total > 0
+                    ? Math.min(loaded / total, 1)
+                    : Math.min(loaded / Math.max(file.size, 1), 1);
+                const value = Math.min(
+                  99.9,
+                  totalBytes > 0
+                    ? ((processedBytes + file.size * fraction) / totalBytes) * 100
+                    : (completed / Math.max(files.length, 1)) * 100,
+                );
+                onProgress(value);
+              },
             });
-            xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
-            xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-            if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
-            if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
-            xhr.send(formData);
-          });
 
-        for (let index = 0; index < files.length; index += concurrentUploads) {
-          const batch = files.slice(index, Math.min(index + concurrentUploads, files.length));
-          const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
-          results.forEach((result) => {
-            completed += 1;
-            if (!result.success && result.error) errors.push(result.error);
-          });
-          onProgress(Math.round((completed / files.length) * 100));
+            if (request.ok === false) {
+              return { success: false, error: `${file.name}: ${request.message}` };
+            }
+
+            const result = parseCanonicalUploadResponse(request.responseText);
+            if (request.status >= 200 && request.status < 300) {
+              if (result.successCount > 0) {
+                mergeAcceptedShootFiles(queryClient, shoot.id, uploadType, result.uploadedFiles);
+                return { success: true };
+              }
+              return { success: false, error: `${file.name}: ${result.message || 'Upload failed'}` };
+            }
+
+            let message = 'Upload failed';
+            try {
+              message = JSON.parse(request.responseText).message || message;
+            } catch {
+              // Fall back to the generic upload error when the response is not JSON.
+            }
+            return { success: false, error: `${file.name}: ${message}` };
+        };
+
+        for (let index = 0; index < files.length; index += 1) {
+          if (signal.aborted) {
+            throw new Error('Upload cancelled. The remaining files are still selected for retry.');
+          }
+          const file = files[index];
+          const result = await uploadOne(file, index);
+          completed += 1;
+          processedBytes += file.size;
+          if (!result.success && result.error) errors.push(result.error);
+          onProgress(Math.min(
+            100,
+            totalBytes > 0
+              ? (processedBytes / totalBytes) * 100
+              : Math.round((completed / files.length) * 100),
+          ));
         }
 
         if (errors.length === files.length) {
