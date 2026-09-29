@@ -646,12 +646,12 @@ export default function Availability() {
             </div>
           )}
 
-          {/* Month + Date navigation strips */}
-          <div className="mt-3 sm:mt-6 mb-2 sm:mb-4 space-y-2 sm:space-y-3 flex-shrink-0">
+          {/* Month + Date navigation strips (compact so calendar/list get more viewport) */}
+          <div className="mt-1.5 sm:mt-2 mb-1 sm:mb-1.5 space-y-1 sm:space-y-1.5 flex-shrink-0">
             <div className="relative">
               <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={monthNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-6">
+              <div ref={monthNavScrollRef} className="flex items-center gap-1 xl:gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-4">
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
                   const monthYear = format(month, 'yyyy');
@@ -673,7 +673,7 @@ export default function Availability() {
                           if (!date || format(date, 'yyyy-MM') !== monthKey) setDate(startOfMonth(month));
                         }}
                         className={cn(
-                          "px-2.5 xl:px-3 py-1 xl:py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-xs xl:text-sm flex-shrink-0",
+                          "px-2 xl:px-2.5 py-0.5 xl:py-1 rounded-md whitespace-nowrap font-medium transition-colors text-xs xl:text-sm flex-shrink-0",
                           isCurrentMonth
                             ? "border-2 border-primary font-semibold text-foreground"
                             : isSelectedMonth
@@ -692,7 +692,7 @@ export default function Availability() {
             <div className="relative">
               <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
-              <div ref={dateNavScrollRef} className="flex items-center gap-1.5 xl:gap-2 overflow-x-auto pb-1.5 xl:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-6">
+              <div ref={dateNavScrollRef} className="flex items-center gap-1 xl:gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0 sm:px-2 xl:px-4">
                 {monthDates.map((day, idx) => {
                   const prevDay = idx > 0 ? monthDates[idx - 1] : null;
                   const currentMonthStr = format(day, 'yyyy-MM');
@@ -781,7 +781,7 @@ export default function Availability() {
                                 if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) setCurrentMonth(dayMonth);
                               }}
                               className={cn(
-                                "flex h-14 w-14 xl:h-16 xl:w-16 flex-col items-center justify-center rounded-full p-0 transition-all flex-shrink-0 border",
+                                "flex h-10 w-10 xl:h-11 xl:w-11 flex-col items-center justify-center rounded-full p-0 transition-all flex-shrink-0 border",
                                 isTodayDate
                                   ? "border-2 border-primary font-semibold bg-primary/10"
                                   : isSelected
@@ -789,8 +789,8 @@ export default function Availability() {
                                     : availabilityColor ? `${availabilityColor} border` : "bg-transparent border-transparent hover:bg-muted/50"
                               )}
                             >
-                              <span className={cn("text-sm font-medium", isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : "text-muted-foreground")}>{format(day, 'd')}</span>
-                              <span className={cn("text-xs mt-0.5", isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : "text-muted-foreground")}>{format(day, 'EEE')}</span>
+                              <span className={cn("text-xs xl:text-sm font-medium leading-none", isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : "text-muted-foreground")}>{format(day, 'd')}</span>
+                              <span className={cn("text-[10px] xl:text-xs mt-0.5 leading-none", isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : "text-muted-foreground")}>{format(day, 'EEE')}</span>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -904,8 +904,8 @@ export default function Availability() {
                 />
               )}
 
-              <div className={cn("flex flex-col min-h-0", canManagePhotographerSelection ? "lg:col-span-5" : "lg:col-span-8")}>
-                <Card className="p-4 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+              <div className={cn("flex flex-col min-h-0 h-full", canManagePhotographerSelection ? "lg:col-span-5" : "lg:col-span-8")}>
+                <Card className="p-4 h-full flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
                   <div className="flex items-start justify-between mb-3 flex-shrink-0">
                     <div>
                       <h2 className="text-base font-semibold mb-1">
@@ -953,7 +953,7 @@ export default function Availability() {
                 </Card>
               </div>
 
-              <div className="flex flex-col min-h-0 lg:col-span-4">
+              <div className="flex flex-col min-h-0 h-full lg:col-span-4">
                 <ScheduleDetailsPanel variant="desktop" {...scheduleDetailsProps} />
               </div>
             </div>

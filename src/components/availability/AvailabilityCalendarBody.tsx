@@ -680,7 +680,7 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
           </div>
         </div>
 
-        <div className={cn("flex flex-col", !isMobile && "flex-1 min-h-0 overflow-hidden")}>
+        <div className={cn("flex flex-col", !isMobile && "flex-1 min-h-0 overflow-y-auto")}>
           {weekDays.map((day, dayIdx) => {
             const isTodayDate = isToday(day);
             const isSelected = date && isSameDay(day, date);
@@ -723,7 +723,9 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
                       "flex border-b last:border-b-0 relative cursor-context-menu",
                       isMobile
                         ? selectedPhotographer === "all" ? "min-h-[3.5rem]" : "min-h-[3rem]"
-                        : "flex-1 min-h-0",
+                        : selectedPhotographer === "all"
+                          ? "min-h-[3.5rem] flex-1 basis-0"
+                          : "min-h-[3rem] flex-1 basis-0",
                       isTodayDate && "bg-primary/5"
                     )}
                   >

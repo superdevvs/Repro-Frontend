@@ -277,14 +277,14 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
 
   // Desktop variant
   return (
-    <Card className="p-4 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+    <Card className="p-4 h-full flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
       {selectedPhotographer !== "all" ? (
         <>
           {!editingWeeklySchedule ? (
             <>
-              <div className="flex justify-between items-start mb-4 flex-shrink-0">
+              <div className="flex justify-between items-start mb-2 flex-shrink-0">
                 <div>
-                  <h2 className="text-base font-semibold mb-1">
+                  <h2 className="text-base font-semibold mb-0.5">
                     {viewMode === "day" && date
                       ? format(date, 'EEEE, MMMM d, yyyy')
                       : viewMode === "week" && date
@@ -322,7 +322,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                 )}
               </div>
 
-              <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
+              <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain">
                 {(() => {
                   let slots: Availability[] = [];
                   if (viewMode === "day") slots = getSelectedDateAvailabilities();
