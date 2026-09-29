@@ -96,7 +96,9 @@ export function ExpandableNavLink({
         >
           <span className="relative flex items-center">
             {icon}
-            {isCollapsed && parentBadge && (
+            {/* Same blue circle+number on the icon in expanded and collapsed —
+                expanded width (210px) cannot fit label + inline badge + chevron. */}
+            {parentBadge && (
               <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold text-primary-foreground">
                 {parentBadge}
               </span>
@@ -106,11 +108,6 @@ export function ExpandableNavLink({
         {!isCollapsed && (
           <>
             <span className="relative z-20 flex-1">{label}</span>
-            {parentBadge && (
-              <span className="relative z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                {parentBadge}
-              </span>
-            )}
             <button
               type="button"
               data-sidebar-disclosure
