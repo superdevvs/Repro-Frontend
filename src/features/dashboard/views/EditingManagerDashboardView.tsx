@@ -151,7 +151,7 @@ export const EditingManagerDashboardView = ({
     >
       <div className="sticky top-[-0.375rem] -mt-1.5 pt-1.5 z-20 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
-          <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
+          <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
             {editingManagerMobileTabs.map((tab) => (
               <DashboardMobileTabTrigger
                 key={tab.id}

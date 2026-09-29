@@ -78,7 +78,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
     return (
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col h-full flex-1 relative min-h-0")}>
-        <div className="sm:hidden absolute top-3 right-3 z-10 flex items-center gap-1">
+        <div className="absolute right-2 top-2 z-10 flex items-center gap-1 sm:hidden">
           {renderCompactToggle({ iconOnly: true })}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -89,24 +89,28 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-16 sm:pr-0">
-          <div className="flex items-center gap-4">
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 pr-16 sm:mb-2 sm:gap-3 sm:pr-0">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
-            <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
+            {/* Four EM sub-tabs overflow at ~390px — scroll the row, never wrap tall. */}
+            <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain hidden-scrollbar">
+              <div className="flex w-max items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
               {editingManagerTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
+                    'shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
                     activeTab === tab.id
                       ? 'text-foreground border-primary'
                       : 'text-muted-foreground border-transparent hover:text-foreground'
                   )}
                 >
-                  {tab.label} ({tab.shoots.length})
+                  {tab.label}
+                  <span className="ml-1 opacity-70">({tab.shoots.length})</span>
                 </button>
               ))}
+              </div>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-2">
@@ -152,7 +156,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
         </div>
 
         {isMenuOpen && (
-          <div className="sm:hidden flex items-center gap-2 mb-3 -mt-1">
+          <div className="-mt-0.5 mb-2 flex items-center gap-2 sm:hidden">
             {activeTab === 'scheduled' && (
             <Button
               variant="outline"

@@ -86,7 +86,7 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
 
   return (
     <div
-      className="relative h-48 sm:h-56 w-full overflow-hidden group"
+      className="relative h-36 sm:h-56 w-full overflow-hidden group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -218,11 +218,11 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       DASHBOARD_MOBILE_PANEL_CLASS,
       stretch ? "flex h-full flex-1 min-h-0 flex-col overflow-hidden" : "flex flex-col min-h-0 overflow-hidden",
     )}>
-      <div className={cn('flex items-center justify-between shrink-0', subtitle ? 'mb-3 sm:mb-4' : 'mb-2 sm:mb-3')}>
+      <div className={cn('flex items-center justify-between shrink-0', subtitle ? 'mb-1.5 sm:mb-4' : 'mb-1.5 sm:mb-3')}>
         <div className="min-w-0">
           <h2 className="hidden text-base font-bold text-foreground sm:block sm:text-lg">{title}</h2>
           {subtitle ? (
-            <p className="text-[10px] sm:text-xs text-muted-foreground">{subtitle}</p>
+            <p className="hidden text-xs text-muted-foreground sm:block">{subtitle}</p>
           ) : null}
         </div>
         <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{safeShoots.length} ready</span>
@@ -244,7 +244,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                 className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card group relative cursor-pointer"
                 onClick={() => onSelect?.(shoot)}
               >
-                <div className="relative h-48 sm:h-56 w-full overflow-hidden">
+                <div className="relative h-36 sm:h-56 w-full overflow-hidden">
                   <img
                     src={images[0]}
                     alt={shoot.addressLine}
@@ -275,7 +275,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         </div>
       )}
       <button
-        className="mt-2 w-full shrink-0 py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
+        className="mt-1.5 w-full shrink-0 py-2 sm:mt-2 sm:py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
         onClick={onViewAll}
       >
         {ctaLabel}

@@ -807,7 +807,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       {isEditingManager ? (
-        <div className="dashboard-mobile-page flex min-h-full flex-1 flex-col gap-4 px-2 pt-1.5 pb-3 sm:gap-6 sm:p-6 max-lg:min-h-0 max-lg:gap-0 max-lg:overflow-hidden max-lg:px-0 max-lg:pt-0">
+        <div className="dashboard-mobile-page flex min-h-0 flex-1 flex-col gap-2.5 px-2 pt-1.5 pb-3 sm:gap-6 sm:px-6 sm:pb-6 sm:pt-0 lg:min-h-full max-lg:gap-0 max-lg:px-0 max-lg:pt-0">
           <div className="contents md:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="contents md:block md:flex-1">
               <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} hideIntroOnMobile />

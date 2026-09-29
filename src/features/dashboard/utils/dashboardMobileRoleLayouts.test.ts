@@ -43,7 +43,7 @@ describe('role dashboard compact mobile tabs', () => {
     expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_ROW_CLASS =\s*'[^']*overflow-x-auto/);
     expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_LIST_CLASS =\s*'[^']*inline-flex/);
     expect(panel).toMatch(/DASHBOARD_MOBILE_TAB_TRIGGER_CLASS =\s*'[^']*shrink-0/);
-    expect(admin).toMatch(/<tab\.icon/);
+    expect(admin).toContain('DashboardMobileTabTrigger');
   });
 
   it('keeps photographer and editor on RoleDashboardLayout mobile tabs', () => {
@@ -52,5 +52,36 @@ describe('role dashboard compact mobile tabs', () => {
 
     expect(photographer).toContain('mobileTabs={photographerMobileTabs');
     expect(editor).toContain('mobileTabs={editorMobileTabs');
+  });
+
+  it('EditingManagerDashboardView uses DashboardMobileTabTrigger with icons-only inactive tabs', () => {
+    const em = read('features/dashboard/views/EditingManagerDashboardView.tsx');
+    expect(em).toContain('DashboardMobileTabTrigger');
+    expect(em).toMatch(/icon:\s*Camera/);
+    expect(em).toMatch(/icon:\s*MessageCircle/);
+    expect(em).toMatch(/icon:\s*CheckCircle2/);
+    expect(em).toMatch(/icon:\s*KanbanSquare/);
+    expect(em).toContain('dashboard-mobile-tabs');
+  });
+
+  it('editing-manager page shell uses dashboard-mobile-page with admin-aligned min-h-0 flex chain', () => {
+    const dashboard = read('pages/Dashboard.tsx');
+    const start = dashboard.indexOf('isEditingManager ?');
+    expect(start).toBeGreaterThan(-1);
+    const shell = dashboard.slice(start, start + 900);
+    expect(shell).toContain('dashboard-mobile-page');
+    expect(shell).toContain('min-h-0');
+    expect(shell).toContain('flex-1');
+  });
+
+  it('EM Ready card hides subtitle with title below sm; PendingReviews drops empty title row on mobile', () => {
+    const completed = read('components/dashboard/v2/CompletedShootsCard.tsx');
+    const pending = read('components/dashboard/v2/PendingReviewsCard.tsx');
+    const emShoots = read('components/dashboard/v2/EditingManagerShootsTabsView.tsx');
+
+    expect(completed).toMatch(/subtitle[\s\S]*?hidden text-xs text-muted-foreground sm:block/);
+    expect(pending).toMatch(/mb-2 hidden flex-shrink-0 items-center justify-between sm:flex/);
+    expect(emShoots).toContain('overflow-x-auto');
+    expect(emShoots).toContain('hidden sm:block text-lg font-bold');
   });
 });

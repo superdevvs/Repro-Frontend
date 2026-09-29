@@ -47,4 +47,21 @@ describe('CompletedShootsCard compact viewport', () => {
     expect(screen.getByText('Delivered Address 305')).toBeVisible();
     expect(screen.queryByText('Latest deliveries')).not.toBeInTheDocument();
   });
+
+  it('hides duplicate title and subtitle below sm so section tabs name the panel', () => {
+    render(
+      <CompletedShootsCard
+        shoots={[shoot(1)]}
+        title="Ready to deliver"
+        subtitle="Shoots with ready status"
+        stretch
+      />,
+    );
+
+    const title = screen.getByText('Ready to deliver');
+    const subtitle = screen.getByText('Shoots with ready status');
+    expect(title).toHaveClass('hidden', 'sm:block');
+    expect(subtitle).toHaveClass('hidden', 'sm:block');
+    expect(screen.getByText('1 ready')).toBeInTheDocument();
+  });
 });
