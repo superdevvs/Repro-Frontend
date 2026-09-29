@@ -138,6 +138,13 @@ describe('dashboard mobile tab CSS', () => {
     expect(src('../../../components/dashboard/v2/EditingManagerShootsTabsView.tsx')).toContain(
       'DASHBOARD_MOBILE_LIST_SHELL_CLASS',
     );
+    // Upcoming/EM lists must keep the ~10-card maxHeight cap (inner scroll + sticky pills).
+    // Do not drop listMaxHeight when filling PIPELINE/delivered columns.
+    expect(src('../../../components/dashboard/v2/DefaultShootsTabsView.tsx')).toContain('listMaxHeight');
+    expect(src('../../../components/dashboard/v2/EditingManagerShootsTabsView.tsx')).toContain('listMaxHeight');
+    expect(src('../../../components/dashboard/v2/useShootsTabsCardController.tsx')).toMatch(
+      /visibleCount:\s*10/,
+    );
     expect(src('../../../features/dashboard/components/ClientMyShoots.tsx')).toMatch(
       /hidden-scrollbar[^"'`]*flex-1[^"'`]*min-h-0[^"'`]*overflow-y-auto/,
     );

@@ -83,7 +83,7 @@ export function useShootsTabsCardController({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const filterPanelHostRef = useRef<HTMLDivElement>(null);
-  // Dynamic height so the list reveals ~7.5 cards at a time, peeking the 8th
+  // Dynamic height so the list reveals ~10 cards at a time
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
   useEffect(() => {
     if (!isEditingManagerMode) return;
@@ -383,7 +383,7 @@ export function useShootsTabsCardController({
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, editingManagerHasMore, activeTab, loadMoreShoots]);
-  // Measure a representative shoot card so the container height shows ~7.5 cards
+  // Measure a representative shoot card so the container height shows ~10 cards
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -399,14 +399,15 @@ export function useShootsTabsCardController({
     observer.observe(firstCard);
     return () => observer.disconnect();
   }, [paginatedGroups, editingManagerPaginatedGroups, activeTab]);
-  // ~7.5 cards tall: 7 full + half of 8th, plus gaps (space-y-3 between cards
-  // in a group) and a small allowance for the first group label.
+  // ~10 cards tall, plus gaps (space-y-3 between cards in a group) and a small
+  // allowance for the first group label. Keeps page height bounded; rest scrolls
+  // inside the column with sticky day pills.
   const listMaxHeight = useMemo(
     () =>
       resolveDashboardListMaxHeight({
         compactViewport: isCompactDashboardViewport,
         itemHeight: shootCardHeight,
-        visibleCount: 7.5,
+        visibleCount: 10,
       }),
     [isCompactDashboardViewport, shootCardHeight],
   );
