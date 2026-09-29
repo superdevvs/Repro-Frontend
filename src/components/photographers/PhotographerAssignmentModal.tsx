@@ -21,6 +21,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn, getInitials } from '@/lib/utils';
 import { getDashboardShootDisplayDate, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import {
   Select,
   SelectContent,
@@ -558,6 +559,13 @@ export const PhotographerAssignmentModal: React.FC = () => {
                   <Clock className="h-4 w-4" />
                   {selectedDateLabel} timeline
                 </h4>
+                <PhotographerAvailabilityTimeline
+                  className="mb-3"
+                  availableSlots={getAvailabilitySlotsForDate(selectedDate, 'available')}
+                  bookedSlots={getAvailabilitySlotsForDate(selectedDate, 'booked')}
+                  unavailableSlots={getAvailabilitySlotsForDate(selectedDate, 'unavailable')}
+                  loadingHint={loading ? 'Loading availability...' : null}
+                />
                 {loading ? (
                   <div className="relative">
                     <div className="space-y-2">

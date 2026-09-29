@@ -37,6 +37,7 @@ import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import { Input } from '@/components/ui/input';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
@@ -177,10 +178,6 @@ const timeToMinutes = (value: string) => {
   const [hours, minutes] = normalizeSlotTime(value).split(':').map(Number);
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
 };
-
-const availabilityScaleStartMinutes = 8 * 60;
-const availabilityScaleTotalMinutes = 12 * 60;
-const availabilityScaleTickCount = 9;
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -768,7 +765,11 @@ export function ShootApprovalModal({
           }),
         });
 
-        if (!response.ok) throw new Error('Failed to fetch photographer availability');
+        if (!response.ok) {
+          console.warn('[ShootApprovalModal] forBooking failed', response.status);
+          setPhotographerAvailability({});
+          return;
+        }
 
         const json: unknown = await response.json();
         const rawPhotographers = asRecord(json).data;
@@ -1395,23 +1396,6 @@ export function ShootApprovalModal({
                         const travelUnit = photographer.travel_range_unit || 'miles';
                         const rangeInMiles = travelUnit === 'km' && travelRange != null ? travelRange * 0.621371 : travelRange;
                         const isOutOfRange = typeof photographer.distance === 'number' && rangeInMiles != null && photographer.distance > rangeInMiles;
-                        const renderTimelineSlot = (slot: AvailabilitySlot, key: string, className: string) => {
-                          const startMinutes = timeToMinutes(slot.start_time);
-                          const endMinutes = timeToMinutes(slot.end_time);
-                          const leftPercent = ((startMinutes - availabilityScaleStartMinutes) / availabilityScaleTotalMinutes) * 100;
-                          const widthPercent = ((endMinutes - startMinutes) / availabilityScaleTotalMinutes) * 100;
-                          const clampedLeft = Math.max(0, Math.min(100, leftPercent));
-                          const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
-                          if (clampedWidth <= 0) return null;
-                          return (
-                            <span
-                              key={key}
-                              className={className}
-                              style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-                            />
-                          );
-                        };
-
                         return (
                           <button
                             type="button"
@@ -1469,26 +1453,13 @@ export function ShootApprovalModal({
                                   {unavailableCount > 0 ? <span className="text-red-600 dark:text-red-400">{unavailableCount} unavailable</span> : null}
                                 </div>
 
-                                <div className="mt-2 space-y-1">
-                                  <div className="relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                    {availabilitySlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-slot-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-500 dark:bg-blue-400'))}
-                                    {bookedSlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-booked-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-900 dark:bg-blue-700'))}
-                                    {unavailableSlots.map((slot, index) => renderTimelineSlot(slot, `${photographer.id}-unavailable-${index}`, 'absolute bottom-0 top-0 rounded-full bg-red-500 dark:bg-red-500'))}
-                                  </div>
-                                  {availabilitySlots.length > 0 ? (
-                                    <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                                      <span className="shrink-0">8 AM</span>
-                                      <div className="flex flex-1 items-center justify-between px-1">
-                                        {Array.from({ length: availabilityScaleTickCount }).map((_, index) => (
-                                          <span key={`${photographer.id}-scale-${index}`} className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80" />
-                                        ))}
-                                      </div>
-                                      <span className="shrink-0">8 PM</span>
-                                    </div>
-                                  ) : null}
-                                  {isLoadingPhotographerAvailability ? (
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Loading availability...</p>
-                                  ) : null}
+                                <div className="mt-2">
+                                  <PhotographerAvailabilityTimeline
+                                    availableSlots={availabilitySlots}
+                                    bookedSlots={bookedSlots}
+                                    unavailableSlots={unavailableSlots}
+                                    loadingHint={isLoadingPhotographerAvailability ? 'Loading availability...' : null}
+                                  />
                                 </div>
                               </div>
 

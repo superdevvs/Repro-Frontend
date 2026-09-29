@@ -111,7 +111,19 @@ export async function getDayAvailability(
   });
 
   if (!response.ok) {
-    // Surface the failure to the panel state machine (non-abort error path).
+    // Intermittent /check 5xx (file-cache ownership) should not hard-fail pickers.
+    if (response.status >= 500) {
+      console.warn('[getDayAvailability] check 5xx; returning empty day', response.status);
+      return {
+        status: 'not-configured',
+        day: {
+          workingHours: null,
+          blocked: [],
+          fromConfig: false,
+          timezone: CANONICAL_TIMEZONE,
+        },
+      };
+    }
     throw new Error(
       `Availability request failed (${response.status} ${response.statusText})`,
     );

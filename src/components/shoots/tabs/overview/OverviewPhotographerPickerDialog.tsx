@@ -1,4 +1,4 @@
-import { Check, MapPin, MapPinIcon, Search, User, X } from 'lucide-react';
+import { Check, Search, User, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ElementType } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,9 +18,9 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { getStateFullName } from '@/utils/stateUtils';
 import type { PhotographerPickerOption } from './useShootOverviewEditor';
@@ -76,60 +76,6 @@ export function OverviewPhotographerPickerDialog({
   const PickerHeader: ElementType = isMobile ? DrawerHeader : DialogHeader;
   const PickerTitle: ElementType = isMobile ? DrawerTitle : DialogTitle;
   const PickerDescription: ElementType = isMobile ? DrawerDescription : DialogDescription;
-  const availabilityScaleStartMinutes = 8 * 60;
-  const availabilityScaleEndMinutes = 20 * 60;
-  const availabilityScaleTotalMinutes = availabilityScaleEndMinutes - availabilityScaleStartMinutes;
-  const availabilityScaleTickCount = 11;
-  const normalizeSlotTime = (value?: string) => {
-    if (!value) return '';
-    const converted = to24Hour(value.trim());
-    const [hours, minutes] = converted.split(':');
-    if (!hours || !minutes) return converted;
-    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
-  };
-  const timeToMinutes = (time: string) => {
-    const normalized = normalizeSlotTime(time);
-    const [hours, minutes] = normalized.split(':').map(Number);
-    if (!Number.isFinite(hours)) return 0;
-    return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
-  };
-  const minutesToTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-  };
-  const clampTimelineSlot = (slot: { start_time: string; end_time: string }) => {
-    const startMinutes = Math.max(availabilityScaleStartMinutes, timeToMinutes(slot.start_time));
-    const endMinutes = Math.min(availabilityScaleEndMinutes, timeToMinutes(slot.end_time));
-    if (endMinutes <= startMinutes) return null;
-    return {
-      ...slot,
-      start_time: minutesToTime(startMinutes),
-      end_time: minutesToTime(endMinutes),
-    };
-  };
-  const renderTimelineSlot = (
-    slot: { start_time: string; end_time: string },
-    key: string,
-    className: string,
-  ) => {
-    const startMinutes = timeToMinutes(slot.start_time);
-    const endMinutes = timeToMinutes(slot.end_time);
-    if (endMinutes <= startMinutes) return null;
-    const leftPercent = ((startMinutes - availabilityScaleStartMinutes) / availabilityScaleTotalMinutes) * 100;
-    const widthPercent = ((endMinutes - startMinutes) / availabilityScaleTotalMinutes) * 100;
-    const clampedLeft = Math.max(0, Math.min(100, leftPercent));
-    const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
-    if (clampedWidth <= 0) return null;
-    return (
-      <span
-        key={key}
-        className={className}
-        style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-      />
-    );
-  };
-
   return (
     <PickerRoot {...(isMobile ? { shouldScaleBackground: false } : {})} open={open} onOpenChange={onOpenChange}>
       <PickerContent
@@ -218,44 +164,24 @@ export function OverviewPhotographerPickerDialog({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden sm:pr-2">
-              {isCalculatingDistances || isLoadingAvailability ? (
+              {isCalculatingDistances && filteredAndSortedPhotographers.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 text-muted-foreground" />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    {isCalculatingDistances ? 'Calculating distances...' : 'Checking availability...'}
-                  </span>
+                  <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
                 </div>
               ) : filteredAndSortedPhotographers.length > 0 ? (
                 <div className="grid gap-2.5 sm:gap-3">
+                  {(isCalculatingDistances || isLoadingAvailability) ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2 text-xs text-slate-500 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-400">
+                      <Loader2 className="h-3.5 w-3.5 shrink-0" />
+                      <span>{isCalculatingDistances ? 'Calculating distances...' : 'Checking availability...'}</span>
+                    </div>
+                  ) : null}
                   {filteredAndSortedPhotographers.map((photographerItem) => {
                     const isSelected = selectedPhotographerId === photographerItem.id;
                     const availabilitySource = photographerItem.netAvailableSlots?.length
                       ? photographerItem.netAvailableSlots
                       : photographerItem.availabilitySlots || [];
-                    const availabilitySlots = availabilitySource
-                      .map((slot) => ({
-                        start_time: normalizeSlotTime(slot.start_time),
-                        end_time: normalizeSlotTime(slot.end_time),
-                      }))
-                      .filter((slot) => slot.start_time && slot.end_time)
-                      .map(clampTimelineSlot)
-                      .filter(Boolean) as Array<{ start_time: string; end_time: string }>;
-                    const bookedSlots = (photographerItem.bookedSlots || [])
-                      .map((slot) => ({
-                        start_time: normalizeSlotTime(slot.start_time),
-                        end_time: normalizeSlotTime(slot.end_time),
-                      }))
-                      .filter((slot) => slot.start_time && slot.end_time)
-                      .map(clampTimelineSlot)
-                      .filter(Boolean) as Array<{ start_time: string; end_time: string }>;
-                    const unavailableSlots = (photographerItem.unavailableSlots || [])
-                      .map((slot) => ({
-                        start_time: normalizeSlotTime(slot.start_time),
-                        end_time: normalizeSlotTime(slot.end_time),
-                      }))
-                      .filter((slot) => slot.start_time && slot.end_time)
-                      .map(clampTimelineSlot)
-                      .filter(Boolean) as Array<{ start_time: string; end_time: string }>;
                     const distanceLabel = typeof photographerItem.distance === 'number' && Number.isFinite(photographerItem.distance)
                       ? `${photographerItem.distance.toFixed(1)} mi`
                       : null;
@@ -331,27 +257,12 @@ export function OverviewPhotographerPickerDialog({
                             </div>
 
                             <div className="mt-2">
-                              <div className="relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                {availabilitySlots.map((slot, index) => renderTimelineSlot(slot, `${photographerItem.id}-slot-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-500 dark:bg-blue-400'))}
-                                {bookedSlots.map((slot, index) => renderTimelineSlot(slot, `${photographerItem.id}-booked-${index}`, 'absolute bottom-0 top-0 rounded-full bg-blue-900 dark:bg-blue-700'))}
-                                {unavailableSlots.map((slot, index) => renderTimelineSlot(slot, `${photographerItem.id}-unavailable-${index}`, 'absolute bottom-0 top-0 rounded-full bg-red-500 dark:bg-red-500'))}
-                              </div>
-                              <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                                <span className="shrink-0">8 AM</span>
-                                <div className="flex flex-1 items-center justify-between px-1">
-                                  {Array.from({ length: availabilityScaleTickCount }).map((_, index) => (
-                                    <span
-                                      key={`${photographerItem.id}-scale-${index}`}
-                                      title={formatTimeForDisplay(minutesToTime(availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1))))}
-                                      className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80"
-                                    />
-                                  ))}
-                                </div>
-                                <span className="shrink-0">8 PM</span>
-                              </div>
-                              {isLoadingAvailability && availabilitySlots.length === 0 ? (
-                                <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Checking availability...</div>
-                              ) : null}
+                              <PhotographerAvailabilityTimeline
+                                availableSlots={availabilitySource}
+                                bookedSlots={photographerItem.bookedSlots}
+                                unavailableSlots={photographerItem.unavailableSlots}
+                                loadingHint={isLoadingAvailability ? 'Checking availability...' : null}
+                              />
                             </div>
                           </div>
                         </div>
@@ -361,7 +272,16 @@ export function OverviewPhotographerPickerDialog({
                 </div>
               ) : (
                 <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                  {searchQuery ? 'No photographers found matching your search.' : 'No photographers available.'}
+                  {isLoadingAvailability ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5" />
+                      <span>Checking availability...</span>
+                    </div>
+                  ) : searchQuery ? (
+                    'No photographers found matching your search.'
+                  ) : (
+                    'No photographers available.'
+                  )}
                 </div>
               )}
             </div>

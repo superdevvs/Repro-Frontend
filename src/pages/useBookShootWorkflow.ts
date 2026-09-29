@@ -584,39 +584,46 @@ export const useBookShootWorkflow = ({
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
         const allTimesSet = new Set<string>();
-        const checks = await Promise.all(
-          photographers.map(async (p) => {
-            try {
-              const res = await fetch(API_ROUTES.photographerAvailability.check, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({ photographer_id: p.id, date: fmtDate })
-              });
-              if (!res.ok) return false;
-              const json = await res.json();
-              const rows = (Array.isArray(json?.data) ? json.data : []).map(asRecord);
-              rows.forEach(r => {
-                if ((r?.status ?? 'available') !== 'unavailable') {
-                  const raw = (r?.start_time ?? '').toString();
-                  const norm = raw.includes(':') ? raw.slice(0,5) : raw; // normalize HH:mm[:ss] -> HH:mm
-                  if (norm) allTimesSet.add(norm);
-                }
-              });
-              const match = rows.some(r => {
-                const raw = (r?.start_time ?? '').toString();
-                const rowStart = raw.includes(':') ? raw.slice(0,5) : raw; // normalize HH:mm[:ss] -> HH:mm
-                return (r?.status ?? 'available') !== 'unavailable' && rowStart === start_time;
-              });
-              console.debug('[Availability] Photographer', p.id, 'rows:', rows, 'start_time:', start_time, 'match:', match);
-              return match;
-            } catch {
-              return false;
+        // Prefer one bulk-index call over N /availability/check posts (those 500 on cache ownership).
+        const photographerIds = photographers.map((p) => Number(p.id)).filter(Number.isFinite);
+        const res = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            photographer_ids: photographerIds,
+            from_date: fmtDate,
+            to_date: fmtDate,
+          }),
+        });
+        if (!res.ok) {
+          console.warn('[Availability] bulkIndex failed; keeping full photographer list', res.status);
+          setAvailablePhotographerIds(photographers.map((p) => String(p.id)));
+          return;
+        }
+        const json = await res.json();
+        const byPhotographer = asRecord(json?.data);
+        const dayName = new Date(`${fmtDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const ids = photographers.filter((p) => {
+          const rawSlots = byPhotographer[String(p.id)] ?? byPhotographer[p.id as unknown as string] ?? [];
+          const rows = (Array.isArray(rawSlots) ? rawSlots : []).map(asRecord);
+          const specific = rows.filter((r) => String(r?.date ?? '').slice(0, 10) === fmtDate);
+          const weekly = rows.filter((r) => !r?.date && String(r?.day_of_week ?? '').toLowerCase() === dayName);
+          const relevant = specific.length > 0 ? specific : weekly;
+          relevant.forEach((r) => {
+            if ((r?.status ?? 'available') !== 'unavailable') {
+              const raw = (r?.start_time ?? '').toString();
+              const norm = raw.includes(':') ? raw.slice(0, 5) : raw;
+              if (norm) allTimesSet.add(norm);
             }
-          })
-        );
-        const ids = photographers.filter((_, idx) => checks[idx]).map(p => String(p.id));
+          });
+          return relevant.some((r) => {
+            const raw = (r?.start_time ?? '').toString();
+            const rowStart = raw.includes(':') ? raw.slice(0, 5) : raw;
+            return (r?.status ?? 'available') !== 'unavailable' && rowStart === start_time;
+          });
+        }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);
-        console.debug('[Availability] Available photographer IDs:', ids);
+        console.debug('[Availability] Available photographer IDs (bulk):', ids);
         const role = user?.role;
         if (role === 'client' && date && time && ids.length === 0) {
           const alternatives = Array.from(allTimesSet).filter(t => t !== start_time).sort();
@@ -626,8 +633,9 @@ export const useBookShootWorkflow = ({
             : 'No photographers available at the selected time. You can proceed without selecting a photographer.';
           toast({ title: 'No photographers available', description: desc });
         }
-      } catch {
-        setAvailablePhotographerIds([]);
+      } catch (error) {
+        console.warn('[Availability] bulk availability failed; keeping full photographer list', error);
+        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
       } finally {
         setAvailabilityChecked(true);
       }

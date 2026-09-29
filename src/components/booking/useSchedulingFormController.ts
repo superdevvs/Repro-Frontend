@@ -637,7 +637,16 @@ export const useSchedulingFormController = ({
         });
         if (isCancelled) return;
         if (!response.ok) {
-          throw new Error('Failed to fetch photographer data');
+          // Prefer not to blank the picker on intermittent forBooking 5xx (e.g. cache ownership).
+          console.warn('[SchedulingForm] forBooking failed', response.status);
+          if (!isCancelled) {
+            setBookingEligiblePhotographerIds(null);
+            setPhotographersWithDistance(photographers.map((p) => ({ ...p })));
+            setIsCalculatingDistances(false);
+            setIsLoadingAvailability(false);
+            setBookingEligibilityError(null);
+          }
+          return;
         }
         const json: unknown = await response.json();
         if (isCancelled) return;
@@ -823,6 +832,10 @@ export const useSchedulingFormController = ({
     return () => {
       isCancelled = true;
       abortController.abort();
+      // Always clear — aborted/cancelled paths previously skipped setIsLoadingAvailability(false)
+      // and left Book Shoot / Select Photographer spinner stuck.
+      setIsLoadingAvailability(false);
+      setIsCalculatingDistances(false);
     };
   }, [
     address, city, state, zip, photographers, date,

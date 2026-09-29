@@ -742,9 +742,18 @@ export function usePhotographerDistanceAvailability(
 
   useEffect(() => {
     const calculateDistances = async () => {
-      if (!assignPhotographerOpen || photographers.length === 0) return;
-      if (!shootLocation.address || !shootLocation.city || !shootLocation.state) return;
-      if (photographers.every((photographer) => photographer.distance !== undefined)) return;
+      if (!assignPhotographerOpen) {
+        setIsCalculatingDistances(false);
+        return;
+      }
+      if (photographers.length === 0 || !shootLocation.address || !shootLocation.city || !shootLocation.state) {
+        setIsCalculatingDistances(false);
+        return;
+      }
+      if (photographers.every((photographer) => photographer.distance !== undefined)) {
+        setIsCalculatingDistances(false);
+        return;
+      }
 
       setIsCalculatingDistances(true);
       try {
@@ -822,11 +831,19 @@ export function usePhotographerDistanceAvailability(
   ]);
 
   useEffect(() => {
-    if (!assignPhotographerOpen || photographers.length === 0) return;
-    if (!shootLocation.address || !shootLocation.city || !shootLocation.state) return;
+    if (!assignPhotographerOpen) {
+      setIsLoadingAvailability(false);
+      return;
+    }
+    if (photographers.length === 0 || !shootLocation.address || !shootLocation.city || !shootLocation.state) {
+      // Do not leave a prior in-flight load stuck on the Overview spinner.
+      setIsLoadingAvailability(false);
+      return;
+    }
 
     let cancelled = false;
     const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25000);
 
     const fetchAvailability = async () => {
       setIsLoadingAvailability(true);
@@ -838,25 +855,35 @@ export function usePhotographerDistanceAvailability(
         };
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
-          method: 'POST',
-          headers,
-          signal: controller.signal,
-          body: JSON.stringify({
-            date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
-            time: to12Hour(scheduleTime || '10:00'),
-            shoot_address: shootLocation.address,
-            shoot_city: shootLocation.city,
-            shoot_state: shootLocation.state,
-            shoot_zip: shootLocation.zip || '',
-            photographer_ids: photographers.map((photographer) => Number(photographer.id)),
-          }),
-        });
-
-        if (!response.ok) throw new Error('Failed to load availability');
-        const json = await response.json();
+        // Prefer for-booking (enriched slots). On 5xx/network failure, degrade to
+        // bulkIndex so the picker still lists photographers instead of hanging.
+        let availabilityList: any[] = [];
+        try {
+          const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+            method: 'POST',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+              date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
+              time: to12Hour(scheduleTime || '10:00'),
+              shoot_address: shootLocation.address,
+              shoot_city: shootLocation.city,
+              shoot_state: shootLocation.state,
+              shoot_zip: shootLocation.zip || '',
+              photographer_ids: photographers.map((photographer) => Number(photographer.id)),
+            }),
+          });
+          if (response.ok) {
+            const json = await response.json();
+            availabilityList = Array.isArray(json.data) ? json.data : [];
+          } else {
+            console.warn('[OverviewPhotographerPicker] forBooking failed', response.status);
+          }
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') throw error;
+          console.warn('[OverviewPhotographerPicker] forBooking error; falling back to bulk', error);
+        }
         if (cancelled) return;
-        const availabilityList = Array.isArray(json.data) ? json.data : [];
         let rawAvailabilityByPhotographer: Record<string, any[]> = {};
         try {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
@@ -942,11 +969,14 @@ export function usePhotographerDistanceAvailability(
         }));
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          return;
+          // Abort from cleanup/timeout: still clear loading below.
+        } else {
+          console.error('Error fetching photographer availability:', error);
         }
-        console.error('Error fetching photographer availability:', error);
       } finally {
-        if (!cancelled) setIsLoadingAvailability(false);
+        window.clearTimeout(timeoutId);
+        // Always clear — aborted runs previously left Overview Edit stuck on spinner.
+        setIsLoadingAvailability(false);
       }
     };
 
@@ -955,6 +985,8 @@ export function usePhotographerDistanceAvailability(
     return () => {
       cancelled = true;
       controller.abort();
+      window.clearTimeout(timeoutId);
+      setIsLoadingAvailability(false);
     };
   }, [
     assignPhotographerOpen,

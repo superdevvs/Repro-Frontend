@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AvailabilityTimelineSlot } from '@/components/booking/AvailabilityTimelineSlot';
+import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import { Check, CheckCircle2, ChevronRight, MapPin, Package, Search, User } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
@@ -14,8 +14,6 @@ import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import type { SchedulingFormController } from './useSchedulingFormController';
-import type { SchedulingSlot } from './schedulingModel';
-import { formatTimeForDisplay, to12Hour } from '@/utils/availabilityUtils';
 
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
   const {
@@ -24,14 +22,14 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     handleConfirmPhotographer, activeServiceNameForPicker, activeServiceCapabilityForPicker,
     searchQuery, setSearchQuery, sortBy, setSortBy, isCalculatingDistances,
     isLoadingAvailability, filteredAndSortedPhotographers, showAllPhotographers,
-    setShowAllPhotographers, photographerAvailability, setPhotographer,
+    setShowAllPhotographers, setPhotographer,
     activeServiceForPicker, requiresPerServiceAssignment, assignmentGroups,
     getPhotographerDetailsForService, setActiveServiceForPicker, setServicePhotographers,
     getServiceSchedule, updateServiceSchedules, buildConflictAwareServiceTimeOptions,
     getPhotographerForService, isPhotographerTimeDisabled, selectedServices,
     formatScheduleLine, handlePhotographerDialogOpen, handleConfirmServicePhotographer,
-    formatLocationLabel, availabilityCardWindow, timeToMinutes, minutesToTime,
-    normalizeSlotTime, formErrors, showPhotographerAddress, bookingEligibilityError, retryBookingEligibility, canConfirmPhotographer,
+    formatLocationLabel, availabilityCardWindow,
+    formErrors, showPhotographerAddress, bookingEligibilityError, retryBookingEligibility, canConfirmPhotographer,
   } = controller;
   const canSeePhotographerAddress = showPhotographerAddress === true;
   const photographerHeadingId = React.useId();
@@ -117,19 +115,13 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
         </div>
       );
     }
-    if (isCalculatingDistances) {
+    if ((isCalculatingDistances || (isLoadingAvailability && date && time)) && !filteredAndSortedPhotographers.length) {
       return (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
-        </div>
-      );
-    }
-    if (isLoadingAvailability && date && time) {
-      return (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
+          <span className="ml-2 text-sm text-muted-foreground">
+            {isCalculatingDistances ? 'Calculating distances...' : 'Checking availability...'}
+          </span>
         </div>
       );
     }
@@ -171,50 +163,6 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
             ? photographerItem.netAvailableSlots
             : photographerItem.availabilitySlots || [];
-          const availabilityScaleStartMinutes = availabilityCardWindow.startMinutes;
-          const availabilityScaleEndMinutes = availabilityCardWindow.endMinutes;
-          const availabilityScaleTotalMinutes = Math.max(1, availabilityScaleEndMinutes - availabilityScaleStartMinutes);
-          const availabilityScaleTickCount = 11;
-          const clampTimelineSlot = (slot: SchedulingSlot): SchedulingSlot | null => {
-            const startMinutes = Math.max(availabilityScaleStartMinutes, timeToMinutes(slot.start_time));
-            const endMinutes = Math.min(availabilityScaleEndMinutes, timeToMinutes(slot.end_time));
-            if (endMinutes <= startMinutes) return null;
-            return {
-              ...slot,
-              start_time: minutesToTime(startMinutes),
-              end_time: minutesToTime(endMinutes),
-            };
-          };
-          const availabilitySlots = availabilitySource
-            .map((slot) => ({
-              start_time: normalizeSlotTime(slot.start_time),
-              end_time: normalizeSlotTime(slot.end_time),
-            }))
-            .filter((slot) => slot.start_time && slot.end_time)
-            .map(clampTimelineSlot)
-            .filter((slot): slot is SchedulingSlot => Boolean(slot));
-          const unavailableSlots = (photographerItem.unavailableSlots || [])
-            .map((slot) => ({
-              start_time: normalizeSlotTime(slot.start_time),
-              end_time: normalizeSlotTime(slot.end_time),
-            }))
-            .filter((slot) => slot.start_time && slot.end_time)
-            .map(clampTimelineSlot)
-            .filter((slot): slot is SchedulingSlot => Boolean(slot));
-          const bookedSlots = (photographerItem.bookedSlots || [])
-            .map((slot) => ({
-              start_time: normalizeSlotTime(slot.start_time),
-              end_time: normalizeSlotTime(slot.end_time),
-              status: slot.status,
-              shoot_id: slot.shoot_id,
-              address: slot.address,
-              city: slot.city,
-              state: slot.state,
-              zip: slot.zip,
-            }))
-            .filter((slot) => slot.start_time && slot.end_time)
-            .map(clampTimelineSlot)
-            .filter((slot): slot is SchedulingSlot => Boolean(slot));
           const parsedDistance = typeof photographerItem.distance === 'number'
             ? photographerItem.distance
             : Number.parseFloat(String(photographerItem.distance ?? ''));
@@ -228,53 +176,6 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               ? `${distanceLabel} from previous shoot`
               : `${distanceLabel} away`
             : 'Distance unavailable';
-          const getLocationInitials = (slot: SchedulingSlot) => {
-            const parts = [slot.address, slot.city, slot.state]
-              .filter(Boolean)
-              .flatMap((value) => String(value).split(/\s+/))
-              .map((part) => part.replace(/[^a-z0-9]/gi, ''))
-              .filter(Boolean);
-            return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
-          };
-          const renderTimelineSlot = (
-            slot: SchedulingSlot,
-            key: string,
-            className: string,
-            label: string,
-          ) => {
-            const startMinutes = timeToMinutes(slot.start_time);
-            const endMinutes = timeToMinutes(slot.end_time);
-            const leftPercent = ((startMinutes - availabilityScaleStartMinutes) / availabilityScaleTotalMinutes) * 100;
-            const widthPercent = ((endMinutes - startMinutes) / availabilityScaleTotalMinutes) * 100;
-            const clampedLeft = Math.max(0, Math.min(100, leftPercent));
-            const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
-            if (clampedWidth <= 0) return null;
-            const content = (
-              <>
-                {label}
-                {canSeePhotographerAddress && slot.address ? ` · ${getLocationInitials(slot)}` : ''}
-                {' · '}
-                {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
-              </>
-            );
-            // Hide in-pill text on very narrow segments; tooltip/popover still has full label.
-            const showPillLabel = clampedWidth >= 8;
-            return (
-              <AvailabilityTimelineSlot
-                key={key}
-                className={className}
-                style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-                label={`${label} ${to12Hour(slot.start_time)}-${to12Hour(slot.end_time)}`}
-                content={content}
-              >
-                {showPillLabel ? (
-                  <span className="pointer-events-none truncate px-1 text-[9px] font-semibold leading-none tracking-wide text-white">
-                    {label}
-                  </span>
-                ) : null}
-              </AvailabilityTimelineSlot>
-            );
-          };
           return (
             <button
               key={photographerItem.id}
@@ -342,49 +243,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       ? (publicLocationLabel || 'Service area unavailable')
                       : clientDistanceLabel}
                   </p>
-                  <TooltipProvider delayDuration={100}>
-                    <div className={cn("relative h-5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
-                      {availabilitySlots.map((slot, index) => renderTimelineSlot(
-                        slot,
-                        `${photographerItem.id}-slot-${index}`,
-                        "absolute top-0 bottom-0 rounded-full bg-emerald-500 dark:bg-emerald-500",
-                        "Available"
-                      ))}
-                      {bookedSlots.map((slot, index) => renderTimelineSlot(
-                        slot,
-                        `${photographerItem.id}-booked-${index}`,
-                        "absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-500",
-                        "Booked"
-                      ))}
-                      {unavailableSlots.map((slot, index) => renderTimelineSlot(
-                        slot,
-                        `${photographerItem.id}-unavailable-${index}`,
-                        "absolute top-0 bottom-0 rounded-full bg-red-500 dark:bg-red-500",
-                        "N/A"
-                      ))}
-                    </div>
-                    {(availabilitySlots.length > 0 || bookedSlots.length > 0 || unavailableSlots.length > 0) ? (
-                      <div className="mt-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        <span className="shrink-0">{formatTimeForDisplay(minutesToTime(availabilityScaleStartMinutes))}</span>
-                        <div className="flex flex-1 items-center justify-between px-1">
-                          {Array.from({ length: availabilityScaleTickCount }).map((_, index) => {
-                            const tickMinutes = availabilityScaleStartMinutes + Math.round(((index + 1) * availabilityScaleTotalMinutes) / (availabilityScaleTickCount + 1));
-                            return (
-                              <Tooltip key={`${photographerItem.id}-scale-${index}`}>
-                                <TooltipTrigger asChild>
-                                  <span className="h-1.5 w-px bg-slate-300/80 dark:bg-slate-600/80" />
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="px-2 py-1 text-xs">
-                                  {to12Hour(minutesToTime(tickMinutes))}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })}
-                        </div>
-                        <span className="shrink-0">{formatTimeForDisplay(minutesToTime(availabilityScaleEndMinutes))}</span>
-                      </div>
-                    ) : null}
-                  </TooltipProvider>
+                  <PhotographerAvailabilityTimeline
+                    className={mobileDrawer ? 'mt-1.5' : 'mt-2'}
+                    availableSlots={availabilitySource}
+                    bookedSlots={photographerItem.bookedSlots}
+                    unavailableSlots={photographerItem.unavailableSlots}
+                    showLocationInitials={canSeePhotographerAddress}
+                    startMinutes={availabilityCardWindow.startMinutes}
+                    endMinutes={availabilityCardWindow.endMinutes}
+                  />
                 </div>
                 <span
                   className={cn(

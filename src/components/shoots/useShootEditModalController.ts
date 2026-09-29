@@ -456,7 +456,12 @@ export function useShootEditModalController({
             photographer_ids: photographersRef.current.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
           }),
         });
-        if (!response.ok) throw new Error('Failed to fetch photographer availability');
+        if (!response.ok) {
+          // Degrade: keep photographer list selectable without timeline enrichment.
+          console.warn('[ShootEditModal] forBooking failed', response.status);
+          setPhotographerAvailability({});
+          return;
+        }
         const json = await response.json() as { data?: Array<Partial<Photographer> & {
           net_available_slots?: AvailabilitySlot[];
           availability_slots?: AvailabilitySlot[];
