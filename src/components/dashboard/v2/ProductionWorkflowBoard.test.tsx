@@ -152,3 +152,42 @@ describe("ProductionWorkflowBoard layout fill", () => {
     expect(container.querySelector('[data-pipeline-shoot-card="true"]')).not.toBeNull();
   });
 });
+
+describe("ProductionWorkflowBoard stage scroll", () => {
+  it("renders every stage card so overflow scroll can reach jobs beyond the old ~6 cap", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 29, 12));
+
+    const shoots = Array.from({ length: 15 }, (_, index) =>
+      shoot({
+        id: 200 + index,
+        addressLine: `Pipeline Scroll Address ${index + 1}`,
+        scheduledLocalDate: "2026-09-30",
+        startTime: "2026-09-30T10:00:00.000000Z",
+      }),
+    );
+
+    const { container } = render(
+      <ProductionWorkflowBoard
+        workflow={workflow([
+          {
+            key: "booked",
+            label: "Booked",
+            accent: "#3b82f6",
+            count: shoots.length,
+            shoots,
+          },
+        ])}
+        onSelectShoot={() => undefined}
+        filter="this_week"
+      />,
+    );
+
+    expect(screen.getByText("15")).toBeVisible();
+    expect(container.querySelectorAll('[data-pipeline-shoot-card="true"]')).toHaveLength(15);
+    const list = container.querySelector('[data-pipeline-column-list="booked"]');
+    expect(list).not.toBeNull();
+    expect(list?.className).toContain("overflow-y-auto");
+    expect(list?.className).toContain("no-scrollbar");
+  });
+});

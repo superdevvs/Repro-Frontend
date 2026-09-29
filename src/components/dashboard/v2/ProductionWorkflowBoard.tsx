@@ -1,11 +1,10 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React from 'react';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { format } from 'date-fns';
 import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
 import { filterPipelineColumnShoots, type PipelineFilter } from '@/features/dashboard/pipelineWorkflow';
-import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 import { cn } from '@/lib/utils';
 
 interface ProductionWorkflowBoardProps {
@@ -16,10 +15,6 @@ interface ProductionWorkflowBoardProps {
   loading?: boolean;
   filter?: PipelineFilter;
 }
-
-const PIPELINE_CARD_GAP_PX = 8;
-const PIPELINE_MIN_VISIBLE = 2;
-const PIPELINE_PREFERRED_VISIBLE = 6;
 
 const minutesToLabel = (minutes: number) => {
   if (!Number.isFinite(minutes) || minutes <= 0) return '—';
@@ -77,53 +72,7 @@ const PipelineColumn: React.FC<{
   onSelectShoot,
   onViewAllDelivered,
 }) => {
-  const listRef = useRef<HTMLDivElement>(null);
-  const [listHeight, setListHeight] = useState(0);
-  const [cardHeight, setCardHeight] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(PIPELINE_PREFERRED_VISIBLE);
   const isReadyColumn = columnKey === 'ready' || columnKey === 'delivered';
-
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-
-    const measure = () => {
-      setListHeight(list.clientHeight || 0);
-      const firstCard = list.querySelector<HTMLElement>('[data-pipeline-shoot-card="true"]');
-      if (firstCard && firstCard.offsetHeight > 0) {
-        setCardHeight(firstCard.offsetHeight);
-      }
-    };
-
-    measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () => window.removeEventListener('resize', measure);
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    const firstCard = list.querySelector<HTMLElement>('[data-pipeline-shoot-card="true"]');
-    if (firstCard) observer.observe(firstCard);
-    return () => observer.disconnect();
-  }, [filteredShoots.length]);
-
-  useEffect(() => {
-    setVisibleCount(
-      resolveAdaptiveDeliveredVisibleCount({
-        availableHeight: listHeight,
-        itemHeight: cardHeight,
-        totalItems: filteredShoots.length,
-        gapPx: PIPELINE_CARD_GAP_PX,
-        minVisible: PIPELINE_MIN_VISIBLE,
-        preferredVisible: PIPELINE_PREFERRED_VISIBLE,
-      }),
-    );
-  }, [listHeight, cardHeight, filteredShoots.length]);
-
-  const visibleShoots = useMemo(
-    () => filteredShoots.slice(0, visibleCount),
-    [filteredShoots, visibleCount],
-  );
   const count = filteredShoots.length;
 
   return (
@@ -146,12 +95,12 @@ const PipelineColumn: React.FC<{
           <p className="text-xs sm:text-sm font-semibold text-foreground">{averageTurnaround(filteredShoots)}</p>
         </div>
       </div>
+      {/* Render all stage cards; overflow-y + no-scrollbar keeps the column scrollable without a visible bar. */}
       <div
-        ref={listRef}
-        className="space-y-2 sm:space-y-3 overflow-y-auto min-h-0 flex-1"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="space-y-2 sm:space-y-3 overflow-y-auto min-h-0 flex-1 no-scrollbar"
+        data-pipeline-column-list={columnKey}
       >
-        {visibleShoots.map((shoot) => (
+        {filteredShoots.map((shoot) => (
           <div
             key={shoot.id}
             data-pipeline-shoot-card="true"
