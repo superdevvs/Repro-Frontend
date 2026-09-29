@@ -3,8 +3,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 
-const mocks = vi.hoisted(() => ({ download: vi.fn(), toast: vi.fn(), get: vi.fn() }));
-vi.mock('@/utils/shootMediaDownload', () => ({ downloadShootRawFiles: mocks.download }));
+const mocks = vi.hoisted(() => ({ download: vi.fn(), archive: vi.fn(), toast: vi.fn(), get: vi.fn() }));
+vi.mock('@/utils/shootMediaDownload', () => ({ downloadShootRawFiles: mocks.download, downloadShootMediaArchive: mocks.archive }));
 vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}) }));
 vi.mock('@/hooks/useShootHistoryMapGeocoding', () => ({ useShootHistoryMapGeocoding: () => ({ geoCache: {}, setGeoCache: vi.fn() }) }));
 vi.mock('@/contexts/UserPreferencesContext', () => ({ useUserPreferences: () => ({ formatDate: () => 'Sep 7, 2026' }) }));
@@ -23,13 +23,13 @@ const shoot = {
   services: ['Photography'], payment: { baseQuote: 0, taxRate: 0, taxAmount: 0, totalQuote: 0, totalPaid: 0 },
 } as ShootData;
 
-function HistoryDownload({ layout, role }: { layout: 'card' | 'row'; role: 'admin' | 'editor' | 'salesRep' }) {
+function HistoryDownload({ layout, role }: { layout: 'card' | 'row'; role: 'admin' | 'editor' | 'salesRep' | 'photographer' }) {
   const data = useShootHistoryData({
     toast: mocks.toast, navigate: vi.fn(), role, user: null, activeTab: 'completed', shootSort: 'date_desc',
     operationalFilters: DEFAULT_OPERATIONAL_FILTERS, historyFilters: DEFAULT_HISTORY_FILTERS,
     viewMode: layout === 'card' ? 'grid' : 'list', canViewAllShoots: true, canViewHistory: false,
     canViewInvoice: false, shouldHideClientDetails: false, isSuperAdmin: false, isAdmin: role === 'admin',
-    isEditingManager: false, isPhotographer: false, isEditor: role === 'editor',
+    isEditingManager: false, isPhotographer: role === 'photographer', isEditor: role === 'editor',
     formatDatePref: () => 'Sep 7, 2026', formatTime: (value) => value,
   });
   const Component = layout === 'card' ? CompletedAlbumCard : CompletedShootListRow;
@@ -66,6 +66,20 @@ describe('history download buttons', () => {
     await waitFor(() => expect(mocks.download).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(buttons[0]).toHaveAttribute('aria-busy', 'false'));
     buttons.forEach((button) => expect(button.querySelector('svg.animate-spin')).toBeNull());
+  });
+
+  it('routes photographer raw downloads through the media archive endpoint', async () => {
+    mocks.archive.mockResolvedValueOnce({ mode: 'blob', message: 'Raw archive ready.' });
+    await act(async () => { render(<HistoryDownload layout="card" role="photographer" />); });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Downloads' })[0]);
+    await waitFor(() => expect(mocks.archive).toHaveBeenCalledTimes(1));
+    expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({
+      shootId: '101',
+      type: 'raw',
+      size: 'original',
+      address: '12 Oak Street, Austin, TX, 78701',
+    }));
+    expect(mocks.download).not.toHaveBeenCalled();
   });
 
   it('keeps raw download unavailable to sales', async () => {

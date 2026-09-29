@@ -31,7 +31,7 @@ import {
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
 import type { UserData } from '@/types/auth'
-import { downloadShootRawFiles } from '@/utils/shootMediaDownload'
+import { downloadShootMediaArchive, downloadShootRawFiles } from '@/utils/shootMediaDownload'
 import { buildShootPath } from '@/utils/shootPath'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
@@ -1074,10 +1074,20 @@ export function useShootHistoryData({
     downloadingShootIdsRef.current.add(shootId)
     setDownloadingShootIds(new Set(downloadingShootIdsRef.current))
     try {
-      const result = await downloadShootRawFiles({
-        shootId: shoot.id,
-        address: getShootDownloadAddress(shoot),
-      })
+      // Photographers are blocked from editor-download-raw (role middleware).
+      // Use the scoped media archive pipeline instead — same path as their
+      // shoot-detail "Download RAW" action.
+      const result = isPhotographer
+        ? await downloadShootMediaArchive({
+            shootId: shoot.id,
+            type: 'raw',
+            size: 'original',
+            address: getShootDownloadAddress(shoot),
+          })
+        : await downloadShootRawFiles({
+            shootId: shoot.id,
+            address: getShootDownloadAddress(shoot),
+          })
       toast({
         title: 'Download started',
         description: result.message || 'Raw files downloading now.',
@@ -1092,7 +1102,7 @@ export function useShootHistoryData({
       downloadingShootIdsRef.current.delete(shootId)
       setDownloadingShootIds(new Set(downloadingShootIdsRef.current))
     }
-  }, [activeTab, canDownloadHistoryShoot, isEditor, toast])
+  }, [activeTab, canDownloadHistoryShoot, isEditor, isPhotographer, toast])
 
   const handlePublishMls = useCallback(
     async (record: ShootHistoryRecord) => {
