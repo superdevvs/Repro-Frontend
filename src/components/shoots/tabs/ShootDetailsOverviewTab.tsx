@@ -56,6 +56,7 @@ import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
+import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
 import { OverviewServicesTableSection } from './overview/OverviewServicesTableSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
@@ -646,8 +647,8 @@ function ShootDetailsOverviewTabContent({
   const scheduleLocalDate = useMemo(() => getShootLocalDate(shoot), [shoot]);
   const scheduleDateDisplay = scheduleLocalDate
     ? formatDatePreference(scheduleLocalDate)
-    : 'Not scheduled';
-  const scheduleTimeDisplay = shoot.time ? formatTime(shoot.time) : null;
+    : 'Date not assigned';
+  const scheduleTimeDisplay = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : null;
 
   const shootWeather = asRecord(shoot.weather);
   const rawTemperature = weather?.temperature ?? shootWeather.temperature ?? shootRecord.temperature ?? null;
@@ -934,6 +935,19 @@ function ShootDetailsOverviewTabContent({
             />
           ) : undefined
         }
+      />
+      <OverviewScheduleWeatherSection
+        isEditMode={isEditMode}
+        editedShoot={editedShoot}
+        shoot={shoot}
+        scheduleDateDisplay={scheduleDateDisplay}
+        scheduleTimeDisplay={scheduleTimeDisplay}
+        hasWeatherDetails={hasWeatherDetails}
+        formattedTemperature={formattedTemperature}
+        weatherDescription={weatherDescription}
+        weatherIcon={renderWeatherIcon(weatherIcon)}
+        alternateScheduleDisplay={alternateScheduleDisplay}
+        updateField={updateField}
       />
       <OverviewServicesTableSection
         isEditMode={isEditMode}

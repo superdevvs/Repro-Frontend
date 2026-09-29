@@ -390,6 +390,10 @@ export function ShootDetailsModal({
     handleCancelShoot,
     handleCancelShootClick,
     handleResumeFromHold,
+    isResumeScheduleDialogOpen,
+    setIsResumeScheduleDialogOpen,
+    isResumingFromHold,
+    handleConfirmResumeSchedule,
     submitConfirm,
     isSubmittingRaw,
     isSubmittingEdits,
@@ -957,6 +961,10 @@ export function ShootDetailsModal({
         canSendManualNotification={canSendManualNotification}
         isManualNotificationOpen={isManualNotificationOpen}
         onCloseManualNotification={() => setIsManualNotificationOpen(false)}
+        isResumeScheduleDialogOpen={isResumeScheduleDialogOpen}
+        isResumingFromHold={isResumingFromHold}
+        onResumeScheduleOpenChange={setIsResumeScheduleDialogOpen}
+        onConfirmResumeSchedule={handleConfirmResumeSchedule}
       />
     </>
   );

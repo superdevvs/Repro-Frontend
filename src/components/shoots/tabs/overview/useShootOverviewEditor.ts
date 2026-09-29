@@ -295,7 +295,8 @@ export function useShootOverviewEditor({
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     setServiceSchedules({});
     setEditedShoot({
-      scheduledDate: formatDateForInput(shoot.scheduledDate),
+      // Undated on-hold imports must stay empty so Edit shows Select date (not today).
+      scheduledDate: shoot.scheduledDate ? formatDateForInput(shoot.scheduledDate) : '',
       time: shoot.time,
       location: {
         address: shoot.location?.address || '',

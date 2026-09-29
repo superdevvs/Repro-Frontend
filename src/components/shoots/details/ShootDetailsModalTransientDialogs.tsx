@@ -1,6 +1,8 @@
 import type { ShootData } from '@/types/shoots';
 import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
 import { ConfirmSubmitDialog } from './ConfirmSubmitDialog';
+import { ResumeFromHoldScheduleDialog } from './ResumeFromHoldScheduleDialog';
+import type { ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
 import { getShootSubmitFileCount } from './shootDetailsModalHelpers';
 
 type ShootDetailsModalTransientDialogsProps = {
@@ -15,6 +17,10 @@ type ShootDetailsModalTransientDialogsProps = {
   canSendManualNotification: boolean;
   isManualNotificationOpen: boolean;
   onCloseManualNotification: () => void;
+  isResumeScheduleDialogOpen?: boolean;
+  isResumingFromHold?: boolean;
+  onResumeScheduleOpenChange?: (open: boolean) => void;
+  onConfirmResumeSchedule?: (payload: ResumeSchedulePayload) => void | Promise<void>;
 };
 
 export function ShootDetailsModalTransientDialogs({
@@ -29,6 +35,10 @@ export function ShootDetailsModalTransientDialogs({
   canSendManualNotification,
   isManualNotificationOpen,
   onCloseManualNotification,
+  isResumeScheduleDialogOpen = false,
+  isResumingFromHold = false,
+  onResumeScheduleOpenChange,
+  onConfirmResumeSchedule,
 }: ShootDetailsModalTransientDialogsProps) {
   if (!shoot) return null;
 
@@ -52,6 +62,15 @@ export function ShootDetailsModalTransientDialogs({
           shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
           open={isManualNotificationOpen}
           onClose={onCloseManualNotification}
+        />
+      )}
+      {isResumeScheduleDialogOpen && onResumeScheduleOpenChange && onConfirmResumeSchedule && (
+        <ResumeFromHoldScheduleDialog
+          open={isResumeScheduleDialogOpen}
+          shoot={shoot}
+          isSubmitting={isResumingFromHold}
+          onOpenChange={onResumeScheduleOpenChange}
+          onConfirm={onConfirmResumeSchedule}
         />
       )}
     </>

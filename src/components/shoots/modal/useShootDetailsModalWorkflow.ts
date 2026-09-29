@@ -12,7 +12,7 @@ import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
-import { buildResumeScheduleTimestamp } from '@/utils/shootResumeSchedule';
+import { buildResumeSchedulePayload, shootNeedsResumeSchedule, type ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 type PendingAction = 'hold' | 'cancel' | null;
@@ -67,6 +67,8 @@ export function useShootDetailsModalWorkflow({
   const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
   const [isApprovingEditingReview, setIsApprovingEditingReview] = useState(false);
   const [submitConfirm, setSubmitConfirm] = useState<{ kind: 'raw' | 'edited' } | null>(null);
+  const [isResumeScheduleDialogOpen, setIsResumeScheduleDialogOpen] = useState(false);
+  const [isResumingFromHold, setIsResumingFromHold] = useState(false);
   const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
   const currentStatus = String(shoot?.workflowStatus || shoot?.status || '').toLowerCase();
   const shouldShowClientCancellationFeeNotice =
@@ -330,79 +332,80 @@ export function useShootDetailsModalWorkflow({
     }
   };
 
+  const postResumeSchedule = async (payload: Record<string, unknown>) => {
+    if (!shoot) return;
+
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/schedule`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        ...payload,
+        ...(getShootUnits(shoot).length ? { expected_units_revision: shoot.units_revision } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      const validationErrors = errorData.errors || {};
+      const errorMessage =
+        errorData.message ||
+        errorData.error ||
+        (Object.keys(validationErrors).length > 0
+          ? `Validation failed: ${Object.entries(validationErrors)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+              .join('; ')}`
+          : 'Failed to resume shoot from hold');
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    if (result.data) {
+      const updatedShootData = { ...result.data } as ShootData;
+
+      if (updatedShootData.status === 'scheduled' || updatedShootData.workflowStatus === 'booked') {
+        updatedShootData.status = 'scheduled';
+        updatedShootData.workflowStatus = 'booked';
+      }
+
+      if (updatedShootData.status === 'hold_on' || updatedShootData.status === 'on_hold') {
+        updatedShootData.status = 'scheduled';
+      }
+      if (updatedShootData.workflowStatus === 'hold_on' || updatedShootData.workflowStatus === 'on_hold') {
+        updatedShootData.workflowStatus = 'booked';
+      }
+
+      setShoot(updatedShootData);
+      updateShoot(String(shoot.id), updatedShootData, { skipApi: true });
+    }
+
+    toast({
+      title: 'Shoot resumed',
+      description: 'The shoot has been moved back to scheduled status.',
+    });
+
+    await refreshShoot();
+    refreshShootMutations(shoot.id);
+    onShootUpdate?.();
+  };
+
   const handleResumeFromHold = async () => {
     if (!shoot) return;
 
+    // Undated on-hold imports need explicit date/time — never POST an empty schedule.
+    const payload = buildResumeSchedulePayload(shoot);
+    if (payload === 'needs_schedule' || shootNeedsResumeSchedule(shoot)) {
+      setIsResumeScheduleDialogOpen(true);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-
-      const payload: Record<string, unknown> = {
-        scheduled_at: buildResumeScheduleTimestamp(shoot),
-        ...(getShootUnits(shoot).length ? { expected_units_revision: shoot.units_revision } : {}),
-      };
-
-      if (shoot.photographer?.id) {
-        const photographerId =
-          typeof shoot.photographer.id === 'string'
-            ? parseInt(shoot.photographer.id, 10)
-            : shoot.photographer.id;
-        if (!isNaN(photographerId)) {
-          payload.photographer_id = photographerId;
-        }
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/schedule`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        const validationErrors = errorData.errors || {};
-        const errorMessage =
-          errorData.message ||
-          errorData.error ||
-          (Object.keys(validationErrors).length > 0
-            ? `Validation failed: ${Object.entries(validationErrors)
-                .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
-                .join('; ')}`
-            : 'Failed to resume shoot from hold');
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-      if (result.data) {
-        const updatedShootData = { ...result.data } as ShootData;
-
-        if (updatedShootData.status === 'scheduled' || updatedShootData.workflowStatus === 'booked') {
-          updatedShootData.status = 'scheduled';
-          updatedShootData.workflowStatus = 'booked';
-        }
-
-        if (updatedShootData.status === 'hold_on' || updatedShootData.status === 'on_hold') {
-          updatedShootData.status = 'scheduled';
-        }
-        if (updatedShootData.workflowStatus === 'hold_on' || updatedShootData.workflowStatus === 'on_hold') {
-          updatedShootData.workflowStatus = 'booked';
-        }
-
-        setShoot(updatedShootData);
-        updateShoot(String(shoot.id), updatedShootData, { skipApi: true });
-      }
-
-      toast({
-        title: 'Shoot resumed',
-        description: 'The shoot has been moved back to scheduled status.',
-      });
-
-      await refreshShoot();
-      refreshShootMutations(shoot.id);
-      onShootUpdate?.();
+      setIsResumingFromHold(true);
+      await postResumeSchedule(payload);
     } catch (error) {
       console.error('Error resuming shoot from hold:', error);
       toast({
@@ -413,6 +416,29 @@ export function useShootDetailsModalWorkflow({
             : 'Failed to resume shoot from hold. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsResumingFromHold(false);
+    }
+  };
+
+  const handleConfirmResumeSchedule = async (payload: ResumeSchedulePayload) => {
+    if (!shoot) return;
+    try {
+      setIsResumingFromHold(true);
+      await postResumeSchedule(payload);
+      setIsResumeScheduleDialogOpen(false);
+    } catch (error) {
+      console.error('Error resuming shoot from hold:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to resume shoot from hold. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResumingFromHold(false);
     }
   };
 
@@ -531,6 +557,10 @@ export function useShootDetailsModalWorkflow({
     handleCancelShoot,
     handleCancelShootClick,
     handleResumeFromHold,
+    isResumeScheduleDialogOpen,
+    setIsResumeScheduleDialogOpen,
+    isResumingFromHold,
+    handleConfirmResumeSchedule,
     submitConfirm,
     isSubmittingRaw,
     isSubmittingEdits,

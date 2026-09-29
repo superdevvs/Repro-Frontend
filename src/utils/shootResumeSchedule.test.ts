@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { ShootData } from '@/types/shoots';
-import { buildResumeScheduleTimestamp } from './shootResumeSchedule';
+import {
+  buildResumeSchedulePayload,
+  buildResumeScheduleTimestamp,
+  shootNeedsResumeSchedule,
+} from './shootResumeSchedule';
 
 const shoot = (fields: Partial<ShootData>) => ({ id: '86', ...fields }) as ShootData;
 
@@ -35,5 +39,38 @@ describe('resuming a held shoot', () => {
   });
   it('requires an authoritative timezone before inventing a missing schedule', () => {
     expect(() => buildResumeScheduleTimestamp(shoot({}))).toThrow('Refresh this shoot');
+  });
+});
+
+describe('undated on-hold resume gate', () => {
+  it('requires a schedule when shoot-level date is missing', () => {
+    expect(shootNeedsResumeSchedule(shoot({ timezone: 'America/New_York' }))).toBe(true);
+    expect(shootNeedsResumeSchedule(shoot({ scheduledDate: '2026-09-30', time: '10:00' }))).toBe(false);
+  });
+
+  it('returns needs_schedule for undated holds (never invent / empty POST)', () => {
+    expect(buildResumeSchedulePayload(shoot({
+      timezone: 'America/New_York', photographer: { id: '1104', name: 'Jaz' },
+    }))).toBe('needs_schedule');
+  });
+
+  it('uses BE shape 3 when a future appointment is already saved', () => {
+    expect(buildResumeSchedulePayload(shoot({
+      scheduledDate: '2026-10-05', time: '14:00', timezone: 'America/New_York',
+      scheduledInstant: '2026-10-05T18:00:00Z',
+      photographer: { id: 1104, name: 'Jaz' },
+    }), new Date('2026-09-29T12:00:00Z'))).toEqual({ photographer_id: 1104 });
+  });
+
+  it('uses BE shape 2 when a past appointment must move forward', () => {
+    expect(buildResumeSchedulePayload(shoot({
+      scheduledDate: '2026-09-09', time: '09:00', timezone: 'America/New_York',
+      scheduledInstant: '2026-09-09T13:00:00Z',
+      photographer: { id: '1104' },
+    }), new Date('2026-09-09T14:00:00Z'))).toEqual({
+      scheduled_date: '2026-09-10',
+      time: '09:00',
+      photographer_id: 1104,
+    });
   });
 });
