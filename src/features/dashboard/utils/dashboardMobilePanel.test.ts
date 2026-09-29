@@ -104,7 +104,7 @@ describe('dashboard mobile tab CSS', () => {
     expect(pageRule).toMatch(/flex:\s*1 1 0%/);
     expect(pageRule).toMatch(/min-width:\s*0/);
     expect(pageRule).toMatch(/overflow-x:\s*hidden/);
-    expect(pageRule).toMatch(/padding-bottom:\s*var\(--mobile-bottom-nav-height[^)]*\)\s*!important/);
+    expect(pageRule).toMatch(/padding-bottom:\s*calc\(var\(--mobile-bottom-nav-height[^)]*\)\s*\+\s*0\.75rem\)\s*!important/);
     expect(pageRule).not.toMatch(/height:\s*100%/);
   });
 

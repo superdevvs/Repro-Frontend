@@ -503,9 +503,11 @@ body {
 }
 
 @media (max-width: 1024px) {
-  /* Pad the page itself with the measured nav height. Main padding-bottom is
-     ignored by filled descendants on phones, so last cards sat behind the bar.
-     The page's own padding always shrinks its content box. */
+  /* Pad the page itself with the measured nav height plus a small gap.
+     Main padding-bottom is ignored by filled descendants on phones, so last
+     rows sat against the fixed bar. The measured height already includes the
+     nav's safe-area padding — do not add env(safe-area-inset-bottom) again.
+     The page's own padding shrinks its content box for every section tab. */
   .dashboard-mobile-page {
     display: flex;
     flex-direction: column;
@@ -516,7 +518,7 @@ body {
     overflow: hidden;
     overflow-x: hidden;
     overscroll-behavior-x: none;
-    padding-bottom: var(--mobile-bottom-nav-height, 5.5rem) !important;
+    padding-bottom: calc(var(--mobile-bottom-nav-height, 5.5rem) + 0.75rem) !important;
     box-sizing: border-box;
   }
 

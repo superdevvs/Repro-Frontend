@@ -1,6 +1,7 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -216,6 +217,7 @@ export const SalesDashboardView = ({
     {
       id: "shoots",
       label: "Shoots",
+      icon: Camera,
       content: (
         <div data-onboarding-target="salesrep-upcoming">
           {shootsCard}
@@ -225,16 +227,19 @@ export const SalesDashboardView = ({
     {
       id: "assign",
       label: "Assign",
+      icon: Users,
       content: assignCard,
     },
     {
       id: "requests",
       label: "Requests",
+      icon: MessageCircle,
       content: salesRepRequestsCard,
     },
     {
       id: "completed",
       label: "Completed",
+      icon: CheckCircle2,
       content: deliveredCard,
     },
   ];

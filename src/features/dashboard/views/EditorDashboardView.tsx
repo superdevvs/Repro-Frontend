@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CheckCircle2, ListChecks, MessageCircle } from "lucide-react";
 
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
@@ -129,6 +130,7 @@ export const EditorDashboardView = ({
     {
       id: "queue",
       label: "Queue",
+      icon: ListChecks,
       content: (
         <div data-onboarding-target="editor-queue">
           <UpcomingShootsCard
@@ -145,11 +147,13 @@ export const EditorDashboardView = ({
     {
       id: "requests",
       label: "Requests",
+      icon: MessageCircle,
       content: editorRequestsCard,
     },
     {
       id: "delivered",
       label: "Delivered",
+      icon: CheckCircle2,
       content: (
         <div data-onboarding-target="editor-delivered">
           <Suspense fallback={<CompletedShootsCardSkeleton />}>

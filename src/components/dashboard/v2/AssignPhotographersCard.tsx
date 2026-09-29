@@ -395,7 +395,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
       <div className={cn(sectionGutter, 'border-b border-border/60 py-2 sm:space-y-3 sm:py-5')}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-foreground sm:text-lg">Assign Photographers</h2>
+            <h2 className="hidden text-sm font-bold text-foreground sm:block sm:text-lg">Assign Photographers</h2>
             <p className="mt-0.5 truncate text-[10px] text-muted-foreground sm:hidden">
               {TAB_LABELS[tab]} · {PRESET_LABELS[preset]}
               {availabilityLoading ? ' · Checking…' : ''}

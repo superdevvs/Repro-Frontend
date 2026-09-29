@@ -841,7 +841,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, 'flex flex-col h-full min-h-0')}>
       <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
         <div>
-          <h2 className="text-lg font-bold text-foreground">{displayTitle}</h2>
+          <h2 className="hidden text-lg font-bold text-foreground sm:block">{displayTitle}</h2>
           {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">

@@ -349,7 +349,7 @@ export const useDashboardSections = ({
   const renderPipelineSection = () => (
     <div id="pipeline-section" className="flex w-full max-w-full min-h-0 min-w-0 flex-1 flex-col gap-3">
       <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
+        <h2 className="hidden text-sm font-semibold uppercase tracking-[0.3em] text-slate-900 dark:text-slate-100 sm:block">
           Pipeline
         </h2>
         <div className="flex min-w-0 flex-wrap items-center gap-2">

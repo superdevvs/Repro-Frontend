@@ -9,7 +9,7 @@ import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { ProfileCompletionNotice } from "@/features/dashboard/components/ProfileCompletionNotice";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +18,8 @@ import {
   DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
-  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
 } from "../utils/dashboardMobilePanel";
+import { DashboardMobileTabTrigger } from "./DashboardMobileTabTrigger";
 import { DevProfiler } from "./DevProfiler";
 import { CollapsibleColumnHandle } from "./CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -132,13 +132,12 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
                     <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
                       {mobileTabs.map((tab) => (
-                        <TabsTrigger
+                        <DashboardMobileTabTrigger
                           key={tab.id}
                           value={tab.id}
-                          className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
-                        >
-                          {tab.label}
-                        </TabsTrigger>
+                          label={tab.label}
+                          icon={tab.icon}
+                        />
                       ))}
                     </TabsList>
                   </div>

@@ -60,6 +60,8 @@ export interface RoleDashboardLayoutProps {
   mobileTabs?: Array<{
     id: string;
     label: string;
+    /** When set, inactive mobile tabs show the icon only; the active tab shows icon + label. */
+    icon?: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
     content: React.ReactNode;
   }>;
   /**

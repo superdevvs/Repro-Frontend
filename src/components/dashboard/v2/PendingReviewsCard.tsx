@@ -233,7 +233,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1 sm:h-auto sm:flex-none")}>
       <div className="flex flex-col h-full flex-1 min-h-0">
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
-          <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
+          <h2 className="hidden text-base font-bold text-foreground sm:block sm:text-lg">{title}</h2>
         </div>
 
         {/* Tabs */}

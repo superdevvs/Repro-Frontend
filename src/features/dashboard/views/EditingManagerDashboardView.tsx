@@ -1,6 +1,7 @@
 import React from "react";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import { Camera, CheckCircle2, KanbanSquare, MessageCircle } from "lucide-react";
 import { useAuth } from "@/components/auth";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +14,8 @@ import type { MobileEditingManagerTab } from "../types";
 import {
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
-  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
 } from "../utils/dashboardMobilePanel";
+import { DashboardMobileTabTrigger } from "../components/DashboardMobileTabTrigger";
 
 interface EditingManagerDashboardViewProps {
   isMobile: boolean;
@@ -103,6 +104,7 @@ export const EditingManagerDashboardView = ({
     {
       id: "shoots" as const,
       label: "Shoots",
+      icon: Camera,
       content: (
         <div data-onboarding-target="editingmanager-shoots" className="flex flex-1 flex-col min-h-0">
           {renderEditingManagerShootsTabsCard()}
@@ -112,6 +114,7 @@ export const EditingManagerDashboardView = ({
     {
       id: "requests" as const,
       label: "Requests",
+      icon: MessageCircle,
       content: (
         <div data-onboarding-target="editingmanager-requests" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderPendingReviewsCard()}
@@ -121,6 +124,7 @@ export const EditingManagerDashboardView = ({
     {
       id: "ready" as const,
       label: "Ready",
+      icon: CheckCircle2,
       content: (
         <div data-onboarding-target="editingmanager-ready" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderEditingManagerReadyToDeliverCard()}
@@ -130,6 +134,7 @@ export const EditingManagerDashboardView = ({
     {
       id: "pipeline" as const,
       label: "Pipeline",
+      icon: KanbanSquare,
       content: (
         <div data-onboarding-target="editingmanager-pipeline" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {renderPipelineSection()}
@@ -148,13 +153,12 @@ export const EditingManagerDashboardView = ({
         <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
           <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
             {editingManagerMobileTabs.map((tab) => (
-              <TabsTrigger
+              <DashboardMobileTabTrigger
                 key={tab.id}
                 value={tab.id}
-                className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
-              >
-                {tab.label}
-              </TabsTrigger>
+                label={tab.label}
+                icon={tab.icon}
+              />
             ))}
           </TabsList>
         </div>

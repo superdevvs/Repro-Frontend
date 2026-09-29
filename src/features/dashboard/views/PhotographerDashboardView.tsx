@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Camera, CheckCircle2, MessageCircle } from "lucide-react";
 
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
@@ -90,6 +91,7 @@ export const PhotographerDashboardView = ({
     {
       id: "shoots",
       label: "Shoots",
+      icon: Camera,
       content: (
         <div data-onboarding-target="photographer-upcoming-shoots">{upcomingCard}</div>
       ),
@@ -97,11 +99,13 @@ export const PhotographerDashboardView = ({
     {
       id: "requests",
       label: "Requests",
+      icon: MessageCircle,
       content: requestsCard,
     },
     {
       id: "completed",
       label: "Completed",
+      icon: CheckCircle2,
       content: (
         <div data-onboarding-target="photographer-completed">{completedCard}</div>
       ),

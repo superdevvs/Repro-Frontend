@@ -220,7 +220,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
     )}>
       <div className={cn('flex items-center justify-between shrink-0', subtitle ? 'mb-3 sm:mb-4' : 'mb-2 sm:mb-3')}>
         <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
+          <h2 className="hidden text-base font-bold text-foreground sm:block sm:text-lg">{title}</h2>
           {subtitle ? (
             <p className="text-[10px] sm:text-xs text-muted-foreground">{subtitle}</p>
           ) : null}

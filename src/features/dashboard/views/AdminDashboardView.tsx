@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { ProfileCompletionNotice } from "@/features/dashboard/components/ProfileCompletionNotice";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { RoleMetricTilesCard, type DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import { cn } from "@/lib/utils";
 import type { DashboardOverview } from "@/types/dashboard";
@@ -16,8 +16,8 @@ import {
   DASHBOARD_MOBILE_PAGE_CLASS,
   DASHBOARD_MOBILE_TAB_LIST_CLASS,
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
-  DASHBOARD_MOBILE_TAB_TRIGGER_CLASS,
 } from "../utils/dashboardMobilePanel";
+import { DashboardMobileTabTrigger } from "../components/DashboardMobileTabTrigger";
 import type { MobileDashboardTab } from "../types";
 import { CollapsibleColumnHandle } from "../components/CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -214,14 +214,12 @@ export const AdminDashboardView = ({
           <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
             <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
               {mobileTabs.map((tab) => (
-                <TabsTrigger
+                <DashboardMobileTabTrigger
                   key={tab.id}
                   value={tab.id}
-                  className={DASHBOARD_MOBILE_TAB_TRIGGER_CLASS}
-                >
-                  <tab.icon className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  {tab.label}
-                </TabsTrigger>
+                  label={tab.label}
+                  icon={tab.icon}
+                />
               ))}
             </TabsList>
           </div>
