@@ -47,6 +47,16 @@ const SESSION_STORAGE_KEY = 'system_overview.session_id';
 const TELEMETRY_DISABLE_WINDOW_MS = 5 * 60 * 1000;
 const TELEMETRY_FAILURE_THRESHOLD = 2;
 
+/**
+ * component_mount / component_unmount were ~185k events/day and dominated SQLite
+ * ingest writes. Sample at 1% so System Overview still sees a presence signal
+ * without flooding the backend. route_enter/leave, actions, blockers, errors,
+ * session, and heartbeat stay at full fidelity.
+ */
+const COMPONENT_MOUNT_SAMPLE_RATE = 0.01;
+
+const shouldSampleComponentLifecycle = () => Math.random() < COMPONENT_MOUNT_SAMPLE_RATE;
+
 let currentRoute = typeof window !== 'undefined' ? window.location.pathname : '/';
 let authState: TelemetryAuthState = { isAuthenticated: false };
 let flushTimer: number | null = null;
@@ -212,14 +222,15 @@ export const trackTelemetryRouteChange = (nextRoute: string) => {
       payload: previousPage ? { domain: previousPage.domain } : undefined,
     });
 
-    activeComponentNames.forEach((componentName) =>
+    activeComponentNames.forEach((componentName) => {
+      if (!shouldSampleComponentLifecycle()) return;
       enqueue({
         type: 'component_unmount',
         routePath: previous,
         pageKey: previousPage?.pageKey,
         componentName,
-      }),
-    );
+      });
+    });
   }
 
   currentRoute = telemetryRoute(nextRoute);
@@ -233,14 +244,15 @@ export const trackTelemetryRouteChange = (nextRoute: string) => {
     payload: nextPage ? { domain: nextPage.domain, label: nextPage.label } : undefined,
   });
 
-  activeComponentNames.forEach((componentName) =>
+  activeComponentNames.forEach((componentName) => {
+    if (!shouldSampleComponentLifecycle()) return;
     enqueue({
       type: 'component_mount',
       routePath: nextRoute,
       pageKey: nextPage?.pageKey,
       componentName,
-    }),
-  );
+    });
+  });
 };
 
 export const trackTelemetrySessionStart = () => {

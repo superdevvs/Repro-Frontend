@@ -241,7 +241,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
   const fetchOperationalData = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, unknown> = { tab: activeTab, page: operationalPage, per_page: 12, include_files: 'true' }
+      const params: Record<string, unknown> = { tab: activeTab, page: operationalPage, per_page: 12, include_files: 'false' }
       if (operationalFilters.search) params.search = operationalFilters.search
       if (!shouldHideClientDetails && operationalFilters.clientId) params.client_id = operationalFilters.clientId
       if (operationalFilters.photographerId) params.photographer_id = operationalFilters.photographerId
@@ -309,7 +309,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     setBulkShootsLoading(true)
     try {
       const tabs: Array<'scheduled' | 'completed' | 'delivered' | 'hold'> = ['scheduled', 'completed', 'delivered', 'hold']
-      const responses = await Promise.all(tabs.map((tab) => apiClient.get('/shoots', { params: { tab, page: 1, per_page: 200, include_files: 'true' } })))
+      const responses = await Promise.all(tabs.map((tab) => apiClient.get('/shoots', { params: { tab, page: 1, per_page: 200, include_files: 'false' } })))
       const combined = responses.flatMap((response) => {
         const payload = response.data?.data ?? response.data
         return Array.isArray(payload) ? payload : []

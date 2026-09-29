@@ -29,7 +29,7 @@ const fetchEditorDashboardShoots = async (tab: 'completed' | 'delivered') => {
       tab,
       page: 1,
       per_page: DEDICATED_EDITOR_QUEUE_PER_PAGE,
-      include_files: 'true',
+      include_files: 'false',
       no_cache: 'true',
     },
   })

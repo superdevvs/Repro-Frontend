@@ -533,7 +533,7 @@ export function useShootHistoryData({
         sort: shootSortRef.current,
         page: currentPage,
         per_page: 12,
-        include_files: 'true',
+        include_files: 'false',
         no_cache: 'true',
       }
       if (backendTab === 'scheduled' && scheduledSubTabRef.current !== 'all') {
@@ -635,7 +635,7 @@ export function useShootHistoryData({
       const responses = await Promise.all(
         tabs.map((tab) =>
           apiClient.get('/shoots', {
-            params: { tab, page: 1, per_page: 200, include_files: 'true' },
+            params: { tab, page: 1, per_page: 200, include_files: 'false' },
           }),
         ),
       )
