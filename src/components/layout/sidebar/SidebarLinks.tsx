@@ -29,6 +29,7 @@ import {
 import styles from './SidebarLinks.module.css';
 import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
 
 interface SidebarLinksProps {
   isCollapsed: boolean;
@@ -98,6 +99,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewCalls = permission.can('voice-calls', 'view');
   const canViewAiEditing = permission.can('ai-editing', 'view');
   const canViewRobbie = permission.can('robbie', 'view');
+  const messagingBadges = useMessagingBadgeCounts();
 
   const isChatActive = pathname === '/chat-with-reproai';
   const isBookShootActive = pathname === '/book-shoot';
@@ -357,9 +359,10 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           isCollapsed={isCollapsed}
           isActive={pathname.startsWith('/messaging/email')}
           onActivePreview={previewActiveIndicator}
+          badge={messagingBadges.email}
         />
       )}
-      {/* Messaging - Expandable with Emails and SMS for admins */}
+      {/* Messaging - Expandable with Emails, SMS, Calls + unread badges */}
       {(canViewMessagingOverview || canViewSms || canViewCalls) && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
@@ -367,10 +370,11 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           isCollapsed={isCollapsed}
           defaultTo={canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : "/calls"}
           onActivePreview={previewActiveIndicator}
+          badge={messagingBadges.total}
           subItems={[
-            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
-            ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
-            ...(canViewCalls ? [{ to: '/calls', label: 'Calls' }] : []),
+            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails', badge: messagingBadges.email }] : []),
+            ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS', badge: messagingBadges.sms }] : []),
+            ...(canViewCalls ? [{ to: '/calls', label: 'Calls', badge: messagingBadges.call }] : []),
           ]}
         />
       )}

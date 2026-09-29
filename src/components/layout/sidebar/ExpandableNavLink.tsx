@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface SubItem {
   to: string;
   label: string;
+  badge?: number | null;
 }
 
 interface ExpandableNavLinkProps {
@@ -15,6 +16,13 @@ interface ExpandableNavLinkProps {
   defaultTo: string; // Where to go when clicking the main item
   subItems: SubItem[];
   onActivePreview?: (element: HTMLElement) => void;
+  /** Overall unread/attention count on the parent Messaging row. */
+  badge?: number | null;
+}
+
+function formatBadge(count?: number | null): string | null {
+  if (count == null || !Number.isFinite(count) || count <= 0) return null;
+  return count > 99 ? '99+' : String(Math.floor(count));
 }
 
 export function ExpandableNavLink({ 
@@ -24,6 +32,7 @@ export function ExpandableNavLink({
   defaultTo,
   subItems,
   onActivePreview,
+  badge,
 }: ExpandableNavLinkProps) {
   const { pathname } = useLocation();
 
@@ -44,7 +53,7 @@ export function ExpandableNavLink({
     }
   }, [isAnySubItemActive, isOnDefaultRoute, pathname]);
 
-  const handleMainClick = (e: React.MouseEvent) => {
+  const handleMainClick = (_e: React.MouseEvent) => {
     // Always expand when clicking the main link (if not collapsed)
     // This ensures the menu expands immediately on click, even before navigation
     if (!isCollapsed) {
@@ -58,13 +67,15 @@ export function ExpandableNavLink({
     setIsExpanded((prev) => !prev);
   };
 
+  const parentBadge = formatBadge(badge);
+
   return (
     <div>
       {/* Main Item */}
       <Link
         to={defaultTo}
-        aria-label={label}
-        title={isCollapsed ? label : undefined}
+        aria-label={parentBadge ? `${label}, ${parentBadge} unread` : label}
+        title={isCollapsed ? (parentBadge ? `${label} (${parentBadge})` : label) : undefined}
         data-sidebar-active={isActive ? 'true' : undefined}
         onPointerDown={(event) => onActivePreview?.(event.currentTarget)}
         onClick={handleMainClick}
@@ -83,11 +94,23 @@ export function ExpandableNavLink({
             isActive && isCollapsed && '[&_svg]:text-sidebar-primary dark:[&_svg]:text-sidebar-primary-foreground'
           )}
         >
-          {icon}
+          <span className="relative flex items-center">
+            {icon}
+            {isCollapsed && parentBadge && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold text-primary-foreground">
+                {parentBadge}
+              </span>
+            )}
+          </span>
         </span>
         {!isCollapsed && (
           <>
             <span className="relative z-20 flex-1">{label}</span>
+            {parentBadge && (
+              <span className="relative z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                {parentBadge}
+              </span>
+            )}
             <button
               type="button"
               data-sidebar-disclosure
@@ -110,18 +133,25 @@ export function ExpandableNavLink({
         <div className="ml-6 mt-1 space-y-1 border-l-2 border-muted pl-3">
           {subItems.map((subItem) => {
             const isSubItemActive = pathname === subItem.to || pathname.startsWith(subItem.to + '/');
+            const subBadge = formatBadge(subItem.badge);
             return (
               <Link
                 key={subItem.to}
                 to={subItem.to}
+                aria-label={subBadge ? `${subItem.label}, ${subBadge} unread` : subItem.label}
                 className={cn(
-                  'block rounded-md px-3 py-2 text-sm transition-colors',
+                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                   isSubItemActive 
                     ? 'bg-sidebar-primary/10 font-medium text-sidebar-accent-foreground ring-1 ring-sidebar-border dark:text-sidebar-primary-foreground dark:ring-white/5' 
-                    : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'
+                    : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                 )}
               >
-                {subItem.label}
+                <span className="flex-1">{subItem.label}</span>
+                {subBadge && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                    {subBadge}
+                  </span>
+                )}
               </Link>
             );
           })}

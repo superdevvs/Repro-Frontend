@@ -527,11 +527,22 @@ export interface EmailComposeRecipient {
   related_account_id?: number | null;
 }
 
+export interface MessagingBadgeCounts {
+  email: number;
+  sms: number;
+  call: number;
+  total: number;
+}
+
 export interface MessagingOverview {
   total_sent_today: number;
   total_failed_today: number;
   total_scheduled: number;
   unread_sms_count: number;
+  unread_email_count?: number;
+  unread_call_count?: number;
+  unread_total?: number;
+  unread_counts?: MessagingBadgeCounts;
   recent_activity: Message[];
   active_automations: number;
   delivery_rate?: number | null;

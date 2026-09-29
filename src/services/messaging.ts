@@ -22,6 +22,7 @@ import type {
   EmailRecipient,
   EmailComposeRecipient,
   TemplatePreviewResult,
+  MessagingBadgeCounts,
 } from '@/types/messaging';
 
 const toEmailRecipient = (value: unknown, fallbackId: number): EmailRecipient | null => {
@@ -52,6 +53,17 @@ const toEmailRecipient = (value: unknown, fallbackId: number): EmailRecipient | 
 export const getMessagingOverview = async (): Promise<MessagingOverview> => {
   const response = await apiClient.get('/messaging/overview');
   return response.data;
+};
+
+export const getMessagingBadgeCounts = async (): Promise<MessagingBadgeCounts> => {
+  const response = await apiClient.get('/messaging/badge-counts');
+  const data = response.data ?? {};
+  return {
+    email: Number(data.email) || 0,
+    sms: Number(data.sms) || 0,
+    call: Number(data.call) || 0,
+    total: Number(data.total) || 0,
+  };
 };
 
 // Templates
