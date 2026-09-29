@@ -8,7 +8,7 @@ import { usePageLoading } from '@/hooks/use-page-loading';
 
 vi.mock('./Sidebar', () => ({ Sidebar: () => <nav><a href="/dashboard">Dashboard</a></nav> }));
 vi.mock('./Navbar', () => ({ Navbar: () => <header><button>Navigation</button></header> }));
-const viewport = vi.hoisted(() => ({ mobile: false, compact: false, tall: true, bottomNavHeight: 62 }));
+const viewport = vi.hoisted(() => ({ mobile: false, compact: false, tall: true, availabilityDesktop: false, bottomNavHeight: 62 }));
 vi.mock('./MobileMenu', () => ({
   default: function MockMobileMenu({ onBottomNavHeightChange }: { onBottomNavHeightChange?: (height: number) => void }) {
     const bottomNavHeight = viewport.bottomNavHeight;
@@ -18,9 +18,15 @@ vi.mock('./MobileMenu', () => ({
     return <nav aria-label="Mobile navigation"><button>Mobile menu</button></nav>;
   },
 }));
-vi.mock('./PageTransition', () => ({ PageTransition: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
+vi.mock('./PageTransition', () => ({ PageTransition: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div> }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile }));
-vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: (query: string) => query.includes('min-height') ? viewport.tall && !viewport.mobile : viewport.compact }));
+vi.mock('@/hooks/use-media-query', () => ({
+  useMediaQuery: (query: string) => {
+    if (query.includes('min-height')) return viewport.tall && !viewport.mobile;
+    if (query.includes('min-width: 1280')) return viewport.availabilityDesktop;
+    return viewport.compact;
+  },
+}));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: 'admin', user: { id: 1 }, stopImpersonating: vi.fn() }) }));
 vi.mock('@/components/auth/EmailVerificationNotice', () => ({ EmailVerificationNotice: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
@@ -29,7 +35,7 @@ function Page({ loading }: { loading: boolean }) {
   return <DashboardLayout><button>Page action</button></DashboardLayout>;
 }
 
-beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.tall = true; viewport.bottomNavHeight = 62; });
+beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.tall = true; viewport.availabilityDesktop = false; viewport.bottomNavHeight = 62; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('dashboard page loading integration', () => {
@@ -43,6 +49,15 @@ describe('dashboard page loading integration', () => {
     const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
     expect(container.querySelector('main')).toHaveClass('overflow-y-auto');
     expect(container.querySelector('footer')).not.toBeNull();
+  });
+
+  it('locks availability desktop main scroll, fills the flex chain, and hides footer', () => {
+    viewport.availabilityDesktop = true;
+    const { container } = render(<MemoryRouter initialEntries={['/availability']}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
+    const main = container.querySelector('main');
+    expect(main).toHaveClass('overflow-hidden');
+    expect(main).toHaveClass('flex');
+    expect(container.querySelector('footer')).toBeNull();
   });
 
   it.each(['phone', 'short desktop'])('keeps workflow content scrollable on a %s', (surface) => {

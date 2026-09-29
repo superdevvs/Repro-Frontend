@@ -58,11 +58,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isWorkflowEditor = /^\/messaging\/email\/automations\/.+/.test(location.pathname);
   const canContainWorkflow = useMediaQuery('(min-width: 1024px) and (min-height: 700px)');
   const lockWorkflowEditor = isWorkflowEditor && canContainWorkflow;
+  // Availability desktop split pane (xl+) owns overflow inside the cards. App.tsx
+  // used to only slap !overflow-hidden on <main>, which never made main a flex
+  // column or hid the footer — flex-1/h-full children had no bounded height.
+  const fillAvailabilityDesktop =
+    location.pathname === '/availability' && useMediaQuery('(min-width: 1280px)');
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
-  const lockMainScroll = lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor;
+  const lockMainScroll =
+    lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillAvailabilityDesktop;
   const contentPadding = useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
@@ -77,7 +83,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       }
     : undefined;
   const shouldHideFooter =
-    hideFooter || lockCompactDashboard || location.pathname === '/ai-editing' ||
+    hideFooter || lockCompactDashboard || fillAvailabilityDesktop ||
+    location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
     location.pathname === '/messaging/email/compose' ||
@@ -126,7 +133,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {lockCompactDashboard || fillSms ? (
+                  {lockCompactDashboard || fillSms || fillAvailabilityDesktop ? (
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />

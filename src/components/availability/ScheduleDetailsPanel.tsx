@@ -277,7 +277,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
 
   // Desktop variant
   return (
-    <Card className="p-4 h-full flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+    <Card className="p-4 h-full min-h-0 flex-1 flex flex-col border shadow-sm rounded-md overflow-hidden">
       {selectedPhotographer !== "all" ? (
         <>
           {!editingWeeklySchedule ? (

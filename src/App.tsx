@@ -136,9 +136,9 @@ const getDashboardLayoutClassName = (
   }
 
   if (pathname === '/availability') {
-    // Availability desktop split pane (min-width 1280px) owns overflow. Phones,
-    // phone-landscape, and tablets must keep scrolling - never lock main just
-    // because width cleared the old 768px mobile check.
+    // DashboardLayout locks main scroll + hides footer at xl+ (fillAvailabilityDesktop).
+    // Keep !min-h-0 always; !overflow-hidden remains a belt-and-suspenders class for
+    // xl while phones/tablets stay scrollable.
     return `!min-h-0${lockAvailabilityMain ? ' !overflow-hidden' : ''}`;
   }
 

@@ -148,8 +148,8 @@ export function PhotographerListPanel({
   }
 
   return (
-    <div className="lg:col-span-3 flex flex-col min-h-0">
-      <Card className="p-4 flex flex-col h-full border shadow-sm rounded-md min-h-0 overflow-hidden">
+    <div className="lg:col-span-3 flex flex-col min-h-0 h-full min-w-0">
+      <Card className="p-4 flex flex-col h-full min-h-0 flex-1 border shadow-sm rounded-md overflow-hidden">
         {listContent()}
       </Card>
     </div>

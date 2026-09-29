@@ -680,7 +680,7 @@ function WeekView(props: AvailabilityCalendarBodyProps) {
           </div>
         </div>
 
-        <div className={cn("flex flex-col", !isMobile && "flex-1 min-h-0 overflow-y-auto")}>
+        <div className={cn("flex flex-col", !isMobile && "flex-1 min-h-0 overflow-y-auto overscroll-y-contain")}>
           {weekDays.map((day, dayIdx) => {
             const isTodayDate = isToday(day);
             const isSelected = date && isSameDay(day, date);

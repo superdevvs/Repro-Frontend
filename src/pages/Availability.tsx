@@ -596,8 +596,8 @@ export default function Availability() {
 
   return (
     <>
-      <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full px-6 pb-6 pt-0 overflow-hidden")}>
+      <div className={cn("flex-1 flex flex-col min-h-0 h-full", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full min-h-0 px-6 pb-4 pt-0 overflow-hidden")}>
           {isCompactLayout ? (
             <div className="flex items-center justify-between gap-2">
               <h1 className="text-lg sm:text-xl font-bold truncate">Availability</h1>
@@ -614,27 +614,29 @@ export default function Availability() {
               </div>
             </div>
           ) : (
-            <PageHeader
-              badge={isDesktop ? "Availability" : undefined}
-              title={isDesktop ? "Photographer Availability" : "Availability"}
-              description={isDesktop ? "Manage and schedule photographer availability" : undefined}
-              action={
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={goToToday}>Today</Button>
-                  {renderViewModeButtons("header")}
-                  {canEditAvailability && (
-                    <Button variant="destructive" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={openBlockDialog}>
-                      <Ban className="h-4 w-4 mr-2" />
-                      Block Calendar
+            <div className="flex-shrink-0">
+              <PageHeader
+                badge={isDesktop ? "Availability" : undefined}
+                title={isDesktop ? "Photographer Availability" : "Availability"}
+                description={isDesktop ? "Manage and schedule photographer availability" : undefined}
+                action={
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={goToToday}>Today</Button>
+                    {renderViewModeButtons("header")}
+                    {canEditAvailability && (
+                      <Button variant="destructive" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={openBlockDialog}>
+                        <Ban className="h-4 w-4 mr-2" />
+                        Block Calendar
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={() => setIsSyncModalOpen(true)}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync
                     </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={() => setIsSyncModalOpen(true)}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Sync
-                  </Button>
-                </div>
-              }
-            />
+                  </div>
+                }
+              />
+            </div>
           )}
 
           {loadingPhotographers && (
@@ -888,7 +890,7 @@ export default function Availability() {
             <div
               ref={desktopCalendarRowRef}
               className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 grid-rows-1 gap-4 overflow-hidden"
-              style={!isCompactLayout && desktopCalendarRowHeight ? { height: `${desktopCalendarRowHeight}px`, maxHeight: `${desktopCalendarRowHeight}px` } : undefined}
+              style={!isCompactLayout && desktopCalendarRowHeight ? { minHeight: 0, maxHeight: `${desktopCalendarRowHeight}px` } : undefined}
             >
               {canManagePhotographerSelection && (
                 <PhotographerListPanel
@@ -904,8 +906,8 @@ export default function Availability() {
                 />
               )}
 
-              <div className={cn("flex flex-col min-h-0 h-full", canManagePhotographerSelection ? "lg:col-span-5" : "lg:col-span-8")}>
-                <Card className="p-4 h-full flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+              <div className={cn("flex flex-col min-h-0 h-full min-w-0", canManagePhotographerSelection ? "lg:col-span-5" : "lg:col-span-8")}>
+                <Card className="p-4 h-full min-h-0 flex-1 flex flex-col border shadow-sm rounded-md overflow-hidden">
                   <div className="flex items-start justify-between mb-3 flex-shrink-0">
                     <div>
                       <h2 className="text-base font-semibold mb-1">
@@ -953,7 +955,7 @@ export default function Availability() {
                 </Card>
               </div>
 
-              <div className="flex flex-col min-h-0 h-full lg:col-span-4">
+              <div className="flex flex-col min-h-0 h-full min-w-0 lg:col-span-4">
                 <ScheduleDetailsPanel variant="desktop" {...scheduleDetailsProps} />
               </div>
             </div>
