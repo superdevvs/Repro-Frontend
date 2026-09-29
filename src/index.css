@@ -628,6 +628,24 @@ body {
   overflow: visible !important;
 }
 
+/* Phone landscape widths often clear Tailwind `md` (768px) while height stays
+   phone-short. Keep intentional horizontal rails scrollable and never let a
+   nested max-height:100% panel recreate the QA #18 touch-scroll trap outside
+   filled dashboard cards (those keep .dashboard-mobile-tabs rules). */
+@media (max-height: 500px) and (max-width: 1024px) {
+  .shoot-history-tabs [role="tabpanel"][data-state="active"] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Prefer the single <main> scroller on short landscape shells. */
+  .dashboard-viewport > div > main.overflow-y-auto,
+  .dashboard-viewport main.overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
 [data-radix-tabs-content][data-state="inactive"],
 [role="tabpanel"][data-state="inactive"] {
   display: none !important;

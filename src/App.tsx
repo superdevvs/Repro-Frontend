@@ -21,7 +21,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { ResponsiveResizeIndicator } from '@/components/layout/ResponsiveResizeIndicator';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
 import { UploadProvider } from './context/UploadContext';
@@ -127,13 +127,19 @@ const DashboardRouteFallback = () => {
   return <DashboardRouteSkeleton pathname={location.pathname} />;
 };
 
-const getDashboardLayoutClassName = (pathname: string, isMobile: boolean) => {
+const getDashboardLayoutClassName = (
+  pathname: string,
+  { lockAvailabilityMain }: { lockAvailabilityMain: boolean },
+) => {
   if (pathname === '/chat-with-reproai') {
     return '!p-0 !pb-0 !min-h-0';
   }
 
   if (pathname === '/availability') {
-    return `!min-h-0${isMobile ? '' : ' !overflow-hidden'}`;
+    // Availability desktop split pane (min-width 1280px) owns overflow. Phones,
+    // phone-landscape, and tablets must keep scrolling - never lock main just
+    // because width cleared the old 768px mobile check.
+    return `!min-h-0${lockAvailabilityMain ? ' !overflow-hidden' : ''}`;
   }
 
   if (pathname.startsWith('/shoots/')) {
@@ -149,10 +155,10 @@ const getDashboardLayoutClassName = (pathname: string, isMobile: boolean) => {
 
 const DashboardShell = () => {
   const location = useLocation();
-  const isMobile = useIsMobile();
+  const lockAvailabilityMain = useMediaQuery('(min-width: 1280px)');
 
   return (
-    <DashboardLayout className={getDashboardLayoutClassName(location.pathname, isMobile)}>
+    <DashboardLayout className={getDashboardLayoutClassName(location.pathname, { lockAvailabilityMain })}>
       <Suspense fallback={<DashboardRouteFallback />}>
         <Outlet />
       </Suspense>
