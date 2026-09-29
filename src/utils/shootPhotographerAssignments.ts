@@ -207,3 +207,81 @@ export const getShootPhotographerAssignmentGroups = (
       (groups.length > 1 && groups.some((group) => group.photographer !== null)),
   };
 };
+
+
+export type AssignedShootPhotographer = {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+};
+
+/**
+ * Unique photographers on a shoot: shoot-level primary plus every service-level assignee.
+ */
+export const getShootAssignedPhotographers = (
+  shoot: AssignmentSource & {
+    serviceItems?: unknown[] | null;
+    service_items?: unknown[] | null;
+    photographer_id?: string | number | null;
+  },
+): AssignedShootPhotographer[] => {
+  const byId = new Map<string, AssignedShootPhotographer>();
+
+  const upsert = (id?: string | null, name?: string | null, email?: string | null, avatar?: string | null) => {
+    if (!id) return;
+    const existing = byId.get(id);
+    byId.set(id, {
+      id,
+      name: (name && name.trim()) || existing?.name || `Photographer #${id}`,
+      email: (email && email.trim()) || existing?.email,
+      avatar: avatar || existing?.avatar,
+    });
+  };
+
+  if (shoot.photographer?.id != null) {
+    upsert(
+      String(shoot.photographer.id),
+      shoot.photographer.name,
+      shoot.photographer.email,
+      shoot.photographer.avatar,
+    );
+  } else if (shoot.photographer_id != null && shoot.photographer_id !== '') {
+    upsert(String(shoot.photographer_id), null, null, null);
+  }
+
+  for (const assignment of getShootPhotographerAssignments(shoot)) {
+    if (assignment.photographerId) {
+      upsert(
+        assignment.photographerId,
+        assignment.photographer?.name,
+        assignment.photographer?.email,
+        assignment.photographer?.avatar,
+      );
+    }
+  }
+
+  const itemLists = [shoot.serviceItems, shoot.service_items].filter(Array.isArray) as Array<Array<Record<string, unknown>>>;
+  for (const list of itemLists) {
+    for (const item of list) {
+      if (!item || typeof item !== 'object') continue;
+      const photographer = item.photographer && typeof item.photographer === 'object'
+        ? (item.photographer as Record<string, unknown>)
+        : null;
+      const id =
+        item.photographer_id != null
+          ? String(item.photographer_id)
+          : photographer?.id != null
+            ? String(photographer.id)
+            : null;
+      upsert(
+        id,
+        typeof photographer?.name === 'string' ? photographer.name : null,
+        typeof photographer?.email === 'string' ? photographer.email : null,
+        typeof photographer?.avatar === 'string' ? photographer.avatar : null,
+      );
+    }
+  }
+
+  return Array.from(byId.values());
+};

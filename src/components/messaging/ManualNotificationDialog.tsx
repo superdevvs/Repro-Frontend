@@ -129,6 +129,8 @@ export interface ManualNotificationDialogProps {
   onClose: () => void;
   /** Optional human-friendly identifier for the shoot, surfaced in the dialog header. */
   shootLabel?: string;
+  /** Service-level + shoot-level photographers to list when notifying photographers. */
+  assignedPhotographers?: ReadonlyArray<{ id: string; name: string; email?: string }>;
 }
 
 /**
@@ -149,6 +151,7 @@ export function ManualNotificationDialog({
   open,
   onClose,
   shootLabel,
+  assignedPhotographers = [],
 }: ManualNotificationDialogProps) {
   const [type, setType] = useState<ManualNotificationType>('shoot_scheduled');
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
@@ -281,6 +284,21 @@ export function ManualNotificationDialog({
                 onChange={(next) => setRecipientType(next)}
                 disabled={isSending}
               />
+              {recipientType === 'photographer' && assignedPhotographers.length > 0 && (
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="mb-1 font-medium text-foreground">
+                    {assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers'}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {assignedPhotographers.map((person) => (
+                      <li key={person.id}>
+                        {person.name}
+                        {person.email ? ` · ${person.email}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

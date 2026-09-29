@@ -62,15 +62,22 @@ describe('undated on-hold resume gate', () => {
     }), new Date('2026-09-29T12:00:00Z'))).toEqual({ photographer_id: 1104 });
   });
 
-  it('uses BE shape 2 when a past appointment must move forward', () => {
+  it('requires dialog confirmation when a past appointment must move forward', () => {
     expect(buildResumeSchedulePayload(shoot({
       scheduledDate: '2026-09-09', time: '09:00', timezone: 'America/New_York',
       scheduledInstant: '2026-09-09T13:00:00Z',
       photographer: { id: '1104' },
-    }), new Date('2026-09-09T14:00:00Z'))).toEqual({
-      scheduled_date: '2026-09-10',
-      time: '09:00',
-      photographer_id: 1104,
-    });
+    }), new Date('2026-09-09T14:00:00Z'))).toBe('needs_schedule');
+  });
+
+  it('requires dialog when shoot header date mismatches service schedules', () => {
+    expect(buildResumeSchedulePayload(shoot({
+      scheduledDate: '2026-08-12', time: '11:10', timezone: 'America/New_York',
+      scheduledInstant: '2026-08-12T15:10:00Z',
+      photographer: { id: 989, name: 'Jay Snap' },
+      services: [
+        { id: 7, name: '45 HDR Photos', photographer_id: '1106', scheduled_at: '2026-09-30 15:10:00' },
+      ],
+    }), new Date('2026-09-29T12:00:00Z'))).toBe('needs_schedule');
   });
 });

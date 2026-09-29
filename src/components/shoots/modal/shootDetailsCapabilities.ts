@@ -4,6 +4,7 @@ import {
   ShootDetailsCapabilities,
   ShootDetailsRoleFlags,
 } from './shootDetailsTypes';
+import { getShootAssignedPhotographers } from '@/utils/shootPhotographerAssignments';
 import {
   canFinaliseShoot,
   isFastForwardFinalise as isNoMediaFinalise,
@@ -103,7 +104,12 @@ export const getShootDetailsCapabilities = ({
   const showMmmPunchoutButtons =
     !getShootUnits(shoot).length && isDelivered && (canStartMmmPunchout || Boolean(mmmRedirectUrl));
   const canNotifyClient = Boolean(shoot?.client?.email);
-  const canNotifyPhotographer = Boolean(
+  const assignedPhotographers = shoot ? getShootAssignedPhotographers(shoot) : [];
+  const canNotifyPhotographer = assignedPhotographers.some((person) => {
+    if (!person.email) return false;
+    if (!shoot?.client?.id) return true;
+    return String(person.id) !== String(shoot.client.id);
+  }) || Boolean(
     shoot?.photographer?.email &&
       (!shoot?.client?.id || shoot?.photographer?.id !== shoot?.client?.id),
   );

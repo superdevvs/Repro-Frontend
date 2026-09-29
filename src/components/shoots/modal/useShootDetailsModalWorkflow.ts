@@ -12,7 +12,7 @@ import { blurActiveElement } from '../dialogFocusUtils';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
-import { buildResumeSchedulePayload, shootNeedsResumeSchedule, type ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
+import { buildResumeSchedulePayload, shootNeedsResumeScheduleDialog, type ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 
 type PendingAction = 'hold' | 'cancel' | null;
@@ -396,9 +396,9 @@ export function useShootDetailsModalWorkflow({
   const handleResumeFromHold = async () => {
     if (!shoot) return;
 
-    // Undated on-hold imports need explicit date/time — never POST an empty schedule.
+    // Undated, past, or header↔service date mismatch — confirm schedule in dialog first.
     const payload = buildResumeSchedulePayload(shoot);
-    if (payload === 'needs_schedule' || shootNeedsResumeSchedule(shoot)) {
+    if (payload === 'needs_schedule' || shootNeedsResumeScheduleDialog(shoot)) {
       setIsResumeScheduleDialogOpen(true);
       return;
     }

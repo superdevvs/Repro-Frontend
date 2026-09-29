@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,8 +11,15 @@ import {
 import { Label } from '@/components/ui/label';
 import { buildServiceTimeOptions, ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 import type { ShootData } from '@/types/shoots';
+import {
+  getResumeScheduleDialogDefaults,
+  getShootServiceScheduleHints,
+  resolveResumePhotographerId,
+  shootNeedsResumeSchedule,
+  type ResumeSchedulePayload,
+} from '@/utils/shootResumeSchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
-import type { ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
+import { getShootAssignedPhotographers } from '@/utils/shootPhotographerAssignments';
 
 type ResumeFromHoldScheduleDialogProps = {
   open: boolean;
@@ -23,7 +30,7 @@ type ResumeFromHoldScheduleDialogProps = {
 };
 
 /**
- * Collect date/time before resuming an undated on-hold import.
+ * Collect/confirm date/time before resuming an on-hold shoot.
  * Emits BE shape 2: { scheduled_date, time, photographer_id? }.
  */
 export function ResumeFromHoldScheduleDialog({
@@ -33,25 +40,33 @@ export function ResumeFromHoldScheduleDialog({
   onOpenChange,
   onConfirm,
 }: ResumeFromHoldScheduleDialogProps) {
-  const existing = useMemo(() => getShootSchedule(shoot), [shoot]);
-  const [date, setDate] = useState(existing.date);
-  const [time, setTime] = useState(existing.time || '10:00');
+  const defaults = getResumeScheduleDialogDefaults(shoot);
+  const [date, setDate] = useState(defaults.date);
+  const [time, setTime] = useState(defaults.time || '10:00');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    const schedule = getShootSchedule(shoot);
-    setDate(schedule.date);
-    setTime(schedule.time || '10:00');
+    const next = getResumeScheduleDialogDefaults(shoot);
+    setDate(next.date);
+    setTime(next.time || '10:00');
     setError(null);
   }, [open, shoot]);
 
-  const photographerIdRaw = shoot.photographer?.id ?? shoot.photographer_id;
-  const photographerId =
-    photographerIdRaw === null || photographerIdRaw === undefined || photographerIdRaw === ''
-      ? null
-      : Number(photographerIdRaw);
-  const hasPhotographer = Number.isFinite(photographerId) && (photographerId as number) > 0;
+  const photographerId = resolveResumePhotographerId(shoot) ?? null;
+  const hasPhotographer = photographerId != null && photographerId > 0;
+  const photographerLabel =
+    getShootAssignedPhotographers(shoot).find((person) => String(person.id) === String(photographerId))?.name
+    || (shoot.photographer && String(shoot.photographer.id) === String(photographerId)
+      ? shoot.photographer.name
+      : null);
+
+  const headerDate = getShootSchedule(shoot).date;
+  const serviceHints = getShootServiceScheduleHints(shoot);
+  const hasMismatch =
+    Boolean(headerDate) &&
+    serviceHints.some((hint) => hint.date !== headerDate);
+  const isUndated = shootNeedsResumeSchedule(shoot);
 
   const handleConfirm = async () => {
     if (!date) {
@@ -70,13 +85,19 @@ export function ResumeFromHoldScheduleDialog({
     });
   };
 
+  const description = isUndated
+    ? 'This on-hold shoot has no date assigned. Choose a date and time to move it back to scheduled.'
+    : hasMismatch
+      ? `Shoot header date (${headerDate}) does not match service schedules (${serviceHints.map((h) => h.date).filter((v, i, a) => a.indexOf(v) === i).join(', ') || 'none'}). Confirm the appointment to resume.`
+      : 'The saved appointment is in the past. Confirm a new date and time to resume this shoot.';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="resume-from-hold-schedule-dialog">
         <DialogHeader>
           <DialogTitle>Set schedule to resume</DialogTitle>
           <DialogDescription>
-            This on-hold shoot has no date assigned. Choose a date and time to move it back to scheduled.
+            {description}
             {!hasPhotographer && ' A photographer can be assigned after resume if needed.'}
           </DialogDescription>
         </DialogHeader>
@@ -103,7 +124,7 @@ export function ResumeFromHoldScheduleDialog({
 
         {hasPhotographer && (
           <p className="text-xs text-muted-foreground">
-            Photographer: {shoot.photographer?.name || `#${photographerId}`}
+            Photographer: {photographerLabel || `#${photographerId}`}
           </p>
         )}
 
