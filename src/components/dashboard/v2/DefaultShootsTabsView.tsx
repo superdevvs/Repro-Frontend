@@ -549,12 +549,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               </div>
               {paginatedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
-                  <div
-                    className={cn(
-                      'flex items-center justify-between gap-2',
-                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 bg-card py-0.5'
-                    )}
-                  >
+                  <div className="flex items-center justify-between gap-2 sticky top-0 z-10 bg-card py-0.5">
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
                       <span className="h-2 w-2 rounded-full bg-primary" />
                       <p className="text-xs font-semibold text-muted-foreground">
@@ -594,12 +589,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               </div>
               {requestedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
-                  <div
-                    className={cn(
-                      'flex items-center justify-between gap-2',
-                      (groupIndex === 0 || group.shoots.length > 7) && 'sticky top-0 z-10 bg-card py-0.5'
-                    )}
-                  >
+                  <div className="flex items-center justify-between gap-2 sticky top-0 z-10 bg-card py-0.5">
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500/20 to-transparent py-1 pl-2 pr-8">
                       <span className="h-2 w-2 rounded-full bg-blue-500" />
                       <p className="text-xs font-semibold text-muted-foreground">
