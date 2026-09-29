@@ -328,11 +328,15 @@ export const downloadShootRawFiles = async ({
   fileIds,
   address,
   onDownloading,
+  onPreparing,
+  signal,
 }: {
   shootId: string | number;
   fileIds?: Array<string | number>;
   address?: string | null;
   onDownloading?: () => void;
+  onPreparing?: (state: ShootMediaArchivePreparingState) => void;
+  signal?: AbortSignal;
 }): Promise<ShootRawMediaDownloadResult> => {
   const headers = getApiHeaders();
   headers.Accept = 'application/json, application/zip, application/octet-stream';
@@ -347,54 +351,71 @@ export const downloadShootRawFiles = async ({
   }
 
   const queryString = queryParams.toString();
-  const response = await fetchApiDownload(
-    `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw${queryString ? `?${queryString}` : ''}`,
-    headers,
-  );
+  let currentUrl = `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw${queryString ? `?${queryString}` : ''}`;
+  const startedAt = Date.now();
 
-  const contentType = response.headers.get('content-type') || '';
+  // Poll preparing responses the same way media archives do. Editors previously
+  // blocked on a synchronous multi-GB ZIP in this request and hit 499/502.
+  while (true) {
+    const response = await fetchApiDownload(currentUrl, headers, signal);
+    const contentType = response.headers.get('content-type') || '';
 
-  if (!response.ok) {
+    if (!response.ok && response.status !== 202) {
+      if (contentType.includes('application/json')) {
+        const errorData = await extractRawJsonResponse(response);
+        throw new Error(errorData.error || errorData.message || 'Download failed');
+      }
+
+      throw new Error('Download failed');
+    }
+
     if (contentType.includes('application/json')) {
-      const errorData = await extractRawJsonResponse(response);
-      throw new Error(errorData.error || errorData.message || 'Download failed');
+      const data = await extractRawJsonResponse(response);
+
+      if (data.type === 'redirect' && data.url) {
+        onDownloading?.();
+        const result = await downloadReadyAsset(data.url, buildRawDownloadFilename(shootId, null, address), signal);
+        emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
+        return {
+          ...result,
+          message: data.message,
+          fileCount: data.file_count,
+        };
+      }
+
+      if (data.type === 'preparing') {
+        const preparingState = {
+          message: data.message || 'Preparing your raw files.',
+          pollAfterMs: Math.max(1000, Math.min(10_000, Number(data.poll_after_ms) || 3000)),
+        };
+        onPreparing?.(preparingState);
+        currentUrl = validateApiDownloadUrl(data.status_url || currentUrl);
+        if (Date.now() - startedAt > 15 * 60_000) {
+          throw new Error('The archive is still preparing. Please try again shortly.');
+        }
+        await waitForArchive(preparingState.pollAfterMs, signal);
+        continue;
+      }
+
+      throw new Error(data.message || data.error || 'Download failed');
     }
 
-    throw new Error('Download failed');
+    if (/text\/html/i.test(contentType)) throw new Error('The ZIP could not be downloaded. Please try again.');
+    onDownloading?.();
+    const blob = await response.blob();
+    const filename = buildRawDownloadFilename(
+      shootId,
+      response.headers.get('content-disposition'),
+      address,
+    );
+    downloadBlob(blob, filename);
+    emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
+
+    return {
+      mode: 'blob',
+      filename,
+    };
   }
-
-  if (contentType.includes('application/json')) {
-    const data = await extractRawJsonResponse(response);
-
-    if (data.type === 'redirect' && data.url) {
-      onDownloading?.();
-      const result = await downloadReadyAsset(data.url, buildRawDownloadFilename(shootId, null, address));
-      emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
-      return {
-        ...result,
-        message: data.message,
-        fileCount: data.file_count,
-      };
-    }
-
-    throw new Error(data.message || 'Download failed');
-  }
-
-  if (/text\/html/i.test(contentType)) throw new Error('The ZIP could not be downloaded. Please try again.');
-  onDownloading?.();
-  const blob = await response.blob();
-  const filename = buildRawDownloadFilename(
-    shootId,
-    response.headers.get('content-disposition'),
-    address,
-  );
-  downloadBlob(blob, filename);
-  emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
-
-  return {
-    mode: 'blob',
-    filename,
-  };
 };
 
 export const downloadShootMediaFile = async ({

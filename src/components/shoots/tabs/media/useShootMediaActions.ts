@@ -613,19 +613,62 @@ export function useShootMediaActions({
         }),
       });
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 202) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to generate share link' }));
         throw new Error(errorData.error || 'Failed to generate share link');
       }
 
-      const data = await response.json();
+      let data = await response.json();
+
+      // Async ZIP builds return type=preparing; poll share-links until the package is ready.
+      if (data?.type === 'preparing' && data?.share_link_id) {
+        toast({
+          title: 'Preparing share link...',
+          description: data.message || 'Packaging files for sharing. This can take a minute for large shoots.',
+        });
+        const shareLinkId = String(data.share_link_id);
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 15 * 60_000) {
+          await new Promise((resolve) => window.setTimeout(resolve, Math.max(1000, Number(data.poll_after_ms) || 3000)));
+          const statusResponse = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/share-links`, {
+            headers: { ...getApiHeaders(), Accept: 'application/json' },
+          });
+          if (!statusResponse.ok) continue;
+          const statusPayload = await statusResponse.json().catch(() => null);
+          const list = Array.isArray(statusPayload)
+            ? statusPayload
+            : Array.isArray(statusPayload?.data)
+              ? statusPayload.data
+              : [];
+          const entry = list.find((item: { id?: string | number; is_ready?: boolean; share_url?: string }) =>
+            String(item?.id) === shareLinkId,
+          );
+          // Pending async rows report is_ready=false until the ZIP lands.
+          if (!entry || entry.is_ready === false) {
+            continue;
+          }
+          if (entry.share_url) {
+            data = {
+              ...data,
+              type: undefined,
+              share_link: entry.share_url,
+              share_link_entry: entry,
+            };
+            break;
+          }
+        }
+        if (data?.type === 'preparing') {
+          throw new Error('The share link is still preparing. Please try again shortly.');
+        }
+      }
+
       dispatchShootShareLinksUpdated(
         shoot.id,
         (data.share_link_entry as ShootShareLinkEntry | undefined) ?? null,
       );
 
       let copiedToClipboard = false;
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && document.hasFocus()) {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && document.hasFocus() && data.share_link) {
         try {
           await navigator.clipboard.writeText(data.share_link);
           copiedToClipboard = true;
