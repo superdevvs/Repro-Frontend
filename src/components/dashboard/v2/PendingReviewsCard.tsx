@@ -11,10 +11,11 @@ import { useRequestManager } from '@/context/RequestManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
-import { Check, X, MapPin, User } from 'lucide-react';
+import { Check, X, MapPin, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMedium } from '@/hooks/use-media-query';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule';
@@ -145,7 +146,9 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const [dismissedClientRequestIds, setDismissedClientRequestIds] = useState<Set<string>>(new Set());
   const [dismissingClientRequestId, setDismissingClientRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
+  const [mobileDrillIn, setMobileDrillIn] = useState(false);
   const [cancellationActionLoading, setCancellationActionLoading] = useState<string | null>(null);
+  const isDesktop = useIsMedium();
 
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
@@ -241,6 +244,19 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
 
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
   const isEmpty = totalRequests === 0;
+  const showMobileTypeList = !isDesktop && tabs.length > 1 && !mobileDrillIn;
+  const showDesktopTabs = isDesktop && tabs.length > 1;
+  const showContent = isDesktop || mobileDrillIn || tabs.length <= 1;
+  const activeTabMeta = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+
+  const selectMobileType = (id: RequestsTab) => {
+    setActiveTab(id);
+    setMobileDrillIn(true);
+  };
+
+  const tabAriaLabel = (tab: { label: string; count: number }) => (
+    tab.count > 0 ? `${tab.label} (${tab.count})` : tab.label
+  );
 
   return (
     <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1 sm:h-auto sm:flex-none")}>
@@ -249,13 +265,43 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           <h2 className="text-base font-bold text-foreground sm:text-lg">{title}</h2>
         </div>
 
-        {/* Tabs */}
-        {tabs.length > 1 && (
+        {/* Mobile: request-type list with counts (avoids wrapping horizontal subtabs) */}
+        {showMobileTypeList && (
+          <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => selectMobileType(tab.id)}
+                  aria-label={tabAriaLabel(tab)}
+                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5 text-left hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                >
+                  <span className="text-sm font-medium text-foreground">{tab.label}</span>
+                  <span className="flex items-center gap-1.5 flex-shrink-0">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] font-semibold tabular-nums px-1.5 py-0"
+                    >
+                      {tab.count}
+                    </Badge>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Desktop: horizontal tab strip (unchanged) */}
+        {showDesktopTabs && (
           <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 border-b border-border pb-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
+                aria-label={tabAriaLabel(tab)}
                 className={cn(
                   'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                   activeTab === tab.id
@@ -269,254 +315,279 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           </div>
         )}
 
-        {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
-
-        {activeTab === 'reschedule' && rescheduleRequests && (
-          <RescheduleRequestsPanel requests={rescheduleRequests} />
+        {/* Mobile drill-in header */}
+        {!isDesktop && mobileDrillIn && tabs.length > 1 && (
+          <div className="mb-2 flex flex-shrink-0 items-center gap-1 border-b border-border pb-2">
+            <button
+              type="button"
+              onClick={() => setMobileDrillIn(false)}
+              className="inline-flex items-center gap-0.5 rounded-md px-1 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Back to Requests"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              <span>Requests</span>
+            </button>
+            {activeTabMeta && (
+              <span className="ml-1 truncate text-xs font-semibold text-foreground">
+                {activeTabMeta.label}
+                {activeTabMeta.count > 0 ? ` (${activeTabMeta.count})` : ''}
+              </span>
+            )}
+          </div>
         )}
 
-        {/* Client Tab Content */}
-        {activeTab === 'client' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {displayClientRequests ? (
-              activeClientRequests.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground sm:pb-3">
-                  {clientRequestsLoading ? 'Loading requests...' : <EmptyState icon="requests" title={emptyRequestsText} size="compact" />}
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {activeClientRequests.slice(0, 7).map((request) => {
-                      const isResolved = isResolvedClientRequest(request.status);
-                      const requestId = String(request.id);
+        {showContent && (
+          <>
+            {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
 
-                      return (
-                      <button
-                        key={request.id}
-                        onClick={() => openModal(safeClientRequests, String(request.id))}
-                        className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
-                            {request.note}
-                          </p>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(severityFromStatus(request.status)))}>
-                              {request.status}
-                            </Badge>
-                            {isResolved && (
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                className="inline-flex h-6 items-center rounded-md border border-border/70 px-2 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  void handleDismissClientRequest(request);
-                                }}
-                                onKeyDown={(event) => {
-                                  if (event.key !== 'Enter' && event.key !== ' ') {
-                                    return;
-                                  }
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  void handleDismissClientRequest(request);
+            {activeTab === 'reschedule' && rescheduleRequests && (
+              <RescheduleRequestsPanel requests={rescheduleRequests} />
+            )}
+
+            {/* Client Tab Content */}
+            {activeTab === 'client' && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {displayClientRequests ? (
+                  activeClientRequests.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground sm:pb-3">
+                      {clientRequestsLoading ? 'Loading requests...' : <EmptyState icon="requests" title={emptyRequestsText} size="compact" />}
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                        {activeClientRequests.slice(0, 7).map((request) => {
+                          const isResolved = isResolvedClientRequest(request.status);
+                          const requestId = String(request.id);
+
+                          return (
+                          <button
+                            key={request.id}
+                            onClick={() => openModal(safeClientRequests, String(request.id))}
+                            className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
+                                {request.note}
+                              </p>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(severityFromStatus(request.status)))}>
+                                  {request.status}
+                                </Badge>
+                                {isResolved && (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="inline-flex h-6 items-center rounded-md border border-border/70 px-2 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      void handleDismissClientRequest(request);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key !== 'Enter' && event.key !== ' ') {
+                                        return;
+                                      }
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      void handleDismissClientRequest(request);
+                                    }}
+                                  >
+                                    {dismissingClientRequestId === requestId ? (
+                                      <Loader2 aria-hidden="true" className="h-3 w-3" />
+                                    ) : (
+                                      'Dismiss'
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {request.shoot?.client?.name && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                {request.shoot.client.name}
+                              </p>
+                            )}
+                          </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )
+                ) : visibleIssues.length === 0 ? (
+                  <EmptyState icon="clear" title={emptyRequestsText} size="compact" className="flex-1" />
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      {visibleIssues.slice(0, 7).map((issue) => (
+                        <button
+                          key={issue.id}
+                          onClick={() => onClientIssueClick?.(issue)}
+                          className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                          disabled={!onClientIssueClick}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
+                              {issue.message}
+                            </p>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(issue.severity))}>
+                                {issue.severity}
+                              </Badge>
+                            </div>
+                          </div>
+                          {issue.client && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {issue.client}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Special Editing Requests Tab Content */}
+            {activeTab === 'editing' && showEditingTab && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {editingRequestsLoading ? (
+                  <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground sm:pb-0">Loading...</div>
+                ) : activeEditingRequests.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center px-3 sm:pb-3">
+                    <EmptyState icon="clear" title={<>No active requests.</>} size="compact" />
+                    {onCreateEditingRequest && (
+                      <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
+                        {editingActionLabel}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col flex-1">
+                    <div className="overflow-y-auto flex-1 min-h-0 sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      <div className="space-y-1.5">
+                        {activeEditingRequests.slice(0, 7).map((request) => (
+                          <button
+                            key={request.id}
+                            onClick={() => onEditingRequestClick?.(request.id)}
+                            className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
+                                {request.summary || 'Untitled request'}
+                              </p>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', PRIORITY_STYLES[request.priority] || PRIORITY_STYLES.normal)}>
+                                  {request.priority || 'normal'}
+                                </Badge>
+                                <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', STATUS_STYLES[request.status] || STATUS_STYLES.open)}>
+                                  {STATUS_LABELS[request.status] || 'Open'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {onCreateEditingRequest && (
+                      <div className="pt-2 mt-auto">
+                        <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
+                          {editingActionLabel}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Cancellation Tab Content */}
+            {activeTab === 'cancellation' && showCancellationTab && (
+              <div className="flex-1 flex flex-col min-h-0">
+                {safeCancellationShoots.length === 0 ? (
+                  <EmptyState icon="clear" title={<>No pending cancellations.</>} size="compact" />
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      {safeCancellationShoots.slice(0, 7).map((shoot) => {
+                        const chargeActionKey = `${shoot.id}:charge`;
+                        const waiveActionKey = `${shoot.id}:waive`;
+                        const rejectActionKey = `${shoot.id}:reject`;
+                        const isActioning = cancellationActionLoading?.startsWith(`${shoot.id}:`) ?? false;
+                        return (
+                          <div
+                            key={shoot.id}
+                            className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-1.5"
+                          >
+                            <div className="flex items-start gap-2">
+                              <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                              <span className="text-xs font-medium text-foreground leading-tight line-clamp-1">
+                                {shoot.address || `Shoot #${shoot.id}`}
+                              </span>
+                            </div>
+                            {shoot.clientName && (
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <User className="h-2.5 w-2.5" strokeWidth={1.5} />
+                                {shoot.clientName}
+                              </div>
+                            )}
+                            {shoot.cancellationReason && (
+                              <p className="text-[10px] text-muted-foreground italic border-l-2 border-rose-300 dark:border-rose-700 pl-2 line-clamp-2">
+                                {shoot.cancellationReason}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                                disabled={isActioning}
+                                onClick={async () => {
+                                  if (!onApproveCancellation) return;
+                                  setCancellationActionLoading(chargeActionKey);
+                                  try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
                                 }}
                               >
-                                {dismissingClientRequestId === requestId ? (
-                                  <Loader2 aria-hidden="true" className="h-3 w-3" />
-                                ) : (
-                                  'Dismiss'
-                                )}
-                              </span>
-                            )}
+                                {cancellationActionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                                Charge $60
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 px-2 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
+                                disabled={isActioning}
+                                onClick={async () => {
+                                  if (!onApproveCancellation) return;
+                                  setCancellationActionLoading(waiveActionKey);
+                                  try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
+                                }}
+                              >
+                                {cancellationActionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                                Waive fee
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 px-2 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
+                                disabled={isActioning}
+                                onClick={async () => {
+                                  if (!onRejectCancellation) return;
+                                  setCancellationActionLoading(rejectActionKey);
+                                  try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
+                                }}
+                              >
+                                {cancellationActionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
+                                Reject
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        {request.shoot?.client?.name && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                            {request.shoot.client.name}
-                          </p>
-                        )}
-                      </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )
-            ) : visibleIssues.length === 0 ? (
-              <EmptyState icon="clear" title={emptyRequestsText} size="compact" className="flex-1" />
-            ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  {visibleIssues.slice(0, 7).map((issue) => (
-                    <button
-                      key={issue.id}
-                      onClick={() => onClientIssueClick?.(issue)}
-                      className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
-                      disabled={!onClientIssueClick}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
-                          {issue.message}
-                        </p>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(issue.severity))}>
-                            {issue.severity}
-                          </Badge>
-                        </div>
-                      </div>
-                      {issue.client && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                          {issue.client}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Special Editing Requests Tab Content */}
-        {activeTab === 'editing' && showEditingTab && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {editingRequestsLoading ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground sm:pb-0">Loading...</div>
-            ) : activeEditingRequests.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center px-3 sm:pb-3">
-                <EmptyState icon="clear" title={<>No active requests.</>} size="compact" />
-                {onCreateEditingRequest && (
-                  <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
-                    {editingActionLabel}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col flex-1">
-                <div className="overflow-y-auto flex-1 min-h-0 sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  <div className="space-y-1.5">
-                    {activeEditingRequests.slice(0, 7).map((request) => (
-                      <button
-                        key={request.id}
-                        onClick={() => onEditingRequestClick?.(request.id)}
-                        className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-foreground break-words flex-1 min-w-0 line-clamp-1">
-                            {request.summary || 'Untitled request'}
-                          </p>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', PRIORITY_STYLES[request.priority] || PRIORITY_STYLES.normal)}>
-                              {request.priority || 'normal'}
-                            </Badge>
-                            <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', STATUS_STYLES[request.status] || STATUS_STYLES.open)}>
-                              {STATUS_LABELS[request.status] || 'Open'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {onCreateEditingRequest && (
-                  <div className="pt-2 mt-auto">
-                    <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
-                      {editingActionLabel}
-                    </Button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Cancellation Tab Content */}
-        {activeTab === 'cancellation' && showCancellationTab && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {safeCancellationShoots.length === 0 ? (
-              <EmptyState icon="clear" title={<>No pending cancellations.</>} size="compact" />
-            ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  {safeCancellationShoots.slice(0, 7).map((shoot) => {
-                    const chargeActionKey = `${shoot.id}:charge`;
-                    const waiveActionKey = `${shoot.id}:waive`;
-                    const rejectActionKey = `${shoot.id}:reject`;
-                    const isActioning = cancellationActionLoading?.startsWith(`${shoot.id}:`) ?? false;
-                    return (
-                      <div
-                        key={shoot.id}
-                        className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-1.5"
-                      >
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                          <span className="text-xs font-medium text-foreground leading-tight line-clamp-1">
-                            {shoot.address || `Shoot #${shoot.id}`}
-                          </span>
-                        </div>
-                        {shoot.clientName && (
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <User className="h-2.5 w-2.5" strokeWidth={1.5} />
-                            {shoot.clientName}
-                          </div>
-                        )}
-                        {shoot.cancellationReason && (
-                          <p className="text-[10px] text-muted-foreground italic border-l-2 border-rose-300 dark:border-rose-700 pl-2 line-clamp-2">
-                            {shoot.cancellationReason}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1.5 pt-0.5">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-[10px] gap-1 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
-                            disabled={isActioning}
-                            onClick={async () => {
-                              if (!onApproveCancellation) return;
-                              setCancellationActionLoading(chargeActionKey);
-                              try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
-                            }}
-                          >
-                            {cancellationActionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
-                            Charge $60
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-[10px] gap-1 px-2 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
-                            disabled={isActioning}
-                            onClick={async () => {
-                              if (!onApproveCancellation) return;
-                              setCancellationActionLoading(waiveActionKey);
-                              try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
-                            }}
-                          >
-                            {cancellationActionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
-                            Waive fee
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-[10px] gap-1 px-2 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
-                            disabled={isActioning}
-                            onClick={async () => {
-                              if (!onRejectCancellation) return;
-                              setCancellationActionLoading(rejectActionKey);
-                              try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
-                            }}
-                          >
-                            {cancellationActionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          </>
         )}
 
       </div>
