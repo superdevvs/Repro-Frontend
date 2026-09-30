@@ -108,7 +108,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
   } = model;
   const isDownloadingCurrentFile = downloadingFileIds.has(String(currentFile.id));
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         className="!fixed !inset-0 !translate-x-0 !translate-y-0 max-w-none max-h-none w-screen h-screen overflow-hidden p-0 bg-black/95 backdrop-blur-md border-0 rounded-none [&>button:last-child]:hidden"
         style={{

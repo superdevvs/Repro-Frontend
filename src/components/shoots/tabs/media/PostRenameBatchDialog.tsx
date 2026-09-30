@@ -25,6 +25,7 @@ interface PostRenameBatchDialogProps {
 /**
  * Shown after a successful single filename rename. Offers applying the same
  * find→replace change to other selected files or every eligible file in view.
+ * Opens whenever `prompt` is set (plan may have empty id lists).
  * Portal z-index sits above the media lightbox (inline z-index 100).
  */
 export function PostRenameBatchDialog({
@@ -35,7 +36,10 @@ export function PostRenameBatchDialog({
   onApplyAll,
 }: PostRenameBatchDialogProps) {
   const [submitting, setSubmitting] = useState<'selected' | 'all' | null>(null);
-  const open = Boolean(prompt && plan);
+  // Open on prompt alone — do not require a non-null plan / non-empty ids.
+  const open = Boolean(prompt);
+  const canApplySelected = Boolean(plan?.selectedFileIds.length && plan.find);
+  const canApplyAll = Boolean(plan?.allFileIds.length && plan.find);
 
   const run = async (scope: 'selected' | 'all', action: () => Promise<void> | void) => {
     setSubmitting(scope);
@@ -63,11 +67,19 @@ export function PostRenameBatchDialog({
                 <p>
                   Saved{' '}
                   <span className="font-medium text-foreground">{prompt?.nextFilename}</span>
-                  . Apply the same change (
-                  <span className="font-mono text-foreground">{plan?.find}</span>
-                  {' → '}
-                  <span className="font-mono text-foreground">{plan?.replace || '(remove)'}</span>
-                  ) to other files in this view?
+                  {plan?.find ? (
+                    <>
+                      . Apply the same change (
+                      <span className="font-mono text-foreground">{plan.find}</span>
+                      {' → '}
+                      <span className="font-mono text-foreground">{plan.replace || '(remove)'}</span>
+                      ) to other files in this view?
+                    </>
+                  ) : (
+                    <>
+                      . No shared find→replace was derived for other files in this view.
+                    </>
+                  )}
                 </p>
               </div>
             </AlertDialogDescription>
@@ -75,7 +87,7 @@ export function PostRenameBatchDialog({
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <Button
               type="button"
-              disabled={!plan?.selectedFileIds.length || Boolean(submitting)}
+              disabled={!canApplySelected || Boolean(submitting)}
               onClick={() => { void run('selected', onApplySelected); }}
             >
               {submitting === 'selected'
@@ -85,7 +97,7 @@ export function PostRenameBatchDialog({
             <Button
               type="button"
               variant="secondary"
-              disabled={!plan?.allFileIds.length || Boolean(submitting)}
+              disabled={!canApplyAll || Boolean(submitting)}
               onClick={() => { void run('all', onApplyAll); }}
             >
               {submitting === 'all'

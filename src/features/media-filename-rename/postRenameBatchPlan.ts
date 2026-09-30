@@ -64,26 +64,22 @@ export const diffBasenameForBatchReplace = (
 };
 
 /**
- * After a successful single rename, always offer a batch follow-up when any other
- * file exists in the current selection or view. Eligibility is NOT gated on
- * siblings containing the derived find token — that made unique renames skip the
- * dialog entirely. Matching subsets are still tracked so apply can prefer files
- * that will actually change under replace mode.
+ * After a successful single rename, ALWAYS return a plan object so the follow-up
+ * dialog can open. Do not gate on selection count, sibling basename containing
+ * the find token, or a non-null basename diff — empty id arrays and empty
+ * find/replace are fine (apply buttons stay disabled; "Just this file" works).
  */
 export const buildPostRenameBatchPlan = (
   success: PostRenameSuccess,
   selectedFiles: MediaFile[],
   viewFiles: MediaFile[],
-): PostRenameBatchPlan | null => {
+): PostRenameBatchPlan => {
   const diff = diffBasenameForBatchReplace(
     getMediaFilenameBase(success.previousFilename),
     getMediaFilenameBase(success.nextFilename),
   );
-  if (!diff) {
-    return null;
-  }
-
-  const { find, replace } = diff;
+  const find = diff?.find ?? '';
+  const replace = diff?.replace ?? '';
   const renamedId = String(success.fileId);
 
   const otherIds = (files: MediaFile[]) =>
@@ -91,28 +87,20 @@ export const buildPostRenameBatchPlan = (
       .filter((file) => String(file.id) !== renamedId)
       .map((file) => String(file.id));
 
-  const matchingIds = (files: MediaFile[]) =>
-    files
+  const matchingIds = (files: MediaFile[]) => {
+    if (!find) return [] as string[];
+    return files
       .filter((file) => String(file.id) !== renamedId)
       .filter((file) => basenameOf(file).includes(find))
       .map((file) => String(file.id));
-
-  const selectedFileIds = otherIds(selectedFiles);
-  const allFileIds = otherIds(viewFiles);
-  const matchingSelectedFileIds = matchingIds(selectedFiles);
-  const matchingAllFileIds = matchingIds(viewFiles);
-
-  // Always prompt when at least one other file exists in selection or view.
-  if (selectedFileIds.length === 0 && allFileIds.length === 0) {
-    return null;
-  }
+  };
 
   return {
     find,
     replace,
-    selectedFileIds,
-    allFileIds,
-    matchingSelectedFileIds,
-    matchingAllFileIds,
+    selectedFileIds: otherIds(selectedFiles),
+    allFileIds: otherIds(viewFiles),
+    matchingSelectedFileIds: matchingIds(selectedFiles),
+    matchingAllFileIds: matchingIds(viewFiles),
   };
 };

@@ -53,24 +53,23 @@ export function usePostRenameBatchPrompt({
         result.ok === true
       ) {
         const success = result as PostRenameSuccess & { ok: true };
-        const nextPlan = buildPostRenameBatchPlan(success, selectedFiles, viewFiles);
-        if (nextPlan) {
-          setPrompt({
-            fileId: success.fileId,
-            previousFilename: success.previousFilename,
-            nextFilename: success.nextFilename,
-          });
-        }
+        // Always set prompt on ok:true — do not gate on plan / sibling counts.
+        // buildPostRenameBatchPlan always returns a plan object (possibly empty lists).
+        setPrompt({
+          fileId: success.fileId,
+          previousFilename: success.previousFilename,
+          nextFilename: success.nextFilename,
+        });
       }
       return result;
     },
-    [enabled, handleRenameFilename, selectedFiles, viewFiles],
+    [enabled, handleRenameFilename],
   );
 
   const clearPrompt = useCallback(() => setPrompt(null), []);
 
   const applySelected = useCallback(async () => {
-    if (!plan?.selectedFileIds.length) return;
+    if (!plan?.selectedFileIds.length || !plan.find) return;
     // Prefer files that contain the find token so replace actually changes names;
     // fall back to the full selected scope when none match (still honors the button).
     const fileIds =
@@ -86,7 +85,7 @@ export function usePostRenameBatchPrompt({
   }, [handleBatchRenameFilenames, plan]);
 
   const applyAll = useCallback(async () => {
-    if (!plan?.allFileIds.length) return;
+    if (!plan?.allFileIds.length || !plan.find) return;
     const fileIds =
       plan.matchingAllFileIds.length > 0
         ? plan.matchingAllFileIds
@@ -100,7 +99,8 @@ export function usePostRenameBatchPrompt({
   }, [handleBatchRenameFilenames, plan]);
 
   return {
-    prompt: plan ? prompt : null,
+    // Expose prompt whenever set — dialog opens on prompt alone.
+    prompt,
     plan,
     onRenameFilename,
     clearPrompt,

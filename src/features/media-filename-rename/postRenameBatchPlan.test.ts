@@ -32,14 +32,21 @@ describe('diffBasenameForBatchReplace', () => {
 });
 
 describe('buildPostRenameBatchPlan', () => {
-  it('returns null when basename did not change', () => {
+  it('returns empty find/replace (never null) when basename did not change', () => {
     expect(
       buildPostRenameBatchPlan(
         { fileId: '1', previousFilename: 'A.jpg', nextFilename: 'A.jpg' },
         [file('1', 'A.jpg'), file('2', 'A-2.jpg')],
         [file('1', 'A.jpg'), file('2', 'A-2.jpg')],
       ),
-    ).toBeNull();
+    ).toEqual({
+      find: '',
+      replace: '',
+      selectedFileIds: ['2'],
+      allFileIds: ['2'],
+      matchingSelectedFileIds: [],
+      matchingAllFileIds: [],
+    });
   });
 
   it('applies DSC→Kitchen across siblings and skips the renamed file', () => {
@@ -90,13 +97,20 @@ describe('buildPostRenameBatchPlan', () => {
     });
   });
 
-  it('returns null when the renamed file is alone in view and selection', () => {
+  it('always returns a plan when the renamed file is alone in view and selection', () => {
     expect(
       buildPostRenameBatchPlan(
         { fileId: '1', previousFilename: 'a.jpg', nextFilename: 'b.jpg' },
         [file('1', 'b.jpg')],
         [file('1', 'b.jpg')],
       ),
-    ).toBeNull();
+    ).toEqual({
+      find: 'a',
+      replace: 'b',
+      selectedFileIds: [],
+      allFileIds: [],
+      matchingSelectedFileIds: [],
+      matchingAllFileIds: [],
+    });
   });
 });
