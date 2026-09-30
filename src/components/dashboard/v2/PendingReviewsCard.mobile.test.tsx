@@ -8,10 +8,6 @@ import { PendingReviewsCard } from './PendingReviewsCard';
 
 vi.mock('@/context/RequestManagerContext', () => ({ useRequestManager: () => ({ openModal: vi.fn() }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
-vi.mock('@/hooks/use-media-query', () => ({
-  useIsMedium: () => false,
-  useMediaQuery: () => false,
-}));
 
 const holdRequests: HoldRequestsState = {
   shoots: [],
@@ -32,24 +28,28 @@ const rescheduleRequests: RescheduleRequestsState = {
   actioning: null,
 };
 
-describe('PendingReviewsCard mobile request-type list', () => {
+function renderCard() {
+  return render(
+    <PendingReviewsCard
+      reviews={[]}
+      issues={[]}
+      onSelect={vi.fn()}
+      showClientTab
+      showEditingTab
+      showCancellationTab
+      holdRequests={holdRequests}
+      rescheduleRequests={rescheduleRequests}
+    />,
+  );
+}
+
+describe('PendingReviewsCard request-type list (all breakpoints)', () => {
   afterEach(() => {
     cleanup();
   });
 
   it('lists request types with counts, drills in, and returns via back', () => {
-    render(
-      <PendingReviewsCard
-        reviews={[]}
-        issues={[]}
-        onSelect={vi.fn()}
-        showClientTab
-        showEditingTab
-        showCancellationTab
-        holdRequests={holdRequests}
-        rescheduleRequests={rescheduleRequests}
-      />,
-    );
+    renderCard();
 
     expect(screen.getByRole('button', { name: 'Client' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Editing' })).toBeInTheDocument();
@@ -67,5 +67,21 @@ describe('PendingReviewsCard mobile request-type list', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to Requests' }));
     expect(screen.getByRole('button', { name: 'Reschedule (2)' })).toBeInTheDocument();
     expect(screen.queryByText('No pending hold requests.')).not.toBeInTheDocument();
+  });
+
+  it('skips the type list when only one tab is available', () => {
+    render(
+      <PendingReviewsCard
+        reviews={[]}
+        issues={[]}
+        onSelect={vi.fn()}
+        showClientTab
+        clientRequests={[]}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Client' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to Requests' })).not.toBeInTheDocument();
+    expect(screen.getByText('No active requests.')).toBeInTheDocument();
   });
 });

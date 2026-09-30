@@ -15,7 +15,6 @@ import { Check, X, MapPin, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMedium } from '@/hooks/use-media-query';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule';
@@ -146,9 +145,8 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const [dismissedClientRequestIds, setDismissedClientRequestIds] = useState<Set<string>>(new Set());
   const [dismissingClientRequestId, setDismissingClientRequestId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
-  const [mobileDrillIn, setMobileDrillIn] = useState(false);
+  const [drillIn, setDrillIn] = useState(false);
   const [cancellationActionLoading, setCancellationActionLoading] = useState<string | null>(null);
-  const isDesktop = useIsMedium();
 
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
@@ -244,14 +242,15 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
 
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
   const isEmpty = totalRequests === 0;
-  const showMobileTypeList = !isDesktop && tabs.length > 1 && !mobileDrillIn;
-  const showDesktopTabs = isDesktop && tabs.length > 1;
-  const showContent = isDesktop || mobileDrillIn || tabs.length <= 1;
+  // All breakpoints: category list with counts → chevron drill-in → back
+  // (single-tab roles skip the list and show content directly).
+  const showTypeList = tabs.length > 1 && !drillIn;
+  const showContent = drillIn || tabs.length <= 1;
   const activeTabMeta = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
 
-  const selectMobileType = (id: RequestsTab) => {
+  const selectType = (id: RequestsTab) => {
     setActiveTab(id);
-    setMobileDrillIn(true);
+    setDrillIn(true);
   };
 
   const tabAriaLabel = (tab: { label: string; count: number }) => (
@@ -265,17 +264,17 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           <h2 className="text-base font-bold text-foreground sm:text-lg">{title}</h2>
         </div>
 
-        {/* Mobile: request-type list with counts (avoids wrapping horizontal subtabs) */}
-        {showMobileTypeList && (
+        {/* Category list with counts + chevron drill-in (all breakpoints) */}
+        {showTypeList && (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="space-y-1.5 md:space-y-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => selectMobileType(tab.id)}
+                  onClick={() => selectType(tab.id)}
                   aria-label={tabAriaLabel(tab)}
-                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5 text-left hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5 md:p-3 text-left hover:border-primary/40 hover:bg-muted/30 transition-colors"
                 >
                   <span className="text-sm font-medium text-foreground">{tab.label}</span>
                   <span className="flex items-center gap-1.5 flex-shrink-0">
@@ -293,34 +292,12 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           </div>
         )}
 
-        {/* Desktop: horizontal tab strip (unchanged) */}
-        {showDesktopTabs && (
-          <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 border-b border-border pb-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                aria-label={tabAriaLabel(tab)}
-                className={cn(
-                  'px-2 py-1 text-xs font-medium rounded-md transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {tab.label} {tab.count > 0 && <span className="ml-1 opacity-70">({tab.count})</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Mobile drill-in header */}
-        {!isDesktop && mobileDrillIn && tabs.length > 1 && (
+        {/* Drill-in header */}
+        {drillIn && tabs.length > 1 && (
           <div className="mb-2 flex flex-shrink-0 items-center gap-1 border-b border-border pb-2">
             <button
               type="button"
-              onClick={() => setMobileDrillIn(false)}
+              onClick={() => setDrillIn(false)}
               className="inline-flex items-center gap-0.5 rounded-md px-1 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Back to Requests"
             >

@@ -74,13 +74,15 @@ describe('role dashboard compact mobile tabs', () => {
     expect(shell).toContain('flex-1');
   });
 
-  it('PendingReviews mobile uses type list + drill-in instead of wrapping horizontal subtabs', () => {
+  it('PendingReviews uses type list + drill-in at all breakpoints (no desktop TabsList path)', () => {
     const pending = read('components/dashboard/v2/PendingReviewsCard.tsx');
-    expect(pending).toContain('useIsMedium');
-    expect(pending).toContain('showMobileTypeList');
+    expect(pending).toContain('showTypeList');
     expect(pending).toContain('Back to Requests');
-    expect(pending).toContain('selectMobileType');
+    expect(pending).toContain('selectType');
     expect(pending).toContain('ChevronLeft');
+    expect(pending).toContain('ChevronRight');
+    expect(pending).not.toContain('showDesktopTabs');
+    expect(pending).not.toContain('useIsMedium');
   });
 
   it('EM Ready card hides subtitle with title below sm; PendingReviews drops empty title row on mobile', () => {
