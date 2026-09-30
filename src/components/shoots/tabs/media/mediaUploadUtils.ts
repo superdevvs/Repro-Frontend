@@ -384,7 +384,11 @@ export function resolveUploadServiceTargets(
         if ((item.requires_editing ?? item.requiresEditing) === false) return false;
         if (String(shoot.editor?.id ?? shoot.editorId ?? '') === actorId) return true;
         const assignedId = item.editor_id ?? item.resolved_editor_id ?? item.editor?.id;
-        return Boolean(actorId) && String(assignedId ?? '') === actorId;
+        const videoAssignedId = item.video_editor_id ?? item.videoEditorId;
+        return Boolean(actorId) && (
+          String(assignedId ?? '') === actorId
+          || String(videoAssignedId ?? '') === actorId
+        );
       }
       return false;
     })

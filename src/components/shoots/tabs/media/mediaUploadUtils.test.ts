@@ -208,4 +208,20 @@ describe('service provenance', () => {
         { id: '2', label: 'Video' },
       ]);
   });
+
+  it('lets a video_editor_id assignee select the video service for edited upload', () => {
+    const bundled = {
+      editor: { id: 10 },
+      serviceItems: [
+        {
+          id: 1, shoot_service_id: 1, name: 'HDR Photos & Video', upload_intake_type: 'photo_video',
+          editor_id: 10, video_editor_id: 22, requires_editing: true,
+        },
+      ],
+    } as unknown as ShootData;
+    expect(resolveEligibleUploadServices(bundled, { id: 22, role: 'editor' }, 'edited'))
+      .toEqual([{ id: '1', label: 'HDR Photos & Video' }]);
+    expect(resolveEligibleUploadServices(bundled, { id: 99, role: 'editor' }, 'edited'))
+      .toEqual([]);
+  });
 });

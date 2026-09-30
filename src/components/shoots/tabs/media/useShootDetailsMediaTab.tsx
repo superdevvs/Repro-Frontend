@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 
 import { ShootData } from '@/types/shoots';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -153,7 +155,13 @@ export function useShootDetailsMediaTab({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { trackUpload, uploads } = useUpload();
-  // Default tab based on role: clients see edited, others see uploaded
+  const { user: authUser } = useAuth();
+  // Video-only editors (video_editor_id / editing_capabilities:video) stay on Edited + Video.
+  const isVideoOnlyEditor = useMemo(
+    () => isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
+    [authUser, role, shoot],
+  );
+  // Default tab: clients → edited; video-only editors → Raw Uploads (video lane); else uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';
   const shootFilesCacheKey = [
     shoot.payment?.paymentStatus ?? 'unknown',
@@ -172,8 +180,8 @@ export function useShootDetailsMediaTab({
   ].join(':');
   const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
   const [internalDisplayTab, setInternalDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
-  const [uploadedMediaTab, setUploadedMediaTab] = useState<MediaSubTab>('photos');
-  const [editedMediaTab, setEditedMediaTab] = useState<MediaSubTab>('photos');
+  const [uploadedMediaTab, setUploadedMediaTab] = useState<MediaSubTab>(isVideoOnlyEditor ? 'videos' : 'photos');
+  const [editedMediaTab, setEditedMediaTab] = useState<MediaSubTab>(isVideoOnlyEditor ? 'videos' : 'photos');
   const displayTab = controlledDisplayTab ?? internalDisplayTab;
   const setDisplayTab = useCallback(
     (nextTab: 'uploaded' | 'edited') => {
@@ -478,6 +486,13 @@ export function useShootDetailsMediaTab({
 
     setEditedMediaTab(availableIds[0]);
   }, [clientEditedMediaTabs, editedMediaTab, isClient]);
+
+  // Video-only editors: keep Raw Uploads + Edited, but always on the Video filter (never Photos).
+  useEffect(() => {
+    if (!isVideoOnlyEditor) return;
+    if (uploadedMediaTab === 'photos') setUploadedMediaTab('videos');
+    if (editedMediaTab === 'photos') setEditedMediaTab('videos');
+  }, [editedMediaTab, isVideoOnlyEditor, uploadedMediaTab]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
   const canAccessAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
@@ -1258,6 +1273,7 @@ export function useShootDetailsMediaTab({
         mediaViewMode={mediaViewMode}
         toggleMediaViewMode={toggleMediaViewMode}
         isEditor={isEditor}
+        isVideoOnlyEditor={isVideoOnlyEditor}
         sortOrder={sortOrder}
         isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}

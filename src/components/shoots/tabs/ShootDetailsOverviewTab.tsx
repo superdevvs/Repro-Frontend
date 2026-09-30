@@ -51,7 +51,7 @@ import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
 import { canViewOverviewVideoEmbeds, canWriteOverviewVideoEmbeds } from './overview/overviewVideoEmbeds';
-import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments';
+import { shootHasEditorAssignment, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
 import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
@@ -1049,6 +1049,8 @@ function ShootDetailsOverviewTabContent({
           shoot={shoot}
           isEditor={isEditor || role === 'editing_manager'}
           showShareText={role === 'editing_manager'}
+          isVideoOnlyEditor={isVideoOnlyEditorOnShoot(shoot, user)}
+          currentUserId={user?.id}
         />
       )}
 

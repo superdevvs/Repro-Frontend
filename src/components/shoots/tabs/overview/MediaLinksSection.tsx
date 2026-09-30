@@ -28,6 +28,9 @@ interface MediaLinksSectionProps {
   shoot: ShootData;
   isEditor: boolean;
   showShareText?: boolean;
+  /** When true, hide share links created by other (photo-editor) accounts. */
+  isVideoOnlyEditor?: boolean;
+  currentUserId?: string | number | null;
 }
 
 const normalizeShareLinksResponse = (payload: unknown): ShareLink[] => {
@@ -49,6 +52,8 @@ export function MediaLinksSection({
   shoot,
   isEditor,
   showShareText = false,
+  isVideoOnlyEditor = false,
+  currentUserId = null,
 }: MediaLinksSectionProps) {
   const [shareLinks, setShareLinks] = React.useState<ShareLink[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -195,8 +200,19 @@ export function MediaLinksSection({
     }
   };
 
-  const activeLinks = shareLinks.filter((link) => link.is_active);
-  const inactiveLinks = shareLinks.filter((link) => !link.is_active);
+  const visibleShareLinks = React.useMemo(() => {
+    if (!isVideoOnlyEditor) return shareLinks;
+    const selfId = currentUserId == null ? '' : String(currentUserId).trim();
+    // Video-only editors must not see share packages created by photo-editor accounts.
+    return shareLinks.filter((link) => {
+      const creatorId = link.created_by?.id;
+      if (creatorId == null) return false;
+      return selfId !== '' && String(creatorId) === selfId;
+    });
+  }, [currentUserId, isVideoOnlyEditor, shareLinks]);
+
+  const activeLinks = visibleShareLinks.filter((link) => link.is_active);
+  const inactiveLinks = visibleShareLinks.filter((link) => !link.is_active);
   const getStageLabel = (link: ShareLink) => {
     switch ((link.media_stage || 'raw').toLowerCase()) {
       case 'edited':
@@ -223,7 +239,7 @@ export function MediaLinksSection({
           <div className="flex items-center justify-center py-2">
             <Loader2 className="h-4 w-4 text-muted-foreground" />
           </div>
-        ) : shareLinks.length > 0 ? (
+        ) : visibleShareLinks.length > 0 ? (
           <div className="space-y-1.5 pt-1 border-t">
             <span className="text-muted-foreground block text-[10px] uppercase">
               Generated Share Links:
