@@ -137,28 +137,18 @@ export function OverviewPropertyLocationSection({
             <MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Location</span>
           </div>
-          <div className="shrink-0 flex flex-col items-end gap-0.5">
-            <div className="flex items-center gap-1.5">
-              {weatherIcon}
-              {hasWeatherDetails ? (
-                <div className="flex items-center gap-1.5">
-                  {formattedTemperature && <span className="text-xs font-medium">{formattedTemperature}</span>}
-                  {weatherDescription && (
-                    <span className="text-xs text-muted-foreground capitalize">{weatherDescription}</span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-xs text-muted-foreground">No data</span>
-              )}
-            </div>
-            {adoptedScheduleDisplay ? (
-              <div
-                className="text-[11px] text-muted-foreground text-right leading-tight"
-                data-testid="overview-location-schedule"
-              >
-                {adoptedScheduleDisplay}
+          <div className="shrink-0 flex items-center gap-1.5">
+            {weatherIcon}
+            {hasWeatherDetails ? (
+              <div className="flex items-center gap-1.5">
+                {formattedTemperature && <span className="text-xs font-medium">{formattedTemperature}</span>}
+                {weatherDescription && (
+                  <span className="text-xs text-muted-foreground capitalize">{weatherDescription}</span>
+                )}
               </div>
-            ) : null}
+            ) : (
+              <span className="text-xs text-muted-foreground">No data</span>
+            )}
           </div>
         </div>
             {isEditMode ? (
@@ -215,8 +205,18 @@ export function OverviewPropertyLocationSection({
             ) : (
               <div className="text-xs">
                 <div className="select-text cursor-text font-medium break-words" data-testid="overview-location-address">{getLocationAddress()}</div>
-                <div className="select-text cursor-text text-muted-foreground mt-0.5 break-words" data-testid="overview-location-locality">
-                  {[locationDetails.city, locationDetails.state, locationDetails.zip].filter(Boolean).join(', ') || 'Not set'}
+                <div className="mt-0.5 flex items-baseline justify-between gap-3">
+                  <div className="select-text cursor-text text-muted-foreground min-w-0 break-words" data-testid="overview-location-locality">
+                    {[locationDetails.city, locationDetails.state, locationDetails.zip].filter(Boolean).join(', ') || 'Not set'}
+                  </div>
+                  {adoptedScheduleDisplay ? (
+                    <div
+                      className="shrink-0 text-[11px] text-muted-foreground text-right leading-tight"
+                      data-testid="overview-location-schedule"
+                    >
+                      {adoptedScheduleDisplay}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}

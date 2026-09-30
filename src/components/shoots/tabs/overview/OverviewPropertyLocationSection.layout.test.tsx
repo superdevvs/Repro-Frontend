@@ -58,8 +58,12 @@ describe('OverviewPropertyLocationSection layout', () => {
     expect(screen.getByTestId('overview-location-address').tagName).not.toBe('BUTTON');
     expect(screen.getByTestId('overview-location-locality')).toHaveClass('select-text');
     const schedule = screen.getByTestId('overview-location-schedule');
+    const locality = screen.getByTestId('overview-location-locality');
     expect(schedule).toHaveTextContent('30 September 2026 · 3:10 PM');
     expect(locationCard).toContainElement(schedule);
+    // Schedule sits bottom-right on the same row as address line 2 (locality).
+    expect(schedule.parentElement).toBe(locality.parentElement);
+    expect(locality.compareDocumentPosition(schedule)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByText('9137 Lakeland Valley Court').compareDocumentPosition(selector))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(propertyAccess.compareDocumentPosition(locationLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
