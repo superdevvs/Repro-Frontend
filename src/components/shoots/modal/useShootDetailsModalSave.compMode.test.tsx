@@ -133,4 +133,35 @@ describe('useShootDetailsModalSave comp forwarding', () => {
     expect(JSON.stringify(payload.services)).not.toContain('photographer_id');
     expect(JSON.stringify(payload.service_items)).not.toContain('photographer_id');
   });
+
+  it('slims assigned sales_rep Overview Save to photographer/notify keys', async () => {
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
+      canNotifyClient: true, canNotifyPhotographer: true, isAdmin: false, isRep: true,
+    }));
+
+    await act(async () => {
+      await result.current.handleSaveChanges({
+        scheduledDate: '2026-09-01',
+        time: '10:00',
+        photographer: { id: 1163, name: 'Lee Gedansky' },
+        location: { address: '42 Service Lane', city: 'Baltimore', state: 'MD', zip: '21201', fullAddress: '42 Service Lane' },
+        client: { id: 9, name: 'Client', email: 'client@example.test', totalShoots: 1 },
+        propertyDetails: { sqft: 1200, presenceOption: 'self', source: 'echo' },
+        services: [{ id: 19, scheduled_at: null, photographer_id: 1163 }],
+        service_items: [{ service_id: 19, scheduled_at: null, photographer_id: 1163 }],
+        service_photographers: [{ service_id: 19, photographer_id: 1163 }],
+      } as never, { notifyClient: false, notifyPhotographer: true });
+    });
+
+    expect(submitShootServiceMutation).toHaveBeenCalledWith(expect.objectContaining({
+      payload: {
+        photographer_id: 1163,
+        service_photographers: [{ service_id: 19, photographer_id: 1163 }],
+        notify_client: false,
+        notify_photographer: true,
+      },
+    }));
+  });
 });

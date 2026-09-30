@@ -9,6 +9,7 @@ import {
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
+import { slimAssignedRepShootSavePayload } from '@/utils/assignedRepShootSavePayload';
 
 interface UseShootDetailsModalSaveParams {
   shoot: ShootData | null;
@@ -20,6 +21,9 @@ interface UseShootDetailsModalSaveParams {
   toast: ReturnType<typeof useToast>['toast'];
   canNotifyClient: boolean;
   canNotifyPhotographer: boolean;
+  /** When true with isRep, Overview Save is slimmed to AssignedRep editable keys. */
+  isAdmin?: boolean;
+  isRep?: boolean;
 }
 
 type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services'> & {
@@ -75,6 +79,8 @@ export function useShootDetailsModalSave({
   toast,
   canNotifyClient,
   canNotifyPhotographer,
+  isAdmin = false,
+  isRep = false,
 }: UseShootDetailsModalSaveParams) {
   const [isSavingChanges, setIsSavingChanges] = useState(false);
   const saveChangesInFlight = useRef(false);
@@ -441,8 +447,15 @@ export function useShootDetailsModalSave({
         }
       }
       
+      // Assigned sales_rep Overview drafts re-echo client/address/property/payment
+      // context. BE AssignedRepSchedulePayload / repEditableKeys reject many of
+      // those keys — slim to photographer/schedule/notify before PATCH.
+      const requestPayload = isRep && !isAdmin
+        ? slimAssignedRepShootSavePayload(payload, shoot)
+        : payload;
+
       // Don't send empty payloads
-      if (Object.keys(payload).length === 0) {
+      if (Object.keys(requestPayload).length === 0) {
         console.log('💾 No changes to save');
         toast({
           title: 'Info',
@@ -452,7 +465,7 @@ export function useShootDetailsModalSave({
         return;
       }
       
-      console.log('💾 Saving shoot updates:', payload);
+      console.log('💾 Saving shoot updates:', requestPayload);
       console.log('💾 API URL:', `${API_BASE_URL}/api/shoots/${shoot.id}`);
       console.log('💾 API_BASE_URL:', API_BASE_URL);
       console.log('💾 Shoot ID:', shoot.id);
@@ -467,7 +480,7 @@ export function useShootDetailsModalSave({
           const result = await submitShootServiceMutation({
             url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
             token,
-            payload,
+            payload: requestPayload,
             confirmationToken,
             signal: controller.signal,
           });

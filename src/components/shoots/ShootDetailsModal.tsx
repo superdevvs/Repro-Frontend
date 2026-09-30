@@ -531,6 +531,8 @@ export function ShootDetailsModal({
     toast,
     canNotifyClient,
     canNotifyPhotographer,
+    isAdmin,
+    isRep,
   });
 
   // Handle cancel edit
