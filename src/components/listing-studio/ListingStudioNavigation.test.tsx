@@ -1,6 +1,7 @@
 import React from 'react';
 import { cleanup, render, renderHook, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { SidebarLinks } from '@/components/layout/sidebar/SidebarLinks';
@@ -11,9 +12,21 @@ const auth = vi.hoisted(() => ({ role: 'client', user: { secondary_roles: [] as 
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => auth }));
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ isLoading: false, can: () => true, forResource: () => ({ canView: () => true }) }) }));
 vi.mock('@/hooks/useLinkedSharedVisibility', () => ({ useLinkedSharedVisibility: () => ({ data: { hasLinkedAccounts: false }, loading: false }) }));
-const wrapper = ({ children }: { children: React.ReactNode }) => <MemoryRouter initialEntries={['/portal?view=grid#saved']}>{children}</MemoryRouter>;
-beforeEach(() => { auth.role = 'client'; auth.user.secondary_roles = []; });
-afterEach(cleanup);
+let queryClient: QueryClient;
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <MemoryRouter initialEntries={['/portal?view=grid#saved']}>{children}</MemoryRouter>
+  </QueryClientProvider>
+);
+beforeEach(() => {
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  auth.role = 'client';
+  auth.user.secondary_roles = [];
+});
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 describe('Listing Studio navigation', () => {
   it.each(['client', 'salesRep', 'admin', 'superadmin'])('places the desktop entry immediately after Exclusive Listings for %s', role => {

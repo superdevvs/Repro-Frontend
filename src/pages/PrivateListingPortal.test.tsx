@@ -454,7 +454,7 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(primaryRow).toHaveClass('min-w-0', 'flex-col', 'sm:flex-row')
     expect(commandBar).toHaveClass('min-w-0', 'flex-col', 'sm:flex-row')
     expect(searchShell).toHaveClass('min-w-0', 'w-full', 'sm:flex-1')
-    expect(mapControls).toHaveClass('lg:right-[332px]', '2xl:right-[372px]')
+    expect(mapControls).toHaveClass('lg:right-[412px]', '2xl:right-[452px]')
     expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 

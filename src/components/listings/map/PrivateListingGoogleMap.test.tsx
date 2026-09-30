@@ -286,7 +286,7 @@ describe('PrivateListingGoogleMap', () => {
     expect(markerRecords[0].options).toEqual(expect.objectContaining({ visible: false, clickable: false }))
     expect((await screen.findByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' })).querySelector('img')).not.toBeNull()
     expect(fitBoundsCalls).toHaveLength(1)
-    expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 372, bottom: 64, left: 64 })
+    expect(fitBoundsCalls[0][1]).toEqual({ top: 80, right: 452, bottom: 64, left: 64 })
     expect(screen.queryByRole('region', { name: 'Selected listing 100 Congress Avenue' })).not.toBeInTheDocument()
     act(() => screen.getByRole('button', { name: 'Select 100 Congress Avenue, Austin, TX 78701' }).click())
 

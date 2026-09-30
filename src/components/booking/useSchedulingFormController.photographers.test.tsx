@@ -58,9 +58,9 @@ describe('per-service booking photographer availability', () => {
     await waitFor(() => expect(result.current.bookingEligibilityError).toMatch(/Could not check/));
     expect(result.current.canConfirmPhotographer).toBe(false);
   });
-  it('blocks confirmation after a failed eligibility check and allows a successful retry', async () => {
+  it('blocks confirmation after a network failure and allows a successful eligibility retry', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: false })
+      .mockRejectedValueOnce(new Error('Network request failed'))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }] }) });
     vi.stubGlobal('fetch', fetchMock);
     const eligibilityPropsStable = eligibilityProps();
