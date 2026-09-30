@@ -246,16 +246,23 @@ describe('ExclusiveListingsShowcase', () => {
     expect(screen.getByTestId('map')).toBe(map)
   })
 
-  it('keeps the selected property inspector in a browse sheet on compact phones', async () => {
+  it('opens a mobile bottom drawer for browse listings while desktop keeps the aside', async () => {
     render(<ControlledShowcase listings={[listingA, listingB]} />)
     await screen.findByTestId('pin-A')
-    expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('lg:top-4', 'lg:right-4')
-    expect(screen.getByRole('button', { name: 'Browse listings (2)' })).toBeInTheDocument()
+    const desktopInspector = screen.getByTestId('listing-inspector-overlay')
+    expect(desktopInspector).toHaveClass('lg:top-4', 'lg:right-4', 'hidden', 'lg:block', 'lg:w-[380px]', '2xl:w-[420px]')
+    expect(screen.queryByTestId('listing-browser-drawer')).not.toBeInTheDocument()
+    const browse = screen.getByRole('button', { name: 'Browse listings (2)' })
+    expect(browse).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close listings' })).not.toBeInTheDocument()
+    fireEvent.click(browse)
+    const drawer = await screen.findByTestId('listing-browser-drawer')
+    expect(drawer).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Browse listings' })).toBeInTheDocument()
+    expect(screen.getAllByText('Featured Listing').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Close listings' })).toBeInTheDocument()
+    // Desktop aside stays present (lg-only); mobile no longer uses the floating overlay stack.
     expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('hidden', 'lg:block')
-    fireEvent.click(screen.getByRole('button', { name: 'Browse listings (2)' }))
-    expect(screen.getByText('Featured Listing')).toBeInTheDocument()
-    expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('lg:w-[380px]', '2xl:w-[420px]')
-    expect(screen.getByTestId('listing-inspector-overlay')).not.toHaveClass('hidden')
   })
 
   it('fits the map to every displayed mapped location', async () => {

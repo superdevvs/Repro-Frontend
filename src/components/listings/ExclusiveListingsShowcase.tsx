@@ -15,6 +15,14 @@ import { AlertTriangle, ChevronLeft, ChevronRight, List, X } from 'lucide-react'
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button'
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTheme } from '@/hooks/useTheme'
 import {
@@ -537,19 +545,145 @@ export function ExclusiveListingsShowcase({
       ) : null}
 
       <Button
-        type="button" variant="secondary" size="sm"
+        type="button"
+        variant="secondary"
+        size="sm"
         className="absolute bottom-4 right-4 z-30 gap-2 shadow-lg lg:hidden"
-        aria-expanded={inspectorOpen} aria-controls="exclusive-listing-browser"
-        onClick={() => setInspectorOpen((open) => !open)}>
-        {inspectorOpen ? <X className="h-4 w-4" /> : <List className="h-4 w-4" />}
-        {inspectorOpen ? 'Close listings' : `Browse listings (${listings.length})`}
+        aria-expanded={inspectorOpen}
+        aria-controls="exclusive-listing-browser-mobile"
+        onClick={() => setInspectorOpen(true)}
+      >
+        <List className="h-4 w-4" />
+        {`Browse listings (${listings.length})`}
       </Button>
-      <aside id="exclusive-listing-browser"
-        className={`absolute inset-x-3 bottom-16 z-20 max-h-[38%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:max-h-none lg:w-[380px] 2xl:w-[420px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white ${
-          inspectorOpen || !hasListings || !hasMappedListings
-            ? ''
-            : 'hidden lg:block'
-        }`}
+
+      <Drawer
+        open={inspectorOpen}
+        onOpenChange={setInspectorOpen}
+        shouldScaleBackground={false}
+      >
+        <DrawerContent
+          id="exclusive-listing-browser-mobile"
+          className="max-h-[85dvh] lg:hidden"
+          data-testid="listing-browser-drawer"
+          data-map-overlay="inspector-mobile"
+        >
+          <DrawerHeader className="relative pb-2 text-left">
+            <DrawerTitle className="pr-10 text-base">Browse listings</DrawerTitle>
+            <DrawerDescription className="text-xs">
+              {mappedListingCount} mapped / {listings.length} total
+            </DrawerDescription>
+            <DrawerClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-3 top-3 h-8 w-8 text-muted-foreground"
+                aria-label="Close listings"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DrawerClose>
+          </DrawerHeader>
+          <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
+            <div className="space-y-4 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)]">
+              {!hasListings ? (
+                <SidebarEmptyState
+                  kind="no-listings"
+                  className="border-border/60 bg-muted/30 shadow-none"
+                />
+              ) : (
+                <>
+                  {selectedListing ? (
+                    <section className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-3 px-1">
+                        <h2 className="text-sm font-semibold text-foreground">Featured Listing</h2>
+                        {selectedLocationListings.length > 1 ? (
+                          <div className="flex items-center gap-1 rounded-lg border border-blue-500/20 bg-blue-500/10 p-1 text-blue-700 dark:text-blue-200">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Previous shoot at this location"
+                              className="h-7 w-7 hover:bg-blue-500/15"
+                              onClick={() => selectLocationOffset(-1)}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="min-w-[54px] text-center text-[10px] font-semibold">
+                              {selectedLocationIndex + 1} / {selectedLocationListings.length}
+                            </span>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Next shoot at this location"
+                              className="h-7 w-7 hover:bg-blue-500/15"
+                              onClick={() => selectLocationOffset(1)}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="rounded-md border border-blue-400/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-700 dark:text-blue-200">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <ExclusiveListingGridCard
+                        listing={selectedListing}
+                        selected
+                        density="map"
+                        onOpen={(listing) => {
+                          setInspectorOpen(false)
+                          onOpenListing(listing)
+                        }}
+                        className="shadow-none"
+                      />
+                    </section>
+                  ) : null}
+
+                  {!hasMappedListings ? (
+                    <SidebarEmptyState
+                      kind="no-mapped"
+                      className="border-border/60 bg-muted/30 shadow-none"
+                    />
+                  ) : null}
+
+                  <section className="space-y-2.5">
+                    <h2 className="px-1 text-xs font-semibold text-muted-foreground">
+                      All Private Listings ({otherListings.length})
+                    </h2>
+                    {otherListings.length > 0 ? (
+                      <div className="space-y-2">
+                        {otherListings.map((listing) => (
+                          <CompactListingRow
+                            key={listing.id}
+                            listing={listing}
+                            resolveImageUrl={resolveImageUrl}
+                            selected={selectedListingId === listing.id}
+                            bookmarked={bookmarkedIds.has(listing.id)}
+                            onSelect={handleSelectListing}
+                            onToggleBookmark={handleToggleBookmark}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-center text-xs text-muted-foreground">
+                        No other private listings in this view.
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+
+      <aside
+        id="exclusive-listing-browser"
+        className="absolute inset-x-3 bottom-16 z-20 hidden max-h-[38%] overflow-hidden rounded-2xl border border-slate-300/80 bg-white/84 text-slate-950 shadow-2xl backdrop-blur-2xl lg:top-4 lg:bottom-16 lg:left-auto lg:right-4 lg:block lg:max-h-none lg:w-[380px] 2xl:w-[420px] dark:border-white/15 dark:bg-slate-950/78 dark:text-white"
         data-testid="listing-inspector-overlay"
         data-map-overlay="inspector"
       >
@@ -616,11 +750,11 @@ export function ExclusiveListingsShowcase({
                 {!hasMappedListings ? (
                   <SidebarEmptyState
                     kind="no-mapped"
-                    className="hidden border-slate-200/80 bg-white/45 text-slate-950 shadow-none dark:border-white/10 dark:bg-slate-950/35 dark:text-white [&_.text-foreground]:text-slate-950 dark:[&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-600 dark:[&_.text-muted-foreground]:text-slate-300 lg:block"
+                    className="border-slate-200/80 bg-white/45 text-slate-950 shadow-none dark:border-white/10 dark:bg-slate-950/35 dark:text-white [&_.text-foreground]:text-slate-950 dark:[&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-600 dark:[&_.text-muted-foreground]:text-slate-300"
                   />
                 ) : null}
 
-                <section className="hidden space-y-2.5 lg:block">
+                <section className="space-y-2.5">
                   <h2 className="px-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
                     All Private Listings ({otherListings.length})
                   </h2>
