@@ -7,7 +7,8 @@ import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { ShootDetailsOverviewTab } from '../tabs/ShootDetailsOverviewTab';
-import { ShootUnitScopeProvider, ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
+import { ShootUnitScopeProvider } from '@/features/shoot-units/ShootUnitScope';
+import { ShootDetailsPanelUnitChrome } from '@/features/shoot-units/ShootDetailsPanelUnitChrome';
 import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
@@ -261,15 +262,6 @@ export function ShootDetailsModalBody({
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
-      {activeTab !== 'overview' && activeTab !== 'tours' && (
-        <div className="shrink-0 border-b bg-background px-2 py-1 sm:px-4">
-          <ShootUnitScopeBar
-            shoot={shoot}
-            variant="compact"
-            disabled={isEditMode || hasInflightUploads}
-          />
-        </div>
-      )}
       <div className={`flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
@@ -292,6 +284,12 @@ export function ShootDetailsModalBody({
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 pb-0 sm:px-4 sm:py-2.5">
+            {activeTab !== 'overview' && activeTab !== 'tours' && (
+              <ShootDetailsPanelUnitChrome
+                shoot={shoot}
+                disabled={isEditMode || hasInflightUploads}
+              />
+            )}
             <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsContent value="overview" className="mt-0">
                 <ShootDetailsOverviewTab
@@ -413,6 +411,10 @@ export function ShootDetailsModalBody({
 
         <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} sm:hidden flex-1 min-h-0 flex-col bg-background`}>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-2">
+            <ShootDetailsPanelUnitChrome
+              shoot={shoot}
+              disabled={isEditMode || hasInflightUploads}
+            />
             <ShootDetailsMediaTab
               shoot={shoot}
               isAdmin={isAdmin}

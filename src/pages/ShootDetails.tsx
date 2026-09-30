@@ -26,7 +26,8 @@ import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetails
 import { getShootDetailsPaymentBadge, getShootDetailsServiceNames, getShootDetailsWorkflowBadge } from '@/components/shoots/details/shootDetailsPresentation';
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
-import { ShootUnitScopeProvider, ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
+import { ShootUnitScopeProvider } from '@/features/shoot-units/ShootUnitScope';
+import { ShootDetailsPanelUnitChrome } from '@/features/shoot-units/ShootDetailsPanelUnitChrome';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
@@ -689,12 +690,6 @@ const ShootDetails: React.FC = () => {
           isGeneratingShareLink={isGeneratingShareLink}
         />
 
-          {activeTab !== 'tour' && (
-            <div className="shrink-0 border-b bg-background px-3 py-1 sm:px-6">
-              <ShootUnitScopeBar shoot={shoot} variant="compact" />
-            </div>
-          )}
-
           {/* Premium Summary Card */}
           <div className="px-3 sm:px-6 py-3 sm:py-4">
             <Card className="border-2 shadow-lg bg-gradient-to-br from-background via-background to-muted/20 hover:shadow-xl transition-shadow">
@@ -782,6 +777,9 @@ const ShootDetails: React.FC = () => {
               <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${activeTab === 'media' ? '' : 'h-auto'}`}>
                 <Tabs value={activeTab} onValueChange={handlePageTabChange} className={`flex flex-col min-h-0 ${activeTab === 'media' ? 'flex-1 h-full' : 'h-auto'}`}>
                   <TabsContent value="media" className="!mt-0 !p-0 bg-background flex-1 flex flex-col min-h-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, height: '100%' }}>
+                    <div className="shrink-0 px-4 pt-3 sm:px-6">
+                      <ShootDetailsPanelUnitChrome shoot={shoot} />
+                    </div>
                     <ShootDetailsMediaTab
                       shoot={shoot}
                       isAdmin={isAdmin}
@@ -798,6 +796,7 @@ const ShootDetails: React.FC = () => {
 
                   <TabsContent value="issues" className="mt-0 p-4 sm:p-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto">
+                      <ShootDetailsPanelUnitChrome shoot={shoot} />
                       <ShootDetailsIssuesTab
                         shoot={shoot}
                         isAdmin={isAdmin}
@@ -828,6 +827,7 @@ const ShootDetails: React.FC = () => {
 
                   <TabsContent value="slideshow" className="mt-0 p-4 sm:p-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto">
+                      <ShootDetailsPanelUnitChrome shoot={shoot} />
                       <ShootDetailsSlideshowTab
                         shoot={shoot}
                         isAdmin={isAdmin}
@@ -838,6 +838,7 @@ const ShootDetails: React.FC = () => {
 
                   <TabsContent value="settings" className="mt-0 p-4 sm:p-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto">
+                      <ShootDetailsPanelUnitChrome shoot={shoot} />
                       <ShootDetailsSettingsTab
                         shoot={shoot}
                         isAdmin={isAdmin}
@@ -850,6 +851,7 @@ const ShootDetails: React.FC = () => {
                   {(isAdmin || isRep) && (
                     <TabsContent value="activity" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto" style={{ marginTop: 0, paddingTop: 0, flex: '0 0 auto', height: 'auto' }}>
                       <div className="max-w-7xl mx-auto !pt-0 !mt-0" style={{ paddingTop: 0, marginTop: 0 }}>
+                        <ShootDetailsPanelUnitChrome shoot={shoot} />
                         <ShootDetailsActivityLogTab
                           shoot={shoot}
                           isAdmin={isAdmin}
@@ -861,6 +863,7 @@ const ShootDetails: React.FC = () => {
 
                   <TabsContent value="notes" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto pt-0">
+                      <ShootDetailsPanelUnitChrome shoot={shoot} />
                       <ShootDetailsNotesTab
                         shoot={shoot}
                         isAdmin={isAdmin}
