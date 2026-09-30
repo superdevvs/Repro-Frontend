@@ -25,7 +25,6 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CalendarIcon, ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import { format, isValid, parse } from 'date-fns';
 import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
@@ -37,7 +36,6 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { cn } from '@/lib/utils';
 import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
-import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft, resolveBookedPhotographerUnitPay } from '@/utils/servicePricing';
 import type { ServiceWithPricing } from '@/utils/servicePricing';
@@ -56,7 +54,6 @@ import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
-import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
 import { OverviewServicesTableSection } from './overview/OverviewServicesTableSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
@@ -87,35 +84,6 @@ const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
 const toSafeNumber = (value: unknown) => {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
-};
-
-const FLEXIBLE_DATE_FORMATS = [
-  'dd-MM-yyyy',
-  'MM-dd-yyyy',
-  'dd/MM/yyyy',
-  'MM/dd/yyyy',
-  'yyyy/MM/dd',
-  'yyyy.MM.dd',
-  'dd.MM.yyyy',
-];
-
-const parseFlexibleDate = (value?: string | null) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  const timestamp = Date.parse(trimmed);
-  if (!Number.isNaN(timestamp)) {
-    const parsed = new Date(timestamp);
-    if (isValid(parsed)) return parsed;
-  }
-  for (const fmt of FLEXIBLE_DATE_FORMATS) {
-    try {
-      const parsed = parse(trimmed, fmt, new Date());
-      if (isValid(parsed)) return parsed;
-    } catch {
-      continue;
-    }
-  }
-  return null;
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -625,31 +593,11 @@ function ShootDetailsOverviewTabContent({
     }
   };
 
-  // Helper to format date for HTML date input (YYYY-MM-DD)
-  const formatDateForInput = (dateString?: string | null) => {
-    if (!dateString) {
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-    try {
-      const parsed = parseFlexibleDate(dateString);
-      if (!parsed) return format(new Date(), 'yyyy-MM-dd');
-      return format(parsed, 'yyyy-MM-dd');
-    } catch {
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-  };
-
   const formatTime = (timeString?: string | null) => {
     if (!timeString) return 'Not set';
     // Use the user preference formatter
     return formatTimePreference(timeString);
   };
-
-  const scheduleLocalDate = useMemo(() => getShootLocalDate(shoot), [shoot]);
-  const scheduleDateDisplay = scheduleLocalDate
-    ? formatDatePreference(scheduleLocalDate)
-    : 'Date not assigned';
-  const scheduleTimeDisplay = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : null;
 
   const shootWeather = asRecord(shoot.weather);
   const rawTemperature = weather?.temperature ?? shootWeather.temperature ?? shootRecord.temperature ?? null;
@@ -671,15 +619,6 @@ function ShootDetailsOverviewTabContent({
     return `${rawTemperature}`;
   }, [weather, rawTemperature, formatTemperature]);
   const hasWeatherDetails = Boolean(formattedTemperature || weatherDescription);
-
-  // Read-only alternate (backup) schedule line for the overview. Populated only when
-  // the booking carried an alternate date; tolerates snake_case + camelCase aliases.
-  const alternateDateRaw =
-    shoot.alternate_scheduled_date || optionalString(shootRecord.alternateScheduledDate) || null;
-  const alternateTimeRaw = shoot.alternate_time || optionalString(shootRecord.alternateTime) || null;
-  const alternateScheduleDisplay = alternateDateRaw
-    ? `${formatDate(alternateDateRaw)}${alternateTimeRaw ? ` · ${formatTime(alternateTimeRaw)}` : ''}`
-    : null;
 
   const getLocationAddress = () => getShootStreetAddress(shoot) || 'Not set';
 
@@ -942,19 +881,6 @@ function ShootDetailsOverviewTabContent({
             />
           ) : undefined
         }
-      />
-      <OverviewScheduleWeatherSection
-        isEditMode={isEditMode}
-        editedShoot={editedShoot}
-        shoot={shoot}
-        scheduleDateDisplay={scheduleDateDisplay}
-        scheduleTimeDisplay={scheduleTimeDisplay}
-        hasWeatherDetails={hasWeatherDetails}
-        formattedTemperature={formattedTemperature}
-        weatherDescription={weatherDescription}
-        weatherIcon={renderWeatherIcon(weatherIcon)}
-        alternateScheduleDisplay={alternateScheduleDisplay}
-        updateField={updateField}
       />
       <OverviewServicesTableSection
         isEditMode={isEditMode}
