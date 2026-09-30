@@ -756,15 +756,17 @@ export function PrivateListingGoogleMap({
   }, [])
 
   return (
+    // The mobile workspace is a flex item (flex-basis 0). Percentage heights
+    // on its children resolve to 0, so the map must be absolutely inset.
     <div
       ref={canvasRef}
-      className={cn('relative h-full w-full bg-background', className)}
+      className={cn('absolute inset-0 bg-background', className)}
       data-map-provider="google"
       aria-busy={!isReady}
     >
       <div
         ref={mapElementRef}
-        className="h-full w-full"
+        className="absolute inset-0"
         role="region"
         aria-label={`Private listings map with ${markerGroups.length} mapped ${markerGroups.length === 1 ? 'location' : 'locations'}`}
       />

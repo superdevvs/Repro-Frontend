@@ -253,7 +253,7 @@ const LazyListingMapCanvas = lazy(() =>
       }, [])
 
       return (
-        <div ref={canvasRef} className="relative h-full w-full bg-background">
+        <div ref={canvasRef} className="absolute inset-0 bg-background">
           <Map
             ref={mapRef}
             center={center}
@@ -311,7 +311,7 @@ const LazyListingMapCanvas = lazy(() =>
 )
 
 const MapLoadingFallback = () => (
-  <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-background">
+  <div className="absolute inset-0 flex items-center justify-center bg-background">
     <div className="text-center text-muted-foreground">
       <Loader2 className="mx-auto mb-2 h-6 w-6" />
       <p className="text-sm">Loading map...</p>

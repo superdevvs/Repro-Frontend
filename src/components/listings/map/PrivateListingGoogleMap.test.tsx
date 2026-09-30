@@ -214,6 +214,14 @@ afterEach(() => {
 })
 
 describe('PrivateListingGoogleMap', () => {
+  it('fills the map workspace instead of using a percentage height', async () => {
+    renderMap([listing('listing-1', 30.2672, -97.7431)], 'listing-1')
+    const region = await screen.findByRole('region', { name: /Private listings map/ })
+    expect(region).toHaveClass('absolute', 'inset-0')
+    expect(region.parentElement).toHaveClass('absolute', 'inset-0')
+    expect(region.parentElement).not.toHaveClass('h-full')
+  })
+
   it('toggles compact photos and previews from map actions without reconstructing the map', async () => {
     const listings = [listing('listing-1', 30.2672, -97.7431)]
     function ToggleableMap() {
