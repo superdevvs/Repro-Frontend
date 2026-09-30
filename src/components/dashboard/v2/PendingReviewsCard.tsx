@@ -231,7 +231,12 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   }
 
   if (rescheduleRequests) {
-    tabs.push({ id: 'reschedule', label: 'Reschedule', count: rescheduleRequests.requests.length });
+    tabs.push({
+      id: 'reschedule',
+      label: 'Reschedule',
+      // Badge/tab count is pending-only so rejected/approved history does not inflate Indicators.
+      count: rescheduleRequests.pendingCount,
+    });
   }
 
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);

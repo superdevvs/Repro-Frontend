@@ -5,6 +5,10 @@ import { getAuthToken } from '@/utils/authToken';
 import { useToast } from '@/hooks/use-toast';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import { registerDashboardOverviewRefresh } from '@/realtime/realtimeRefreshBus';
+import {
+  normalizeRescheduleStatus,
+  type RescheduleRequestStatus,
+} from '@/utils/rescheduleRequests';
 
 export interface RescheduleRequestItem {
   id: number;
@@ -17,6 +21,10 @@ export interface RescheduleRequestItem {
   requestedTime?: string | null;
   reason?: string | null;
   requesterName?: string;
+  status: RescheduleRequestStatus;
+  reviewNotes?: string | null;
+  reviewedAt?: string | null;
+  approverName?: string;
 }
 
 type RescheduleRequestResponse = {
@@ -37,7 +45,12 @@ type RescheduleRequestResponse = {
   requestedDate?: string | null;
   requestedTime?: string | null;
   reason?: string | null;
+  review_notes?: string | null;
+  reviewNotes?: string | null;
+  reviewed_at?: string | null;
+  reviewedAt?: string | null;
   requester?: { id?: number | string; name?: string } | null;
+  approver?: { id?: number | string; name?: string } | null;
   shoot?: {
     id?: string | number;
     address?: string;
@@ -77,6 +90,11 @@ const mapItem = (item: RescheduleRequestResponse): RescheduleRequestItem => {
     requestedTime: item.requested_time ?? item.requestedTime,
     reason: item.reason,
     requesterName: item.requester?.name,
+    // Missing status (legacy pending-only payloads) normalizes to pending.
+    status: normalizeRescheduleStatus(item.status),
+    reviewNotes: item.review_notes ?? item.reviewNotes ?? null,
+    reviewedAt: item.reviewed_at ?? item.reviewedAt ?? null,
+    approverName: item.approver?.name,
   };
 };
 
@@ -130,8 +148,12 @@ export function useRescheduleRequests(enabled: boolean, viewerScope: string) {
       return response.json().catch(() => ({}));
     },
     onSuccess: (json, { id, decision, shootId }) => {
+      // Keep the row as recent history (approved/rejected) when the endpoint
+      // returns mixed payloads; pending-only backends still drop it on refetch.
       queryClient.setQueryData<RescheduleRequestItem[]>(queryKey, (items) =>
-        items?.filter((item) => item.id !== id),
+        items?.map((item) =>
+          item.id === id ? { ...item, status: decision } : item,
+        ),
       );
       void queryClient.invalidateQueries({ queryKey: ['pendingRescheduleRequests'] });
       if (decision === 'approved' && shootId != null) {
@@ -150,8 +172,14 @@ export function useRescheduleRequests(enabled: boolean, viewerScope: string) {
       }),
   });
 
+  const requests = enabled ? query.data ?? [] : [];
+  const pendingCount = requests.filter(
+    (item) => normalizeRescheduleStatus(item.status) === 'pending',
+  ).length;
+
   return {
-    requests: enabled ? query.data ?? [] : [],
+    requests,
+    pendingCount,
     loading: enabled && query.isLoading,
     error: enabled && query.error ? query.error.message : null,
     refresh: () => {

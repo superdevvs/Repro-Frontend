@@ -1,15 +1,27 @@
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useAuth } from '@/components/auth/AuthProvider';
 import type { RescheduleRequestsState } from '@/features/dashboard/hooks/useRescheduleRequests';
-import { canReviewRescheduleRequests } from '@/utils/rescheduleRequests';
+import {
+  canReviewRescheduleRequests,
+  describeRescheduleStatus,
+  normalizeRescheduleStatus,
+} from '@/utils/rescheduleRequests';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 
 const formatDate = (value?: string | null) => {
   if (!value) return '—';
   const parsed = parseLocalYmd(value);
   if (Number.isNaN(parsed.getTime())) return '—';
+  return format(parsed, 'MMM d, yyyy');
+};
+
+const formatReviewedAt = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
   return format(parsed, 'MMM d, yyyy');
 };
 
@@ -40,60 +52,90 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
     );
   }
   if (!requests.requests.length) {
-    return <EmptyState icon="clear" title="No pending reschedule requests." size="compact" />;
+    return <EmptyState icon="clear" title="No reschedule requests." size="compact" />;
   }
 
   return (
     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto" data-testid="dashboard-reschedule-requests-panel">
-      {requests.requests.map((request) => (
-        <div
-          key={request.id}
-          className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
-          data-testid={`reschedule-request-${request.id}`}
-        >
-          <p className="select-text cursor-text break-words text-xs font-medium">{request.address}</p>
-          {request.clientName && (
-            <p className="text-xs text-muted-foreground">{request.clientName}</p>
-          )}
-          <p className="break-words text-xs font-medium">
-            {formatChange(
-              request.originalDate,
-              request.originalTime,
-              request.requestedDate,
-              request.requestedTime,
-            )}
-          </p>
-          {request.reason && (
-            <p className="break-words whitespace-pre-wrap text-xs text-muted-foreground">
-              {request.reason}
-            </p>
-          )}
-          {request.requesterName && (
-            <p className="text-xs text-muted-foreground">
-              Requested by {request.requesterName}
-            </p>
-          )}
-          {canReview && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={requests.actioning !== null}
-                onClick={() => requests.decide(request.id, 'approved', request.shootId)}
+      {requests.requests.map((request) => {
+        const status = normalizeRescheduleStatus(request.status);
+        const presentation = describeRescheduleStatus(status);
+        const isPending = status === 'pending';
+        const reviewedLabel = formatReviewedAt(request.reviewedAt);
+
+        return (
+          <div
+            key={request.id}
+            className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+            data-testid={`reschedule-request-${request.id}`}
+            data-status={status}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="select-text cursor-text break-words text-xs font-medium">{request.address}</p>
+              <Badge
+                className={`shrink-0 text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0 ${presentation.className}`}
               >
-                Approve reschedule
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={requests.actioning !== null}
-                onClick={() => requests.decide(request.id, 'rejected', request.shootId)}
-              >
-                Reject reschedule
-              </Button>
+                {presentation.label}
+              </Badge>
             </div>
-          )}
-        </div>
-      ))}
+            {request.clientName && (
+              <p className="text-xs text-muted-foreground">{request.clientName}</p>
+            )}
+            <p className="break-words text-xs font-medium">
+              {formatChange(
+                request.originalDate,
+                request.originalTime,
+                request.requestedDate,
+                request.requestedTime,
+              )}
+            </p>
+            {request.reason && (
+              <p className="break-words whitespace-pre-wrap text-xs text-muted-foreground">
+                {request.reason}
+              </p>
+            )}
+            {request.requesterName && (
+              <p className="text-xs text-muted-foreground">
+                Requested by {request.requesterName}
+              </p>
+            )}
+            {!isPending && (request.approverName || reviewedLabel || request.reviewNotes) && (
+              <div className="rounded-md bg-muted/40 p-2 space-y-1">
+                {(request.approverName || reviewedLabel) && (
+                  <p className="text-xs text-muted-foreground">
+                    {request.approverName ?? 'Reviewer'}
+                    {reviewedLabel ? ` · ${reviewedLabel}` : ''}
+                  </p>
+                )}
+                {request.reviewNotes && (
+                  <p className="break-words whitespace-pre-wrap text-xs text-muted-foreground">
+                    {request.reviewNotes}
+                  </p>
+                )}
+              </div>
+            )}
+            {isPending && canReview && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={requests.actioning !== null}
+                  onClick={() => requests.decide(request.id, 'approved', request.shootId)}
+                >
+                  Approve reschedule
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={requests.actioning !== null}
+                  onClick={() => requests.decide(request.id, 'rejected', request.shootId)}
+                >
+                  Reject reschedule
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

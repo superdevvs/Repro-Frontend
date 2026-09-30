@@ -255,7 +255,7 @@ export const SalesDashboardView = ({
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
         collapsibleColumns
-        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.requests.length ?? 0)}
+        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0)}
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"

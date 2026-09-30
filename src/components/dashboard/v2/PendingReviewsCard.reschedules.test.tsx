@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +25,23 @@ const request = {
   requester: { id: 3, name: 'Test Client' },
   location: { fullAddress: '108 Example Street' },
   client: { name: 'Client' },
+};
+
+const rejectedHistory = {
+  id: 12,
+  shoot_id: 112,
+  status: 'rejected',
+  original_date: '2026-09-01',
+  original_time: '09:00 AM',
+  requested_date: '2026-09-15',
+  requested_time: '11:00 AM',
+  reason: 'Conflict with open house.',
+  review_notes: 'Photographer unavailable that day.',
+  reviewed_at: '2026-09-20T15:00:00Z',
+  requester: { id: 4, name: 'History Client' },
+  approver: { id: 1, name: 'AJ Admin' },
+  location: { fullAddress: '112 History Lane' },
+  client: { name: 'History Client' },
 };
 
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response;
@@ -81,6 +98,7 @@ describe('reschedule request dashboard queue', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
       expect(screen.getByText('108 Example Street')).toBeInTheDocument();
       expect(screen.getByText('108 Example Street')).toHaveClass('select-text');
+      expect(screen.getByText('Pending review')).toBeInTheDocument();
       expect(screen.getByText(/Sep 10, 2026 10:00 AM → Sep 24, 2026 02:30 PM/)).toBeInTheDocument();
       expect(screen.getByText('Sellers need another week.')).toBeInTheDocument();
       expect(screen.getByText('Requested by Test Client')).toBeInTheDocument();
@@ -89,7 +107,7 @@ describe('reschedule request dashboard queue', () => {
           name: decision === 'approved' ? 'Approve reschedule' : 'Reject reschedule',
         }),
       );
-      await screen.findByText('No pending reschedule requests.');
+      await screen.findByText('No reschedule requests.');
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/shoots/reschedule-requests/11'),
         expect.objectContaining({
@@ -100,6 +118,44 @@ describe('reschedule request dashboard queue', () => {
       client.clear();
     },
   );
+
+  it('lists pending plus history, badges status, and keeps tab count pending-only', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response({ data: [request, rejectedHistory] })),
+    );
+    const client = mount();
+    // Pending-only badge: 1 pending + 1 rejected history => (1), not (2).
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    expect(screen.getByText('108 Example Street')).toBeInTheDocument();
+    expect(screen.getByText('112 History Lane')).toBeInTheDocument();
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Photographer unavailable that day.')).toBeInTheDocument();
+    expect(screen.getByText(/AJ Admin/)).toBeInTheDocument();
+
+    const pendingCard = screen.getByTestId('reschedule-request-11');
+    const historyCard = screen.getByTestId('reschedule-request-12');
+    expect(pendingCard).toHaveAttribute('data-status', 'pending');
+    expect(historyCard).toHaveAttribute('data-status', 'rejected');
+    expect(within(pendingCard).getByRole('button', { name: 'Approve reschedule' })).toBeInTheDocument();
+    expect(within(historyCard).queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
+    expect(within(historyCard).queryByRole('button', { name: 'Reject reschedule' })).not.toBeInTheDocument();
+    client.clear();
+  });
+
+  it('tolerates pending-only payloads that omit status', async () => {
+    const { status: _omit, ...legacy } = request;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response({ data: [legacy] })),
+    );
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    expect(screen.getByTestId('reschedule-request-11')).toHaveAttribute('data-status', 'pending');
+    expect(screen.getByRole('button', { name: 'Approve reschedule' })).toBeInTheDocument();
+    client.clear();
+  });
 
   it('shows retry when the pending-reschedules endpoint fails', async () => {
     vi.stubGlobal(
@@ -124,7 +180,7 @@ describe('reschedule request dashboard queue', () => {
     );
     const client = mount();
     fireEvent.click(screen.getByRole('button', { name: 'Reschedule' }));
-    await screen.findByText('No pending reschedule requests.');
+    await screen.findByText('No reschedule requests.');
     pending = true;
     act(() => triggerDashboardOverviewRefresh());
     await screen.findByText('108 Example Street');

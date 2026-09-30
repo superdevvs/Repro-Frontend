@@ -479,7 +479,7 @@ const Dashboard = () => {
 
   const adminMetricTiles = useAdminDashboardMetrics({
     holdRequestCount: holdRequests.shoots.length,
-    rescheduleRequestCount: rescheduleRequests.requests.length,
+    rescheduleRequestCount: rescheduleRequests.pendingCount,
     allSummaries,
     cancellationRequestCount,
     clientRequests,
@@ -550,12 +550,12 @@ const Dashboard = () => {
   const editingManagerRequestCount =
     editingRequests.filter((request) => request.status !== 'completed').length +
     holdRequests.shoots.length +
-    rescheduleRequests.requests.length +
+    rescheduleRequests.pendingCount +
     (Array.isArray(data?.pendingReviews) ? data.pendingReviews.length : 0);
   const adminRequestIndicatorCount =
     clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
     editingRequests.filter((request) => request.status !== 'completed').length +
-    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.requests.length;
+    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount;
 
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
