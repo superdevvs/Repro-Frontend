@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, AlertTriangle } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 /**
  * Account type (role) options that an admin may convert a user to. These mirror the
@@ -38,9 +39,13 @@ const ACCOUNT_TYPES: { value: Role; label: string }[] = [
   { value: "client", label: "Client" },
 ];
 
-export function roleLabel(role?: Role | string | null): string {
+export function roleLabel(role?: Role | string | null, user?: Parameters<typeof formatUserRoleLabel>[1]): string {
   if (!role) return "Unknown";
-  return ACCOUNT_TYPES.find((t) => t.value === role)?.label ?? String(role);
+  // Prefer capability-aware labels for editors; fall back to static ACCOUNT_TYPES.
+  if (String(role).toLowerCase() === "editor") {
+    return formatUserRoleLabel(role, user);
+  }
+  return ACCOUNT_TYPES.find((t) => t.value === role)?.label ?? formatUserRoleLabel(role, user);
 }
 
 interface ConvertTypeResponse {
@@ -181,7 +186,7 @@ export function AccountTypeConverter({
             <div className="space-y-2">
               <Label>Current account type</Label>
               <div>
-                <Badge variant="outline">{roleLabel(currentType)}</Badge>
+                <Badge variant="outline">{roleLabel(currentType, user)}</Badge>
               </div>
             </div>
 
@@ -224,7 +229,7 @@ export function AccountTypeConverter({
               updated immediately.
             </p>
             <div className="flex items-center justify-center gap-3 rounded-md border p-4">
-              <Badge variant="outline">{roleLabel(currentType)}</Badge>
+              <Badge variant="outline">{roleLabel(currentType, user)}</Badge>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
               <Badge variant="outline">{roleLabel(targetType as Role)}</Badge>
             </div>

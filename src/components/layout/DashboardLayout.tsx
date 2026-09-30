@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
 import { canUseListingStudio, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
 
@@ -120,7 +121,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm font-medium">
                 <AlertCircle className="h-4 w-4" />
-                <span>Viewing as <strong>{user.name || user.email}</strong></span>
+                <span>Viewing as <strong>{user.name || user.email}</strong> ({formatUserRoleLabel(user.role, user)})</span>
               </div>
               <Button 
                 size="sm" 

@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -182,8 +183,8 @@ export function DeletedAccountsPanel() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{a.name || 'Unnamed account'}</span>
                     {a.role && (
-                      <Badge variant="secondary" className="capitalize">
-                        {a.role}
+                      <Badge variant="secondary">
+                        {formatUserRoleLabel(a.role, a as any)}
                       </Badge>
                     )}
                   </div>

@@ -19,6 +19,7 @@ import { canResendUserVerification } from "@/utils/emailHealth";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 import type { AccountSort, AccountSortKey } from './accountSorting';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 interface AccountListProps {
   users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
@@ -76,12 +77,6 @@ export function AccountList({
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-800";
     }
   };
-
-  const formatRoleLabel = (value: string) =>
-    value
-      .replace(/_/g, ' ')
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/^./, (char) => char.toUpperCase());
 
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
@@ -177,7 +172,7 @@ export function AccountList({
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} border`}>
-                    {formatRoleLabel(user.role)}
+                    {formatUserRoleLabel(user.role, user)}
                   </Badge>
                   {secondaryRoleList.map((role: Role) => (
                     <Badge
@@ -185,7 +180,7 @@ export function AccountList({
                       variant="outline"
                       className={`${getRoleBadgeColor(role)} border text-xs px-2 py-0.5 opacity-80`}
                     >
-                      {formatRoleLabel(role)}
+                      {formatUserRoleLabel(role)}
                     </Badge>
                   ))}
                 </div>

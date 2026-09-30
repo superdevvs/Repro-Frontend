@@ -30,6 +30,7 @@ import { canResendUserVerification } from "@/utils/emailHealth";
 import { photographerAddressVisibility } from "@/utils/photographerAddressVisibility";
 import type { ResendVerificationResult } from "@/hooks/useResendVerificationEmail";
 import { apiClient } from "@/services/api";
+import { formatUserRoleLabel } from "@/utils/userRoleLabels";
 
 interface UserActivity {
   id: string;
@@ -90,11 +91,17 @@ export function UserProfileDialog({
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
+  const [detailCapsUser, setDetailCapsUser] = useState<{
+    metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null;
+    editing_capabilities?: unknown;
+    editingCapabilities?: unknown;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !user?.id) {
       setActivities([]);
       setActivityError(null);
+      setDetailCapsUser(null);
       return;
     }
 
@@ -103,13 +110,24 @@ export function UserProfileDialog({
     setActivityError(null);
 
     void apiClient
-      .get<{ user: { activityLog?: UserActivity[] } }>(`/admin/users/${encodeURIComponent(String(user.id))}`, {
+      .get<{ user: {
+        activityLog?: UserActivity[];
+        metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null;
+        editing_capabilities?: unknown;
+        editingCapabilities?: unknown;
+      } }>(`/admin/users/${encodeURIComponent(String(user.id))}`, {
         params: { activity_limit: 100 },
         signal: controller.signal,
       })
       .then((response) => {
         if (!controller.signal.aborted) {
-          setActivities(Array.isArray(response.data.user.activityLog) ? response.data.user.activityLog : []);
+          const detail = response.data.user;
+          setActivities(Array.isArray(detail?.activityLog) ? detail.activityLog : []);
+          setDetailCapsUser(detail ? {
+            metadata: detail.metadata,
+            editing_capabilities: detail.editing_capabilities,
+            editingCapabilities: detail.editingCapabilities,
+          } : null);
         }
       })
       .catch((error: unknown) => {
@@ -126,6 +144,14 @@ export function UserProfileDialog({
 
   if (!user) return null;
   const profileUser = user as UserProfileDialogUser;
+  const roleLabelUser = {
+    ...user,
+    ...(detailCapsUser ?? {}),
+    metadata: {
+      ...((user as any).metadata ?? {}),
+      ...((detailCapsUser?.metadata as object) ?? {}),
+    },
+  };
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
   const canResendVerification = canResendUserVerification(viewerRole, user);
@@ -140,12 +166,6 @@ export function UserProfileDialog({
       .toUpperCase()
       .substring(0, 2);
   };
-
-  const formatRoleLabel = (value: string) =>
-    value
-      .replace(/_/g, ' ')
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/^./, (char) => char.toUpperCase());
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '—';
@@ -195,10 +215,10 @@ export function UserProfileDialog({
               <h2 className="text-xl font-bold">{user.name}</h2>
               <p className="text-sm text-muted-foreground">{user.email}</p>
               <div className="mt-2 flex flex-wrap justify-center gap-1">
-                <Badge>{formatRoleLabel(user.role)}</Badge>
+                <Badge>{formatUserRoleLabel(user.role, roleLabelUser)}</Badge>
                 {secondaryRoleList.map((role: string) => (
                   <Badge key={`${user.id}-${role}`} variant="outline" className="text-xs px-2 py-0.5 opacity-80">
-                    {formatRoleLabel(role)}
+                    {formatUserRoleLabel(role)}
                   </Badge>
                 ))}
               </div>

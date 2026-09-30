@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { canResendUserVerification } from "@/utils/emailHealth";
 
 interface AccountCardProps {
@@ -345,7 +346,7 @@ export function AccountCard({
             variant="outline" 
             className={`${getRoleBadgeColor(user.role)} border`}
           >
-            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            {formatUserRoleLabel(user.role, user)}
           </Badge>
           
         </div>

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Mail, Phone, User, MapPin, Shield } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 interface AccountBoxProps {
   account: {
@@ -70,7 +71,7 @@ export function AccountBox({ account, onSelect, isSelected = false }: AccountBox
           <div className={`flex ${isMobile ? 'flex-col items-center' : 'items-start justify-between'} mb-2`}>
             <h3 className="font-semibold text-lg">{account.name}</h3>
             <div className={`flex gap-2 ${isMobile ? 'mt-2' : ''}`}>
-              <Badge className={getRoleColor(account.role)}>{account.role}</Badge>
+              <Badge className={getRoleColor(account.role)}>{formatUserRoleLabel(account.role, account as any)}</Badge>
               <Badge className={getStatusColor(account.status)}>
                 {account.status.charAt(0).toUpperCase() + account.status.slice(1)}
               </Badge>

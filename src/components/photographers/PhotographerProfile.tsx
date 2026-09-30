@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { MapPinIcon, CameraIcon, StarIcon, Mail, Edit } from 'lucide-react';
 
 type Photographer = {
@@ -50,7 +51,9 @@ export function PhotographerProfile({
   profileType = 'photographers'
 }: PhotographerProfileProps) {
   const isEditorProfile = profileType === 'editors';
-  const entityType = isEditorProfile ? 'Editor' : 'Photographer';
+  const entityType = isEditorProfile
+    ? formatUserRoleLabel('editor', photographer as any)
+    : 'Photographer';
   
   const getStatusColor = (status: string) => {
     switch (status) {
