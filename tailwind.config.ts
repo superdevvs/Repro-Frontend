@@ -13,6 +13,11 @@ export default {
   ],
   prefix: "",
   corePlugins: {
+    // Colors use slash-alpha syntax (bg-white/10), never the legacy separate
+    // opacity utilities. Avoid unused alpha variables on every opaque color.
+    backgroundOpacity: false,
+    borderOpacity: false,
+    textOpacity: false,
     backdropBlur: false,
     backdropFilter: false,
     blur: false,
