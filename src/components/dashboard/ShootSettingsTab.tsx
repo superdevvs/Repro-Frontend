@@ -242,7 +242,7 @@ export function ShootSettingsTab({
 
   const canManagePrivateExclusive = isAdmin || isClient || isSalesRep;
   const canManageFeaturedShoot = isAdmin || isSalesRep || isEditingManager;
-  const canApproveFeaturedShoot = isAdmin || ['admin', 'superadmin', 'super_admin'].includes(String(role).toLowerCase());
+  const canApproveFeaturedShoot = ['admin', 'superadmin', 'super_admin'].includes(String(role).trim().toLowerCase());
   const canManageGhostUsersResolved = canManageGhostUsers || isAdmin || isSalesRep;
 
   const normalizedStatus = String(settingsShoot?.workflowStatus || settingsShoot?.workflow_status || settingsShoot?.status || '').toLowerCase();
