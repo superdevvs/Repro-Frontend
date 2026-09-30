@@ -234,12 +234,6 @@ export function ShootDetailsModalBody({
   handleCancelEdit,
   refreshShootAndParent,
 }: ShootDetailsModalBodyProps) {
-  const canMarkPaidOnMobile =
-    (currentUserRole === 'superadmin' || currentUserRole === 'admin') &&
-    !isEditingManager &&
-    !isPaid;
-  const canProcessPaymentOnMobile =
-    (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager;
   const showSubmitActions =
     activeTab === 'media' &&
     ((activeMediaDisplayTab === 'uploaded' && canSubmitRaw) ||
@@ -262,13 +256,8 @@ export function ShootDetailsModalBody({
     !isRequestedStatus &&
     !isCancelledOrDeclined &&
     showSubmitActions;
-  const showMobilePaymentActions =
-    !isEditMode &&
-    !isRequestedStatus &&
-    !isCancelledOrDeclined &&
-    (canMarkPaidOnMobile || canProcessPaymentOnMobile);
   const showMobileEditActions = isEditMode && activeTab === 'overview';
-  const showMobileFooter = showMobileSubmitActions || showMobilePaymentActions || showMobileEditActions;
+  const showMobileFooter = showMobileSubmitActions || showMobileEditActions;
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
@@ -680,28 +669,6 @@ export function ShootDetailsModalBody({
                   <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
                 )}
                 <span>{isSubmittingEdits ? 'Submitting…' : 'Submit Edits'}</span>
-              </Button>
-            )}
-            {!isEditMode && canMarkPaidOnMobile && (
-              <Button
-                variant="default"
-                size="sm"
-                className="flex-1 h-9 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800 whitespace-nowrap"
-                onClick={() => setIsMarkPaidDialogOpen(true)}
-              >
-                <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
-                <span>Mark as Paid</span>
-              </Button>
-            )}
-            {!isEditMode && canProcessPaymentOnMobile && (
-              <Button
-                variant="default"
-                size="sm"
-                className="flex-1 h-9 text-xs px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800 whitespace-nowrap"
-                onClick={handleProcessPayment}
-              >
-                <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
-                <span>Process payment</span>
               </Button>
             )}
           </div>

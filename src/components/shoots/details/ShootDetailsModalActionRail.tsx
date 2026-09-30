@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
-import { Check, Copy, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
+import { Check, Copy, DollarSign, Download, Edit, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Sparkles, Upload, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 type VisibleTabId =
@@ -14,27 +14,6 @@ type VisibleTabId =
   | 'settings'
   | 'activity'
   | 'media';
-
-const getModalTabIcon = (tabId: string) => {
-  switch (tabId) {
-    case 'overview':
-      return Camera;
-    case 'media':
-      return Images;
-    case 'notes':
-      return FileText;
-    case 'issues':
-      return MessageCircle;
-    case 'tours':
-      return Camera;
-    case 'settings':
-      return Settings;
-    case 'activity':
-      return FileText;
-    default:
-      return FileText;
-  }
-};
 
 interface ShootDetailsModalActionRailProps {
   shootAddress: string;
@@ -79,6 +58,10 @@ interface ShootDetailsModalActionRailProps {
   isMobileActionsOpen: boolean;
   setIsMobileActionsOpen: (open: boolean) => void;
   canSendManualNotification: boolean;
+  canMarkPaid?: boolean;
+  onMarkPaid?: () => void;
+  canProcessPayment?: boolean;
+  onProcessPayment?: () => void;
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
   onOpenManualNotification: () => void;
@@ -145,6 +128,10 @@ export function ShootDetailsModalActionRail({
   isMobileActionsOpen,
   setIsMobileActionsOpen,
   canSendManualNotification,
+  canMarkPaid = false,
+  onMarkPaid,
+  canProcessPayment = false,
+  onProcessPayment,
   canOpenAiEdit = false,
   handleOpenAiEdit,
   onOpenManualNotification,
@@ -426,17 +413,20 @@ export function ShootDetailsModalActionRail({
         </div>
       </div>
 
-      <Dialog open={isMobileActionsOpen} onOpenChange={setIsMobileActionsOpen}>
-        <DialogContent className="sm:hidden max-w-[90vw] rounded-2xl p-0 gap-0 [&>button]:hidden">
-          <DialogHeader className="px-5 pt-5 pb-3 text-left">
-            <DialogTitle className="text-base font-semibold">Actions</DialogTitle>
-            <DialogDescription asChild>
-              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>{shootAddress || 'Shoot'} &middot;</span>
-                {statusBadge}
+{isMobileActionsOpen ? (
+            <Drawer open={isMobileActionsOpen} onOpenChange={setIsMobileActionsOpen} shouldScaleBackground={false}>
+        <DrawerContent className="z-[80] max-h-[85dvh] sm:hidden">
+          <DrawerHeader className="pb-2 text-left">
+            <DrawerTitle className="text-base">Actions</DrawerTitle>
+            <DrawerDescription asChild>
+              <div className="text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{shootAddress || 'Shoot'}</span>
+                  {statusBadge}
+                </span>
               </div>
-            </DialogDescription>
-          </DialogHeader>
+            </DrawerDescription>
+          </DrawerHeader>
           <div className="px-3 pb-3 space-y-1">
             {canOpenAiEdit && handleOpenAiEdit && !isEditMode && !isRequestedStatus && (
               <button
@@ -579,6 +569,34 @@ export function ShootDetailsModalActionRail({
                 {cancelActionLabel}
               </button>
             )}
+            {canMarkPaid && !isEditMode && onMarkPaid && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  onMarkPaid();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                Mark as Paid
+              </button>
+            )}
+            {canProcessPayment && !isEditMode && onProcessPayment && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  onProcessPayment();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-orange-100 dark:bg-orange-900/40">
+                  <DollarSign className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
+                Payment
+              </button>
+            )}
             {canOpenDeliveredDownloadDialog && !isEditMode && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
@@ -681,13 +699,14 @@ export function ShootDetailsModalActionRail({
               </button>
             )}
           </div>
-          <div className="px-3 pb-4">
+          <div className="px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
             <Button variant="outline" className="w-full rounded-xl" onClick={() => setIsMobileActionsOpen(false)}>
               Cancel
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
+      ) : null}
     </>
   );
 }
@@ -737,10 +756,10 @@ export function ShootDetailsModalHeader({
 
   return (
     <div className="z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
-      <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-1.5">
+      <div className="px-2 sm:px-4 pt-1.5 sm:pt-4 pb-1 sm:pb-1.5">
         <div className="flex items-start justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0 w-full sm:w-auto">
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
               <div className="group/address flex min-w-0 flex-1 items-center gap-1.5">
                 <OverflowRevealAddressTitle
                   compactAddress={addressTitle}
@@ -815,15 +834,17 @@ export function ShootDetailsModalHeader({
 
       </div>
 
-      <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <div className="flex gap-0.5 rounded-lg bg-muted/50 p-0.5 min-w-max">
+      <div className="sm:hidden px-1 pb-1">
+        <div className="flex w-full gap-0 rounded-lg bg-muted/50 p-0.5" role="tablist" aria-label="Shoot sections">
           {[...visibleTabs.filter((tab) => tab.id !== 'media').slice(0, 1), { id: 'media', label: 'Media' }, ...visibleTabs.filter((tab) => tab.id !== 'media').slice(1)].map((tab) => {
-            const TabIcon = getModalTabIcon(tab.id);
+            const mobileLabel = tab.id === 'activity' ? 'Activity' : tab.label;
 
             return (
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 onClick={() => {
                   if (tab.disabled) {
                     return;
@@ -832,7 +853,7 @@ export function ShootDetailsModalHeader({
                   handleTabChange(tab.id);
                 }}
                 disabled={tab.disabled}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+                className={`min-w-0 flex-1 basis-0 truncate rounded-md px-0 py-1.5 text-center text-[11px] font-semibold leading-none tracking-tight transition ${
                   activeTab === tab.id
                     ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
                     : tab.disabled
@@ -840,8 +861,7 @@ export function ShootDetailsModalHeader({
                       : 'text-muted-foreground'
                 }`}
               >
-                <TabIcon className="h-3 w-3 shrink-0" />
-                {tab.label}
+                {mobileLabel}
               </button>
             );
           })}
