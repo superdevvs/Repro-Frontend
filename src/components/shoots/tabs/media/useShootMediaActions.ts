@@ -1052,6 +1052,20 @@ export function useShootMediaActions({
 
     const previousRawFiles = rawFiles;
     const previousEditedFiles = editedFiles;
+    let failureAlreadyToasted = false;
+
+    const formatFailedPerId = (
+      items: Array<{ id?: string | number; file_id?: string | number; message?: string; error?: string }>,
+    ) =>
+      items
+        .map((item) => {
+          const id = item.id ?? item.file_id;
+          const reason = String(item.message || item.error || 'failed').trim();
+          return id != null ? `#${id}: ${reason}` : reason;
+        })
+        .filter(Boolean)
+        .slice(0, 5)
+        .join('; ');
 
     try {
       const headers = getApiHeaders();
@@ -1072,6 +1086,19 @@ export function useShootMediaActions({
 
       const updated = Array.isArray(response?.data?.updated) ? response.data.updated : [];
       const failed = Array.isArray(response?.data?.failed) ? response.data.failed : [];
+
+      // BE returns 422 when nothing updated; also guard empty-200 responses.
+      if (updated.length === 0) {
+        const detail = formatFailedPerId(failed) || 'No files were renamed.';
+        failureAlreadyToasted = true;
+        toast({
+          title: 'Batch rename failed',
+          description: detail,
+          variant: 'destructive',
+        });
+        throw new Error(detail);
+      }
+
       const filenameById = new Map(
         updated.map((item) => [String(item.id), String(item.filename || '').trim()]),
       );
@@ -1107,30 +1134,52 @@ export function useShootMediaActions({
           description: `Updated ${updated.length} file${updated.length === 1 ? '' : 's'}.`,
         });
       } else {
+        const perId = formatFailedPerId(failed);
+        const extra = failed.length > 5 ? ` (+${failed.length - 5} more)` : '';
         toast({
           title: 'Batch rename partial',
-          description: `Updated ${updated.length}, failed ${failed.length}.`,
-          variant: updated.length > 0 ? 'default' : 'destructive',
+          description: `Updated ${updated.length}, failed ${failed.length}${perId ? `: ${perId}${extra}` : '.'}`,
         });
       }
 
-      if (updated.length > 0) {
-        setSelectedFiles(new Set());
-      }
+      setSelectedFiles(new Set());
     } catch (error: unknown) {
       setRawFiles(previousRawFiles);
       setEditedFiles(previousEditedFiles);
-      const axiosMessage =
+      const axiosData =
         error && typeof error === 'object' && 'response' in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (error as {
+              response?: {
+                data?: {
+                  message?: string;
+                  data?: {
+                    failed?: Array<{
+                      id?: string | number;
+                      file_id?: string | number;
+                      message?: string;
+                      error?: string;
+                    }>;
+                  };
+                };
+              };
+            }).response?.data
           : undefined;
-      toast({
-        title: 'Batch rename failed',
-        description:
-          axiosMessage ||
-          (error instanceof Error ? error.message : 'Failed to rename selected files'),
-        variant: 'destructive',
-      });
+      const failedDetail = Array.isArray(axiosData?.data?.failed)
+        ? formatFailedPerId(axiosData.data.failed)
+        : undefined;
+      const description =
+        failedDetail ||
+        axiosData?.message ||
+        (error instanceof Error ? error.message : 'Failed to rename selected files');
+      if (!failureAlreadyToasted) {
+        toast({
+          title: 'Batch rename failed',
+          description,
+          variant: 'destructive',
+        });
+      }
+      // Re-throw so BatchRenameDialog stays open on 422 / hard failure.
+      throw error instanceof Error ? error : new Error(description);
     }
   };
 

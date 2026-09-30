@@ -1,7 +1,7 @@
 /**
  * Kill switches for media filename rename.
- * Single rename: ON (Backend PATCH …/rename live at SHA 11391dc).
- * Batch rename: OFF until Backend POST …/media/batch-rename is live.
+ * Single rename: ON (Backend PATCH …/rename live).
+ * Batch rename: ON (Backend POST …/media/batch-rename live at SHA 174abe9).
  */
 const disabledValues = new Set(['0', 'false', 'off', 'disabled']);
 
@@ -14,8 +14,8 @@ export const MEDIA_FILENAME_RENAME_API_ENABLED = envEnabled(
   'true',
 );
 
-/** Multi-select batch rename. Default OFF until BE batch-rename is live. */
+/** Multi-select batch rename. Default ON (BE batch-rename live). */
 export const MEDIA_BATCH_RENAME_API_ENABLED = envEnabled(
   import.meta.env.VITE_MEDIA_BATCH_RENAME_ENABLED,
-  'false',
+  'true',
 );
