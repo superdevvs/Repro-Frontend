@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { MapPin, BedDouble, Bath, Maximize, ChevronDown, ChevronLeft, ChevronRight, Mail, Phone, User, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
+import { getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import {
@@ -244,15 +245,8 @@ export function NeoTour() {
       : 'items-center';
   const showVersionBadge = tourSettings.tour_version && tourSettings.tour_version !== 'standard';
 
-  // Helper to convert YouTube/Vimeo URLs to embed URLs
-  const getEmbedUrl = (url: string): string | null => {
-    if (!url) return null;
-    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-    return url;
-  };
+  // Convert YouTube/Vimeo share URLs to iframe-safe player embeds
+  const getEmbedUrl = getTourMediaEmbedUrl;
 
   const appendAutoplayParam = (url: string) => {
     if (!tourSettings.autoplay || !url) return url;
@@ -487,7 +481,7 @@ export function NeoTour() {
                       ) : (
                         <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-blue-500/20">
                           <iframe
-                            src={appendAutoplayParam(value)}
+                            src={appendAutoplayParam(getEmbedUrl(value) || value)}
                             className="w-full h-full border-0"
                             allow="fullscreen; clipboard-write; autoplay"
                             allowFullScreen

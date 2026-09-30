@@ -12,6 +12,7 @@ import { BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, Link2, ExternalLi
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
+import { getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
@@ -256,14 +257,7 @@ export function GenericMLS() {
   };
 
   // Embed helpers
-  const getEmbedUrl = (url: string): string | null => {
-    if (!url) return null;
-    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-    return url;
-  };
+  const getEmbedUrl = getTourMediaEmbedUrl;
   const appendAutoplayParam = (url: string) => {
     if (!tourSettings.autoplay || !url) return url;
     if (url.includes('autoplay=')) return url;
@@ -465,7 +459,7 @@ export function GenericMLS() {
                       <div className="w-full [&_iframe]:w-full [&_iframe]:min-h-[360px] [&_iframe]:rounded-xl [&_iframe]:border [&_iframe]:border-border/40" dangerouslySetInnerHTML={{ __html: applyAutoplayToEmbedHtml(value) }} />
                     ) : (
                       <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/40">
-                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen loading="lazy" title={embed.title || `Embed ${index + 1}`} />
+                        <iframe src={appendAutoplayParam(getEmbedUrl(value) || value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen loading="lazy" title={embed.title || `Embed ${index + 1}`} />
                       </div>
                     )}
                   </div>
