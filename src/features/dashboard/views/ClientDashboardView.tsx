@@ -36,6 +36,7 @@ import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { formatTimeForDisplay } from "@/utils/availabilityUtils";
 import { cn } from "@/lib/utils";
+import { resolveClientCancelEndpoint } from "../utils/clientCancelRequest";
 
 import { DashboardOnboarding } from "../components/DashboardOnboarding";
 import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
@@ -172,17 +173,20 @@ export const ClientDashboardView = ({
     try {
       const token = localStorage.getItem("authToken") || localStorage.getItem("token");
       const normalizedStatus = (record.summary.workflowStatus || record.summary.status || "").toLowerCase();
-      const isRequestedShoot = normalizedStatus === "requested";
-      if (!isRequestedShoot) {
+      // Match shoot-details modal: unapproved bookings withdraw immediately;
+      // already-scheduled (and similar) shoots submit a cancellation *request*
+      // so staff can approve it. The tile always labels this "Request to cancel".
+      const endpoint = resolveClientCancelEndpoint(normalizedStatus);
+      if (!endpoint) {
         toast({
           title: "Cancellation unavailable",
-          description: "Only requested shoots can be cancelled from the client dashboard.",
+          description: "This shoot cannot be cancelled from the client dashboard.",
           variant: "destructive",
         });
         return;
       }
-
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/withdraw-request`, {
+      const isRequestedShoot = endpoint === "withdraw-request";
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/${endpoint}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -190,18 +194,23 @@ export const ClientDashboardView = ({
           Accept: "application/json",
         },
         body: JSON.stringify({
-          reason: "Client withdrew requested shoot",
+          reason: isRequestedShoot
+            ? "Client withdrew requested shoot"
+            : "Client requested cancellation",
+          ...(isRequestedShoot ? {} : { cancellation_fee_notice_acknowledged: true }),
         }),
       });
 
       if (response.ok) {
         toast({
-          title: "Shoot cancelled",
-          description: `Your requested shoot for ${record.summary.addressLine} has been cancelled.`,
+          title: isRequestedShoot ? "Shoot cancelled" : "Cancellation request submitted",
+          description: isRequestedShoot
+            ? `Your requested shoot for ${record.summary.addressLine} has been cancelled.`
+            : `Your cancellation request for ${record.summary.addressLine} is pending approval.`,
         });
         refresh();
       } else {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         toast({
           title: "Error",
           description: error.message || "Failed to request cancellation",
