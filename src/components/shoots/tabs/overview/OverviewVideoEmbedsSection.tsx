@@ -31,7 +31,6 @@ const cloneEmbeds = (embeds: OverviewVideoEmbed[]) =>
 export function OverviewVideoEmbedsSection({
   shoot,
   role,
-  isEditor = false,
   canWrite: canWriteProp,
   onShootUpdate,
 }: OverviewVideoEmbedsSectionProps) {
@@ -174,9 +173,7 @@ export function OverviewVideoEmbedsSection({
       <p className="text-[11px] text-muted-foreground mb-2">
         {canWrite
           ? 'Add YouTube/Vimeo links that appear as embeds in the video tour. The first link stays the primary video_link.'
-          : isEditor
-            ? 'Video links attached to this shoot’s tour. Only editors assigned to this shoot can edit embeds.'
-            : 'Video links attached to this shoot’s tour.'}
+          : 'Video links attached to this shoot’s tour.'}
       </p>
 
       <div className="space-y-2">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canAccessOverviewVideoEmbedsOnShoot,
   isPhotoOnlyEditorOnShoot,
   isVideoOnlyEditorOnShoot,
   readEditingCapabilities,
@@ -248,6 +249,78 @@ describe('isPhotoOnlyEditorOnShoot', () => {
         id: '10',
         role: 'editor',
         metadata: { editing_capabilities: ['photo', 'video'] },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('canAccessOverviewVideoEmbedsOnShoot', () => {
+  const bundledShoot = {
+    editor: { id: '10', name: 'Photo Editor' },
+    serviceObjects: [
+      {
+        id: '91',
+        name: 'HDR Photos & Video',
+        editor_id: '10',
+        video_editor_id: '22',
+        editor: { id: '10', name: 'Photo Editor' },
+      },
+    ],
+  } as Pick<ShootData, 'editor' | 'serviceObjects'>;
+
+  it('shows for video_editor_id assignee', () => {
+    expect(
+      canAccessOverviewVideoEmbedsOnShoot(bundledShoot, {
+        id: '22',
+        role: 'editor',
+        metadata: { editing_capabilities: ['video'] },
+      }),
+    ).toBe(true);
+  });
+
+  it('shows for video assignee even without caps stamped', () => {
+    expect(
+      canAccessOverviewVideoEmbedsOnShoot(bundledShoot, {
+        id: '22',
+        role: 'editor',
+      }),
+    ).toBe(true);
+  });
+
+  it('shows for dual-capable editor assigned on the shoot (photo slot)', () => {
+    expect(
+      canAccessOverviewVideoEmbedsOnShoot(bundledShoot, {
+        id: '10',
+        role: 'editor',
+        metadata: { editing_capabilities: ['photo', 'video'] },
+      }),
+    ).toBe(true);
+  });
+
+  it('hides for photo-only editor assignee', () => {
+    expect(
+      canAccessOverviewVideoEmbedsOnShoot(bundledShoot, {
+        id: '10',
+        role: 'editor',
+        metadata: { editing_capabilities: ['photo'] },
+      }),
+    ).toBe(false);
+  });
+
+  it('hides for admin / superadmin / editing_manager / sales / photographer', () => {
+    for (const role of ['admin', 'superadmin', 'super_admin', 'editing_manager', 'salesRep', 'photographer']) {
+      expect(
+        canAccessOverviewVideoEmbedsOnShoot(bundledShoot, { id: '22', role }),
+      ).toBe(false);
+    }
+  });
+
+  it('hides for video-capable editor not assigned on the shoot', () => {
+    expect(
+      canAccessOverviewVideoEmbedsOnShoot(bundledShoot, {
+        id: '99',
+        role: 'editor',
+        metadata: { editing_capabilities: ['video'] },
       }),
     ).toBe(false);
   });

@@ -50,8 +50,7 @@ import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsM
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
-import { canViewOverviewVideoEmbeds, canWriteOverviewVideoEmbeds } from './overview/overviewVideoEmbeds';
-import { shootHasEditorAssignment, isPhotoOnlyEditorOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { canAccessOverviewVideoEmbedsOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
 import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
@@ -386,7 +385,7 @@ function ShootDetailsOverviewTabContent({
 }: ShootDetailsOverviewTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isPhotoOnlyEditor = isPhotoOnlyEditorOnShoot(shoot, user);
+  const canAccessVideoTourEmbeds = canAccessOverviewVideoEmbedsOnShoot(shoot, user);
   const { toast } = useToast();
   const shootRecord = asRecord(shoot);
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
@@ -1031,16 +1030,14 @@ function ShootDetailsOverviewTabContent({
         </div>
       )}
 
-      {/* Video tour embeds — writable for admin/editing_manager + assigned editors (BE SHA efeb03e).
-          Photo-only editors (editor_id / photo caps, not video_editor_id) do not see this section. */}
-      {canViewOverviewVideoEmbeds(role, isEditor) && !isPhotoOnlyEditor && (
+      {/* Video tour embeds — video editors only (video_editor_id assignee or video-capable
+          editor assigned on this shoot). Hidden for admin/superadmin/EM/photo-only/etc. */}
+      {canAccessVideoTourEmbeds && (
         <OverviewVideoEmbedsSection
           shoot={shoot}
           role={role}
           isEditor={isEditor}
-          canWrite={canWriteOverviewVideoEmbeds(role, {
-            isAssignedEditor: isEditor && !isPhotoOnlyEditor && shootHasEditorAssignment(shoot, user),
-          })}
+          canWrite={canAccessVideoTourEmbeds}
           onShootUpdate={onShootUpdate}
         />
       )}

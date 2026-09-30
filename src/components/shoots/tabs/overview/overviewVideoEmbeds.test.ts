@@ -1,26 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildOverviewVideoEmbedsPayload,
+  canAccessOverviewVideoEmbeds,
   canViewOverviewVideoEmbeds,
   canWriteOverviewVideoEmbeds,
   normalizeOverviewVideoEmbeds,
 } from './overviewVideoEmbeds';
 
 describe('overviewVideoEmbeds helpers', () => {
-  it('allows privileged roles to write and editors to view', () => {
-    expect(canWriteOverviewVideoEmbeds('admin')).toBe(true);
-    expect(canWriteOverviewVideoEmbeds('superadmin')).toBe(true);
-    expect(canWriteOverviewVideoEmbeds('super_admin')).toBe(true);
-    expect(canWriteOverviewVideoEmbeds('editing_manager')).toBe(true);
-    expect(canWriteOverviewVideoEmbeds('editor')).toBe(false);
-    expect(canWriteOverviewVideoEmbeds('editor', { isAssignedEditor: false })).toBe(false);
-    expect(canWriteOverviewVideoEmbeds('editor', { isAssignedEditor: true })).toBe(true);
+  it('allows only video editors (assignee or video-capable assigned) — never privileged roles', () => {
+    expect(canWriteOverviewVideoEmbeds('admin')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('superadmin')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('super_admin')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('editing_manager')).toBe(false);
     expect(canWriteOverviewVideoEmbeds('salesRep')).toBe(false);
-    expect(canWriteOverviewVideoEmbeds('salesRep', { isAssignedEditor: true })).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('photographer')).toBe(false);
 
-    expect(canViewOverviewVideoEmbeds('editor', true)).toBe(true);
+    expect(canWriteOverviewVideoEmbeds('editor')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('editor', { isAssignedEditor: true })).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('editor', { hasVideoCapability: true })).toBe(false);
+    expect(
+      canWriteOverviewVideoEmbeds('editor', {
+        hasVideoCapability: true,
+        isAssignedEditor: true,
+      }),
+    ).toBe(true);
+    expect(
+      canWriteOverviewVideoEmbeds('editor', { isAssignedVideoEditor: true }),
+    ).toBe(true);
+    expect(
+      canWriteOverviewVideoEmbeds('editor', {
+        isAssignedVideoEditor: true,
+        hasVideoCapability: false,
+        isAssignedEditor: true,
+      }),
+    ).toBe(true);
+
+    // Legacy boolean isEditor alone no longer grants view.
+    expect(canViewOverviewVideoEmbeds('editor', true)).toBe(false);
+    expect(canViewOverviewVideoEmbeds('admin', false)).toBe(false);
     expect(canViewOverviewVideoEmbeds('client', false)).toBe(false);
-    expect(canViewOverviewVideoEmbeds('admin', false)).toBe(true);
+    expect(
+      canViewOverviewVideoEmbeds('editor', {
+        isAssignedVideoEditor: true,
+      }),
+    ).toBe(true);
   });
 
   it('normalizes embeds from url-first shape and seeds from video_link', () => {

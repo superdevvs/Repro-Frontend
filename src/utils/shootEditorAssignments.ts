@@ -225,6 +225,43 @@ export const isVideoOnlyEditorOnShoot = (
 }
 
 /**
+ * Overview Video Tour Embeds gate: video editors only.
+ *
+ * Show (and allow write) when role=editor and either:
+ * - assigned as the shoot video editor (video_editor_id / lane=video), or
+ * - editing_capabilities includes video and the user is assigned as an editor on this shoot
+ *   (video-only or dual photo+video).
+ *
+ * Never for admin / superadmin / editing_manager / sales / photographer / photo-only editors.
+ */
+export const canAccessOverviewVideoEmbedsOnShoot = (
+  shoot: Pick<ShootData, 'editor' | 'editorAssignments' | 'serviceObjects' | 'serviceItems' | 'service_items'>,
+  user:
+    | {
+        id?: string | number
+        role?: string | null
+        metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null
+        editing_capabilities?: unknown
+        editingCapabilities?: unknown
+      }
+    | null
+    | undefined,
+) => {
+  if (normalizeRole(user?.role) !== 'editor') return false
+
+  const userId = normalizeId(user?.id)
+  if (!userId) return false
+
+  const caps = readEditingCapabilities(user)
+  const hasVideoCapability = caps.includes('video')
+  const { matchedVideo } = collectLaneAssignments(shoot, userId, false)
+
+  if (matchedVideo) return true
+  if (hasVideoCapability && shootHasEditorAssignment(shoot, user)) return true
+  return false
+}
+
+/**
  * Photo-only Media / Overview gate: hide Video sub-tabs + Video Tour Embeds.
  *
  * True when role=editor and the user is on the photo lane for this shoot without

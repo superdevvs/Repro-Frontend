@@ -28,42 +28,57 @@ const firstString = (...values: unknown[]) => {
   return '';
 };
 
-export const OVERVIEW_VIDEO_EMBED_WRITE_ROLES = new Set([
-  'admin',
-  'superadmin',
-  'super_admin',
-  'editing_manager',
-]);
+/** @deprecated Privileged roles no longer get Overview Video Tour Embeds; kept empty for import safety. */
+export const OVERVIEW_VIDEO_EMBED_WRITE_ROLES = new Set<string>([]);
 
 export const normalizeOverviewRole = (role: string | null | undefined) =>
   String(role ?? '')
     .trim()
     .toLowerCase();
 
-export type CanWriteOverviewVideoEmbedsOptions = {
-  /** True when role=editor and the auth user is assigned on this shoot (editor_id or video_editor_id). */
+export type CanAccessOverviewVideoEmbedsOptions = {
+  /** Assigned via video_editor_id / lane=video on this shoot. */
+  isAssignedVideoEditor?: boolean;
+  /** editing_capabilities includes video (video-only or dual). */
+  hasVideoCapability?: boolean;
+  /** Assigned as any editor on this shoot. */
   isAssignedEditor?: boolean;
 };
 
+/** @deprecated Use CanAccessOverviewVideoEmbedsOptions. */
+export type CanWriteOverviewVideoEmbedsOptions = CanAccessOverviewVideoEmbedsOptions;
+
 /**
- * Privileged roles always write. role=editor may write only when assigned on the shoot
- * (BE PATCH allows tour_links.embeds | video_link | featured_embed(_id) for assignees).
+ * Video Tour Embeds: video editors only (view === write).
+ * role=editor AND (video assignee on shoot OR video-capable + assigned on shoot).
+ * Never admin / superadmin / editing_manager / sales / photographer / photo-only.
  */
-export const canWriteOverviewVideoEmbeds = (
+export const canAccessOverviewVideoEmbeds = (
   role: string | null | undefined,
-  options?: CanWriteOverviewVideoEmbedsOptions,
+  options?: CanAccessOverviewVideoEmbedsOptions,
 ) => {
-  const normalized = normalizeOverviewRole(role);
-  if (OVERVIEW_VIDEO_EMBED_WRITE_ROLES.has(normalized)) return true;
-  if (normalized === 'editor' && Boolean(options?.isAssignedEditor)) return true;
+  if (normalizeOverviewRole(role) !== 'editor') return false;
+  if (options?.isAssignedVideoEditor) return true;
+  if (options?.hasVideoCapability && options?.isAssignedEditor) return true;
   return false;
 };
 
-/** Privileged writers + editors who already can open the shoot. */
+export const canWriteOverviewVideoEmbeds = canAccessOverviewVideoEmbeds;
+
+/**
+ * Same gate as write — section is hidden entirely for non-video editors.
+ * Legacy (role, isEditor) signature still accepted: isEditor alone is NOT enough.
+ */
 export const canViewOverviewVideoEmbeds = (
   role: string | null | undefined,
-  isEditor = false,
-) => canWriteOverviewVideoEmbeds(role) || Boolean(isEditor);
+  isEditorOrOptions: boolean | CanAccessOverviewVideoEmbedsOptions = false,
+) => {
+  if (typeof isEditorOrOptions === 'boolean') {
+    // Boolean isEditor alone no longer grants access (need video assignee / video caps).
+    return false;
+  }
+  return canAccessOverviewVideoEmbeds(role, isEditorOrOptions);
+};
 
 export const createOverviewVideoEmbedId = () =>
   `embed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
