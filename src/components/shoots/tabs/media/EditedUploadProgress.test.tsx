@@ -58,8 +58,61 @@ describe('edited upload transfer progress', () => {
 
     expect(uploadMediaRequest).toHaveBeenCalledOnce();
     expect(onProgress.mock.calls.some(([value]) => value > 0 && value < 100)).toBe(true);
-    expect(onProgress).toHaveBeenCalledWith(25);
-    expect(onProgress).toHaveBeenCalledWith(50);
-    expect(onProgress).toHaveBeenLastCalledWith(100);
+    expect(onProgress.mock.calls.some(([value, detail]) => value === 25 && detail?.fileProgresses?.[0] === 25)).toBe(true);
+    expect(onProgress.mock.calls.some(([value, detail]) => value === 50 && detail?.fileProgresses?.[0] === 50)).toBe(true);
+    const lastCall = onProgress.mock.calls.at(-1);
+    expect(lastCall?.[0]).toBe(100);
+    expect(lastCall?.[1]?.fileSizes).toEqual([1000]);
+    expect(lastCall?.[1]?.fileProgresses?.[0]).toBe(100);
+    expect(lastCall?.[1]?.completedFileIndexes).toEqual([0]);
+  });
+
+  it('emits per-file size and progress for concurrent edited uploads', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
+    const shoot = { id: '161', services: [], location: { address: 'Edited Multi QA' } } as ShootData;
+    render(
+      <QueryClientProvider client={client}>
+        <EditedUploadSection shoot={shoot} onUploadComplete={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    const fileA = new File(['a'.repeat(400)], 'a.jpg', { type: 'image/jpeg' });
+    const fileB = new File(['b'.repeat(600)], 'b.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(fileA, 'size', { value: 400 });
+    Object.defineProperty(fileB, 'size', { value: 600 });
+    fireEvent.change(screen.getByTestId('edited-upload-input'), { target: { files: [fileA, fileB] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Edited Files' }));
+
+    vi.mocked(uploadMediaRequest).mockImplementation(async (options) => {
+      const body = options.body as FormData;
+      const file = body.get('files[]') as File;
+      options.onProgress({ phase: 'transferring', loaded: file.size / 2, total: file.size });
+      options.onProgress({ phase: 'processing', loaded: file.size, total: file.size });
+      return {
+        ok: true as const,
+        status: 200,
+        responseText: JSON.stringify({
+          success_count: 1,
+          uploaded_files: [{ id: file.name === 'a.jpg' ? 1 : 2, filename: file.name, upload_type: 'edited' }],
+        }),
+      };
+    });
+
+    const onProgress = vi.fn();
+    await act(async () => {
+      await mocks.trackUpload.mock.calls[0][0].uploadFn(onProgress, new AbortController().signal);
+    });
+
+    expect(uploadMediaRequest).toHaveBeenCalledTimes(2);
+    const mid = onProgress.mock.calls.find(([, detail]) => (
+      Array.isArray(detail?.fileProgresses)
+      && detail.fileProgresses.some((pct: number) => pct > 0 && pct < 100)
+    ));
+    expect(mid?.[1]?.fileSizes).toEqual([400, 600]);
+    const lastCall = onProgress.mock.calls.at(-1);
+    expect(lastCall?.[0]).toBe(100);
+    expect(lastCall?.[1]?.completedFileIndexes.sort()).toEqual([0, 1]);
+    expect(lastCall?.[1]?.fileProgresses).toEqual([100, 100]);
   });
 });

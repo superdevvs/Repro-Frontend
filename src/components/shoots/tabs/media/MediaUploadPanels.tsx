@@ -15,6 +15,7 @@ import { AlertTriangle, ArrowLeft, Camera, Check, Cloud, Folder, HardDrive, Imag
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { UploadTransferDetail } from '@/context/UploadContext';
 import { formatUploadPercent } from './uploadMediaRequest';
+import { formatUploadFileSize } from './mediaUploadUtils';
 
 export interface UploadIssue {
   id: string;
@@ -40,8 +41,12 @@ export function UploadProgressCard({
   note,
   transferDetail,
 }: UploadProgressCardProps) {
+  const activeIndex = transferDetail
+    ? Math.max(0, Math.min(fileCount - 1, transferDetail.fileNumber - 1))
+    : -1;
+
   return (
-    <div className="space-y-3 border rounded-lg p-4 bg-card">
+    <div className="space-y-3 border rounded-lg p-4 bg-card" data-testid="upload-progress-card">
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">
@@ -54,23 +59,54 @@ export function UploadProgressCard({
           ? 'Transfer complete; waiting for server confirmation'
           : `${formatUploadPercent(transferDetail.fileProgress)}% transferred`}
       </p>}
-      <div className="max-h-32 overflow-y-auto space-y-1">
+      <div className="max-h-40 overflow-y-auto space-y-1">
         {fileNames.map((name, index) => {
           const filesDone = Math.floor((progress / 100) * fileCount);
-          const isDone = transferDetail ? transferDetail.completedFileIndexes.includes(index) : index < filesDone;
+          const isDone = transferDetail
+            ? transferDetail.completedFileIndexes.includes(index)
+            : index < filesDone;
+          const isActive = !isDone && index === activeIndex;
+          const sizeBytes = transferDetail?.fileSizes?.[index];
+          const sizeLabel = typeof sizeBytes === 'number' && sizeBytes > 0
+            ? formatUploadFileSize(sizeBytes)
+            : null;
+          const filePct = isDone
+            ? 100
+            : typeof transferDetail?.fileProgresses?.[index] === 'number'
+              ? transferDetail.fileProgresses[index]
+              : isActive
+                ? transferDetail?.fileProgress ?? 0
+                : 0;
+
           return (
-            <div key={index} className="flex items-center gap-2 text-xs py-1">
+            <div
+              key={index}
+              className="flex items-center gap-2 text-xs py-1"
+              data-testid={`upload-progress-file-row-${index}`}
+            >
               <div className="flex-shrink-0">
                 {isDone ? (
-                  <svg className="h-4 w-4 text-green-500" viewBox="0 0 16 16" fill="none">
+                  <svg className="h-4 w-4 text-green-500" viewBox="0 0 16 16" fill="none" aria-label="Uploaded">
                     <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
                     <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
+                ) : isActive ? (
+                  <Loader2 className="h-4 w-4 text-primary" aria-label="Uploading" />
                 ) : (
-                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" aria-hidden="true" />
                 )}
               </div>
-              <span className={`truncate flex-1 ${isDone ? 'text-muted-foreground' : ''}`}>{name}</span>
+              <span className={`truncate min-w-0 flex-1 ${isDone ? 'text-muted-foreground' : ''}`}>{name}</span>
+              <div className="shrink-0 flex items-center gap-2 tabular-nums text-muted-foreground">
+                {sizeLabel ? <span data-testid={`upload-progress-file-size-${index}`}>{sizeLabel}</span> : null}
+                {isDone ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" aria-label="Complete" data-testid={`upload-progress-file-check-${index}`} />
+                ) : (
+                  <span data-testid={`upload-progress-file-pct-${index}`}>
+                    {formatUploadPercent(filePct)}%
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

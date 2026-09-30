@@ -10,7 +10,7 @@ import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
-import { useUpload } from '@/context/UploadContext';
+import { useUpload, type UploadTransferDetail } from '@/context/UploadContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { finalizeEditedUploadQueue, getMediaUploadErrorMessage } from '@/services/shootMediaService';
 import {
@@ -20,6 +20,7 @@ import {
   type UploadIssue,
 } from './MediaUploadPanels';
 import { uploadMediaRequest } from './uploadMediaRequest';
+import { EDITED_UPLOAD_CONCURRENCY, runUploadConcurrencyPool } from './mediaUploadConcurrency';
 import {
   SummaryBadge,
   SummaryCard,
@@ -78,6 +79,7 @@ export function EditedUploadSection({
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription());
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [transferDetail, setTransferDetail] = useState<UploadTransferDetail>();
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmittingAfterUpload, setIsSubmittingAfterUpload] = useState(false);
   const [pendingSubmitAfterUpload, setPendingSubmitAfterUpload] = useState(false);
@@ -103,6 +105,7 @@ export function EditedUploadSection({
     setQueueClassifications({});
     setUploadIssues([]);
     setUploadProgress(0);
+    setTransferDetail(undefined);
     setIsUploading(false);
     setIsSubmittingAfterUpload(false);
     setPendingSubmitAfterUpload(false);
@@ -201,6 +204,7 @@ export function EditedUploadSection({
       setQueueClassifications({});
       setIsUploading(false);
       setUploadProgress(0);
+    setTransferDetail(undefined);
       setPendingSubmitAfterUpload(false);
       return;
     }
@@ -219,6 +223,7 @@ export function EditedUploadSection({
     setIsUploading(true);
     setPendingSubmitAfterUpload(submitAfter);
     setUploadProgress(0);
+    setTransferDetail(undefined);
     if (!retryOnly) {
       setUploadIssues([]);
     }
@@ -241,8 +246,48 @@ export function EditedUploadSection({
       uploadFn: async (onProgress, signal) => {
         try {
           const totalBytes = filesForUpload.reduce((sum, file) => sum + file.size, 0);
-          let processedBytes = 0;
-          let completed = 0;
+          const fileSizes = filesForUpload.map((file) => file.size);
+          const fileProgresses = filesForUpload.map(() => 0);
+          const completedIndexes: number[] = [];
+          let lastEmittedProgress = -1;
+
+          const emitTransferProgress = (
+            activeIndex: number,
+            phase: UploadTransferDetail['phase'],
+            force = false,
+          ) => {
+            const loadedBytes = fileProgresses.reduce(
+              (sum, pct, idx) => sum + fileSizes[idx] * (pct / 100),
+              0,
+            );
+            const value = Math.min(
+              completedIndexes.length === filesForUpload.length ? 100 : 99.9,
+              totalBytes > 0
+                ? (loadedBytes / totalBytes) * 100
+                : (completedIndexes.length / Math.max(filesForUpload.length, 1)) * 100,
+            );
+            if (
+              !force
+              && phase === 'transferring'
+              && Math.abs(value - lastEmittedProgress) < 0.35
+              && fileProgresses[activeIndex] < 100
+            ) {
+              return;
+            }
+            lastEmittedProgress = value;
+            const detail: UploadTransferDetail = {
+              fileName: filesForUpload[activeIndex]?.name || filesForUpload[0]?.name || 'file',
+              fileNumber: activeIndex + 1,
+              fileProgress: fileProgresses[activeIndex] ?? 0,
+              phase,
+              completedFileIndexes: [...completedIndexes],
+              fileSizes,
+              fileProgresses: fileProgresses.slice(),
+            };
+            setUploadProgress(value);
+            setTransferDetail(detail);
+            onProgress(value, detail);
+          };
 
           const uploadOne = async (file: File, index: number): Promise<{
             success: boolean;
@@ -292,14 +337,8 @@ export function EditedUploadSection({
                     : total > 0
                       ? Math.min(loaded / total, 1)
                       : Math.min(loaded / Math.max(file.size, 1), 1);
-                  const value = Math.min(
-                    99.9,
-                    totalBytes > 0
-                      ? ((processedBytes + file.size * fraction) / totalBytes) * 100
-                      : (completed / Math.max(filesForUpload.length, 1)) * 100,
-                  );
-                  setUploadProgress(value);
-                  onProgress(value);
+                  fileProgresses[index] = Math.min(100, fraction * 100);
+                  emitTransferProgress(index, phase);
                 },
               });
 
@@ -332,6 +371,11 @@ export function EditedUploadSection({
                   const parsed = uploadResult.errorCount > 0
                     ? parseUploadIssues(file, index, responseText, 'Upload partially failed')
                     : { issues: [] as UploadIssue[] };
+                  fileProgresses[index] = 100;
+                  if (!completedIndexes.includes(index)) {
+                    completedIndexes.push(index);
+                  }
+                  emitTransferProgress(index, 'processing', true);
                   return {
                     success: true,
                     issues: parsed.issues,
@@ -355,14 +399,15 @@ export function EditedUploadSection({
           const acceptedFiles = [] as ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
-          for (let index = 0; index < filesForUpload.length; index += 1) {
-            if (signal.aborted) {
-              throw new Error('Upload cancelled. The remaining files are still selected for retry.');
-            }
-            const file = filesForUpload[index];
-            const result = await uploadOne(file, index);
-            completed += 1;
-            processedBytes += file.size;
+          // Small parallel pool: edited files don't share raw bracket offsets.
+          const uploadResults = await runUploadConcurrencyPool({
+            items: filesForUpload,
+            concurrency: EDITED_UPLOAD_CONCURRENCY,
+            signal,
+            run: async (file, index) => uploadOne(file, index),
+          });
+
+          for (const result of uploadResults) {
             if (result.uploadLimits) {
               latestUploadLimits = result.uploadLimits;
             }
@@ -373,15 +418,25 @@ export function EditedUploadSection({
             if (!result.success && result.issues.length > 0) {
               failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
             }
-
-            const progressValue = Math.min(
-              100,
-              totalBytes > 0
-                ? (processedBytes / totalBytes) * 100
-                : Math.round((completed / filesForUpload.length) * 100),
-            );
-            setUploadProgress(progressValue);
-            onProgress(progressValue);
+          }
+          if (filesForUpload.length > 0) {
+            const finalProgress = failedFileEntries.length === filesForUpload.length
+              ? Math.min(99.9, lastEmittedProgress < 0 ? 0 : lastEmittedProgress)
+              : 100;
+            const detail: UploadTransferDetail = {
+              fileName: filesForUpload[filesForUpload.length - 1]?.name || 'file',
+              fileNumber: filesForUpload.length,
+              fileProgress: 100,
+              phase: 'processing',
+              completedFileIndexes: [...completedIndexes],
+              fileSizes,
+              fileProgresses: fileProgresses.map((pct, idx) => (
+                completedIndexes.includes(idx) ? 100 : pct
+              )),
+            };
+            setUploadProgress(finalProgress);
+            setTransferDetail(detail);
+            onProgress(finalProgress, detail);
           }
 
           const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
@@ -540,6 +595,7 @@ export function EditedUploadSection({
           fileCount={selectedFiles.length}
           fileNames={selectedFiles.map((file) => file.name)}
           progress={uploadProgress}
+          transferDetail={transferDetail}
           note="Edited files are uploading in the background. You can switch shoots and continue working."
         />
       )}

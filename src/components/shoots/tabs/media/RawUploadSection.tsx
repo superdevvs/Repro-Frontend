@@ -533,7 +533,10 @@ export function RawUploadSection({
         try {
           let completed = 0;
           let processedBytes = 0;
-          const totalBytes = plans.flatMap((plan) => plan.files).reduce((sum, file) => sum + file.size, 0);
+          const flatFiles = plans.flatMap((plan) => plan.files);
+          const totalBytes = flatFiles.reduce((sum, file) => sum + file.size, 0);
+          const fileSizes = flatFiles.map((file) => file.size);
+          const fileProgresses = flatFiles.map(() => 0);
           const uploadedFileObjects = new Set<File>();
           // Allocate even unsent identities now: a paused batch must resume at its
           // original bracket positions, including across multiple service groups.
@@ -592,7 +595,21 @@ export function RawUploadSection({
                 onProgress: ({ phase, loaded, total }) => {
                   const fraction = phase === 'processing' ? 1 : total > 0 ? Math.min(loaded / total, 1) : Math.min(loaded / Math.max(file.size, 1), 1);
                   const value = Math.min(99.9, totalBytes > 0 ? ((processedBytes + file.size * fraction) / totalBytes) * 100 : (completed / totalFiles) * 100);
-                  const detail: UploadTransferDetail = { fileName: file.name, fileNumber: completed + 1, fileProgress: fraction * 100, phase, completedFileIndexes: plans.flatMap((group) => group.files).flatMap((candidate, position) => uploadedFileObjects.has(candidate) ? [position] : []) };
+                  const flatIndex = flatFiles.indexOf(file);
+                  if (flatIndex >= 0) {
+                    fileProgresses[flatIndex] = Math.min(100, fraction * 100);
+                  }
+                  const detail: UploadTransferDetail = {
+                    fileName: file.name,
+                    fileNumber: completed + 1,
+                    fileProgress: fraction * 100,
+                    phase,
+                    completedFileIndexes: flatFiles.flatMap((candidate, position) => (
+                      uploadedFileObjects.has(candidate) ? [position] : []
+                    )),
+                    fileSizes,
+                    fileProgresses: [...fileProgresses],
+                  };
                   setUploadProgress(value);
                   setTransferDetail(detail);
                   onProgress(value, detail);
@@ -652,6 +669,26 @@ export function RawUploadSection({
               }
               if (result.success) {
                 uploadedFileObjects.add(result.file);
+                const flatIndex = flatFiles.indexOf(result.file);
+                if (flatIndex >= 0) {
+                  fileProgresses[flatIndex] = 100;
+                }
+                const detail: UploadTransferDetail = {
+                  fileName: result.file.name,
+                  fileNumber: completed,
+                  fileProgress: 100,
+                  phase: 'processing',
+                  completedFileIndexes: flatFiles.flatMap((candidate, position) => (
+                    uploadedFileObjects.has(candidate) ? [position] : []
+                  )),
+                  fileSizes,
+                  fileProgresses: [...fileProgresses],
+                };
+                setTransferDetail(detail);
+                onProgress(
+                  Math.min(99.9, totalBytes > 0 ? (processedBytes / totalBytes) * 100 : (completed / totalFiles) * 100),
+                  detail,
+                );
               } else if (result.issues.length > 0) {
                 failedFiles.add(result.file);
               }

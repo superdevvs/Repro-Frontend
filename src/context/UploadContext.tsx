@@ -10,6 +10,10 @@ export interface UploadTransferDetail {
   fileProgress: number;
   phase: 'transferring' | 'processing';
   completedFileIndexes: number[];
+  /** Byte sizes aligned with UploadProgressCard fileNames order. */
+  fileSizes?: number[];
+  /** 0–100 progress aligned with fileNames order (real transfer progress). */
+  fileProgresses?: number[];
 }
 
 export interface ShootUpload {
