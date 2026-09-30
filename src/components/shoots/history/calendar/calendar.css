@@ -247,28 +247,37 @@
   }
 }
 @media (max-width: 767px) {
-  .shc-toolbar { padding: 16px 12px; gap: 13px; }
+  /* Compact mobile chrome so timeline / week grid / day list get more viewport. */
+  .shc-toolbar { padding: 8px 10px; gap: 6px; }
   .shc-period { width: 100%; }
-  .shc-period h2 { font-size: 16px; }
-  .shc-period p { font-size: 10px; }
-  .shc-controls { width: 100%; gap: 8px; justify-content: space-between; }
-  .shc-date-nav button { width: 33px; }
-  .shc-date-nav .shc-today { padding: 0 9px; font-size: 11px; }
-  .shc-view-switch button { padding: 0 9px; font-size: 10px; }
-  .shc-filters { padding: 0 12px 15px; }
+  .shc-period h2 { font-size: 14px; line-height: 1.2; letter-spacing: -.2px; }
+  .shc-period p { font-size: 10px; gap: 5px; }
+  .shc-period p svg { width: 11px; height: 11px; }
+  .shc-period-meta { margin-top: 2px; min-height: 20px; gap: 6px; }
+  .shc-controls { width: 100%; gap: 6px; justify-content: space-between; }
+  .shc-date-nav button { width: 30px; height: 30px; }
+  .shc-date-nav button svg { width: 14px; height: 14px; }
+  .shc-date-nav .shc-today { padding: 0 8px; font-size: 11px; }
+  .shc-view-switch { padding: 2px; border-radius: 7px; }
+  .shc-view-switch button { min-height: 28px; padding: 0 8px; font-size: 10px; }
+  .shc-untimed-trigger { height: 20px; padding: 0 6px; font-size: 9px !important; }
+  .shc-untimed-trigger b { font-size: 9px; }
+  .shc-untimed-trigger svg { width: 11px; height: 11px; }
+  .shc-filters { padding: 0 10px 8px; }
   .shc-day-strip { padding-left: 0; }
-  .shc-day { padding: 12px 2px 10px; gap: 9px; }
+  .shc-day { padding: 6px 2px 6px; gap: 4px; }
   .shc-day-name { font-size: 8px; letter-spacing: .03em; gap: 3px; }
-  .shc-day-date { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .shc-day-date strong { font-size: 20px; }
-  .shc-day-date small { font-size: 8px; }
-  .shc-day-count { padding: 3px; gap: 3px; font-size: 9px; }
-  .shc-day-count small { font-size: 7px; }
+  .shc-day-date { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .shc-day-date strong { font-size: 15px; letter-spacing: -.4px; }
+  .shc-day-date small { font-size: 7px; }
+  .shc-day-count { padding: 1px 3px; gap: 2px; font-size: 8px; line-height: 1.1; }
+  .shc-day-count small { display: none; }
+  .shc-timeline-heading { padding: 8px 10px; }
   .shc-timeline-scroll { max-height: 620px; }
   .shc-timeline.is-day .shc-event-person { font-size: 9px; }
   .shc-inspector { grid-template-columns: minmax(0, 1fr); }
   .shc-brief { display: none; }
-  .shc-month-weekdays span { font-size: 9px; padding: 11px 1px; }
+  .shc-month-weekdays span { font-size: 9px; padding: 8px 1px; }
   .shc-month-cell { min-height: 116px; padding: 3px; }
   .shc-month-date { padding: 0; justify-content: center; }
   .shc-month-date small { display: none; }
@@ -276,8 +285,9 @@
   .shc-month .shc-event-time { font-size: 8px; white-space: normal; text-align: center; }
   .shc-month .shc-event-address { display: none; }
   .shc-month .shc-more { font-size: 8px !important; text-align: center; padding: 3px 0; }
-  .shc-day-agenda { padding: 15px 12px; }
-  .shc-calendar-footer { font-size: 9px; padding: 12px; }
+  .shc-day-agenda { padding: 12px 10px; }
+  .shc-calendar-footer { font-size: 9px; padding: 8px 10px; }
+  .shc-empty-banner { padding: 8px 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .shc *, .shc *::before, .shc *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
@@ -300,4 +310,4 @@
 .shc-untimed-menu-list button:hover { background: hsl(var(--secondary)); }
 .shc-untimed-menu-list strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
 .shc-untimed-menu-list span, .shc-untimed-menu-list small { font-size: 11px; color: hsl(var(--muted-foreground)); line-height: 1.4; }
-@media (max-width: 767px) { .shc-period-detail { display: none; } .shc-period-meta { gap: 8px; } }
+@media (max-width: 767px) { .shc-period-detail { display: none; } }

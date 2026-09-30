@@ -9,7 +9,7 @@ import { CalendarAgenda, CalendarInspector } from './CalendarShootCards';
 import { CalendarUntimedMenu } from './CalendarUntimedMenu';
 import { CalendarMonth } from './CalendarMonth';
 import { CalendarDayStrip, CalendarTimeline } from './CalendarTimeline';
-import { buildCalendarEntries, formatCalendarPart, getCalendarDateRange, getCalendarDates, getCalendarPeriodLabel, getCalendarToday, getShootCalendarDate, isCalendarDate, moveCalendarDate, type CalendarEntry, type CalendarViewMode } from './calendarModel';
+import { buildCalendarEntries, formatCalendarPart, getCalendarDateRange, getCalendarDates, getCalendarPeriodLabel, getCompactCalendarPeriodLabel, getCalendarToday, getShootCalendarDate, isCalendarDate, moveCalendarDate, type CalendarEntry, type CalendarViewMode } from './calendarModel';
 import './calendar.css';
 
 export interface ShootHistoryCalendarProps {
@@ -78,7 +78,7 @@ export function ShootHistoryCalendar({ shoots, view, date: requestedDate, onView
     <div className="shc-layout">
       <section className="shc-planner" aria-label="Shoot schedule">
         <header className="shc-toolbar">
-          <div className="shc-period"><h2 aria-live="polite">{getCalendarPeriodLabel(date, view, formatDate)}</h2><div className="shc-period-meta"><p><CalendarDays aria-hidden="true" /><span className="shc-period-detail">{view === 'month' ? 'Month overview' : 'Start-time view'}<span aria-hidden="true"> · </span></span>{loading ? 'Loading shoots…' : `${visibleCount} ${visibleCount === 1 ? 'shoot' : 'shoots'}`}</p>{view !== 'month' && !loading && !error && <CalendarUntimedMenu entries={untimed} theme={theme} onShootSelect={selectShoot} />}</div></div>
+          <div className="shc-period"><h2 aria-live="polite">{mobile ? getCompactCalendarPeriodLabel(date, view) : getCalendarPeriodLabel(date, view, formatDate)}</h2><div className="shc-period-meta"><p><CalendarDays aria-hidden="true" /><span className="shc-period-detail">{view === 'month' ? 'Month overview' : 'Start-time view'}<span aria-hidden="true"> · </span></span>{loading ? 'Loading shoots…' : `${visibleCount} ${visibleCount === 1 ? 'shoot' : 'shoots'}`}</p>{view !== 'month' && !loading && !error && <CalendarUntimedMenu entries={untimed} theme={theme} onShootSelect={selectShoot} />}</div></div>
           <div className="shc-controls">
             <div className="shc-date-nav"><button type="button" aria-label={`Previous ${view}`} title={`Previous ${view}`} onClick={() => onDateChange(moveCalendarDate(date, view, -1))}><ChevronLeft aria-hidden="true" /></button><button type="button" className="shc-today" onClick={() => onDateChange(getCalendarToday())}>Today</button><button type="button" aria-label={`Next ${view}`} title={`Next ${view}`} onClick={() => onDateChange(moveCalendarDate(date, view, 1))}><ChevronRight aria-hidden="true" /></button></div>
             <div className="shc-view-switch" role="group" aria-label="Calendar view">{(['month', 'week', 'day'] as const).map(mode => <button type="button" key={mode} aria-pressed={view === mode} onClick={() => onViewChange(mode)}>{mode[0].toUpperCase() + mode.slice(1)}</button>)}</div>

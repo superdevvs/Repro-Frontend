@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext';
 import { ShootHistoryCalendar, type ShootHistoryCalendarProps } from './ShootHistoryCalendar';
-import type { CalendarViewMode } from './calendarModel';
+import { getCompactCalendarPeriodLabel, type CalendarViewMode } from './calendarModel';
 import { calendarShoot } from './calendarFixtures.test-helper';
 
 const mocks = vi.hoisted(() => ({ theme: 'dark', mobile: false }));
@@ -167,6 +167,15 @@ describe('real Shoot History calendar', () => {
     render(<Calendar />);
     expect(screen.getByTestId('shoot-history-calendar')).not.toHaveClass('is-viewport-fill');
     expect(screen.getByTestId('calendar-timeline-scroll')).toBeInTheDocument();
+  });
+
+  it('uses a compact period label on phones without changing Month/Week/Day controls', () => {
+    mocks.mobile = true;
+    render(<Calendar />);
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(getCompactCalendarPeriodLabel('2026-09-28', 'week'));
+    expect(screen.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Calendar view' })).toBeInTheDocument();
   });
 
 });

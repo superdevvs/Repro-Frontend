@@ -83,6 +83,16 @@ export function getCalendarPeriodLabel(date: string, view: CalendarViewMode, for
   return `${formatDate(range.start)} – ${formatDate(range.end)}`;
 }
 
+/** Short labels for the mobile period toolbar (saves a line vs full locale dates). */
+export function getCompactCalendarPeriodLabel(date: string, view: CalendarViewMode): string {
+  if (view === 'month') return formatCalendarPart(date, { month: 'short', year: 'numeric' });
+  if (view === 'day') return formatCalendarPart(date, { weekday: 'short', month: 'short', day: 'numeric' });
+  const range = getCalendarDateRange(date, view);
+  const start = formatCalendarPart(range.start, { month: 'short', day: 'numeric' });
+  const end = formatCalendarPart(range.end, { month: 'short', day: 'numeric' });
+  return `${start} – ${end}`;
+}
+
 export function getShootCalendarDate(shoot: ShootData): string | null {
   const { date } = getShootSchedule(shoot);
   return isCalendarDate(date) ? date : null;
