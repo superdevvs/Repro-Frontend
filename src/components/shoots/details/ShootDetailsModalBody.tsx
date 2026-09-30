@@ -7,7 +7,7 @@ import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { ShootDetailsOverviewTab } from '../tabs/ShootDetailsOverviewTab';
-import { ShootUnitScopeProvider } from '@/features/shoot-units/ShootUnitScope';
+import { ShootUnitScopeProvider, ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
@@ -261,6 +261,15 @@ export function ShootDetailsModalBody({
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
+      {activeTab !== 'overview' && activeTab !== 'tours' && (
+        <div className="shrink-0 border-b bg-background px-2 py-1 sm:px-4">
+          <ShootUnitScopeBar
+            shoot={shoot}
+            variant="compact"
+            disabled={isEditMode || hasInflightUploads}
+          />
+        </div>
+      )}
       <div className={`flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}

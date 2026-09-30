@@ -47,4 +47,24 @@ describe('shared unit selector', () => {
     expect(screen.getByRole('button', { name: /101/ })).toHaveAttribute('aria-pressed', 'true');
     expect(onManageUnits).not.toHaveBeenCalled();
   });
+
+  it('renders compact chrome as a single-row control', () => {
+    const shoot = {
+      id: 'scope-compact',
+      units: [
+        { id: 1, label: 'Unit E', kind: 'unit', sqft: 1200, beds: 2, baths: 1 },
+        { id: 2, label: 'Unit F', kind: 'unit', sqft: 1100, beds: 2, baths: 1 },
+      ],
+    } as ShootData;
+    render(<ShootUnitScopeBar shoot={shoot} variant="compact" />);
+    const chrome = document.querySelector('[data-unit-chrome="compact"]');
+    expect(chrome).toBeTruthy();
+    expect(chrome).toHaveClass('flex-nowrap');
+    expect(chrome).toHaveClass('py-1');
+    expect(screen.getByText(/Unit · 1 of 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Unit E · 1,200 sqft/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change unit' })).toHaveClass('h-7');
+    expect(screen.getByRole('button', { name: 'Previous unit' })).toHaveClass('h-7');
+  });
 });
+

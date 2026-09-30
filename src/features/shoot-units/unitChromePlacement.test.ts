@@ -3,27 +3,29 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Unit chrome lives in Overview (sidebar embedded) and Tours (inline tab).
- * A full-width ShootUnitScopeBar must not sit above the Shoot Details tab row
- * on Notes/Requests/Settings/Activity/Media/etc.
+ * Unit chrome is visible on every multi-unit Shoot Details surface.
+ * Overview uses embedded sidebar chrome; Tours uses inline tab chrome;
+ * all other tabs use a compact single-row bar above the tab content.
  */
 describe('Shoot Details unit chrome placement', () => {
-  it('does not render a top ShootUnitScopeBar above modal tabs', () => {
+  it('mounts compact ShootUnitScopeBar above modal tabs for non-Overview/non-Tours', () => {
     const source = readFileSync(
       resolve(__dirname, '../../components/shoots/details/ShootDetailsModalBody.tsx'),
       'utf8',
     );
     expect(source).toContain('ShootUnitScopeProvider');
-    expect(source).not.toMatch(/ShootUnitScopeBar/);
+    expect(source).toMatch(/activeTab !== 'overview' && activeTab !== 'tours'/);
+    expect(source).toMatch(/ShootUnitScopeBar[\s\S]*variant="compact"/);
   });
 
-  it('does not render a top ShootUnitScopeBar above page tabs', () => {
+  it('mounts compact ShootUnitScopeBar on the Shoot Details page for non-Tour tabs', () => {
     const source = readFileSync(
       resolve(__dirname, '../../pages/ShootDetails.tsx'),
       'utf8',
     );
     expect(source).toContain('ShootUnitScopeProvider');
-    expect(source).not.toMatch(/ShootUnitScopeBar/);
+    expect(source).toMatch(/activeTab !== 'tour'/);
+    expect(source).toMatch(/ShootUnitScopeBar[\s\S]*variant="compact"/);
   });
 
   it('keeps Overview embedded and Tours inline unit selectors', () => {

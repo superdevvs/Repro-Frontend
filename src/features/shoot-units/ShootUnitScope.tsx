@@ -16,7 +16,7 @@ type ShootUnitScopeBarProps = {
   shoot: ShootData;
   onShootUpdate?: () => unknown;
   disabled?: boolean;
-  variant?: 'standalone' | 'embedded' | 'inline';
+  variant?: 'standalone' | 'embedded' | 'inline' | 'compact';
   onManageUnits?: () => void;
   manageUnitsLabel?: string;
   containerRef?: RefObject<HTMLDivElement>;
@@ -45,12 +45,45 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
     if (disabled) return;
     setActiveUnitId(id); setOpen(false); restoreFocus(control);
   };
+  const kindLabel = unit.kind === 'common_area' ? 'Common areas' : 'Unit';
+  const labelWithSqft = `${unit.label}${unit.sqft ? ` · ${unit.sqft.toLocaleString()} sqft` : ''}`;
+  const isCompact = variant === 'compact';
+  const shellClass = variant === 'embedded'
+    ? 'mt-2.5 border-t pt-2.5'
+    : variant === 'inline'
+      ? ''
+      : isCompact
+        ? 'rounded-md border border-blue-200/80 bg-blue-50/50 px-2 py-1 dark:border-blue-900/80 dark:bg-blue-950/20'
+        : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20';
+  const changeButtonClass = isCompact ? 'h-7 px-2 text-[11px]' : 'h-8 px-2 text-xs';
+  const arrowButtonClass = isCompact ? 'h-7 w-7' : 'h-8 w-8';
+
   return <>
-    <div ref={containerRef} className={`flex min-w-0 flex-wrap items-center gap-2 ${variant === 'embedded' ? 'mt-2.5 border-t pt-2.5' : variant === 'inline' ? '' : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20'}`} aria-label="Selected unit" onClick={event => event.stopPropagation()}>
-      <Building2 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-      <div className="min-w-0 flex-1"><div className="text-[10px] text-muted-foreground">{unit.kind === 'common_area' ? 'Common areas' : 'Unit'} · {index + 1} of {units.length}</div><p className="truncate text-xs font-semibold" title={unit.label}>{unit.label}{unit.sqft ? ` · ${unit.sqft.toLocaleString()} sqft` : ''}</p></div>
-      <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" data-unit-control="change" disabled={disabled} onClick={() => { handingOffFocus.current = false; setQuery(''); setPage(0); setOpen(true); }}>Change unit</Button>
-      <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" data-unit-control="previous" aria-label="Previous unit" disabled={disabled || index === 0} onClick={() => selectUnit(getUnitKey(units[index - 1]), 'previous')}><ChevronLeft className="h-4 w-4" /></Button><Button type="button" variant="ghost" size="icon" className="h-8 w-8" data-unit-control="next" aria-label="Next unit" disabled={disabled || index === units.length - 1} onClick={() => selectUnit(getUnitKey(units[index + 1]), 'next')}><ChevronRight className="h-4 w-4" /></Button></div>
+    <div
+      ref={containerRef}
+      className={`flex min-w-0 items-center gap-1.5 ${isCompact ? 'flex-nowrap' : 'flex-wrap gap-2'} ${shellClass}`}
+      aria-label="Selected unit"
+      data-unit-chrome={variant}
+      onClick={event => event.stopPropagation()}
+    >
+      <Building2 className={`${isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0 text-blue-600 dark:text-blue-400`} />
+      {isCompact ? (
+        <p className="min-w-0 flex-1 truncate text-xs leading-none" title={labelWithSqft}>
+          <span className="text-muted-foreground">{kindLabel} · {index + 1} of {units.length}</span>
+          <span className="mx-1 text-muted-foreground/50">·</span>
+          <span className="font-semibold">{labelWithSqft}</span>
+        </p>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] text-muted-foreground">{kindLabel} · {index + 1} of {units.length}</div>
+          <p className="truncate text-xs font-semibold" title={unit.label}>{labelWithSqft}</p>
+        </div>
+      )}
+      <Button type="button" variant="outline" size="sm" className={changeButtonClass} data-unit-control="change" disabled={disabled} onClick={() => { handingOffFocus.current = false; setQuery(''); setPage(0); setOpen(true); }}>Change unit</Button>
+      <div className={`flex ${isCompact ? 'gap-0.5' : 'gap-1'}`}>
+        <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="previous" aria-label="Previous unit" disabled={disabled || index === 0} onClick={() => selectUnit(getUnitKey(units[index - 1]), 'previous')}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="next" aria-label="Next unit" disabled={disabled || index === units.length - 1} onClick={() => selectUnit(getUnitKey(units[index + 1]), 'next')}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
     </div>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent onCloseAutoFocus={containerRef ? event => { event.preventDefault(); if (!handingOffFocus.current) restoreFocus(); } : undefined} onClick={event => event.stopPropagation()} className="flex max-h-[84dvh] max-w-lg flex-col overflow-hidden"><DialogHeader><DialogTitle>Select unit</DialogTitle><DialogDescription>{units.length} units and common areas at this property</DialogDescription></DialogHeader>
       <Input aria-label="Search units" placeholder="Search unit name…" value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} />
