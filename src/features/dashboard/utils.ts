@@ -1,12 +1,11 @@
 import type { ShootData } from "@/types/shoots";
 import type { DashboardShootSummary } from "@/types/dashboard";
 import { normalizeImageUrl } from "@/utils/imageUrl";
-import { isFloorplanLikeHeroUrl } from "@/utils/shootCardHero";
+import { isFloorplanLikeHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
 
 import {
   CLIENT_DELIVERED_EXCLUDED_STAGE_KEYWORDS,
   CLIENT_DELIVERED_FINAL_STAGE_KEYWORDS,
-  CLIENT_DELIVERED_FLOORPLAN_PATTERNS,
 } from "./constants";
 
 export const parseDateValue = (value?: string | null) => {
@@ -131,6 +130,8 @@ export const resolveClientDeliveredAssetUrl = (item: unknown) => {
         asset.watermarked_thumbnail_path,
         asset.watermarked_web_path,
         asset.watermarked_placeholder_path,
+        asset.grid_url,
+        asset.grid_path,
         asset.thumbnail,
         asset.thumbnail_url,
         asset.thumb,
@@ -143,6 +144,8 @@ export const resolveClientDeliveredAssetUrl = (item: unknown) => {
         asset.placeholder_url,
       ]
     : [
+        asset.grid_url,
+        asset.grid_path,
         asset.thumbnail,
         asset.thumbnail_url,
         asset.thumbnail_path,
@@ -217,12 +220,28 @@ export const getClientDeliveredMedia = (shoot: ShootData) => {
     ),
   );
 
+  // Dashboard / My shoots load with include_files=false, so file rows are empty
+  // while editedPhotoCount still reflects delivered media. List responses hydrate
+  // hero_image + preview_images for cards — use those before falling back.
+  const listCardPhotos = selectShootCardHeroUrls(
+    {
+      heroImage: shoot.heroImage,
+      previewImages: [
+        ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+        ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+      ],
+    },
+    { limit: 6 },
+  );
+
   const photos =
     filePhotos.length > 0
       ? filePhotos
-      : mediaPhotos.length > 0
-        ? mediaPhotos
-        : legacyDeliveredPhotos;
+      : listCardPhotos.length > 0
+        ? listCardPhotos
+        : mediaPhotos.length > 0
+          ? mediaPhotos
+          : legacyDeliveredPhotos;
 
   const countFallbacks = [
     shoot.editedPhotoCount,
