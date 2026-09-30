@@ -1,10 +1,10 @@
+import { resolveServicePrice } from './shootOverviewServicePricing';
 import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import type { ShootData } from '@/types/shoots';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { API_BASE_URL } from '@/config/env';
-import { getServicePricingForSqft } from '@/utils/servicePricing';
 import {
   getShootInvoiceAdjustmentTotal,
   isInvoiceAdjustmentServiceItem,
@@ -169,24 +169,6 @@ export function useShootOverviewEditor({
     catalogServices: servicesList,
     toast,
   });
-
-  const resolveServicePrice = useCallback((service: ServiceOption, sqft: number | null, overrideValue?: string) => {
-    const serviceWithPrice = { ...service, price: service.price ?? 0 };
-    const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
-      ? getServicePricingForSqft(serviceWithPrice, sqft)
-      : null;
-    const rawBasePrice = Number(pricingInfo?.price ?? service.price ?? 0);
-    const basePrice = Number.isFinite(rawBasePrice) ? rawBasePrice : 0;
-    const parsedOverride = overrideValue !== undefined && overrideValue !== '' ? Number(overrideValue) : NaN;
-    const hasOverride = Number.isFinite(parsedOverride)
-      && ((basePrice === 0 && parsedOverride > 0) || (basePrice > 0 && Math.abs(parsedOverride - basePrice) > 0.01));
-
-    return {
-      price: hasOverride ? parsedOverride : basePrice,
-      basePrice,
-      hasOverride,
-    };
-  }, []);
 
   const initializeMetricsFromShoot = useCallback(() => {
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
@@ -724,7 +706,6 @@ export function useShootOverviewEditor({
     serviceQuantities,
     effectiveSqft,
     invoiceAdjustmentTotal,
-    resolveServicePrice,
     selectedServiceIds,
     servicePrices,
     servicesList,

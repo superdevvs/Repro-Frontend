@@ -1,9 +1,8 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isToday, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
-import { Ban, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +33,8 @@ import { AvailabilityPhotographerSelect } from "@/components/availability/Availa
 import { PhotographerListPanel } from "@/components/availability/PhotographerListPanel";
 import { ScheduleDetailsPanel } from "@/components/availability/ScheduleDetailsPanel";
 import { AvailabilityCalendarBody } from "@/components/availability/AvailabilityCalendarBody";
+import { AvailabilityPageHeader, AvailabilityViewModeButtons } from "@/components/availability/AvailabilityPageHeader";
+import { DEFAULT_WEEKLY_SCHEDULE, DEFAULT_SCHEDULE_STARTER } from "@/components/availability/availabilityDefaults";
 import { EditAvailabilityDialog } from "@/components/availability/dialogs/EditAvailabilityDialog";
 import {
   WeeklyScheduleDialog,
@@ -43,27 +44,6 @@ import {
   BlockTimeDialog,
   type BlockScheduleState,
 } from "@/components/availability/dialogs/BlockTimeDialog";
-
-const DEFAULT_WEEKLY_SCHEDULE: WeeklyScheduleItem[] = [
-  { day: 'Mon', active: false, startTime: '9:00', endTime: '17:00' },
-  { day: 'Tue', active: false, startTime: '9:00', endTime: '17:00' },
-  { day: 'Wed', active: false, startTime: '9:00', endTime: '17:00' },
-  { day: 'Thu', active: false, startTime: '9:00', endTime: '17:00' },
-  { day: 'Fri', active: false, startTime: '9:00', endTime: '17:00' },
-  { day: 'Sat', active: false, startTime: '10:00', endTime: '15:00' },
-  { day: 'Sun', active: false, startTime: '10:00', endTime: '15:00' },
-];
-
-/** Starter when opening Default schedule with no existing recurring windows. */
-const DEFAULT_SCHEDULE_STARTER: WeeklyScheduleItem[] = [
-  { day: 'Mon', active: true, startTime: '09:00', endTime: '17:00' },
-  { day: 'Tue', active: true, startTime: '09:00', endTime: '17:00' },
-  { day: 'Wed', active: true, startTime: '09:00', endTime: '17:00' },
-  { day: 'Thu', active: true, startTime: '09:00', endTime: '17:00' },
-  { day: 'Fri', active: true, startTime: '09:00', endTime: '17:00' },
-  { day: 'Sat', active: false, startTime: '10:00', endTime: '15:00' },
-  { day: 'Sun', active: false, startTime: '10:00', endTime: '15:00' },
-];
 
 export default function Availability() {
   const isMobile = useIsMobile();
@@ -519,28 +499,11 @@ export default function Availability() {
     }
   }, [date, viewMode]);
 
-  const renderViewModeButtons = (variant: "header" | "compact") => (
-    <div className={cn("flex items-center gap-1 bg-muted rounded-md p-1", variant === "compact" && "shadow-sm")}>
-      {(["day", "week", "month"] as const).map((mode) => (
-        <button
-          key={mode}
-          onClick={() => {
-            setViewMode(mode);
-            setDate(new Date());
-            setSelectedSlotId(null);
-          }}
-          className={cn(
-            variant === "header"
-              ? "px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-              : "px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-            viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {mode.charAt(0).toUpperCase() + mode.slice(1)}
-        </button>
-      ))}
-    </div>
-  );
+  const changeViewMode = (mode: "day" | "week" | "month") => {
+    setViewMode(mode);
+    setDate(new Date());
+    setSelectedSlotId(null);
+  };
 
   const navigateDate = (direction: -1 | 1) => {
     if (viewMode === "week") setDate(addDays(date || new Date(), 7 * direction));
@@ -598,46 +561,16 @@ export default function Availability() {
     <>
       <div className={cn("flex-1 flex flex-col min-h-0 h-full", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
         <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full min-h-0 px-6 pb-4 pt-0 overflow-hidden")}>
-          {isCompactLayout ? (
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg sm:text-xl font-bold truncate">Availability</h1>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={goToToday}>Today</Button>
-                {canEditAvailability && (
-                  <Button variant="destructive" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" onClick={openBlockDialog} aria-label="Block Calendar">
-                    <Ban className="h-4 w-4" />
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs" aria-label="Sync" title="Sync" onClick={() => setIsSyncModalOpen(true)}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-shrink-0">
-              <PageHeader
-                badge={isDesktop ? "Availability" : undefined}
-                title={isDesktop ? "Photographer Availability" : "Availability"}
-                description={isDesktop ? "Manage and schedule photographer availability" : undefined}
-                action={
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={goToToday}>Today</Button>
-                    {renderViewModeButtons("header")}
-                    {canEditAvailability && (
-                      <Button variant="destructive" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={openBlockDialog}>
-                        <Ban className="h-4 w-4 mr-2" />
-                        Block Calendar
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" className="rounded-md whitespace-nowrap h-9 px-3 text-sm" onClick={() => setIsSyncModalOpen(true)}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Sync
-                    </Button>
-                  </div>
-                }
-              />
-            </div>
-          )}
+          <AvailabilityPageHeader
+            isCompactLayout={isCompactLayout}
+            isDesktop={isDesktop}
+            canEditAvailability={canEditAvailability}
+            viewMode={viewMode}
+            onViewModeChange={changeViewMode}
+            goToToday={goToToday}
+            openBlockDialog={openBlockDialog}
+            onSync={() => setIsSyncModalOpen(true)}
+          />
 
           {loadingPhotographers && (
             <div className="py-3">
@@ -863,7 +796,7 @@ export default function Availability() {
                         </p>
                       )}
                     </div>
-                    <div className="flex-shrink-0">{renderViewModeButtons("compact")}</div>
+                    <div className="flex-shrink-0"><AvailabilityViewModeButtons variant="compact" viewMode={viewMode} onChange={changeViewMode} /></div>
                   </div>
                   <div className="flex items-center gap-2 mb-3">
                     <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg" onClick={() => navigateDate(-1)}>

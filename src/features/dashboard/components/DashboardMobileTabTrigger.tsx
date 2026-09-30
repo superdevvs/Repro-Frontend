@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 import { DASHBOARD_MOBILE_TAB_TRIGGER_CLASS } from "../utils/dashboardMobilePanel";
 
-type DashboardTabIcon = React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+type DashboardTabIcon = React.ComponentType<{ className?: string; "aria-hidden"?: React.AriaAttributes['aria-hidden'] }>;
 
 function formatTabCount(count: number): string {
   if (count > 99) return "99+";

@@ -68,7 +68,7 @@ function xhrJson(
   method: string,
   url: string,
   headers: Record<string, string | undefined>,
-  body: BodyInit | null,
+  body: XMLHttpRequestBodyInit | null,
   signal?: AbortSignal,
 ): Promise<MediaRequestResult> {
   return new Promise((resolve) => {

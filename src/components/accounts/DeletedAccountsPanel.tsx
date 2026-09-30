@@ -184,7 +184,7 @@ export function DeletedAccountsPanel() {
                     <span className="font-medium truncate">{a.name || 'Unnamed account'}</span>
                     {a.role && (
                       <Badge variant="secondary">
-                        {formatUserRoleLabel(a.role, a as any)}
+                        {formatUserRoleLabel(a.role, a)}
                       </Badge>
                     )}
                   </div>

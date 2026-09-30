@@ -158,7 +158,7 @@ export function resolveResumePhotographerId(shoot: ShootData): number | undefine
     const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
     return ranked[0][0];
   }
-  const raw = shoot.photographer?.id ?? shoot.photographer_id;
+  const raw = shoot.photographer?.id ?? (shoot as ShootData & { photographer_id?: string | number | null }).photographer_id;
   if (raw === null || raw === undefined || raw === '') return undefined;
   const id = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
   return Number.isFinite(id) && id > 0 ? id : undefined;

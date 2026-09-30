@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { formatUserRoleLabel } from '@/utils/userRoleLabels';
+import { formatUserRoleLabel, type RoleLabelUser } from '@/utils/userRoleLabels';
 import { MapPinIcon, CameraIcon, StarIcon, Mail, Edit } from 'lucide-react';
 
 type Photographer = {
@@ -26,7 +26,7 @@ type Photographer = {
 };
 
 interface PhotographerProfileProps {
-  photographer: {
+  photographer: NonNullable<RoleLabelUser> & {
     id: string;
     name: string;
     email: string;
@@ -52,7 +52,7 @@ export function PhotographerProfile({
 }: PhotographerProfileProps) {
   const isEditorProfile = profileType === 'editors';
   const entityType = isEditorProfile
-    ? formatUserRoleLabel('editor', photographer as any)
+    ? formatUserRoleLabel('editor', photographer)
     : 'Photographer';
   
   const getStatusColor = (status: string) => {

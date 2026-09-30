@@ -634,9 +634,9 @@ export function ExclusiveListingsShowcase({
                         listing={selectedListing}
                         selected
                         density="map"
-                        onOpen={(listing) => {
+                        onOpen={() => {
                           setInspectorOpen(false)
-                          onOpenListing(listing)
+                          onOpenListing(selectedListing)
                         }}
                         className="shadow-none"
                       />
@@ -741,7 +741,7 @@ export function ExclusiveListingsShowcase({
                       listing={selectedListing}
                       selected
                       density="map"
-                      onOpen={onOpenListing}
+                      onOpen={() => onOpenListing(selectedListing)}
                       className="shadow-none"
                     />
                   </section>

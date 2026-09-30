@@ -1,3 +1,4 @@
+import { downloadBlob, getHistoryDownloadMode } from './shootHistoryDownloadHelpers';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -13,7 +14,6 @@ import {
   deriveFilterOptionsFromShoots,
   mapShootApiToShootData,
 } from '@/components/shoots/history/shootHistoryTransforms'
-import { normalizeShootDetailsStatus } from '@/components/shoots/modal/shootDetailsCapabilities'
 import {
   ActiveOperationalTab,
   AvailableTab,
@@ -166,36 +166,6 @@ const filterShootByRole = (
   }
 
   return true
-}
-
-const downloadBlob = (filename: string, blob: Blob) => {
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', filename)
-  document.body.appendChild(link)
-  link.click()
-  link.parentNode?.removeChild(link)
-  window.URL.revokeObjectURL(url)
-}
-
-const getHistoryDownloadMode = (
-  shoot: ShootData,
-  activeTab: AvailableTab,
-): 'delivered' | 'raw' => {
-  const normalizedStatus = normalizeShootDetailsStatus(
-    shoot.workflowStatus || shoot.status,
-  )
-
-  if (
-    activeTab === 'delivered' ||
-    normalizedStatus === 'delivered' ||
-    normalizedStatus === 'ready'
-  ) {
-    return 'delivered'
-  }
-
-  return 'raw'
 }
 
 const isSalesRepRole = (role: string | null | undefined) => {
@@ -1090,7 +1060,7 @@ export function useShootHistoryData({
           })
       toast({
         title: 'Download started',
-        description: result.message || 'Raw files downloading now.',
+        description: ('message' in result && result.message) || 'Raw files downloading now.',
       })
     } catch (error) {
       toast({

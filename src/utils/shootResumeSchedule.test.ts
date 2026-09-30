@@ -66,7 +66,7 @@ describe('undated on-hold resume gate', () => {
     expect(buildResumeSchedulePayload(shoot({
       scheduledDate: '2026-09-09', time: '09:00', timezone: 'America/New_York',
       scheduledInstant: '2026-09-09T13:00:00Z',
-      photographer: { id: '1104' },
+      photographer: { id: '1104', name: 'Jaz' },
     }), new Date('2026-09-09T14:00:00Z'))).toBe('needs_schedule');
   });
 
@@ -75,8 +75,8 @@ describe('undated on-hold resume gate', () => {
       scheduledDate: '2026-08-12', time: '11:10', timezone: 'America/New_York',
       scheduledInstant: '2026-08-12T15:10:00Z',
       photographer: { id: 989, name: 'Jay Snap' },
-      services: [
-        { id: 7, name: '45 HDR Photos', photographer_id: '1106', scheduled_at: '2026-09-30 15:10:00' },
+      serviceObjects: [
+        { id: '7', name: '45 HDR Photos', price: 199, quantity: 1, photographer_id: '1106', scheduled_at: '2026-09-30 15:10:00' },
       ],
     }), new Date('2026-09-29T12:00:00Z'))).toBe('needs_schedule');
   });

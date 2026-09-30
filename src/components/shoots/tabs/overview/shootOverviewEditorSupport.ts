@@ -1,3 +1,4 @@
+import { normalizeDayOfWeek } from './photographerAvailabilityDay';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect } from 'react';
 import { format, isValid, parse } from 'date-fns';
@@ -232,39 +233,6 @@ export const buildScheduledAtIso = (dateValue?: string, timeValue?: string) => {
 
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'uncategorized';
-
-const normalizeDayOfWeek = (value: unknown): string => {
-  if (value === null || value === undefined) return '';
-  const normalized = String(value).trim().toLowerCase();
-  const days: Record<string, string> = {
-    '0': 'sunday',
-    '1': 'monday',
-    '2': 'tuesday',
-    '3': 'wednesday',
-    '4': 'thursday',
-    '5': 'friday',
-    '6': 'saturday',
-    sun: 'sunday',
-    sunday: 'sunday',
-    mon: 'monday',
-    monday: 'monday',
-    tue: 'tuesday',
-    tues: 'tuesday',
-    tuesday: 'tuesday',
-    wed: 'wednesday',
-    weds: 'wednesday',
-    wednesday: 'wednesday',
-    thu: 'thursday',
-    thur: 'thursday',
-    thurs: 'thursday',
-    thursday: 'thursday',
-    fri: 'friday',
-    friday: 'friday',
-    sat: 'saturday',
-    saturday: 'saturday',
-  };
-  return days[normalized] ?? normalized;
-};
 
 const normalizeCategoryName = (value?: string) => {
   const normalized = (value || '').trim().toLowerCase();
@@ -884,7 +852,9 @@ export function usePhotographerDistanceAvailability(
           console.warn('[OverviewPhotographerPicker] forBooking error; falling back to bulk', error);
         }
         if (cancelled) return;
-        let rawAvailabilityByPhotographer: Record<string, any[]> = {};
+        let rawAvailabilityByPhotographer: Record<string, Array<
+          NonNullable<PhotographerPickerOption['availabilitySlots']>[number] & { date?: string; day_of_week?: string | number }
+        >> = {};
         try {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
             method: 'POST',
@@ -914,19 +884,19 @@ export function usePhotographerDistanceAvailability(
         setPhotographers((current) => current.map((photographer) => {
           const match = availabilityList.find((item: any) => String(item.id) === String(photographer.id));
           const rawSlots = rawAvailabilityByPhotographer[photographer.id] || rawAvailabilityByPhotographer[String(photographer.id)] || [];
-          const specificDateSlots = rawSlots.filter((slot: any) => {
+          const specificDateSlots = rawSlots.filter((slot) => {
             const slotDate = slot?.date ? String(slot.date).slice(0, 10) : '';
             return slotDate === dateStr;
           });
-          const weeklySlots = rawSlots.filter((slot: any) => {
+          const weeklySlots = rawSlots.filter((slot) => {
             const slotDate = slot?.date ? String(slot.date).trim() : '';
             if (slotDate) return false;
             return normalizeDayOfWeek(slot?.day_of_week) === dayOfWeek;
           });
           const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
           const rawAvailableSlots = relevantSlots
-            .filter((slot: any) => !slot.status || slot.status === 'available')
-            .map((slot: any) => ({
+            .filter((slot) => !slot.status || slot.status === 'available')
+            .map((slot) => ({
               start_time: slot.start_time,
               end_time: slot.end_time,
             }));

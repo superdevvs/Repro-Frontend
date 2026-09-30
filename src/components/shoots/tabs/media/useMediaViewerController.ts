@@ -1,3 +1,4 @@
+import { getMediaViewerDetailRows, getSlideshowMotionVariants } from './mediaViewerPresentation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useReducedMotion } from 'framer-motion';
@@ -29,8 +30,6 @@ import { getMediaFilenameBase } from '@/features/media-filename-rename/filenameV
 import {
   MAX_MEDIA_VIEWER_ZOOM,
   SLIDESHOW_INTERVAL_OPTIONS,
-  formatViewerDateTime,
-  formatViewerFileSize,
   type MediaIssueRequest,
   type MediaViewerProps,
 } from './mediaViewerTypes';
@@ -794,67 +793,8 @@ export function useMediaViewerController({
         mediaType !== 'extra' &&
         mediaType !== 'floorplan' &&
         ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
-  const detailRows: Array<{ label: string; value: string }> = [
-    {
-      label: 'Type',
-      value: currentFile.fileType?.split('/').pop()?.toUpperCase() || fileExt || '—',
-    },
-    {
-      label: 'Media',
-      value: currentFile.media_type ? String(currentFile.media_type).replace(/_/g, ' ') : '—',
-    },
-    {
-      label: 'Stage',
-      value: currentFile.workflowStage ? String(currentFile.workflowStage).replace(/_/g, ' ') : '—',
-    },
-    {
-      label: 'Edited with AI',
-      value: currentFile.is_ai_edited || currentFile.isAiEdited ? 'Yes' : 'No',
-    },
-    {
-      label: 'Resolution',
-      value: currentFile.width && currentFile.height ? `${currentFile.width} × ${currentFile.height}` : '—',
-    },
-    {
-      label: 'Captured',
-      value: formatViewerDateTime(currentFile.captured_at || currentFile.created_at),
-    },
-    {
-      label: 'Size',
-      value: !isClient ? formatViewerFileSize(currentFile.fileSize) : '—',
-    },
-  ];
-  const slideshowMotionVariants = {
-    initial: (direction: 1 | -1) => ({
-      opacity: 0,
-      scale: prefersReducedMotion ? 1 : 1.025,
-      x: prefersReducedMotion ? 0 : direction > 0 ? 28 : -28,
-      y: prefersReducedMotion ? 0 : 6,
-      filter: prefersReducedMotion ? 'none' : 'blur(8px)',
-    }),
-    animate: {
-      opacity: 1,
-      scale: 1,
-      x: 0,
-      y: 0,
-      filter: 'blur(0px)',
-      transition: {
-        duration: prefersReducedMotion ? 0.2 : 0.72,
-        ease: [0.22, 1, 0.36, 1],
-      },
-    },
-    exit: (direction: 1 | -1) => ({
-      opacity: 0,
-      scale: prefersReducedMotion ? 1 : 0.985,
-      x: prefersReducedMotion ? 0 : direction > 0 ? -22 : 22,
-      y: prefersReducedMotion ? 0 : -4,
-      filter: prefersReducedMotion ? 'none' : 'blur(6px)',
-      transition: {
-        duration: prefersReducedMotion ? 0.18 : 0.5,
-        ease: [0.4, 0, 0.2, 1],
-      },
-    }),
-  };
+  const detailRows = getMediaViewerDetailRows(currentFile, isClient, fileExt);
+  const slideshowMotionVariants = getSlideshowMotionVariants(prefersReducedMotion);
   const sidebarActionButtonClassName =
     'h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words !border-white/10 !bg-black/40 px-3 py-2 text-left text-[13px] leading-snug !text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:!border-white/20 hover:!bg-black/55 hover:!text-white focus-visible:ring-white/30 lg:min-h-9 lg:px-2.5 lg:py-1.5 lg:text-[12px] xl:min-h-10 xl:px-3 xl:py-2 xl:text-sm';
   const mobileActionMenuItemClassName =

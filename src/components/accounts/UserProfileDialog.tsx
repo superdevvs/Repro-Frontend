@@ -160,8 +160,8 @@ export function UserProfileDialog({
     ...user,
     ...(detailCapsUser ?? {}),
     metadata: {
-      ...((user as any).metadata ?? {}),
-      ...((detailCapsUser?.metadata as object) ?? {}),
+      ...(user.metadata ?? {}),
+      ...(detailCapsUser?.metadata ?? {}),
     },
   };
   const canSeeSensitiveRepData = viewerRole === 'superadmin';

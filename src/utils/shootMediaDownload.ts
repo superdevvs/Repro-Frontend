@@ -113,14 +113,14 @@ export const startSameWindowDownload = (url: string) => {
 };
 
 const extractJsonResponse = async (response: Response) => {
-  return response.json().catch(() => ({})) as Promise<PreparingResponse & RedirectResponse & {
+  return response.json().catch(() => ({})) as Promise<(PreparingResponse | RedirectResponse) & {
     error?: string;
     message?: string;
   }>;
 };
 
 const extractRawJsonResponse = async (response: Response) => {
-  return response.json().catch(() => ({})) as Promise<RawRedirectResponse & {
+  return response.json().catch(() => ({})) as Promise<(PreparingResponse | RawRedirectResponse) & {
     error?: string;
   }>;
 };
@@ -457,7 +457,7 @@ export const downloadShootMediaFile = async ({
 
   if (contentType.includes('application/json')) {
     const data = await extractJsonResponse(response);
-    if (!data.url) {
+    if (!('url' in data) || !data.url) {
       throw new Error(data.message || 'Download link not available');
     }
 

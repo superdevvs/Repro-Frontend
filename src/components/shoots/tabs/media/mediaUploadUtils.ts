@@ -28,6 +28,12 @@ import {
 // Re-exported so existing import paths and the public API of this module are unchanged.
 export * from './uploadIntakeLanes';
 export * from './uploadClassificationOptions';
+export {
+  createUploadBatchId,
+  ensureUploadAttemptIdentity,
+  prepareUploadRetries,
+  rotateUploadAttemptKey,
+} from './uploadAttemptIdentity';
 
 export type ShootMediaServiceObject = {
   name?: string;
@@ -121,15 +127,6 @@ export interface UploadActor {
   role?: string | null;
 }
 
-interface UploadAttemptIdentity {
-  idempotencyKey: string;
-  batchId: string;
-  batchIndex: number;
-  batchTotal: number;
-}
-
-const uploadAttemptIdentities = new WeakMap<File, UploadAttemptIdentity>();
-
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -192,45 +189,6 @@ export function parseCanonicalUploadResponse(responseText?: string): CanonicalUp
     message: readText(payload, 'message'),
     uploadLimits: toUploadLimits(payload.upload_limits),
   };
-}
-
-export function ensureUploadAttemptIdentity(
-  file: File,
-  batchId: string,
-  batchIndex: number,
-  batchTotal: number,
-): UploadAttemptIdentity {
-  const existing = uploadAttemptIdentities.get(file);
-  if (existing) return existing;
-
-  const identity = {
-    idempotencyKey: createUploadBatchId(),
-    batchId,
-    batchIndex,
-    batchTotal,
-  };
-  uploadAttemptIdentities.set(file, identity);
-  return identity;
-}
-
-export function rotateUploadAttemptKey(file: File): void {
-  const existing = uploadAttemptIdentities.get(file);
-  if (!existing) return;
-  uploadAttemptIdentities.set(file, {
-    ...existing,
-    idempotencyKey: createUploadBatchId(),
-  });
-}
-
-// A server-confirmed failure is cached under its old key. Explicit retries need
-// a fresh attempt, while uncertain network/server outcomes must replay safely.
-export function prepareUploadRetries(files: File[], issues: UploadIssue[]): void {
-  for (const file of files) {
-    const issue = issues.find((candidate) => candidate.fileName === file.name);
-    if (issue?.retryable && !['network_failure', 'server_error', 'upload_in_progress'].includes(issue.errorType)) {
-      rotateUploadAttemptKey(file);
-    }
-  }
 }
 
 const PHOTO_SERVICE_LANE = 'photo';
@@ -541,14 +499,6 @@ export function parseUploadLimitsResponse(responseText?: string): UploadLimitsPa
     return undefined;
   }
 }
-
-export const createUploadBatchId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
 
 export const triggerUploadRefreshes = (shootId: string | number) => {
   triggerShootDetailRefresh(shootId);

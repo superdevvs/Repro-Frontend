@@ -1,3 +1,4 @@
+import { formatPhotographerLocationLabel } from './shootEditPhotographerDisplay';
 import { useUnitScopedEdit, useUnitEditDirtyTracking } from '@/features/shoot-units/useUnitScopedEdit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
@@ -417,14 +418,6 @@ export function useShootEditModalController({
       return firstDistance - secondDistance;
     });
   }, [photographerSearchQuery, photographers, photographerAvailability, showAllPhotographers, sortBy]);
-  const formatPhotographerLocationLabel = (photographer?: Photographer | null) => {
-    if (!photographer) return '';
-    const parts = [photographer.address, photographer.city, photographer.state, photographer.zip]
-      .filter(Boolean)
-      .map((part) => String(part).trim())
-      .filter(Boolean);
-    return parts.join(', ');
-  };
   useEffect(() => {
     const availabilityDateValue = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
     if (!isOpen || photographers.length === 0 || !availabilityDateValue) {
