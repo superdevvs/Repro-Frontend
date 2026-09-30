@@ -2,6 +2,15 @@ import React from 'react';
 import { Film, Plus, Trash2 } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +26,11 @@ import {
   normalizeOverviewVideoEmbeds,
   type OverviewVideoEmbed,
 } from './overviewVideoEmbeds';
-import { filterVirtualTourEmbeds } from '@/components/tourLinks/tourMediaEmbedUrl';
+import {
+  filterVirtualTourEmbeds,
+  findDuplicateAmongTourMediaUrls,
+  findTourMediaDuplicateConflict,
+} from '@/components/tourLinks/tourMediaEmbedUrl';
 
 type OverviewVideoEmbedsSectionProps = {
   shoot: ShootData;
@@ -45,6 +58,7 @@ export function OverviewVideoEmbedsSection({
   );
   const [embeds, setEmbeds] = React.useState<OverviewVideoEmbed[]>(() => cloneEmbeds(initialEmbeds));
   const [isSaving, setIsSaving] = React.useState(false);
+  const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setEmbeds(cloneEmbeds(initialEmbeds));
@@ -99,6 +113,41 @@ export function OverviewVideoEmbedsSection({
         variant: 'destructive',
       });
       return;
+    }
+
+    const withUrls = trimmed.filter((embed) => Boolean(embed.url));
+    const listConflict = findDuplicateAmongTourMediaUrls(
+      withUrls.map((embed, index) => ({
+        id: embed.id,
+        url: embed.url,
+        label: embed.title.trim() || `Video ${index + 1}`,
+        kind: 'embed' as const,
+      })),
+    );
+    if (listConflict) {
+      setDuplicateWarning(listConflict.message);
+      return;
+    }
+
+    const existingVideoLink =
+      typeof sourceTourLinks.video_link === 'string' ? sourceTourLinks.video_link.trim() : '';
+    // When saving multiple rows, later rows must not mirror video_link / primary.
+    if (withUrls.length > 1 && existingVideoLink) {
+      for (const embed of withUrls.slice(1)) {
+        const vsVideo = findTourMediaDuplicateConflict(
+          {
+            id: embed.id,
+            url: embed.url,
+            label: embed.title.trim() || 'Video embed',
+            kind: 'embed',
+          },
+          [{ url: existingVideoLink, label: 'the listing Video Link', kind: 'video_link' }],
+        );
+        if (vsVideo) {
+          setDuplicateWarning(vsVideo.message);
+          return;
+        }
+      }
     }
 
     const featuredEmbedId =
@@ -287,6 +336,25 @@ export function OverviewVideoEmbedsSection({
           </Button>
         </div>
       ) : null}
+
+      <AlertDialog
+        open={Boolean(duplicateWarning)}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateWarning(null);
+        }}
+      >
+        <AlertDialogContent data-testid="duplicate-video-warning">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate video link</AlertDialogTitle>
+            <AlertDialogDescription>{duplicateWarning}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction type="button" onClick={() => setDuplicateWarning(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

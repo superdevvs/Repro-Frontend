@@ -2,6 +2,16 @@ import { buildTourUrl } from '@/features/shoot-units/unitTourData';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
+import { findTourMediaDuplicateConflict } from '@/components/tourLinks/tourMediaEmbedUrl';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { API_BASE_URL } from '@/config/env';
 import {
   getNormalizedIguideSync,
@@ -113,6 +123,7 @@ export function ShootDetailsTourContent({
   const [isDeleting3D, setIsDeleting3D] = useState<Managed3DLinkKey | null>(null);
   // Video link edit state
   const [editingVideoLinkKey, setEditingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [videoLinkValue, setVideoLinkValue] = useState('');
   const [isSavingVideoLinkKey, setIsSavingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
   const [isDeletingVideoLinkKey, setIsDeletingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
@@ -590,6 +601,48 @@ export function ShootDetailsTourContent({
       return;
     }
     const embedId = editingEmbedId || `embed-${Date.now()}`;
+    const existingForDup = [
+      ...embeds
+        .filter((item) => item.id !== editingEmbedId)
+        .flatMap((item) => {
+          const refs = [];
+          if (item.branded.trim()) {
+            refs.push({
+              id: item.id,
+              url: item.branded,
+              label: item.title || 'an existing embed',
+              kind: 'embed' as const,
+            });
+          }
+          if (item.mls.trim() && item.mls.trim() !== item.branded.trim()) {
+            refs.push({
+              id: item.id,
+              url: item.mls,
+              label: item.title || 'an existing embed',
+              kind: 'embed' as const,
+            });
+          }
+          return refs;
+        }),
+      ...(tourLinks.video_link?.trim()
+        ? [{
+            url: tourLinks.video_link.trim(),
+            label: 'the listing Video Link',
+            kind: 'video_link' as const,
+          }]
+        : []),
+    ];
+    for (const link of links) {
+      if (isEmbedHtml(link)) continue;
+      const conflict = findTourMediaDuplicateConflict(
+        { id: embedId, url: link, label: title, kind: 'embed' },
+        existingForDup,
+      );
+      if (conflict) {
+        setDuplicateWarning(conflict.message);
+        return;
+      }
+    }
     const nextEmbed = {
       id: embedId,
       title,
@@ -813,6 +866,38 @@ export function ShootDetailsTourContent({
         variant: 'destructive',
       });
       return;
+    }
+    if (value && editingVideoLinkKey === 'video_link') {
+      const embedRefs = embeds.flatMap((item) => {
+        const refs = [];
+        if (item.branded.trim()) {
+          refs.push({
+            id: item.id,
+            url: item.branded,
+            label: item.title || 'an existing Virtual Tours embed',
+            kind: 'embed' as const,
+          });
+        }
+        if (item.mls.trim() && item.mls.trim() !== item.branded.trim()) {
+          refs.push({
+            id: item.id,
+            url: item.mls,
+            label: item.title || 'an existing Virtual Tours embed',
+            kind: 'embed' as const,
+          });
+        }
+        return refs;
+      });
+      const conflict = findTourMediaDuplicateConflict(
+        { url: value, label: 'Video Link', kind: 'video_link' },
+        embedRefs,
+      );
+      if (conflict) {
+        setDuplicateWarning(
+          `This Video Link matches ${conflict.existing.label}. Remove the duplicate Virtual Tours embed first, or use a different video.`,
+        );
+        return;
+      }
     }
     setIsSavingVideoLinkKey(editingVideoLinkKey);
     try {
@@ -1285,6 +1370,25 @@ export function ShootDetailsTourContent({
   };
 
   return (
+    <>
+    <AlertDialog
+      open={Boolean(duplicateWarning)}
+      onOpenChange={(open) => {
+        if (!open) setDuplicateWarning(null);
+      }}
+    >
+      <AlertDialogContent data-testid="tour-duplicate-video-warning">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Duplicate video link</AlertDialogTitle>
+          <AlertDialogDescription>{duplicateWarning}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction type="button" onClick={() => setDuplicateWarning(null)}>
+            OK
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <ShootDetailsTourTabView
       unitId={unitId}
       iguideLineId={iguideLineId}
@@ -1457,6 +1561,7 @@ export function ShootDetailsTourContent({
       }}
       downloadQrCode={downloadQrCode}
     />
+    </>
   );
 }
 

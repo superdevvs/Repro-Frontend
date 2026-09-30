@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterVirtualTourEmbeds,
+  findDuplicateAmongTourMediaUrls,
+  findTourMediaDuplicateConflict,
   getTourMediaEmbedUrl,
   normalizeTourMediaCompareKey,
 } from './tourMediaEmbedUrl';
@@ -102,3 +104,37 @@ describe('filterVirtualTourEmbeds', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('findTourMediaDuplicateConflict', () => {
+  const vimeoShare = 'https://vimeo.com/1231608063?share=copy&fl=sv&fe=ci';
+  const vimeoPlayer = 'https://player.vimeo.com/video/1231608063';
+
+  it('flags a share URL that matches listing video_link', () => {
+    const conflict = findTourMediaDuplicateConflict(
+      { url: vimeoShare, label: 'Video 2', kind: 'embed' },
+      [{ url: vimeoPlayer, label: 'the listing Video Link', kind: 'video_link' }],
+    );
+    expect(conflict).not.toBeNull();
+    expect(conflict?.existing.kind).toBe('video_link');
+    expect(conflict?.message).toMatch(/listing Video Link/i);
+  });
+
+  it('flags duplicate embeds in a list', () => {
+    const conflict = findDuplicateAmongTourMediaUrls([
+      { id: 'a', url: vimeoShare, label: 'Video 1', kind: 'embed' },
+      { id: 'b', url: vimeoPlayer, label: 'Video 2', kind: 'embed' },
+    ]);
+    expect(conflict).not.toBeNull();
+    expect(conflict?.candidate.id).toBe('b');
+    expect(conflict?.existing.id).toBe('a');
+  });
+
+  it('allows distinct Matterport alongside video_link', () => {
+    const conflict = findTourMediaDuplicateConflict(
+      { url: 'https://my.matterport.com/show/?m=abc', label: '3D', kind: 'embed' },
+      [{ url: vimeoShare, label: 'the listing Video Link', kind: 'video_link' }],
+    );
+    expect(conflict).toBeNull();
+  });
+});
+

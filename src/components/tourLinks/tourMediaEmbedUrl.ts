@@ -127,3 +127,85 @@ export const filterVirtualTourEmbeds = <T extends TourEmbedLike>(
 
   return filtered;
 };
+
+export type TourMediaUrlRef = {
+  id?: string;
+  url: string;
+  label: string;
+  kind: 'embed' | 'video_link';
+};
+
+export type TourMediaDuplicateConflict = {
+  candidate: TourMediaUrlRef;
+  existing: TourMediaUrlRef;
+  /** User-facing explanation for the warning dialog. */
+  message: string;
+};
+
+const describeTourMediaRef = (ref: TourMediaUrlRef) => {
+  if (ref.kind === 'video_link') {
+    return ref.label || 'the listing Video Link';
+  }
+  return ref.label || 'an existing embed';
+};
+
+/**
+ * Detect when a candidate URL normalizes to the same media as an existing
+ * embed or listing video_link (YouTube/Vimeo share vs player URLs included).
+ */
+export const findTourMediaDuplicateConflict = (
+  candidate: {
+    id?: string;
+    url: string;
+    label?: string;
+    kind?: 'embed' | 'video_link';
+  },
+  existing: TourMediaUrlRef[],
+): TourMediaDuplicateConflict | null => {
+  const candidateUrl = candidate.url.trim();
+  if (!candidateUrl) return null;
+
+  const candidateKey = normalizeTourMediaCompareKey(candidateUrl);
+  if (!candidateKey) return null;
+
+  const candidateRef: TourMediaUrlRef = {
+    id: candidate.id,
+    url: candidateUrl,
+    label: candidate.label?.trim() || (candidate.kind === 'video_link' ? 'Video Link' : 'Embed'),
+    kind: candidate.kind ?? 'embed',
+  };
+
+  for (const item of existing) {
+    if (!item.url.trim()) continue;
+    if (candidate.id && item.id && candidate.id === item.id) continue;
+    const existingKey = normalizeTourMediaCompareKey(item.url);
+    if (!existingKey || existingKey !== candidateKey) continue;
+
+    const existingLabel = describeTourMediaRef(item);
+    const message =
+      item.kind === 'video_link'
+        ? `This link is the same as ${existingLabel}. Use one listing video — do not add it again as a separate embed.`
+        : `This link matches ${existingLabel}. Duplicate video embeds are not allowed.`;
+
+    return { candidate: candidateRef, existing: item, message };
+  }
+
+  return null;
+};
+
+/** First pairwise duplicate within a list (order preserved). */
+export const findDuplicateAmongTourMediaUrls = (
+  items: TourMediaUrlRef[],
+): TourMediaDuplicateConflict | null => {
+  const seen = new Map<string, TourMediaUrlRef>();
+  for (const item of items) {
+    const key = normalizeTourMediaCompareKey(item.url);
+    if (!key) continue;
+    const prior = seen.get(key);
+    if (prior) {
+      return findTourMediaDuplicateConflict(item, [prior]);
+    }
+    seen.set(key, item);
+  }
+  return null;
+};
