@@ -41,6 +41,7 @@ import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
 import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
 import { useRescheduleRequests } from "@/features/dashboard/hooks/useRescheduleRequests";
+import { canReviewRescheduleRequests } from "@/utils/rescheduleRequests";
 import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
 import { useCancellationRequests } from "@/features/dashboard/hooks/useCancellationRequests";
 import { useClientDashboardActions } from "@/features/dashboard/hooks/useClientDashboardActions";
@@ -423,10 +424,14 @@ const Dashboard = () => {
     ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
     `${role}:${user?.id ?? "guest"}`,
   );
+  // ACL for GET /api/shoots/pending-reschedules is staff reviewers only (not sales_rep).
+  // Match FE canReviewRescheduleRequests — do not poll or surface the Reschedule tab otherwise.
+  const canReviewReschedules = canReviewRescheduleRequests(role);
   const rescheduleRequests = useRescheduleRequests(
-    ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
+    canReviewReschedules,
     `${role}:${user?.id ?? "guest"}`,
   );
+  const rescheduleRequestsForUi = canReviewReschedules ? rescheduleRequests : undefined;
   const schedulingPhotographers = useSchedulingPhotographers(role === "salesRep", `${role}:${user?.id ?? "guest"}`);
 
   const openSupportEmail = useCallback(
@@ -571,7 +576,7 @@ const Dashboard = () => {
     renderShootsTabsCard,
   } = useDashboardSections({
     holdRequests,
-    rescheduleRequests,
+    rescheduleRequests: rescheduleRequestsForUi,
     assignPhotographers,
     availablePhotographerIds,
     availabilityError,
@@ -764,7 +769,7 @@ const Dashboard = () => {
             availabilityLoading={schedulingPhotographers.isLoading || availabilityLoading}
             availabilityWindow={availabilityWindow}
             holdRequests={holdRequests}
-            rescheduleRequests={rescheduleRequests}
+            rescheduleRequests={rescheduleRequestsForUi}
             cancellationShoots={cancellationShoots}
             clientRequests={clientRequests}
             clientRequestsLoading={clientRequestsLoading}

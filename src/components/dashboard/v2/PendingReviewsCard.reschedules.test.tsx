@@ -189,4 +189,51 @@ describe('reschedule request dashboard queue', () => {
     expect(screen.getByText('108 Example Street')).toBeInTheDocument();
     client.clear();
   });
+
+  it('does not poll pending-reschedules when disabled (sales_rep / non-reviewer)', async () => {
+    const fetchMock = vi.fn(async () => response({ data: [request] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    function DisabledQueue() {
+      useRescheduleRequests(false, 'salesRep:9');
+      return (
+        <PendingReviewsCard
+          reviews={[]}
+          issues={[]}
+          onSelect={vi.fn()}
+          showClientTab
+        />
+      );
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DisabledQueue />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Reschedule/i })).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    client.clear();
+  });
+
+  it('hides the Reschedule tab when rescheduleRequests prop is omitted', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <PendingReviewsCard
+          reviews={[]}
+          issues={[]}
+          onSelect={vi.fn()}
+          showClientTab
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: /Reschedule/i })).not.toBeInTheDocument();
+    client.clear();
+  });
 });
