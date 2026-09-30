@@ -1,5 +1,15 @@
 import type { ApiShoot } from './shootApiTypes';
 
+export const normalizeShootFeaturedState = (shoot: ApiShoot) => {
+  const isFeatured = typeof shoot.is_featured === 'boolean'
+    ? Boolean(shoot.is_featured) : Boolean(shoot.isFeatured);
+  const featuredPending = typeof shoot.featured_pending === 'boolean'
+    ? Boolean(shoot.featured_pending) : Boolean(shoot.featuredPending);
+  const featuredStatus = shoot.featured_status ?? shoot.featuredStatus
+    ?? (isFeatured ? 'featured' : featuredPending ? 'pending' : 'none');
+  return { isFeatured, featuredPending, featuredStatus };
+};
+
 /** Keep the public gallery intact when a loaded shoot is edited in Settings. */
 export const normalizeShootFeaturedHomepage = (shoot: ApiShoot) => {
   const text = (snake: string, camel: string): string | null => {

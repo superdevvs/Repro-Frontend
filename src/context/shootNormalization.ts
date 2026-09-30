@@ -12,7 +12,7 @@ import type {
 } from './shootApiTypes';
 import { normalizeShootCompReshootFields } from '@/features/complimentary-reshoots/normalizeShootCompReshoot';
 import { normalizeShootNotes } from './shootNotesNormalization';
-import { normalizeShootFeaturedHomepage } from './shootFeaturedNormalization';
+import { normalizeShootFeaturedHomepage, normalizeShootFeaturedState } from './shootFeaturedNormalization';
 import { normalizeShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { calendarDay } from '@/lib/date';
@@ -259,18 +259,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     typeof shoot.is_private_listing === 'boolean'
       ? Boolean(shoot.is_private_listing)
       : Boolean(shoot.isPrivateListing);
-  const isFeatured =
-    typeof shoot.is_featured === 'boolean'
-      ? Boolean(shoot.is_featured)
-      : Boolean(shoot.isFeatured);
-  const featuredPending =
-    typeof shoot.featured_pending === 'boolean'
-      ? Boolean(shoot.featured_pending)
-      : Boolean(shoot.featuredPending);
-  const featuredStatus =
-    shoot.featured_status ??
-    shoot.featuredStatus ??
-    (isFeatured ? 'featured' : featuredPending ? 'pending' : 'none');
+  const { isFeatured, featuredPending, featuredStatus } = normalizeShootFeaturedState(shoot);
   const normalizedGhostUsers = (() => {
     const source = Array.isArray(shoot.ghost_users)
       ? shoot.ghost_users
