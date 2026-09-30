@@ -9,6 +9,7 @@ import { API_BASE_URL } from '@/config/env';
 import type { ShootData } from '@/types/shoots';
 import { getRawTourLinks } from '@/utils/shootTourData';
 import {
+  buildEditorTourLinksEmbedPatch,
   buildOverviewVideoEmbedsPayload,
   canWriteOverviewVideoEmbeds,
   createOverviewVideoEmbedId,
@@ -137,12 +138,13 @@ export function OverviewVideoEmbedsSection({
         cleanedEmbeds.some((embed) => embed.id === featuredEmbedId)
           ? featuredEmbedId
           : cleanedEmbeds[0]?.id ?? null;
-      const nextTourLinks = {
-        ...sourceTourLinks,
+      // BE editor allowlist: embeds | video_link | featured_embed_id | featured_embed only.
+      // Never spread sourceTourLinks (property_* / video_branded / etc. → 403).
+      const slimTourLinks = buildEditorTourLinksEmbedPatch({
         embeds: cleanedEmbeds,
         video_link: payload.video_link,
         featured_embed_id: nextFeatured,
-      };
+      });
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -150,7 +152,7 @@ export function OverviewVideoEmbedsSection({
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
         },
-        body: JSON.stringify({ tour_links: nextTourLinks }),
+        body: JSON.stringify({ tour_links: slimTourLinks }),
       });
 
       if (!res.ok) {

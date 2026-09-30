@@ -153,4 +153,41 @@ export const buildOverviewVideoEmbedsPayload = (
   };
 };
 
+
+/**
+ * Assigned video editors may only PATCH these tour_links keys (BE UpdateShootAction
+ * $editorEditableTourLinkKeys). Spreading the full tour_links blob echoes
+ * property_description / video_branded / etc. and returns 403.
+ */
+export const EDITOR_TOUR_LINK_EMBED_KEYS = [
+  'embeds',
+  'video_link',
+  'featured_embed_id',
+  'featured_embed',
+] as const;
+
+export type EditorTourLinksEmbedPatch = {
+  embeds: OverviewVideoEmbedsPayload['embeds'];
+  video_link: string | null;
+  featured_embed_id: string | null;
+  featured_embed?: string | null;
+};
+
+export const buildEditorTourLinksEmbedPatch = (input: {
+  embeds: OverviewVideoEmbedsPayload['embeds'];
+  video_link: string | null;
+  featured_embed_id: string | null;
+  featured_embed?: string | null;
+}): EditorTourLinksEmbedPatch => {
+  const patch: EditorTourLinksEmbedPatch = {
+    embeds: input.embeds,
+    video_link: input.video_link,
+    featured_embed_id: input.featured_embed_id,
+  };
+  if (input.featured_embed !== undefined) {
+    patch.featured_embed = input.featured_embed;
+  }
+  return patch;
+};
+
 export const isValidHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());

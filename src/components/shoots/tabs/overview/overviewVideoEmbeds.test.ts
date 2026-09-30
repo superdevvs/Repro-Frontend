@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildEditorTourLinksEmbedPatch,
   buildOverviewVideoEmbedsPayload,
   canAccessOverviewVideoEmbeds,
   canViewOverviewVideoEmbeds,
   canWriteOverviewVideoEmbeds,
+  EDITOR_TOUR_LINK_EMBED_KEYS,
   normalizeOverviewVideoEmbeds,
 } from './overviewVideoEmbeds';
 
@@ -95,3 +97,21 @@ describe('overviewVideoEmbeds helpers', () => {
     });
   });
 });
+
+  it('builds a slim editor tour_links patch with only BE-allowlisted keys', () => {
+    const patch = buildEditorTourLinksEmbedPatch({
+      embeds: [],
+      video_link: 'https://vimeo.com/1231608063',
+      featured_embed_id: null,
+    });
+    expect(Object.keys(patch).sort()).toEqual([...EDITOR_TOUR_LINK_EMBED_KEYS].filter((k) => k !== 'featured_embed').sort());
+    expect(patch).toEqual({
+      embeds: [],
+      video_link: 'https://vimeo.com/1231608063',
+      featured_embed_id: null,
+    });
+    expect(patch).not.toHaveProperty('property_description');
+    expect(patch).not.toHaveProperty('video_branded');
+    expect(patch).not.toHaveProperty('branded');
+  });
+
