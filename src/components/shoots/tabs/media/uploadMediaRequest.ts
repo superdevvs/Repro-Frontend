@@ -53,6 +53,17 @@ function sessionsUrl(uploadUrl: string): string {
   return uploadUrl.replace(/\/upload(?:\?.*)?$/, '/upload-sessions');
 }
 
+function extractJsonMessage(responseText: string, fallback: string): string {
+  try {
+    const message = JSON.parse(responseText).message;
+    return typeof message === 'string' && message.trim() ? message : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Session create + chunk complete have no byte progress. Cap them so a hung
+// finalize cannot leave the UI wedged at ~99.9% forever.
 function xhrJson(
   method: string,
   url: string,
@@ -62,12 +73,15 @@ function xhrJson(
 ): Promise<MediaRequestResult> {
   return new Promise((resolve) => {
     let settled = false;
+    let xhr: XMLHttpRequest | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (result: MediaRequestResult, abort = false) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
       resolve(result);
-      if (abort) xhr.abort();
+      if (abort) xhr?.abort();
     };
     const onAbort = () => finish({ ok: false, message: 'Upload cancelled. The remaining files are still selected for retry.' }, true);
     if (signal?.aborted) {
@@ -75,14 +89,14 @@ function xhrJson(
       return;
     }
     signal?.addEventListener('abort', onAbort, { once: true });
-    const xhr = new XMLHttpRequest();
+    xhr = new XMLHttpRequest();
     xhr.addEventListener('load', () => {
-      if (xhr.status === 0) {
+      if (xhr!.status === 0) {
         finish({ ok: false, message: 'The upload connection ended without a server response. Check your connection and retry.' });
-      } else if (xhr.status === 413) {
+      } else if (xhr!.status === 413) {
         finish({ ok: false, message: CDN_OVERSIZE_MESSAGE });
       } else {
-        finish({ ok: true, status: xhr.status, responseText: xhr.responseText });
+        finish({ ok: true, status: xhr!.status, responseText: xhr!.responseText });
       }
     });
     xhr.addEventListener('error', () => finish({ ok: false, message: 'The upload connection was interrupted. Check your connection and retry.' }));
@@ -90,8 +104,12 @@ function xhrJson(
     xhr.addEventListener('timeout', () => finish({ ok: false, message: 'The upload connection timed out. Check your connection and retry.' }));
     xhr.open(method, url);
     Object.entries(headers).forEach(([name, value]) => {
-      if (value) xhr.setRequestHeader(name, value);
+      if (value) xhr!.setRequestHeader(name, value);
     });
+    timer = setTimeout(() => finish({
+      ok: false,
+      message: 'The server did not confirm this upload within 5 minutes. Retry to check it safely without creating a duplicate.',
+    }, true), UPLOAD_RESPONSE_TIMEOUT_MS);
     xhr.send(body);
   });
 }
@@ -210,13 +228,10 @@ async function uploadMediaChunked(options: UploadMediaRequestOptions, file: File
   );
   if (init.ok === false) return init;
   if (init.status < 200 || init.status >= 300) {
-    let message = 'Could not start a chunked upload.';
-    try {
-      message = JSON.parse(init.responseText).message || message;
-    } catch {
-      // keep generic
-    }
-    return { ok: false, message };
+    return {
+      ok: false,
+      message: extractJsonMessage(init.responseText, 'Could not start a chunked upload.'),
+    };
   }
 
   let session: { session_id: string; chunk_size_bytes: number; total_chunks: number };
@@ -267,6 +282,12 @@ async function uploadMediaChunked(options: UploadMediaRequestOptions, file: File
   if (complete.ok === false) return complete;
   if (complete.status === 413) {
     return { ok: false, message: CDN_OVERSIZE_MESSAGE };
+  }
+  if (complete.status < 200 || complete.status >= 300) {
+    return {
+      ok: false,
+      message: extractJsonMessage(complete.responseText, 'Chunked upload finalize failed.'),
+    };
   }
   return complete;
 }
