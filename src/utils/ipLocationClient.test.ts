@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   IP_LOCATION_CACHE_KEY,
   IP_LOCATION_DEFAULT_BACKOFF_MS,
+  IP_LOCATION_MIN_NETWORK_INTERVAL_MS,
   resetIpLocationClientState,
   resolveIpLocation,
   writeCachedIpLocationCoords,
@@ -43,6 +44,22 @@ describe('resolveIpLocation', () => {
     await expect(a).resolves.toMatchObject({ lat: 1, lon: 2 });
     await expect(b).resolves.toMatchObject({ lat: 1, lon: 2 });
     expect(localStorage.getItem(IP_LOCATION_CACHE_KEY)).toContain('"lat":1');
+  });
+
+  it('floors empty-cache retries so remount loops cannot hammer', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+      json: async () => ({}),
+    }) as unknown as Response);
+    await resolveIpLocation({ fetchImpl: fetchImpl as unknown as typeof fetch, now: 5_000 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await resolveIpLocation({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: 5_000 + IP_LOCATION_MIN_NETWORK_INTERVAL_MS - 1,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('circuit-breaks after 429 so remounts do not storm', async () => {

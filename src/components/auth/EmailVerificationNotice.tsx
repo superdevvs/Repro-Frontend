@@ -8,6 +8,10 @@ import { Label } from '@/components/ui/label';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 import { profileSecurityErrorMessage } from '@/services/profileSecurityService';
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/services/apiError';
+import {
+  fetchCurrentUserProfile,
+  USER_PROFILE_MIN_INTERVAL_MS,
+} from '@/utils/userProfileClient';
 
 export type EmailVerificationState = {
   enrolled: boolean;
@@ -17,8 +21,14 @@ export type EmailVerificationState = {
   enforce_at: string | null;
 };
 
-/** Minimum gap between automatic /api/user polls (focus / gate event / interval). */
-export const EMAIL_VERIFICATION_REFRESH_COOLDOWN_MS = 30_000;
+/** Keep the exported name for tests; floor matches shared profile client. */
+export const EMAIL_VERIFICATION_REFRESH_COOLDOWN_MS = USER_PROFILE_MIN_INTERVAL_MS;
+
+const readVerification = (payload: unknown): EmailVerificationState | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  const value = (payload as { email_verification?: EmailVerificationState }).email_verification;
+  return value ? { ...value } : null;
+};
 
 export function EmailVerificationNotice({ children }: { children: ReactNode }) {
   const { user, logout, isImpersonating } = useAuth();
@@ -32,27 +42,29 @@ export function EmailVerificationNotice({ children }: { children: ReactNode }) {
   const [securityOpen, setSecurityOpen] = useState(false);
   const gateVersion = useRef(0);
   const inFlightRef = useRef(false);
-  const lastAutoRefreshAtRef = useRef(0);
 
   const refresh = useCallback(async (options?: { force?: boolean }) => {
     if (!user || isImpersonating) return;
-    const force = options?.force === true;
-    const now = Date.now();
     if (inFlightRef.current) return;
-    if (!force && now - lastAutoRefreshAtRef.current < EMAIL_VERIFICATION_REFRESH_COOLDOWN_MS) {
-      return;
-    }
 
     const version = gateVersion.current;
     inFlightRef.current = true;
-    if (!force) {
-      lastAutoRefreshAtRef.current = now;
-    }
     try {
-      const response = await apiClient.get<{ email_verification?: EmailVerificationState }>('/user');
-      if (version === gateVersion.current) {
-        setStatus(response.data.email_verification ? { ...response.data.email_verification } : null);
+      if (options?.force) {
+        // Manual "I've verified" still uses apiClient so the UI can see a fresh envelope
+        // even when the shared automatic floor would skip.
+        const response = await apiClient.get<{ email_verification?: EmailVerificationState }>('/user');
+        if (version === gateVersion.current) {
+          setStatus(response.data.email_verification ? { ...response.data.email_verification } : null);
+        }
+        return;
       }
+
+      const payload = await fetchCurrentUserProfile();
+      if (version !== gateVersion.current) return;
+      if (!payload || typeof payload !== 'object' || '__status' in payload) return;
+      const next = readVerification(payload);
+      if (next) setStatus(next);
     } catch {
       // Preserve a known gate while offline. The server remains authoritative.
     } finally {
@@ -64,12 +76,39 @@ export function EmailVerificationNotice({ children }: { children: ReactNode }) {
     setStatus(user?.email_verification ?? null);
   }, [user?.id, user?.email_verification?.required, user?.email_verification?.verified, user?.email_verification?.reminder, user?.email_verification?.enrolled, user?.email_verification?.enforce_at]);
 
+  const verificationInactive = Boolean(
+    user?.email_verification?.verified
+    || (
+      user?.email_verification
+      && !user.email_verification.reminder
+      && !user.email_verification.required
+    ),
+  );
+
   useEffect(() => {
     if (!user || isImpersonating) return;
 
+    // Verified clients (e.g. uid 1388) must not poll /api/user at all — the prior
+    // mount+interval+/focus path was one amplifier; dual-tab reload was the rest.
+    if (verificationInactive) {
+      const requireVerification = () => {
+        gateVersion.current += 1;
+        setStatus(previous => ({
+          enrolled: true,
+          verified: false,
+          reminder: true,
+          required: true,
+          enforce_at: previous?.enforce_at ?? null,
+        }));
+        void refresh({ force: true });
+      };
+      window.addEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, requireVerification);
+      return () => window.removeEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, requireVerification);
+    }
+
+    // One automatic attempt on mount (shared floor dedupes against AuthProvider).
     void refresh();
 
-    const listener = () => { void refresh(); };
     const requireVerification = () => {
       gateVersion.current += 1;
       setStatus(previous => ({
@@ -79,19 +118,17 @@ export function EmailVerificationNotice({ children }: { children: ReactNode }) {
         required: true,
         enforce_at: previous?.enforce_at ?? null,
       }));
-      // Gate UI immediately; coalesce /user so a burst of 403s cannot storm the profile endpoint.
       void refresh();
     };
 
-    window.addEventListener('focus', listener);
+    // Intentionally no window `focus` → /user.
     window.addEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, requireVerification);
-    const timer = window.setInterval(listener, 60_000);
+    const timer = window.setInterval(() => { void refresh(); }, USER_PROFILE_MIN_INTERVAL_MS);
     return () => {
-      window.removeEventListener('focus', listener);
       window.removeEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, requireVerification);
       window.clearInterval(timer);
     };
-  }, [refresh, user?.id, isImpersonating]);
+  }, [refresh, user?.id, isImpersonating, verificationInactive]);
 
   if (!user || isImpersonating || !status || status.verified || (!status.reminder && !status.required)) return <>{children}</>;
 

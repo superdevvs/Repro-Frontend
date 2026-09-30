@@ -322,10 +322,10 @@ export function Navbar() {
       applyWeatherCoords(cachedIp, 'ip');
     }
 
-    const controller = new AbortController();
-
-    resolveIpLocation({ signal: controller.signal })
+    let cancelled = false;
+    resolveIpLocation()
       .then((coords) => {
+        if (cancelled) return;
         if (coords) {
           applyWeatherCoords(coords, 'ip');
         } else if (!cachedIp && weatherCoordSourceRef.current === 'default') {
@@ -337,7 +337,7 @@ export function Navbar() {
       });
 
     return () => {
-      controller.abort();
+      cancelled = true;
     };
   }, [applyWeatherCoords]);
 

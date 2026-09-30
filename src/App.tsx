@@ -747,8 +747,7 @@ function App() {
   return (
     <div className="app-root">
       <div className="app-shell">
-        <React.StrictMode>
-          <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={queryClient}>
             <TooltipProvider>
               <Toaster />
               <Sonner position="top-right" closeButton richColors />
@@ -778,7 +777,6 @@ function App() {
               </BrowserRouter>
             </TooltipProvider>
           </QueryClientProvider>
-        </React.StrictMode>
       </div>
     </div>
   );

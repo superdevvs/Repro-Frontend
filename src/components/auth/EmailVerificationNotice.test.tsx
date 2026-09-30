@@ -5,10 +5,14 @@ import { EmailVerificationNotice, type EmailVerificationState } from './EmailVer
 
 const mocks = vi.hoisted(() => ({
   context: { user: { id: '7', email: 'owner@example.com', email_verification: { enrolled: true, verified: false, reminder: true, required: false, enforce_at: '2026-09-20T12:00:00Z' } as EmailVerificationState }, isImpersonating: false, logout: vi.fn() },
-  get: vi.fn(), post: vi.fn(), resend: vi.fn(),
+  get: vi.fn(), post: vi.fn(), resend: vi.fn(), fetchProfile: vi.fn(),
 }));
 vi.mock('./AuthProvider', () => ({ useAuth: () => mocks.context }));
 vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get, post: mocks.post } }));
+vi.mock('@/utils/userProfileClient', () => ({
+  USER_PROFILE_MIN_INTERVAL_MS: 60_000,
+  fetchCurrentUserProfile: mocks.fetchProfile,
+}));
 vi.mock('@/hooks/useResendVerificationEmail', () => ({ useResendVerificationEmail: () => ({ resendVerification: mocks.resend, isResendingVerification: false }) }));
 vi.mock('@/components/profile/ProfileSecurityCard', () => ({ ProfileSecurityCard: () => <div>Security recovery controls</div> }));
 
@@ -18,6 +22,7 @@ describe('email verification pilot notice', () => {
     mocks.context.isImpersonating = false;
     mocks.context.user.email_verification = { enrolled: true, verified: false, reminder: true, required: false, enforce_at: '2026-09-20T12:00:00Z' };
     mocks.get.mockImplementation(async () => ({ data: { email_verification: mocks.context.user.email_verification } }));
+    mocks.fetchProfile.mockImplementation(async () => ({ email_verification: mocks.context.user.email_verification }));
     mocks.resend.mockResolvedValue({ message: 'Verification email sent.' });
   });
   afterEach(cleanup);
@@ -53,8 +58,8 @@ describe('email verification pilot notice', () => {
 
   it('immediately hides protected content on a server gate while status refresh is pending', async () => {
     render(<EmailVerificationNotice><div>Dashboard data</div></EmailVerificationNotice>);
-    await waitFor(() => expect(mocks.get).toHaveBeenCalledOnce());
-    mocks.get.mockImplementation(() => new Promise(() => {}));
+    await waitFor(() => expect(mocks.fetchProfile).toHaveBeenCalledOnce());
+    mocks.fetchProfile.mockImplementation(() => new Promise(() => {}));
     window.dispatchEvent(new CustomEvent('email-verification-required'));
     await waitFor(() => expect(screen.queryByText('Dashboard data')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Correct email address' })).toBeInTheDocument();
@@ -87,19 +92,32 @@ describe('email verification pilot notice', () => {
   });
 
   it('coalesces gate events so a 403 burst cannot storm /user', async () => {
-    mocks.get.mockImplementation(async () => {
+    mocks.fetchProfile.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      return { data: { email_verification: { ...mocks.context.user.email_verification, required: true } } };
+      return { email_verification: { ...mocks.context.user.email_verification, required: true } };
     });
     render(<EmailVerificationNotice><div>Dashboard data</div></EmailVerificationNotice>);
-    await waitFor(() => expect(mocks.get).toHaveBeenCalled());
-    const baseline = mocks.get.mock.calls.length;
+    await waitFor(() => expect(mocks.fetchProfile).toHaveBeenCalled());
+    const baseline = mocks.fetchProfile.mock.calls.length;
     for (let i = 0; i < 25; i += 1) {
       window.dispatchEvent(new CustomEvent('email-verification-required'));
     }
     await waitFor(() => expect(screen.queryByText('Dashboard data')).not.toBeInTheDocument());
-    // In-flight + cooldown: at most one additional automatic refresh beyond the mount call.
-    expect(mocks.get.mock.calls.length).toBeLessThanOrEqual(baseline + 1);
+    // In-flight guard: gate bursts must not stack profile fetches.
+    expect(mocks.fetchProfile.mock.calls.length).toBeLessThanOrEqual(baseline + 1);
+  });
+
+
+  it('does not automatically poll /user for verified clients', async () => {
+    mocks.context.user.email_verification = {
+      enrolled: true, verified: true, reminder: false, required: false, enforce_at: null,
+    };
+    render(<EmailVerificationNotice><div>Dashboard data</div></EmailVerificationNotice>);
+    expect(screen.getByText('Dashboard data')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mocks.fetchProfile).not.toHaveBeenCalled();
+      expect(mocks.get).not.toHaveBeenCalled();
+    });
   });
 
 });

@@ -15,6 +15,7 @@ import { getStoredAuthToken } from '@/utils/authToken';
 import { hasUploadsProtectedFromNavigation, stopUploadsForAuthChange, subscribeUploadNavigationProtection } from '@/lib/uploadNavigationProtection';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { trackTelemetryBlocker } from '@/features/system-overview/telemetryClient';
+import { fetchCurrentUserProfile } from '@/utils/userProfileClient';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -336,11 +337,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       refreshAbortRef.current = controller;
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/user`, {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${storedToken}`,
-          },
+        const apiUser = await fetchCurrentUserProfile({
+          token: storedToken,
           signal: controller.signal,
         });
 
@@ -348,21 +346,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // the fetch was in flight.  If so, discard this (now stale) response.
         if (localStorage.getItem('originalUser')) return;
         if (impersonationEpochRef.current !== epochAtStart) return;
+        if (controller.signal.aborted) return;
 
-        if (response.status === 401 || response.status === 419) {
-          clearStoredAuth();
-          setUser(null);
-          setIsAuthenticated(false);
-          setRole('client');
-          setSession(null);
+        if (apiUser && typeof apiUser === 'object' && '__status' in (apiUser as object)) {
+          const status = Number((apiUser as { __status?: number }).__status);
+          if (status === 401 || status === 419) {
+            clearStoredAuth();
+            setUser(null);
+            setIsAuthenticated(false);
+            setRole('client');
+            setSession(null);
+          }
           return;
         }
 
-        if (!response.ok) {
+        if (!apiUser || typeof apiUser !== 'object') {
           return;
         }
-
-        const apiUser = await response.json();
 
         // Final guard before writing state — another async gap just passed.
         if (localStorage.getItem('originalUser')) return;
@@ -445,24 +445,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const controller = new AbortController();
       refreshAbortRef.current = controller;
 
-      fetch(`${API_BASE_URL}/api/user`, {
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${tokenToUse}`,
-        },
+      void fetchCurrentUserProfile({
+        token: tokenToUse,
         signal: controller.signal,
+        force: true,
       })
-        .then(async (response) => {
+        .then((apiUser) => {
           // Guard against impersonation starting during the async gap.
           if (localStorage.getItem('originalUser')) return;
           if (impersonationEpochRef.current !== epochAtStart) return;
-          if (!response.ok) return;
-
-          const apiUser = await response.json();
-
-          // Final guard before writing state.
-          if (localStorage.getItem('originalUser')) return;
-          if (impersonationEpochRef.current !== epochAtStart) return;
+          if (controller.signal.aborted) return;
+          if (!apiUser || typeof apiUser !== 'object' || '__status' in (apiUser as object)) return;
 
           const refreshed = normalizeApiUser(apiUser, normalizedUser);
           const refreshedRole = normalizeRole(refreshed.role);
@@ -656,36 +649,100 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Hydration writes state after reading storage. A focus event in that gap
       // must not compare the initial guest state with a valid persisted session.
       if (isLoading || uploadSessionChangedRef.current) return;
+
+      const memoryToken = session?.accessToken ?? getStoredAuthToken();
+      const memoryUserId = user?.id ? String(user.id) : null;
+      const memoryOriginalId = isImpersonating ? originalUser?.id ?? null : null;
       const inMemoryFingerprint = buildAuthFingerprint({
         user,
         role,
         isAuthenticated,
-        token: session?.accessToken ?? null,
-        originalUserId: isImpersonating ? originalUser?.id ?? null : null,
+        token: memoryToken,
+        originalUserId: memoryOriginalId,
       });
       const persistedFingerprint = getPersistedAuthFingerprint();
+      if (inMemoryFingerprint === persistedFingerprint) {
+        return;
+      }
 
-      if (inMemoryFingerprint !== persistedFingerprint) {
-        if (hasUploadsProtectedFromNavigation()) {
-          // Latch before abort callbacks can settle the upload and release its
-          // navigation guard. Focus/storage events can arrive before React has
-          // committed the dialog state, but must never fall through to reload.
+      const persistedToken = getStoredAuthToken();
+      const storedUserRaw = localStorage.getItem('user');
+      let persistedUser: UserData | null = null;
+      try {
+        persistedUser = storedUserRaw ? normalizeApiUser(JSON.parse(storedUserRaw)) : null;
+      } catch {
+        persistedUser = null;
+      }
+      const persistedUserId = persistedUser?.id ? String(persistedUser.id) : null;
+      const persistedOriginalId = getOriginalUserIdFromStorage();
+      const persistedRole = persistedUser ? normalizeRole(persistedUser.role) : 'client';
+
+      // Storage still has a session: rehydrate in place. Dual /dashboard tabs used to
+      // window.location.reload() on any fingerprint drift (e.g. session token briefly
+      // null while localStorage still had the JWT), ping-ponging ~1 req/s of
+      // /api/user + /api/ip-location for verified clients with no verification 403s.
+      if (persistedToken && persistedUserId && persistedUser) {
+        if (hasUploadsProtectedFromNavigation() && memoryUserId && memoryUserId !== persistedUserId) {
           uploadSessionChangedRef.current = true;
-          // Keeping this tree mounted also keeps its old profile refresh alive.
-          // Invalidate both async gaps, even if a fetch ignores cancellation, so
-          // it cannot overwrite the other tab's newly selected account.
           impersonationEpochRef.current += 1;
           refreshAbortRef.current?.abort();
           refreshAbortRef.current = null;
-          // Another tab can change the account while this tab owns File objects.
-          // Abort before another file can start; keep the tree mounted and ask
-          // for an explicit reload instead of silently destroying the queue.
           stopUploadsForAuthChange();
           setUploadSessionChanged(true);
           trackTelemetryBlocker('upload_auth_changed', 'Uploads stopped after sign-in changed in another tab.', { source: 'auth_session_sync' });
           return;
         }
-        window.location.reload();
+
+        // Rehydrate without reload. Avoid setState when already aligned to prevent
+        // focus/storage soft-sync from thrashing renders (still no network).
+        const originalAligned = String(memoryOriginalId || '') === String(persistedOriginalId || '');
+        const sessionAligned = Boolean(session?.accessToken) && isAuthenticated
+          && memoryUserId === persistedUserId
+          && role === persistedRole
+          && originalAligned;
+        if (sessionAligned) {
+          return;
+        }
+
+        setUser(persistedUser);
+        setRole(persistedRole);
+        setIsAuthenticated(true);
+        setSession(buildSession(persistedToken, persistedUser, persistedRole));
+        if (persistedOriginalId) {
+          const rawOriginal = localStorage.getItem('originalUser');
+          if (rawOriginal) {
+            try {
+              setOriginalUser(normalizeApiUser(JSON.parse(rawOriginal)));
+              setIsImpersonating(true);
+            } catch {
+              setOriginalUser(null);
+              setIsImpersonating(false);
+            }
+          }
+        } else if (isImpersonating || originalUserRef.current) {
+          setOriginalUser(null);
+          setIsImpersonating(false);
+        }
+        return;
+      }
+
+      // Signed out in another tab.
+      if (!persistedToken && memoryUserId) {
+        if (hasUploadsProtectedFromNavigation()) {
+          uploadSessionChangedRef.current = true;
+          stopUploadsForAuthChange();
+          setUploadSessionChanged(true);
+          trackTelemetryBlocker('upload_auth_changed', 'Uploads stopped after sign-in changed in another tab.', { source: 'auth_session_sync' });
+          return;
+        }
+        clearStoredAuth();
+        setUser(null);
+        setOriginalUser(null);
+        setIsImpersonating(false);
+        setIsAuthenticated(false);
+        setRole('client');
+        setSession(null);
+        return;
       }
     };
 
@@ -716,7 +773,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, isImpersonating, isLoading, originalUser?.id, role, session?.accessToken, uploadSessionChanged, user]);
+  }, [clearStoredAuth, isAuthenticated, isImpersonating, isLoading, originalUser?.id, role, session?.accessToken, uploadSessionChanged, user]);
 
   const contextValue = useMemo<AuthContextType>(() => ({
       user,
