@@ -23,7 +23,6 @@ import type {
   DashboardWorkflow,
 } from "@/types/dashboard";
 import type { EditingRequest, EditingRequestUpdatePayload } from "@/services/editingRequestService";
-import { canShowShootPaymentStatusForRole } from "@/utils/shootPaymentVisibility";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -217,15 +216,12 @@ export const useDashboardSections = ({
       </div>
     );
 
-  const showStaffPaymentStatus = canShowShootPaymentStatusForRole(role);
-
     const renderCompletedShootsCard = ({ stretch = false }: { stretch?: boolean } = {}) => (
     <div className={stretch ? "flex flex-1 min-h-0" : undefined}>
       <Suspense fallback={<CompletedShootsCardSkeleton />}>
         <LazyCompletedShootsCard
           shoots={deliveredShoots}
           stretch={stretch}
-          showPaymentStatus={showStaffPaymentStatus}
           onSelect={handleSelectShoot}
           onViewInvoice={handleViewInvoice}
           onViewAll={() => navigate("/shoot-history?tab=delivered")}
