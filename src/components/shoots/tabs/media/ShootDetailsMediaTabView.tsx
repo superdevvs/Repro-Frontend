@@ -34,6 +34,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleMediaViewMode,
     isEditor,
     isVideoOnlyEditor = false,
+    isPhotoOnlyEditor = false,
     sortOrder,
     isDragMode,
     sortSaveStatus,
@@ -448,7 +449,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                         Photos ({uploadedPhotos.length})
                       </button>
                       )}
-                      {(isVideoOnlyEditor || shootHasVideoService || uploadedVideos.length > 0) && (
+                      {!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || uploadedVideos.length > 0) && (
                         <button
                           onClick={() => setUploadedMediaTab('videos')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -698,7 +699,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           Photos ({editedPhotos.length})
                         </button>
                         )}
-                        {(isVideoOnlyEditor || shootHasVideoService || editedVideos.length > 0) && (
+                        {!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || editedVideos.length > 0) && (
                           <button
                             onClick={() => setEditedMediaTab('videos')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}

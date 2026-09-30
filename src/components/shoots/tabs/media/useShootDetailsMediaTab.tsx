@@ -13,7 +13,7 @@ import { Upload } from 'lucide-react';
 
 import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { isPhotoOnlyEditorOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -161,6 +161,11 @@ export function useShootDetailsMediaTab({
     () => isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
     [authUser, role, shoot],
   );
+  // Photo-only editors (editor_id / editing_capabilities:photo) keep Photos; hide Video lane.
+  const isPhotoOnlyEditor = useMemo(
+    () => isPhotoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
+    [authUser, role, shoot],
+  );
   // Default tab: clients → edited; video-only editors → Raw Uploads (video lane); else uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';
   const shootFilesCacheKey = [
@@ -297,7 +302,7 @@ export function useShootDetailsMediaTab({
     () =>
       [
         { id: 'photos' as MediaSubTab, label: `Photos (${editedPhotos.length})` },
-        (shootHasVideoService || editedVideos.length > 0)
+        (!isPhotoOnlyEditor && (shootHasVideoService || editedVideos.length > 0))
           ? { id: 'videos' as MediaSubTab, label: `Video (${editedVideos.length})` }
           : null,
         showIguideMedia
@@ -339,6 +344,7 @@ export function useShootDetailsMediaTab({
       editedVirtualStaging.length,
       iguideFloorplans.length,
       isEditor,
+      isPhotoOnlyEditor,
       showIguideMedia,
       shootHasVideoService,
     ],
@@ -493,6 +499,13 @@ export function useShootDetailsMediaTab({
     if (uploadedMediaTab === 'photos') setUploadedMediaTab('videos');
     if (editedMediaTab === 'photos') setEditedMediaTab('videos');
   }, [editedMediaTab, isVideoOnlyEditor, uploadedMediaTab]);
+
+  // Photo-only editors: keep Photos lane; never land on Video sub-tabs.
+  useEffect(() => {
+    if (!isPhotoOnlyEditor) return;
+    if (uploadedMediaTab === 'videos') setUploadedMediaTab('photos');
+    if (editedMediaTab === 'videos') setEditedMediaTab('photos');
+  }, [editedMediaTab, isPhotoOnlyEditor, uploadedMediaTab]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
   const canAccessAutoenhance = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
@@ -1274,6 +1287,7 @@ export function useShootDetailsMediaTab({
         toggleMediaViewMode={toggleMediaViewMode}
         isEditor={isEditor}
         isVideoOnlyEditor={isVideoOnlyEditor}
+        isPhotoOnlyEditor={isPhotoOnlyEditor}
         sortOrder={sortOrder}
         isDragMode={isDragMode}
         sortSaveStatus={sortSaveStatus}

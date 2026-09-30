@@ -223,3 +223,51 @@ export const isVideoOnlyEditorOnShoot = (
 
   return false
 }
+
+/**
+ * Photo-only Media / Overview gate: hide Video sub-tabs + Video Tour Embeds.
+ *
+ * True when role=editor and the user is on the photo lane for this shoot without
+ * also being the video editor. Prefers shoot assignment (editor_id / lane=photo);
+ * also honors editing_capabilities: ["photo"] when assigned and not video-assigned.
+ * Admins / editing_manager / photographers / sales never match (role !== editor).
+ * Dual-assigned (editor_id + video_editor_id) keeps the full UI.
+ */
+export const isPhotoOnlyEditorOnShoot = (
+  shoot: Pick<ShootData, 'editor' | 'editorAssignments' | 'serviceObjects' | 'serviceItems' | 'service_items'>,
+  user:
+    | {
+        id?: string | number
+        role?: string | null
+        metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null
+        editing_capabilities?: unknown
+        editingCapabilities?: unknown
+      }
+    | null
+    | undefined,
+) => {
+  if (normalizeRole(user?.role) !== 'editor') return false
+
+  const userId = normalizeId(user?.id)
+  if (!userId) return false
+
+  const caps = readEditingCapabilities(user)
+  const photoOnlyByCaps = caps.includes('photo') && !caps.includes('video')
+  // Pass videoOnlyByCaps=false so a dual-stamped editor_id===video_editor_id still
+  // marks matchedPhoto (and matchedVideo), which keeps full tabs below.
+  const { matchedPhoto, matchedVideo } = collectLaneAssignments(shoot, userId, false)
+
+  // Dual / video assignment keeps Video tabs + tour embeds.
+  if (matchedVideo) return false
+
+  // Assigned only via editor_id / lane=photo (not video_editor_id).
+  if (matchedPhoto) return true
+
+  // Caps say photo-only and the user is some editor on this shoot (fallback when
+  // BE stamped a general editor match without an explicit photo lane).
+  if (photoOnlyByCaps && shootHasEditorAssignment(shoot, user)) {
+    return true
+  }
+
+  return false
+}

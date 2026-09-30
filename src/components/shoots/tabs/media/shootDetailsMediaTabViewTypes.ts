@@ -46,6 +46,8 @@ export interface ShootDetailsMediaTabViewProps {
   isEditor: boolean;
   /** Video-only editor: hide Photos; Raw Uploads stays video-lane only. */
   isVideoOnlyEditor?: boolean;
+  /** Photo-only editor: hide Video sub-tabs; keep Photos + raw photos. */
+  isPhotoOnlyEditor?: boolean;
   sortOrder: MediaSortOrder;
   isDragMode: boolean;
   sortSaveStatus: 'idle' | 'saving' | 'saved';
