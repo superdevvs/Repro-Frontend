@@ -13,6 +13,7 @@ import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { getDashboardShootDisplayTime } from "@/utils/dashboardShootSchedule";
+import { hasActiveTextSelection } from "@/lib/textSelection";
 
 import type { ClientShootTileProps } from "../types";
 import { getClientDeliveredMedia } from "../utils";
@@ -113,7 +114,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
             <div className="space-y-2.5">
               {/* Address */}
               <div>
-                <h3 className="text-base sm:text-lg font-bold tracking-tight truncate group-hover:text-primary transition-colors">
+                <h3 className="select-text cursor-text text-base sm:text-lg font-bold tracking-tight truncate group-hover:text-primary transition-colors">
                   {summary.addressLine}
                 </h3>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -203,9 +204,23 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
           <p className="text-xs sm:text-sm text-muted-foreground">
             {dateLabel} • {timeLabel}
           </p>
-          <button onClick={() => onSelect(record)} className="text-base sm:text-lg font-semibold text-left hover:underline break-words">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={(event) => {
+              if (hasActiveTextSelection(event.currentTarget)) return;
+              onSelect(record);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelect(record);
+              }
+            }}
+            className="select-text cursor-text text-base sm:text-lg font-semibold text-left hover:underline break-words"
+          >
             {summary.addressLine}
-          </button>
+          </div>
           <div className="flex flex-wrap gap-2 mt-2 sm:mt-3">
             {serviceBadges.map((service) => (
               <Badge key={service} variant="outline" className="rounded-full text-[10px] sm:text-xs">

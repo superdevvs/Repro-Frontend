@@ -304,7 +304,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
 
                     <div className="space-y-2 sm:space-y-3 min-w-0">
                       <div>
-                        <h3 className="text-sm sm:text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+                        <h3 className="select-text cursor-text text-sm sm:text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
                         <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
                           <MapPin size={10} className="sm:w-3 sm:h-3" />
                           {shoot.cityStateZip}

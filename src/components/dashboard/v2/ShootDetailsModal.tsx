@@ -230,11 +230,11 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     })()}</span>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mt-3">
+                <h2 className="select-text text-2xl font-bold text-foreground mt-3">
                   {shoot.id ? `#${shoot.id} · ` : ''}
                   {shoot.addressLine}
                 </h2>
-                <p className="text-sm text-muted-foreground">{shoot.cityStateZip}</p>
+                <p className="select-text cursor-text text-sm text-muted-foreground">{shoot.cityStateZip}</p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -253,7 +253,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     <div className="flex items-center gap-2 text-primary text-xs font-semibold mb-1">
                       <MapPin size={14} /> Location
                     </div>
-                    <p className="font-semibold text-foreground">
+                    <p className="select-text cursor-text font-semibold text-foreground">
                       {detail?.address || shoot.addressLine || 'Address TBD'}
                     </p>
                   </div>

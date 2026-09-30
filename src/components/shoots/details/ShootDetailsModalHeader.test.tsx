@@ -94,20 +94,45 @@ describe('ShootDetailsModalHeader address reveal', () => {
     expect(complete).toHaveStyle({ transform: 'translateX(-220px)' });
   });
 
-  it('does not create a reveal interaction or movement for an address that already fits', () => {
+  it('keeps a fitting address as selectable text instead of a disabled button', () => {
     mockAddressMeasurements(240, 140);
-    renderAddressTitle({ addressTitle: compactAddress, completeAddress: compactAddress });
+    renderAddressTitle({ addressTitle: '1732 Fletchers', completeAddress: '1732 Fletchers' });
 
     const addressViewport = screen.getByTestId('shoot-address-reveal');
+    const preview = screen.getByTestId('shoot-address-preview');
     const complete = screen.getByTestId('shoot-address-full');
 
-    expect(screen.getByTestId('shoot-address-preview')).toHaveTextContent(compactAddress);
-    expect(addressViewport).toBeDisabled();
+    expect(preview).toHaveTextContent('1732 Fletchers');
+    expect(addressViewport.tagName).toBe('DIV');
+    expect(addressViewport).not.toHaveAttribute('role', 'button');
     expect(addressViewport).not.toHaveAttribute('aria-pressed');
+    expect(addressViewport).toHaveClass('select-text');
+    expect(preview).toHaveClass('select-text');
+    expect(screen.queryByRole('button', { name: '1732 Fletchers' })).not.toBeInTheDocument();
     expect(addressViewport).toHaveAttribute('data-overflowing', 'false');
 
     fireEvent.mouseEnter(addressViewport);
     expect(complete).toHaveClass('opacity-0');
     expect(complete).toHaveStyle({ transform: 'translateX(0)' });
+  });
+
+  it('does not pin the reveal while the address text is selected', () => {
+    mockAddressMeasurements(210, 430);
+    renderAddressTitle();
+
+    const addressControl = screen.getByRole('button', { name: fullAddress });
+    const preview = screen.getByTestId('shoot-address-preview');
+    const range = document.createRange();
+    range.selectNodeContents(preview);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    fireEvent.click(addressControl);
+    expect(addressControl).toHaveAttribute('aria-pressed', 'false');
+
+    selection?.removeAllRanges();
+    fireEvent.click(addressControl);
+    expect(addressControl).toHaveAttribute('aria-pressed', 'true');
   });
 });

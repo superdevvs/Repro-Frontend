@@ -6,6 +6,7 @@ import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInter
 import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
+import { hasActiveTextSelection } from '@/lib/textSelection'
 import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Copy, Download } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
@@ -1202,7 +1203,10 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                   <div
                     key={shoot.id}
                     data-shoot-card="true"
-                    onClick={() => onSelect(shoot, weather)}
+                    onClick={(event) => {
+                      if (hasActiveTextSelection(event.currentTarget)) return;
+                      onSelect(shoot, weather);
+                    }}
                     className={cn(
                       "relative overflow-hidden border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
                       isRequested 
@@ -1271,7 +1275,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       </div>
                       {/* Row 2: Address */}
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground truncate">{shoot.addressLine}</h3>
+                        <h3 className="select-text cursor-text text-sm font-semibold text-foreground truncate">{shoot.addressLine}</h3>
                         <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
                           <MapPin size={10} className="flex-shrink-0" />
                           <span className="truncate">{shoot.cityStateZip}</span>
@@ -1369,7 +1373,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
 
                       <div className="space-y-1.5 min-w-0">
                         <div>
-                          <h3 className="text-base font-semibold text-foreground truncate">{shoot.addressLine}</h3>
+                          <h3 className="select-text cursor-text text-base font-semibold text-foreground truncate">{shoot.addressLine}</h3>
                           <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                             <MapPin size={12} className="flex-shrink-0" />
                             <span className="truncate">{shoot.cityStateZip}</span>

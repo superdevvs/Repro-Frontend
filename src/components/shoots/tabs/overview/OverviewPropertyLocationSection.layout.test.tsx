@@ -53,6 +53,9 @@ describe('OverviewPropertyLocationSection layout', () => {
     const locationCard = locationLabel.closest('.bg-card');
     expect(locationCard).toContainElement(selector);
     expect(locationCard).toContainElement(screen.getByText('9137 Lakeland Valley Court'));
+    expect(screen.getByTestId('overview-location-address')).toHaveClass('select-text', 'cursor-text');
+    expect(screen.getByTestId('overview-location-address').tagName).not.toBe('BUTTON');
+    expect(screen.getByTestId('overview-location-locality')).toHaveClass('select-text');
     expect(screen.getByText('9137 Lakeland Valley Court').compareDocumentPosition(selector))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(propertyAccess.compareDocumentPosition(locationLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

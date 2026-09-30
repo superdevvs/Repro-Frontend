@@ -183,9 +183,9 @@ export function ShootDetailsPageHeader({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0 w-full sm:w-auto">
             <div className="flex items-center gap-2 sm:gap-3 mb-2">
-              <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate flex-1 select-text">
                 {shoot.id ? `#${shoot.id} · ` : ''}
-                {shoot.location?.address || 'Shoot Details'}
+                <span className="select-text cursor-text">{shoot.location?.address || 'Shoot Details'}</span>
               </h1>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Button
@@ -219,7 +219,7 @@ export function ShootDetailsPageHeader({
               </div>
             </div>
             {addressParts.length > 1 && (
-              <p className="text-xs sm:text-sm text-muted-foreground">
+              <p className="select-text cursor-text text-xs sm:text-sm text-muted-foreground">
                 {addressParts.slice(1).join(',').trim()}
               </p>
             )}

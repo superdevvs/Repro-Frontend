@@ -4,6 +4,7 @@ import type { DashboardShootServiceTag, DashboardShootSummary } from '@/types/da
 import { Avatar } from './SharedComponents';
 import { ServicePills } from './ServicePills';
 import { cn } from '@/lib/utils';
+import { hasActiveTextSelection } from '@/lib/textSelection'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Camera, Check, Cloud, CloudRain, Edit, Eye, Flag, MapPin, Snowflake, Sun, Upload, X } from 'lucide-react';
@@ -575,7 +576,10 @@ export function useShootsTabsCardController({
       <div
         key={shoot.id}
         data-shoot-card="true"
-        onClick={() => onSelect(shoot, weather)}
+        onClick={(event) => {
+          if (hasActiveTextSelection(event.currentTarget)) return;
+          onSelect(shoot, weather);
+        }}
         className={cn(
           "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
           isCompactMobile && "px-3 py-2.5 rounded-2xl sm:rounded-2xl sm:px-4 sm:py-3",
@@ -593,7 +597,7 @@ export function useShootsTabsCardController({
               <p className="mt-1 text-[9px] font-semibold leading-none text-muted-foreground sm:text-[10px]">{dateParts.weekday}</p>
             </div>
             <div className="min-w-0 border-l border-border/60 pl-3">
-              <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">{shoot.addressLine}</h3>
+              <h3 className="select-text cursor-text truncate text-sm font-semibold text-foreground sm:text-base">{shoot.addressLine}</h3>
               <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground sm:text-xs">
                 <MapPin size={10} className="shrink-0" />
                 <span className="truncate">{shoot.cityStateZip}</span>
@@ -651,7 +655,7 @@ export function useShootsTabsCardController({
           </div>
           {/* Row 2: Full address */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+            <h3 className="select-text cursor-text text-sm font-semibold text-foreground break-words">{shoot.addressLine}</h3>
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <MapPin size={10} />
               {shoot.cityStateZip}
@@ -742,7 +746,7 @@ export function useShootsTabsCardController({
           </div>
           <div className="space-y-3 min-w-0">
             <div>
-              <h3 className="text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+              <h3 className="select-text cursor-text text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <MapPin size={12} />
                 {shoot.cityStateZip}

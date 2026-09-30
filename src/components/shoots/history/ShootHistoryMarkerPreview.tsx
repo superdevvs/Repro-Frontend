@@ -79,7 +79,19 @@ export function ShootHistoryMarkerPreview({
           <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {marker.title}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+          <p
+            className="relative z-20 mt-0.5 line-clamp-2 select-text cursor-text text-sm font-semibold leading-snug text-foreground"
+            onClick={(event) => {
+              const selection = window.getSelection();
+              if (selection && !selection.isCollapsed && selection.toString().trim()) {
+                event.stopPropagation();
+                return;
+              }
+              if (!canOpen) return;
+              event.preventDefault();
+              marker.onOpen?.();
+            }}
+          >
             {marker.address}
           </p>
         </div>

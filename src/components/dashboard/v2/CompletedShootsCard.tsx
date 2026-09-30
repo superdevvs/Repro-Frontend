@@ -106,7 +106,7 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
       
       {/* Text content */}
       <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-3 sm:right-4 text-white space-y-1 z-10">
-        <p className="text-xs sm:text-sm font-semibold truncate">{addressLine}</p>
+        <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{addressLine}</p>
         <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
           <span>{clientName || 'Client TBD'}</span>
           {scheduleLabel && (
@@ -258,7 +258,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                     }}
                   />
                   <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-3 sm:right-4 text-white space-y-1 z-10">
-                    <p className="text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
+                    <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
                     <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
                       <span>{shoot.clientName || 'Client TBD'}</span>
                       {scheduleLabel && (

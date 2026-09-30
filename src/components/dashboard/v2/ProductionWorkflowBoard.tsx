@@ -6,6 +6,7 @@ import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
 import { filterPipelineColumnShoots, type PipelineFilter } from '@/features/dashboard/pipelineWorkflow';
 import { cn } from '@/lib/utils';
+import { hasActiveTextSelection } from '@/lib/textSelection';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface ProductionWorkflowBoardProps {
@@ -126,14 +127,25 @@ const PipelineColumn: React.FC<{
             data-pipeline-shoot-card="true"
             className="border border-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 bg-card hover:border-primary/40 hover:shadow-lg transition-all"
           >
-            <button
-              onClick={() => onSelectShoot(shoot)}
-              className="w-full text-left"
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(event) => {
+                if (hasActiveTextSelection(event.currentTarget)) return;
+                onSelectShoot(shoot);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelectShoot(shoot);
+                }
+              }}
+              className="w-full cursor-pointer text-left"
             >
               <div className="space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                    <p className="select-text cursor-text text-xs sm:text-sm font-semibold text-foreground truncate">
                       {shoot.addressLine}
                     </p>
                     <p className="text-[10px] sm:text-[11px] text-muted-foreground/80">
@@ -171,14 +183,14 @@ const PipelineColumn: React.FC<{
                   typeof shoot.addressLine === 'string' &&
                   typeof shoot.cityStateZip === 'string' &&
                   !shoot.addressLine.toLowerCase().includes(shoot.cityStateZip.toLowerCase()) && (
-                    <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">{shoot.cityStateZip}</p>
+                    <p className="select-text cursor-text text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">{shoot.cityStateZip}</p>
                   )}
                 <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate flex items-center gap-1">
                   <CameraIcon className="h-3 w-3 flex-shrink-0" />
                   {shoot.photographer?.name || 'Unassigned'}
                 </p>
               </div>
-            </button>
+            </div>
           </div>
         ))}
         {filteredShoots.length === 0 && (

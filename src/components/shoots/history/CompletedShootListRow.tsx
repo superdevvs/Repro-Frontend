@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { hasActiveTextSelection } from '@/lib/textSelection'
 import { API_BASE_URL } from '@/config/env'
 import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
@@ -228,7 +229,10 @@ export const CompletedShootListRow = ({
   return (
     <Card
       className="cursor-pointer overflow-hidden hover:border-primary/60 hover:shadow-md transition-all group"
-      onClick={() => onSelect(shoot)}
+      onClick={(event) => {
+        if (hasActiveTextSelection(event.currentTarget)) return;
+        onSelect(shoot);
+      }}
     >
       <div className="sm:hidden">
         <div className="flex gap-3 px-3 pb-2.5 pt-3">
@@ -270,7 +274,7 @@ export const CompletedShootListRow = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-start justify-between gap-2">
-              <h3 className="min-w-0 flex-1 truncate text-[15px] font-bold leading-tight" title={shoot.location.address}>
+              <h3 className="min-w-0 flex-1 select-text cursor-text truncate text-[15px] font-bold leading-tight" title={shoot.location.address}>
                 {shoot.location.address}
               </h3>
               <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -281,7 +285,7 @@ export const CompletedShootListRow = ({
                 )}
               </div>
             </div>
-            <p className="mb-2 truncate text-[12px] leading-tight text-muted-foreground" title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}>
+            <p className="mb-2 select-text cursor-text truncate text-[12px] leading-tight text-muted-foreground" title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}>
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
@@ -369,7 +373,7 @@ export const CompletedShootListRow = ({
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <h3
-                  className="text-[0.92rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[0.98rem]"
+                  className="select-text cursor-text text-[0.92rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[0.98rem]"
                   title={shoot.location.address}
                 >
                   {shoot.location.address}
@@ -403,7 +407,7 @@ export const CompletedShootListRow = ({
                 ) : null}
               </div>
               <p
-                className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
+                className="select-text cursor-text text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
                 title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
               >
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}

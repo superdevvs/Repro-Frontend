@@ -234,7 +234,7 @@ export function ShootCard(props: ShootCardProps) {
           <CardTitle className="text-base line-clamp-1">
             <div className="flex items-start">
               <MapPinIcon className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0 text-muted-foreground" />
-              <span>{shoot.location.address}</span>
+              <span className="select-text cursor-text">{shoot.location.address}</span>
             </div>
           </CardTitle>
         </CardHeader>
@@ -383,7 +383,7 @@ export function ShootCard(props: ShootCardProps) {
         <CardTitle className="text-base line-clamp-1">
           <div className="flex items-start">
             <MapPinIcon className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0 text-muted-foreground" />
-            <span>{address}</span>
+            <span className="select-text cursor-text">{address}</span>
           </div>
         </CardTitle>
       </CardHeader>

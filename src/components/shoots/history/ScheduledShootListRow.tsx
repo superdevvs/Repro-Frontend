@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { hasActiveTextSelection } from '@/lib/textSelection'
 import { API_BASE_URL } from '@/config/env'
 import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
@@ -302,7 +303,10 @@ export const ScheduledShootListRow = ({
   return (
     <Card
       className="cursor-pointer border border-border/70 bg-card/50 hover:border-primary/50 hover:shadow-lg transition-all group backdrop-blur-sm flex flex-col"
-      onClick={() => onSelect(shoot)}
+      onClick={(event) => {
+        if (hasActiveTextSelection(event.currentTarget)) return;
+        onSelect(shoot);
+      }}
     >
       <div className="p-4 sm:p-4 flex flex-col flex-1">
         {/* Row 1: Date/Time | Address | Client/Photographer | Status */}
@@ -372,14 +376,14 @@ export const ScheduledShootListRow = ({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3
-                className="min-w-0 max-w-full overflow-hidden text-lg font-bold leading-tight text-primary [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                className="min-w-0 max-w-full select-text cursor-text overflow-hidden text-lg font-bold leading-tight text-primary [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
                 title={shoot.location.address}
               >
                 {shoot.location.address}
               </h3>
             </div>
             <p
-              className="mt-1 min-w-0 max-w-full truncate text-sm text-muted-foreground"
+              className="mt-1 min-w-0 max-w-full select-text cursor-text truncate text-sm text-muted-foreground"
               title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
             >
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}

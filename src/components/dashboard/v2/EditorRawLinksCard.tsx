@@ -12,6 +12,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import type { ShootData } from '@/types/shoots';
 import { cn } from '@/lib/utils';
+import { hasActiveTextSelection } from '@/lib/textSelection';
 
 interface EditorRawLinksCardProps {
   shoots: ShootData[];
@@ -358,10 +359,20 @@ export function EditorRawLinksCard({
                   const shareLink = shareLinksByShoot[String(shoot.id)]?.share_url;
 
                   return (
-                    <button
+                    <div
                       key={shoot.id}
-                      type="button"
-                      onClick={() => handleOpenShoot(shoot.id)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if (hasActiveTextSelection(event.currentTarget)) return;
+                        handleOpenShoot(shoot.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleOpenShoot(shoot.id);
+                        }
+                      }}
                       className={cn(
                         'group w-full rounded-[20px] border p-4 text-left transition-all duration-200',
                         index < 2 ? 'opacity-100' : 'opacity-95',
@@ -371,7 +382,7 @@ export function EditorRawLinksCard({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-base font-semibold text-slate-950 dark:text-white">
+                            <p className="select-text cursor-text truncate text-base font-semibold text-slate-950 dark:text-white">
                               {shoot.location.address}
                             </p>
                             <Badge
@@ -424,7 +435,7 @@ export function EditorRawLinksCard({
                           </p>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

@@ -12,7 +12,7 @@ export function OverflowRevealAddressTitle({
   compactAddress,
   fullAddress,
 }: OverflowRevealAddressTitleProps) {
-  const viewportRef = React.useRef<HTMLButtonElement>(null);
+  const viewportRef = React.useRef<HTMLDivElement>(null);
   const fullTextRef = React.useRef<HTMLSpanElement>(null);
   const [scrollDistance, setScrollDistance] = React.useState(0);
   const [isHovered, setIsHovered] = React.useState(false);
@@ -80,18 +80,27 @@ export function OverflowRevealAddressTitle({
     setIsPinnedOpen(true);
   };
 
+  const handleRevealClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!canReveal) return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode)) {
+      return;
+    }
+    togglePinnedReveal();
+  };
+
   return (
     <h2 className="relative min-w-0 max-w-[24rem] flex-[0_1_auto] text-left text-base font-bold sm:text-lg">
-      <button
+      <div
         ref={viewportRef}
-        type="button"
-        disabled={!canReveal}
-        className={`relative block w-full min-w-0 max-w-full appearance-none overflow-hidden rounded-sm border-0 bg-transparent p-0 text-left font-inherit text-inherit ${
+        role={canReveal ? 'button' : undefined}
+        tabIndex={canReveal ? 0 : undefined}
+        className={`relative block w-full min-w-0 max-w-full select-text overflow-hidden rounded-sm border-0 bg-transparent p-0 text-left font-inherit text-inherit cursor-text ${
           canReveal
-            ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-            : 'cursor-default'
+            ? 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+            : ''
         }`}
-        aria-label={resolvedFullAddress}
+        aria-label={canReveal ? resolvedFullAddress : undefined}
         aria-pressed={canReveal ? isPinnedOpen : undefined}
         title={resolvedFullAddress}
         data-testid="shoot-address-reveal"
@@ -112,17 +121,23 @@ export function OverflowRevealAddressTitle({
           setIsFocused(false);
           if (!isHovered) setSuppressTransientReveal(false);
         }}
-        onClick={togglePinnedReveal}
+        onClick={handleRevealClick}
         onKeyDown={(event) => {
+          if (!canReveal) return;
           if (event.key === 'Escape') {
             setIsPinnedOpen(false);
             setSuppressTransientReveal(true);
             event.currentTarget.blur();
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            togglePinnedReveal();
           }
         }}
       >
         <span
-          className={`block truncate transition-opacity duration-100 motion-reduce:opacity-100 motion-reduce:transition-none ${
+          className={`block select-text cursor-text truncate transition-opacity duration-100 motion-reduce:opacity-100 motion-reduce:transition-none ${
             isRevealActive ? 'opacity-0' : 'opacity-100'
           }`}
           data-testid="shoot-address-preview"
@@ -132,8 +147,8 @@ export function OverflowRevealAddressTitle({
         <span
           ref={fullTextRef}
           aria-hidden="true"
-          className={`pointer-events-none absolute left-0 top-0 block w-max max-w-none whitespace-nowrap transition-transform ease-in-out motion-reduce:!transform-none motion-reduce:opacity-0 motion-reduce:transition-none ${
-            isRevealActive ? 'opacity-100 will-change-transform' : 'opacity-0'
+          className={`absolute left-0 top-0 block w-max max-w-none select-text cursor-text whitespace-nowrap transition-transform ease-in-out motion-reduce:!transform-none motion-reduce:opacity-0 motion-reduce:transition-none ${
+            isRevealActive ? 'pointer-events-auto opacity-100 will-change-transform' : 'pointer-events-none opacity-0'
           }`}
           style={{
             transform: isRevealActive ? `translateX(-${scrollDistance}px)` : 'translateX(0)',
@@ -143,7 +158,7 @@ export function OverflowRevealAddressTitle({
         >
           {resolvedFullAddress}
         </span>
-      </button>
+      </div>
       {isRevealActive ? (
         <span
           role="tooltip"

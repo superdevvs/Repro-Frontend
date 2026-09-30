@@ -201,8 +201,8 @@ export function OverviewPropertyLocationSection({
               </div>
             ) : (
               <div className="text-xs">
-                <div className="font-medium truncate">{getLocationAddress()}</div>
-                <div className="text-muted-foreground mt-0.5 truncate">
+                <div className="select-text cursor-text font-medium break-words" data-testid="overview-location-address">{getLocationAddress()}</div>
+                <div className="select-text cursor-text text-muted-foreground mt-0.5 break-words" data-testid="overview-location-locality">
                   {[locationDetails.city, locationDetails.state, locationDetails.zip].filter(Boolean).join(', ') || 'Not set'}
                 </div>
               </div>

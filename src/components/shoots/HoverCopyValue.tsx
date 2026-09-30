@@ -43,7 +43,7 @@ export function HoverCopyValue({
 
   return (
     <div className={cn('flex min-w-0 items-start gap-1 [&:hover>button]:opacity-100', className)}>
-      <Tag className={cn('min-w-0', textClassName)} title={title ?? text}>
+      <Tag className={cn('min-w-0 select-text cursor-text', textClassName)} title={title ?? text}>
         {text}
       </Tag>
       <button

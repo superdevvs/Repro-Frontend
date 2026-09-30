@@ -74,7 +74,7 @@ export function RequestedShootsCard({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground truncate">
                       <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate">{shoot.addressLine}</span>
+                      <span className="select-text cursor-text truncate">{shoot.addressLine}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 ml-6">
                       {shoot.cityStateZip}
