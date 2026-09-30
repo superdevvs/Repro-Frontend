@@ -1,5 +1,7 @@
 import { HoldRequestsPanel } from './HoldRequestsPanel';
+import { RescheduleRequestsPanel } from './RescheduleRequestsPanel';
 import type { HoldRequestsState } from '@/features/dashboard/hooks/useHoldRequests';
+import type { RescheduleRequestsState } from '@/features/dashboard/hooks/useRescheduleRequests';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState } from 'react';
 import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
@@ -15,12 +17,13 @@ import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
-type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold';
+type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule';
 
 export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
   holdRequests?: HoldRequestsState;
+  rescheduleRequests?: RescheduleRequestsState;
   reviews: DashboardShootSummary[];
   issues: DashboardIssueItem[];
   onSelect: (shoot: DashboardShootSummary) => void;
@@ -114,6 +117,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(({
   holdRequests,
+  rescheduleRequests,
   reviews,
   issues,
   onSelect,
@@ -226,6 +230,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     tabs.push({ id: 'hold', label: 'Hold', count: holdRequests.shoots.length });
   }
 
+  if (rescheduleRequests) {
+    tabs.push({ id: 'reschedule', label: 'Reschedule', count: rescheduleRequests.requests.length });
+  }
+
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
   const isEmpty = totalRequests === 0;
 
@@ -257,6 +265,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
         )}
 
         {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
+
+        {activeTab === 'reschedule' && rescheduleRequests && (
+          <RescheduleRequestsPanel requests={rescheduleRequests} />
+        )}
 
         {/* Client Tab Content */}
         {activeTab === 'client' && (

@@ -40,6 +40,7 @@ import { useDashboardSections } from "@/features/dashboard/components/DashboardS
 import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
 import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
+import { useRescheduleRequests } from "@/features/dashboard/hooks/useRescheduleRequests";
 import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
 import { useCancellationRequests } from "@/features/dashboard/hooks/useCancellationRequests";
 import { useClientDashboardActions } from "@/features/dashboard/hooks/useClientDashboardActions";
@@ -422,6 +423,10 @@ const Dashboard = () => {
     ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
     `${role}:${user?.id ?? "guest"}`,
   );
+  const rescheduleRequests = useRescheduleRequests(
+    ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
+    `${role}:${user?.id ?? "guest"}`,
+  );
   const schedulingPhotographers = useSchedulingPhotographers(role === "salesRep", `${role}:${user?.id ?? "guest"}`);
 
   const openSupportEmail = useCallback(
@@ -474,6 +479,7 @@ const Dashboard = () => {
 
   const adminMetricTiles = useAdminDashboardMetrics({
     holdRequestCount: holdRequests.shoots.length,
+    rescheduleRequestCount: rescheduleRequests.requests.length,
     allSummaries,
     cancellationRequestCount,
     clientRequests,
@@ -544,11 +550,12 @@ const Dashboard = () => {
   const editingManagerRequestCount =
     editingRequests.filter((request) => request.status !== 'completed').length +
     holdRequests.shoots.length +
+    rescheduleRequests.requests.length +
     (Array.isArray(data?.pendingReviews) ? data.pendingReviews.length : 0);
   const adminRequestIndicatorCount =
     clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
     editingRequests.filter((request) => request.status !== 'completed').length +
-    cancellationShoots.length + holdRequests.shoots.length;
+    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.requests.length;
 
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
@@ -564,6 +571,7 @@ const Dashboard = () => {
     renderShootsTabsCard,
   } = useDashboardSections({
     holdRequests,
+    rescheduleRequests,
     assignPhotographers,
     availablePhotographerIds,
     availabilityError,
@@ -756,6 +764,7 @@ const Dashboard = () => {
             availabilityLoading={schedulingPhotographers.isLoading || availabilityLoading}
             availabilityWindow={availabilityWindow}
             holdRequests={holdRequests}
+            rescheduleRequests={rescheduleRequests}
             cancellationShoots={cancellationShoots}
             clientRequests={clientRequests}
             clientRequestsLoading={clientRequestsLoading}

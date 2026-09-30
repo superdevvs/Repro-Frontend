@@ -6,7 +6,6 @@ import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import type { StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
-import { RescheduleRequestsPanel } from '@/components/shoots/RescheduleRequestsPanel';
 import { PauseCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
@@ -148,11 +147,6 @@ export function ShootDetailsPageDialogs({
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"
       />
-
-      {/* Pending reschedule requests are only meaningful now that submission no
-          longer applies the change, so the review surface lives alongside the
-          reschedule dialog (A1 item 4). */}
-      <RescheduleRequestsPanel shootId={shoot.id} onReviewed={onRescheduleClose} />
 
       <RescheduleDialog
         shoot={shoot}

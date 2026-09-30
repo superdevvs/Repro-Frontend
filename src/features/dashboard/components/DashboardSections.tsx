@@ -1,4 +1,5 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
+import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
 import React, { Suspense, lazy } from "react";
 
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ interface DashboardSectionsParams {
     end_time: string;
   };
   holdRequests?: HoldRequestsState;
+  rescheduleRequests?: RescheduleRequestsState;
   cancellationShoots: DashboardCancellationItem[];
   clientRequests: DashboardClientRequest[];
   clientRequestsLoading: boolean;
@@ -105,6 +107,7 @@ export const useDashboardSections = ({
   availabilityLoading,
   availabilityWindow,
   holdRequests,
+  rescheduleRequests,
   cancellationShoots,
   clientRequests,
   clientRequestsLoading,
@@ -204,6 +207,7 @@ export const useDashboardSections = ({
           clientRequestsLoading={clientRequestsLoading}
           showClientTab={isAdminExperience}
           holdRequests={holdRequests}
+          rescheduleRequests={rescheduleRequests}
           cancellationShoots={cancellationShoots}
           showCancellationTab={isAdminExperience}
           onApproveCancellation={handleApproveCancellation}

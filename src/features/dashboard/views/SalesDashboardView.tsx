@@ -1,4 +1,5 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
+import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
@@ -47,6 +48,7 @@ interface SalesDashboardViewProps {
     end_time: string;
   };
   holdRequests?: HoldRequestsState;
+  rescheduleRequests?: RescheduleRequestsState;
   cancellationShoots: DashboardCancellationItem[];
   clientRequests: DashboardClientRequest[];
   clientRequestsLoading: boolean;
@@ -84,6 +86,7 @@ export const SalesDashboardView = ({
   availabilityLoading,
   availabilityWindow,
   holdRequests,
+  rescheduleRequests,
   cancellationShoots,
   clientRequests,
   clientRequestsLoading,
@@ -135,7 +138,8 @@ export const SalesDashboardView = ({
         clientRequestsLoading={clientRequestsLoading}
         showClientTab
         holdRequests={holdRequests}
-          cancellationShoots={cancellationShoots}
+        rescheduleRequests={rescheduleRequests}
+        cancellationShoots={cancellationShoots}
         showCancellationTab
         onApproveCancellation={onApproveCancellation}
         onRejectCancellation={onRejectCancellation}
@@ -251,7 +255,7 @@ export const SalesDashboardView = ({
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
         collapsibleColumns
-        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0)}
+        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.requests.length ?? 0)}
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"
