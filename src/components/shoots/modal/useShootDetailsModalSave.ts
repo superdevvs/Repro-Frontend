@@ -340,15 +340,9 @@ export function useShootDetailsModalSave({
               if (serviceRecord.scheduled_at !== undefined) {
                 serviceData.scheduled_at = normalizeNullableString(serviceRecord.scheduled_at);
               }
-              if (serviceRecord.photographer_id !== undefined) {
-                serviceData.photographer_id = toNullableInteger(serviceRecord.photographer_id);
-              }
-              if (serviceRecord.editor_id !== undefined) {
-                serviceData.editor_id = toNullableInteger(serviceRecord.editor_id);
-              }
-              if (serviceRecord.is_deliverable !== undefined) {
-                serviceData.is_deliverable = Boolean(serviceRecord.is_deliverable);
-              }
+              // Assignments belong on root photographer_id / service_photographers.
+              // AssignedRepSchedulePayload rejects photographer_id on services[] rows
+              // ("Service lines may only include schedule and pricing context fields.").
               
               return serviceData;
             }
@@ -400,9 +394,7 @@ export function useShootDetailsModalSave({
           if (serviceItem.scheduled_at !== undefined) {
             itemData.scheduled_at = normalizeNullableString(serviceItem.scheduled_at);
           }
-          if (serviceItem.photographer_id !== undefined) {
-            itemData.photographer_id = toNullableInteger(serviceItem.photographer_id);
-          }
+          // Do not echo photographer_id onto service_items — use service_photographers.
           if (serviceItem.editor_id !== undefined) {
             itemData.editor_id = toNullableInteger(serviceItem.editor_id);
           }

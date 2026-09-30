@@ -89,4 +89,48 @@ describe('useShootDetailsModalSave comp forwarding', () => {
       payload: { complimentary_service_options: complimentaryOptions },
     }));
   });
+
+  it('strips photographer_id from services/service_items and keeps service_photographers', async () => {
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
+      canNotifyClient: false, canNotifyPhotographer: false,
+    }));
+
+    await act(async () => {
+      await result.current.handleSaveChanges({
+        photographer: { id: 1163, name: 'Lee Gedansky' },
+        services: [{
+          id: 19,
+          scheduled_at: '2026-09-30T18:30:00.000Z',
+          photographer_id: 1163,
+          photographer_pay: 75,
+        }],
+        service_items: [{
+          service_id: 19,
+          scheduled_at: '2026-09-30T18:30:00.000Z',
+          photographer_id: 1163,
+          price: 180,
+        }],
+        service_photographers: [{ service_id: 19, photographer_id: 1163 }],
+      } as never);
+    });
+
+    expect(submitShootServiceMutation).toHaveBeenCalledTimes(1);
+    const payload = vi.mocked(submitShootServiceMutation).mock.calls[0][0].payload;
+    expect(payload.photographer_id).toBe(1163);
+    expect(payload.service_photographers).toEqual([{ service_id: 19, photographer_id: 1163 }]);
+    expect(payload.services).toEqual([{
+      id: 19,
+      scheduled_at: '2026-09-30T18:30:00.000Z',
+      photographer_pay: 75,
+    }]);
+    expect(payload.service_items).toEqual([{
+      service_id: 19,
+      scheduled_at: '2026-09-30T18:30:00.000Z',
+      price: 180,
+    }]);
+    expect(JSON.stringify(payload.services)).not.toContain('photographer_id');
+    expect(JSON.stringify(payload.service_items)).not.toContain('photographer_id');
+  });
 });

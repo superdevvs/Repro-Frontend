@@ -98,12 +98,13 @@ export function applyOverviewServicePayload({
   });
 
   updates.service_items = serviceItems;
+  // Schedule/pricing only on services[] — never photographer_id (see service_photographers).
   updates.services = serviceItems.map((item) => ({
     id: item.service_id,
     ...(item.price !== undefined ? { price: item.price } : {}),
     ...(item.quantity !== undefined ? { quantity: item.quantity } : {}),
     scheduled_at: item.scheduled_at,
-    photographer_pay: item.photographer_pay,
+    ...(item.photographer_pay !== undefined ? { photographer_pay: item.photographer_pay } : {}),
   }));
   updates.service_photographers = selectedServiceIds.flatMap((serviceId) => {
     const service = servicesList.find((option) => option.id === serviceId);
