@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
-import { Check, Copy, DollarSign, Download, Edit, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Sparkles, Upload, X, XCircle } from 'lucide-react';
+import { Check, Copy, DollarSign, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 type VisibleTabId =
@@ -14,6 +14,28 @@ type VisibleTabId =
   | 'settings'
   | 'activity'
   | 'media';
+
+
+const getModalTabIcon = (tabId: string) => {
+  switch (tabId) {
+    case 'overview':
+      return Camera;
+    case 'media':
+      return Images;
+    case 'notes':
+      return FileText;
+    case 'issues':
+      return MessageCircle;
+    case 'tours':
+      return Camera;
+    case 'settings':
+      return Settings;
+    case 'activity':
+      return FileText;
+    default:
+      return FileText;
+  }
+};
 
 interface ShootDetailsModalActionRailProps {
   shootAddress: string;
@@ -834,10 +856,10 @@ export function ShootDetailsModalHeader({
 
       </div>
 
-      <div className="sm:hidden px-1 pb-1">
-        <div className="flex w-full gap-0 rounded-lg bg-muted/50 p-0.5" role="tablist" aria-label="Shoot sections">
+      <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="flex gap-0.5 rounded-lg bg-muted/50 p-0.5 min-w-max" role="tablist" aria-label="Shoot sections">
           {[...visibleTabs.filter((tab) => tab.id !== 'media').slice(0, 1), { id: 'media', label: 'Media' }, ...visibleTabs.filter((tab) => tab.id !== 'media').slice(1)].map((tab) => {
-            const mobileLabel = tab.id === 'activity' ? 'Activity' : tab.label;
+            const TabIcon = getModalTabIcon(tab.id);
 
             return (
               <button
@@ -853,7 +875,7 @@ export function ShootDetailsModalHeader({
                   handleTabChange(tab.id);
                 }}
                 disabled={tab.disabled}
-                className={`min-w-0 flex-1 basis-0 truncate rounded-md px-0 py-1.5 text-center text-[11px] font-semibold leading-none tracking-tight transition ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
                     : tab.disabled
@@ -861,7 +883,8 @@ export function ShootDetailsModalHeader({
                       : 'text-muted-foreground'
                 }`}
               >
-                {mobileLabel}
+                <TabIcon className="h-3 w-3 shrink-0" />
+                {tab.label}
               </button>
             );
           })}
