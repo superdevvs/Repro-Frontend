@@ -175,7 +175,7 @@ export function OverviewVideoEmbedsSection({
         {canWrite
           ? 'Add YouTube/Vimeo links that appear as embeds in the video tour. The first link stays the primary video_link.'
           : isEditor
-            ? 'Video links attached to this shoot’s tour. Editing opens for assigned editors once backend write access is enabled.'
+            ? 'Video links attached to this shoot’s tour. Only editors assigned to this shoot can edit embeds.'
             : 'Video links attached to this shoot’s tour.'}
       </p>
 

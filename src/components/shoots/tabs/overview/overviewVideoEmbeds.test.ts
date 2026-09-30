@@ -9,10 +9,14 @@ import {
 describe('overviewVideoEmbeds helpers', () => {
   it('allows privileged roles to write and editors to view', () => {
     expect(canWriteOverviewVideoEmbeds('admin')).toBe(true);
+    expect(canWriteOverviewVideoEmbeds('superadmin')).toBe(true);
     expect(canWriteOverviewVideoEmbeds('super_admin')).toBe(true);
     expect(canWriteOverviewVideoEmbeds('editing_manager')).toBe(true);
     expect(canWriteOverviewVideoEmbeds('editor')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('editor', { isAssignedEditor: false })).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('editor', { isAssignedEditor: true })).toBe(true);
     expect(canWriteOverviewVideoEmbeds('salesRep')).toBe(false);
+    expect(canWriteOverviewVideoEmbeds('salesRep', { isAssignedEditor: true })).toBe(false);
 
     expect(canViewOverviewVideoEmbeds('editor', true)).toBe(true);
     expect(canViewOverviewVideoEmbeds('client', false)).toBe(false);

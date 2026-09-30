@@ -51,6 +51,7 @@ import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
 import { canViewOverviewVideoEmbeds, canWriteOverviewVideoEmbeds } from './overview/overviewVideoEmbeds';
+import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments';
 import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
@@ -1029,13 +1030,15 @@ function ShootDetailsOverviewTabContent({
         </div>
       )}
 
-      {/* Video tour embeds — writable for admin/editing_manager; editors read-only until BE opens PATCH */}
+      {/* Video tour embeds — writable for admin/editing_manager + assigned editors (BE SHA efeb03e) */}
       {canViewOverviewVideoEmbeds(role, isEditor) && (
         <OverviewVideoEmbedsSection
           shoot={shoot}
           role={role}
           isEditor={isEditor}
-          canWrite={canWriteOverviewVideoEmbeds(role)}
+          canWrite={canWriteOverviewVideoEmbeds(role, {
+            isAssignedEditor: isEditor && shootHasEditorAssignment(shoot, user),
+          })}
           onShootUpdate={onShootUpdate}
         />
       )}

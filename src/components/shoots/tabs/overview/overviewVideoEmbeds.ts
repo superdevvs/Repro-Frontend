@@ -40,8 +40,24 @@ export const normalizeOverviewRole = (role: string | null | undefined) =>
     .trim()
     .toLowerCase();
 
-export const canWriteOverviewVideoEmbeds = (role: string | null | undefined) =>
-  OVERVIEW_VIDEO_EMBED_WRITE_ROLES.has(normalizeOverviewRole(role));
+export type CanWriteOverviewVideoEmbedsOptions = {
+  /** True when role=editor and the auth user is assigned on this shoot (editor_id or video_editor_id). */
+  isAssignedEditor?: boolean;
+};
+
+/**
+ * Privileged roles always write. role=editor may write only when assigned on the shoot
+ * (BE PATCH allows tour_links.embeds | video_link | featured_embed(_id) for assignees).
+ */
+export const canWriteOverviewVideoEmbeds = (
+  role: string | null | undefined,
+  options?: CanWriteOverviewVideoEmbedsOptions,
+) => {
+  const normalized = normalizeOverviewRole(role);
+  if (OVERVIEW_VIDEO_EMBED_WRITE_ROLES.has(normalized)) return true;
+  if (normalized === 'editor' && Boolean(options?.isAssignedEditor)) return true;
+  return false;
+};
 
 /** Privileged writers + editors who already can open the shoot. */
 export const canViewOverviewVideoEmbeds = (
