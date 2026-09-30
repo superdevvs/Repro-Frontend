@@ -16,6 +16,7 @@ import {
   normalizeOverviewVideoEmbeds,
   type OverviewVideoEmbed,
 } from './overviewVideoEmbeds';
+import { filterVirtualTourEmbeds } from '@/components/tourLinks/tourMediaEmbedUrl';
 
 type OverviewVideoEmbedsSectionProps = {
   shoot: ShootData;
@@ -110,11 +111,37 @@ export function OverviewVideoEmbedsSection({
     setIsSaving(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const existingEmbeds = Array.isArray(sourceTourLinks.embeds)
+        ? sourceTourLinks.embeds.map((item, index) => {
+            const embed = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+            const branded = typeof embed.branded === 'string' ? embed.branded
+              : typeof embed.url === 'string' ? embed.url : '';
+            const mls = typeof embed.mls === 'string' ? embed.mls : branded;
+            return {
+              id: typeof embed.id === 'string' && embed.id ? embed.id : `embed-${index}`,
+              title: typeof embed.title === 'string' ? embed.title : '',
+              branded,
+              mls,
+              url: typeof embed.url === 'string' ? embed.url : branded || mls,
+              branded_embed: typeof embed.branded_embed === 'string' ? embed.branded_embed : branded,
+              mls_embed: typeof embed.mls_embed === 'string' ? embed.mls_embed : mls,
+            };
+          })
+        : [];
+      // Drop listing-video URLs from Virtual Tours; keep true 3D embeds.
+      const cleanedEmbeds = filterVirtualTourEmbeds(existingEmbeds, {
+        videoUrls: [payload.video_link, ...trimmed.map((embed) => embed.url)],
+        getValue: (embed) => embed.branded || embed.mls || embed.url || '',
+      });
+      const nextFeatured =
+        cleanedEmbeds.some((embed) => embed.id === featuredEmbedId)
+          ? featuredEmbedId
+          : cleanedEmbeds[0]?.id ?? null;
       const nextTourLinks = {
         ...sourceTourLinks,
-        embeds: payload.embeds,
+        embeds: cleanedEmbeds,
         video_link: payload.video_link,
-        featured_embed_id: payload.featured_embed_id,
+        featured_embed_id: nextFeatured,
       };
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',

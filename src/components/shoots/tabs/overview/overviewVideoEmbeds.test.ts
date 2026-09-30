@@ -47,7 +47,23 @@ describe('overviewVideoEmbeds helpers', () => {
     ).toBe(true);
   });
 
-  it('normalizes embeds from url-first shape and seeds from video_link', () => {
+  it('prefers video_link over Virtual Tours embeds for the Overview editor', () => {
+    expect(
+      normalizeOverviewVideoEmbeds({
+        video_link: 'https://youtu.be/legacyvideo1',
+        embeds: [
+          { id: 'embed-a', title: 'Walkthrough', url: 'https://youtu.be/aaaaaaaaaaa' },
+          { id: 'embed-b', branded: 'https://vimeo.com/123' },
+        ],
+      }, 377),
+    ).toEqual([
+      {
+        id: 'embed-377-video-link',
+        title: 'Video 1',
+        url: 'https://youtu.be/legacyvideo1',
+      },
+    ]);
+
     expect(
       normalizeOverviewVideoEmbeds({
         embeds: [
@@ -57,49 +73,19 @@ describe('overviewVideoEmbeds helpers', () => {
       }),
     ).toEqual([
       { id: 'embed-a', title: 'Walkthrough', url: 'https://youtu.be/aaaaaaaaaaa' },
-      { id: 'embed-b', title: 'Video 2', url: 'https://vimeo.com/123' },
-    ]);
-
-    expect(
-      normalizeOverviewVideoEmbeds({ video_link: 'https://youtu.be/legacyvideo1' }, 377),
-    ).toEqual([
-      {
-        id: 'embed-377-video-link',
-        title: 'Video 1',
-        url: 'https://youtu.be/legacyvideo1',
-      },
     ]);
   });
 
-  it('builds PATCH payload with video_link synced to the first embed', () => {
+  it('builds PATCH payload with video_link only (no Virtual Tours embed mirror)', () => {
     expect(
       buildOverviewVideoEmbedsPayload([
         { id: 'embed-1', title: 'Primary', url: 'https://youtu.be/primaryvideo' },
         { id: 'embed-2', title: 'Second', url: 'https://vimeo.com/222' },
       ]),
     ).toEqual({
-      embeds: [
-        {
-          id: 'embed-1',
-          title: 'Primary',
-          url: 'https://youtu.be/primaryvideo',
-          branded: 'https://youtu.be/primaryvideo',
-          branded_embed: 'https://youtu.be/primaryvideo',
-          mls: 'https://youtu.be/primaryvideo',
-          mls_embed: 'https://youtu.be/primaryvideo',
-        },
-        {
-          id: 'embed-2',
-          title: 'Second',
-          url: 'https://vimeo.com/222',
-          branded: 'https://vimeo.com/222',
-          branded_embed: 'https://vimeo.com/222',
-          mls: 'https://vimeo.com/222',
-          mls_embed: 'https://vimeo.com/222',
-        },
-      ],
+      embeds: [],
       video_link: 'https://youtu.be/primaryvideo',
-      featured_embed_id: 'embed-1',
+      featured_embed_id: null,
     });
 
     expect(buildOverviewVideoEmbedsPayload([])).toEqual({

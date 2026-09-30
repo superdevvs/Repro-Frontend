@@ -13,7 +13,7 @@ import { MapPin, BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, Link2, Ex
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
-import { getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
+import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
@@ -250,11 +250,12 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
   const hasStats = beds || baths || sqft || garageCars;
 
   const orderedEmbeds = useMemo(() => {
-    if (!embeds.length) return [];
-    const featured = embeds.find((e) => e.id === featuredEmbedId);
-    if (!featured) return embeds;
-    return [featured, ...embeds.filter((e) => e.id !== featuredEmbedId)];
-  }, [embeds, featuredEmbedId]);
+    return filterVirtualTourEmbeds(embeds, {
+      videoUrls: [videoLink],
+      featuredId: featuredEmbedId,
+      getValue: (embed) => embed.mls || '',
+    });
+  }, [embeds, featuredEmbedId, videoLink]);
 
   const hasVideo = !!videoLink;
 

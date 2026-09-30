@@ -8,6 +8,7 @@ import {
   type PublicIguideSources,
   type PublicTourVariant,
 } from './publicIguideModel';
+import { filterVirtualTourEmbeds } from './tourMediaEmbedUrl';
 
 type RecordValue = Record<string, unknown>;
 type PropertyValue = string | number | null;
@@ -197,7 +198,6 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
       value: branded ? sources.branded || sources.mls : sources.mls,
     };
   }).filter((embed) => Boolean(embed.value));
-  const featured = embeds.find((embed) => embed.id === featuredEmbedId);
   const rawFloorplans = array(root.floorplans).length ? root.floorplans : root.iguide_floorplans;
   const floorplans: TourFloorplan[] = locked ? [] : array(rawFloorplans).flatMap((item) => {
     if (typeof item === 'string') {
@@ -211,6 +211,12 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
   });
   const videos = locked || videoRestricted ? [] : urls(root.videos);
   const videoLink = locked || videoRestricted ? '' : normalizePublicTourUrl(canonicalSource(root, 'video_link', videoFallback));
+  // Virtual Tours must not re-show listing video (or duplicate embed URLs).
+  const virtualTourEmbeds = filterVirtualTourEmbeds(embeds, {
+    videoUrls: [videoLink, ...videos, text(videoFallback)],
+    featuredId: featuredEmbedId,
+    getValue: (embed) => embed.value,
+  });
   const iguide = resolvePublicIguideSources(locked ? {} : root, variant);
   const matterportUrl = locked ? '' : normalizePublicTourUrl(canonicalSource(root, 'matterport_url',
     branded ? text(links.matterport_branded, links.matterport) : links.matterport_mls));
@@ -232,7 +238,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     videos, videoLink,
     videoPosterUrl: locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_poster_url, root.video_thumbnail_url)),
     floorplans, matterportUrl, iguide,
-    embeds: featured ? [featured, ...embeds.filter((embed) => embed !== featured)] : embeds,
+    embeds: virtualTourEmbeds,
     featuredEmbedId,
     tourSettings: {
       realtor_info: branded ? text(links.realtor_info) : '', autoplay: flag(links.autoplay),
@@ -241,7 +247,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     tourStyle: text(root.tour_style, links.tour_style) || 'default', tourPalette: text(root.tour_palette, links.tour_palette) || 'repro', showGarage, locked,
     lockedMessage: locked ? text(root.message) || 'Payment required to unlock this tour.' : '',
     empty: !locked && !shoot && !photos.length && !heroPhotos.length && !videos.length && !videoLink
-      && !floorplans.length && !embeds.length && !iguide.inlineUrl && !matterportUrl,
+      && !floorplans.length && !virtualTourEmbeds.length && !iguide.inlineUrl && !matterportUrl,
     analytics: { shootId, tourType: variant === 'generic-mls' ? 'generic_mls' : variant },
   };
 }

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { MapPin, BedDouble, Bath, Maximize, ChevronDown, ChevronLeft, ChevronRight, Mail, Phone, User, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
-import { getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
+import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import {
@@ -228,11 +228,13 @@ export function NeoTour() {
   const baths = getBaths();
   const sqft = getSqft();
   const orderedEmbeds = useMemo(() => {
-    if (!embeds.length) return [];
-    const featured = embeds.find((embed) => embed.id === featuredEmbedId);
-    if (!featured) return embeds;
-    return [featured, ...embeds.filter((embed) => embed.id !== featuredEmbedId)];
-  }, [embeds, featuredEmbedId]);
+    return filterVirtualTourEmbeds(embeds, {
+      videoUrls: [videoLink],
+      featuredId: featuredEmbedId,
+      getValue: (embed) =>
+        publicTourVariant === 'branded' ? embed.branded || embed.mls || '' : embed.mls || '',
+    });
+  }, [embeds, featuredEmbedId, videoLink, publicTourVariant]);
   const heroAlignment = tourSettings.header_position === 'left'
     ? 'items-start text-left'
     : tourSettings.header_position === 'right'

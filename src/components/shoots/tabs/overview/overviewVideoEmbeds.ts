@@ -95,75 +95,61 @@ export const resolveOverviewEmbedUrl = (value: unknown) => {
 };
 
 /**
- * Prefer tour_links.embeds. If empty, seed a single row from video_link so editors
- * still see the primary tour video already stored for backward-compat rendering.
+ * Overview Video Tour Embeds edit the listing video (`video_link`), not Virtual
+ * Tours (`tour_links.embeds`). Prefer video_link so Media "Video Embed" and this
+ * editor stay aligned; only fall back to embeds when video_link is empty (legacy).
  */
 export const normalizeOverviewVideoEmbeds = (
   tourLinks: unknown,
   shootId?: string | number | null,
 ): OverviewVideoEmbed[] => {
   const links = asRecord(tourLinks);
-  const rawEmbeds = Array.isArray(links.embeds) ? links.embeds : [];
-  const embeds = rawEmbeds
-    .map((item, index) => {
-      const embed = asRecord(item);
-      const url = resolveOverviewEmbedUrl(embed);
-      if (!url) return null;
-      return {
-        id: firstString(embed.id) || `embed-${shootId ?? 'shoot'}-${index}`,
-        title: firstString(embed.title) || `Video ${index + 1}`,
-        url,
-      } satisfies OverviewVideoEmbed;
-    })
-    .filter((embed): embed is OverviewVideoEmbed => Boolean(embed));
-
-  if (embeds.length > 0) return embeds;
-
   const legacyVideoLink = firstString(links.video_link);
-  if (!legacyVideoLink) return [];
+  if (legacyVideoLink) {
+    return [
+      {
+        id: `embed-${shootId ?? 'shoot'}-video-link`,
+        title: 'Video 1',
+        url: legacyVideoLink,
+      },
+    ];
+  }
 
-  return [
-    {
-      id: `embed-${shootId ?? 'shoot'}-video-link`,
-      title: 'Video 1',
-      url: legacyVideoLink,
-    },
-  ];
+  const rawEmbeds = Array.isArray(links.embeds) ? links.embeds : [];
+  for (let index = 0; index < rawEmbeds.length; index += 1) {
+    const embed = asRecord(rawEmbeds[index]);
+    const url = resolveOverviewEmbedUrl(embed);
+    if (!url) continue;
+    return [
+      {
+        id: firstString(embed.id) || `embed-${shootId ?? 'shoot'}-${index}`,
+        title: firstString(embed.title) || 'Video 1',
+        url,
+      },
+    ];
+  }
+
+  return [];
 };
 
 export const buildOverviewVideoEmbedsPayload = (
   embeds: OverviewVideoEmbed[],
-  featuredEmbedId?: string | null,
+  _featuredEmbedId?: string | null,
 ): OverviewVideoEmbedsPayload => {
-  const normalized = embeds
-    .map((embed, index) => {
-      const url = embed.url.trim();
-      if (!url) return null;
-      const id = embed.id.trim() || createOverviewVideoEmbedId();
-      const title = embed.title.trim() || `Video ${index + 1}`;
-      return {
-        id,
-        title,
-        url,
-        // Mirror url into branded/mls fields so existing tour renderers keep working
-        // until they fully consume the shared `url` shape.
-        branded: url,
-        branded_embed: url,
-        mls: url,
-        mls_embed: url,
-      };
-    })
-    .filter((embed): embed is OverviewVideoEmbedsPayload['embeds'][number] => Boolean(embed));
+  const primary = embeds.map((embed) => ({
+    ...embed,
+    url: embed.url.trim(),
+    title: embed.title.trim(),
+  })).find((embed) => Boolean(embed.url));
 
-  const featured =
-    (featuredEmbedId && normalized.some((embed) => embed.id === featuredEmbedId)
-      ? featuredEmbedId
-      : normalized[0]?.id) ?? null;
+  const url = primary?.url ?? null;
 
+  // Do not mirror listing video into Virtual Tours embeds[]. Video Tour owns
+  // video_link; Tour-tab Embeds manage 3D/Matterport-style Virtual Tours.
   return {
-    embeds: normalized,
-    video_link: normalized[0]?.url ?? null,
-    featured_embed_id: featured,
+    embeds: [],
+    video_link: url,
+    featured_embed_id: null,
   };
 };
 
