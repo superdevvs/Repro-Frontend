@@ -23,7 +23,7 @@ describe('media subtree containment', () => {
     expect(screen.getByRole('alert')).toBeVisible();
     expect(screen.getByText('Dashboard navigation')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Close shoot' })).toBeEnabled();
-    expect(mocks.telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'shoot_media_render_error' });
+    expect(mocks.telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'shoot_media_render_error', kind: 'ReactRenderError' });
     mocks.broken = false;
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
     expect(screen.getByText('Media controls')).toBeVisible();
