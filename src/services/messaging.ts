@@ -215,25 +215,37 @@ export const getNotificationRecipients = async (
   shootId: number,
   recipientType?: ManualNotificationRecipient,
 ): Promise<NotificationRecipientsResult> => {
-  const response = await apiClient.get('/messaging/notifications/recipients', {
-    params: {
-      shoot_id: shootId,
-      ...(recipientType ? { recipient_type: recipientType } : {}),
-    },
-  });
-  const data = response.data ?? {};
-  const recipients = Array.isArray(data.recipients) ? data.recipients : [];
-  return {
-    shoot_id: Number(data.shoot_id) || shootId,
-    recipients: recipients.map((row: Record<string, unknown>) => ({
-      id: Number(row.id),
-      name: String(row.name ?? ''),
-      email: typeof row.email === 'string' ? row.email : null,
-      phone: typeof row.phone === 'string' ? row.phone : null,
-      role: typeof row.role === 'string' ? row.role : null,
-      recipient_type: (row.recipient_type === 'photographer' ? 'photographer' : 'client') as ManualNotificationRecipient,
-    })).filter((row: NotificationRecipientPerson) => Number.isFinite(row.id) && row.id > 0),
-  };
+  try {
+    const response = await apiClient.get('/messaging/notifications/recipients', {
+      params: {
+        shoot_id: shootId,
+        ...(recipientType ? { recipient_type: recipientType } : {}),
+      },
+    });
+    const data = response.data ?? {};
+    const recipients = Array.isArray(data.recipients) ? data.recipients : [];
+    return {
+      shoot_id: Number(data.shoot_id) || shootId,
+      recipients: recipients.map((row: Record<string, unknown>) => ({
+        id: Number(row.id),
+        name: String(row.name ?? ''),
+        email: typeof row.email === 'string' ? row.email : null,
+        phone: typeof row.phone === 'string' ? row.phone : null,
+        role: typeof row.role === 'string' ? row.role : null,
+        recipient_type: (row.recipient_type === 'photographer' ? 'photographer' : 'client') as ManualNotificationRecipient,
+      })).filter((row: NotificationRecipientPerson) => Number.isFinite(row.id) && row.id > 0),
+    };
+  } catch (error) {
+    // Endpoint is admin-gated today; assigned sales_rep gets 403 until BE opens it.
+    // Soft-fail so Save-confirm / background loads never toast a permission error.
+    const status = (error as { response?: { status?: number }; publicError?: { status?: number } } | null)
+      ?.response?.status
+      ?? (error as { publicError?: { status?: number } } | null)?.publicError?.status;
+    if (status === 403 || status === 401) {
+      return { shoot_id: shootId, recipients: [] };
+    }
+    throw error;
+  }
 };
 
 // Automations

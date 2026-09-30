@@ -203,11 +203,14 @@ export function ShootDetailsModalDialogs({
   formatTime,
 }: ShootDetailsModalDialogsProps) {
   const shootIdNum = shoot?.id != null ? Number(shoot.id) : NaN;
+  // Admin-only recipients roster. Sales_rep Save confirm falls back to shoot.photographer;
+  // skipping avoids a background 403 that can surface as "I don't have permission."
   const recipientsQuery = useQuery({
     queryKey: ['shoot-notification-recipients', shootIdNum],
     queryFn: () => getNotificationRecipients(shootIdNum),
-    enabled: isSaveConfirmOpen && Number.isFinite(shootIdNum) && shootIdNum > 0,
+    enabled: isAdmin && isSaveConfirmOpen && Number.isFinite(shootIdNum) && shootIdNum > 0,
     refetchOnWindowFocus: false,
+    retry: false,
   });
   const notifyPhotographers = useMemo(
     () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),

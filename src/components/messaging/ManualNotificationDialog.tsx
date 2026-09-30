@@ -184,6 +184,7 @@ export function ManualNotificationDialog({
     queryFn: () => getNotificationRecipients(shootId, recipientType),
     enabled: open && Number.isFinite(shootId) && shootId > 0,
     refetchOnWindowFocus: false,
+    retry: false,
   });
   const assignedPhotographers: NotificationRecipientPerson[] = useMemo(
     () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
