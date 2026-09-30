@@ -11,7 +11,8 @@ import { useRequestManager } from '@/context/RequestManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
-import { Check, X, MapPin, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CancellationDecisionActions } from '@/components/dashboard/CancellationDecisionActions';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
@@ -486,8 +487,8 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                   <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
                       {safeCancellationShoots.slice(0, 7).map((shoot) => {
-                        const chargeActionKey = `${shoot.id}:charge`;
-                        const waiveActionKey = `${shoot.id}:waive`;
+                        const chargeActionKey = `${shoot.id}:charge_fee`;
+                        const waiveActionKey = `${shoot.id}:waive_fee`;
                         const rejectActionKey = `${shoot.id}:reject`;
                         const isActioning = cancellationActionLoading?.startsWith(`${shoot.id}:`) ?? false;
                         return (
@@ -512,50 +513,28 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                                 {shoot.cancellationReason}
                               </p>
                             )}
-                            <div className="flex items-center gap-1.5 pt-0.5">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[10px] gap-1 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
-                                disabled={isActioning}
-                                onClick={async () => {
-                                  if (!onApproveCancellation) return;
-                                  setCancellationActionLoading(chargeActionKey);
-                                  try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
-                                }}
-                              >
-                                {cancellationActionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
-                                Charge $60
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[10px] gap-1 px-2 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
-                                disabled={isActioning}
-                                onClick={async () => {
-                                  if (!onApproveCancellation) return;
-                                  setCancellationActionLoading(waiveActionKey);
-                                  try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
-                                }}
-                              >
-                                {cancellationActionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
-                                Waive fee
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[10px] gap-1 px-2 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
-                                disabled={isActioning}
-                                onClick={async () => {
-                                  if (!onRejectCancellation) return;
-                                  setCancellationActionLoading(rejectActionKey);
-                                  try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
-                                }}
-                              >
-                                {cancellationActionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
-                                Reject
-                              </Button>
-                            </div>
+                            <CancellationDecisionActions
+                              shootId={shoot.id}
+                              addressLabel={shoot.address || `Shoot #${shoot.id}`}
+                              actionLoading={cancellationActionLoading}
+                              disabled={isActioning}
+                              density="compact"
+                              onCharge={async () => {
+                                if (!onApproveCancellation) return;
+                                setCancellationActionLoading(chargeActionKey);
+                                try { await onApproveCancellation(shoot.id, 'charge_fee'); } finally { setCancellationActionLoading(null); }
+                              }}
+                              onWaive={async () => {
+                                if (!onApproveCancellation) return;
+                                setCancellationActionLoading(waiveActionKey);
+                                try { await onApproveCancellation(shoot.id, 'waive_fee'); } finally { setCancellationActionLoading(null); }
+                              }}
+                              onReject={async () => {
+                                if (!onRejectCancellation) return;
+                                setCancellationActionLoading(rejectActionKey);
+                                try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
+                              }}
+                            />
                           </div>
                         );
                       })}

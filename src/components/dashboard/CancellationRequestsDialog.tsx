@@ -5,14 +5,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, MapPin, User, Calendar } from 'lucide-react';
+import { MapPin, User, Calendar } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { CancellationDecisionActions } from '@/components/dashboard/CancellationDecisionActions';
 
 interface CancellationShoot {
   id: number;
@@ -47,6 +54,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
   onActionComplete,
 }) => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [shoots, setShoots] = useState<CancellationShoot[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -166,16 +174,37 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-base font-semibold">
-            Pending cancellations
-          </DialogTitle>
-        </DialogHeader>
+  const Shell: React.ElementType = isMobile ? Drawer : Dialog;
+  const ShellContent: React.ElementType = isMobile ? DrawerContent : DialogContent;
+  const ShellHeader: React.ElementType = isMobile ? DrawerHeader : DialogHeader;
+  const ShellTitle: React.ElementType = isMobile ? DrawerTitle : DialogTitle;
+  const shellProps = isMobile
+    ? { open, onOpenChange, shouldScaleBackground: false }
+    : { open, onOpenChange };
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6" style={{ scrollbarWidth: 'thin' }}>
+  return (
+    <Shell {...shellProps}>
+      <ShellContent
+        className={
+          isMobile
+            ? 'max-h-[90dvh] flex flex-col'
+            : 'sm:max-w-lg max-h-[80vh] flex flex-col'
+        }
+      >
+        <ShellHeader className={isMobile ? 'pb-2 text-left' : undefined}>
+          <ShellTitle className="text-base font-semibold">
+            Pending cancellations
+          </ShellTitle>
+        </ShellHeader>
+
+        <div
+          className={
+            isMobile
+              ? 'flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
+              : 'flex-1 overflow-y-auto -mx-6 px-6'
+          }
+          style={{ scrollbarWidth: 'thin' }}
+        >
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-4 w-4 mr-2" />
@@ -188,9 +217,6 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
           ) : (
             <div className="space-y-2 pb-2">
               {shoots.map((shoot) => {
-                const chargeActionKey = `${shoot.id}:charge_fee`;
-                const waiveActionKey = `${shoot.id}:waive_fee`;
-                const rejectActionKey = `${shoot.id}:reject`;
                 const isActioning = actionLoading?.startsWith(`${shoot.id}:`) ?? false;
                 const dateStr = formatDate(shoot);
                 const normalizedStatus = String(shoot.status || '').toLowerCase();
@@ -239,46 +265,22 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                       </p>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
-                        disabled={isActioning}
-                        onClick={() => handleApprove(shoot.id, 'charge_fee')}
-                      >
-                        {actionLoading === chargeActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <Check className="h-3 w-3" strokeWidth={2} />}
-                        Charge $60
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 text-sky-600 border-sky-200 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/30"
-                        disabled={isActioning}
-                        onClick={() => handleApprove(shoot.id, 'waive_fee')}
-                      >
-                        {actionLoading === waiveActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <Check className="h-3 w-3" strokeWidth={2} />}
-                        Waive fee
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
-                        disabled={isActioning}
-                        onClick={() => handleReject(shoot.id)}
-                      >
-                        {actionLoading === rejectActionKey ? <Loader2 aria-hidden="true" className="h-3 w-3" /> : <X className="h-3 w-3" strokeWidth={2} />}
-                        Reject
-                      </Button>
-                    </div>
+                    <CancellationDecisionActions
+                      shootId={shoot.id}
+                      addressLabel={formatAddress(shoot)}
+                      actionLoading={actionLoading}
+                      disabled={isActioning}
+                      onCharge={() => handleApprove(shoot.id, 'charge_fee')}
+                      onWaive={() => handleApprove(shoot.id, 'waive_fee')}
+                      onReject={() => handleReject(shoot.id)}
+                    />
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </ShellContent>
+    </Shell>
   );
 };
