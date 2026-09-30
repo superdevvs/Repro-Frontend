@@ -14,6 +14,7 @@ import {
   ServiceDatePicker,
   ServiceTimePicker,
 } from '@/components/shoots/ServiceSchedulePicker';
+import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
@@ -68,6 +69,7 @@ export type OverviewServicesTableSectionProps = {
   // Actions (all from useShootOverviewEditor)
   toggleServiceSelection: (serviceId: string) => void;
   updateServiceSchedule: (serviceId: string, field: 'date' | 'time', value: string) => void;
+  applyServiceScheduleToAll?: (serviceId: string) => void;
   openEditPhotographerPicker: (context: {
     source: 'edit';
     categoryKey?: string;
@@ -114,6 +116,7 @@ export type OverviewServicesTableSectionProps = {
     hasSalesRep: boolean;
     toggleServiceSelection: (sourceShootServiceId: string) => void;
     updateServiceSchedule: (sourceShootServiceId: string, field: 'date' | 'time', value: string) => void;
+    applyServiceScheduleToAll?: (sourceShootServiceId: string) => void;
   };
 };
 
@@ -481,6 +484,7 @@ function renderEditRows(
     resolvePhotographerDetails,
     toggleServiceSelection,
     updateServiceSchedule,
+    applyServiceScheduleToAll,
     openEditPhotographerPicker,
     getServiceDisplayPrice,
     isClient,
@@ -575,12 +579,19 @@ function renderEditRows(
             />
           </td>
           <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            <ServiceTimePicker
-              value={schedule.time}
-              options={buildServiceTimeOptions(schedule.time)}
-              onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
-              triggerClassName="h-8 w-full rounded-lg min-w-0"
-            />
+            <div className="flex flex-col items-stretch gap-0.5">
+              <ServiceTimePicker
+                value={schedule.time}
+                options={buildServiceTimeOptions(schedule.time)}
+                onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
+                triggerClassName="h-8 w-full rounded-lg min-w-0"
+              />
+              <ApplyAllServiceScheduleButton
+                visible={selectedServiceIds.length > 1}
+                onApply={() => applyServiceScheduleToAll?.(serviceId)}
+                className="self-end"
+              />
+            </div>
           </td>
           {showPhotographerColumn && (
             <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
@@ -673,12 +684,19 @@ function renderEditRows(
             />
           </td>
           <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            <ServiceTimePicker
-              value={schedule.time}
-              options={buildServiceTimeOptions(schedule.time)}
-              onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'time', value)}
-              triggerClassName="h-8 w-full rounded-lg min-w-0"
-            />
+            <div className="flex flex-col items-stretch gap-0.5">
+              <ServiceTimePicker
+                value={schedule.time}
+                options={buildServiceTimeOptions(schedule.time)}
+                onChange={(value) => complimentary.updateServiceSchedule(sourceShootServiceId, 'time', value)}
+                triggerClassName="h-8 w-full rounded-lg min-w-0"
+              />
+              <ApplyAllServiceScheduleButton
+                visible={(complimentary.selectedSourceServiceIds?.length ?? 0) > 1}
+                onApply={() => complimentary.applyServiceScheduleToAll?.(sourceShootServiceId)}
+                className="self-end"
+              />
+            </div>
           </td>
           {showPhotographerColumn && (
             <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">

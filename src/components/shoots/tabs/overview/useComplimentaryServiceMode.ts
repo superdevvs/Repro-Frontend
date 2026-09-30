@@ -168,6 +168,18 @@ export function useComplimentaryServiceMode({
     }));
   }, [isAdmin]);
 
+  const applyServiceScheduleToAll = useCallback((sourceShootServiceId: string) => {
+    if (!isAdmin) return;
+    setSchedules((current) => {
+      const source = current[sourceShootServiceId] || EMPTY_SCHEDULE;
+      const next = { ...current };
+      selectedSourceServiceIds.forEach((id) => {
+        next[id] = { date: source.date, time: source.time };
+      });
+      return next;
+    });
+  }, [isAdmin, selectedSourceServiceIds]);
+
   const setServicePhotographer = useCallback((sourceShootServiceId: string, photographerId: string) => {
     setPhotographerIds((current) => ({ ...current, [sourceShootServiceId]: photographerId }));
   }, []);
@@ -270,6 +282,7 @@ export function useComplimentaryServiceMode({
       setModeEnabled,
       toggleServiceSelection,
       updateServiceSchedule,
+      applyServiceScheduleToAll,
       setServicePhotographer,
       setReasonCode,
       setReasonNote,

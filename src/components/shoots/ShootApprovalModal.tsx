@@ -41,6 +41,7 @@ import { PhotographerAvailabilityTimeline } from '@/components/photographers/Pho
 import { Input } from '@/components/ui/input';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import {
   buildWallClockIso,
@@ -953,6 +954,20 @@ export function ShootApprovalModal({
       },
     }));
   };
+  const applyServiceScheduleToAll = (sourceServiceId: string) => {
+    setServiceSchedules((current) => {
+      const source = current[sourceServiceId] || {};
+      const next = { ...current };
+      serviceScheduleRows.forEach((service) => {
+        const id = getServiceIdentifier(service);
+        next[id] = {
+          date: source.date || '',
+          time: source.time || '',
+        };
+      });
+      return next;
+    });
+  };
 
   const renderPhotographerAssignments = () => (
     <div className="space-y-3 rounded-xl border border-border p-4">
@@ -1263,19 +1278,29 @@ export function ShootApprovalModal({
                                 Customizable
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <ServiceDatePicker
-                                value={serviceDate}
-                                minDate={minSelectableDate}
-                                onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
-                                triggerClassName="h-8 rounded-lg px-2"
-                              />
-                              <ServiceTimePicker
-                                value={serviceTime}
-                                options={timeOptions}
-                                onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
-                                triggerClassName="h-8 rounded-lg px-2"
-                              />
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <ServiceDatePicker
+                                  value={serviceDate}
+                                  minDate={minSelectableDate}
+                                  onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
+                                  triggerClassName="h-8 rounded-lg px-2"
+                                />
+                                <div className="space-y-1">
+                                  <div className="flex justify-end">
+                                    <ApplyAllServiceScheduleButton
+                                      visible={serviceScheduleRows.length > 1}
+                                      onApply={() => applyServiceScheduleToAll(serviceId)}
+                                    />
+                                  </div>
+                                  <ServiceTimePicker
+                                    value={serviceTime}
+                                    options={timeOptions}
+                                    onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
+                                    triggerClassName="h-8 rounded-lg px-2"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         );

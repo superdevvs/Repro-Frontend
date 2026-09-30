@@ -146,6 +146,7 @@ export function useShootOverviewEditor({
       setModeEnabled: setCompServiceMode,
       toggleServiceSelection: toggleCompServiceSelection,
       updateServiceSchedule: updateCompServiceSchedule,
+      applyServiceScheduleToAll: applyCompServiceScheduleToAll,
       setServicePhotographer: setCompServicePhotographer,
       setReasonCode: setCompReasonCode,
       setReasonNote: setCompReasonNote,
@@ -585,6 +586,18 @@ export function useShootOverviewEditor({
       },
     }));
   }, [defaultServiceSchedule, markOrdinaryServiceMutationTouched]);
+
+  const applyServiceScheduleToAll = useCallback((sourceServiceId: string) => {
+    markOrdinaryServiceMutationTouched();
+    setServiceSchedules((current) => {
+      const source = current[sourceServiceId] || defaultServiceSchedule;
+      const next = { ...current };
+      selectedServiceIds.forEach((id) => {
+        next[id] = { date: source.date, time: source.time };
+      });
+      return next;
+    });
+  }, [defaultServiceSchedule, markOrdinaryServiceMutationTouched, selectedServiceIds]);
 
   const handleCancel = useCallback(() => {
     setEditedShoot({});
@@ -1068,6 +1081,8 @@ export function useShootOverviewEditor({
       setServicePrices,
       setServicePhotographerPays,
       updateServiceSchedule,
+      applyServiceScheduleToAll,
+      applyCompServiceScheduleToAll,
       setServiceDialogOpen,
       setServicePanelCategory,
       setServiceModalSearch,

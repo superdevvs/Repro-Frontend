@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import AddressLookupField from '@/components/AddressLookupField';
 import { cn } from '@/lib/utils';
 import { Bath, BedDouble, CalendarIcon, Clock, Edit, FileText, Home, Layers, MapPin, Ruler, User, X } from 'lucide-react';
@@ -87,6 +88,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
     defaultServiceSchedule,
     selectedServiceRows,
     updateServiceSchedule,
+    applyServiceScheduleToAll,
     getServiceScheduleSummary,
     sortedServiceScheduleRows,
     selectedServicesPricing,
@@ -327,25 +329,33 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                   </Badge>
                 </button>
                 {isExpanded && (
-                  <div className="grid grid-cols-2 gap-2 border-t border-border/70 p-2 pt-2">
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Date</Label>
-                      <ServiceDatePicker
-                        value={schedule.date}
-                        minDate={minSelectableDate}
-                        onChange={(value) => updateServiceSchedule(id, 'date', value)}
-                        triggerClassName="h-8 rounded-lg px-2"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Time</Label>
-                      <ServiceTimePicker
-                        value={schedule.time || scheduledTime}
-                        options={timeOptions}
-                        onChange={(value) => updateServiceSchedule(id, 'time', value)}
-                        isTimeDisabled={isEditTimeDisabled}
-                        triggerClassName="h-8 rounded-lg px-2"
-                      />
+                  <div className="space-y-2 border-t border-border/70 p-2 pt-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Date</Label>
+                        <ServiceDatePicker
+                          value={schedule.date}
+                          minDate={minSelectableDate}
+                          onChange={(value) => updateServiceSchedule(id, 'date', value)}
+                          triggerClassName="h-8 rounded-lg px-2"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <Label className="text-[10px]">Time</Label>
+                          <ApplyAllServiceScheduleButton
+                            visible={selectedServiceRows.length > 1}
+                            onApply={() => applyServiceScheduleToAll(id)}
+                          />
+                        </div>
+                        <ServiceTimePicker
+                          value={schedule.time || scheduledTime}
+                          options={timeOptions}
+                          onChange={(value) => updateServiceSchedule(id, 'time', value)}
+                          isTimeDisabled={isEditTimeDisabled}
+                          triggerClassName="h-8 rounded-lg px-2"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

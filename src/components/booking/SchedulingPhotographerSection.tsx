@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
+import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import type { SchedulingFormController } from './useSchedulingFormController';
 
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
@@ -38,6 +39,21 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   // picker is presented against that service so it never reads as "for all".
   const primaryAssignment = requiresPerServiceAssignment ? null : assignmentGroups[0] ?? null;
   const servicesWithoutPhotographer = selectedServices.filter((service) => !serviceRequiresPhotographer(service));
+  const allScheduleServiceIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    selectedServices.forEach((service) => ids.add(String(service.id)));
+    assignmentGroups.forEach((group) => ids.add(String(group.serviceId)));
+    servicesWithoutPhotographer.forEach((service) => ids.add(String(service.id)));
+    return Array.from(ids);
+  }, [assignmentGroups, selectedServices, servicesWithoutPhotographer]);
+  const showApplyAllSchedules = allScheduleServiceIds.length > 1;
+  const applyScheduleToAllFrom = (sourceServiceId: string) => {
+    const schedule = getServiceSchedule(sourceServiceId);
+    updateServiceSchedules(allScheduleServiceIds, {
+      date: schedule.date,
+      time: schedule.time,
+    });
+  };
   const singleModeHint = primaryAssignment
     ? servicesWithoutPhotographer.length > 0
       ? `Only ${primaryAssignment.serviceName} needs a photographer.`
@@ -486,7 +502,13 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           />
                         </div>
                         <div className="min-w-0 space-y-1">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                            <ApplyAllServiceScheduleButton
+                              visible={showApplyAllSchedules}
+                              onApply={() => applyScheduleToAllFrom(serviceId)}
+                            />
+                          </div>
                           <ServiceTimePicker
                             value={getServiceSchedule(serviceId).time}
                             options={buildConflictAwareServiceTimeOptions(getPhotographerForService(serviceId), getServiceSchedule(serviceId).time)}
@@ -525,7 +547,13 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       />
                     </div>
                     <div className="min-w-0 space-y-1">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                        <ApplyAllServiceScheduleButton
+                          visible={showApplyAllSchedules}
+                          onApply={() => applyScheduleToAllFrom(primaryAssignment.serviceId)}
+                        />
+                      </div>
                       <ServiceTimePicker
                         value={getServiceSchedule(primaryAssignment.serviceId).time}
                         options={buildConflictAwareServiceTimeOptions(photographer, getServiceSchedule(primaryAssignment.serviceId).time)}
@@ -690,12 +718,19 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       onChange={(value) => updateServiceSchedules([service.id], { date: value })}
                       triggerClassName="h-9"
                     />
-                    <ServiceTimePicker
-                      value={schedule.time}
-                      options={buildServiceTimeOptions(schedule.time)}
-                      onChange={(value) => updateServiceSchedules([service.id], { time: value })}
-                      triggerClassName="h-9"
-                    />
+                    <div className="flex flex-col items-stretch gap-0.5">
+                      <ServiceTimePicker
+                        value={schedule.time}
+                        options={buildServiceTimeOptions(schedule.time)}
+                        onChange={(value) => updateServiceSchedules([service.id], { time: value })}
+                        triggerClassName="h-9"
+                      />
+                      <ApplyAllServiceScheduleButton
+                        visible={showApplyAllSchedules}
+                        onApply={() => applyScheduleToAllFrom(String(service.id))}
+                        className="self-end"
+                      />
+                    </div>
                   </div>
                 );
               })}

@@ -470,6 +470,8 @@ function ShootDetailsOverviewTabContent({
       toggleServiceSelection,
       updateServiceQuantity,
       updateServiceSchedule,
+      applyServiceScheduleToAll,
+      applyCompServiceScheduleToAll,
       resolvePhotographerDetails,
       closePhotographerPicker,
       openEditPhotographerPicker,
@@ -912,6 +914,7 @@ function ShootDetailsOverviewTabContent({
         resolvePhotographerDetails={resolvePhotographerDetails}
         toggleServiceSelection={toggleServiceSelection}
         updateServiceSchedule={updateServiceSchedule}
+        applyServiceScheduleToAll={applyServiceScheduleToAll}
         openEditPhotographerPicker={openEditPhotographerPicker}
         getServiceDisplayPrice={getServiceDisplayPrice}
         getReadonlyServiceDisplayPrice={getServiceDisplayPrice}
@@ -947,6 +950,7 @@ function ShootDetailsOverviewTabContent({
           hasSalesRep: Boolean(shoot.client?.rep?.id ?? shoot.rep?.id),
           toggleServiceSelection: toggleCompServiceSelection,
           updateServiceSchedule: updateCompServiceSchedule,
+          applyServiceScheduleToAll: applyCompServiceScheduleToAll,
         } : undefined}
       />
 
