@@ -283,7 +283,13 @@ export function ShootDetailsModalBody({
             </Tabs>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 pb-0 sm:px-4 sm:py-2.5">
+          <div
+            className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pb-0 sm:px-4 ${
+              activeTab !== 'overview' && activeTab !== 'tours'
+                ? 'pt-1 sm:pt-1.5 sm:pb-2.5'
+                : 'pt-2 sm:py-2.5'
+            }`}
+          >
             {activeTab !== 'overview' && activeTab !== 'tours' && (
               <ShootDetailsPanelUnitChrome
                 shoot={shoot}
@@ -410,7 +416,7 @@ export function ShootDetailsModalBody({
         </div>
 
         <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} sm:hidden flex-1 min-h-0 flex-col bg-background`}>
-          <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-2">
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-1">
             <ShootDetailsPanelUnitChrome
               shoot={shoot}
               disabled={isEditMode || hasInflightUploads}

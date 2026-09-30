@@ -16,7 +16,7 @@ type ShootUnitScopeBarProps = {
   shoot: ShootData;
   onShootUpdate?: () => unknown;
   disabled?: boolean;
-  variant?: 'standalone' | 'embedded' | 'inline' | 'compact';
+  variant?: 'standalone' | 'embedded' | 'inline' | 'compact' | 'panel';
   onManageUnits?: () => void;
   manageUnitsLabel?: string;
   containerRef?: RefObject<HTMLDivElement>;
@@ -48,26 +48,28 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
   const kindLabel = unit.kind === 'common_area' ? 'Common areas' : 'Unit';
   const labelWithSqft = `${unit.label}${unit.sqft ? ` · ${unit.sqft.toLocaleString()} sqft` : ''}`;
   const isCompact = variant === 'compact';
+  // embedded = under Overview Location (needs top rule). panel = flush under tabs.
   const shellClass = variant === 'embedded'
     ? 'mt-2.5 border-t pt-2.5'
-    : variant === 'inline'
+    : variant === 'panel' || variant === 'inline'
       ? ''
       : isCompact
         ? 'rounded-md border border-blue-200/80 bg-blue-50/50 px-2 py-1 dark:border-blue-900/80 dark:bg-blue-950/20'
         : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20';
-  const changeButtonClass = isCompact ? 'h-7 px-2 text-[11px]' : 'h-8 px-2 text-xs';
-  const arrowButtonClass = isCompact ? 'h-7 w-7' : 'h-8 w-8';
+  const changeButtonClass = isCompact || variant === 'panel' ? 'h-7 px-2 text-[11px]' : 'h-8 px-2 text-xs';
+  const arrowButtonClass = isCompact || variant === 'panel' ? 'h-7 w-7' : 'h-8 w-8';
+  const iconClass = isCompact || variant === 'panel' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return <>
     <div
       ref={containerRef}
-      className={`flex min-w-0 items-center gap-1.5 ${isCompact ? 'flex-nowrap' : 'flex-wrap gap-2'} ${shellClass}`}
+      className={`flex min-w-0 items-center gap-1.5 ${isCompact || variant === 'panel' ? 'flex-nowrap' : 'flex-wrap gap-2'} ${shellClass}`}
       aria-label="Selected unit"
       data-unit-chrome={variant}
       onClick={event => event.stopPropagation()}
     >
-      <Building2 className={`${isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0 text-blue-600 dark:text-blue-400`} />
-      {isCompact ? (
+      <Building2 className={`${iconClass} shrink-0 text-blue-600 dark:text-blue-400`} />
+      {isCompact || variant === 'panel' ? (
         <p className="min-w-0 flex-1 truncate text-xs leading-none" title={labelWithSqft}>
           <span className="text-muted-foreground">{kindLabel} · {index + 1} of {units.length}</span>
           <span className="mx-1 text-muted-foreground/50">·</span>
@@ -80,7 +82,7 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
         </div>
       )}
       <Button type="button" variant="outline" size="sm" className={changeButtonClass} data-unit-control="change" disabled={disabled} onClick={() => { handingOffFocus.current = false; setQuery(''); setPage(0); setOpen(true); }}>Change unit</Button>
-      <div className={`flex ${isCompact ? 'gap-0.5' : 'gap-1'}`}>
+      <div className={`flex ${isCompact || variant === 'panel' ? 'gap-0.5' : 'gap-1'}`}>
         <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="previous" aria-label="Previous unit" disabled={disabled || index === 0} onClick={() => selectUnit(getUnitKey(units[index - 1]), 'previous')}><ChevronLeft className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="next" aria-label="Next unit" disabled={disabled || index === units.length - 1} onClick={() => selectUnit(getUnitKey(units[index + 1]), 'next')}><ChevronRight className="h-4 w-4" /></Button>
       </div>

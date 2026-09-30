@@ -30,12 +30,14 @@ describe('Shoot Details unit chrome placement', () => {
     expect(source).toContain('ShootDetailsPanelUnitChrome');
   });
 
-  it('panel chrome uses Overview-style embedded ShootUnitScopeBar', () => {
+  it('panel chrome uses flush panel ShootUnitScopeBar (not Location top-rule)', () => {
     const panel = readFileSync(
       resolve(__dirname, './ShootDetailsPanelUnitChrome.tsx'),
       'utf8',
     );
-    expect(panel).toMatch(/variant="embedded"/);
+    expect(panel).toMatch(/variant="panel"/);
+    expect(panel).toMatch(/mb-1\.5/);
+    expect(panel).not.toMatch(/mb-2[^-\d]/);
   });
 
   it('keeps Overview embedded and Tours inline unit selectors', () => {

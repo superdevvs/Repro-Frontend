@@ -777,7 +777,7 @@ const ShootDetails: React.FC = () => {
               <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${activeTab === 'media' ? '' : 'h-auto'}`}>
                 <Tabs value={activeTab} onValueChange={handlePageTabChange} className={`flex flex-col min-h-0 ${activeTab === 'media' ? 'flex-1 h-full' : 'h-auto'}`}>
                   <TabsContent value="media" className="!mt-0 !p-0 bg-background flex-1 flex flex-col min-h-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, height: '100%' }}>
-                    <div className="shrink-0 px-4 pt-3 sm:px-6">
+                    <div className="shrink-0 px-4 pt-1 sm:px-6 sm:pt-1.5">
                       <ShootDetailsPanelUnitChrome shoot={shoot} />
                     </div>
                     <ShootDetailsMediaTab

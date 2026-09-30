@@ -66,5 +66,23 @@ describe('shared unit selector', () => {
     expect(screen.getByRole('button', { name: 'Change unit' })).toHaveClass('h-7');
     expect(screen.getByRole('button', { name: 'Previous unit' })).toHaveClass('h-7');
   });
+
+  it('panel variant is flush (no Location top-rule spacing)', () => {
+    const shoot = {
+      id: 'scope-panel',
+      units: [
+        { id: 1, label: 'Unit E', kind: 'unit', sqft: 1200 },
+        { id: 2, label: 'Unit F', kind: 'unit', sqft: 1100 },
+      ],
+    } as ShootData;
+    render(<ShootUnitScopeBar shoot={shoot} variant="panel" />);
+    const chrome = document.querySelector('[data-unit-chrome="panel"]');
+    expect(chrome).toBeTruthy();
+    expect(chrome).not.toHaveClass('mt-2.5');
+    expect(chrome).not.toHaveClass('border-t');
+    expect(chrome).not.toHaveClass('pt-2.5');
+    expect(chrome).toHaveClass('flex-nowrap');
+    expect(screen.getByRole('button', { name: 'Change unit' })).toHaveClass('h-7');
+  });
 });
 
