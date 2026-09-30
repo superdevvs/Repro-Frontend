@@ -24,6 +24,7 @@ import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/
 import { ShootAutoEditSettings } from '@/components/dashboard/ShootAutoEditSettings';
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 import { formatPaymentMethod } from '@/utils/paymentUtils';
+import { getImageUrl, normalizeImageUrl } from '@/utils/imageUrl';
 import { normalizeFeaturedHomepageImages, resolveFeaturedHomepageState, withHomepageCover } from './featuredHomepage';
 
 interface ShootSettingsTabProps {
@@ -128,17 +129,6 @@ const resolveFeaturedField = (shoot: ShootData, snake: string, camel: string): s
   const value = source[snake] ?? source[camel] ?? '';
   return value === null || value === undefined ? '' : String(value);
 };
-
-const resolveFilePreview = (file: DashboardImageFile): string => (
-  file?.thumbnail_url
-  || file?.thumb_url
-  || file?.thumb
-  || file?.web_url
-  || file?.medium_url
-  || file?.medium
-  || file?.url
-  || ''
-);
 
 const isDashboardImageFile = (file: DashboardImageFile): boolean => {
   const mime = String(file?.mime_type || file?.file_type || file?.fileType || '').toLowerCase();
@@ -775,9 +765,14 @@ export function ShootSettingsTab({
   // The cover is chosen from the Media tab (is_cover) and saved as the first
   // featured image so the Lovable site has a stable project card image.
   const coverFile = (Array.isArray(settingsShoot.files) ? settingsShoot.files : [])
-    .find((file) => Boolean(file.is_cover) && !file.is_hidden && resolveFilePreview(file));
+    .find((file) => Boolean(file.is_cover) && !file.is_hidden);
   const coverFileId = coverFile && Number.isFinite(Number(coverFile.id)) ? Number(coverFile.id) : null;
-  const coverPreview = coverFile ? resolveFilePreview(coverFile) : '';
+  // Detail files can contain only storage paths. Cover identity must not depend
+  // on preview aliases; prefer the signed hero URL supplied by the presenter.
+  const coverPreview = coverFile
+    ? normalizeImageUrl(shoot.heroImage || resolveFeaturedField(shoot, 'hero_image', 'heroImage'))
+      || getImageUrl(coverFile, 'grid')
+    : '';
   const coverScanStatus = coverFile ? asRecord(coverFile).scan_status : null;
   const coverEligible = Boolean(coverFile && isEditedDashboardImageFile(coverFile)
     && (!coverScanStatus || coverScanStatus === 'clean'));
@@ -942,7 +937,7 @@ export function ShootSettingsTab({
               <div className="text-xs text-muted-foreground mt-0.5">
                 {coverFileId
                   ? coverEligible
-                    ? 'Use this shoot’s cover as the first homepage image and preserve its gallery.'
+                    ? 'Use this cover in the homepage’s Recent Projects section and featured slideshow. Existing gallery images are preserved.'
                     : 'Choose a completed or verified image cleared for delivery as the Media cover first.'
                   : 'Set a cover image in the Media tab, then use it for the homepage project.'}
               </div>
