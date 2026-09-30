@@ -72,31 +72,33 @@ function xhrJson(
   signal?: AbortSignal,
 ): Promise<MediaRequestResult> {
   return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve({ ok: false, message: 'Upload cancelled. The remaining files are still selected for retry.' });
+      return;
+    }
+    const xhr = new XMLHttpRequest();
     let settled = false;
-    let xhr: XMLHttpRequest | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (result: MediaRequestResult, abort = false) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
       resolve(result);
-      if (abort) xhr?.abort();
+      if (abort) xhr.abort();
     };
     const onAbort = () => finish({ ok: false, message: 'Upload cancelled. The remaining files are still selected for retry.' }, true);
-    if (signal?.aborted) {
-      onAbort();
-      return;
-    }
+    const timer = setTimeout(() => finish({
+      ok: false,
+      message: 'The server did not confirm this upload within 5 minutes. Retry to check it safely without creating a duplicate.',
+    }, true), UPLOAD_RESPONSE_TIMEOUT_MS);
     signal?.addEventListener('abort', onAbort, { once: true });
-    xhr = new XMLHttpRequest();
     xhr.addEventListener('load', () => {
-      if (xhr!.status === 0) {
+      if (xhr.status === 0) {
         finish({ ok: false, message: 'The upload connection ended without a server response. Check your connection and retry.' });
-      } else if (xhr!.status === 413) {
+      } else if (xhr.status === 413) {
         finish({ ok: false, message: CDN_OVERSIZE_MESSAGE });
       } else {
-        finish({ ok: true, status: xhr!.status, responseText: xhr!.responseText });
+        finish({ ok: true, status: xhr.status, responseText: xhr.responseText });
       }
     });
     xhr.addEventListener('error', () => finish({ ok: false, message: 'The upload connection was interrupted. Check your connection and retry.' }));
@@ -104,12 +106,8 @@ function xhrJson(
     xhr.addEventListener('timeout', () => finish({ ok: false, message: 'The upload connection timed out. Check your connection and retry.' }));
     xhr.open(method, url);
     Object.entries(headers).forEach(([name, value]) => {
-      if (value) xhr!.setRequestHeader(name, value);
+      if (value) xhr.setRequestHeader(name, value);
     });
-    timer = setTimeout(() => finish({
-      ok: false,
-      message: 'The server did not confirm this upload within 5 minutes. Retry to check it safely without creating a duplicate.',
-    }, true), UPLOAD_RESPONSE_TIMEOUT_MS);
     xhr.send(body);
   });
 }
