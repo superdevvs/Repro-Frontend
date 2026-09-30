@@ -85,4 +85,21 @@ describe('email verification pilot notice', () => {
     expect(screen.queryByRole('region', { name: 'Email verification' })).not.toBeInTheDocument();
     expect(screen.getByText('Dashboard data')).toBeInTheDocument();
   });
+
+  it('coalesces gate events so a 403 burst cannot storm /user', async () => {
+    mocks.get.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { data: { email_verification: { ...mocks.context.user.email_verification, required: true } } };
+    });
+    render(<EmailVerificationNotice><div>Dashboard data</div></EmailVerificationNotice>);
+    await waitFor(() => expect(mocks.get).toHaveBeenCalled());
+    const baseline = mocks.get.mock.calls.length;
+    for (let i = 0; i < 25; i += 1) {
+      window.dispatchEvent(new CustomEvent('email-verification-required'));
+    }
+    await waitFor(() => expect(screen.queryByText('Dashboard data')).not.toBeInTheDocument());
+    // In-flight + cooldown: at most one additional automatic refresh beyond the mount call.
+    expect(mocks.get.mock.calls.length).toBeLessThanOrEqual(baseline + 1);
+  });
+
 });

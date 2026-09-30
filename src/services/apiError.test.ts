@@ -1,5 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
-import { attachPublicApiError, normalizeApiError } from './apiError';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  attachPublicApiError,
+  dispatchEmailVerificationRequired,
+  isUserProfileRequestUrl,
+  normalizeApiError,
+  resetEmailVerificationEventCooldown,
+} from './apiError';
 
 const serverId = '6922f56b-9985-48e7-bf01-ce8b35914187';
 
@@ -46,5 +52,47 @@ describe('public API errors', () => {
     expect(listener).toHaveBeenCalledOnce();
     expect(localStorage.getItem('authToken')).toBe('existing-session');
     window.removeEventListener('email-verification-required', listener);
+  });
+});
+
+describe('email verification gate broadcast', () => {
+  beforeEach(() => {
+    resetEmailVerificationEventCooldown();
+  });
+
+  it('recognizes profile URLs so /user 403 cannot re-enter the gate listener', () => {
+    expect(isUserProfileRequestUrl('/api/user')).toBe(true);
+    expect(isUserProfileRequestUrl('/user')).toBe(true);
+    expect(isUserProfileRequestUrl('https://reprodashboard.com/api/user')).toBe(true);
+    expect(isUserProfileRequestUrl('/api/shoots')).toBe(false);
+  });
+
+  it('does not broadcast when the failing request is the profile endpoint', () => {
+    const spy = vi.fn();
+    window.addEventListener('email-verification-required', spy);
+    attachPublicApiError({
+      response: { status: 403, data: { code: 'email_verification_required' } },
+      config: { url: '/api/user' },
+    });
+    attachPublicApiError({
+      response: { status: 403, data: { code: 'email_verification_required' } },
+      config: { url: '/user' },
+    });
+    expect(spy).not.toHaveBeenCalled();
+    window.removeEventListener('email-verification-required', spy);
+  });
+
+  it('coalesces broadcasts from other endpoints', () => {
+    const spy = vi.fn();
+    window.addEventListener('email-verification-required', spy);
+    for (let i = 0; i < 20; i += 1) {
+      attachPublicApiError({
+        response: { status: 403, data: { code: 'email_verification_required' } },
+        config: { url: '/api/shoots' },
+      });
+    }
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(dispatchEmailVerificationRequired()).toBe(false);
+    window.removeEventListener('email-verification-required', spy);
   });
 });

@@ -312,7 +312,10 @@ window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestIni
       } else if (!response.ok) {
         if (response.status === 403) {
           try {
-            attachPublicApiError({ response: { status: response.status, data: await response.clone().json() } });
+            attachPublicApiError({
+              response: { status: response.status, data: await response.clone().json() },
+              config: { url },
+            });
           } catch {
             // Non-JSON errors remain available to their original fetch caller.
           }

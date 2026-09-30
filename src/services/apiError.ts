@@ -9,6 +9,7 @@ export interface PublicApiError {
 type ErrorLike = {
   message?: string;
   code?: string;
+  config?: { url?: unknown; baseURL?: unknown };
   response?: { status?: number; data?: unknown; headers?: Record<string, unknown> };
   publicError?: PublicApiError;
 };
@@ -49,14 +50,52 @@ export function normalizeApiError(value: unknown): PublicApiError {
   };
 }
 
+/** Coalesce gate broadcasts so a dashboard full of 403s cannot storm /api/user. */
+export const EMAIL_VERIFICATION_REQUIRED_EVENT = 'email-verification-required';
+const EMAIL_VERIFICATION_EVENT_COOLDOWN_MS = 10_000;
+let lastEmailVerificationEventAt = 0;
+
+export const isUserProfileRequestUrl = (url: unknown): boolean => {
+  if (typeof url !== 'string' || !url) return false;
+  try {
+    const path = url.startsWith('http') ? new URL(url).pathname : url.split(/[?#]/, 1)[0];
+    return /(?:^|\/)api\/user\/?$/.test(path) || /(?:^|\/)user\/?$/.test(path);
+  } catch {
+    return /(?:^|\/)api\/user\/?$/.test(url) || /(?:^|\/)user\/?$/.test(url);
+  }
+};
+
+/** @internal test helper */
+export const resetEmailVerificationEventCooldown = () => {
+  lastEmailVerificationEventAt = 0;
+};
+
+export function dispatchEmailVerificationRequired(force = false): boolean {
+  if (typeof window === 'undefined') return false;
+  const now = Date.now();
+  if (!force && now - lastEmailVerificationEventAt < EMAIL_VERIFICATION_EVENT_COOLDOWN_MS) {
+    return false;
+  }
+  lastEmailVerificationEventAt = now;
+  window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT));
+  return true;
+}
+
 export function attachPublicApiError(value: unknown): PublicApiError {
   const normalized = normalizeApiError(value);
   if (isRecord(value)) {
     value.publicError = normalized;
     value.message = normalized.message;
   }
-  if (normalized.status === 403 && normalized.code === 'email_verification_required' && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('email-verification-required'));
+
+  if (normalized.status === 403 && normalized.code === 'email_verification_required') {
+    const error = (isRecord(value) ? value : {}) as ErrorLike;
+    const url = error.config?.url;
+    // /api/user (and apiClient `/user`) must not re-broadcast: EmailVerificationNotice
+    // answers this event with another /user fetch, which would tight-loop on a gate 403.
+    if (!isUserProfileRequestUrl(url)) {
+      dispatchEmailVerificationRequired();
+    }
   }
   return normalized;
 }

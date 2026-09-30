@@ -99,11 +99,18 @@ const RequestManagerModal = lazy(() => import('./components/requests/RequestMana
 const PhotographerAssignmentModal = lazy(() => import('./components/photographers/PhotographerAssignmentModal').then(module => ({ default: module.PhotographerAssignmentModal })));
 
 // Create a new QueryClient instance with optimized defaults for caching
+const isRateLimitedQueryError = (error: unknown) => {
+  const status = (error as { response?: { status?: number }; status?: number } | null)?.response?.status
+    ?? (error as { status?: number } | null)?.status;
+  return status === 429;
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
+      // One retry for transient faults; never retry 429 (amplifies shared-edge storms).
+      retry: (failureCount, error) => failureCount < 1 && !isRateLimitedQueryError(error),
       staleTime: 30 * 1000, // Data is fresh for 30 seconds
       gcTime: 5 * 60 * 1000, // Cache for 5 minutes (formerly cacheTime)
     },

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { resolveIpLocation } from '@/utils/ipLocationClient';
 import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -180,32 +181,6 @@ const normalizeApiLocation = (data: Record<string, unknown>): IpLocation | null 
   });
 };
 
-const fetchBackendIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
-  try {
-    const response = await fetch(withApiBase('/api/ip-location'), { signal });
-    if (!response.ok) {
-      return null;
-    }
-
-    const payload = await response.json();
-    const data = payload?.data;
-
-    if (!data || typeof data !== 'object') {
-      return null;
-    }
-
-    return normalizeApiLocation(data);
-  } catch {
-    return null;
-  }
-};
-
-const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
-  // Keep geolocation behind the application boundary. Browser-side fallbacks
-  // leaked visitor IP data to third parties and produced noisy CSP/network
-  // failures whenever either public service was unavailable.
-  return fetchBackendIpLocation(signal);
-};
 
 const resolveInitialWeatherState = () => {
   const cachedIpCoords = readCachedIpLocation();
@@ -340,6 +315,7 @@ export function Navbar() {
   }, []);
 
   // Prefer IP-based location (no prompt). Falls back to stored/default.
+  // resolveIpLocation skips network on fresh cache, dedupes in-flight, and backs off on 429.
   useEffect(() => {
     const cachedIp = readCachedIpLocation();
     if (cachedIp) {
@@ -348,7 +324,7 @@ export function Navbar() {
 
     const controller = new AbortController();
 
-    fetchIpLocation(controller.signal)
+    resolveIpLocation({ signal: controller.signal })
       .then((coords) => {
         if (coords) {
           applyWeatherCoords(coords, 'ip');
