@@ -17,6 +17,7 @@ import {
 import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getDashboardBookedDayOffset } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
+import { isFloorplanLikeHeroFile, isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -464,18 +465,31 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     holdRequestedBy: shoot.holdRequestedBy ?? null,
     holdReason: shoot.holdReason ?? null,
     paymentStatus,
-    heroImage: shoot.heroImage || null,
+    heroImage: (() => {
+      const selected = selectShootCardHeroUrls({
+        heroImage: shoot.heroImage || null,
+        previewImages: [
+          ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+          ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+        ],
+      }, { limit: 1 })[0] ?? null;
+      return selected;
+    })(),
     previewImages: (() => {
-      const fromApi = [
-        ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
-        ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
-      ].filter((image): image is string => typeof image === "string" && Boolean(image));
       const fromFiles =
         shoot.files
-          ?.slice(0, 6)
+          ?.filter((file) => !(file.is_hidden ?? false))
+          .filter((file) => !isFloorplanLikeHeroFile(file))
           .map(getPreviewImageUrl)
-          .filter((image): image is string => Boolean(image)) || [];
-      return Array.from(new Set([...fromApi, ...fromFiles])).slice(0, 6);
+          .filter((image): image is string => Boolean(image) && !isUnsuitableShootCardHeroUrl(image)) || [];
+      return selectShootCardHeroUrls({
+        heroImage: shoot.heroImage || null,
+        previewImages: [
+          ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+          ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+          ...fromFiles,
+        ],
+      }, { limit: 6 });
     })(),
   };
 

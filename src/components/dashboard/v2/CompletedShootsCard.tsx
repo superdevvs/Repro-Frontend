@@ -1,12 +1,12 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { DashboardShootSummary } from '@/types/dashboard';
-import { normalizeImageUrl } from '@/utils/imageUrl';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { selectShootCardHeroUrls } from '@/utils/shootCardHero';
 
 import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 
@@ -27,36 +27,11 @@ interface CompletedShootsCardProps {
   onViewAll?: () => void;
 }
 
-const resolveImageUrl = (value?: string | null): string | null => {
-  if (!value) return null;
-  const resolved = normalizeImageUrl(value);
-  return resolved || null;
-};
-
-const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
-const isFloorplanUrl = (url: string): boolean => {
-  const lower = url.toLowerCase();
-  return FLOORPLAN_PATTERNS.some(p => lower.includes(p));
-};
-
-const getShootImages = (shoot: DashboardShootSummary): string[] => {
-  const candidates = [
-    ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
-    shoot.heroImage,
-  ];
-
-  const resolved = candidates
-    .map(resolveImageUrl)
-    .filter((image): image is string => Boolean(image))
-    .filter(image => !isFloorplanUrl(image));
-
-  const unique = Array.from(new Set(resolved));
-  if (unique.length > 0) {
-    return unique.slice(0, 6);
-  }
-
-  return ['/no-image-placeholder.svg'];
-};
+const getShootImages = (shoot: DashboardShootSummary): string[] =>
+  selectShootCardHeroUrls(shoot, {
+    limit: 6,
+    placeholder: '/no-image-placeholder.svg',
+  });
 
 interface SlideshowProps {
   images: string[];

@@ -28,7 +28,8 @@ import { ShootData } from '@/types/shoots';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
-import { normalizeImageUrl } from '@/utils/imageUrl';
+import { normalizeImageUrl } from '@/utils/imageUrl'
+import { selectShootCardHeroUrl, isUnsuitableShootCardHeroUrl } from '@/utils/shootCardHero';
 
 interface WeatherInfo {
   temp?: number | null;
@@ -186,9 +187,12 @@ export function ShootCard(props: ShootCardProps) {
   // If using new props structure
   if (isNewProps) {
     const { shoot } = props;
-    const mediaImages = getMediaImages(shoot.media);
+    const mediaImages = getMediaImages(shoot.media).filter((url) => !isUnsuitableShootCardHeroUrl(url));
     const hasMediaFiles = mediaImages.length > 0 || (shoot.rawPhotoCount ?? 0) > 0 || (shoot.editedPhotoCount ?? 0) > 0;
-    const heroImage = normalizeImageUrl(shoot.heroImage) || (mediaImages.length > 0 ? mediaImages[0] : null);
+    const heroImage = selectShootCardHeroUrl({
+      heroImage: shoot.heroImage,
+      previewImages: mediaImages,
+    }) || (mediaImages.length > 0 ? mediaImages[0] : null);
     
     return (
       <div 

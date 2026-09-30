@@ -1,6 +1,7 @@
 import type { ShootData } from "@/types/shoots";
 import type { DashboardShootSummary } from "@/types/dashboard";
 import { normalizeImageUrl } from "@/utils/imageUrl";
+import { isFloorplanLikeHeroUrl } from "@/utils/shootCardHero";
 
 import {
   CLIENT_DELIVERED_EXCLUDED_STAGE_KEYWORDS,
@@ -60,8 +61,7 @@ export const matchesClientDeliveredPattern = (value: unknown) => {
     return false;
   }
 
-  const normalized = value.toLowerCase();
-  return CLIENT_DELIVERED_FLOORPLAN_PATTERNS.some((pattern) => normalized.includes(pattern));
+  return isFloorplanLikeHeroUrl(value);
 };
 
 export const isClientDeliveredFloorplanLike = (item: unknown) => {

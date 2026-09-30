@@ -3,6 +3,11 @@ import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getStateFullName } from '@/utils/stateUtils'
 import { getImageUrl, isPlaceholderImageUrl, normalizeImageUrl } from '@/utils/imageUrl'
 import {
+  isFloorplanLikeHeroFile,
+  isUnsuitableShootCardHeroUrl,
+  selectShootCardHeroUrl,
+} from '@/utils/shootCardHero'
+import {
   ShootAction,
   ShootData,
   ShootFileData,
@@ -342,20 +347,6 @@ const hasEditedPreviewStage = (file?: ShootFileData | null): boolean =>
 const hasRawPreviewStage = (file?: ShootFileData | null): boolean =>
   /(raw|uploaded|capture)/.test(getFileWorkflowStage(file))
 
-const resolveListCardPreviewUrls = (shoot: ShootData): string[] => {
-  const candidates = [
-    ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
-    ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
-  ]
-  const urls: string[] = []
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string' || isPlaceholderLikeValue(candidate)) continue
-    const resolved = resolvePreviewUrl(candidate)
-    if (resolved && !urls.includes(resolved)) urls.push(resolved)
-  }
-  return urls
-}
-
 /**
  * Prefer file-derived grid/medium URLs when file rows are present. When
  * include_files=false, the list API still ships hero_image + preview_images
@@ -366,33 +357,46 @@ export const resolveShootThumbnail = (
   shoot: ShootData,
   preference: ShootThumbnailPreference = 'default',
 ): string | null => {
-  const listPreviews = resolveListCardPreviewUrls(shoot)
-  const heroPreview = !isPlaceholderLikeValue(shoot.heroImage)
-    ? resolvePreviewUrl(shoot.heroImage)
-    : null
-  const editedMediaPreview =
-    resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail) ||
-    resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
-    resolvePreviewUrl(toOptionalString(toObjectValue<LegacyMediaShape>(shoot.media)?.photos?.[0]))
-
-  if (editedMediaPreview) {
-    return editedMediaPreview
-  }
-
   const files = (shoot.files ?? []).filter((file) => !(file.is_hidden ?? false))
+  const photoFiles = files.filter((file) => !isFloorplanLikeHeroFile(file))
   const preferredFile =
-    files.find((file) => (file.is_cover || file.isCover) && hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => hasRawPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
-    files.find((file) => getFilePreviewUrl(file, preference))
+    photoFiles.find((file) => (file.is_cover || file.isCover) && hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
+    photoFiles.find((file) => hasEditedPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
+    photoFiles.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file, preference)) ||
+    photoFiles.find((file) => hasRawPreviewStage(file) && getFilePreviewUrl(file, preference)) ||
+    photoFiles.find((file) => getFilePreviewUrl(file, preference))
 
   const fromFiles = getFilePreviewUrl(preferredFile, preference)
+  if (fromFiles && !isUnsuitableShootCardHeroUrl(fromFiles)) {
+    return fromFiles
+  }
+
+  const fromListOrHero = selectShootCardHeroUrl({
+    heroImage: shoot.heroImage,
+    previewImages: [
+      ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+      ...(Array.isArray(shoot.preview_images) ? shoot.preview_images : []),
+    ],
+  })
+  if (fromListOrHero) {
+    return fromListOrHero
+  }
+
+  const editedMediaCandidates = [
+    resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail),
+    resolvePreviewUrl(shoot.media?.images?.[0]?.url),
+    resolvePreviewUrl(toOptionalString(toObjectValue<LegacyMediaShape>(shoot.media)?.photos?.[0])),
+  ].filter((url): url is string => Boolean(url))
+  const suitableMedia = editedMediaCandidates.find((url) => !isUnsuitableShootCardHeroUrl(url))
+  if (suitableMedia) {
+    return suitableMedia
+  }
+
   if (fromFiles) {
     return fromFiles
   }
 
-  return listPreviews[0] || heroPreview
+  return editedMediaCandidates[0] || null
 }
 
 export const getShootPlaceholderSrc = (theme: 'light' | 'dark') =>

@@ -11,10 +11,12 @@ export const CLIENT_DELIVERED_FLOORPLAN_PATTERNS = [
   "floorplan",
   "floor-plan",
   "floor_plan",
+  "/floorplans/",
+  "floorplans/",
   "fp_",
   "fp-",
-  "layout",
   "blueprint",
+  "cubicasa",
 ];
 
 export const CLIENT_DELIVERED_FINAL_STAGE_KEYWORDS = [
