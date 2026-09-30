@@ -24,6 +24,7 @@ import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/
 import { ShootAutoEditSettings } from '@/components/dashboard/ShootAutoEditSettings';
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 import { formatPaymentMethod } from '@/utils/paymentUtils';
+import { normalizeFeaturedHomepageImages, resolveFeaturedHomepageState, withHomepageCover } from './featuredHomepage';
 
 interface ShootSettingsTabProps {
   shoot: ShootData;
@@ -43,13 +44,6 @@ type GhostClientOption = {
   name: string;
   email?: string;
   company?: string;
-};
-
-type FeaturedHomepageImageDraft = {
-  shoot_file_id: number;
-  sort: number;
-  alt: string;
-  focal: string;
 };
 
 type ShootSettingsMeta = Record<string, boolean | string | number | null | undefined> & {
@@ -96,22 +90,6 @@ const resolveServiceName = (value: unknown): string => {
 };
 
 const PUBLIC_SITE_URL = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://reprophotos.com';
-
-const resolveFeaturedState = (shoot: ShootData): boolean => {
-  const source = asShootSettingsData(shoot);
-  const candidates = [
-    source.is_featured,
-    source.isFeatured,
-  ];
-
-  for (const candidate of candidates) {
-    if (candidate !== undefined && candidate !== null) {
-      return Boolean(candidate);
-    }
-  }
-
-  return false;
-};
 
 const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
   const source = asShootSettingsData(shoot);
@@ -174,23 +152,6 @@ const isEditedDashboardImageFile = (file: DashboardImageFile): boolean => {
   return ['completed', 'verified'].includes(stage) && isDashboardImageFile(file);
 };
 
-const normalizeFeaturedHomepageImages = (shoot: ShootData): FeaturedHomepageImageDraft[] => {
-  const rawImages: unknown[] = shoot.featured_homepage_images || shoot.featuredHomepageImages || [];
-
-  return rawImages
-    .map((value, index) => {
-      const image = asRecord(value);
-      return {
-        shoot_file_id: Number(image.shoot_file_id ?? image.shootFileId),
-        sort: Number(image.sort ?? image.sort_order ?? index + 1),
-        alt: String(image.alt ?? image.alt_text ?? ''),
-        focal: String(image.focal ?? image.focal_point ?? '50% 50%'),
-      };
-    })
-    .filter((image) => Number.isFinite(image.shoot_file_id) && image.shoot_file_id > 0)
-    .sort((a, b) => a.sort - b.sort);
-};
-
 const hasDownloadableModeValue = (shootLike: unknown): boolean => {
   if (!shootLike || typeof shootLike !== "object") {
     return false;
@@ -243,7 +204,7 @@ export function ShootSettingsTab({
   const [downloadableMode, setDownloadableMode] = useState<DownloadableMode>(() => resolveDownloadableMode(shoot));
   const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!settingsShoot?.payment?.totalPaid);
   const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!(settingsShoot?.is_private_listing || settingsShoot?.isPrivateListing));
-  const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
+  const [featuredState, setFeaturedState] = useState(() => resolveFeaturedHomepageState(shoot));
   const [isSavingFeaturedHero, setIsSavingFeaturedHero] = useState(false);
   const [timezone, setTimezone] = useState<string>(() => settingsShoot?.timezone || 'America/New_York');
   const [mlsImageWidth, setMlsImageWidth] = useState<string>(() => resolveMlsImageWidth(shoot));
@@ -273,7 +234,7 @@ export function ShootSettingsTab({
     setDownloadableMode(resolveDownloadableMode(shoot));
     setIsMarkedPaid(Boolean(currentSettings.payment?.totalPaid));
     setIsPrivateExclusive(Boolean(currentSettings.is_private_listing || currentSettings.isPrivateListing));
-    setIsFeaturedShoot(resolveFeaturedState(shoot));
+    setFeaturedState(resolveFeaturedHomepageState(shoot));
     setTimezone(currentSettings.timezone || 'America/New_York');
     setMlsImageWidth(resolveMlsImageWidth(shoot));
     setSelectedGhostUserIds(normalizeGhostUserIds(shoot));
@@ -281,6 +242,7 @@ export function ShootSettingsTab({
 
   const canManagePrivateExclusive = isAdmin || isClient || isSalesRep;
   const canManageFeaturedShoot = isAdmin || isSalesRep || isEditingManager;
+  const canApproveFeaturedShoot = isAdmin || ['admin', 'superadmin', 'super_admin'].includes(String(role).toLowerCase());
   const canManageGhostUsersResolved = canManageGhostUsers || isAdmin || isSalesRep;
 
   const normalizedStatus = String(settingsShoot?.workflowStatus || settingsShoot?.workflow_status || settingsShoot?.status || '').toLowerCase();
@@ -787,14 +749,18 @@ export function ShootSettingsTab({
 
       const json = await response.json().catch(() => null);
       const returned = json?.data || json;
-      const persisted = resolveFeaturedState((returned || shoot) as ShootData);
+      const persisted = resolveFeaturedHomepageState((returned || shoot) as ShootData);
 
-      setIsFeaturedShoot(persisted);
+      setFeaturedState(persisted);
       onUpdate?.({
-        is_featured: persisted,
-        isFeatured: persisted,
+        is_featured: persisted.approved,
+        isFeatured: persisted.approved,
+        featured_pending: persisted.pending,
+        featuredPending: persisted.pending,
+        featured_requested_at: returned?.featured_requested_at ?? returned?.featuredRequestedAt ?? null,
+        featuredRequestedAt: returned?.featured_requested_at ?? returned?.featuredRequestedAt ?? null,
       } as Partial<ShootData>);
-      sonnerToast.success(persisted ? 'Featured Shoot enabled' : 'Featured Shoot removed');
+      sonnerToast.success(persisted.approved ? 'Featured Shoot enabled' : persisted.pending ? 'Featured request sent for admin approval' : 'Featured Shoot removed');
     } catch (error) {
       console.error('Failed to update Featured Shoot', error);
       const message = error instanceof Error ? error.message : 'Failed to update Featured Shoot';
@@ -812,9 +778,12 @@ export function ShootSettingsTab({
     .find((file) => Boolean(file.is_cover) && !file.is_hidden && resolveFilePreview(file));
   const coverFileId = coverFile && Number.isFinite(Number(coverFile.id)) ? Number(coverFile.id) : null;
   const coverPreview = coverFile ? resolveFilePreview(coverFile) : '';
+  const coverScanStatus = coverFile ? asRecord(coverFile).scan_status : null;
+  const coverEligible = Boolean(coverFile && isEditedDashboardImageFile(coverFile)
+    && (!coverScanStatus || coverScanStatus === 'clean'));
   const heroImageSet =
     coverFileId !== null &&
-    normalizeFeaturedHomepageImages(shoot).some((image) => image.shoot_file_id === coverFileId);
+    normalizeFeaturedHomepageImages(shoot)[0]?.shoot_file_id === coverFileId;
 
   const setHomepageHero = async () => {
     if (!coverFileId) {
@@ -824,6 +793,7 @@ export function ShootSettingsTab({
 
     setIsSavingFeaturedHero(true);
     try {
+      const images = withHomepageCover(shoot, coverFileId);
       const token = (typeof window !== 'undefined')
         ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
         : null;
@@ -835,9 +805,7 @@ export function ShootSettingsTab({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          featured_homepage_images: [
-            { shoot_file_id: coverFileId, sort: 1, alt: null, focal: '50% 50%' },
-          ],
+          featured_homepage_images: images,
         }),
       });
 
@@ -854,10 +822,16 @@ export function ShootSettingsTab({
       const json = await response.json().catch(() => null);
       const returned = json?.data || json || {};
       const persistedImages = normalizeFeaturedHomepageImages(returned as ShootData);
+      if (persistedImages[0]?.shoot_file_id !== coverFileId) {
+        throw new Error('The selected image was not saved as the project cover. Refresh and try again.');
+      }
       onUpdate?.({
         featured_homepage_images: persistedImages,
+        featuredHomepageImages: persistedImages,
       } as Partial<ShootData>);
-      sonnerToast.success('Homepage project cover set to this shoot’s cover image');
+      sonnerToast.success(featuredState.approved
+        ? 'Homepage project cover updated. The website refreshes within a minute.'
+        : 'Project cover saved. Approve Featured Shoot to publish it on the website.');
     } catch (error) {
       console.error('Failed to set homepage project cover', error);
       sonnerToast.error(error instanceof Error ? error.message : 'Failed to set homepage project cover');
@@ -919,7 +893,8 @@ export function ShootSettingsTab({
     <div className="space-y-6 w-full">
       {canManageFeaturedShoot && (() => {
         const featuredAvailable = ['ready', 'delivered'].includes(normalizedStatus);
-        const featuredDisabled = !featuredAvailable || savingToggleKey === 'is_featured';
+        const featuredDisabled = !featuredAvailable || savingToggleKey === 'is_featured'
+          || (featuredState.approved && !canApproveFeaturedShoot);
 
         return (
           <div className="border rounded-lg p-3.5">
@@ -927,19 +902,25 @@ export function ShootSettingsTab({
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium">Featured Shoot</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {featuredAvailable
-                    ? 'Publish this shoot in the public homepage Projects feed.'
-                    : 'Available once the shoot reaches Ready or Delivered status.'}
+                  {featuredState.approved
+                    ? 'Approved for the public homepage Projects feed. Set a project cover below to appear on the website.'
+                    : featuredState.pending
+                      ? 'Awaiting admin approval before it appears on the website.'
+                      : featuredAvailable
+                        ? canApproveFeaturedShoot
+                          ? 'Approve this shoot for the homepage Projects feed, then set its project cover below.'
+                          : 'Request admin approval for public featured placement.'
+                        : 'Available once the shoot reaches Ready or Delivered status.'}
                 </div>
               </div>
               <Switch
-                checked={isFeaturedShoot}
+                checked={canApproveFeaturedShoot ? featuredState.approved : featuredState.approved || featuredState.pending}
                 onCheckedChange={(checked: boolean) => {
                   if (!featuredAvailable) return;
-                  const previousValue = isFeaturedShoot;
-                  setIsFeaturedShoot(checked);
+                  const previousValue = featuredState;
+                  setFeaturedState({ approved: false, pending: checked });
                   void updateFeaturedSetting(checked).catch(() => {
-                    setIsFeaturedShoot(previousValue);
+                    setFeaturedState(previousValue);
                   });
                 }}
                 disabled={featuredDisabled}
@@ -957,7 +938,9 @@ export function ShootSettingsTab({
               <div className="text-sm font-medium">Homepage Project Cover</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 {coverFileId
-                  ? 'Use this shoot’s cover image as the public project card image.'
+                  ? coverEligible
+                    ? 'Use this shoot’s cover as the first homepage image and preserve its gallery.'
+                    : 'Choose a completed or verified image cleared for delivery as the Media cover first.'
                   : 'Set a cover image in the Media tab, then use it for the homepage project.'}
               </div>
             </div>
@@ -981,7 +964,7 @@ export function ShootSettingsTab({
                 type="button"
                 size="sm"
                 onClick={setHomepageHero}
-                disabled={isSavingFeaturedHero || !coverFileId}
+                disabled={isSavingFeaturedHero || !coverFileId || !coverEligible}
                 className="h-8"
               >
                 {isSavingFeaturedHero ? 'Setting…' : heroImageSet ? 'Update project cover' : 'Set project cover'}
