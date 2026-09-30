@@ -99,8 +99,7 @@ const ShootHistory: React.FC = () => {
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager && !isEditor
   const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
-  // Paid/Unpaid pills for scheduled + hold only (not completed/delivered/editing/featured).
-  // Admin/client/salesRep share the same gate; photographer/editor stay gated out.
+  // Admin already sees paid/unpaid pills on Shoot History list+grid cards; sales reps get the same.
   const canShowShootPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep
   
   const {
@@ -592,7 +591,7 @@ const ShootHistory: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
-                  showPaymentStatus={false}
+                  showPaymentStatus={canShowShootPaymentStatus}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -623,7 +622,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
-            showPaymentStatus={false}
+            showPaymentStatus={canShowShootPaymentStatus}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -747,7 +746,7 @@ const ShootHistory: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
-                  showPaymentStatus={false}
+                  showPaymentStatus={canShowShootPaymentStatus}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -779,7 +778,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
-            showPaymentStatus={false}
+            showPaymentStatus={canShowShootPaymentStatus}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
