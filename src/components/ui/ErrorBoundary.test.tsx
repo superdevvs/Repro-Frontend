@@ -23,7 +23,7 @@ describe('contained render recovery', () => {
     render(<><nav>Dashboard navigation</nav><ErrorBoundary scope="shoot_media"><View /></ErrorBoundary></>);
     expect(screen.getByRole('alert')).toHaveTextContent('This view could not load');
     expect(screen.getByText('Dashboard navigation')).toBeVisible();
-    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'shoot_media_render_error' });
+    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'shoot_media_render_error', kind: 'ReactRenderError' });
     expect(JSON.stringify(telemetry.mock.calls)).not.toContain('canary');
     broken = false;
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
@@ -76,7 +76,7 @@ describe('contained render recovery', () => {
     act(() => releaseUploadNavigationProtection('fallback-test'));
     expect(screen.getByRole('button', { name: 'Reload Page' })).toBeEnabled();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_chunk_load_error' });
+    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_chunk_load_error', kind: 'ReactRenderError' });
   });
 
   it('keeps the fallback usable if telemetry or a diagnostic callback throws', () => {
@@ -93,6 +93,6 @@ describe('contained render recovery', () => {
     expect(screen.getByRole('heading', { name: 'This page is under a different plan' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Go to Homepage' })).toHaveAttribute('href', '/');
     expect(screen.queryByText('This view could not load')).not.toBeInTheDocument();
-    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_render_error' });
+    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_render_error', kind: 'ReactRenderError' });
   });
 });

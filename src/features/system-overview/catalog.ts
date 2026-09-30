@@ -319,16 +319,15 @@ export const systemOverviewCatalog: SystemDomainCatalog[] = [
 export const flattenCatalogPages = () => systemOverviewCatalog.flatMap((domain) => domain.pages.map((page) => ({ ...page, domain: domain.id })));
 
 export const findCatalogPageByRoute = (pathname: string) => {
-  const pages = flattenCatalogPages();
+  // Same specificity rules as telemetryRoute: longest catalog route wins,
+  // and `/` (auth-login) is exact-match only so it cannot label every page.
+  const path = pathname.split(/[?#]/, 1)[0] || '/';
+  const pages = flattenCatalogPages().sort((a, b) => b.route.length - a.route.length);
 
-  const matchers = pages.map((page) => ({
-    page,
-    matches:
-      pathname === page.route ||
-      (page.route.includes('/:') && pathname.startsWith(page.route.split('/:')[0])) ||
-      (page.route !== '/' && pathname.startsWith(page.route + '/')) ||
-      pathname.startsWith(page.route.replace(/\/:\w+/, '')),
-  }));
-
-  return matchers.find((entry) => entry.matches)?.page ?? null;
+  return (
+    pages.find((page) => {
+      const prefix = page.route.split('/:')[0];
+      return path === page.route || path === prefix || (prefix !== '/' && path.startsWith(`${prefix}/`));
+    }) ?? null
+  );
 };

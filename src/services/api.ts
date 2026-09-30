@@ -328,6 +328,8 @@ window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestIni
         trackTelemetryError('Fetch request failed', 'FetchError', {
           path: normalizeApiPath(url),
           method,
+          kind: 'FetchError',
+          requestId: telemetryHeaders['X-Trace-Id'],
         }, telemetryHeaders['X-Trace-Id']);
       }
       throw error;
@@ -397,6 +399,8 @@ axios.interceptors.response.use(
       method: error?.config?.method,
       statusCode: publicError.status,
       code: publicError.code,
+      kind: 'ApiError',
+      requestId: publicError.requestId,
     }, publicError.requestId);
     return Promise.reject(error);
   },
@@ -474,14 +478,27 @@ apiClient.interceptors.response.use(
       trackTelemetryBlocker(
         'api-error',
         `${String(error?.config?.method || 'get').toUpperCase()} ${normalizedPath} failed`,
-        { statusCode: publicError.status, code: publicError.code },
+        {
+          statusCode: publicError.status,
+          code: publicError.code,
+          kind: 'ApiError',
+          requestId: Array.isArray(traceId) ? traceId[0] : traceId,
+          path: normalizedPath,
+          method: error?.config?.method,
+        },
         Array.isArray(traceId) ? traceId[0] : traceId,
       );
     } else {
       trackTelemetryError(
         'API request failed',
         'ApiError',
-        { path: normalizedPath, method: error?.config?.method, code: publicError.code },
+        {
+          path: normalizedPath,
+          method: error?.config?.method,
+          code: publicError.code,
+          kind: 'ApiError',
+          requestId: Array.isArray(traceId) ? traceId[0] : traceId,
+        },
         Array.isArray(traceId) ? traceId[0] : traceId,
       );
     }

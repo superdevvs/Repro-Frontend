@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const code = isRecoverableChunkError(error)
         ? 'react_chunk_load_error'
         : this.props.scope === 'shoot_media' ? 'shoot_media_render_error' : 'react_render_error';
-      trackTelemetryError('A view could not render.', 'ReactRenderError', { code });
+      trackTelemetryError('A view could not render.', 'ReactRenderError', { code, kind: 'ReactRenderError' });
     } catch { /* Recovery UI remains usable if telemetry is unavailable. */ }
     try { attemptChunkLoadRecovery(error); } catch { /* Show manual recovery. */ }
     

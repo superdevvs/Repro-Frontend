@@ -39,9 +39,7 @@ export function SystemTelemetryProvider({ children }: PropsWithChildren) {
 
     const handleError = (event: ErrorEvent) => {
       trackTelemetryError(event.message, 'ErrorEvent', {
-        filename: event.filename,
-        line: event.lineno,
-        column: event.colno,
+        kind: 'ErrorEvent',
       });
     };
 
@@ -49,6 +47,7 @@ export function SystemTelemetryProvider({ children }: PropsWithChildren) {
       trackTelemetryError(
         event.reason instanceof Error ? event.reason.message : 'Unhandled promise rejection',
         event.reason?.name ?? 'PromiseRejection',
+        { kind: typeof event.reason?.name === 'string' ? event.reason.name : 'PromiseRejection' },
       );
     };
 
