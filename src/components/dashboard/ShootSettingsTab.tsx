@@ -830,7 +830,7 @@ export function ShootSettingsTab({
         featuredHomepageImages: persistedImages,
       } as Partial<ShootData>);
       sonnerToast.success(featuredState.approved
-        ? 'Homepage project cover updated. The website refreshes within a minute.'
+        ? 'Homepage project cover updated.'
         : 'Project cover saved. Approve Featured Shoot to publish it on the website.');
     } catch (error) {
       console.error('Failed to set homepage project cover', error);
