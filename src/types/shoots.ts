@@ -303,6 +303,10 @@ export interface ShootServiceObject {
   photographer?: ShootServicePhotographer | null;
   editor_id?: string | null;
   resolved_editor_id?: string | null;
+  video_editor_id?: string | null;
+  videoEditorId?: string | null;
+  video_editing_completed_at?: string | null;
+  videoEditingCompletedAt?: string | null;
   editor?: ShootServiceEditor | null;
   requires_editing?: boolean | null;
   requiresEditing?: boolean | null;

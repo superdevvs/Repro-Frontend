@@ -49,6 +49,8 @@ import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsModalHelpers';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
+import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
+import { canViewOverviewVideoEmbeds, canWriteOverviewVideoEmbeds } from './overview/overviewVideoEmbeds';
 import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
@@ -1025,6 +1027,17 @@ function ShootDetailsOverviewTabContent({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video tour embeds — writable for admin/editing_manager; editors read-only until BE opens PATCH */}
+      {canViewOverviewVideoEmbeds(role, isEditor) && (
+        <OverviewVideoEmbedsSection
+          shoot={shoot}
+          role={role}
+          isEditor={isEditor}
+          canWrite={canWriteOverviewVideoEmbeds(role)}
+          onShootUpdate={onShootUpdate}
+        />
       )}
 
       {/* Media Links Card - Editor and editing manager */}

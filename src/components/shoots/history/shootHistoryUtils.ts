@@ -208,6 +208,7 @@ export const isFeaturedTabShoot = (
 export const EDITOR_ACTIVE_STATUS_KEYS = [
   'uploaded',
   'editing',
+  'start_editing',
   'review',
   'qc',
   'in_progress',

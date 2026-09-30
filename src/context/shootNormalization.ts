@@ -465,6 +465,18 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           resolved_editor_id: (s.resolved_editor_id ?? s.pivot?.editor_id ?? s.editor_id) != null
             ? String(s.resolved_editor_id ?? s.pivot?.editor_id ?? s.editor_id)
             : null,
+          video_editor_id: (s.video_editor_id ?? s.videoEditorId ?? s.pivot?.video_editor_id) != null
+            ? String(s.video_editor_id ?? s.videoEditorId ?? s.pivot?.video_editor_id)
+            : null,
+          videoEditorId: (s.video_editor_id ?? s.videoEditorId ?? s.pivot?.video_editor_id) != null
+            ? String(s.video_editor_id ?? s.videoEditorId ?? s.pivot?.video_editor_id)
+            : null,
+          video_editing_completed_at: (s.video_editing_completed_at ?? s.videoEditingCompletedAt ?? s.pivot?.video_editing_completed_at) != null
+            ? String(s.video_editing_completed_at ?? s.videoEditingCompletedAt ?? s.pivot?.video_editing_completed_at)
+            : null,
+          videoEditingCompletedAt: (s.video_editing_completed_at ?? s.videoEditingCompletedAt ?? s.pivot?.video_editing_completed_at) != null
+            ? String(s.video_editing_completed_at ?? s.videoEditingCompletedAt ?? s.pivot?.video_editing_completed_at)
+            : null,
           editor: (() => {
             const normalizedEditor = normalizeServicePerson(s.resolved_editor ?? s.editor);
             if (normalizedEditor) {
@@ -699,6 +711,18 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             : null,
           resolved_editor_id: item.resolved_editor_id != null || item.resolvedEditorId != null || item.editor_id != null || item.editorId != null
             ? String(item.resolved_editor_id ?? item.resolvedEditorId ?? item.editor_id ?? item.editorId)
+            : null,
+          video_editor_id: item.video_editor_id != null || item.videoEditorId != null
+            ? String(item.video_editor_id ?? item.videoEditorId)
+            : null,
+          videoEditorId: item.video_editor_id != null || item.videoEditorId != null
+            ? String(item.video_editor_id ?? item.videoEditorId)
+            : null,
+          video_editing_completed_at: item.video_editing_completed_at != null || item.videoEditingCompletedAt != null
+            ? String(item.video_editing_completed_at ?? item.videoEditingCompletedAt)
+            : null,
+          videoEditingCompletedAt: item.video_editing_completed_at != null || item.videoEditingCompletedAt != null
+            ? String(item.video_editing_completed_at ?? item.videoEditingCompletedAt)
             : null,
           editor: normalizeServicePerson(item.editor ?? item.resolved_editor),
           scheduled_at: scheduledAt,
