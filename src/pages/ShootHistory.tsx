@@ -93,11 +93,14 @@ const ShootHistory: React.FC = () => {
   const isClient = role === 'client'
   const isPhotographer = role === 'photographer'
   const isEditor = role === 'editor'
+  const isSalesRep = role === 'salesRep'
   const shouldHideClientDetails = isEditor
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager && !isEditor
   const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
+  // Admin already sees paid/unpaid pills on Shoot History list+grid cards; sales reps get the same.
+  const canShowShootPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep
   
   const {
     tabList,
@@ -505,6 +508,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
+            isSalesRep={isSalesRep}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
@@ -520,7 +524,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails, setApprovalModalShoot, setDeclineModalShoot, setEditModalShoot])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails, setApprovalModalShoot, setDeclineModalShoot, setEditModalShoot])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -587,7 +591,7 @@ const ShootHistory: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
-                  showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+                  showPaymentStatus={canShowShootPaymentStatus}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -618,7 +622,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
-            showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+            showPaymentStatus={canShowShootPaymentStatus}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -631,7 +635,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -740,7 +744,7 @@ const ShootHistory: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
-                  showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+                  showPaymentStatus={canShowShootPaymentStatus}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -772,7 +776,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
-            showPaymentStatus={isSuperAdmin || isAdmin || isClient}
+            showPaymentStatus={canShowShootPaymentStatus}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -786,7 +790,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
+  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {

@@ -60,4 +60,34 @@ describe('ScheduledShootListRow mobile list chrome', () => {
     expect(menu?.className).toMatch(/md:hidden/)
     expect(screen.getAllByRole('button', { name: 'More actions' }).length).toBeGreaterThan(0)
   })
+
+  it('shows unpaid/paid pills for salesRep the same way admin sees them', () => {
+    const { container } = render(
+      <UserPreferencesProvider>
+        <ScheduledShootListRow
+          shoot={shoot}
+          onSelect={vi.fn()}
+          isSalesRep
+          onViewInvoice={vi.fn()}
+          viewerRole="salesRep"
+        />
+      </UserPreferencesProvider>,
+    )
+
+    expect(container.textContent ?? '').toMatch(/Unpaid/)
+  })
+
+  it('hides payment pills for photographer', () => {
+    const { container } = render(
+      <UserPreferencesProvider>
+        <ScheduledShootListRow
+          shoot={shoot}
+          onSelect={vi.fn()}
+          viewerRole="photographer"
+        />
+      </UserPreferencesProvider>,
+    )
+
+    expect(container.textContent ?? '').not.toMatch(/Unpaid|Paid|Partial/)
+  })
 })

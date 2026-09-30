@@ -125,6 +125,7 @@ export const ScheduledShootListRow = ({
   isSuperAdmin = false,
   isAdmin = false,
   isClient = false,
+  isSalesRep = false,
   isEditingManager = false,
   isEditor = false,
   onDelete,
@@ -142,6 +143,7 @@ export const ScheduledShootListRow = ({
   isSuperAdmin?: boolean
   isAdmin?: boolean
   isClient?: boolean
+  isSalesRep?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
@@ -186,7 +188,7 @@ export const ScheduledShootListRow = ({
   const StatusIcon = config.icon
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
-  const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient
+  const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep
   // Payment state is rendered by the shared <ShootPaymentBadge>; this flag only
   // decides whether the viewer is allowed to see it at all.
   const visibleClient = getVisibleClientContact({
