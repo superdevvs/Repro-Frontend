@@ -151,3 +151,21 @@ export function deriveSuggestedTimes(
     (option) => !isDisabledByWindowOrBlocked(option, window, blocked),
   );
 }
+
+/**
+ * Auto-fill only an empty booking time.
+ *
+ * A chosen time must survive even when it is outside the suggested window or
+ * conflicts with another booking. Replacing it with the first suggested slot
+ * (typically 9:00 AM) stored a different wall clock than the one the user picked
+ * — for example 11:50 PM snapped back to 9:00 AM.
+ */
+export function nextAutoFilledBookingTime(
+  currentTime: string | null | undefined,
+  suggestedTimes: readonly string[],
+): string | null {
+  if (typeof currentTime === "string" && currentTime.trim() !== "") return null;
+  const next = suggestedTimes.find((slot) => slot.trim() !== "");
+  return next ?? null;
+}
+

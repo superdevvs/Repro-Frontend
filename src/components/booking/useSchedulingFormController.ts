@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { to12Hour, to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { getDayAvailability } from '@/utils/availabilityProvider';
-import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, isDisabledByWindowOrBlocked } from '@/utils/suggestedTimeSlots';
+import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, isDisabledByWindowOrBlocked, nextAutoFilledBookingTime } from '@/utils/suggestedTimeSlots';
 import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
@@ -434,17 +434,20 @@ export const useSchedulingFormController = ({
     });
   }, [suggestedTimesRailRef]);
   useEffect(() => {
-    if (!date || suggestedTimes.length === 0) return;
-    if (time && !isPhotographerTimeDisabled(photographer, time)) return;
-    const firstAvailableTime = suggestedTimes[0];
-    setTime(firstAvailableTime);
-    setTempTime(firstAvailableTime);
+    if (!date) return;
+    // Never replace a time the user already chose. A conflict or a late slot
+    // such as 11:50 PM used to snap the form back to the first suggestion (9:00 AM)
+    // and that 9:00 AM was what the book request stored.
+    const nextTime = nextAutoFilledBookingTime(time, suggestedTimes);
+    if (!nextTime) return;
+    setTime(nextTime);
+    setTempTime(nextTime);
     setFormErrors((previousErrors) => {
       if (!previousErrors.time) return previousErrors;
       const { time: _, ...rest } = previousErrors;
       return rest;
     });
-  }, [date, isPhotographerTimeDisabled, photographer, setFormErrors, setTempTime, setTime, suggestedTimes, time]);
+  }, [date, setFormErrors, setTempTime, setTime, suggestedTimes, time]);
   useEffect(() => {
     updateSuggestedTimesScrollState();
   }, [suggestedTimes, updateSuggestedTimesScrollState]);
