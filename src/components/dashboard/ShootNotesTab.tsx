@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { Building2, Camera, ClipboardCheck, FileText, PenLine, Save, X } from "lucide-react";
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -413,34 +414,19 @@ export function ShootNotesTab({
 
   // Helper functions for styled notes with updated colors to match dashboard
   const getNoteBackgroundClass = (noteType: NoteType) => {
+    // Light tints only — body copy always uses text-foreground for phone contrast.
     switch (noteType) {
-      case 'photographerNotes': 
-        return 'bg-blue-50/60 dark:bg-blue-900/10';
+      case 'photographerNotes':
+        return 'bg-blue-50 dark:bg-blue-950/40';
       case 'approvalNotes':
-        return 'bg-slate-50/60 dark:bg-slate-900/20';
-      case 'editingNotes': 
-        return 'bg-purple-50/60 dark:bg-purple-900/10';
-      case 'companyNotes': 
-        return 'bg-amber-50/60 dark:bg-amber-900/10';
-      case 'shootNotes': 
+        return 'bg-slate-50 dark:bg-slate-950/40';
+      case 'editingNotes':
+        return 'bg-purple-50 dark:bg-purple-950/40';
+      case 'companyNotes':
+        return 'bg-amber-50 dark:bg-amber-950/40';
+      case 'shootNotes':
       default:
-        return 'bg-green-50/60 dark:bg-green-900/10';
-    }
-  };
-  
-  const getNoteTextClass = (noteType: NoteType) => {
-    switch (noteType) {
-      case 'photographerNotes': 
-        return 'text-blue-800 dark:text-blue-300';
-      case 'approvalNotes':
-        return 'text-slate-800 dark:text-slate-300';
-      case 'editingNotes': 
-        return 'text-purple-800 dark:text-purple-300';
-      case 'companyNotes': 
-        return 'text-amber-800 dark:text-amber-300';
-      case 'shootNotes': 
-      default:
-        return 'text-green-800 dark:text-green-300';
+        return 'bg-green-50 dark:bg-green-950/40';
     }
   };
   
@@ -524,7 +510,7 @@ export function ShootNotesTab({
     const isEditable = canEdit(noteType);
 
     return (
-      <div className="rounded-xl border border-border/70 bg-card/70 p-3 shadow-sm">
+      <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${accent.iconWrap}`}>
@@ -551,13 +537,44 @@ export function ShootNotesTab({
             </div>
           )}
         </div>
-        <Textarea
-          placeholder={`No ${getNoteTitle(noteType).toLowerCase()} available`}
-          value={displayNoteValue(noteType)}
-          onChange={(e) => handleNoteChange(e, noteType)}
-          readOnly={!isEditing}
-          className={`resize-none min-h-[56px] rounded-lg bg-background/30 ${getNoteTextClass(noteType)} border ${getNoteBorderClass(noteType)} focus:ring-1`}
-        />
+        {isEditing ? (
+          <Textarea
+            placeholder={`Add ${getNoteTitle(noteType).toLowerCase()}…`}
+            value={displayNoteValue(noteType)}
+            onChange={(e) => handleNoteChange(e, noteType)}
+            className={cn(
+              // text-base avoids iOS zoom and keeps phone copy readable; allow vertical grow/scroll
+              'min-h-[96px] max-h-[50vh] resize-y overflow-y-auto rounded-lg border bg-background px-3 py-2.5',
+              'text-base leading-relaxed text-foreground placeholder:text-muted-foreground',
+              'focus:ring-1 focus-visible:ring-ring',
+              getNoteBorderClass(noteType),
+            )}
+          />
+        ) : (
+          <div
+            role="region"
+            aria-label={getNoteTitle(noteType)}
+            data-testid={`shoot-note-body-${noteType}`}
+            className={cn(
+              // Read view: real text node (not readonly textarea) so phone themes can't mute/opacity it.
+              // Foreground on solid background for contrast; wrap long URLs/words; no fixed clip height.
+              'rounded-lg border px-3 py-2.5',
+              'text-base leading-relaxed text-foreground',
+              'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+              'min-h-[56px] max-h-[min(60vh,28rem)] overflow-y-auto',
+              getNoteBackgroundClass(noteType),
+              getNoteBorderClass(noteType),
+            )}
+          >
+            {displayNoteValue(noteType).trim() ? (
+              displayNoteValue(noteType)
+            ) : (
+              <span className="text-muted-foreground">
+                {`No ${getNoteTitle(noteType).toLowerCase()} available`}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   };
