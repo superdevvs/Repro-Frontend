@@ -75,6 +75,7 @@ import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/fin
 import { useNavigate } from 'react-router-dom';
 import { HistoricalImportSummary } from '@/components/shoots/details/HistoricalImportSummary';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
+import { RescheduleRequestsPanel } from '@/components/shoots/RescheduleRequestsPanel';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
@@ -891,6 +892,12 @@ function ShootDetailsOverviewTabContent({
   return (
     <div className="space-y-2">
       <HistoricalImportSummary shoot={shoot} />
+      {/* Pending client/photographer reschedule requests must surface in the
+          dashboard modal overview — ShootDetailsPageDialogs alone is not
+          reached from ShootDetailsModal (Warren Road / A1 follow-up). */}
+      {shoot?.id != null && (
+        <RescheduleRequestsPanel shootId={shoot.id} onReviewed={() => { void onShootUpdate(); }} />
+      )}
       <CompReshootOverviewStrip
         shoot={shoot}
         role={role}
