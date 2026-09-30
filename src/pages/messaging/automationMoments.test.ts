@@ -34,4 +34,21 @@ describe('automation moments', () => {
     expect(whenSummary({ schedule_json: { type: 'weekly', day_of_week: 5, time: '08:00' } } as AutomationRule)).toBe('Fridays at 08:00');
     expect(whenSummary({} as AutomationRule)).toBe('Right away');
   });
+
+  it('shows the shoot payment cadence that will actually run', () => {
+    expect(whenSummary({ trigger_type: 'SHOOT_PAYMENT_REMINDER' } as AutomationRule))
+      .toBe('Days 1, 3, 7 after photos ready; then every 7 days from day 14');
+    expect(whenSummary({
+      trigger_type: 'SHOOT_PAYMENT_REMINDER',
+      schedule_json: { reminder_days: [1, 3, 7], repeat_after_day: 7, repeat_every_days: 7 },
+    } as AutomationRule)).toBe('Days 1, 3, 7 after photos ready; then every 7 days from day 14');
+    expect(whenSummary({
+      trigger_type: 'SHOOT_PAYMENT_REMINDER',
+      schedule_json: { reminder_days: [2, 5], repeat_after_day: 5, repeat_every_days: 10 },
+    } as AutomationRule)).toBe('Days 2, 5 after photos ready; then every 10 days from day 15');
+    expect(whenSummary({
+      trigger_type: 'SHOOT_PAYMENT_REMINDER',
+      schedule_json: { reminder_days: [1, 3, 7, 14], monthly_day_of_week: 0, time: '09:00' },
+    } as AutomationRule)).toBe('Days 1, 3, 7, 14 after photos ready; then last Sunday monthly at 09:00');
+  });
 });

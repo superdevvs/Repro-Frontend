@@ -38,7 +38,7 @@ import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateE
 import { AutomationSmsSenderField } from './AutomationSmsSenderField';
 import { AutomationScheduleFields } from './AutomationScheduleFields';
 import { SCHEDULE_TRIGGER_TYPES } from './automationWorkflowTypes';
-import { isTimedShootReminder, scheduleFromWorkflow, syncReminderDayConditions, syncLegacyReminderCondition } from './automationSchedule';
+import { defaultShootPaymentReminderSchedule, isTimedShootReminder, scheduleFromWorkflow, syncReminderDayConditions, syncLegacyReminderCondition } from './automationSchedule';
 import type { AutomationEditorDialogProps, AutomationRecipientRole } from './automationEditorModel';
 import {
   actionOptions,
@@ -332,7 +332,14 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
               <Label htmlFor="automation-when">When</Label>
               <Select
                 value={draft.trigger_type}
-                onValueChange={(value) => setDraft((current) => ({ ...current, trigger_type: value as AutomationRule['trigger_type'], trigger_mode: SCHEDULE_TRIGGER_TYPES.some((trigger) => trigger === value) ? 'schedule' : 'event' }))}
+                onValueChange={(value) => setDraft((current) => ({
+                  ...current,
+                  trigger_type: value as AutomationRule['trigger_type'],
+                  trigger_mode: SCHEDULE_TRIGGER_TYPES.some((trigger) => trigger === value) ? 'schedule' : 'event',
+                  schedule_json: value === 'SHOOT_PAYMENT_REMINDER' && current.trigger_type !== value
+                    ? { ...defaultShootPaymentReminderSchedule }
+                    : current.schedule_json,
+                }))}
                 disabled={lockStructure}
               >
                 <SelectTrigger id="automation-when">

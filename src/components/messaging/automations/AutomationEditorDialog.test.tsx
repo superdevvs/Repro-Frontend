@@ -91,6 +91,58 @@ describe('automation sentence form', () => {
     });
   });
 
+  it('opens and saves the migrated weekly shoot payment cadence', async () => {
+    const schedule = { reminder_days: [1, 3, 7], repeat_after_day: 7, repeat_every_days: 7 };
+    const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Shoot Payment Reminder', trigger_type: 'SHOOT_PAYMENT_REMINDER', template_id: '4', schedule_json: schedule });
+    const rule = { id: 26, name: 'Shoot Payment Reminder', trigger_type: 'SHOOT_PAYMENT_REMINDER', scope: 'SYSTEM', is_active: true, workflow_definition_json: workflow, schedule_json: schedule } as AutomationRule;
+    vi.mocked(updateAutomation).mockResolvedValue(rule);
+    renderDialog(rule);
+
+    expect(await screen.findByLabelText('Days after photos ready')).toHaveValue('1, 3, 7');
+    expect(screen.getByLabelText('Then repeat after day')).toHaveValue(7);
+    expect(screen.getByLabelText('Then repeat every (days)')).toHaveValue(7);
+    expect(screen.queryByLabelText('Then monthly on the last')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Monthly send time')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save and open workflow' }));
+    await waitFor(() => expect(updateAutomation).toHaveBeenCalledOnce());
+    expect(vi.mocked(updateAutomation).mock.calls[0][1]).toMatchObject({
+      schedule_json: schedule,
+      entry_trigger_json: { config: { schedule } },
+    });
+  });
+
+  it('preserves custom weekly and legacy monthly shoot payment schedules', async () => {
+    const customWeekly = { reminder_days: [2, 5], repeat_after_day: 5, repeat_every_days: 10 };
+    const weeklyRule = { id: 27, name: 'Custom weekly', trigger_type: 'SHOOT_PAYMENT_REMINDER', scope: 'GLOBAL', is_active: true,
+      workflow_definition_json: buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Custom weekly', trigger_type: 'SHOOT_PAYMENT_REMINDER', template_id: '4', schedule_json: customWeekly }),
+      schedule_json: customWeekly } as AutomationRule;
+    vi.mocked(updateAutomation).mockResolvedValue(weeklyRule);
+    const weeklyDialog = renderDialog(weeklyRule);
+    expect(await screen.findByLabelText('Days after photos ready')).toHaveValue('2, 5');
+    expect(screen.getByLabelText('Then repeat after day')).toHaveValue(5);
+    expect(screen.getByLabelText('Then repeat every (days)')).toHaveValue(10);
+    fireEvent.click(screen.getByRole('button', { name: 'Save and open workflow' }));
+    await waitFor(() => expect(updateAutomation).toHaveBeenCalledOnce());
+    expect(vi.mocked(updateAutomation).mock.calls[0][1].schedule_json).toEqual(customWeekly);
+    weeklyDialog.unmount();
+    vi.mocked(updateAutomation).mockClear();
+
+    const legacyMonthly = { reminder_days: [1, 4, 8], monthly_day_of_week: 2, time: '10:30' };
+    const monthlyRule = { id: 28, name: 'Custom monthly', trigger_type: 'SHOOT_PAYMENT_REMINDER', scope: 'GLOBAL', is_active: true,
+      workflow_definition_json: buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Custom monthly', trigger_type: 'SHOOT_PAYMENT_REMINDER', template_id: '4', schedule_json: legacyMonthly }),
+      schedule_json: legacyMonthly } as AutomationRule;
+    vi.mocked(updateAutomation).mockResolvedValue(monthlyRule);
+    renderDialog(monthlyRule);
+    expect(await screen.findByLabelText('Days after photos ready')).toHaveValue('1, 4, 8');
+    expect(screen.getByLabelText('Then monthly on the last')).toHaveValue('2');
+    expect(screen.getByLabelText('Monthly send time')).toHaveValue('10:30');
+    expect(screen.queryByLabelText('Then repeat every (days)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save and open workflow' }));
+    await waitFor(() => expect(updateAutomation).toHaveBeenCalledOnce());
+    expect(vi.mocked(updateAutomation).mock.calls[0][1].schedule_json).toEqual(legacyMonthly);
+  });
+
   it('preserves the new-account recipient when editing the built-in welcome email', async () => {
     const workflow = buildSimpleWorkflowFromDraft({ ...createDefaultDraft(), name: 'Account created', trigger_type: 'ACCOUNT_CREATED', template_id: '4', recipient_mode: 'automation_default', recipient_roles: ['account'] });
     const rule = { id: 23, name: 'Account created', trigger_type: 'ACCOUNT_CREATED', scope: 'SYSTEM', is_active: true, recipients_json: ['account'], workflow_definition_json: workflow } as AutomationRule;

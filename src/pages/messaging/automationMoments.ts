@@ -1,4 +1,4 @@
-import { scheduleFromWorkflow, storedReminderSchedule } from '@/components/messaging/automations/automationSchedule';
+import { hasLegacyMonthlyShootCadence, scheduleFromWorkflow, storedReminderSchedule } from '@/components/messaging/automations/automationSchedule';
 import type { AutomationRule, AutomationTriggerType } from '@/types/messaging';
 
 export type AutomationMomentId = 'Account' | 'Booking' | 'On site' | 'Delivery' | 'Money';
@@ -105,7 +105,13 @@ export const whenSummary = (automation: AutomationRule) => {
   }
 
   if (automation.trigger_type === 'SHOOT_PAYMENT_REMINDER') {
-    return `Days ${(schedule?.reminder_days ?? [1, 3, 7, 14, 21, 28]).join(', ')} after photos ready; then last ${weekdays[schedule?.monthly_day_of_week ?? 0]} monthly at ${schedule?.time ?? '09:00'}`;
+    const firstDays = (schedule?.reminder_days ?? [1, 3, 7]).join(', ');
+    if (hasLegacyMonthlyShootCadence(schedule)) {
+      return `Days ${firstDays} after photos ready; then last ${weekdays[schedule?.monthly_day_of_week ?? 0]} monthly at ${schedule?.time ?? '09:00'}`;
+    }
+    const repeatAfterDay = schedule?.repeat_after_day ?? 7;
+    const repeatEveryDays = schedule?.repeat_every_days ?? 7;
+    return `Days ${firstDays} after photos ready; then every ${repeatEveryDays} days from day ${repeatAfterDay + repeatEveryDays}`;
   }
   if (automation.trigger_type === 'INVOICE_OVERDUE') {
     return `Days ${(schedule?.overdue_days ?? [1, 3, 7, 14, 30]).join(', ')}, then every ${schedule?.repeat_every_days ?? 30} days at ${schedule?.time ?? '09:30'}`;

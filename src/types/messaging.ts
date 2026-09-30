@@ -65,6 +65,7 @@ export interface AutomationScheduleJson {
   overdue_days?: number[];
   repeat_every_days?: number;
   reminder_days?: number[];
+  repeat_after_day?: number;
   monthly_day_of_week?: number;
   accounting_email?: string;
   command?: string;

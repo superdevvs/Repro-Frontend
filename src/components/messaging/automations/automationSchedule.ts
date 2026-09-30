@@ -2,6 +2,15 @@ import type { AutomationRule, AutomationScheduleJson, MessagingJsonObject, Workf
 
 export const isTimedShootReminder = (trigger: string) => ['SHOOT_REMINDER', 'PHOTOGRAPHER_SHOOT_REMINDER'].includes(trigger);
 
+export const defaultShootPaymentReminderSchedule: AutomationScheduleJson = {
+  reminder_days: [1, 3, 7],
+  repeat_after_day: 7,
+  repeat_every_days: 7,
+};
+
+export const hasLegacyMonthlyShootCadence = (schedule?: AutomationScheduleJson | null) =>
+  schedule?.monthly_day_of_week != null && schedule.repeat_every_days == null;
+
 export function scheduleFromWorkflow(workflow: WorkflowDefinition, previous?: AutomationScheduleJson | null): AutomationScheduleJson | null {
   const trigger = workflow.nodes.find((node) => node.type.startsWith('trigger.'));
   const configured = trigger?.config.schedule;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AutomationScheduleJson } from '@/types/messaging';
-import { isTimedShootReminder } from './automationSchedule';
+import { hasLegacyMonthlyShootCadence, isTimedShootReminder } from './automationSchedule';
 
 const hasDailySchedule = (trigger: string) => ['PROPERTY_CONTACT_REMINDER', 'INVOICE_DUE', 'INVOICE_OVERDUE', 'SHOOT_PAYMENT_REMINDER'].includes(trigger);
 
@@ -13,7 +13,8 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
   disabled?: boolean;
 }) {
   const shootPayment = trigger === 'SHOOT_PAYMENT_REMINDER';
-  const savedDays = (shootPayment ? value.reminder_days ?? [1, 3, 7, 14, 21, 28] : value.overdue_days ?? [1, 3, 7, 14, 30]).join(', ');
+  const legacyMonthly = shootPayment && hasLegacyMonthlyShootCadence(value);
+  const savedDays = (shootPayment ? value.reminder_days ?? [1, 3, 7] : value.overdue_days ?? [1, 3, 7, 14, 30]).join(', ');
   const [daysText, setDaysText] = useState(savedDays);
   useEffect(() => setDaysText(savedDays), [savedDays]);
   if (isTimedShootReminder(trigger)) {
@@ -41,12 +42,16 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
   return (
     <div className="space-y-3 rounded-xl border p-4">
       <p className="text-sm font-medium">Reminder schedule</p>
-      <p className="text-xs text-muted-foreground">Times use the business timezone. Eligibility is checked again before sending.</p>
-      <div>
-        <Label htmlFor="reminder-send-time">{shootPayment ? 'Monthly send time' : 'Send time'}</Label>
+      <p className="text-xs text-muted-foreground">
+        {shootPayment && !legacyMonthly
+          ? 'Days are measured from the photos-ready notice. Reminders use that notice time and stop when the balance is paid.'
+          : 'Times use the business timezone. Eligibility is checked again before sending.'}
+      </p>
+      {(!shootPayment || legacyMonthly) && <div>
+        <Label htmlFor="reminder-send-time">{legacyMonthly ? 'Monthly send time' : 'Send time'}</Label>
         <Input id="reminder-send-time" type="time" value={value.time ?? (invoice ? '09:30' : '09:00')} disabled={disabled}
           onChange={(event) => onChange({ time: event.target.value })} />
-      </div>
+      </div>}
       {trigger !== 'INVOICE_OVERDUE' && !shootPayment ? (
         <div>
           <Label htmlFor="reminder-days-before">Days before {invoice ? 'due date' : 'shoot'}</Label>
@@ -58,26 +63,35 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
         <>
           <div>
             <Label htmlFor="reminder-overdue-days">{shootPayment ? 'Days after photos ready' : 'Days after due date'}</Label>
-            <Input id="reminder-overdue-days" value={daysText} placeholder="1, 3, 7, 14, 30" disabled={disabled}
+            <Input id="reminder-overdue-days" value={daysText} placeholder={shootPayment ? '1, 3, 7' : '1, 3, 7, 14, 30'} disabled={disabled}
               onChange={(event) => setDaysText(event.target.value)}
               onBlur={() => {
                 const days = daysText.split(',').map((day) => Number(day.trim()));
-                if (days.length && days.every((day) => Number.isInteger(day) && day > 0)) {
+                if (days.length && days.every((day) => Number.isInteger(day) && day > 0 && (!shootPayment || day <= 30))) {
                   onChange({ [shootPayment ? 'reminder_days' : 'overdue_days']: [...new Set(days)].sort((a, b) => a - b) });
                 } else setDaysText(savedDays);
               }} />
           </div>
-          {shootPayment ? <div>
+          {legacyMonthly ? <div>
             <Label htmlFor="reminder-monthly-weekday">Then monthly on the last</Label>
             <select id="reminder-monthly-weekday" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={value.monthly_day_of_week ?? 0} disabled={disabled}
               onChange={(event) => onChange({ monthly_day_of_week: Number(event.target.value) })}>
               {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => <option key={day} value={index}>{day}</option>)}
             </select>
-          </div> : <div>
-            <Label htmlFor="reminder-repeat-days">Then repeat every (days)</Label>
-            <Input id="reminder-repeat-days" type="number" min="1" step="1" value={value.repeat_every_days ?? 30} disabled={disabled}
-              onChange={(event) => onChange({ repeat_every_days: Math.max(1, Number(event.target.value)) })} />
-          </div>}
+          </div> : <>
+            {shootPayment && <div>
+              <Label htmlFor="reminder-repeat-after-day">Then repeat after day</Label>
+              <Input id="reminder-repeat-after-day" type="number" min="1" max="30" step="1" value={value.repeat_after_day ?? 7} disabled={disabled}
+                onChange={(event) => onChange({ repeat_after_day: Math.min(30, Math.max(1, Math.trunc(Number(event.target.value)))) })} />
+            </div>}
+            <div>
+              <Label htmlFor="reminder-repeat-days">Then repeat every (days)</Label>
+              <Input id="reminder-repeat-days" type="number" min="1" max={shootPayment ? '30' : undefined} step="1" value={value.repeat_every_days ?? (shootPayment ? 7 : 30)} disabled={disabled}
+                onChange={(event) => onChange({ repeat_every_days: shootPayment
+                  ? Math.min(30, Math.max(1, Math.trunc(Number(event.target.value))))
+                  : Math.max(1, Math.trunc(Number(event.target.value))) })} />
+            </div>
+          </>}
         </>
       )}
     </div>
