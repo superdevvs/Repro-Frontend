@@ -781,9 +781,10 @@ export function ShootSettingsTab({
   const coverScanStatus = coverFile ? asRecord(coverFile).scan_status : null;
   const coverEligible = Boolean(coverFile && isEditedDashboardImageFile(coverFile)
     && (!coverScanStatus || coverScanStatus === 'clean'));
+  const homepageImages = normalizeFeaturedHomepageImages(shoot);
   const heroImageSet =
     coverFileId !== null &&
-    normalizeFeaturedHomepageImages(shoot)[0]?.shoot_file_id === coverFileId;
+    homepageImages[0]?.shoot_file_id === coverFileId;
 
   const setHomepageHero = async () => {
     if (!coverFileId) {
@@ -903,13 +904,15 @@ export function ShootSettingsTab({
                 <div className="text-sm font-medium">Featured Shoot</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {featuredState.approved
-                    ? 'Approved for the public homepage Projects feed. Set a project cover below to appear on the website.'
+                    ? homepageImages.length > 0
+                      ? 'Approved with a saved homepage project cover.'
+                      : 'Approved, but not on the website yet. Choose a cover in Media and save Homepage Project Cover below.'
                     : featuredState.pending
                       ? 'Awaiting admin approval before it appears on the website.'
                       : featuredAvailable
                         ? canApproveFeaturedShoot
-                          ? 'Approve this shoot for the homepage Projects feed, then set its project cover below.'
-                          : 'Request admin approval for public featured placement.'
+                          ? 'Choose a cover in Media, save Homepage Project Cover below, then enable this switch to publish.'
+                          : 'Choose a cover in Media, save Homepage Project Cover below, then request admin approval here.'
                         : 'Available once the shoot reaches Ready or Delivered status.'}
                 </div>
               </div>
