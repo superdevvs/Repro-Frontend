@@ -143,7 +143,6 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
                 </span>
               )}
             </Button>
-            {renderCompactToggle()}
           </div>
         </div>
 
@@ -454,7 +453,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
               <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
-                {renderCompactToggle({ className: 'hidden lg:inline-flex' })}
+                {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
               </div>
               {editingManagerPaginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">

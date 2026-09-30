@@ -204,7 +204,6 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               )}
             </Button>
           )}
-          {renderCompactToggle()}
         </div>
       </div>
 
@@ -541,7 +540,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
             >
               <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
-                {renderCompactToggle({ className: 'hidden lg:inline-flex' })}
+                {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
               </div>
               {paginatedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
@@ -581,7 +580,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
             >
               <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
-                {renderCompactToggle({ className: 'hidden lg:inline-flex' })}
+                {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
               </div>
               {requestedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
