@@ -47,3 +47,31 @@ describe('viewer download lifetime', () => {
     expect(result.current!.downloadingFileIds.size).toBe(0);
   });
 });
+
+describe('viewer open/close hook stability (rename regression)', () => {
+  it('does not crash when opening the lightbox after a closed render (hooks before early return)', () => {
+    const onRenameFilename = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ isOpen }) =>
+        useMediaViewerController({
+          ...base,
+          isOpen,
+          currentIndex: 0,
+          canRenameFilename: true,
+          onRenameFilename,
+        }),
+      { initialProps: { isOpen: false } },
+    );
+
+    expect(result.current).toBeNull();
+
+    expect(() => {
+      rerender({ isOpen: true });
+    }).not.toThrow();
+
+    expect(result.current).not.toBeNull();
+    expect(result.current!.canShowRenameFilename).toBe(true);
+    expect(typeof result.current!.openRenameComposer).toBe('function');
+    expect(typeof result.current!.handleSubmitRename).toBe('function');
+  });
+});

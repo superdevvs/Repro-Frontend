@@ -733,6 +733,28 @@ export function useMediaViewerController({
     });
     return () => window.cancelAnimationFrame(animationFrame);
   }, [currentFile?.id, previewMode, stopZoomPan, zoom]);
+  // Rename hooks MUST stay above the early return below — calling useCallback
+  // only when isOpen/currentFile are set violates Rules of Hooks and crashes lightbox open.
+  const renameApiEnabled = MEDIA_FILENAME_RENAME_API_ENABLED;
+  const canShowRenameFilename = Boolean(canRenameFilename && onRenameFilename);
+  const openRenameComposer = useCallback(() => {
+    if (!currentFile || !canShowRenameFilename) return;
+    setRenameDraft(getMediaFilenameBase(getDisplayMediaFilename(currentFile) || currentFile.filename));
+    setShowRenameComposer(true);
+  }, [canShowRenameFilename, currentFile]);
+  const handleSubmitRename = useCallback(async () => {
+    if (!currentFile || !onRenameFilename || !renameApiEnabled || renamingFilename) return;
+    const draft = renameDraft.trim();
+    if (!draft) return;
+    setRenamingFilename(true);
+    try {
+      await onRenameFilename(currentFile.id, draft);
+      setShowRenameComposer(false);
+    } finally {
+      setRenamingFilename(false);
+    }
+  }, [currentFile, onRenameFilename, renameApiEnabled, renameDraft, renamingFilename]);
+
   if (!isOpen || !currentFile) return null;
   const previewImageUrl = getMediaViewerImageUrl(currentFile);
   const fullSizeImageUrl = getMediaFullSizeImageUrl(currentFile);
@@ -759,27 +781,7 @@ export function useMediaViewerController({
           height: `${zoom * 100}%`,
         }
       : undefined;
-  const renameApiEnabled = MEDIA_FILENAME_RENAME_API_ENABLED;
-  const canShowRenameFilename = Boolean(canRenameFilename && onRenameFilename);
-  const openRenameComposer = useCallback(() => {
-    if (!currentFile || !canShowRenameFilename) return;
-    setRenameDraft(getMediaFilenameBase(getDisplayMediaFilename(currentFile) || currentFile.filename));
-    setShowRenameComposer(true);
-  }, [canShowRenameFilename, currentFile]);
-  const handleSubmitRename = useCallback(async () => {
-    if (!currentFile || !onRenameFilename || !renameApiEnabled || renamingFilename) return;
-    const draft = renameDraft.trim();
-    if (!draft) return;
-    setRenamingFilename(true);
-    try {
-      await onRenameFilename(currentFile.id, draft);
-      setShowRenameComposer(false);
-    } finally {
-      setRenamingFilename(false);
-    }
-  }, [currentFile, onRenameFilename, renameApiEnabled, renameDraft, renamingFilename]);
-
-    const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
+  const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
   const canSetHero =
     Boolean(shoot) &&
     isImg &&
