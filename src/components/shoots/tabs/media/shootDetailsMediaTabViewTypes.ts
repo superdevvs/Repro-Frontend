@@ -56,6 +56,9 @@ export interface ShootDetailsMediaTabViewProps {
   downloading: boolean;
   handleDownload: (size: 'original' | 'small') => Promise<void>;
   handleDeleteFiles: () => Promise<void>;
+  canBatchRename?: boolean;
+  batchRenameEnabled?: boolean;
+  onOpenBatchRename?: () => void;
   handleGenerateShareLink: (shareAll?: boolean) => Promise<void>;
   handleEditorDownloadRaw: (downloadAll?: boolean) => Promise<void>;
   canDelete: boolean;

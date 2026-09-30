@@ -54,6 +54,8 @@ import {
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
+import { BatchRenameDialog } from './BatchRenameDialog';
+import { MEDIA_BATCH_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
@@ -381,6 +383,7 @@ export function useShootDetailsMediaTab({
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
   const [viewerSourceTab, setViewerSourceTab] = useState<'uploaded' | 'edited'>('uploaded');
+  const [batchRenameOpen, setBatchRenameOpen] = useState(false);
   const openViewerWithSource = useCallback(
     (index: number, files: MediaFile[], source: 'uploaded' | 'edited' = displayTab) => {
       setViewerSourceTab(source);
@@ -816,6 +819,8 @@ export function useShootDetailsMediaTab({
     toggleFileHidden,
     handleToggleFavorite,
     handleAddComment,
+    handleRenameFilename,
+    handleBatchRenameFilenames,
     handleDownloadSingleFile,
     downloadingFileIds,
   } = useShootMediaActions({
@@ -847,6 +852,16 @@ export function useShootDetailsMediaTab({
   const isSuperadmin = normalizedRole === 'superadmin';
   const isSalesRep = ['salesrep', 'rep', 'representative'].includes(normalizedRole);
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
+  const canRenameFilename =
+    !isClient &&
+    (
+      isAdmin ||
+      isSuperadmin ||
+      isEditor ||
+      isPhotographer ||
+      isSalesRep ||
+      ['admin', 'superadmin', 'editing_manager', 'editor', 'photographer', 'salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole)
+    );
   const canDownloadSingleMedia =
     isAdmin ||
     isPhotographer ||
@@ -1235,6 +1250,9 @@ export function useShootDetailsMediaTab({
         downloading={downloading}
         handleDownload={handleDownload}
         handleDeleteFiles={handleDeleteFiles}
+        canBatchRename={canRenameFilename}
+        batchRenameEnabled={MEDIA_BATCH_RENAME_API_ENABLED}
+        onOpenBatchRename={() => setBatchRenameOpen(true)}
         handleGenerateShareLink={handleGenerateShareLink}
         handleEditorDownloadRaw={handleEditorDownloadRaw}
         canDelete={canDeleteInDisplayTab}
@@ -1293,6 +1311,13 @@ export function useShootDetailsMediaTab({
         isVideoFile={isVideoFile}
         toggleFileHidden={toggleFileHidden}
       />
+      <BatchRenameDialog
+        open={batchRenameOpen}
+        onOpenChange={setBatchRenameOpen}
+        selectedFiles={[...rawFiles, ...editedFiles].filter((file) => selectedFiles.has(file.id))}
+        apiEnabled={MEDIA_BATCH_RENAME_API_ENABLED}
+        onSubmit={handleBatchRenameFilenames}
+      />
       <ShootDetailsMediaTabDialogs
         viewerOpen={viewerOpen}
         setViewerOpen={setViewerOpen}
@@ -1311,10 +1336,12 @@ export function useShootDetailsMediaTab({
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadViewerSingleMedia}
+        canRenameFilename={canRenameFilename}
         onToggleFavorite={handleToggleFavorite}
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}
         onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
+        onRenameFilename={canRenameFilename ? handleRenameFilename : undefined}
         downloadingFileIds={downloadingFileIds}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}

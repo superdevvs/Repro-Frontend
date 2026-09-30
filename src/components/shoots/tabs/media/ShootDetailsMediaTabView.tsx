@@ -45,6 +45,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     downloading,
     handleDownload,
     handleDeleteFiles,
+    canBatchRename = false,
+    batchRenameEnabled = false,
+    onOpenBatchRename,
     handleGenerateShareLink,
     handleEditorDownloadRaw,
     canDelete,
@@ -299,6 +302,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         markMenuOptions={markMenuOptions}
         canDelete={canDelete}
         handleDeleteFiles={handleDeleteFiles}
+        canBatchRename={canBatchRename}
+        batchRenameEnabled={batchRenameEnabled}
+        onOpenBatchRename={onOpenBatchRename}
       />
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">

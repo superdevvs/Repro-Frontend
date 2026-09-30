@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
-import { fetchShootMedia, finalizeEditedUploadQueue, getMediaThumbnail, uploadRawPhotos } from './shootMediaService';
+import { fetchShootMedia, finalizeEditedUploadQueue, getMediaThumbnail, batchRenameShootMediaFiles, renameShootMediaFile, uploadRawPhotos } from './shootMediaService';
 
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), isAxiosError: vi.fn(() => false) } }));
+vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), isAxiosError: vi.fn(() => false) } }));
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
 
 describe('shoot media without a cloud connection', () => {
@@ -52,5 +52,47 @@ describe('shoot media without a cloud connection', () => {
     expect(axios.post).toHaveBeenCalledWith('https://api.example.test/api/shoots/42/upload/finalize-edited', {}, {
       headers: { Authorization: 'Bearer session-token' },
     });
+  });
+});
+
+describe('renameShootMediaFile', () => {
+  it('PATCHes the shoot media rename endpoint with the filename body', async () => {
+    vi.mocked(axios.patch).mockResolvedValueOnce({
+      data: { data: { id: '8', filename: 'living-room-01.jpg', stored_filename: 'living-room-01.jpg' } },
+    });
+    const result = await renameShootMediaFile('42', '8', 'living-room-01.jpg', {
+      Authorization: 'Bearer session-token',
+    });
+    expect(result.data.filename).toBe('living-room-01.jpg');
+    expect(axios.patch).toHaveBeenCalledWith(
+      'https://api.example.test/api/shoots/42/media/8/rename',
+      { filename: 'living-room-01.jpg' },
+      { headers: { Authorization: 'Bearer session-token' } },
+    );
+  });
+});
+
+
+describe('batchRenameShootMediaFiles', () => {
+  it('POSTs the shoot media batch-rename endpoint', async () => {
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: {
+        data: {
+          updated: [{ id: 101, filename: 'Kitchen-01.jpg' }],
+          failed: [],
+        },
+      },
+    });
+    const result = await batchRenameShootMediaFiles(
+      '42',
+      { file_ids: [101, 102], mode: 'prefix', value: 'Kitchen-' },
+      { Authorization: 'Bearer session-token' },
+    );
+    expect(result.data.updated).toHaveLength(1);
+    expect(axios.post).toHaveBeenCalledWith(
+      'https://api.example.test/api/shoots/42/media/batch-rename',
+      { file_ids: [101, 102], mode: 'prefix', value: 'Kitchen-' },
+      { headers: { Authorization: 'Bearer session-token' } },
+    );
   });
 });

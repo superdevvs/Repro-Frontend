@@ -24,6 +24,8 @@ import {
   triggerShootDetailRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { blurActiveElement } from '../../dialogFocusUtils';
+import { MEDIA_FILENAME_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
+import { getMediaFilenameBase } from '@/features/media-filename-rename/filenameValidation';
 import {
   MAX_MEDIA_VIEWER_ZOOM,
   SLIDESHOW_INTERVAL_OPTIONS,
@@ -47,12 +49,14 @@ export function useMediaViewerController({
   canStartSlideshow = false,
   canInteractSingleMedia = false,
   canDownloadSingleMedia = false,
+  canRenameFilename = false,
   slideshowFiles = [],
   onViewerContextChange,
   onToggleFavorite,
   onAddComment,
   onToggleHidden,
   onDownloadSingle,
+  onRenameFilename,
   downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
@@ -92,6 +96,9 @@ export function useMediaViewerController({
   }, [downloadingFileIds, onDownloadSingle]);
   const activeDownloadingFileIds = new Set([...localDownloadingIds, ...(downloadingFileIds ?? [])]);
   const [commentDraft, setCommentDraft] = useState('');
+  const [showRenameComposer, setShowRenameComposer] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renamingFilename, setRenamingFilename] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(true);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -111,6 +118,12 @@ export function useMediaViewerController({
   });
   const [isPanningZoomStage, setIsPanningZoomStage] = useState(false);
   const currentFile = files[currentIndex];
+
+  useEffect(() => {
+    setShowRenameComposer(false);
+    setRenameDraft('');
+    setRenamingFilename(false);
+  }, [currentFile?.id]);
   const fileComments = useMemo(
     () => {
       const comments = Array.isArray(currentFile?.comments)
@@ -746,7 +759,27 @@ export function useMediaViewerController({
           height: `${zoom * 100}%`,
         }
       : undefined;
-  const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
+  const renameApiEnabled = MEDIA_FILENAME_RENAME_API_ENABLED;
+  const canShowRenameFilename = Boolean(canRenameFilename && onRenameFilename);
+  const openRenameComposer = useCallback(() => {
+    if (!currentFile || !canShowRenameFilename) return;
+    setRenameDraft(getMediaFilenameBase(getDisplayMediaFilename(currentFile) || currentFile.filename));
+    setShowRenameComposer(true);
+  }, [canShowRenameFilename, currentFile]);
+  const handleSubmitRename = useCallback(async () => {
+    if (!currentFile || !onRenameFilename || !renameApiEnabled || renamingFilename) return;
+    const draft = renameDraft.trim();
+    if (!draft) return;
+    setRenamingFilename(true);
+    try {
+      await onRenameFilename(currentFile.id, draft);
+      setShowRenameComposer(false);
+    } finally {
+      setRenamingFilename(false);
+    }
+  }, [currentFile, onRenameFilename, renameApiEnabled, renameDraft, renamingFilename]);
+
+    const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
   const canSetHero =
     Boolean(shoot) &&
     isImg &&
@@ -829,6 +862,7 @@ export function useMediaViewerController({
     (canInteractSingleMedia && Boolean(onToggleFavorite)) ||
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
     Boolean(onToggleHidden) ||
+    canShowRenameFilename ||
     canRequestModification ||
     slideshowAvailable;
   const fitMediaClassName =
@@ -848,13 +882,24 @@ export function useMediaViewerController({
     canStartSlideshow,
     canInteractSingleMedia,
     canDownloadSingleMedia,
+    canRenameFilename,
+    canShowRenameFilename,
+    renameApiEnabled,
     slideshowFiles,
     onViewerContextChange,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    onRenameFilename,
     downloadingFileIds: activeDownloadingFileIds,
+    showRenameComposer,
+    setShowRenameComposer,
+    renameDraft,
+    setRenameDraft,
+    renamingFilename,
+    openRenameComposer,
+    handleSubmitRename,
     handleDownloadSingle,
     onShootUpdate,
     toast,

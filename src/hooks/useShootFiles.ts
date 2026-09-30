@@ -16,6 +16,7 @@ export interface MediaFile {
   shoot_service_id?: string | number | null;
   shootServiceId?: string | number | null;
   filename: string;
+  stored_filename?: string | null;
   url?: string;
   path?: string;
   fileType?: string;

@@ -6,11 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import VideoThumbnail from '../../VideoThumbnail';
 import { getDisplayMediaFilename, getMediaVideoPreviewUrl, getMediaVideoUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pause, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pause, Pencil, Play, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getRequestStatusClassName, formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
 import type { useMediaViewerController } from './useMediaViewerController';
@@ -28,10 +29,19 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     isClient,
     canInteractSingleMedia,
     canDownloadSingleMedia,
+    canShowRenameFilename,
+    renameApiEnabled,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    showRenameComposer,
+    setShowRenameComposer,
+    renameDraft,
+    setRenameDraft,
+    renamingFilename,
+    openRenameComposer,
+    handleSubmitRename,
     downloadingFileIds,
     handleDownloadSingle,
     isImageFile,
@@ -299,6 +309,23 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                     {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
                   </DropdownMenuItem>
                 )}
+                {canShowRenameFilename && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    disabled={!renameApiEnabled || renamingFilename}
+                    title={renameApiEnabled ? 'Rename filename' : 'Rename will be available after the server update'}
+                    onSelect={(event) => {
+                      if (!renameApiEnabled) {
+                        event.preventDefault();
+                        return;
+                      }
+                      openRenameComposer();
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Rename filename
+                  </DropdownMenuItem>
+                )}
                 {slideshowAvailable && (
                   <DropdownMenuItem
                     className={mobileActionMenuItemClassName}
@@ -564,6 +591,46 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                   </div>
 
                   <div className="min-h-0 overflow-hidden border-t border-white/10 px-2.5 py-2 text-white md:hidden">
+                    {canShowRenameFilename && showRenameComposer && renameApiEnabled && (
+                      <div className="mb-2 rounded-xl border border-white/15 bg-black/30 p-2.5">
+                        <p className="text-[13px] font-medium text-white">Rename filename</p>
+                        <Input
+                          value={renameDraft}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          placeholder="New filename"
+                          className="mt-2 border-white/10 bg-black/30 text-xs text-white placeholder:text-white/45"
+                          disabled={renamingFilename}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void handleSubmitRename();
+                            }
+                          }}
+                        />
+                        <div className="mt-2 flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-white hover:bg-white/10 hover:text-white"
+                            onClick={() => {
+                              setShowRenameComposer(false);
+                              setRenameDraft('');
+                            }}
+                            disabled={renamingFilename}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={() => { void handleSubmitRename(); }}
+                            disabled={!renameDraft.trim() || renamingFilename}
+                          >
+                            {renamingFilename ? 'Saving…' : 'Save name'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[13px] font-medium">Comments</p>
                       <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
@@ -574,6 +641,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       (canInteractSingleMedia && onToggleFavorite) ||
                       (canDownloadSingleMedia && onDownloadSingle) ||
                       onToggleHidden ||
+                      canShowRenameFilename ||
                       canRequestModification) && (
                       <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                         {canSetHero && (
@@ -619,6 +687,21 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             title={currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
                           >
                             {currentFile.is_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {canShowRenameFilename && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10 disabled:opacity-50"
+                            disabled={!renameApiEnabled || renamingFilename}
+                            onClick={() => {
+                              if (!renameApiEnabled) return;
+                              openRenameComposer();
+                            }}
+                            title={renameApiEnabled ? 'Rename filename' : 'Rename will be available after the server update'}
+                          >
+                            <Pencil className="h-4 w-4" />
                           </Button>
                         )}
                         {canRequestModification && (
@@ -731,6 +814,25 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                         >
                           {currentFile.is_hidden ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
                           {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
+                        </Button>
+                      )}
+                      {canShowRenameFilename && (
+                        <Button
+                          variant="outline"
+                          className={sidebarActionButtonClassName}
+                          disabled={!renameApiEnabled || renamingFilename}
+                          onClick={() => {
+                            if (!renameApiEnabled) return;
+                            if (showRenameComposer) {
+                              setShowRenameComposer(false);
+                              return;
+                            }
+                            openRenameComposer();
+                          }}
+                          title={renameApiEnabled ? 'Rename filename' : 'Rename will be available after the server update'}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Rename filename
                         </Button>
                       )}
                       {(slideshowAvailable || canRequestModification) && (
@@ -877,6 +979,49 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       )}
                     </div>
 
+                    {canShowRenameFilename && showRenameComposer && renameApiEnabled && (
+                      <div className="rounded-xl border border-white/15 bg-black/30 p-3">
+                        <p className="text-sm font-medium text-white">Rename filename</p>
+                        <p className="mt-1 text-xs text-white/65">
+                          Letters, numbers, spaces, and . _ - ( ) only. Extension stays the same if omitted.
+                        </p>
+                        <Input
+                          value={renameDraft}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          placeholder="New filename"
+                          className="mt-3 border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                          disabled={renamingFilename}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void handleSubmitRename();
+                            }
+                          }}
+                        />
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-white hover:bg-white/10 hover:text-white"
+                            onClick={() => {
+                              setShowRenameComposer(false);
+                              setRenameDraft('');
+                            }}
+                            disabled={renamingFilename}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            className="bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={() => { void handleSubmitRename(); }}
+                            disabled={!renameDraft.trim() || renamingFilename}
+                          >
+                            {renamingFilename ? 'Saving…' : 'Save name'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">Comments</p>

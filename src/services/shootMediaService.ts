@@ -407,3 +407,85 @@ export const getMediaThumbnail = async (
     return null;
   }
 };
+
+export interface RenameMediaFileData {
+  id: string | number;
+  filename: string;
+  stored_filename?: string | null;
+}
+
+export interface RenameMediaFileResponse {
+  data: RenameMediaFileData;
+  message?: string;
+}
+
+/**
+ * Rename a shoot media file's display filename.
+ * PATCH /api/shoots/{shootId}/media/{fileId}/rename
+ * Body: { filename }
+ */
+export const renameShootMediaFile = async (
+  shootId: string | number,
+  fileId: string | number,
+  filename: string,
+  headers?: Record<string, string>,
+): Promise<RenameMediaFileResponse> => {
+  const response = await axios.patch<RenameMediaFileResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/rename`,
+    { filename },
+    headers ? { headers } : undefined,
+  );
+  return response.data;
+};
+
+
+export type BatchRenameMode = 'prefix' | 'suffix' | 'replace' | 'sequence';
+
+export interface BatchRenameMediaRequest {
+  file_ids: Array<string | number>;
+  mode: BatchRenameMode;
+  value?: string;
+  find?: string;
+  replace?: string;
+  start?: number;
+  digits?: number;
+  separator?: string;
+}
+
+export interface BatchRenameUpdatedItem {
+  id: string | number;
+  filename: string;
+  stored_filename?: string | null;
+}
+
+export interface BatchRenameFailedItem {
+  id?: string | number;
+  file_id?: string | number;
+  message?: string;
+  error?: string;
+}
+
+export interface BatchRenameMediaResponse {
+  data: {
+    updated: BatchRenameUpdatedItem[];
+    failed: BatchRenameFailedItem[];
+  };
+  message?: string;
+}
+
+/**
+ * Batch-rename shoot media filenames.
+ * POST /api/shoots/{shootId}/media/batch-rename
+ */
+export const batchRenameShootMediaFiles = async (
+  shootId: string | number,
+  payload: BatchRenameMediaRequest,
+  headers?: Record<string, string>,
+): Promise<BatchRenameMediaResponse> => {
+  const response = await axios.post<BatchRenameMediaResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/media/batch-rename`,
+    payload,
+    headers ? { headers } : undefined,
+  );
+  return response.data;
+};

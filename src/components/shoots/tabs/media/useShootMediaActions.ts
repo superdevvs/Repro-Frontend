@@ -31,6 +31,9 @@ import {
   downloadShootMediaFile,
   downloadShootRawFiles,
 } from '@/utils/shootMediaDownload';
+import { batchRenameShootMediaFiles, renameShootMediaFile, type BatchRenameMode } from '@/services/shootMediaService';
+import { MEDIA_BATCH_RENAME_API_ENABLED, MEDIA_FILENAME_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
+import { validateMediaFilenameInput } from '@/features/media-filename-rename/filenameValidation';
 import {
   dispatchShootShareLinksUpdated,
   type ShootShareLinkEntry,
@@ -936,6 +939,201 @@ export function useShootMediaActions({
     }
   };
 
+
+  const handleRenameFilename = async (fileId: string, nextFilename: string) => {
+    if (!MEDIA_FILENAME_RENAME_API_ENABLED) {
+      toast({
+        title: 'Rename not available yet',
+        description: 'Filename rename will unlock after the server update is live.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const targetFile = [...rawFiles, ...editedFiles].find((file) => file.id === fileId);
+    if (!targetFile) {
+      return;
+    }
+
+    const validation = validateMediaFilenameInput(nextFilename, targetFile.filename);
+    if (validation.ok === false) {
+      toast({
+        title: 'Invalid filename',
+        description: validation.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const previousFile = targetFile;
+    updateSingleFile(fileId, (file) => ({
+      ...file,
+      filename: validation.filename,
+      stored_filename: validation.filename,
+    }));
+
+    try {
+      const headers = getApiHeaders();
+      const response = await renameShootMediaFile(shoot.id, fileId, validation.filename, headers);
+      const renamed = response?.data;
+      const confirmedFilename = String(renamed?.filename || validation.filename).trim() || validation.filename;
+      const confirmedStored = renamed?.stored_filename != null
+        ? String(renamed.stored_filename)
+        : confirmedFilename;
+
+      updateSingleFile(fileId, (file) => ({
+        ...file,
+        filename: confirmedFilename,
+        stored_filename: confirmedStored,
+      }));
+
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      onShootUpdate();
+
+      toast({
+        title: 'Filename updated',
+        description: confirmedFilename,
+      });
+    } catch (error: unknown) {
+      updateSingleFile(fileId, () => previousFile);
+      const axiosMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast({
+        title: 'Rename failed',
+        description:
+          axiosMessage ||
+          (error instanceof Error ? error.message : 'Failed to rename file'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+
+  const handleBatchRenameFilenames = async (payload: {
+    mode: BatchRenameMode;
+    value?: string;
+    find?: string;
+    replace?: string;
+    start?: number;
+    digits?: number;
+    separator?: string;
+  }) => {
+    if (!MEDIA_BATCH_RENAME_API_ENABLED) {
+      toast({
+        title: 'Batch rename not available yet',
+        description: 'Batch rename will unlock after the server update is live.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const fileIds = Array.from(selectedFiles);
+    if (fileIds.length === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Select one or more files to rename.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (payload.mode === 'replace' && !String(payload.find || '').trim()) {
+      toast({
+        title: 'Find text required',
+        description: 'Replace mode needs a non-empty find value.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const previousRawFiles = rawFiles;
+    const previousEditedFiles = editedFiles;
+
+    try {
+      const headers = getApiHeaders();
+      const response = await batchRenameShootMediaFiles(
+        shoot.id,
+        {
+          file_ids: fileIds.map((id) => parseInt(id, 10)),
+          mode: payload.mode,
+          value: payload.value,
+          find: payload.find,
+          replace: payload.replace,
+          start: payload.start,
+          digits: payload.digits,
+          separator: payload.separator,
+        },
+        headers,
+      );
+
+      const updated = Array.isArray(response?.data?.updated) ? response.data.updated : [];
+      const failed = Array.isArray(response?.data?.failed) ? response.data.failed : [];
+      const filenameById = new Map(
+        updated.map((item) => [String(item.id), String(item.filename || '').trim()]),
+      );
+      const storedById = new Map(
+        updated.map((item) => [
+          String(item.id),
+          item.stored_filename != null ? String(item.stored_filename) : String(item.filename || '').trim(),
+        ]),
+      );
+
+      const applyUpdates = (files: MediaFile[]) =>
+        files.map((file) => {
+          const nextName = filenameById.get(file.id);
+          if (!nextName) return file;
+          return {
+            ...file,
+            filename: nextName,
+            stored_filename: storedById.get(file.id) ?? nextName,
+          };
+        });
+
+      setRawFiles((prev) => applyUpdates(prev));
+      setEditedFiles((prev) => applyUpdates(prev));
+
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      onShootUpdate();
+
+      if (failed.length === 0) {
+        toast({
+          title: 'Files renamed',
+          description: `Updated ${updated.length} file${updated.length === 1 ? '' : 's'}.`,
+        });
+      } else {
+        toast({
+          title: 'Batch rename partial',
+          description: `Updated ${updated.length}, failed ${failed.length}.`,
+          variant: updated.length > 0 ? 'default' : 'destructive',
+        });
+      }
+
+      if (updated.length > 0) {
+        setSelectedFiles(new Set());
+      }
+    } catch (error: unknown) {
+      setRawFiles(previousRawFiles);
+      setEditedFiles(previousEditedFiles);
+      const axiosMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast({
+        title: 'Batch rename failed',
+        description:
+          axiosMessage ||
+          (error instanceof Error ? error.message : 'Failed to rename selected files'),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDownloadSingleFile = async (fileId: string) => {
     if (isEditorRole) {
       const rawFileIds = new Set(rawFiles.map((file) => file.id));
@@ -999,6 +1197,8 @@ export function useShootMediaActions({
     toggleFileHidden,
     handleToggleFavorite,
     handleAddComment,
+    handleRenameFilename,
+    handleBatchRenameFilenames,
     handleDownloadSingleFile,
   };
 }

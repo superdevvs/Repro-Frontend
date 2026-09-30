@@ -1,5 +1,5 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronUp, Download, FileIcon, GripVertical, LayoutGrid, List, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronUp, Download, FileIcon, GripVertical, LayoutGrid, List, Pencil, Trash2, Upload } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,9 @@ interface ShootMediaHeaderProps {
   markMenuOptions: Array<{ label: string; value: ReclassifyMediaType }>;
   canDelete: boolean;
   handleDeleteFiles: () => Promise<void>;
+  canBatchRename?: boolean;
+  batchRenameEnabled?: boolean;
+  onOpenBatchRename?: () => void;
 }
 
 export function ShootMediaHeader({
@@ -58,6 +61,7 @@ export function ShootMediaHeader({
   selectedFiles, setRequestManagerOpen, downloading, handleDownload, handleGenerateShareLink,
   handleEditorDownloadRaw, canMarkSelectedFiles, canDownload, isAdmin, handleReclassify,
   markMenuOptions, canDelete, handleDeleteFiles,
+  canBatchRename = false, batchRenameEnabled = false, onOpenBatchRename,
 }: ShootMediaHeaderProps) {
   const isManualSort = sortOrder === 'manual';
 
@@ -255,7 +259,7 @@ export function ShootMediaHeader({
               </Button>
             )}
             {/* Selection actions */}
-            {(canDownload || canDelete) && selectedFiles.size > 0 && (
+            {(canDownload || canDelete || canBatchRename) && selectedFiles.size > 0 && (
               <>
                 {/* Mark selected files - admin only */}
                 {canMarkSelectedFiles && (
@@ -279,6 +283,29 @@ export function ShootMediaHeader({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+
+                {canBatchRename && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] px-2"
+                    disabled={!batchRenameEnabled}
+                    onClick={() => onOpenBatchRename?.()}
+                    title={
+                      batchRenameEnabled
+                        ? `Rename ${selectedFiles.size} file(s)`
+                        : 'Batch rename will be available after the server update'
+                    }
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    <span>Rename</span>
+                    {selectedFiles.size > 0 && (
+                      <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-muted px-1 text-[9px] font-bold leading-none ml-1">
+                        {selectedFiles.size}
+                      </span>
+                    )}
+                  </Button>
                 )}
                 {/* Show Create Request button for clients when photos are selected */}
                 {isClient && (
@@ -377,7 +404,7 @@ export function ShootMediaHeader({
       </div>
       
       {/* Selected-file actions - Below tabs on mobile only */}
-      {(canDownload || canDelete) && selectedFiles.size > 0 && (
+      {(canDownload || canDelete || canBatchRename) && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5 flex-wrap">
             {/* Mark selected files - mobile */}
@@ -402,6 +429,24 @@ export function ShootMediaHeader({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+
+            {canBatchRename && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] px-2 flex-shrink-0"
+                disabled={!batchRenameEnabled}
+                onClick={() => onOpenBatchRename?.()}
+                title={
+                  batchRenameEnabled
+                    ? `Rename ${selectedFiles.size} file(s)`
+                    : 'Batch rename will be available after the server update'
+                }
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                <span>Rename</span>
+              </Button>
             )}
             {/* Show Create Request button for clients when photos are selected */}
             {isClient && (

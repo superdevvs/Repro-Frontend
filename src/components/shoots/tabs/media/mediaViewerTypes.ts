@@ -16,12 +16,14 @@ export interface MediaViewerProps {
   canStartSlideshow?: boolean;
   canInteractSingleMedia?: boolean;
   canDownloadSingleMedia?: boolean;
+  canRenameFilename?: boolean;
   slideshowFiles?: MediaFile[];
   onViewerContextChange?: (index: number, files: MediaFile[]) => void;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
   onDownloadSingle?: (fileId: string) => void | Promise<void>;
+  onRenameFilename?: (fileId: string, filename: string) => void | Promise<void>;
   downloadingFileIds?: ReadonlySet<string>;
   onShootUpdate?: () => void;
 }

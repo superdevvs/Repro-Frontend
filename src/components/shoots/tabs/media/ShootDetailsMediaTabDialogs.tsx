@@ -22,10 +22,12 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     onShootUpdate,
     canInteractSingleMedia,
     canDownloadSingleMedia,
+    canRenameFilename,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
     onDownloadSingle,
+    onRenameFilename,
     downloadingFileIds,
     showAiEditDialog,
     setShowAiEditDialog,
@@ -59,10 +61,12 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
+        canRenameFilename={canRenameFilename}
         onToggleFavorite={onToggleFavorite}
         onAddComment={onAddComment}
         onToggleHidden={onToggleHidden}
         onDownloadSingle={onDownloadSingle}
+        onRenameFilename={onRenameFilename}
         downloadingFileIds={downloadingFileIds}
       />
 
