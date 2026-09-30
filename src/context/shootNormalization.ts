@@ -12,6 +12,7 @@ import type {
 } from './shootApiTypes';
 import { normalizeShootCompReshootFields } from '@/features/complimentary-reshoots/normalizeShootCompReshoot';
 import { normalizeShootNotes } from './shootNotesNormalization';
+import { normalizeShootFeaturedHomepage } from './shootFeaturedNormalization';
 import { normalizeShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { calendarDay } from '@/lib/date';
@@ -959,6 +960,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     featured_approved_at: shoot.featured_approved_at ?? shoot.featuredApprovedAt ?? null,
     featuredApprovedBy: shoot.featuredApprovedBy ?? shoot.featured_approved_by ?? null,
     featured_approved_by: shoot.featured_approved_by ?? shoot.featuredApprovedBy ?? null,
+    ...normalizeShootFeaturedHomepage(shoot),
     photographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
     totalPhotographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
     photographerPaidAt: shoot.photographerPaidAt ?? shoot.photographer_paid_at ?? shoot.paid_at_photographer ?? undefined,
