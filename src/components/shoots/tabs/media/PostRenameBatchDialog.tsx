@@ -67,7 +67,7 @@ export function PostRenameBatchDialog({
                   <span className="font-mono text-foreground">{plan?.find}</span>
                   {' → '}
                   <span className="font-mono text-foreground">{plan?.replace || '(remove)'}</span>
-                  ) to other files?
+                  ) to other files in this view?
                 </p>
               </div>
             </AlertDialogDescription>

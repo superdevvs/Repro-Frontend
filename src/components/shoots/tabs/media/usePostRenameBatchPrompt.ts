@@ -71,21 +71,31 @@ export function usePostRenameBatchPrompt({
 
   const applySelected = useCallback(async () => {
     if (!plan?.selectedFileIds.length) return;
+    // Prefer files that contain the find token so replace actually changes names;
+    // fall back to the full selected scope when none match (still honors the button).
+    const fileIds =
+      plan.matchingSelectedFileIds.length > 0
+        ? plan.matchingSelectedFileIds
+        : plan.selectedFileIds;
     await handleBatchRenameFilenames({
       mode: 'replace',
       find: plan.find,
       replace: plan.replace,
-      fileIds: plan.selectedFileIds,
+      fileIds,
     });
   }, [handleBatchRenameFilenames, plan]);
 
   const applyAll = useCallback(async () => {
     if (!plan?.allFileIds.length) return;
+    const fileIds =
+      plan.matchingAllFileIds.length > 0
+        ? plan.matchingAllFileIds
+        : plan.allFileIds;
     await handleBatchRenameFilenames({
       mode: 'replace',
       find: plan.find,
       replace: plan.replace,
-      fileIds: plan.allFileIds,
+      fileIds,
     });
   }, [handleBatchRenameFilenames, plan]);
 

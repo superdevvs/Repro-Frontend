@@ -51,8 +51,10 @@ describe('buildPostRenameBatchPlan', () => {
     expect(plan).toEqual({
       find: 'DSC',
       replace: 'Kitchen',
-      selectedFileIds: ['2'],
-      allFileIds: ['2', '4'],
+      selectedFileIds: ['2', '3'],
+      allFileIds: ['2', '3', '4'],
+      matchingSelectedFileIds: ['2'],
+      matchingAllFileIds: ['2', '4'],
     });
   });
 
@@ -67,15 +69,33 @@ describe('buildPostRenameBatchPlan', () => {
       replace: 'ClientB',
       selectedFileIds: ['2'],
       allFileIds: ['2', '3'],
+      matchingSelectedFileIds: ['2'],
+      matchingAllFileIds: ['2', '3'],
     });
   });
 
-  it('returns null when no other files contain the find token', () => {
+  it('still prompts when no other files contain the find token', () => {
+    const plan = buildPostRenameBatchPlan(
+      { fileId: '1', previousFilename: 'unique.jpg', nextFilename: 'solo.jpg' },
+      [file('1', 'solo.jpg')],
+      [file('1', 'solo.jpg'), file('2', 'other.jpg')],
+    );
+    expect(plan).toEqual({
+      find: 'unique',
+      replace: 'solo',
+      selectedFileIds: [],
+      allFileIds: ['2'],
+      matchingSelectedFileIds: [],
+      matchingAllFileIds: [],
+    });
+  });
+
+  it('returns null when the renamed file is alone in view and selection', () => {
     expect(
       buildPostRenameBatchPlan(
-        { fileId: '1', previousFilename: 'unique.jpg', nextFilename: 'solo.jpg' },
-        [file('1', 'solo.jpg')],
-        [file('1', 'solo.jpg'), file('2', 'other.jpg')],
+        { fileId: '1', previousFilename: 'a.jpg', nextFilename: 'b.jpg' },
+        [file('1', 'b.jpg')],
+        [file('1', 'b.jpg')],
       ),
     ).toBeNull();
   });

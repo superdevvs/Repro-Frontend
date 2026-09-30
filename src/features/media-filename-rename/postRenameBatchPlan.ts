@@ -10,10 +10,14 @@ export interface PostRenameSuccess {
 export interface PostRenameBatchPlan {
   find: string;
   replace: string;
-  /** Other selected files that still contain `find` in the basename. */
+  /** Other selected files (excluding the one just renamed). */
   selectedFileIds: string[];
-  /** Other files in the current view that still contain `find` in the basename. */
+  /** Other files in the current view (excluding the one just renamed). */
   allFileIds: string[];
+  /** Subset of selectedFileIds whose basename still contains `find`. */
+  matchingSelectedFileIds: string[];
+  /** Subset of allFileIds whose basename still contains `find`. */
+  matchingAllFileIds: string[];
 }
 
 const basenameOf = (file: Pick<MediaFile, 'filename'>): string =>
@@ -60,8 +64,11 @@ export const diffBasenameForBatchReplace = (
 };
 
 /**
- * After a successful single rename, derive a find→replace batch plan so the user
- * can apply the same basename change to other selected files or the whole view.
+ * After a successful single rename, always offer a batch follow-up when any other
+ * file exists in the current selection or view. Eligibility is NOT gated on
+ * siblings containing the derived find token — that made unique renames skip the
+ * dialog entirely. Matching subsets are still tracked so apply can prefer files
+ * that will actually change under replace mode.
  */
 export const buildPostRenameBatchPlan = (
   success: PostRenameSuccess,
@@ -77,19 +84,35 @@ export const buildPostRenameBatchPlan = (
   }
 
   const { find, replace } = diff;
+  const renamedId = String(success.fileId);
 
-  const eligibleIds = (files: MediaFile[]) =>
+  const otherIds = (files: MediaFile[]) =>
     files
-      .filter((file) => String(file.id) !== String(success.fileId))
+      .filter((file) => String(file.id) !== renamedId)
+      .map((file) => String(file.id));
+
+  const matchingIds = (files: MediaFile[]) =>
+    files
+      .filter((file) => String(file.id) !== renamedId)
       .filter((file) => basenameOf(file).includes(find))
       .map((file) => String(file.id));
 
-  const selectedFileIds = eligibleIds(selectedFiles);
-  const allFileIds = eligibleIds(viewFiles);
+  const selectedFileIds = otherIds(selectedFiles);
+  const allFileIds = otherIds(viewFiles);
+  const matchingSelectedFileIds = matchingIds(selectedFiles);
+  const matchingAllFileIds = matchingIds(viewFiles);
 
+  // Always prompt when at least one other file exists in selection or view.
   if (selectedFileIds.length === 0 && allFileIds.length === 0) {
     return null;
   }
 
-  return { find, replace, selectedFileIds, allFileIds };
+  return {
+    find,
+    replace,
+    selectedFileIds,
+    allFileIds,
+    matchingSelectedFileIds,
+    matchingAllFileIds,
+  };
 };

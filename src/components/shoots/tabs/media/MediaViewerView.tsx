@@ -281,15 +281,6 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                     Make hero
                   </DropdownMenuItem>
                 )}
-                {canInteractSingleMedia && onToggleFavorite && (
-                  <DropdownMenuItem
-                    className={mobileActionMenuItemClassName}
-                    onSelect={() => onToggleFavorite(currentFile.id)}
-                  >
-                    <Heart className={`h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
-                    {currentFile.is_favorite ? 'Liked' : 'Like'}
-                  </DropdownMenuItem>
-                )}
                 {canDownloadSingleMedia && onDownloadSingle && (
                   <DropdownMenuItem
                     className={mobileActionMenuItemClassName}
@@ -418,6 +409,19 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                   <div className="min-h-0 min-w-0 w-full px-1 pb-1 pt-1 sm:px-2.5 sm:pb-2.5 sm:pt-2 md:h-full lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div className="relative mx-auto aspect-[4/3] max-h-[calc(100dvh-20rem)] w-full max-w-full overflow-hidden bg-black/75 sm:aspect-square sm:rounded-lg md:h-full md:max-h-none md:aspect-auto md:max-w-none lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
                       <MediaViewerZoomControls model={model} />
+                      {canInteractSingleMedia && onToggleFavorite && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`absolute right-3 top-3 z-40 h-9 w-9 rounded-full border border-white/10 text-white shadow-lg backdrop-blur-md hover:bg-white/15 sm:right-4 sm:top-4 ${
+                            currentFile.is_favorite ? 'bg-red-500/90 hover:bg-red-500' : 'bg-black/55'
+                          }`}
+                          onClick={() => onToggleFavorite(currentFile.id)}
+                          title={currentFile.is_favorite ? 'Unlike image' : 'Like image'}
+                        >
+                          <Heart className={`h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
+                        </Button>
+                      )}
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -638,7 +642,6 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       </Badge>
                     </div>
                     {(canSetHero ||
-                      (canInteractSingleMedia && onToggleFavorite) ||
                       (canDownloadSingleMedia && onDownloadSingle) ||
                       onToggleHidden ||
                       canShowRenameFilename ||
@@ -653,17 +656,6 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             title="Make hero"
                           >
                             <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canInteractSingleMedia && onToggleFavorite && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
-                            onClick={() => onToggleFavorite(currentFile.id)}
-                            title={currentFile.is_favorite ? 'Unlike image' : 'Like image'}
-                          >
-                            <Heart className={`h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
                           </Button>
                         )}
                         {canDownloadSingleMedia && onDownloadSingle && (
@@ -783,16 +775,6 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                         >
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                           Make hero
-                        </Button>
-                      )}
-                      {canInteractSingleMedia && onToggleFavorite && (
-                        <Button
-                          variant="outline"
-                          className={sidebarActionButtonClassName}
-                          onClick={() => onToggleFavorite(currentFile.id)}
-                        >
-                          <Heart className={`mr-2 h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
-                          {currentFile.is_favorite ? 'Liked' : 'Like'}
                         </Button>
                       )}
                       {canDownloadSingleMedia && onDownloadSingle && (

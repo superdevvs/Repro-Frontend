@@ -861,7 +861,6 @@ export function useMediaViewerController({
     'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
   const showMobileActionMenu =
     canSetHero ||
-    (canInteractSingleMedia && Boolean(onToggleFavorite)) ||
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
     Boolean(onToggleHidden) ||
     canShowRenameFilename ||
