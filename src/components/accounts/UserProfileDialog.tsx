@@ -92,6 +92,10 @@ export function UserProfileDialog({
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
   const [detailCapsUser, setDetailCapsUser] = useState<{
+    role_label?: string | null;
+    roleLabel?: string | null;
+    editor_type?: string | null;
+    editorType?: string | null;
     metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null;
     editing_capabilities?: unknown;
     editingCapabilities?: unknown;
@@ -112,6 +116,10 @@ export function UserProfileDialog({
     void apiClient
       .get<{ user: {
         activityLog?: UserActivity[];
+        role_label?: string | null;
+        roleLabel?: string | null;
+        editor_type?: string | null;
+        editorType?: string | null;
         metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null;
         editing_capabilities?: unknown;
         editingCapabilities?: unknown;
@@ -124,6 +132,10 @@ export function UserProfileDialog({
           const detail = response.data.user;
           setActivities(Array.isArray(detail?.activityLog) ? detail.activityLog : []);
           setDetailCapsUser(detail ? {
+            role_label: detail.role_label,
+            roleLabel: detail.roleLabel,
+            editor_type: detail.editor_type,
+            editorType: detail.editorType,
             metadata: detail.metadata,
             editing_capabilities: detail.editing_capabilities,
             editingCapabilities: detail.editingCapabilities,

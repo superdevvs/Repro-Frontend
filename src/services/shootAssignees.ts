@@ -6,6 +6,12 @@ export interface ShootAssignee {
   name: string;
   email: string;
   role: string;
+  role_label?: string | null;
+  roleLabel?: string | null;
+  editing_capabilities?: string[];
+  editingCapabilities?: string[];
+  editor_type?: string | null;
+  editorType?: string | null;
   secondary_roles?: string[];
   avatar?: string;
   address?: string;

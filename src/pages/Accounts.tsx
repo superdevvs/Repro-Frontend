@@ -101,6 +101,12 @@ type UserType = {
   name: string;
   email: string;
   role: Role;
+  role_label?: string | null;
+  roleLabel?: string | null;
+  editing_capabilities?: string[];
+  editingCapabilities?: string[];
+  editor_type?: string | null;
+  editorType?: string | null;
   avatar?: string;
   phone?: string;
   company?: string;

@@ -2,6 +2,10 @@ import { readEditingCapabilities } from '@/utils/shootEditorAssignments'
 
 export type RoleLabelUser = {
   role?: string | null
+  role_label?: string | null
+  roleLabel?: string | null
+  editor_type?: string | null
+  editorType?: string | null
   metadata?: { editing_capabilities?: unknown; editingCapabilities?: unknown } | null
   editing_capabilities?: unknown
   editingCapabilities?: unknown
@@ -40,13 +44,17 @@ export const formatEditorCapabilityLabel = (
 
 /**
  * Human role label for badges / lists / settings / view-as.
- * Editors resolve Photo editor / Video editor / Photo & Video editor from
- * metadata.editing_capabilities (or editingCapabilities). Missing caps → "Editor".
+ * Prefer BE role_label / roleLabel when present (admin users light+full).
+ * Editors otherwise resolve Photo editor / Video editor / Photo & Video editor from
+ * editing_capabilities / editingCapabilities (top-level or metadata). Missing caps → "Editor".
  */
 export const formatUserRoleLabel = (
   role?: string | null,
   user?: RoleLabelUser,
 ): string => {
+  const fromApi = String(user?.role_label ?? user?.roleLabel ?? '').trim()
+  if (fromApi) return fromApi
+
   const raw = String(role ?? '').trim()
   if (!raw) return 'Unknown'
 

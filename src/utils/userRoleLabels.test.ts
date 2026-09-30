@@ -35,4 +35,31 @@ describe('formatUserRoleLabel', () => {
       formatUserRoleLabel('editor', { editingCapabilities: ['photo', 'video'] }),
     ).toBe('Photo & Video editor');
   });
+
+  it('prefers role_label / roleLabel over caps mapping', () => {
+    expect(
+      formatUserRoleLabel('editor', {
+        role_label: 'Photo editor',
+        editing_capabilities: ['video'],
+      }),
+    ).toBe('Photo editor');
+    expect(
+      formatUserRoleLabel('editor', {
+        roleLabel: 'Video editor',
+        editingCapabilities: ['photo'],
+      }),
+    ).toBe('Video editor');
+    expect(
+      formatUserRoleLabel('admin', { role_label: 'Admin' }),
+    ).toBe('Admin');
+  });
+
+  it('ignores blank role_label and falls back to caps', () => {
+    expect(
+      formatUserRoleLabel('editor', {
+        role_label: '  ',
+        editing_capabilities: ['photo'],
+      }),
+    ).toBe('Photo editor');
+  });
 });

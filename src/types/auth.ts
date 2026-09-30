@@ -92,6 +92,12 @@ export interface UserData {
   lastName?: string;
   email: string;
   role: UserRole;
+  role_label?: string | null;
+  roleLabel?: string | null;
+  editing_capabilities?: string[];
+  editingCapabilities?: string[];
+  editor_type?: string | null;
+  editorType?: string | null;
   avatar?: string;
   gender?: "male" | "female" | "unknown";
   phone?: string;
