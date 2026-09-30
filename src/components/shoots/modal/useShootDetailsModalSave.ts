@@ -604,12 +604,24 @@ export function useShootDetailsModalSave({
       
       // Provide more helpful error messages
       let userMessage = errorMessage;
+      const apiMessage = error instanceof ShootServiceMutationError
+        && error.message
+        && error.message !== 'Forbidden'
+        && !error.message.startsWith('Failed to update shoot (')
+        ? error.message.trim()
+        : '';
       if (error instanceof ShootServiceMutationError && (error.status === 401 || error.status === 403)) {
-        userMessage = 'You do not have permission to update this shoot.';
+        // Prefer the backend's specific block reason (service plan / catalog / field
+        // whitelist) over a generic permission toast — reps hit false 403s when
+        // Overview re-echoes drifted legacy pricing on an otherwise valid add.
+        userMessage = apiMessage
+          || (error.status === 403
+            ? 'Could not save these shoot changes. Existing service pricing is office-managed — refresh and retry the service add, or ask an admin if it still fails.'
+            : 'You do not have permission to update this shoot.');
       } else if (error instanceof ShootServiceMutationError && error.status === 404) {
         userMessage = 'Shoot not found - it may have been deleted.';
       } else if (error instanceof ShootServiceMutationError && error.status === 422) {
-        userMessage = errorMessage;
+        userMessage = apiMessage || errorMessage;
       } else if (error instanceof ShootServiceMutationError && error.status >= 500) {
         userMessage = 'Server error - please try again later.';
       } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
@@ -617,7 +629,8 @@ export function useShootDetailsModalSave({
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         userMessage = 'Authentication error - please refresh the page and try again.';
       } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
-        userMessage = 'You do not have permission to update this shoot.';
+        userMessage = apiMessage
+          || 'Could not save these shoot changes. Existing service pricing is office-managed — refresh and retry the service add, or ask an admin if it still fails.';
       } else if (errorMessage.includes('404')) {
         userMessage = 'Shoot not found - it may have been deleted.';
       } else if (errorMessage.includes('422') || errorMessage.includes('validation')) {
