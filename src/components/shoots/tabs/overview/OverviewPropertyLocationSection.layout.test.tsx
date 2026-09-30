@@ -26,6 +26,7 @@ describe('OverviewPropertyLocationSection layout', () => {
         formattedTemperature={null}
         weatherDescription={null}
         weatherIcon={null}
+        adoptedScheduleDisplay="30 September 2026 · 3:10 PM"
         rightSlot={<div data-testid="property-access">Property Access</div>}
         bottomSlot={<div data-testid="access-instructions">Use the side entrance</div>}
         unitSelector={<button data-testid="unit-selector">Change unit</button>}
@@ -56,6 +57,9 @@ describe('OverviewPropertyLocationSection layout', () => {
     expect(screen.getByTestId('overview-location-address')).toHaveClass('select-text', 'cursor-text');
     expect(screen.getByTestId('overview-location-address').tagName).not.toBe('BUTTON');
     expect(screen.getByTestId('overview-location-locality')).toHaveClass('select-text');
+    const schedule = screen.getByTestId('overview-location-schedule');
+    expect(schedule).toHaveTextContent('30 September 2026 · 3:10 PM');
+    expect(locationCard).toContainElement(schedule);
     expect(screen.getByText('9137 Lakeland Valley Court').compareDocumentPosition(selector))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(propertyAccess.compareDocumentPosition(locationLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

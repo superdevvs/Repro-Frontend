@@ -39,6 +39,8 @@ type OverviewPropertyLocationSectionProps = {
   formattedTemperature: string | null;
   weatherDescription: string | null;
   weatherIcon: ReactNode;
+  /** Read-only adopted shoot schedule (services SoT) shown under weather. */
+  adoptedScheduleDisplay?: string | null;
   /** Access summary beside the metrics; editable access form in edit mode. */
   rightSlot?: ReactNode;
   /** Optional full-width instructions below the summary row. */
@@ -75,6 +77,7 @@ export function OverviewPropertyLocationSection({
   formattedTemperature,
   weatherDescription,
   weatherIcon,
+  adoptedScheduleDisplay = null,
   rightSlot,
   bottomSlot,
   unitSelector,
@@ -134,18 +137,28 @@ export function OverviewPropertyLocationSection({
             <MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Location</span>
           </div>
-          <div className="shrink-0 flex items-center gap-1.5">
-            {weatherIcon}
-            {hasWeatherDetails ? (
-              <div className="flex items-center gap-1.5">
-                {formattedTemperature && <span className="text-xs font-medium">{formattedTemperature}</span>}
-                {weatherDescription && (
-                  <span className="text-xs text-muted-foreground capitalize">{weatherDescription}</span>
-                )}
+          <div className="shrink-0 flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1.5">
+              {weatherIcon}
+              {hasWeatherDetails ? (
+                <div className="flex items-center gap-1.5">
+                  {formattedTemperature && <span className="text-xs font-medium">{formattedTemperature}</span>}
+                  {weatherDescription && (
+                    <span className="text-xs text-muted-foreground capitalize">{weatherDescription}</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">No data</span>
+              )}
+            </div>
+            {adoptedScheduleDisplay ? (
+              <div
+                className="text-[11px] text-muted-foreground text-right leading-tight"
+                data-testid="overview-location-schedule"
+              >
+                {adoptedScheduleDisplay}
               </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">No data</span>
-            )}
+            ) : null}
           </div>
         </div>
             {isEditMode ? (

@@ -47,6 +47,7 @@ import { to12Hour } from '@/utils/availabilityUtils';
 import AddressLookupField from '@/components/AddressLookupField';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { getShootStreetAddress } from '@/components/shoots/details/shootDetailsModalHelpers';
+import { getAdoptedShootSchedule } from '@/utils/shootSchedule';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
@@ -622,6 +623,21 @@ function ShootDetailsOverviewTabContent({
   }, [weather, rawTemperature, formatTemperature]);
   const hasWeatherDetails = Boolean(formattedTemperature || weatherDescription);
 
+  // Adopted schedule under Location weather: shoot-level fields BE syncs from
+  // services (SoT). Read-only — no duplicate shoot-level date/time editor.
+  const adoptedSchedule = useMemo(() => getAdoptedShootSchedule(shoot), [shoot]);
+  const adoptedDateLabel = adoptedSchedule.date ? formatDate(adoptedSchedule.date) : '';
+  const adoptedTimeLabel =
+    adoptedSchedule.time && adoptedSchedule.time !== 'TBD'
+      ? formatTime(adoptedSchedule.time)
+      : '';
+  const adoptedScheduleDisplay =
+    adoptedDateLabel && adoptedDateLabel !== 'Not set'
+      ? (adoptedTimeLabel && adoptedTimeLabel !== 'Not set'
+          ? `${adoptedDateLabel} · ${adoptedTimeLabel}`
+          : adoptedDateLabel)
+      : null;
+
   const getLocationAddress = () => getShootStreetAddress(shoot) || 'Not set';
 
   // Get location city/state/zip
@@ -857,6 +873,7 @@ function ShootDetailsOverviewTabContent({
         formattedTemperature={formattedTemperature}
         weatherDescription={weatherDescription}
         weatherIcon={renderWeatherIcon(weatherIcon)}
+        adoptedScheduleDisplay={adoptedScheduleDisplay}
         bottomSlot={!isEditor && !isEditMode ? <OverviewAccessDescription propertyDetails={propertyDetails} unitAccessNotes={unitAccessNotes} /> : undefined}
         rightSlot={
           !isEditor ? (

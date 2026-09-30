@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getShootSchedule } from './shootSchedule';
+import { getAdoptedShootSchedule, getShootSchedule } from './shootSchedule';
 
 describe('getShootSchedule', () => {
   it('keeps shoot 86 at its booked local day and 10 AM despite UTC casts', () => {
@@ -43,5 +43,31 @@ describe('getShootSchedule', () => {
   it('does not fall back to viewer conversion for an invalid zone', () => {
     expect(getShootSchedule({ scheduledAt: '2026-09-09T10:00:00Z', timezone: 'Invalid/Zone' }))
       .toEqual({ date: '2026-09-09', time: '10:00' });
+  });
+});
+
+describe('getAdoptedShootSchedule', () => {
+  it('prefers shoot-level fields synced from services', () => {
+    expect(
+      getAdoptedShootSchedule({
+        scheduledDate: '2026-09-30',
+        time: '15:10',
+        timezone: 'America/New_York',
+        serviceObjects: [{ scheduled_at: '2026-09-30 10:00:00' }],
+      }),
+    ).toEqual({ date: '2026-09-30', time: '15:10' });
+  });
+
+  it('falls back to the first service scheduled_at when shoot fields are empty', () => {
+    expect(
+      getAdoptedShootSchedule({
+        timezone: null,
+        serviceObjects: [{ scheduled_at: '2026-09-30 15:10:00' }],
+      }),
+    ).toEqual({ date: '2026-09-30', time: '15:10' });
+  });
+
+  it('returns empty when neither shoot nor services have a schedule', () => {
+    expect(getAdoptedShootSchedule({ serviceObjects: [] })).toEqual({ date: '', time: '' });
   });
 });

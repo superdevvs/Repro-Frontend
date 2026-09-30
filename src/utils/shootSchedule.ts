@@ -63,3 +63,39 @@ export function getShootSchedule(shoot?: ShootScheduleSource | null): { date: st
     time: clockTime(shoot.time) || fallbackTime,
   };
 }
+
+interface AdoptedShootScheduleSource extends ShootScheduleSource {
+  serviceObjects?: Array<{ scheduled_at?: unknown; scheduledAt?: unknown }> | null;
+  serviceItems?: Array<{ scheduled_at?: unknown; scheduledAt?: unknown }> | null;
+  service_items?: Array<{ scheduled_at?: unknown; scheduledAt?: unknown }> | null;
+}
+
+/**
+ * Adopted Overview schedule: shoot-level fields BE syncs from services (SoT),
+ * with a services fallback when shoot-level date/time are still empty.
+ */
+export function getAdoptedShootSchedule(
+  shoot?: AdoptedShootScheduleSource | null,
+): { date: string; time: string } {
+  const fromShoot = getShootSchedule(shoot);
+  if (fromShoot.date || fromShoot.time) return fromShoot;
+
+  if (!shoot) return { date: '', time: '' };
+
+  const lists = [shoot.serviceObjects, shoot.serviceItems, shoot.service_items];
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const scheduledAt = text(item?.scheduled_at) || text(item?.scheduledAt);
+      if (!scheduledAt) continue;
+      const fromService = getShootSchedule({
+        scheduled_at: scheduledAt,
+        timezone: shoot.timezone,
+      });
+      if (fromService.date || fromService.time) return fromService;
+    }
+  }
+
+  return { date: '', time: '' };
+}
+
