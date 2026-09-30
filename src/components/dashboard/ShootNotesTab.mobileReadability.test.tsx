@@ -39,11 +39,41 @@ describe('ShootNotesTab mobile readability', () => {
     expect(shootBody).toHaveClass('whitespace-pre-wrap');
     expect(shootBody).toHaveClass('break-words');
     expect(shootBody).toHaveTextContent(/Gate code 4455/);
+    expect(shootBody.className).not.toMatch(/min-h-/);
 
     expect(screen.getByTestId('shoot-note-body-photographerNotes')).toHaveClass('text-foreground');
     expect(screen.getByTestId('shoot-note-body-editingNotes')).toHaveClass('text-foreground');
 
     // Read mode must not rely on a readOnly textarea (iOS/PWA often mutes those).
     expect(document.querySelector('textarea[readonly]')).toBeNull();
+  });
+
+  it('keeps empty note bodies collapsed (no tall min-height empty boxes)', () => {
+    const shoot = {
+      id: 'notes-mobile-empty',
+      notes: {
+        shootNotes: '',
+        approvalNotes: '',
+        photographerNotes: '',
+        editingNotes: '',
+      },
+    } as ShootData;
+
+    render(
+      <ShootNotesTab
+        shoot={shoot}
+        isAdmin
+        isPhotographer={false}
+        role="admin"
+      />,
+    );
+
+    for (const noteType of ['shootNotes', 'approvalNotes', 'photographerNotes', 'companyNotes'] as const) {
+      const body = screen.getByTestId(`shoot-note-body-${noteType}`);
+      expect(body).toHaveAttribute('data-note-empty', 'true');
+      expect(body.className).not.toMatch(/min-h-/);
+      expect(body).toHaveClass('py-1.5');
+      expect(body.className).not.toMatch(/min-h-\[56px\]|min-h-\[96px\]|min-h-\[80px\]/);
+    }
   });
 });

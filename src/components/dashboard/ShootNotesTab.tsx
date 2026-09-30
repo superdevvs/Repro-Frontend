@@ -542,9 +542,10 @@ export function ShootNotesTab({
             placeholder={`Add ${getNoteTitle(noteType).toLowerCase()}…`}
             value={displayNoteValue(noteType)}
             onChange={(e) => handleNoteChange(e, noteType)}
+            rows={3}
             className={cn(
-              // text-base avoids iOS zoom and keeps phone copy readable; allow vertical grow/scroll
-              'min-h-[96px] max-h-[50vh] resize-y overflow-y-auto rounded-lg border bg-background px-3 py-2.5',
+              // Small edit footprint; grow/scroll as the photographer types (avoid Textarea default min-h-[80px]).
+              'min-h-0 max-h-[50vh] resize-y overflow-y-auto rounded-lg border bg-background px-3 py-2',
               'text-base leading-relaxed text-foreground placeholder:text-muted-foreground',
               'focus:ring-1 focus-visible:ring-ring',
               getNoteBorderClass(noteType),
@@ -555,13 +556,15 @@ export function ShootNotesTab({
             role="region"
             aria-label={getNoteTitle(noteType)}
             data-testid={`shoot-note-body-${noteType}`}
+            data-note-empty={displayNoteValue(noteType).trim() ? 'false' : 'true'}
             className={cn(
-              // Read view: real text node (not readonly textarea) so phone themes can't mute/opacity it.
-              // Foreground on solid background for contrast; wrap long URLs/words; no fixed clip height.
-              'rounded-lg border px-3 py-2.5',
+              // Height follows content — no min-h empty boxes. Long notes scroll via max-h only.
+              'rounded-lg border px-3',
               'text-base leading-relaxed text-foreground',
               'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-              'min-h-[56px] max-h-[min(60vh,28rem)] overflow-y-auto',
+              displayNoteValue(noteType).trim()
+                ? 'py-2 max-h-[min(60vh,28rem)] overflow-y-auto'
+                : 'py-1.5',
               getNoteBackgroundClass(noteType),
               getNoteBorderClass(noteType),
             )}
@@ -569,7 +572,7 @@ export function ShootNotesTab({
             {displayNoteValue(noteType).trim() ? (
               displayNoteValue(noteType)
             ) : (
-              <span className="text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {`No ${getNoteTitle(noteType).toLowerCase()} available`}
               </span>
             )}
