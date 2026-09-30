@@ -55,6 +55,8 @@ import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from '
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
 import { BatchRenameDialog } from './BatchRenameDialog';
+import { PostRenameBatchDialog } from './PostRenameBatchDialog';
+import { usePostRenameBatchPrompt } from './usePostRenameBatchPrompt';
 import { MEDIA_BATCH_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
@@ -862,6 +864,24 @@ export function useShootDetailsMediaTab({
       isSalesRep ||
       ['admin', 'superadmin', 'editing_manager', 'editor', 'photographer', 'salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole)
     );
+  const selectedFilesForRename = useMemo(
+    () => [...rawFiles, ...(isClient ? clientVisibleEditedFiles : editedFiles)].filter((file) => selectedFiles.has(file.id)),
+    [clientVisibleEditedFiles, editedFiles, isClient, rawFiles, selectedFiles],
+  );
+  const {
+    prompt: postRenamePrompt,
+    plan: postRenamePlan,
+    onRenameFilename: handleRenameFilenameWithPrompt,
+    clearPrompt: clearPostRenamePrompt,
+    applySelected: applyPostRenameSelected,
+    applyAll: applyPostRenameAll,
+  } = usePostRenameBatchPrompt({
+    enabled: canRenameFilename,
+    selectedFiles: selectedFilesForRename,
+    viewFiles: currentDisplayedFiles,
+    handleRenameFilename,
+    handleBatchRenameFilenames,
+  });
   const canDownloadSingleMedia =
     isAdmin ||
     isPhotographer ||
@@ -1318,6 +1338,13 @@ export function useShootDetailsMediaTab({
         apiEnabled={MEDIA_BATCH_RENAME_API_ENABLED}
         onSubmit={handleBatchRenameFilenames}
       />
+      <PostRenameBatchDialog
+        prompt={postRenamePrompt}
+        plan={postRenamePlan}
+        onOpenChange={(open) => { if (!open) clearPostRenamePrompt(); }}
+        onApplySelected={applyPostRenameSelected}
+        onApplyAll={applyPostRenameAll}
+      />
       <ShootDetailsMediaTabDialogs
         viewerOpen={viewerOpen}
         setViewerOpen={setViewerOpen}
@@ -1341,7 +1368,7 @@ export function useShootDetailsMediaTab({
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}
         onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
-        onRenameFilename={canRenameFilename ? handleRenameFilename : undefined}
+        onRenameFilename={canRenameFilename ? handleRenameFilenameWithPrompt : undefined}
         downloadingFileIds={downloadingFileIds}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}

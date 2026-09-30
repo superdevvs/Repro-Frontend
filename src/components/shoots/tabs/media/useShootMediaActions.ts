@@ -947,22 +947,23 @@ export function useShootMediaActions({
         description: 'Filename rename will unlock after the server update is live.',
         variant: 'destructive',
       });
-      return;
+      return { ok: false as const };
     }
 
     const targetFile = [...rawFiles, ...editedFiles].find((file) => file.id === fileId);
     if (!targetFile) {
-      return;
+      return { ok: false as const };
     }
 
-    const validation = validateMediaFilenameInput(nextFilename, targetFile.filename);
+    const previousFilename = String(targetFile.filename || '').trim();
+    const validation = validateMediaFilenameInput(nextFilename, previousFilename);
     if (validation.ok === false) {
       toast({
         title: 'Invalid filename',
         description: validation.message,
         variant: 'destructive',
       });
-      return;
+      return { ok: false as const };
     }
 
     const previousFile = targetFile;
@@ -996,6 +997,12 @@ export function useShootMediaActions({
         title: 'Filename updated',
         description: confirmedFilename,
       });
+      return {
+        ok: true as const,
+        fileId: String(fileId),
+        previousFilename,
+        nextFilename: confirmedFilename,
+      };
     } catch (error: unknown) {
       updateSingleFile(fileId, () => previousFile);
       const axiosMessage =
@@ -1009,6 +1016,7 @@ export function useShootMediaActions({
           (error instanceof Error ? error.message : 'Failed to rename file'),
         variant: 'destructive',
       });
+      return { ok: false as const };
     }
   };
 
@@ -1021,6 +1029,7 @@ export function useShootMediaActions({
     start?: number;
     digits?: number;
     separator?: string;
+    fileIds?: string[];
   }) => {
     if (!MEDIA_BATCH_RENAME_API_ENABLED) {
       toast({
@@ -1031,7 +1040,7 @@ export function useShootMediaActions({
       return;
     }
 
-    const fileIds = Array.from(selectedFiles);
+    const fileIds = payload.fileIds?.length ? payload.fileIds.map(String) : Array.from(selectedFiles);
     if (fileIds.length === 0) {
       toast({
         title: 'No files selected',
