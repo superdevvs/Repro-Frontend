@@ -20,6 +20,7 @@ import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
 import { HoverCopyValue } from '@/components/shoots/HoverCopyValue'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
@@ -145,6 +146,7 @@ export const HoldOnShootCard = ({
   isClient = false,
   isEditingManager = false,
   isEditor = false,
+  showPaymentStatus = false,
   onDelete,
   onViewInvoice,
   onPayNow,
@@ -160,6 +162,7 @@ export const HoldOnShootCard = ({
   isClient?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
+  showPaymentStatus?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
   onPayNow?: (shoot: ShootData) => void
@@ -201,6 +204,8 @@ export const HoldOnShootCard = ({
   const shootStatus = rawShootStatus
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
   const paymentSummary = normalizeShootPaymentSummary(shoot)
+  // Parent passes the same History gate (admin/superadmin/client/salesRep).
+  const canShowPaymentStatus = Boolean(showPaymentStatus)
   const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
 
   return (
@@ -212,11 +217,14 @@ export const HoldOnShootCard = ({
       <div className={compact ? 'p-3' : 'p-5'}>
         <div className={cn('flex items-start justify-between gap-4', compact ? 'mb-2' : 'mb-4')}>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge className={cn(holdStatusConfig.bgColor, holdStatusConfig.color)}>
                 <HoldStatusIcon className="h-3.5 w-3.5 mr-1" />
                 {holdStatusLabel}
               </Badge>
+              {canShowPaymentStatus && (
+                <ShootPaymentBadge shoot={shoot} size="sm" className="h-6 shrink-0 rounded-full leading-none" />
+              )}
             </div>
             <HoverCopyValue
               as="h3"

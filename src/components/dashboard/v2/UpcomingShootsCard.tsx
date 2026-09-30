@@ -30,6 +30,8 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardShootDisplayDate, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
+import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
+import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
   DASHBOARD_MOBILE_PANEL_CLASS,
@@ -263,6 +265,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   // Hide client info for editors only; photographers see client info
   const hideClientInfo = role === 'editor';
   const normalizedRole = normalizeDashboardRole(role);
+  const canShowPaymentStatus = canShowShootPaymentStatusForRole(role);
   const isEditorRole = normalizedRole === 'editor';
   const isPhotographerRole = normalizedRole === 'photographer';
   const showAssignmentFilters = canFilterByPhotographer(role);
@@ -1292,15 +1295,18 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       <ServicePills shootId={shoot.id} items={serviceList} variant="compact" />
                       {/* Row 5: Status left + Photographer/Client right */}
                       <hr className="border-border" />
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={cn(
-                            'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
-                            statusClass,
-                          )}
-                        >
-                          {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
+                              statusClass,
+                            )}
+                          >
+                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                          </span>
+                          {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">
                           {isPhotographerRole ? (
                             <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
@@ -1439,6 +1445,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             })()}</span>
                           </div>
                         )}
+                        {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
                         <div className="text-xs text-muted-foreground text-right">
                           {isEditorSubmittedUpload ? (
                             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold leading-none text-emerald-400">

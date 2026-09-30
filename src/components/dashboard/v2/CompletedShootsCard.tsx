@@ -7,6 +7,7 @@ import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { selectShootCardHeroUrls } from '@/utils/shootCardHero';
+import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
 
 import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 
@@ -22,6 +23,8 @@ interface CompletedShootsCardProps {
   emptyStateText?: string;
   ctaLabel?: string;
   stretch?: boolean;
+  /** Paid/Unpaid overlay for admin/salesRep/client (History gate). */
+  showPaymentStatus?: boolean;
   onSelect?: (shoot: DashboardShootSummary) => void;
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
   onViewAll?: () => void;
@@ -120,6 +123,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   emptyStateText = 'No delivered shoots yet.',
   ctaLabel = 'View all delivered shoots',
   stretch = false,
+  showPaymentStatus = false,
   onSelect,
   onViewInvoice,
   onViewAll,
@@ -242,6 +246,11 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                         </span>
                       )}
                     </div>
+                    {showPaymentStatus ? (
+                      <div className="pt-1">
+                        <ClientPaymentPill status={shoot.paymentStatus} overlay />
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

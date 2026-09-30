@@ -14,6 +14,8 @@ import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
+import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
+import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
 import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
@@ -58,6 +60,7 @@ export function useShootsTabsCardController({
 }: ShootsTabsCardProps) {
   const normalizedRole = normalizeDashboardRole(role);
   const isPhotographerRole = normalizedRole === 'photographer';
+  const canShowPaymentStatus = canShowShootPaymentStatusForRole(role);
   const showAssignmentFilters = canFilterByPhotographer(role);
   const isEditingManagerMode = mode === 'editing_manager' && customTabs.length > 0;
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
@@ -618,6 +621,7 @@ export function useShootsTabsCardController({
               >
                 <span className="truncate">{formatWorkflowStatus(shoot.workflowStatus || shoot.status)}</span>
               </span>
+              {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} className="max-w-[96px] truncate" /> : null}
             </div>
           </div>
         )}
@@ -670,15 +674,18 @@ export function useShootsTabsCardController({
           <ServicePills shootId={shoot.id} items={serviceList} variant="compact" preferMappedLabel />
           {/* Row 5: Status left + Photographer right */}
           <hr className="border-border" />
-          <div className="flex items-center justify-between">
-            <span
-              className={cn(
-                'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
-                statusClass,
-              )}
-            >
-              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span
+                className={cn(
+                  'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
+                  statusClass,
+                )}
+              >
+                {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+              </span>
+              {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
+            </div>
             <div className="text-[10px] text-muted-foreground">
               {isPhotographerRole ? (
                 <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
@@ -770,6 +777,7 @@ export function useShootsTabsCardController({
                   <span>Flagged</span>
                 </span>
               )}
+              {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
             </div>
             <div className="text-xs text-muted-foreground text-right">
               {isPhotographerRole ? (

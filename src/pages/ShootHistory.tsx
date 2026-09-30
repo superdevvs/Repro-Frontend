@@ -673,6 +673,7 @@ const ShootHistory: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
+                  showPaymentStatus={canShowShootPaymentStatus}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -701,6 +702,7 @@ const ShootHistory: React.FC = () => {
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
+            showPaymentStatus={canShowShootPaymentStatus}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
@@ -713,7 +715,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, canShowShootPaymentStatus, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
 
   const featuredContent = useMemo(() => {
     if (loading && activeTab === 'featured') {

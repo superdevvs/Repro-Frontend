@@ -19,6 +19,8 @@ import { normalizeImageUrl } from '@/utils/imageUrl';
 import { HoverCopyValue } from '@/components/shoots/HoverCopyValue';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { getApprovalNotes, getEditingNotes } from '@/components/shoots/history/shootHistoryUtils';
+import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge';
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 
 interface SharedShootCardProps {
   shoot: ShootData;
@@ -153,11 +155,11 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       ? `${bracketMode}-bracket · ${shoot.package.expectedDeliveredCount * bracketMode} RAW expected`
       : null;
 
-  // Determine if payment is complete - Only Super Admin can see payment status
-  // Clients can see if their own shoot is paid/unpaid for payment button visibility
-  const isPaid = isSuperAdmin || isClient 
-    ? (shoot.payment.totalPaid >= shoot.payment.totalQuote)
-    : false; // Hide payment status from Admin, Editor, Photographer
+  const isSalesRep = role === 'salesRep';
+  const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep;
+  const paymentSummary = normalizeShootPaymentSummary(shoot);
+  // Clients use this for Pay Now visibility; staff see <ShootPaymentBadge> instead.
+  const isPaid = paymentSummary.paymentStatus === 'paid' || paymentSummary.balance <= 0.01;
 
   // Format the date from the shoot's intended local calendar day so it never
   // drifts across browser timezones.
@@ -285,16 +287,21 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
               >
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
-              {showScheduleStatusPill && (
-                <Badge
-                  className={cn(
-                    'mt-2 inline-flex w-fit rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize',
-                    statusClass,
-                  )}
-                >
-                  {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-                </Badge>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {showScheduleStatusPill && (
+                  <Badge
+                    className={cn(
+                      'inline-flex w-fit rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize',
+                      statusClass,
+                    )}
+                  >
+                    {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                  </Badge>
+                )}
+                {canShowPaymentStatus && (
+                  <ShootPaymentBadge shoot={shoot} size="sm" className="h-6 shrink-0 rounded-full leading-none" />
+                )}
+              </div>
             </div>
             {/* Date and Time stacked vertically on the right */}
             <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
