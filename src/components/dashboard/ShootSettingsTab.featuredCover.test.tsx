@@ -2,7 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { transformShootFromApi } from '@/context/shootNormalization';
+import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
+import type { ShootFileData } from '@/types/shoots';
+import type { FeaturedHomepageImageDraft } from './featuredHomepage';
 import { ShootSettingsTab } from './ShootSettingsTab';
 
 const mocks = vi.hoisted(() => ({
@@ -19,8 +21,10 @@ vi.mock('@/components/dashboard/ShootAutoEditSettings', () => ({ ShootAutoEditSe
 
 // GET /shoots/127 returns storage paths, while GET /shoots/127/files returns URL
 // aliases. The selected Media HERO must also be selectable from the detail shape.
-const detailCover = {
-  id: 10757,
+// Keep its path/eligibility shape, with the ID string required by ShootFileData.
+type DetailCover = ShootFileData & { mime_type: string | null; scan_status: string };
+const detailCover: DetailCover = {
+  id: '10757',
   shoot_id: 127,
   filename: '8085 Crooked Oaks Ct-13.jpg',
   path: 'shoots/127/completed/COMPLETED_6abcdccc3942d1_55837454_8085 Crooked Oaks Ct-13.jpg',
@@ -34,7 +38,7 @@ const detailCover = {
   is_hidden: false,
 };
 const signedHero = 'https://reprodashboard.com/api/public/shoot-media/file/shoots/127/webs/8085%20Crooked%20Oaks%20Ct-13_web.jpg?expires=1900000000&signature=test-signature';
-const gallery = [
+const gallery: FeaturedHomepageImageDraft[] = [
   { shoot_file_id: 10758, sort: 1, alt: 'Kitchen', focal: '60% 40%' },
   { shoot_file_id: 10759, sort: 2, alt: 'Living room', focal: '35% 50%' },
 ];
@@ -46,7 +50,17 @@ const apiDetail = {
   is_featured: true,
   hero_image: signedHero,
   files: [detailCover],
-};
+} satisfies ApiShoot;
+
+const galleryCases: Array<[string, FeaturedHomepageImageDraft[]]> = [
+  ['an empty gallery', []],
+  ['an existing gallery', gallery],
+];
+const unsafeCoverCases: Array<[string, Partial<DetailCover>]> = [
+  ['hidden', { is_hidden: true }],
+  ['unscanned', { scan_status: 'quarantined' }],
+  ['raw', { workflow_stage: 'todo' }],
+];
 
 describe('homepage cover from the shoot detail response', () => {
   beforeEach(() => {
@@ -65,10 +79,7 @@ describe('homepage cover from the shoot detail response', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([
-    ['an empty gallery', []],
-    ['an existing gallery', gallery],
-  ] as const)('saves the path-only Media HERO with %s', async (_label, images) => {
+  it.each(galleryCases)('saves the path-only Media HERO with %s', async (_label, images) => {
     const onUpdate = vi.fn();
     const shoot = transformShootFromApi({ ...apiDetail, featured_homepage_images: images });
     let view: ReturnType<typeof render>;
@@ -108,11 +119,7 @@ describe('homepage cover from the shoot detail response', () => {
     expect(screen.getByRole('button', { name: 'Update project cover' })).toBeEnabled();
   });
 
-  it.each([
-    ['hidden', { is_hidden: true }],
-    ['unscanned', { scan_status: 'quarantined' }],
-    ['raw', { workflow_stage: 'todo' }],
-  ])('does not enable an unsafe %s cover just because it has paths and a signed preview', async (_label, changes) => {
+  it.each(unsafeCoverCases)('does not enable an unsafe %s cover just because it has paths and a signed preview', async (_label, changes) => {
     const shoot = transformShootFromApi({ ...apiDetail, files: [{ ...detailCover, ...changes }] });
     await act(async () => { render(<ShootSettingsTab shoot={shoot} isAdmin />); });
     expect(screen.getByRole('button', { name: 'Set project cover' })).toBeDisabled();
